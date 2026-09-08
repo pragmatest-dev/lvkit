@@ -4,6 +4,7 @@ several glyph classes share."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from ....parser.layout import Rect
@@ -16,6 +17,29 @@ class Glyph(Protocol):
     """A node visual. Scales to ``bounds`` — no intrinsic size."""
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None: ...
+
+
+@dataclass(frozen=True)
+class DimmedGlyph:
+    """Wraps ``inner`` (any real ``Glyph``) with the established
+    ``lv-disabled-mask`` translucent wash (``theme.disabled_mask`` at ~0.5
+    opacity — the SAME convention a disabled subdiagram frame
+    (``composite.py``) and an unset/past-end array element
+    (``array_constant.py``) already use). ``inner`` draws its REAL content
+    (real shapes, real colors) first — the wash is a visual overlay, never a
+    substitute for drawing the real thing. Used to show a TYPE display (e.g.
+    an expanded refnum's registered payload, drawn as its own real recursive
+    element glyphs at type-default values) as visibly non-editable, without
+    threading a "dimmed" flag through every leaf glyph's own drawing code."""
+
+    inner: Glyph
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        self.inner.draw(backend, bounds, theme)
+        x1, y1, x2, y2 = bounds
+        backend.begin_group(cls="lv-disabled-mask")
+        backend.rect(x1, y1, x2, y2, fill=theme.disabled_mask)
+        backend.end_group()
 
 
 def fit_label(text: str, width: float, backend: Backend, size: float) -> str:

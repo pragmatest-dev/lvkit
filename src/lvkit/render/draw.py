@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from ..graph.models import (
     AnyGraphNode,
+    ConstantNode,
     FormulaNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -57,6 +58,7 @@ from .style import (
     DEFAULT_THEME,
     Theme,
     clean_help_text,
+    context_help_type_text,
     lv_type_label,
     numeric_sample,
     type_family,
@@ -1090,15 +1092,209 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
     backend.end_group()
 
 
+# --------------------------------------------------------------------- #
+# Cluster-type Context Help panel ("Cluster hover": a hierarchical field/
+# type tree, matching LabVIEW's own Context Help "Data type of wire" view)
+# — one row per field: a compact type-mnemonic MARK in the field's own wire
+# color, its name, and its full verbose type text in parens; a nested
+# cluster field recurses with one more indent level and reads
+# "name (cluster of N elements)". Shares the SAME ``<g class="lv-help"
+# data-node="...">`` shell + hover-reveal JS as ``_draw_connector_panel``
+# (render/__init__.py's hover script matches purely by ``data-node``, no
+# gating on node kind — no refactor needed to host a different panel body).
+# A cluster CONSTANT never gets a connector panel (``_node_identity``
+# returns None for it — "constants show their value in-box already"), so
+# the two panel kinds never collide for the same node.
+# --------------------------------------------------------------------- #
+
+_TYPE_TREE_INDENT = 11.0  # px per nesting level
+_TYPE_TREE_ROW_H = 12.5
+_TYPE_TREE_MARK_W = 20.0
+_TYPE_TREE_MARK_H = 10.0
+_TYPE_TREE_MARK_GAP = 4.0
+_TYPE_TREE_TEXT_SIZE = 8.0
+# Per-row name+type text truncation width — wide enough that real verified
+# rows never ellipsize, e.g. GTR's own "code (long [32-bit integer
+# (-2147483648 to 2147483647)])" (~231px) and "execution time (sec) (double
+# [64-bit real (double-precision) floating point])" (~300px, at indent 1).
+# Only a genuinely long field name on top of a long type text, nested
+# several levels deep, hits this floor.
+_TYPE_TREE_MAX_W = 360.0
+
+
+@dataclass(frozen=True)
+class _TypeTreeRow:
+    indent: int
+    mark_text: str  # "" for a cluster row (no single-token mnemonic)
+    mark_color: str
+    text: str  # "name (type text)"
+
+
+def _cluster_type_rows(
+    name: str, lv_type: LVType | None, indent: int, theme: Theme
+) -> list[_TypeTreeRow]:
+    """One row for ``name: lv_type``, plus (for a cluster) one recursive row
+    per field, indented one level deeper — see module docstring above.
+    ``lv_type is None`` (an unresolved field) still gets a row, honestly
+    marked unknown, never dropped or guessed."""
+    if lv_type is None:
+        return [_TypeTreeRow(indent, "", wire_style(None, theme).color, f"{name} (?)")]
+    fam = type_family(lv_type)
+    if fam in ("cluster", "error_cluster"):
+        n = len(lv_type.fields or [])
+        word = "element" if n == 1 else "elements"
+        rows = [
+            _TypeTreeRow(
+                indent,
+                "",
+                wire_style(lv_type, theme).color,
+                f"{name} (cluster of {n} {word})",
+            )
+        ]
+        for f in lv_type.fields or []:
+            rows.extend(_cluster_type_rows(f.name, f.type, indent + 1, theme))
+        return rows
+    mark = type_repr(lv_type)
+    color = wire_style(lv_type, theme).color
+    desc = context_help_type_text(lv_type)
+    return [_TypeTreeRow(indent, mark, color, f"{name} ({desc})")]
+
+
+def _draw_type_tree_mark(
+    backend: Backend, x: float, y: float, row: _TypeTreeRow, theme: Theme
+) -> None:
+    """The MINI TYPE MARK: a small color-bordered box holding the field's
+    compact terminal mnemonic (``type_repr`` — ``TF``/``I32``/``abc``/…), in
+    that SAME wire color — never a pictorial icon, never colored body text
+    (the row's own name+type text stays ``theme.text``). A cluster row (no
+    single-token mnemonic) draws an empty color-bordered box, the same
+    fallback convention ``RefnumDataTypeGlyph``'s cluster-payload badge
+    already uses."""
+    x2, y2 = x + _TYPE_TREE_MARK_W, y + _TYPE_TREE_MARK_H
+    backend.rect(
+        x, y, x2, y2, fill=theme.canvas, stroke=row.mark_color, stroke_width=1.0,
+    )
+    if row.mark_text:
+        backend.text(
+            (x + x2) / 2,
+            (y + y2) / 2 + 2.6,
+            row.mark_text,
+            6.5,
+            fill=row.mark_color,
+        )
+
+
+def _draw_cluster_type_panel(
+    node: RenderNode, backend: Backend, theme: Theme
+) -> None:
+    """Draw a cluster CONSTANT's Context-Help-style type tree as its hover
+    panel ("Cluster hover" — LabVIEW's own Context Help "Data type of wire"
+    view): one row per field, a mini type mark in the field's own wire
+    color, its name, and its full type text — nested clusters recurse with
+    one more indent level (see ``_cluster_type_rows``). A no-op for
+    anything that isn't a cluster-typed constant."""
+    gnode = node.node
+    if not isinstance(gnode, ConstantNode) or gnode.lv_type is None:
+        return
+    if type_family(gnode.lv_type) not in ("cluster", "error_cluster"):
+        return
+    name = gnode.label or gnode.name or ""
+    rows = _cluster_type_rows(name, gnode.lv_type, 0, theme)
+
+    header = "Data type"
+    header_w = backend.measure_text(header, _PANE_TITLE_SIZE)
+    row_w = 0.0
+    fitted_rows: list[tuple[_TypeTreeRow, str]] = []
+    for row in rows:
+        avail = (
+            _TYPE_TREE_MAX_W
+            - row.indent * _TYPE_TREE_INDENT
+            - _TYPE_TREE_MARK_W
+            - _TYPE_TREE_MARK_GAP
+        )
+        text = fit_label(row.text, max(20.0, avail), backend, _TYPE_TREE_TEXT_SIZE)
+        text_w = backend.measure_text(text, _TYPE_TREE_TEXT_SIZE)
+        # +3.0: a small safety margin so a full-width row never touches the
+        # card's own edge.
+        row_w = max(
+            row_w,
+            row.indent * _TYPE_TREE_INDENT
+            + _TYPE_TREE_MARK_W
+            + _TYPE_TREE_MARK_GAP
+            + text_w
+            + 3.0,
+        )
+        fitted_rows.append((row, text))
+    inner_w = max(row_w, min(header_w, _TYPE_TREE_MAX_W))
+
+    header_h = 11.0 + _PANE_PAD * 0.5
+    panel_w = inner_w + 2 * _PANE_PAD
+    panel_h = (
+        header_h + _PANE_PAD * 0.5 + len(fitted_rows) * _TYPE_TREE_ROW_H + _PANE_PAD
+    )
+
+    backend.begin_group(cls="lv-help", data={"node": node.dom_id})
+    backend.rect(
+        0.0,
+        0.0,
+        panel_w,
+        panel_h,
+        fill=theme.canvas,
+        stroke=theme.struct_border,
+        stroke_width=1.0,
+        rx=_PANE_CARD_RX,
+    )
+    backend.text(
+        panel_w / 2,
+        _PANE_PAD + 7.0,
+        header,
+        _PANE_TITLE_SIZE,
+        bold=True,
+        fill=theme.text,
+    )
+    sep_y = header_h + _PANE_PAD * 0.25
+    backend.line(
+        _PANE_PAD,
+        sep_y,
+        panel_w - _PANE_PAD,
+        sep_y,
+        stroke=theme.struct_border,
+        stroke_width=0.5,
+    )
+
+    ry = header_h + _PANE_PAD * 0.5
+    for row, text in fitted_rows:
+        mx = _PANE_PAD + row.indent * _TYPE_TREE_INDENT
+        _draw_type_tree_mark(
+            backend, mx, ry + (_TYPE_TREE_ROW_H - _TYPE_TREE_MARK_H) / 2, row, theme
+        )
+        backend.text(
+            mx + _TYPE_TREE_MARK_W + _TYPE_TREE_MARK_GAP,
+            ry + _TYPE_TREE_ROW_H / 2 + _TYPE_TREE_TEXT_SIZE * 0.34,
+            text,
+            _TYPE_TREE_TEXT_SIZE,
+            anchor="start",
+            fill=theme.text,
+        )
+        ry += _TYPE_TREE_ROW_H
+
+    backend.end_group()
+
+
 def draw_help_overlay(
     nodes: list[RenderNode],
     backend: Backend,
     theme: Theme = DEFAULT_THEME,
 ) -> None:
-    """Draw every node's connector-help panel into ONE top-level overlay
-    group, emitted LAST (see ``scene.py``'s ``draw_scene``) so panels always
-    paint over every other diagram layer — wires, structures, and every
-    node, including ones drawn after their own owner. Each panel starts
+    """Draw every node's hover-help panel into ONE top-level overlay group,
+    emitted LAST (see ``scene.py``'s ``draw_scene``) so panels always paint
+    over every other diagram layer — wires, structures, and every node,
+    including ones drawn after their own owner. Two kinds share the same
+    ``<g class="lv-help">`` shell (matched to their ``.lv-node`` purely by
+    ``data-node`` — never both for the same node, see each function's own
+    docstring): ``_draw_connector_panel``'s spatial connector map (VIs/
+    primitives/property nodes/…) and ``_draw_cluster_type_panel``'s
+    hierarchical field/type tree (a cluster CONSTANT). Each panel starts
     ``visibility:hidden`` (kept in the render tree, not ``display:none``, so
     a hidden panel's ``getBBox()`` still works for the hover script's
     clamped positioning — see render/__init__.py); JS shows exactly one at a
@@ -1106,6 +1302,7 @@ def draw_help_overlay(
     backend.begin_group(cls="lv-help-overlay")
     for node in nodes:
         _draw_connector_panel(node, backend, theme)
+        _draw_cluster_type_panel(node, backend, theme)
     backend.end_group()
 
 

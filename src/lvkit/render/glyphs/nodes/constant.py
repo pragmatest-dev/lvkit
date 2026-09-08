@@ -31,6 +31,15 @@ class ConstantGlyph:
     # clip. Centered, unlike the top-left ``multiline`` string layout.
     fit: bool = False
     text_attr: str = "const_text"
+    # True when ``value`` is a TYPE placeholder mnemonic (e.g. "abc" for a
+    # genuinely empty string constant — see nodes._leaf_const_glyph), never
+    # real data: draws in the established dimmed/disabled color instead of
+    # ``text_attr``'s normal value color, so it reads as "this identifies the
+    # type" rather than "the value literally IS this text".
+    dim: bool = False
+
+    def _text_fill(self, theme: Theme) -> str:
+        return theme.disabled_mask if self.dim else getattr(theme, self.text_attr)
 
     def truncated_value(self, backend: Backend, bounds: Rect) -> str | None:
         """The FULL value, but ONLY when drawing it into ``bounds`` ellipsizes
@@ -93,7 +102,7 @@ class ConstantGlyph:
                 (y1 + y2) / 2 + 3,
                 fit_value(self.value, x2 - x1, backend, self.text_size),
                 self.text_size,
-                fill=getattr(theme, self.text_attr),
+                fill=self._text_fill(theme),
             )
 
     def _draw_fit(
@@ -119,7 +128,7 @@ class ConstantGlyph:
             return
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         first = cy - (len(lines) - 1) * line_h / 2 + size * 0.32
-        text_fill = getattr(theme, self.text_attr)
+        text_fill = self._text_fill(theme)
         for i, line in enumerate(lines):
             backend.text(cx, first + i * line_h, line, size, fill=text_fill)
 
@@ -152,7 +161,7 @@ class ConstantGlyph:
                 last = last[:-1]
             lines[-1] = last + "…"
         ty = y1 + pad + self.text_size
-        text_fill = getattr(theme, self.text_attr)
+        text_fill = self._text_fill(theme)
         for line in lines:
             backend.text(
                 x1 + pad,

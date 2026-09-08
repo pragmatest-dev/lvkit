@@ -579,6 +579,206 @@ def test_bundle_connector_panel_aggregate_column_is_legible():
     )
 
 
+def test_context_help_type_text_matches_reference_screenshot():
+    """``style.context_help_type_text`` — the LabVIEW Context-Help-style
+    VERBOSE type description ("Cluster hover" task). Boolean/I32/String are
+    verified CHARACTER-FOR-CHARACTER against a real Context Help screenshot
+    (an error cluster's status/code/source fields); the other integer
+    widths/float precisions are the same pattern extrapolated
+    mathematically (two's-complement / IEEE-754), not independently
+    screenshot-verified — documented as such in the function's own
+    docstring."""
+    from lvkit.models import LVType, LVTypeKind
+    from lvkit.render.style import context_help_type_text
+
+    def scalar(ut: str) -> LVType:
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut)
+
+    # Verified against the reference screenshot.
+    assert context_help_type_text(scalar("Boolean")) == "boolean (TRUE or FALSE)"
+    assert (
+        context_help_type_text(scalar("NumInt32"))
+        == "long [32-bit integer (-2147483648 to 2147483647)]"
+    )
+    assert context_help_type_text(scalar("String")) == "string"
+
+    # Extrapolated (same pattern, not individually screenshot-verified).
+    assert "8-bit" in context_help_type_text(scalar("NumInt8"))
+    assert "16-bit" in context_help_type_text(scalar("NumInt16"))
+    assert "0 to 255" in context_help_type_text(scalar("NumUInt8"))
+    assert "double-precision" in context_help_type_text(scalar("NumFloat64"))
+
+    # Non-scalar fallbacks: honest, short, never a guessed elaborate format.
+    enum_t = LVType(kind=LVTypeKind.ENUM, underlying_type="UnitUInt16")
+    assert context_help_type_text(enum_t) == "enum"
+    refnum_t = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
+    )
+    assert context_help_type_text(refnum_t) == "Queue refnum"
+    arr_t = LVType(
+        kind=LVTypeKind.ARRAY, element_type=scalar("NumFloat64"), dimensions=1
+    )
+    assert context_help_type_text(arr_t) == (
+        "array of double [64-bit real (double-precision) floating point]"
+    )
+    assert context_help_type_text(None) == "?"
+
+
+def test_cluster_type_rows_recurses_with_indent_and_element_count():
+    """``draw._cluster_type_rows`` builds the hierarchical tree
+    ("Cluster hover" task, reference images: an error cluster's field list
+    and a nested-cluster example): one row per field, a nested cluster
+    field reads "name (cluster of N elements)" (singular "element" for
+    N==1, verified from the reference) and recurses ONE indent level
+    deeper for its own fields."""
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+    from lvkit.render.draw import _cluster_type_rows
+    from lvkit.render.style import DEFAULT_THEME
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    int_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="status", type=bool_type)],
+    )
+    outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(name="a", type=int_type),
+            ClusterField(name="nested", type=inner),
+        ],
+    )
+    rows = _cluster_type_rows("MyCluster", outer, 0, DEFAULT_THEME)
+    assert [r.indent for r in rows] == [0, 1, 1, 2]
+    assert rows[0].text == "MyCluster (cluster of 2 elements)"
+    assert rows[0].mark_text == ""  # a cluster row has no single-token mnemonic
+    assert rows[1].text == "a (long [32-bit integer (-2147483648 to 2147483647)])"
+    assert rows[1].mark_text == "I32"
+    assert rows[2].text == "nested (cluster of 1 element)"  # singular
+    assert rows[3].text == "status (boolean (TRUE or FALSE))"
+    assert rows[3].indent == 2  # nested one level deeper than "nested" itself
+
+    # An unresolved field type still gets an honest row, never dropped.
+    unresolved = LVType(
+        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="mystery", type=None)]
+    )
+    rows2 = _cluster_type_rows("X", unresolved, 0, DEFAULT_THEME)
+    assert rows2[1].text == "mystery (?)"
+
+
+def test_draw_cluster_type_panel_renders_tree_with_colored_marks():
+    """``_draw_cluster_type_panel`` draws a cluster CONSTANT's hover panel
+    as a "Data type" header + the hierarchical field/type tree, each row's
+    mini type mark in that field's OWN wire color (never colored body
+    text — the name+type text stays ``theme.text``). A non-cluster
+    constant, or any non-constant node, gets no panel at all."""
+    from lvkit.graph.models import ConstantNode, PrimitiveNode
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+    from lvkit.render.draw import _draw_cluster_type_panel
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.scene import RenderNode
+    from lvkit.render.style import DEFAULT_THEME, wire_style
+
+    error_cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(
+                name="status",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+            ),
+            ClusterField(
+                name="code",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+            ),
+            ClusterField(
+                name="source",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+            ),
+        ],
+    )
+    node = RenderNode(
+        node=ConstantNode(id="v::441", vi_path="v", lv_type=error_cluster),
+        bounds=(0.0, 0.0, 40.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="441",
+    )
+    b = SvgBackend()
+    _draw_cluster_type_panel(node, b, DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 400.0, 200.0))
+    assert 'class="lv-help" data-node="441"' in svg
+    assert ">Data type<" in svg
+    assert "(cluster of 3 elements)" in svg
+    assert ">status (boolean (TRUE or FALSE))<" in svg
+    assert ">code (long [32-bit integer (-2147483648 to 2147483647)])<" in svg
+    assert ">source (string)<" in svg
+    # Mini marks: text + color both the field's OWN wire style, never
+    # colored body text.
+    bool_color = wire_style(error_cluster.fields[0].type).color
+    assert f'fill="{bool_color}">TF<' in svg
+    assert f'stroke="{bool_color}"' in svg
+
+    # A non-cluster constant gets no panel at all.
+    scalar_node = RenderNode(
+        node=ConstantNode(
+            id="v::5",
+            vi_path="v",
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+        ),
+        bounds=(0.0, 0.0, 20.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="5",
+    )
+    b2 = SvgBackend()
+    _draw_cluster_type_panel(scalar_node, b2, DEFAULT_THEME)
+    assert b2.render((0.0, 0.0, 100.0, 100.0)).count("<g") == 0
+
+    # A non-constant node (even one wired to a cluster type) gets no panel
+    # either — this dialog is scoped to cluster CONSTANTS.
+    prim_node = RenderNode(
+        node=PrimitiveNode(id="v::9", vi_path="v", node_type="prim"),
+        bounds=(0.0, 0.0, 20.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="9",
+    )
+    b3 = SvgBackend()
+    _draw_cluster_type_panel(prim_node, b3, DEFAULT_THEME)
+    assert b3.render((0.0, 0.0, 100.0, 100.0)).count("<g") == 0
+
+
+def test_gtr_error_cluster_constant_hover_panel_matches_reference():
+    """Real-corpus check ("Cluster hover" task): GTR's bare error-cluster
+    constant (heap uid 441, fields status/code/source) gets a
+    Context-Help-style tree hover panel — verified against the reference
+    screenshot's exact wording for all 3 fields."""
+    from lvkit.render.draw import _draw_cluster_type_panel
+    from lvkit.render.scene import RenderNode, build_scene
+    from lvkit.render.style import DEFAULT_THEME
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::441")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's error-cluster constant (uid 441) not in scene"
+    b = SvgBackend()
+    _draw_cluster_type_panel(target, b, DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 600.0, 400.0))
+    assert "(cluster of 3 elements)" in svg
+    assert ">status (boolean (TRUE or FALSE))<" in svg
+    assert ">code (long [32-bit integer (-2147483648 to 2147483647)])<" in svg
+    assert ">source (string)<" in svg
+
+
 def test_bundle_aggregate_split_into_interior_input_and_edge_output():
     """A Bundle-By-Name's input + output aggregate terminals share ONE heap DCO
     box (the output owns it; the input aliases it). ``_reposition_mux_terminals``
@@ -682,6 +882,85 @@ def test_array_constant_renders_indexed_cells_not_raw_repr():
     assert 'class="lv-array-index"' in svg
     assert 'data-lv-action="prev"' in svg and 'data-lv-action="next"' in svg
     assert svg.count('data-lv-struct="v::9"') >= 3  # carrier + col + index all keyed
+
+
+def test_empty_array_shows_disabled_default_element_not_blank_rect():
+    """LabVIEW never shows a blank/greyed rect for an unset array row — it
+    shows the element TYPE's own DEFAULT-valued control, disabled. An EMPTY
+    array (``elements == ()``) therefore shows ONE disabled default element
+    at index 0 (plus further dimmed rows filling the viewport); a NON-empty
+    array's real elements are drawn normally (undimmed) and only rows PAST
+    the real elements get the disabled default. ``default_element=None``
+    (an older caller) keeps the old flat grey rect, unchanged."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    default = ConstantGlyph("", "#e05fa0", multiline=True)
+
+    class _Marked:
+        """A distinctive glyph so we can tell a REAL element apart from the
+        default in the rendered SVG."""
+
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "REAL", 7.0)
+
+    bounds = (0.0, 0.0, 140.0, 90.0)  # 90 / 18 = 5 visible rows
+
+    # An EMPTY array: default_element draws at index 0 (and further rows),
+    # washed with the existing lv-disabled-mask convention (never a blank
+    # theme.fp_panel rect).
+    empty_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::1",
+        default_element=default,
+    )
+    b1 = SvgBackend()
+    empty_glyph.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert 'class="lv-disabled-mask"' in svg1
+    assert DEFAULT_THEME.disabled_mask in svg1
+    assert DEFAULT_THEME.fp_panel not in svg1  # never the old blank-cell fill
+
+    # A NON-empty array: the real element is undimmed; rows past it get the
+    # disabled default.
+    populated_glyph = ArrayConstantGlyph(
+        elements=(_Marked(),), element_color="#e05fa0", struct_uid="v::2",
+        default_element=default,
+    )
+    b2 = SvgBackend()
+    populated_glyph.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert ">REAL<" in svg2
+    assert 'class="lv-disabled-mask"' in svg2  # past-end rows still disabled
+
+    # default_element=None (back-compat): old flat grey cell, unchanged.
+    legacy_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::3"
+    )
+    b3 = SvgBackend()
+    legacy_glyph.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert 'class="lv-disabled-mask"' not in svg3
+    assert DEFAULT_THEME.fp_panel in svg3
+
+    # Regression: a box small enough for exactly ONE visible row (visible ==
+    # 1, e.g. GTR's "SuitesRunning") must still draw that one disabled
+    # default row — ``total + max(0, visible - 1)`` (0 + 0 == 0) used to
+    # draw ZERO rows for an empty array here; the fix is ``max(total, 1)``.
+    small_bounds = (0.0, 0.0, 80.0, 24.0)  # tiny box -> exactly 1 visible row
+    tiny_glyph = ArrayConstantGlyph(
+        elements=(), element_color="#e05fa0", struct_uid="v::4",
+        default_element=default,
+    )
+    b4 = SvgBackend()
+    tiny_glyph.draw(b4, small_bounds, DEFAULT_THEME)
+    svg4 = b4.render(small_bounds)
+    assert 'data-lv-visible="1"' in svg4  # confirms this exercises the bug
+    assert 'class="lv-disabled-mask"' in svg4, (
+        "an empty array with exactly 1 visible row must still draw its "
+        "disabled default element at index 0, not zero rows"
+    )
 
 
 def test_local_variable_glyph_badge_and_read_write_border_weight():
@@ -896,17 +1175,73 @@ def test_build_scene_joins_graph_and_geometry():
             assert len(branch) >= 2
 
 
-def test_class_refnum_constant_labeled_by_class_name_not_refnum():
-    """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
-    draws its CLASS NAME — wrapped-and-shrunk to fill the box (``fit``) — never
-    the parser's placeholder raw value (``"Refnum(1)"``) and never a generic
-    "Refnum". The constant/label path keys on ``underlying_type`` +
-    ``classname``, independent of the wire family. A class refnum is NOT the
-    ``refnum`` family (that is reserved for GENERIC refs); with no custom wire
-    style it draws the default grey class chain, not a reference wire. Same
-    class-name rule shared with terminal labels — ``style.lv_type_label``."""
+def test_empty_string_field_is_empty_not_a_watermark():
+    """An empty/unset string is genuinely EMPTY — an empty string control,
+    NOT a dimmed "abc" watermark (the maintainer: "empty string default
+    isn't a watermark, it's just empty"). A SET string shows its real value."""
     from lvkit.models import LVType
     from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+
+    empty = _leaf_const_glyph(string_type, raw=None)
+    assert isinstance(empty, ConstantGlyph)
+    assert empty.value == ""
+    backend = SvgBackend()
+    empty.draw(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 40.0, 20.0))
+    assert ">abc<" not in svg  # no watermark
+
+    shown = _leaf_const_glyph(string_type, raw="'hi'")
+    assert isinstance(shown, ConstantGlyph)
+    assert shown.value == "hi"
+
+    real = _leaf_const_glyph(string_type, raw="'hello'")
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "hello"
+    assert real.dim is False
+
+
+def test_path_field_draws_folder_mark_even_when_empty():
+    """A Path constant/field draws a ``PathGlyph`` — a folder mark, plus the
+    real path text when set — never a blank rectangle, even when unset."""
+    from lvkit.models import LVType
+    from lvkit.render.glyph import PathGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+    from lvkit.render.style import DEFAULT_THEME, wire_style
+
+    path_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+
+    empty = _leaf_const_glyph(path_type, raw=None)
+    assert isinstance(empty, PathGlyph)
+    assert empty.value == ""
+    backend = SvgBackend()
+    bounds = (0.0, 0.0, 21.0, 19.0)
+    empty.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "<polygon" in svg  # the folder mark draws even though empty
+    assert empty.color == wire_style(path_type).color
+
+    real = _leaf_const_glyph(path_type, raw="'C:\\\\data.txt'")
+    assert isinstance(real, PathGlyph)
+    assert real.value == "C:\\data.txt"
+
+
+def test_class_refnum_constant_labeled_by_class_name_not_refnum():
+    """A CLASS/LVObject constant (underlying ``Refnum`` WITH a ``classname``)
+    draws a ``ClassGlyph`` (cube + CLASS NAME) — never the parser's
+    placeholder raw value (``"Refnum(1)"``), never a generic "Refnum", and
+    never the ``RefnumGlyph`` dog-ear (a class isn't LabVIEW's visual
+    "reference" grammar — it's a class instance; issue #45's class-field
+    fix). The constant/label path keys on ``underlying_type`` + ``classname``,
+    independent of the wire family. A class refnum is NOT the ``refnum``
+    family (that is reserved for GENERIC refs); with no custom wire style it
+    draws the default grey class chain, not a reference wire. Same
+    class-name rule shared with terminal labels — ``style.lv_type_label``."""
+    from lvkit.models import LVType
+    from lvkit.render.glyph import ClassGlyph
     from lvkit.render.nodes import _leaf_const_glyph
     from lvkit.render.style import lv_type_label, type_family
 
@@ -920,19 +1255,25 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"
 
     glyph = _leaf_const_glyph(cls, raw="Refnum(1)")
-    assert isinstance(glyph, ConstantGlyph)
-    assert glyph.value == "DAQmx Module Configuration.lvclass"
-    assert glyph.value != "Refnum(1)"
-    assert glyph.fit is True  # wrap + shrink, no truncation
+    assert isinstance(glyph, ClassGlyph)
+    # The class's real short name — never the parser's placeholder raw value.
+    assert glyph.name == "DAQmx Module Configuration.lvclass"
 
-    # A GENERIC refnum constant (no classname) keeps the "<ref_type> Refnum"
-    # label — still never the placeholder raw value.
+    # A GENERIC refnum constant (no classname) draws the RefnumGlyph dog-ear
+    # + kind symbol — LabVIEW's visual reference grammar — keyed by its own
+    # ``ref_type`` ("Occurrence" here), never the placeholder raw value or
+    # bare wrapped text.
+    from lvkit.render.glyph import RefnumGlyph
+
     gen = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
     )
     assert type_family(gen) == "refnum"
     assert lv_type_label(gen) == "Occurrence Refnum"
-    assert _leaf_const_glyph(gen, raw="Refnum(1)").value == "Occurrence Refnum"
+    gen_glyph = _leaf_const_glyph(gen, raw="Refnum(1)")
+    assert isinstance(gen_glyph, RefnumGlyph)
+    assert gen_glyph.kind == "Occurrence"
+    assert gen_glyph.terminal is None  # no registered payload
 
 
 def test_io_name_tag_is_reference_wire_and_unresolved_class_is_grey_chain():
@@ -1032,6 +1373,268 @@ def test_builtin_reference_constants_render():
         assert ref.id in drawn_ids, f"built-in ref {ref.id} ({ref.name}) not drawn"
         rn = next(r for r in scene.nodes if r.node.id == ref.id)
         assert rn.terminals, f"built-in ref {ref.name} drawn without a terminal"
+
+
+# The GTR Main UI's "SMUI Template App Data" cluster constant — a 23-field
+# private-data cluster whose heap box (issue #45) is the typedef's oversized
+# front-panel layout, ~1031px tall. Identified by its TERM uid (stable across
+# reparses; the constant itself carries no name).
+_SMUI_CLUSTER_TERM_UID = "14625"
+
+
+def test_cluster_constant_scene_uses_real_field_geometry():
+    """The SMUI cluster constant's scene node carries REAL per-field geometry
+    (issue #45 reopened): every field maps inside the constant's own drawn
+    box, heights vary (no uniform-row stretch), and the output terminal sits
+    at that REAL box's own center — where the heap's wire actually
+    attaches — because the box is no longer synthetically compacted."""
+    from lvkit.render.glyph import ClusterConstantGlyph
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (rn for rn in scene.nodes if rn.node.id == f"{vi}::{_SMUI_CLUSTER_TERM_UID}"),
+        None,
+    )
+    assert target is not None, "SMUI Template App Data cluster constant not in scene"
+    assert isinstance(target.glyph, ClusterConstantGlyph)
+    cg = target.glyph.cluster_geom
+    assert cg is not None, "no real cluster geometry reached the glyph"
+    assert {f.name for f in cg.fields} == {name for name, _ in target.glyph.fields}
+
+    bx1, by1, bx2, by2 = target.bounds
+    # The constant is drawn at its own real box, so the fit-scale is 1.0 —
+    # a field's on-screen rect is its (0, 0)-relative rect plus the box origin.
+    assert cg.width == bx2 - bx1
+    assert cg.height == by2 - by1
+    for g in cg.fields:
+        vx1, vy1, vx2, vy2 = g.value_rect
+        assert bx1 - 1e-6 <= bx1 + vx1 and bx1 + vx2 <= bx2 + 1e-6, g
+        assert by1 - 1e-6 <= by1 + vy1 and by1 + vy2 <= by2 + 1e-6, g
+
+    heights = {round(g.value_rect[3] - g.value_rect[1], 3) for g in cg.fields}
+    assert len(heights) > 1  # real field heights vary — not a uniform row stretch
+
+    # The box is the REAL heap box (~1031px tall for 23 fields) — no longer
+    # shrunk to a synthetic n * row_height stack.
+    assert (by2 - by1) > 900
+
+    output_term = next(t for t in target.terminals if t.terminal.direction == "output")
+    assert output_term.center == ((bx1 + bx2) / 2, (by1 + by2) / 2)
+
+
+# GTR Main UI's "SuitesRunning" — an EMPTY array of STRINGS (heap ddo uid
+# 14774, term uid 14773) — the scalar-element half of the disabled-default
+# extension (the array-of-cluster half is covered by
+# test_array_of_cluster_constant_uses_real_element_geometry).
+_SUITES_RUNNING_TERM_UID = "14773"
+
+
+def test_empty_scalar_array_constant_shows_disabled_default_element():
+    """"SuitesRunning" (an empty array of strings) must show a DISABLED
+    default-valued element — a real empty-string constant glyph, dimmed —
+    never a blank grey box (the disabled-default extension)."""
+    from lvkit.render.glyph import ArrayConstantGlyph, ConstantGlyph
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if rn.node.id == f"{vi}::{_SUITES_RUNNING_TERM_UID}"
+        ),
+        None,
+    )
+    assert target is not None, "SuitesRunning array constant not in scene"
+    assert isinstance(target.glyph, ArrayConstantGlyph)
+    assert target.glyph.elements == ()  # genuinely empty
+    assert isinstance(target.glyph.default_element, ConstantGlyph)
+
+
+def test_data_typed_refnum_field_draws_compact_or_expanded_type_never_value_cluster():
+    """EVERY refnum field draws as a ``RefnumGlyph`` (dog-ear + kind symbol +
+    a TERMINAL showing the registered payload's TYPE) — NEVER a value
+    ``ClusterConstantGlyph`` (the payload is a TYPE, never editable field
+    VALUES — issue #45's refnum trigger). Which TERMINAL a given field gets
+    is the heap's own recorded per-field state (``layout.ClusterFieldGeom.
+    refnum_expanded``/``refnum_payload`` — real, verified BDHb bounds, never
+    a size guess or a re-flow):
+
+    - COMPACT: a ``TypeTerminalGlyph`` badge — "TextStream" (Queue of
+      STRING, ``text == "abc"``) and "Current VI's Refnum" (no registered
+      payload at all — ``terminal is None``, frame + kind symbol only).
+    - EXPANDED: "ResultChangedRef", a User Event refnum recorded in the
+      heap at its real ~206px-tall expanded size — its terminal is a
+      ``DimmedGlyph`` wrapping the payload's own REAL recursively-composed
+      ``ClusterConstantGlyph`` (real per-field elements, never flattened
+      "name: type" text and never the payload's actual F/0/testPass VALUE
+      glyphs), positioned at the heap's own recorded placement
+      (``terminal_rect``)."""
+    from lvkit.render.glyph import ClusterConstantGlyph, DimmedGlyph, RefnumGlyph
+    from lvkit.render.style import wire_style
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (rn for rn in scene.nodes if rn.node.id == f"{vi}::{_SMUI_CLUSTER_TERM_UID}"),
+        None,
+    )
+    assert target is not None
+    assert isinstance(target.glyph, ClusterConstantGlyph)
+
+    # "ResultChangedRef" is recorded EXPANDED in the heap (multiCosm
+    # index=1, h≈206) — its registered event-data cluster's TYPE draws
+    # inline, dimmed, never as a nested value cluster.
+    result_changed_ref = next(
+        g for name, g in target.glyph.fields if name == "ResultChangedRef"
+    )
+    assert isinstance(result_changed_ref, RefnumGlyph), (
+        "every refnum field, expanded or compact, must draw as RefnumGlyph "
+        "(dog-ear + kind symbol + terminal), never a value cluster"
+    )
+    assert not isinstance(result_changed_ref, ClusterConstantGlyph)
+    assert isinstance(result_changed_ref.terminal, DimmedGlyph), (
+        "an EXPANDED refnum's terminal must be the payload's real elements, "
+        "dimmed — never a compact badge"
+    )
+    assert isinstance(result_changed_ref.terminal.inner, ClusterConstantGlyph)
+    smui_node = next(
+        n for n in graph.iter_nodes(vi) if n.id.endswith("::14625")
+    )
+    assert isinstance(smui_node, ConstantNode)
+    assert smui_node.lv_type is not None and smui_node.lv_type.fields is not None
+    field = next(f for f in smui_node.lv_type.fields if f.name == "ResultChangedRef")
+    assert field.type is not None and field.type.element_type is not None
+    payload_fields = field.type.element_type.fields
+    assert payload_fields is not None
+    assert [name for name, _ in result_changed_ref.terminal.inner.fields] == [
+        f.name for f in payload_fields
+    ]
+    assert result_changed_ref.terminal_rect is not None
+    # The dog-ear/kind-symbol border is the REFNUM's own wire color (it
+    # still reads as a refnum box).
+    assert result_changed_ref.border_color == wire_style(field.type).color
+    # The payload cluster's own nested "test error" field is a GENUINE value
+    # cluster (its OWN kind is CLUSTER) — it still draws real box-in-box
+    # geometry inside the dimmed terminal, per rule 6 (TYPE-KIND CORRECT).
+    test_error = next(
+        g
+        for name, g in result_changed_ref.terminal.inner.fields
+        if name == "test error"
+    )
+    assert isinstance(test_error, ClusterConstantGlyph)
+
+    # A refnum field with NO registered payload (e.g. "Current VI's Refnum",
+    # a plain LVObjCtl refnum) still draws the dog-ear + kind-symbol frame
+    # (EVERY refnum reads as a refnum) but with no terminal at all — never a
+    # ClusterConstantGlyph.
+    current_vi_ref = next(
+        g for name, g in target.glyph.fields if name == "Current VI's Refnum"
+    )
+    assert isinstance(current_vi_ref, RefnumGlyph)
+    assert current_vi_ref.terminal is None
+    assert not isinstance(current_vi_ref, ClusterConstantGlyph)
+
+    # "TextStream" — a Queue of STRING — is recorded COMPACT in the heap: a
+    # compact TypeTerminalGlyph badge with a real scalar mnemonic, never a
+    # cluster glyph and never the expanded (DimmedGlyph) terminal — that's
+    # for cluster payloads only.
+    text_stream = next(g for name, g in target.glyph.fields if name == "TextStream")
+    assert isinstance(text_stream, RefnumGlyph)
+    assert not isinstance(text_stream, ClusterConstantGlyph)
+    assert not isinstance(text_stream.terminal, DimmedGlyph)
+    assert text_stream.terminal is not None
+    assert text_stream.terminal.text == "abc"
+
+
+# TestResult_Init.vi's array-of-clusters constant: a "failure" cluster array
+# (heap ddo uid 502, indArr -> typeDef 569 -> stdClust 573), with a NESTED
+# cluster field ("error" -> status/code/source) — see issue #45's array-of-
+# clusters extension. Identified by its TERM uid (graph node id "...::633").
+_ARRAY_OF_CLUSTER_VI = Path(
+    ".lvkit/cache/samples/JKI-VI-Tester/source/Classes/TestResult/"
+    "TestResult_Init.vi"
+)
+_ARRAY_OF_CLUSTER_TERM_UID = "633"
+
+
+def test_array_of_cluster_constant_uses_real_element_geometry():
+    """An array constant whose ELEMENT is a cluster gets the element's REAL
+    heap geometry reaching the glyph (issue #45's array extension):
+    ``ArrayConstantGlyph.cell_w``/``cell_h`` are the element's own real
+    natural size (54x110, verified against the heap — ``typeDef`` ddo 569 /
+    ``stdClust`` 573's own ``<bounds>``), not the synthetic fixed row height.
+
+    This VI's array constant is its default/initializer value — genuinely
+    EMPTY (``node.value == "[]"``, verified: TestResult_Init.vi initializes
+    an empty failures array) — LabVIEW itself shows an empty array constant
+    as a DISABLED default-valued element, never blank/greyed rows (the
+    disabled-default extension): ``default_element`` is a REAL nested
+    ``ClusterConstantGlyph`` at the same real geometry, with default field
+    values — including the genuinely NESTED "error" cluster
+    (status/code/source), a true box-in-box, not flattened text."""
+    from lvkit.render.glyph import ArrayConstantGlyph, ClusterConstantGlyph
+
+    loaded = _load_graph(_ARRAY_OF_CLUSTER_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {_ARRAY_OF_CLUSTER_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if rn.node.id == f"{vi}::{_ARRAY_OF_CLUSTER_TERM_UID}"
+        ),
+        None,
+    )
+    assert target is not None, "array-of-cluster constant not in scene"
+    assert isinstance(target.glyph, ArrayConstantGlyph)
+    assert target.glyph.cell_w == 54.0
+    assert target.glyph.cell_h == 110.0
+    assert target.glyph.elements == ()  # genuinely empty default value
+
+    default = target.glyph.default_element
+    assert isinstance(default, ClusterConstantGlyph), (
+        "an empty array-of-cluster constant must show a real disabled "
+        "default CLUSTER element, not a blank rect"
+    )
+    real_cluster_geom = default.cluster_geom
+    assert real_cluster_geom is not None
+    assert real_cluster_geom.width == 54.0
+    assert real_cluster_geom.height == 110.0
+    assert {f.name for f in real_cluster_geom.fields} == {
+        name for name, _ in default.fields
+    }
+
+    # The "error" field is a genuinely NESTED cluster (status/code/source) —
+    # its glyph must be a real nested ClusterConstantGlyph, not flattened text.
+    error_field = next(fg for fg in real_cluster_geom.fields if fg.name == "error")
+    assert error_field.nested is not None
+    assert {nf.name for nf in error_field.nested.fields} == {
+        "status", "code", "source",
+    }
+    error_glyph = next(g for name, g in default.fields if name == "error")
+    assert isinstance(error_glyph, ClusterConstantGlyph)
+    assert error_glyph.cluster_geom is error_field.nested
 
 
 def test_wire_color_from_source_terminal_type():
@@ -2665,61 +3268,595 @@ def test_reposition_mux_leaves_fields_and_lone_unbundle_aggregate_alone():
     assert out[1].center == field.center
 
 
-def test_cluster_constant_compacted_to_natural_rows():
-    """A cluster constant's heap box is the typedef's front-panel layout, which
-    stretches each field row into a giant column (e.g. a 23-field private-data
-    cluster at 1031px). _compact_cluster_const_geom shrinks it (top-left
-    anchored, shrink-only) to one natural row per field and re-anchors the
-    output terminal to the shrunk box, so obstacle/box/wire agree."""
-    from lvkit.graph.models import ConstantNode
-    from lvkit.models import ClusterField, LVType
-    from lvkit.parser.layout import Layout
-    from lvkit.render.scene import (
-        _CLUSTER_GLYPH_PAD,
-        _CLUSTER_ROW_H,
-        _compact_cluster_const_geom,
-    )
+def test_cluster_constant_draws_real_field_geometry_not_uniform_rows():
+    """``ClusterConstantGlyph`` with real geometry (``cluster_geom``) draws
+    each field at its OWN heap rect — real size, real position — instead of
+    the equal-height-row fallback (issue #45 reopened: the box used to be
+    SHRUNK to a synthetic ``n * row_height`` stack, disconnecting it from its
+    real wire). ``cluster_geom``'s field rects are relative to the cluster's
+    own (0, 0) origin at its NATIVE (``width``/``height``) size — here that
+    size exactly matches the drawn box, so the fit-scale is 1.0 (pure
+    translation); ``test_nested_cluster_field_draws_as_real_box_in_box``
+    covers the scale != 1.0 case."""
+    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
 
-    def cluster_const(n_fields):
-        return ConstantNode(
-            id="V::5",
-            vi_path="V",
-            name="c",
-            lv_type=LVType(
-                kind=LVTypeKind.CLUSTER,
-                fields=[ClusterField(name=f"f{i}") for i in range(n_fields)],
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    fields = (("Alpha", _Dot()), ("Beta", _Dot()))
+    box = (0.0, 0.0, 100.0, 200.0)  # a REAL, uncompacted heap box
+    cg = ClusterGeom(
+        width=100.0,
+        height=200.0,
+        fields=(
+            ClusterFieldGeom(
+                "Alpha",
+                value_rect=(5.0, 10.0, 90.0, 40.0),
+                label_rect=(5.0, 0.0, 40.0, 9.0),
             ),
-        )
-
-    class _Graph:
-        def __init__(self, nodes):
-            self._nodes = nodes
-
-        def iter_nodes(self, vi_name):
-            return self._nodes
-
-    # Oversized heap box (300px tall for 3 fields) → compacted to 3 rows.
-    layout = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 300.0)})
-    bounds, centers = _compact_cluster_const_geom(
-        _Graph([cluster_const(3)]),
-        "V",
-        layout,
+            # A hidden caption (label_rect None) draws NO label text.
+            ClusterFieldGeom(
+                "Beta", value_rect=(5.0, 120.0, 90.0, 190.0), label_rect=None
+            ),
+        ),
     )
-    expected_h = 2 * _CLUSTER_GLYPH_PAD + 3 * _CLUSTER_ROW_H
-    assert bounds["5"] == (0.0, 0.0, 100.0, expected_h)  # top-left kept, width kept
-    assert centers["5"] == (100.0, expected_h / 2)  # output re-anchored right-mid
-
-    # Shrink-only: a box already shorter than its natural height is untouched.
-    small = Layout(node_bounds={"5": (0.0, 0.0, 100.0, 10.0)})
-    b2, _ = _compact_cluster_const_geom(_Graph([cluster_const(3)]), "V", small)
-    assert "5" not in b2
-
-    # A non-cluster constant (no fields) is ignored.
-    scalar = ConstantNode(
-        id="V::5", vi_path="V", name="c", lv_type=LVType(kind=LVTypeKind.PRIMITIVE)
+    glyph = ClusterConstantGlyph(
+        fields=fields, cluster_geom=cg, border_color="#ff00ff"
     )
-    b3, _ = _compact_cluster_const_geom(_Graph([scalar]), "V", layout)
-    assert b3 == {}
+
+    backend = SvgBackend()
+    glyph.draw(backend, box, DEFAULT_THEME)
+    svg = backend.render(box)
+    assert "Alpha" in svg  # visible caption drawn
+    assert "Beta" not in svg  # hidden caption NOT drawn
+    assert svg.count(">V<") == 2  # both field values drawn, at their own rects
+    # A field NAME label is a name, not a value — it draws in the normal
+    # label text color, never the cluster's own wire/border color (issue #45
+    # extension: labels used to draw in ``border``, reading as cluster pink).
+    label_fill = re.search(r'fill="([^"]+)"[^>]*>Alpha<', svg)
+    assert label_fill is not None
+    assert label_fill.group(1) == DEFAULT_THEME.text
+    assert label_fill.group(1) != "#ff00ff"
+
+    # Missing geometry for ANY field falls back to the equal-height rows
+    # (never a partial mix of real + guessed positions).
+    partial = ClusterConstantGlyph(
+        fields=fields,
+        cluster_geom=ClusterGeom(width=100.0, height=200.0, fields=(cg.fields[0],)),
+    )
+    fb_backend = SvgBackend()
+    partial.draw(fb_backend, box, DEFAULT_THEME)
+    fb_svg = fb_backend.render(box)
+    assert "Alpha" in fb_svg and "Beta" in fb_svg  # fallback still shows both
+
+
+def test_nested_cluster_field_draws_as_real_box_in_box():
+    """A cluster field that is ITSELF a ``ClusterConstantGlyph`` (a nested
+    cluster field, composed recursively by ``nodes._cluster_value_glyph``)
+    draws its OWN real box-in-box geometry, fit into whatever rect the
+    PARENT maps it to — a real scale != 1.0 case (the nested cluster's own
+    native size differs from the parent-assigned rect, e.g. a NESTED field
+    inside a cluster whose own extent-normalize scale isn't 1.0). Regression
+    for the pre-existing gap: composing a nested-cluster FIELD used to fall
+    through to a flattened text glyph instead of a real nested box."""
+    from lvkit.parser.layout import ClusterFieldGeom, ClusterGeom
+    from lvkit.render.glyph import ClusterConstantGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    # The nested cluster's OWN native size (20x40) is NOT the same as the
+    # rect the parent will map it to (10x20 below) — a real 0.5x fit-scale.
+    nested_geom = ClusterGeom(
+        width=20.0,
+        height=40.0,
+        fields=(
+            ClusterFieldGeom("x", value_rect=(0.0, 0.0, 20.0, 20.0), label_rect=None),
+            ClusterFieldGeom("y", value_rect=(0.0, 20.0, 20.0, 40.0), label_rect=None),
+        ),
+    )
+    nested_glyph = ClusterConstantGlyph(
+        fields=(("x", _Dot()), ("y", _Dot())), cluster_geom=nested_geom
+    )
+
+    outer_box = (0.0, 0.0, 100.0, 20.0)
+    outer_geom = ClusterGeom(
+        width=100.0,
+        height=20.0,
+        fields=(
+            ClusterFieldGeom(
+                "Inner",
+                value_rect=(50.0, 0.0, 60.0, 20.0),  # -> abs (50,0,60,20): 10x20
+                label_rect=None,
+                nested=nested_geom,
+            ),
+        ),
+    )
+    outer_glyph = ClusterConstantGlyph(
+        fields=(("Inner", nested_glyph),), cluster_geom=outer_geom
+    )
+
+    backend = SvgBackend()
+    outer_glyph.draw(backend, outer_box, DEFAULT_THEME)
+    svg = backend.render(outer_box)
+    # Both sub-field values of the NESTED cluster actually drew (real
+    # box-in-box, not flattened text) — a rect for the nested border plus
+    # two "V" texts, all inside the outer box.
+    assert svg.count(">V<") == 2
+    xs = [float(x) for x in re.findall(r'<rect[^>]*\sx="([-\d.]+)"', svg)]
+    widths = [float(w) for w in re.findall(r'<rect[^>]*\swidth="([-\d.]+)"', svg)]
+    assert xs and widths
+    # Every drawn rect (outer box + nested border) stays within [50, 60] on x
+    # for anything belonging to the nested cluster's OWN box — spot-check the
+    # narrowest rect (the nested cluster's own border) is <= 10px wide (its
+    # fitted width) and sits at x >= 50 (inside the parent's assigned slot).
+    nested_rects = [(x, w) for x, w in zip(xs, widths) if w <= 10.0 + 1e-6]
+    assert nested_rects
+    assert all(x >= 50.0 - 1e-6 for x, _ in nested_rects)
+
+
+def test_refnum_glyph_draws_dogear_kind_symbol_and_compact_terminal():
+    """``RefnumGlyph`` draws a dog-ear frame (a folded-corner box — LabVIEW's
+    own visual grammar for "this is a reference"), a kind symbol (from
+    ``ref_type`` — a distinct clean-room mark per known kind, generic
+    fallback otherwise), and — for a COMPACT refnum — a small
+    ``TypeTerminalGlyph`` badge in the corner holding the payload's type
+    mnemonic."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 76.0, 48.0)
+
+    scalar = RefnumGlyph(
+        kind="Queue",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    )
+    b1 = SvgBackend()
+    scalar.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert "<polygon" in svg1  # the dog-ear frame (corner-cut outline)
+    assert ">abc<" in svg1  # the compact terminal badge
+
+    # A cluster payload has no single-token mnemonic — an empty-text badge
+    # still draws its DASHED-pink chrome box, just no text. The border is
+    # the FIXED terminal chrome color (verified against 57/58/59 — both a
+    # string and a class payload draw the SAME dashed pink box), never the
+    # payload's own wire color.
+    cluster = RefnumGlyph(
+        kind="UserEvent",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("", "#a88d1e"),
+    )
+    b2 = SvgBackend()
+    cluster.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert f'stroke="{DEFAULT_THEME.refnum_terminal_border}"' in svg2
+    assert 'stroke-dasharray="2,1.5"' in svg2
+
+    # No registered payload at all: the frame + kind symbol draw, no
+    # terminal badge.
+    plain = RefnumGlyph(kind=None, border_color="#007f7f", terminal=None)
+    b3 = SvgBackend()
+    plain.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert "<polygon" in svg3  # dog-ear still draws
+    # No terminal badge rect beyond the frame + kind-symbol shapes — no text
+    # at all (no mnemonic, no field content).
+    assert "<text" not in svg3
+
+
+def test_refnum_glyph_expanded_terminal_positions_at_real_heap_offset():
+    """An EXPANDED refnum's ``terminal_rect`` (0..1 FRACTIONS of the
+    refnum's own box — ``layout.RefnumPayload.offset``) places the terminal
+    content at the heap's own recorded sub-rect, not a centered/guessed
+    position — and the content itself (a ``DimmedGlyph``-wrapped real
+    ``ClusterConstantGlyph``) draws its real elements, never flattened
+    "name: type" text."""
+    from lvkit.render.glyph import ClusterConstantGlyph, DimmedGlyph, RefnumGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Dot:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            x1, y1, x2, y2 = bounds
+            backend.text((x1 + x2) / 2, (y1 + y2) / 2, "V", 7.0)
+
+    inner = ClusterConstantGlyph(
+        fields=(("a", _Dot()),), border_color="#007f7f",
+    )
+    bounds = (0.0, 0.0, 100.0, 200.0)
+    # The payload sits at a real heap sub-offset — e.g. left-inset, not
+    # filling the whole refnum box (matching GTR's real "ResultChangedRef":
+    # offset x∈[0.28, 0.95], y∈[0.02, 0.98] of its own native box).
+    terminal_rect = (0.28, 0.02, 0.95, 0.98)
+    glyph = RefnumGlyph(
+        kind="UserEvent",
+        border_color="#007f7f",
+        terminal=DimmedGlyph(inner),
+        terminal_rect=terminal_rect,
+    )
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert ">V<" in svg  # the payload's real element glyph drew
+    assert "lv-disabled-mask" in svg  # dimmed, never full-strength
+
+    fx1, fy1, fx2, fy2 = terminal_rect
+    expect_x1, expect_y1 = bounds[0] + fx1 * 100.0, bounds[1] + fy1 * 200.0
+    expect_x2, expect_y2 = bounds[0] + fx2 * 100.0, bounds[1] + fy2 * 200.0
+    # The DimmedGlyph's own mask rect sits at exactly the mapped terminal
+    # rect — the real heap-derived placement, not a centered guess.
+    mask_rect = re.search(
+        r'<g class="lv-disabled-mask">\s*<rect x="([-\d.]+)" y="([-\d.]+)" '
+        r'width="([-\d.]+)" height="([-\d.]+)"',
+        svg,
+    )
+    assert mask_rect is not None
+    mx1, my1, mw, mh = (float(v) for v in mask_rect.groups())
+    assert abs(mx1 - expect_x1) < 0.5
+    assert abs(my1 - expect_y1) < 0.5
+    assert abs((mx1 + mw) - expect_x2) < 0.5
+    assert abs((my1 + mh) - expect_y2) < 0.5
+
+
+def test_class_glyph_shrinks_to_fit_instead_of_ellipsis_clipping():
+    """A class name that doesn't fit its field's real box at the default
+    size NEVER hard-clips to a mid-word "…" — it shrinks (and, if still too
+    wide, wraps to a second line) instead, like ``ConstantGlyph``'s own
+    ``fit=True`` mode. Regression for the real GTR SMUI-cluster case: a
+    48x48 class field (the real heap box size for e.g. "test"/"TestResult")
+    used to hard-clip "LabVIEW Object" to "LabVIEW O…"."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 48.0, 48.0)  # the real GTR heap box size
+    backend = SvgBackend()
+    glyph = ClassGlyph("LabVIEW Object", "#555555")
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "…" not in svg
+    assert "LabVIEW Object" in svg  # the FULL name, not a truncated prefix
+    # The box itself is UNCHANGED — never re-widened/inflated to fit text.
+    assert 'width="46.8" height="46.8"' in svg
+
+    # A name too long to fit even shrunk to one line wraps to a second
+    # line rather than clipping.
+    backend2 = SvgBackend()
+    long_glyph = ClassGlyph("SomeVeryLongClassNameIndeed", "#555555")
+    long_glyph.draw(backend2, bounds, DEFAULT_THEME)
+    svg2 = backend2.render(bounds)
+    assert svg2.count("<text") == 2  # wrapped onto 2 lines
+    assert "…" not in svg2  # still no ellipsis -- wrapping preferred over clipping
+
+
+def test_class_glyph_draws_cube_and_short_name():
+    """``ClassGlyph`` draws a cube motif (LabVIEW draws a class as a cube)
+    plus the class's own short name — never bare text."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = ClassGlyph("TestResult.lvclass", "#555555")
+    bounds = (0.0, 0.0, 60.0, 60.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert svg.count("<polygon") >= 3  # the 3 cube faces
+    assert 'stroke="#555555"' in svg
+    assert "TestResult" in svg  # name drawn (possibly ellipsized)
+
+
+def test_class_glyph_mini_form_below_size_threshold():
+    """A ``ClassGlyph`` drawn into a SMALL box (below the legibility floor
+    for a border + cube + name) uses a distinct MINI form — just the cube,
+    scaled up, no border and no name — never the full-size glyph shrunk
+    (LabVIEW draws a genuinely different compact representation at small
+    sizes, not the same control squashed)."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small_bounds = (0.0, 0.0, 20.0, 20.0)
+    backend = SvgBackend()
+    ClassGlyph("Foo.lvclass", "#555555").draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert svg.count("<polygon") >= 3  # the cube still draws
+    assert "<rect" not in svg  # no border chrome at mini size
+    assert "Foo" not in svg  # no name text at mini size
+
+    large_bounds = (0.0, 0.0, 60.0, 60.0)
+    backend2 = SvgBackend()
+    ClassGlyph("Foo.lvclass", "#555555").draw(backend2, large_bounds, DEFAULT_THEME)
+    svg2 = backend2.render(large_bounds)
+    assert "<rect" in svg2  # full form: border chrome present
+    assert "Foo" in svg2  # full form: name present
+
+
+def test_refnum_glyph_mini_form_below_size_threshold():
+    """A ``RefnumGlyph`` drawn into a SMALL box (e.g. GTR's real "menubar"
+    field, 21x27) uses a distinct MINI form — a plain bordered box holding
+    just the kind symbol, no dog-ear cut and no terminal — never the full
+    dog-ear+terminal glyph shrunk to fit."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small_bounds = (0.0, 0.0, 21.0, 27.0)  # GTR's real "menubar" field size
+    backend = SvgBackend()
+    RefnumGlyph(
+        kind="Menu", border_color="#007f7f", terminal=TypeTerminalGlyph("", "#e05fa0")
+    ).draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert "<polygon" not in svg  # no dog-ear cut-corner outline at mini size
+    assert "<rect" in svg  # the plain mini-form border still draws
+
+    large_bounds = (0.0, 0.0, 76.0, 48.0)  # GTR's real "TextStream" field size
+    backend2 = SvgBackend()
+    RefnumGlyph(
+        kind="Queue",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    ).draw(backend2, large_bounds, DEFAULT_THEME)
+    svg2 = backend2.render(large_bounds)
+    assert "<polygon" in svg2  # the dog-ear cut-corner outline draws
+    assert ">abc<" in svg2  # the full terminal badge draws
+
+
+def test_dimmed_glyph_draws_inner_then_overlay_mask():
+    """``DimmedGlyph`` draws ``inner``'s REAL content first, then the
+    established ``lv-disabled-mask`` translucent wash over it — never a
+    substitute for the real shape."""
+    from lvkit.render.glyph import DimmedGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    class _Marked:
+        def draw(self, backend, bounds, theme):  # noqa: ANN001
+            backend.rect(*bounds, fill="none", stroke="#4a9c3e", stroke_width=1.0)
+
+    bounds = (0.0, 0.0, 40.0, 20.0)
+    backend = SvgBackend()
+    DimmedGlyph(_Marked()).draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert 'stroke="#4a9c3e"' in svg  # the real inner shape drew
+    assert "lv-disabled-mask" in svg  # the overlay wash drew too
+
+
+def test_path_glyph_draws_folder_mark_even_when_empty():
+    """``PathGlyph`` always draws a folder-mark outline — a path control is
+    visually identifiable even with no path text set, never a featureless
+    colored rectangle (acceptance-gate rule 4: no blank boxes)."""
+    from lvkit.render.glyph import PathGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    empty = PathGlyph("", "#1f8a8a")
+    backend = SvgBackend()
+    empty.draw(backend, (0.0, 0.0, 21.0, 19.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 21.0, 19.0))
+    assert svg.count("<polygon") == 1  # the folder outline, even unset
+    assert "<text" not in svg  # no path text to show
+
+    full = PathGlyph("C:\\data\\log.txt", "#1f8a8a")
+    b2 = SvgBackend()
+    full.draw(b2, (0.0, 0.0, 120.0, 30.0), DEFAULT_THEME)
+    svg2 = b2.render((0.0, 0.0, 120.0, 30.0))
+    assert "<polygon" in svg2  # folder mark
+    assert "log.txt" in svg2  # and the real path text
+
+
+def test_empty_string_constant_is_empty_not_placeholder():
+    """A genuinely empty/unset string constant is EMPTY (an empty string
+    control), never an "abc" watermark — the maintainer: "empty string
+    default isn't a watermark, it's just empty"."""
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    glyph = _leaf_const_glyph(string_type, raw=None)
+    assert isinstance(glyph, ConstantGlyph)
+    assert glyph.value == ""
+
+    # A SET string still shows its real value.
+    real = _leaf_const_glyph(string_type, raw="'hello'")
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "hello"
+
+
+def test_timestamp_constant_shows_numeric_value_not_blank_box():
+    """A Timestamp constant (heap ddo class ``absTime`` — the graph records
+    it as ``underlying_type="MeasureData"``, ``measure_flavor="TimeStamp"``,
+    verified against GTR's real "StartTestTime" field) used to fall through
+    to the generic leaf glyph and draw a BLANK box for an unset field (``raw
+    is None``) — it now shows a real numeric-style value, LabVIEW's own
+    unset-timestamp default (``0.0``, the epoch — the same default codegen
+    emits), never a featureless rectangle (acceptance-gate rule 4)."""
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.nodes import _leaf_const_glyph
+
+    ts_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="TimeStamp",
+    )
+    unset = _leaf_const_glyph(ts_type, raw=None)
+    assert isinstance(unset, ConstantGlyph)
+    assert unset.value == "0.0"
+
+    real = _leaf_const_glyph(ts_type, raw=1234.5)
+    assert isinstance(real, ConstantGlyph)
+    assert real.value == "1234.5"
+
+    # A DIFFERENT MeasureData flavor (a waveform, not a timestamp) is NOT
+    # touched by this branch — out of this fix's scope.
+    waveform_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="Float64Waveform",
+    )
+    wf = _leaf_const_glyph(waveform_type, raw=None)
+    assert isinstance(wf, ConstantGlyph)
+    assert wf.value != "0.0"
+
+
+def test_refnum_glyph_mini_form_for_small_boxes():
+    """A refnum drawn in a small box (below ``_MINI_MAX_W``/``_MINI_MAX_H`` —
+    e.g. GTR's real "menubar" field, 21x27) uses a DISTINCT MINI form (a
+    plain bordered box holding just the kind symbol, scaled up) — never the
+    full dog-ear+terminal glyph shrunk (acceptance-gate rule 4: compact
+    form, not the same glyph stretched/shrunk)."""
+    from lvkit.render.glyph import RefnumGlyph, TypeTerminalGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    small = RefnumGlyph(
+        kind="Menu",
+        border_color="#007f7f",
+        terminal=TypeTerminalGlyph("abc", "#e05fa0"),
+    )
+    bounds = (0.0, 0.0, 21.0, 27.0)
+    backend = SvgBackend()
+    small.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "<polygon" not in svg  # no dog-ear cut, no kind-symbol polygon
+    assert "<text" not in svg  # no terminal badge text at this size
+
+    # The SAME glyph at a large box draws the full dog-ear form instead.
+    full_bounds = (0.0, 0.0, 76.0, 48.0)
+    b2 = SvgBackend()
+    small.draw(b2, full_bounds, DEFAULT_THEME)
+    svg2 = b2.render(full_bounds)
+    assert "<polygon" in svg2  # the dog-ear frame
+    assert ">abc<" in svg2  # the compact terminal badge
+
+
+def test_class_glyph_mini_form_for_small_boxes():
+    """A class field drawn in a small box uses the MINI form (just the cube,
+    no border rect, no name text) instead of the full form shrunk."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = ClassGlyph("TestResult.lvclass", "#555555")
+    small_bounds = (0.0, 0.0, 20.0, 20.0)
+    backend = SvgBackend()
+    glyph.draw(backend, small_bounds, DEFAULT_THEME)
+    svg = backend.render(small_bounds)
+    assert "<text" not in svg  # no name at this size
+    assert svg.count("<polygon") >= 3  # just the cube faces, no border rect
+    assert "<rect" not in svg
+
+
+def test_array_typed_cluster_field_draws_real_elements_not_blank_box():
+    """A cluster FIELD whose OWN type is an ARRAY used to fall through to
+    the generic leaf glyph (no array case there) and draw a blank box —
+    ``_cluster_value_glyph`` now composes it as a real ``ArrayConstantGlyph``
+    (index control + a real default element, e.g. a folder mark for an
+    array of paths), never a featureless rectangle."""
+    from lvkit.models import ClusterField
+    from lvkit.render.glyph import ArrayConstantGlyph, PathGlyph
+    from lvkit.render.nodes import _cluster_value_glyph
+
+    path_array_type = LVType(
+        kind=LVTypeKind.ARRAY,
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path"),
+        dimensions=1,
+    )
+    outer_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Paths", type=path_array_type)],
+    )
+    glyph = _cluster_value_glyph(outer_type, None, False, None)
+    (name, field_glyph), = glyph.fields
+    assert name == "Paths"
+    assert isinstance(field_glyph, ArrayConstantGlyph)
+    assert field_glyph.elements == ()  # unset field -> genuinely empty array
+    assert isinstance(field_glyph.default_element, PathGlyph)
+
+
+def test_refnum_field_with_cluster_element_type_draws_compact_badge():
+    """A cluster FIELD whose own type is NOT a cluster (a ``refnum``, e.g. a
+    User Event) but whose ``element_type`` IS one — the registered
+    event-data type LabVIEW shows for a data-typed refnum — draws a
+    ``RefnumGlyph``, NEVER a nested ``ClusterConstantGlyph`` expanding the
+    payload's fields (issue #45's refnum trigger). With NO heap geometry to
+    consult (``cluster_geom=None`` — no ``ClusterFieldGeom.refnum_expanded``
+    bit available), the field is never treated as expanded, so its terminal
+    is always the COMPACT ``TypeTerminalGlyph`` badge. The cluster payload
+    has no single-token mnemonic, so the badge shows no text, only the
+    payload's own wire color."""
+    from lvkit.models import ClusterField
+    from lvkit.render.glyph import (
+        ClusterConstantGlyph,
+        RefnumGlyph,
+        TypeTerminalGlyph,
+    )
+    from lvkit.render.nodes import _cluster_value_glyph
+    from lvkit.render.style import wire_style
+
+    inner_cluster_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="status", type=LVType(kind=LVTypeKind.PRIMITIVE))],
+    )
+    refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UserEvent",
+        element_type=inner_cluster_type,
+    )
+    outer_type = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="EventRef", type=refnum_type)],
+    )
+
+    glyph = _cluster_value_glyph(outer_type, None, False, None)
+    assert isinstance(glyph, ClusterConstantGlyph)
+    (name, field_glyph), = glyph.fields
+    assert name == "EventRef"
+    assert isinstance(field_glyph, RefnumGlyph)
+    assert field_glyph.kind == "UserEvent"
+    assert not isinstance(field_glyph, ClusterConstantGlyph)
+    assert isinstance(field_glyph.terminal, TypeTerminalGlyph)
+    assert field_glyph.terminal.text == ""
+    assert field_glyph.terminal.color == wire_style(inner_cluster_type).color
+
+    # A registered SCALAR payload (e.g. a string) shows its real mnemonic.
+    string_refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="Queue",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+    )
+    scalar_outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Q", type=string_refnum_type)],
+    )
+    glyph2 = _cluster_value_glyph(scalar_outer, None, False, None)
+    assert isinstance(glyph2, ClusterConstantGlyph)
+    (name2, field_glyph2), = glyph2.fields
+    assert name2 == "Q"
+    assert isinstance(field_glyph2, RefnumGlyph)
+    assert isinstance(field_glyph2.terminal, TypeTerminalGlyph)
+    assert field_glyph2.terminal.text == "abc"
+
+    # An ordinary refnum with NO registered payload draws the frame + kind
+    # symbol with no terminal at all — never reinterpreted as a cluster or
+    # wrapped with an empty badge.
+    plain_refnum_type = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="LVObjCtl"
+    )
+    plain_outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="Plain", type=plain_refnum_type)],
+    )
+    glyph3 = _cluster_value_glyph(plain_outer, None, False, None)
+    assert isinstance(glyph3, ClusterConstantGlyph)
+    (name3, field_glyph3), = glyph3.fields
+    assert name3 == "Plain"
+    assert isinstance(field_glyph3, RefnumGlyph)
+    assert field_glyph3.kind == "LVObjCtl"
+    assert field_glyph3.terminal is None
+    assert not isinstance(field_glyph3, ClusterConstantGlyph)
 
 
 def test_pass_through_mux_is_not_a_bundle_glyph():
@@ -4272,6 +5409,290 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
         id="VI::10", vi_path="VI", node_type="propNode", name="Property Node"
     )
     assert _property_node_glyph(empty) is None
+
+
+def test_implicit_property_node_shows_target_name_and_type_color_bar():
+    """An IMPLICIT property node (task #51 / reference image #69) — one
+    permanently bound to a specific front-panel control, discriminated by
+    ``bound_control_uid`` (see ``parser.node_types.PropertyNode``'s class
+    docstring; NEVER inferred from the label text or wiring) — draws the
+    BOUND CONTROL's own name as its header (from the propNode's own heap
+    ``<label>``, never the object class) plus a TYPE-COLOR BAR in that
+    control's wire color. An EXPLICIT node (no ``bound_control_uid``) is
+    completely unaffected — same assertions as the sibling explicit test
+    above."""
+    from lvkit.models import PropertyDef, Terminal
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.nodes import _property_node_glyph
+    from lvkit.render.style import wire_style
+
+    def term(idx, direction, ut):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
+        )
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    node = PrimitiveNode(
+        id="VI::16295",
+        vi_path="VI",
+        node_type="propNode",
+        name="Abort",
+        label="Abort",
+        object_name="Bool",
+        properties=[PropertyDef(name="Disabled")],
+        terminals=[
+            term(0, "input", "Refnum"),  # reference in (unwired, implicit)
+            term(1, "output", "Refnum"),  # reference out
+            term(2, "input", "NumUInt8"),  # Disabled -> write
+        ],
+        property_value_terminal_ids=["VI::2"],
+        bound_control_uid="10449",
+        bound_control_type=bool_type,
+    )
+    glyph = _property_node_glyph(node)
+    assert isinstance(glyph, PropertyNodeGlyph)
+    assert glyph.is_implicit is True
+    assert glyph.target_name == "Abort"
+    assert glyph.bar_color == wire_style(bool_type).color
+
+    # An implicit node whose bound control's class isn't reconstructible
+    # (bound_control_type is None) still shows the target name, just no bar
+    # — never a guessed color. PrimitiveNode is a pydantic model, not a
+    # dataclass -- model_copy(update=...) is its "replace".
+    unresolved = node.model_copy(update={"id": "VI::16296", "bound_control_type": None})
+    glyph2 = _property_node_glyph(unresolved)
+    assert isinstance(glyph2, PropertyNodeGlyph)
+    assert glyph2.is_implicit is True
+    assert glyph2.target_name == "Abort"
+    assert glyph2.bar_color is None
+
+    # EXPLICIT (no bound_control_uid): unaffected, same as the plain
+    # class-header form verified above.
+    explicit = node.model_copy(
+        update={
+            "id": "VI::1110",
+            "label": None,
+            "bound_control_uid": "",
+            "bound_control_type": None,
+        }
+    )
+    glyph3 = _property_node_glyph(explicit)
+    assert isinstance(glyph3, PropertyNodeGlyph)
+    assert glyph3.is_implicit is False
+    assert glyph3.target_name == ""
+    assert glyph3.bar_color is None
+    assert glyph3.class_name == "Bool"
+
+
+def test_property_node_glyph_draws_bar_only_when_implicit():
+    """``PropertyNodeGlyph.draw()`` draws the header text (target name when
+    implicit, ``⚙ <class>`` otherwise) and, ONLY for an implicit node with a
+    resolved ``bar_color``, a solid color bar under the header — never for
+    an explicit node, and never a guessed color when unresolved."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 90.0, 68.0)
+
+    implicit = PropertyNodeGlyph(
+        rows=(("Disabled", False),),
+        class_name="Bool",
+        is_implicit=True,
+        target_name="Abort",
+        bar_color="#4a9c3e",
+    )
+    b1 = SvgBackend()
+    implicit.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert ">Abort<" in svg1
+    assert "⚙" not in svg1  # target-name header, never the class gear icon
+    assert 'fill="#4a9c3e"' in svg1  # the type-color bar
+
+    explicit = PropertyNodeGlyph(
+        rows=(("Disabled", False),), class_name="Bool", is_implicit=False,
+    )
+    b2 = SvgBackend()
+    explicit.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "⚙ Bool" in svg2
+    assert 'fill="#4a9c3e"' not in svg2
+
+    # Implicit but unresolved bar_color: target name shows, no bar drawn.
+    unresolved = PropertyNodeGlyph(
+        rows=(("Disabled", False),),
+        class_name="Bool",
+        is_implicit=True,
+        target_name="Abort",
+        bar_color=None,
+    )
+    b3 = SvgBackend()
+    unresolved.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert ">Abort<" in svg3
+    assert svg3.count("<rect") == 1  # the outer box only -- no bar rect drawn
+
+
+def test_gtr_abort_property_node_renders_implicit_with_color_bar():
+    """Real-corpus check (task #51 / reference image #69): GTR's "Abort"
+    boolean property node (heap uid 16295) renders IMPLICIT — header
+    "Abort" (the bound control's own name), a green (Boolean) type-color
+    bar, never the "⚙ Bool" class header."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+    from lvkit.render.style import wire_style
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::16295")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Abort property node not in scene"
+    assert isinstance(target.glyph, PropertyNodeGlyph)
+    assert target.glyph.is_implicit is True
+    assert target.glyph.target_name == "Abort"
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    assert target.glyph.bar_color == wire_style(bool_type).color
+    assert target.glyph.rows == (("Disabled", False),)
+
+
+def test_explicit_property_node_in_corpus_keeps_class_header():
+    """Real-corpus check: "Set Front Panel Object Control Value.vi"'s
+    VI-reference property node (heap uid 1110) is EXPLICIT (no bound-control
+    ``<ddo>``) and renders EXACTLY as before — "⚙ VI" class header, no
+    target name, no color bar."""
+    from lvkit.render.glyph import PropertyNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    explicit_vi = Path(
+        ".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/"
+        "Set Front Panel Object Control Value.vi"
+    )
+    loaded = _load_graph(explicit_vi)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {explicit_vi}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::1110")
+        ),
+        None,
+    )
+    assert target is not None, "explicit VI-reference property node not in scene"
+    assert isinstance(target.glyph, PropertyNodeGlyph)
+    assert target.glyph.is_implicit is False
+    assert target.glyph.target_name == ""
+    assert target.glyph.bar_color is None
+    assert target.glyph.class_name == "VI"
+
+
+def test_event_reg_node_glyph_draws_growable_rows_and_grow_handle():
+    """``_event_reg_node_glyph``/``EventRegNodeGlyph`` (task #56): a
+    Register-For-Events node draws a header naming this node's own
+    heap-recorded name (never "eventRegNode", the raw class), one "event N"
+    row per registered source (always a LEFT input arrow — an event source
+    is registered ON, never read back), and a "▼" grow-handle on the LAST
+    row. No properties -> None, so the caller falls back to the plain box."""
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import EventRegNodeGlyph
+    from lvkit.render.nodes import _event_reg_node_glyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    def term(idx, direction, ut, ref_type=None):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(
+                kind=LVTypeKind.PRIMITIVE, underlying_type=ut, ref_type=ref_type
+            ),
+        )
+
+    node = PrimitiveNode(
+        id="VI::700",
+        vi_path="VI",
+        node_type="eventRegNode",
+        name="Reg Events",
+        object_name="Reg Events",
+        terminals=[
+            term(0, "input", "Refnum", ref_type="EventReg"),
+            term(1, "output", "Refnum", ref_type="EventReg"),
+            term(2, "input", "Cluster"),
+            term(3, "output", "Cluster"),
+            term(4, "input", "Refnum", ref_type="UserEvent"),
+            term(5, "input", "Refnum", ref_type="UserEvent"),
+        ],
+        event_row_terminal_ids=["VI::4", "VI::5"],
+    )
+    glyph = _event_reg_node_glyph(node)
+    assert isinstance(glyph, EventRegNodeGlyph)
+    assert glyph.row_count == 2
+    assert glyph.class_name == "Reg Events"
+    # The resolved row label is pinned onto each row's own terminal, same
+    # hover-tooltip pattern as PropertyNode's property names.
+    assert node.terminals[4].display_name == "event 1"
+    assert node.terminals[5].display_name == "event 2"
+
+    bounds = (0.0, 0.0, 100.0, 60.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "⚙ Reg Events" in svg
+    assert ">event 1<" in svg and ">event 2<" in svg
+    assert svg.count(">▼<") == 1  # grow handle on the LAST row only
+
+    # No growable rows -> None (falls back to the plain labeled box).
+    empty = PrimitiveNode(
+        id="VI::701", vi_path="VI", node_type="eventRegNode", name="Reg Events"
+    )
+    assert _event_reg_node_glyph(empty) is None
+
+
+def test_gtr_eventreg_node_renders_with_real_name_and_row_count():
+    """Real-corpus check (task #56 / reference image #68): GTR's
+    "eventRegNode" (heap uid 11756) renders with its OWN heap-recorded name
+    ("Reg Events", from ``<nodeName>``, never the raw "eventRegNode" class)
+    and exactly 1 growable "event N" row — the real per-VI registered-event
+    count from the heap's ``<dcoList>``, not a hard-coded guess."""
+    from lvkit.render.glyph import EventRegNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::11756")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's eventRegNode not in scene"
+    assert isinstance(target.glyph, EventRegNodeGlyph)
+    assert target.glyph.class_name == "Reg Events"
+    assert target.glyph.row_count == 1
 
 
 def test_compact_array_terminal_brackets_element_type():

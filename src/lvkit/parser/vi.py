@@ -34,6 +34,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .flags import is_indicator, is_inverted_terminal, is_output_terminal
+from .fp_heap_type import reconstruct_control_lvtype
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -63,7 +64,7 @@ from .models import (
     ParsedWire,
     SelectorTable,
 )
-from .node_types import parse_node
+from .node_types import PropertyNode, parse_node
 from .nodes import (
     extract_case_structures,
     extract_constants,
@@ -373,6 +374,7 @@ def _parse_block_diagram(
     root = tree.getroot()
 
     nodes = _extract_nodes(root)
+    _resolve_property_node_bound_types(nodes, fp_xml)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
@@ -611,6 +613,34 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
             seen_uids.add(uid)
 
     return nodes
+
+
+def _resolve_property_node_bound_types(
+    nodes: list[ParsedNode], fp_xml: Path | str | None
+) -> None:
+    """Resolve each IMPLICIT ``PropertyNode``'s ``bound_control_type`` from
+    the FRONT-PANEL heap (see ``PropertyNode``'s class docstring for the
+    ``bound_control_uid`` discriminator) -- in-place, mutating ``nodes``.
+
+    This is the one place render's "implicit vs explicit" property-node
+    distinction touches the front-panel heap: done here at PARSE time (this
+    module owns both heaps), never in ``render/``, which only ever reads the
+    already-decoded graph/``Layout`` (see ``layout.py``'s own module
+    docstring). The FP root is parsed at most ONCE per VI, only when at
+    least one property node actually needs it."""
+    bound: list[PropertyNode] = [
+        n for n in nodes if isinstance(n, PropertyNode) and n.bound_control_uid
+    ]
+    if not bound or not fp_xml:
+        return
+    fp_path = Path(fp_xml)
+    if not fp_path.exists():
+        return
+    fp_root = ET.parse(fp_path).getroot()
+    for prop_node in bound:
+        ddo = fp_root.find(f".//*[@uid='{prop_node.bound_control_uid}']")
+        if ddo is not None:
+            prop_node.bound_control_type = reconstruct_control_lvtype(ddo)
 
 
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:

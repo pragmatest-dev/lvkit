@@ -24,7 +24,8 @@ import ast
 import functools
 import logging
 import re
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
@@ -50,6 +51,7 @@ from ..graph.op_walk import (
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.layout import ClusterGeom, RefnumPayload
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -68,13 +70,16 @@ from .glyph import (
     BundleByNameGlyph,
     BundleGlyph,
     CenteredSvgGlyph,
+    ClassGlyph,
     ClusterConstantGlyph,
     CompoundArithGlyph,
     ConstantGlyph,
     ControlRefConstGlyph,
     ConvertGlyph,
+    DimmedGlyph,
     ErrorClusterGlyph,
     EventDataGlyph,
+    EventRegNodeGlyph,
     FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
@@ -83,7 +88,10 @@ from .glyph import (
     InvokeNodeGlyph,
     LabelGlyph,
     LocalVariableGlyph,
+    PathGlyph,
     PropertyNodeGlyph,
+    RefnumGlyph,
+    TypeTerminalGlyph,
     UnbundleGlyph,
     VariantGlyph,
     WrappedBoxGlyph,
@@ -338,12 +346,32 @@ class GlyphContext:
 
     Deliberately small: resolvers work off the graph node itself plus the
     owning graph/VI (to look up a SubVI's own source path). They never see
-    the ``Scene``/``RenderNode`` or heap geometry — a glyph's shape doesn't
-    depend on where it sits on the diagram.
+    the ``Scene``/``RenderNode`` — a glyph's shape doesn't depend on where it
+    sits on the diagram.
+
+    ``cluster_field_geom``/``array_element_cluster`` are the one exception: a
+    cluster's own INTERNAL shape (each field's real value/label rect) comes
+    from the heap, keyed by the owning constant's raw uid (``node.id`` with
+    the ``"{vi}::"`` qualifier stripped) — not its position, so it fits the
+    same "shape, not placement" contract as ``node.lv_type``/``node.value``.
+    ``array_element_cluster`` is the same geometry for an array constant's
+    cluster-typed ELEMENT (one shared shape — every visible row draws it).
+    ``refnum_expanded`` is the raw uids of TOP-LEVEL data-typed refnum
+    constants whose type-display is EXPANDED (see
+    ``layout._refnum_type_display_expanded``) — a cluster FIELD carries the
+    same signal on its own ``ClusterFieldGeom.refnum_expanded`` instead.
+    ``refnum_payload`` is the same idea for an EXPANDED refnum's registered
+    CLUSTER payload's real placement + geometry (``layout.RefnumPayload`` —
+    a cluster FIELD carries it on its own ``ClusterFieldGeom.
+    refnum_payload``).
     """
 
     graph: InMemoryVIGraph
     vi_name: str
+    cluster_field_geom: Mapping[str, ClusterGeom] = field(default_factory=dict)
+    array_element_cluster: Mapping[str, ClusterGeom] = field(default_factory=dict)
+    refnum_expanded: frozenset[str] = frozenset()
+    refnum_payload: Mapping[str, RefnumPayload] = field(default_factory=dict)
 
 
 class NodeGlyphResolver(Protocol):
@@ -794,7 +822,44 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
             term.display_name = resolved
         rows.append((name, is_read))
     class_name = (getattr(node, "object_name", None) or "").strip()
-    return PropertyNodeGlyph(rows=tuple(rows), class_name=class_name)
+    # IMPLICIT vs EXPLICIT (task #51 / reference image #69) -- see
+    # parser.node_types.PropertyNode's class docstring for the heap
+    # discriminator: ``bound_control_uid`` is set ONLY when this propNode
+    # carries its own direct ``<ddo>`` child (permanently bound to a
+    # specific front-panel control), never inferred from the label text.
+    is_implicit = bool(getattr(node, "bound_control_uid", ""))
+    target_name = (node.label or "").strip() if is_implicit else ""
+    bound_type = getattr(node, "bound_control_type", None)
+    bar_color = wire_style(bound_type).color if bound_type is not None else None
+    return PropertyNodeGlyph(
+        rows=tuple(rows),
+        class_name=class_name,
+        is_implicit=is_implicit,
+        target_name=target_name,
+        bar_color=bar_color,
+    )
+
+
+def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
+    """A Register-For-Events node glyph (task #56): a property-node-style
+    box with one growable "event N" row per registered event source
+    (``node.event_row_terminal_ids``, from the heap's ``<dcoList>`` -- the
+    SAME structural convention ``_property_node_glyph``'s
+    ``property_value_terminal_ids`` already uses). The header shows this
+    node's own heap-recorded name (``object_name``, from ``<nodeName>`` --
+    NEVER a hard-coded "Register For Events"/"Unregister For Events" guess).
+    Returns None when the node carries no growable rows, so the caller
+    falls back to the plain labeled box rather than an empty drawer."""
+    row_ids = getattr(node, "event_row_terminal_ids", None) or []
+    if not row_ids:
+        return None
+    by_id = {t.id: t for t in node.terminals}
+    for i, tid in enumerate(row_ids):
+        term = by_id.get(tid)
+        if term is not None and term.display_name is None:
+            term.display_name = f"event {i + 1}"
+    class_name = (getattr(node, "object_name", None) or "").strip()
+    return EventRegNodeGlyph(row_count=len(row_ids), class_name=class_name)
 
 
 def _row_terminal_present(term: Terminal | None) -> bool:
@@ -911,6 +976,8 @@ class OriginalGlyphResolver:
             return _property_node_glyph(node)
         if node.node_type == "invokeNode":
             return _invoke_node_glyph(node)
+        if node.node_type == "eventRegNode":
+            return _event_reg_node_glyph(node)
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)
@@ -1018,6 +1085,8 @@ def _leaf_const_glyph(
     lv_type: LVType | None,
     raw: object,
     display_format: str | None = None,
+    refnum_expanded: bool = False,
+    refnum_payload: RefnumPayload | None = None,
 ) -> Glyph:
     """One non-cluster constant's glyph, from its type + raw value. Shared by
     top-level constants and by each field of a composed cluster constant.
@@ -1026,7 +1095,14 @@ def _leaf_const_glyph(
     numeric display-format string (top-level constants only for now — a
     cluster constant's individual FIELDS carry their own format too, but
     extracting those isn't implemented, so field callers pass None and get
-    the default decimal display; see ``ParsedConstant.display_format``)."""
+    the default decimal display; see ``ParsedConstant.display_format``).
+
+    ``refnum_expanded`` is the heap's own recorded expanded/compact
+    display state for a data-typed refnum (``layout.ClusterFieldGeom.
+    refnum_expanded`` / ``Layout.refnum_expanded`` — never inferred here from
+    size). ``refnum_payload`` is that refnum's registered CLUSTER payload's
+    real placement + geometry (``layout.ClusterFieldGeom.refnum_payload`` /
+    ``Layout.refnum_payload``) — consulted only when ``refnum_expanded``."""
     fam = type_family(lv_type)
     if fam == "variant":
         return VariantGlyph()
@@ -1046,20 +1122,90 @@ def _leaf_const_glyph(
             lv_type, value_raw, display_format
         ) or _format_const(value_raw)
     elif fam == "string":
-        # Show the bare text (quotes/escapes are a codegen artifact); empty
-        # for an unset field.
+        # Show the bare text (quotes/escapes are a codegen artifact); an unset
+        # field is genuinely empty (an empty string control), drawn below.
         value = string_const_display(raw) if raw is not None else ""
+    elif fam == "path":
+        # A path control is visually identifiable even when unset — a
+        # folder mark, never a featureless colored rectangle.
+        return PathGlyph(string_const_display(raw) if raw is not None else "", color)
+    elif (
+        lv_type is not None
+        and lv_type.underlying_type == "MeasureData"
+        and lv_type.measure_flavor == "TimeStamp"
+    ):
+        # A Timestamp constant (heap ddo class "absTime", graph
+        # underlying_type "MeasureData" with measure_flavor "TimeStamp" —
+        # verified against GTR's "StartTestTime" field) used to fall through
+        # to the generic leaf and draw a blank box (raw is None for an
+        # unset field). Show it like a numeric constant — LabVIEW's own
+        # default for an unset timestamp is 0.0 (the epoch), the same
+        # default codegen emits (see type_defaults._python_default_for_type)
+        # — never a blank box.
+        value = _format_const(raw) if raw is not None else "0.0"
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
-        # A refnum constant is a CLASS/LVObject constant (or a null refnum):
-        # label it by its class name, never the placeholder raw value the parser
-        # stores (e.g. "Refnum(1)"). Keyed on underlying_type, NOT the "refnum"
-        # family — a CLASS refnum has fam=="unknown" (type_family reserves
-        # "refnum" for GENERIC refs, whose wire is reference-green). Same rule as
-        # a class refnum terminal — see style.lv_type_label. The name word-wraps
-        # AND shrinks to fill the box (fit=True) instead of truncating.
-        return ConstantGlyph(lv_type_label(lv_type), color, fit=True)
+        # A CLASS/LVObject refnum (``classname`` set) is a class instance,
+        # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no
+        # kind symbol) — LabVIEW draws a class as a CUBE (issue #45's
+        # class-field bug: this used to be bare "LabVIEW Object"/class-name
+        # TEXT). Keyed on ``classname``, NOT the "refnum" family — a class
+        # refnum has fam=="unknown" (type_family reserves "refnum" for
+        # GENERIC refs, whose wire is reference-green; a class carries its
+        # OWN pen — see style.wire_style).
+        if lv_type.classname:
+            return ClassGlyph(lv_type_label(lv_type), color)
+        # EVERY generic refnum (queue / notifier / user event / menu / VI-
+        # Server / control ref / …) reads as a refnum — LabVIEW's own visual
+        # grammar for "this is a reference": a dog-ear frame + a kind symbol
+        # (from ``ref_type``) + a TERMINAL showing the registered payload's
+        # TYPE. A refnum's payload is a TYPE, never editable data — the
+        # payload only ever appears as real VALUES elsewhere (e.g. an Event
+        # Structure's own data node), so the terminal NEVER draws value
+        # glyphs (F/0/testPass) directly as a field's own value.
+        terminal: Glyph | None = None
+        terminal_rect: tuple[float, float, float, float] | None = None
+        if lv_type.element_type is not None:
+            payload_fam = type_family(lv_type.element_type)
+            if (
+                refnum_expanded
+                and refnum_payload is not None
+                and lv_type.element_type.fields
+                and payload_fam in ("cluster", "error_cluster")
+            ):
+                # EXPANDED (the heap's OWN recorded display state — see
+                # ClusterFieldGeom.refnum_expanded): the payload cluster's
+                # own REAL per-field elements (recursed through the SAME
+                # composer a genuine nested cluster field uses), at their
+                # real heap placement within this refnum's box
+                # (ClusterFieldGeom.refnum_payload) — dimmed (a TYPE
+                # display, not real data), never flattened "name: TYPE" text.
+                terminal = DimmedGlyph(
+                    _cluster_value_glyph(
+                        lv_type.element_type,
+                        None,
+                        payload_fam == "error_cluster",
+                        refnum_payload.geom,
+                    )
+                )
+                terminal_rect = refnum_payload.offset
+            else:
+                # COMPACT: a small type-mnemonic badge for the registered
+                # payload (verified against reference renders of a User
+                # Event and a Queue control). A cluster payload has no
+                # single-token mnemonic (see ``type_repr``), so its badge is
+                # an empty box in the payload's own wire color.
+                terminal = TypeTerminalGlyph(
+                    type_repr(lv_type.element_type),
+                    wire_style(lv_type.element_type).color,
+                )
+        return RefnumGlyph(
+            lv_type.ref_type, color, terminal=terminal, terminal_rect=terminal_rect
+        )
     else:
         value = str(raw) if raw is not None else ""
+    # An empty/unset string is just EMPTY — an empty string control, not a
+    # watermark. (Its type is identified elsewhere: the string wire color and
+    # the context-help field/type listing, never fake "abc" text in the box.)
     # String constants word-wrap to fill their (already content-sized) box.
     return ConstantGlyph(value or "", color, multiline=fam == "string")
 
@@ -1085,25 +1231,113 @@ def _cluster_field_values(value: object) -> dict[str, object]:
     return {}
 
 
-def _cluster_const_glyph(node: ConstantNode, is_error: bool) -> Glyph | None:
-    """Compose a cluster constant from its fields' own leaf glyphs. None when
-    the cluster type carries no field info (nothing to compose from)."""
-    fields = getattr(node.lv_type, "fields", None) or []
-    if not fields:
-        return None
-    values = _cluster_field_values(node.value)
-    composed = tuple(
-        (f.name, _leaf_const_glyph(f.type, values.get(f.name))) for f in fields
-    )
+def _cluster_value_glyph(
+    lv_type: LVType,
+    value: object,
+    is_error: bool,
+    cluster_geom: ClusterGeom | None = None,
+    collapsed: bool = False,
+) -> Glyph:
+    """Compose ONE cluster-typed value's glyph from its fields' own glyphs —
+    shared by a top-level cluster CONSTANT (``_cluster_const_glyph``) and an
+    array's cluster-typed ELEMENT (``_element_glyph``), so both draw a
+    NESTED cluster field the same way: a field whose OWN type IS a cluster
+    (``fam in ("cluster", "error_cluster")``) recurses into this SAME
+    function (never flattened to raw text), carrying that field's own
+    ``ClusterFieldGeom.nested`` as ITS ``cluster_geom`` — a true box-in-box,
+    drawn recursively by ``ClusterConstantGlyph`` (each level fits its own
+    geometry into whatever rect its PARENT gives it).
+
+    A field whose type is something ELSE (a ``refnum``) that happens to
+    carry a registered payload TYPE — e.g. a User Event refnum's event-data
+    cluster — is NOT recursed HERE: a refnum's payload is a TYPE, not a
+    value, so it's never drawn as an editable nested cluster (F/0/testPass
+    value glyphs) regardless of whether the heap draws that refnum compact
+    (a dog-ear + kind symbol + type-mnemonic badge) or EXPANDED (the
+    payload's own REAL per-field elements, dimmed, at their real heap
+    placement — LabVIEW records BOTH as genuine per-field states, see
+    ``ClusterFieldGeom.refnum_expanded``/``refnum_payload``; neither is a
+    value cluster). That's ``_leaf_const_glyph``'s job (see its ``Refnum``
+    branch) — which, for an EXPANDED refnum, calls back into THIS function
+    to compose the payload's own elements, so the two functions form one
+    mutually-recursive element renderer keyed purely on type, not a
+    per-field special case.
+
+    ``cluster_geom`` is this cluster's real heap geometry (``None`` when the
+    heap-geometry pass couldn't decode one) — the glyph falls back to its own
+    small-box/uniform-row draw. ``collapsed`` only ever applies to a real
+    top-level ConstantNode ("View As Icon"); a nested field or array element
+    has no such flag and always draws expanded."""
+    fields = lv_type.fields or []
+    values = _cluster_field_values(value)
+    geom_by_name = {g.name: g for g in cluster_geom.fields} if cluster_geom else {}
+    composed = []
+    for f in fields:
+        field_value = values.get(f.name)
+        field_fam = type_family(f.type)
+        if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
+            field_geom = geom_by_name.get(f.name)
+            composed.append((
+                f.name,
+                _cluster_value_glyph(
+                    f.type,
+                    field_value,
+                    field_fam == "error_cluster",
+                    field_geom.nested if field_geom else None,
+                ),
+            ))
+        elif field_fam == "array":
+            # An array-typed FIELD used to fall through to the generic leaf
+            # glyph (no array case there) and draw a blank box — real
+            # indexed element cells + a real default element now, same as a
+            # top-level array constant. No per-field element geometry is
+            # extracted for a NESTED array field, so this draws at the
+            # synthetic fixed row height (ArrayConstantGlyph's documented
+            # fallback), and its index-control click targets aren't
+            # uniquely scoped (no owning node uid available at this level) —
+            # a visual completeness fix, not new interactivity.
+            composed.append((
+                f.name, _array_value_glyph(f.type, field_value, "")
+            ))
+        else:
+            field_geom = geom_by_name.get(f.name)
+            composed.append((
+                f.name,
+                _leaf_const_glyph(
+                    f.type,
+                    field_value,
+                    refnum_expanded=field_geom.refnum_expanded if field_geom else False,
+                    refnum_payload=field_geom.refnum_payload if field_geom else None,
+                ),
+            ))
     summary = "\n".join(
         f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
     )
     return ClusterConstantGlyph(
-        composed,
+        tuple(composed),
         is_error=is_error,
-        collapsed=node.collapsed,
+        collapsed=collapsed,
         value_summary=summary,
-        border_color=wire_style(node.lv_type).color,
+        border_color=wire_style(lv_type).color,
+        cluster_geom=cluster_geom,
+    )
+
+
+def _cluster_const_glyph(
+    node: ConstantNode,
+    is_error: bool,
+    cluster_geom: ClusterGeom | None = None,
+) -> Glyph | None:
+    """Compose a cluster constant from its fields' own leaf glyphs. None when
+    the cluster type carries no field info (nothing to compose from).
+    ``cluster_geom`` is the constant's real heap geometry, when the heap
+    carried a decodable ``paneHierarchy`` — None for anything else, and the
+    glyph falls back to its own small-box/uniform-row draw."""
+    lv_type = node.lv_type
+    if lv_type is None or not lv_type.fields:
+        return None
+    return _cluster_value_glyph(
+        lv_type, node.value, is_error, cluster_geom, node.collapsed
     )
 
 
@@ -1123,40 +1357,72 @@ def _array_const_values(value: object) -> list[object]:
     return []
 
 
-def _element_glyph(element_type: LVType | None, value: object) -> Glyph:
+def _element_glyph(
+    element_type: LVType | None,
+    value: object,
+    cluster_geom: ClusterGeom | None = None,
+) -> Glyph:
     """One array element's glyph, from the element TYPE + its value. A cluster
-    element composes its fields (so an array of clusters draws each cluster in
-    its cell); anything else is a leaf constant glyph."""
+    element composes its fields — recursing into any NESTED cluster field the
+    same way a top-level cluster constant does (``_cluster_value_glyph``), so
+    an array of clusters draws each cluster (and its own nested clusters) as
+    real box-in-box geometry, not flattened text; anything else is a leaf
+    constant glyph. ``cluster_geom`` is the element's real heap geometry
+    (shared by every element — arrays are homogeneous), when known."""
     fam = type_family(element_type)
     if fam in ("cluster", "error_cluster") and element_type and element_type.fields:
-        vals = _cluster_field_values(value)
-        composed = tuple(
-            (f.name, _leaf_const_glyph(f.type, vals.get(f.name)))
-            for f in element_type.fields
-        )
-        return ClusterConstantGlyph(
-            composed,
-            is_error=fam == "error_cluster",
-            border_color=wire_style(element_type).color,
+        return _cluster_value_glyph(
+            element_type, value, fam == "error_cluster", cluster_geom
         )
     return _leaf_const_glyph(element_type, value)
 
 
-def _array_const_glyph(node: ConstantNode) -> Glyph:
-    """Compose an array constant: one element glyph per value (from the element
-    type), drawn by :class:`ArrayConstantGlyph` as an indexed, scrollable column
-    of cells — never the raw ``[…]`` list repr."""
-    lv_type = node.lv_type
+def _array_value_glyph(
+    lv_type: LVType | None,
+    raw: object,
+    struct_uid: str,
+    cluster_geom: ClusterGeom | None = None,
+) -> Glyph:
+    """Compose an array-typed VALUE's glyph: one element glyph per value
+    (from the element type), drawn by :class:`ArrayConstantGlyph` as an
+    indexed, scrollable column of cells — never the raw ``[…]`` list repr
+    and never a blank box. Shared by a top-level array CONSTANT
+    (``_array_const_glyph``) and a cluster FIELD whose own type is an array
+    (``_cluster_value_glyph`` — an array field used to fall through to the
+    generic leaf glyph, which has no array case, and drew an empty box).
+    ``cluster_geom`` is the element's real heap geometry when it's a cluster
+    (None otherwise, or when unavailable — e.g. a nested array field, whose
+    element geometry the layout pass doesn't extract); the array glyph then
+    draws every visible row at that fixed REAL size instead of a synthetic
+    fixed row height.
+
+    ``default_element`` is ALWAYS built from the element TYPE at its type
+    default (``value=None``) — even when the array has ZERO elements —
+    exactly the same "unset" convention ``_leaf_const_glyph``/
+    ``_cluster_value_glyph`` already use for an unset scalar or cluster
+    field. LabVIEW shows a DISABLED default-valued element for every unset
+    row (an empty array shows one at index 0), never a blank rect."""
     element_type = lv_type.element_type if lv_type is not None else None
-    raw = node.raw_value if node.value is None else node.value
     values = _array_const_values(raw)
-    elements = tuple(_element_glyph(element_type, v) for v in values)
+    elements = tuple(_element_glyph(element_type, v, cluster_geom) for v in values)
+    default_element = _element_glyph(element_type, None, cluster_geom)
     return ArrayConstantGlyph(
         elements=elements,
         element_color=wire_style(lv_type).color,
-        struct_uid=node.id,
+        struct_uid=struct_uid,
         dimensions=(lv_type.dimensions if lv_type is not None else 1) or 1,
+        cell_w=cluster_geom.width if cluster_geom is not None else None,
+        cell_h=cluster_geom.height if cluster_geom is not None else None,
+        default_element=default_element,
     )
+
+
+def _array_const_glyph(
+    node: ConstantNode, cluster_geom: ClusterGeom | None = None
+) -> Glyph:
+    """A top-level array CONSTANT's glyph — see ``_array_value_glyph``."""
+    raw = node.raw_value if node.value is None else node.value
+    return _array_value_glyph(node.lv_type, raw, node.id, cluster_geom)
 
 
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
@@ -1206,7 +1472,12 @@ class GeneratedGlyphResolver:
         if isinstance(node, ConstantNode):
             fam = type_family(node.lv_type)
             if fam in ("cluster", "error_cluster"):
-                composed = _cluster_const_glyph(node, is_error=fam == "error_cluster")
+                raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
+                composed = _cluster_const_glyph(
+                    node,
+                    is_error=fam == "error_cluster",
+                    cluster_geom=ctx.cluster_field_geom.get(raw_uid),
+                )
                 if composed is not None:
                     return composed
                 # No field info to compose from: an error cluster keeps its
@@ -1218,9 +1489,19 @@ class GeneratedGlyphResolver:
                     fields=(), border_color=wire_style(node.lv_type).color
                 )
             if fam == "array":
-                return _array_const_glyph(node)
+                raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
+                return _array_const_glyph(
+                    node, ctx.array_element_cluster.get(raw_uid)
+                )
             raw = node.raw_value if node.value is None else node.value
-            return _leaf_const_glyph(node.lv_type, raw, node.display_format)
+            raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
+            return _leaf_const_glyph(
+                node.lv_type,
+                raw,
+                node.display_format,
+                refnum_expanded=raw_uid in ctx.refnum_expanded,
+                refnum_payload=ctx.refnum_payload.get(raw_uid),
+            )
         if isinstance(node, FormulaNode):
             return FormulaNodeGlyph(node.script or "")
         if isinstance(node, LocalVariableNode):

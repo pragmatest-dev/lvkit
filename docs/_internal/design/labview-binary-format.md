@@ -34,6 +34,89 @@ notes (behaviors) or other sections here.
 
 **How to apply:** Don't conflate sRN with propNode. sRN is wiring infrastructure for structure boundaries. propNode is the actual property get/set drawer.
 
+## A Property Node's own `<ddo>` child (task #51) distinguishes IMPLICIT (bound to a control) from EXPLICIT (wired reference) — draws differently either way
+
+A `propNode` element can carry a DIRECT `<ddo uid="...">` CHILD — a sibling of
+its own `<termList>`, never a part of it, never nested under any part —
+naming the FRONT-PANEL control it is permanently bound to. Verified on GTR's
+"Abort" boolean property node (`_BDHb.xml` uid 16295, `<ddo uid="10449"/>`,
+which resolves in `_FPHb.xml` to `<ddo class="stdBool" uid="10449">`, the
+"Abort" front-panel control) vs. "Set Front Panel Object Control Value.vi"'s
+VI-reference property node (uid 1110), which has NEITHER a `<ddo>` child NOR
+a `<label>` at all.
+
+**This is the SOLE discriminator between LabVIEW's two property-node forms**
+(never inferred from the label text or from wiring — those only corroborate):
+- **IMPLICIT** (`<ddo>` present): created by dragging a control's icon onto
+  the diagram, or Right-click control -> Create -> Property Node. Draws with
+  the BOUND CONTROL's own name as the header (from the propNode's own
+  `<label>` textRec, e.g. "Abort" — populated by the SAME `extract_label`
+  every node's display name already goes through) instead of the object
+  CLASS, and a TYPE-COLOR BAR (the bound control's wire color) under the
+  header — no reference (in/out) terminals thread through, since there's
+  nothing to wire.
+- **EXPLICIT** (no `<ddo>`): identity comes from a wired reference; draws
+  the object CLASS in the header (`⚙ <class>`) plus the reference/error
+  terminals, unchanged from before this fix.
+
+Independently corroborated by wiring on both verified instances: the
+implicit node's reference-IN terminal is UNWIRED (identity needs no wire);
+the explicit node's is wired. The heap's own `<ddo>` presence is used as the
+primary signal rather than wire state because it's the direct causal fact
+(LabVIEW records WHICH control this node is bound to), not a consequence
+that could theoretically be absent mid-edit on an explicit node.
+
+**Resolving the bound control's TYPE (for the color bar) stays entirely
+inside `parser/`, never touches `render/`:** `parser.vi.
+_resolve_property_node_bound_types` runs right after block-diagram node
+extraction (which already has `fp_xml` in hand — see `extract_fp_terminals`'s
+same-signature precedent), parses the FRONT-PANEL heap AT MOST ONCE per VI
+(only when some property node actually has a `bound_control_uid`), finds
+that uid's ddo, and reconstructs its `LVType` via the EXISTING
+`fp_heap_type.reconstruct_control_lvtype` (the same function the pre-VCTP
+fallback front-panel-terminal path already uses) — never a new heap reader.
+`render/nodes.py`'s `_property_node_glyph` then just reads the already-
+resolved `PrimitiveNode.bound_control_type` and calls `style.wire_style` on
+it, honoring `layout.py`'s "render never reads heap XML itself" rule. See
+`parser.node_types.PropertyNode`'s class docstring for the full field
+contract (`bound_control_uid`, `bound_control_type`).
+
+## `eventRegNode` (Register For Events, task #56) is a growable property-node-style node — its name and row count are BOTH heap-recorded, never hard-coded
+
+`eventRegNode` was previously unhandled (`get_display_name` had no entry,
+so it leaked the raw XML class as its label — a plain "eventRegNode" box).
+Its heap shape is a direct structural twin of `propNode`/`invokeNode`:
+
+- `<nodeName>` carries this node's OWN display name — verified `"Reg
+  Events"` on ALL 23 real corpus instances across 21 files (GTR's "Main
+  UI" uid 11756, a 5-row example in DCAF-DAQModule's "Register For
+  Events.vi" uid 110, etc.) — no `"Unreg Events"`/other variant found. The
+  fix reads this field directly (the SAME mechanism `PropertyNode`/
+  `InvokeNode` already use for `object_name`), so an "Unregister For
+  Events" node, if the heap ever names one differently, would render
+  correctly with ZERO special-casing — never a hard-coded "Register For
+  Events" guess.
+- `<termList>` holds 4 fixed `hGrowCItem` terms (2 in/out PAIRS, split by
+  TYPE, never position: the `Refnum` pair with `ref_type == "EventReg"` is
+  the event-registration-refnum in/out; the `Cluster{status,code,source}`
+  pair is the standard error in/out) plus N `eventRegItem` terms — ONE per
+  registered event source, each a GROWABLE row's own INPUT terminal (the
+  source refnum, e.g. `ref_type == "UserEvent"`, to register events on).
+- `<dcoList>` lists the `eventRegItem` dco uids in heap/row order — the
+  EXACT SAME convention `PropertyNode.dco_terminal_uids`/`InvokeNode.
+  row_terminal_uids` already use (see `_dco_list_terminal_uids`), so the
+  row COUNT is fully data-driven (GTR's instance: 1 row; DCAF's: 5).
+
+Render draws a property-node-style box: header (gear + the heap-recorded
+name) above one "event N" row per registered source (always a LEFT input
+arrow — an event source is registered ON, never read back) with a "▼"
+grow-handle on the LAST row (reference image #68). The registration-refnum
+and error terminals thread the box edges at the header level, placed by the
+scene from the node's real heap terminal geometry — not drawn by the glyph,
+same as `PropertyNodeGlyph`'s reference/error terminals. See
+`parser.node_types.EventRegNode`'s class docstring for the full field
+contract (`object_name`, `event_row_terminal_uids`).
+
 ## Flat sequence frames execute ALL contained nodes — unwired nodes still run and block frame completion
 <!-- was memory: feedback_sequence_frames -->
 
@@ -638,3 +721,236 @@ CHILD element (`ParsedFreeLabel.attach_uid`, `parser/nodes/free_label.py`) —
 that's the label pointing AT one of these `class="attachment"` elements by
 uid; the `class="attachment"` element itself is the thing this section
 describes, with its own bounds/image/internals in `zPlaneList`.
+
+## A cluster constant's `paneHierarchy`/`zPlaneList` carries every field's REAL geometry, in the front-panel typedef-editor's OWN (unrelated-scale) coordinate space — recovered by extent-normalizing, not by the pane's own `<origin>` (issue #45 reopened)
+
+A block-diagram cluster constant's `dco class="bDConstDCO"` → `ddo
+class="stdClust"` carries its own `<bounds>` (the real drawn box) and a
+`<paneHierarchy class="pane">` child. That pane's OWN `<partsList>` (5-6
+entries) is chrome only — a "Pane" caption + scrollbar-corner `cosm` parts —
+**not** the fields. The fields live in the pane's `<zPlaneList>`, one
+`SL__arrayElement` per field, `class` naming the field's control kind
+(`stdString` / `stdRefNum` / `stdBool` / `stdNum` / `stdPath` / `absTime` /
+`indArr` / `stdClust` for a NESTED cluster field / …). Each field element has
+the exact same shape as any top-level constant DDO: a `<bounds>` (the field's
+full box, caption included) and a `<partsList>` whose non-`label` parts union
+to the VALUE box (`_const_value_box`) and whose first `class="label"` part is
+the name caption (`_const_label_box`) — hidden when its `<objFlags>` bit
+`0x8` is set, exactly like `_LayoutBuilder._record_label_hidden`. Verified on
+Graphical Test Runner "Main UI" ddo uid 13666 ("SMUI Template App Data", 23
+fields): only 6 of 23 fields have a visible caption; the other 17 have their
+caption hidden and draw value-only.
+
+**The coordinate trap:** a field's own `<bounds>` are numbered in the
+typedef front-panel EDITOR's coordinate space (e.g. `(2000, 1000, 2020,
+1040)`, hundreds to thousands) — a completely different scale from the
+pane's own `<bounds>` (tens, e.g. `(3, 3, 121, 1028)` relative to the ddo's
+own origin) or its `<origin>` (a scroll-position field, `(334, -317)` on the
+verified example) — `<origin>` is NOT a translation offset into the field
+coordinate space and using it directly misplaces every field. The two
+spaces reconcile only through NORMALIZATION: the verified example's 23
+fields' COLLECTIVE extent (min/max over every field's value-box AND
+label-box rect) is **exactly** `118 × 1025` px — identical, to the pixel, to
+the pane's own real inner content area (`<bounds>` inset from the ddo's own
+origin: `121-3=118`, `1028-3=1025`). I.e. a cluster constant never scrolls;
+every field is shown, and the extent-to-pane-area ratio is the correct
+mapping scale (1.0 in every verified case — pure translation; implemented as
+`min(inner_w/extent_l, inner_h/extent_t)` so a future mismatched extent falls
+back to a uniform, non-distorting scale rather than a per-axis stretch).
+
+**Extracted geometry is relative, not absolute.** `_cluster_field_geoms`
+returns a `ClusterGeom` (`width`, `height` = the cluster's own real
+`_const_value_box` size; `fields` = each `ClusterFieldGeom`'s `value_rect`/
+`label_rect` relative to that box's OWN `(0, 0)` origin) — never pre-baked
+against a specific drawn position. A caller (the glyph, at draw time) fits
+this into whatever real box it's ACTUALLY drawing at via ONE uniform scale,
+`s = min(box_w / width, box_h / height)`, then translates: a field's
+on-screen rect is `(box_x1 + s*x1, box_y1 + s*y1, ...)`. At the top level
+(a cluster constant drawn at its own real heap box) `s` is always `1.0` —
+pure translation. This composes correctly across recursion levels without
+the extractor ever needing to know its caller's target box size.
+
+**Two heap shapes carry a nested cluster that the RENDERER actually
+recurses into — `_cluster_shape` finds both, generic over the field's own
+class:**
+
+1. **A field directly `class="stdClust"`** — recurse using the field
+   itself, into its own `<paneHierarchy>`/`<zPlaneList>` exactly like a
+   top-level ddo. Verified two levels deep in one VI (heap-uid chain
+   752→769→903: a `typeDef`-wrapped constant's inner `stdClust` PART 769 has
+   a field "test error", uid 903, itself `class="stdClust"`, with its own 3
+   sub-fields status/code/source).
+2. **A cluster used as a named `.ctl` typedef control** — the ddo's own
+   class is `"typeDef"`, and the real `stdClust` shape is embedded as ONE
+   `partsList` PART (identified by carrying its own `paneHierarchy`, never
+   by name/position) — `_cluster_shape` unwraps this transparently, so a
+   typedef-wrapped cluster constant gets full real geometry the same as a
+   bare one (no special-cased fallback).
+
+See `lvkit.parser.layout._cluster_shape` / `_cluster_field_geoms` for the
+implementation and
+`tests/test_parser.py::test_cluster_field_geoms_maps_real_field_geometry`
+and `test_array_element_cluster_geometry_typedef_wrapped` for fixtures
+covering both triggers plus the coordinate mismatch.
+
+**A THIRD heap shape exists: a data-typed refnum's own registered payload.**
+A control whose own class is something else entirely (verified:
+`class="stdRefNum"`) can carry a nested cluster (or scalar) as its own
+DIRECT `<ddo>` CHILD — not inside its `partsList`, a sibling of it — the
+SAME convention an array ddo's element control uses (see below). Verified
+on GTR's "SMUI Template App Data" cluster: a User Event refnum field
+(`ResultChangedRef`, real heap box height 206px) has a nested ddo (uid
+14006, `<bounds>(5, 31, 201, 106)` relative to the field's own origin —
+bounds `75×196`) that decodes to the SAME cluster type as the field's
+graph-level `LVType.element_type` (`kind=CLUSTER`, matching field names).
+
+**The refnum's real per-field heap `<bounds>` is genuine, per-field, and
+NEVER a size to compact or re-flow** — cross-checked against the field's
+`.ctl` typedef: some User Event refnums are truly EXPANDED in this VI
+(`ResultChangedRef` h=206, `SuiteChangedRef`/`TestStartedEventRef` h=83),
+others genuinely COMPACT (`AbortEventRef`/`ExitEventReference`/`TextStream`,
+h=48 each). The field's box size and position come straight from these
+real bounds, same as any other cluster field — `_cluster_field_geoms`,
+`ClusterFieldGeom.value_rect`/`label_rect`, and the cluster's
+extent-normalize scale are UNCHANGED for a refnum field.
+
+**What DOES vary, and is the actual heap-recorded signal, is whether the
+box's CONTENT draws "compact" (a small type-mnemonic badge) or "expanded"
+(the registered payload's own REAL per-field elements, dimmed, filling the
+box).** This is `_refnum_type_display_expanded` in `parser/layout.py`: the
+refnum's own `partsList` carries a `multiCosm` part (drawing the
+type-display's background) whose `<index>` is the discriminator — verified
+on all 5 `stdRefNum` instances in this VI: every EXPANDED one
+(`ResultChangedRef`, `SuiteChangedRef`, `TestStartedEventRef`) has
+`<index>1</index>` on that `multiCosm`; every COMPACT one (`AbortEventRef`,
+`ExitEventReference`, `TextStream`) omits `<index>` entirely (LabVIEW's own
+default, 0). The field's real `<bounds>` height independently agrees with
+this bit on every verified instance (expanded ones are taller), but the
+renderer reads the `<index>` directly rather than inferring expand/compact
+from size. Either state renders the payload as a TYPE, never as editable
+VALUE glyphs (F/0/testPass) — a refnum's payload data only ever appears
+elsewhere (e.g. an Event Structure's own data node).
+
+**LabVIEW is a visual language: every refnum draws as a clean-room dog-ear
+frame (a folded-corner box) + a kind symbol (from `LVType.ref_type`) + a
+TERMINAL showing the payload's TYPE — `render.glyphs.nodes.refnum_glyph.
+RefnumGlyph`** — never bare wrapped text ("UserEvent Refnum"). For the
+COMPACT case the terminal is a small `TypeTerminalGlyph` badge (the
+payload's `style.type_repr` mnemonic). For the EXPANDED case the terminal is
+the payload's own REAL per-field elements — composed by the SAME recursive
+`render.nodes._cluster_value_glyph` a genuine nested cluster field uses,
+wrapped `DimmedGlyph` (the established `lv-disabled-mask` wash) — positioned
+at the heap's OWN recorded placement within the refnum's box, never
+centered or invented: `parser.layout._refnum_payload_layout` reads the
+payload `<ddo>`'s own `<bounds>` (verified relative to the REFNUM's raw-
+bounds origin, the same "relative to the owning ddo's top-left" convention
+every `partsList` part uses) and expresses it as 0..1 FRACTIONS of the
+refnum's own native box (`RefnumPayload.offset`) — fractions survive ANY
+later uniform rescale of the refnum's drawn box exactly, since every scale
+this renderer ever applies is uniform (never per-axis). `RefnumPayload.geom`
+is the payload's own self-contained `ClusterGeom` (`_cluster_field_geoms`
+applied to the payload `<ddo>`, recursing exactly like a genuine nested
+cluster field's `ClusterFieldGeom.nested` does — including a further-nested
+GENUINE value cluster inside the payload, e.g. `ResultChangedRef`'s "test
+error" field, which still draws real box-in-box VALUE glyphs per rule 6:
+only a field whose OWN kind is CLUSTER ever draws editable-looking value
+content, dimmed here only because its PARENT terminal is).
+
+A class-typed field (`LVType.classname` set — verified heap ddo class
+`udClassDDO`) is NOT a `RefnumGlyph` at all: LabVIEW draws a class as a
+CUBE, not a reference frame, so it gets its own `render.glyphs.nodes.
+class_glyph.ClassGlyph` (a clean-room isometric-cube outline + the class's
+short name) — replacing the earlier bare "LabVIEW Object" text box.
+
+An EARLIER revision of this renderer recursed into the nested `<ddo>` and
+composed the field as a fully-expanded nested `ClusterConstantGlyph`
+showing VALUE glyphs — wrong regardless of expanded/compact state, since a
+refnum's payload is a type, not data. A maintainer review against
+reference LabVIEW renders (a compact User Event control and a compact
+Queue control) first corrected this toward "always compact, flattened
+'name: type' text rows for the expanded case" — also wrong on two counts:
+it doesn't match this VI's own heap (which genuinely records some refnums
+expanded, confirmed against the `.ctl` typedef), and LabVIEW never draws a
+control as spaced text — every element is a real positioned glyph. The
+current implementation reads the heap's own recorded bit (`<index>`) AND
+the payload's own real per-field geometry, and composes real recursive
+element glyphs at every level instead of assuming a fixed answer or
+flattening to text.
+
+**Per-kind refnum symbol + terminal chrome are verified against the
+maintainer's reference images (57/59 User Event, 58 Queue) AND, for kinds no
+reference image covers, against NI's own public docs.** The User Event kind
+symbol is a FILLED CIRCLE (`refnum_glyph._kind_user_event`) — an earlier
+arc/radar mark was wrong; 57 and 59 both clearly show a solid circle, and
+NI's own "Generate User Event" function icon (fetched from
+`unofficial-lvdocs.github.io/glang/GenEvent.gif` — a public mirror of the
+same NI-published `docs-be.ni.com` content) independently shows a circle
+with a small interior mark, confirming the outer shape. The compact
+`TypeTerminalGlyph` badge draws a DASHED border in the FIXED
+`Theme.refnum_terminal_border` pink, NOT the payload's own wire color — 57
+(string payload, "abc") and 59 (class payload, "OBJ") both draw the SAME
+dashed pink box, so it's fixed terminal chrome; the payload wire color tints
+only the mnemonic TEXT.
+
+For kinds with NO maintainer reference image, the actual LabVIEW pictograph
+was fetched from NI's public docs (via the `unofficial-lvdocs.github.io`
+mirror of `docs-be.ni.com` content — same clean-room source class the
+codebase already cites elsewhere, e.g. `scripts/build_ni_function_catalog.
+py`) and re-drawn as a simplified clean-room motif, never traced pixel-for-
+pixel:
+- **Queue** (`_kind_queue`): a 3-compartment comb with a line entering left
+  and an arrow exiting right — from the "Obtain Queue" function icon
+  (`glang/creatque.gif`), whose own pictograph is exactly this comb+arrow
+  shape (a stack of separate bars, the earlier guess, was wrong).
+- **Notifier** (`_kind_notifier`): an exclamation mark in a ring — from the
+  "Obtain Notifier" function icon (`glang/creatnot.gif`), a circled "!" (a
+  pennant-on-a-pole, the earlier guess, was wrong).
+- **Menu** (`_kind_menu`): 3 stacked horizontal bars of decreasing width, no
+  enclosing box — from the "Types of Refnum Controls" page's Menu Refnum
+  icon (`lvhowto/noloc_env_menuref.gif`), a menu-item list with no border.
+- **Generic fallback** (`_kind_generic`, covers `LVObjCtl`/`EventReg`/
+  `DataLog`/anything unmapped): a 2x2 grid with one cell filled — from the
+  same page's VI Refnum icon (`lvhowto/noloc_env_viref.gif`), a 2x2 grid
+  with one cell highlighted (the earlier ring+dot guess is replaced).
+
+Every `noloc_env_*ref.gif` icon on that NI docs page independently confirms
+the DOG-EAR (folded top-right corner) shape this renderer already uses for
+every refnum, at every kind — cross-validating that choice too.
+
+**No value glyph is ever a blank/typeless rectangle** (a blank box was the
+issue-#45 regression). Every leaf field identifies its type even when
+empty/unset (`render.nodes._leaf_const_glyph`): an empty STRING draws a
+DIMMED "abc" type-placeholder (`ConstantGlyph.dim` → `Theme.disabled_mask`,
+never mistaken for real data); a PATH draws a clean-room folder mark
+(`render.glyphs.nodes.path_glyph.PathGlyph`) with or without path text; an
+unset TIMESTAMP (heap ddo class `absTime` → graph `underlying_type=
+"MeasureData"`, `measure_flavor="TimeStamp"`) draws `0.0` (LabVIEW's own
+epoch default, matching codegen's) rather than falling through to a blank
+box; an ARRAY-typed cluster FIELD composes a real `ArrayConstantGlyph` (index
+control + a real default element) instead of the generic leaf's empty box.
+
+**Small refnum/class boxes use a DISTINCT MINI form, not the full glyph
+shrunk** — LabVIEW's own small-control behavior. Below
+`refnum_glyph._MINI_MAX_W/_H` (`class_glyph._MINI_MAX`) a refnum drops the
+dog-ear + terminal and draws just a bordered box holding the kind symbol
+scaled up; a class drops the border + name and draws just the cube. Verified
+against GTR's real `menubar` field (21×27), too small for the full form.
+
+**An array ddo's ELEMENT control is its own direct `<ddo>` child, at the
+array's OWN real coordinate scale — not the field-extraction typedef-canvas
+trap.** A block-diagram array CONSTANT's ddo is verified `class="indArr"`
+on the corpus (the same class an array-typed field/indicator uses;
+`stdArray` is `parser.fp_heap_type`'s established name for the same control
+shape, kept as a second recognized class though unverified in this corpus).
+Its single visible element control is a DIRECT `<ddo>` child (a sibling of
+`indArr`'s own `<partsList>` chrome, never a part of it) — verified on
+`TestResult_Init.vi`'s array-of-clusters constant: `indArr` ddo 502
+(real box `92×116`) has a direct `<ddo class="typeDef" uid="569">` child
+(bounds `(3, 35, 113, 89)` relative to 502's own origin — width/height
+`54×110`, at the array's OWN scale) wrapping a `stdClust` shape (uid 573,
+own `<bounds>` also `110×54`, i.e. THE SAME size — a plain offset
+relationship, confirming this is NOT the typedef-canvas trap). Since an
+array is homogeneous (one element type for every value), the array glyph
+draws every visible row at this ONE real size (`ArrayConstantGlyph.cell_w`/
+`cell_h`) instead of stretching to a synthetic fixed row height — never
+scaled, since the cell IS the element's own real size.
