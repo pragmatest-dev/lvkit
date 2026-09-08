@@ -3739,14 +3739,17 @@ def test_empty_string_constant_is_empty_not_placeholder():
     assert real.value == "hello"
 
 
-def test_timestamp_constant_shows_numeric_value_not_blank_box():
+def test_timestamp_constant_shows_two_line_time_date_not_bare_float():
     """A Timestamp constant (heap ddo class ``absTime`` — the graph records
     it as ``underlying_type="MeasureData"``, ``measure_flavor="TimeStamp"``,
-    verified against GTR's real "StartTestTime" field) used to fall through
-    to the generic leaf glyph and draw a BLANK box for an unset field (``raw
-    is None``) — it now shows a real numeric-style value, LabVIEW's own
-    unset-timestamp default (``0.0``, the epoch — the same default codegen
-    emits), never a featureless rectangle (acceptance-gate rule 4)."""
+    verified against GTR's real "StartTestTime" field) used to draw a bare
+    ``"0.0"`` for an unset field — reads as a number, not a Timestamp
+    control. It now shows LabVIEW's own two-line time-over-date display
+    (task #66): a 12-hour time-with-milliseconds line over a date line,
+    MULTILINE (never fit/centered — the exact box-width-independent split
+    matters more than centering; see ``_format_timestamp_lines``). Verified
+    against the maintainer's reference image #73: the unset/epoch default is
+    exactly ``"12:00:00.000 AM"`` / ``"1/1/1904"``."""
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
 
@@ -3757,14 +3760,21 @@ def test_timestamp_constant_shows_numeric_value_not_blank_box():
     )
     unset = _leaf_const_glyph(ts_type, raw=None)
     assert isinstance(unset, ConstantGlyph)
-    assert unset.value == "0.0"
+    assert unset.multiline is True
+    assert unset.value == "12:00:00.000 AM\n1/1/1904"
+    assert unset.color == wire_style(ts_type).color == "#893000"
 
-    real = _leaf_const_glyph(ts_type, raw=1234.5)
+    # A genuinely SET value (parser.vi's default-data decoder emits
+    # "Timestamp(<secs>)") formats the same two-line way, not just the
+    # epoch — e.g. 90061 seconds past the LabVIEW epoch is 1904-01-02
+    # 01:01:01.
+    real = _leaf_const_glyph(ts_type, raw="Timestamp(90061)")
     assert isinstance(real, ConstantGlyph)
-    assert real.value == "1234.5"
+    assert real.value == "01:01:01.000 AM\n1/2/1904"
 
     # A DIFFERENT MeasureData flavor (a waveform, not a timestamp) is NOT
-    # touched by this branch — out of this fix's scope.
+    # touched by this branch — out of this fix's scope — and keeps the
+    # generic grey "unknown" wire, not the timestamp color.
     waveform_type = LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="MeasureData",
@@ -3772,7 +3782,39 @@ def test_timestamp_constant_shows_numeric_value_not_blank_box():
     )
     wf = _leaf_const_glyph(waveform_type, raw=None)
     assert isinstance(wf, ConstantGlyph)
-    assert wf.value != "0.0"
+    assert "AM" not in wf.value and "PM" not in wf.value
+    assert wire_style(waveform_type).color != "#893000"
+
+
+def test_timestamp_type_family_and_terminal_mark():
+    """``MeasureData``/``TimeStamp`` gets its OWN ``type_family`` bucket
+    ("timestamp") and ``wire_style`` color (task #66) instead of falling to
+    the generic grey "unknown" — the color is heap-recorded (the ``absTime``
+    control's own ``cosm`` border ``fgColor`` ``00893000``, consistent
+    across two independent corpus instances) and confirmed by the
+    maintainer's reference images #73/#75 (both the constant box border and
+    a real timestamp wire draw this same dark red-brown). ``type_repr``
+    gives it a clean-room "TS" mnemonic (no NI-doc source for a canonical
+    short form) — keyed on ``measure_flavor``, so a DIFFERENT MeasureData
+    flavor (waveform) is untouched, never mislabeled "TS"."""
+    from lvkit.render.style import type_family, type_repr
+
+    ts_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="TimeStamp",
+    )
+    assert type_family(ts_type) == "timestamp"
+    assert type_repr(ts_type) == "TS"
+    assert wire_style(ts_type).color == "#893000"
+
+    waveform_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="Float64Waveform",
+    )
+    assert type_family(waveform_type) == "unknown"
+    assert type_repr(waveform_type) == ""
 
 
 def test_refnum_glyph_mini_form_for_small_boxes():

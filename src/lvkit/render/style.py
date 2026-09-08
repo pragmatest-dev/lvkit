@@ -119,6 +119,13 @@ class Theme:
     refnum_terminal_border: str = "#e05fa0"
     wire_error: str = "#a88d1e"  # mustard/dark-yellow — error clusters (LV 8.2+)
     wire_variant: str = "#840984"  # purple — Variant (NI rgb(132,9,132))
+    # dark red-brown — Timestamp (MeasureData/TimeStamp). Heap-recorded: the
+    # ``absTime`` control's own ``cosm`` border ``fgColor`` is ``00893000``,
+    # identical across two independent corpus instances (GTR's
+    # "StartTestTime" and TestResult's "startTest.vi"); confirmed by the
+    # maintainer's reference images #73/#75, whose timestamp constant boxes
+    # and wire/terminal both draw in this same dark red-brown.
+    wire_timestamp: str = "#893000"
     # Unresolved / unknown-type wires — a DISTINCT dark grey, NOT the float
     # orange. A wire with no resolved type is a type-propagation BUG; colouring
     # it like a DBL float hid every such gap. Dark grey makes them stand out so
@@ -267,6 +274,17 @@ def type_repr(lv_type: LVType | None) -> str:
         # label — see ``lv_type_label`` in this module.)
         if lv_type.underlying_type == "Refnum":
             return "Class" if lv_type.classname else "Ref"
+        if (
+            lv_type.underlying_type == "MeasureData"
+            and lv_type.measure_flavor == "TimeStamp"
+        ):
+            # A Timestamp (task #66) — a clean-room-chosen 2-char mnemonic
+            # (no NI-doc source found for a canonical short form), styled
+            # like the other short tokens here (DBL/I32/TF/abc/…). Keyed on
+            # measure_flavor, NOT a blanket "MeasureData" entry in
+            # _TYPE_REPR, since that underlying_type also covers Waveform/
+            # Digital Data, which must NOT show "TS".
+            return "TS"
         return _TYPE_REPR.get(lv_type.underlying_type or "", "")
     return ""
 
@@ -304,6 +322,7 @@ _FAMILY_COLOR = {
     "error_cluster": "wire_error",
     "variant": "wire_variant",
     "refnum": "wire_refnum",
+    "timestamp": "wire_timestamp",
 }
 
 
@@ -325,8 +344,8 @@ def _cluster_all_numeric(lv_type: LVType) -> bool:
 def type_family(lv_type: LVType | None) -> str:
     """Coarse family bucket for an LVType: "float", "int", "bool",
     "string", "path", "enum", "cluster", "error_cluster", "variant",
-    "refnum", "array", or "unknown". The single source of truth for wire color
-    and front-panel terminal glyph choice.
+    "refnum", "timestamp", "array", or "unknown". The single source of truth
+    for wire color and front-panel terminal glyph choice.
     """
     if lv_type is None:
         return "unknown"
@@ -347,6 +366,11 @@ def type_family(lv_type: LVType | None) -> str:
             return "int"
         if ut == "Boolean":
             return "bool"
+        if ut == "MeasureData" and lv_type.measure_flavor == "TimeStamp":
+            # A Timestamp (heap ddo class "absTime") — its own distinct dark
+            # red-brown wire/terminal/constant color (task #66), not the
+            # generic grey "unknown" a bare MeasureData used to fall to.
+            return "timestamp"
         if ut in ("String", "SubString"):
             # "SubString" is a string subtype (e.g. Search/Split String's
             # outputs) — a string for color/glyph purposes, as the rest of the

@@ -76,6 +76,7 @@ DARK_PALETTE: dict[str, str] = {
     "wire_error": "#cdb03e",
     "wire_variant": "#c452c4",
     "wire_default": "#8a8a8a",
+    "wire_timestamp": "#c76c2f",  # lightened dark red-brown — Timestamp, from #893000
 }
 
 

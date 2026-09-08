@@ -26,6 +26,7 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -119,6 +120,43 @@ def _format_const(value: object) -> str:
             return value
         return str(int(f)) if f.is_integer() else value
     return str(value)
+
+
+_LV_TIMESTAMP_EPOCH = datetime(1904, 1, 1, tzinfo=timezone.utc)
+_TIMESTAMP_RAW_RE = re.compile(r"Timestamp\((-?\d+)\)")
+
+
+def _format_timestamp_lines(raw: object) -> str:
+    """A Timestamp constant's TWO-LINE display (task #66): a 12-hour
+    time-with-milliseconds line over a date line, e.g. ``"12:00:00.000 AM"``
+    / ``"1/1/1904"`` for the unset/epoch default — verified against the
+    maintainer's reference image #73 (two real Timestamp constants, one at
+    the LabVIEW epoch, one at the Unix epoch, both in exactly this format).
+    Joined with a literal ``\\n`` for ``ConstantGlyph``'s ``multiline`` mode,
+    which hard-splits on it BEFORE any word-wrapping — unlike letting the
+    wrap machinery infer the break from spaces (verified unreliable: at a
+    narrow box width it breaks mid-word instead of between time and date).
+
+    ``raw`` is the parser's decoded seconds-since-epoch for a genuinely SET
+    field (``parser.vi``'s default-data decoder emits the string
+    ``"Timestamp(<secs>)"``, or a caller may already hand back a bare
+    int/float) -- ``None`` (or any other unrecognized shape) is the unset
+    field, which is the LabVIEW epoch itself (0 seconds), never a guess.
+    NOTE: no real corpus example of a genuinely-SET Timestamp constant was
+    found to verify this branch against; only the unset/epoch default (the
+    common case, and the one in reference #73) is corpus-verified."""
+    secs: float = 0.0
+    if isinstance(raw, (int, float)):
+        secs = float(raw)
+    elif isinstance(raw, str):
+        m = _TIMESTAMP_RAW_RE.fullmatch(raw.strip())
+        if m:
+            secs = float(m.group(1))
+    dt = _LV_TIMESTAMP_EPOCH + timedelta(seconds=secs)
+    ms = dt.microsecond // 1000
+    time_line = f"{dt.strftime('%I:%M:%S')}.{ms:03d} {dt.strftime('%p')}"
+    date_line = f"{dt.month}/{dt.day}/{dt.year}"
+    return f"{time_line}\n{date_line}"
 
 
 def string_const_display(raw: object) -> str:
@@ -1156,13 +1194,20 @@ def _leaf_const_glyph(
     ):
         # A Timestamp constant (heap ddo class "absTime", graph
         # underlying_type "MeasureData" with measure_flavor "TimeStamp" —
-        # verified against GTR's "StartTestTime" field) used to fall through
-        # to the generic leaf and draw a blank box (raw is None for an
-        # unset field). Show it like a numeric constant — LabVIEW's own
-        # default for an unset timestamp is 0.0 (the epoch), the same
-        # default codegen emits (see type_defaults._python_default_for_type)
-        # — never a blank box.
-        value = _format_const(raw) if raw is not None else "0.0"
+        # verified against GTR's "StartTestTime" field) used to draw a bare
+        # "0.0" (a float) for an unset field — reads as a number, not a
+        # Timestamp control. LabVIEW shows a Timestamp as a two-line
+        # time-over-date box (verified against the heap's own recorded
+        # display format, `%<%.3X\n%x>T` — locale time, then locale date —
+        # identical across two independent corpus instances, and against
+        # NI's public "Time Stamp Constant" docs plus the maintainer's own
+        # reference image #73: two real Timestamp constants, each
+        # "<time> AM/PM" over "<date>"). This is NOT "the same default
+        # codegen emits" (type_defaults._get_primitive_default only
+        # special-cases "AbsTime"/"Time128", never "MeasureData", so
+        # codegen's real default for this flavor is `None`) — the render
+        # shows a Timestamp on its own terms, independent of codegen.
+        return ConstantGlyph(_format_timestamp_lines(raw), color, multiline=True)
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
         # A CLASS/LVObject refnum (``classname`` set) is a class instance,
         # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no
