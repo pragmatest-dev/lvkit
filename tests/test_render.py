@@ -579,6 +579,206 @@ def test_bundle_connector_panel_aggregate_column_is_legible():
     )
 
 
+def test_context_help_type_text_matches_reference_screenshot():
+    """``style.context_help_type_text`` — the LabVIEW Context-Help-style
+    VERBOSE type description ("Cluster hover" task). Boolean/I32/String are
+    verified CHARACTER-FOR-CHARACTER against a real Context Help screenshot
+    (an error cluster's status/code/source fields); the other integer
+    widths/float precisions are the same pattern extrapolated
+    mathematically (two's-complement / IEEE-754), not independently
+    screenshot-verified — documented as such in the function's own
+    docstring."""
+    from lvkit.models import LVType, LVTypeKind
+    from lvkit.render.style import context_help_type_text
+
+    def scalar(ut: str) -> LVType:
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut)
+
+    # Verified against the reference screenshot.
+    assert context_help_type_text(scalar("Boolean")) == "boolean (TRUE or FALSE)"
+    assert (
+        context_help_type_text(scalar("NumInt32"))
+        == "long [32-bit integer (-2147483648 to 2147483647)]"
+    )
+    assert context_help_type_text(scalar("String")) == "string"
+
+    # Extrapolated (same pattern, not individually screenshot-verified).
+    assert "8-bit" in context_help_type_text(scalar("NumInt8"))
+    assert "16-bit" in context_help_type_text(scalar("NumInt16"))
+    assert "0 to 255" in context_help_type_text(scalar("NumUInt8"))
+    assert "double-precision" in context_help_type_text(scalar("NumFloat64"))
+
+    # Non-scalar fallbacks: honest, short, never a guessed elaborate format.
+    enum_t = LVType(kind=LVTypeKind.ENUM, underlying_type="UnitUInt16")
+    assert context_help_type_text(enum_t) == "enum"
+    refnum_t = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
+    )
+    assert context_help_type_text(refnum_t) == "Queue refnum"
+    arr_t = LVType(
+        kind=LVTypeKind.ARRAY, element_type=scalar("NumFloat64"), dimensions=1
+    )
+    assert context_help_type_text(arr_t) == (
+        "array of double [64-bit real (double-precision) floating point]"
+    )
+    assert context_help_type_text(None) == "?"
+
+
+def test_cluster_type_rows_recurses_with_indent_and_element_count():
+    """``draw._cluster_type_rows`` builds the hierarchical tree
+    ("Cluster hover" task, reference images: an error cluster's field list
+    and a nested-cluster example): one row per field, a nested cluster
+    field reads "name (cluster of N elements)" (singular "element" for
+    N==1, verified from the reference) and recurses ONE indent level
+    deeper for its own fields."""
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+    from lvkit.render.draw import _cluster_type_rows
+    from lvkit.render.style import DEFAULT_THEME
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    int_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[ClusterField(name="status", type=bool_type)],
+    )
+    outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(name="a", type=int_type),
+            ClusterField(name="nested", type=inner),
+        ],
+    )
+    rows = _cluster_type_rows("MyCluster", outer, 0, DEFAULT_THEME)
+    assert [r.indent for r in rows] == [0, 1, 1, 2]
+    assert rows[0].text == "MyCluster (cluster of 2 elements)"
+    assert rows[0].mark_text == ""  # a cluster row has no single-token mnemonic
+    assert rows[1].text == "a (long [32-bit integer (-2147483648 to 2147483647)])"
+    assert rows[1].mark_text == "I32"
+    assert rows[2].text == "nested (cluster of 1 element)"  # singular
+    assert rows[3].text == "status (boolean (TRUE or FALSE))"
+    assert rows[3].indent == 2  # nested one level deeper than "nested" itself
+
+    # An unresolved field type still gets an honest row, never dropped.
+    unresolved = LVType(
+        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="mystery", type=None)]
+    )
+    rows2 = _cluster_type_rows("X", unresolved, 0, DEFAULT_THEME)
+    assert rows2[1].text == "mystery (?)"
+
+
+def test_draw_cluster_type_panel_renders_tree_with_colored_marks():
+    """``_draw_cluster_type_panel`` draws a cluster CONSTANT's hover panel
+    as a "Data type" header + the hierarchical field/type tree, each row's
+    mini type mark in that field's OWN wire color (never colored body
+    text — the name+type text stays ``theme.text``). A non-cluster
+    constant, or any non-constant node, gets no panel at all."""
+    from lvkit.graph.models import ConstantNode, PrimitiveNode
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+    from lvkit.render.draw import _draw_cluster_type_panel
+    from lvkit.render.glyph import ConstantGlyph
+    from lvkit.render.scene import RenderNode
+    from lvkit.render.style import DEFAULT_THEME, wire_style
+
+    error_cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(
+                name="status",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+            ),
+            ClusterField(
+                name="code",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+            ),
+            ClusterField(
+                name="source",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+            ),
+        ],
+    )
+    node = RenderNode(
+        node=ConstantNode(id="v::441", vi_path="v", lv_type=error_cluster),
+        bounds=(0.0, 0.0, 40.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="441",
+    )
+    b = SvgBackend()
+    _draw_cluster_type_panel(node, b, DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 400.0, 200.0))
+    assert 'class="lv-help" data-node="441"' in svg
+    assert ">Data type<" in svg
+    assert "(cluster of 3 elements)" in svg
+    assert ">status (boolean (TRUE or FALSE))<" in svg
+    assert ">code (long [32-bit integer (-2147483648 to 2147483647)])<" in svg
+    assert ">source (string)<" in svg
+    # Mini marks: text + color both the field's OWN wire style, never
+    # colored body text.
+    bool_color = wire_style(error_cluster.fields[0].type).color
+    assert f'fill="{bool_color}">TF<' in svg
+    assert f'stroke="{bool_color}"' in svg
+
+    # A non-cluster constant gets no panel at all.
+    scalar_node = RenderNode(
+        node=ConstantNode(
+            id="v::5",
+            vi_path="v",
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+        ),
+        bounds=(0.0, 0.0, 20.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="5",
+    )
+    b2 = SvgBackend()
+    _draw_cluster_type_panel(scalar_node, b2, DEFAULT_THEME)
+    assert b2.render((0.0, 0.0, 100.0, 100.0)).count("<g") == 0
+
+    # A non-constant node (even one wired to a cluster type) gets no panel
+    # either — this dialog is scoped to cluster CONSTANTS.
+    prim_node = RenderNode(
+        node=PrimitiveNode(id="v::9", vi_path="v", node_type="prim"),
+        bounds=(0.0, 0.0, 20.0, 20.0),
+        glyph=ConstantGlyph("", "#000"),
+        dom_id="9",
+    )
+    b3 = SvgBackend()
+    _draw_cluster_type_panel(prim_node, b3, DEFAULT_THEME)
+    assert b3.render((0.0, 0.0, 100.0, 100.0)).count("<g") == 0
+
+
+def test_gtr_error_cluster_constant_hover_panel_matches_reference():
+    """Real-corpus check ("Cluster hover" task): GTR's bare error-cluster
+    constant (heap uid 441, fields status/code/source) gets a
+    Context-Help-style tree hover panel — verified against the reference
+    screenshot's exact wording for all 3 fields."""
+    from lvkit.render.draw import _draw_cluster_type_panel
+    from lvkit.render.scene import RenderNode, build_scene
+    from lvkit.render.style import DEFAULT_THEME
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::441")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's error-cluster constant (uid 441) not in scene"
+    b = SvgBackend()
+    _draw_cluster_type_panel(target, b, DEFAULT_THEME)
+    svg = b.render((0.0, 0.0, 600.0, 400.0))
+    assert "(cluster of 3 elements)" in svg
+    assert ">status (boolean (TRUE or FALSE))<" in svg
+    assert ">code (long [32-bit integer (-2147483648 to 2147483647)])<" in svg
+    assert ">source (string)<" in svg
+
+
 def test_bundle_aggregate_split_into_interior_input_and_edge_output():
     """A Bundle-By-Name's input + output aggregate terminals share ONE heap DCO
     box (the output owns it; the input aliases it). ``_reposition_mux_terminals``

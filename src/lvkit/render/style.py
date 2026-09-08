@@ -408,6 +408,72 @@ def lv_type_label(lv_type: LVType | None) -> str:
     return type_repr(lv_type) or ut or "?"
 
 
+# LabVIEW Context Help's VERBOSE per-scalar description — e.g. "long [32-bit
+# integer (-2147483648 to 2147483647)]", "boolean (TRUE or FALSE)" — a THIRD
+# vocabulary distinct from ``type_repr``'s compact terminal mnemonic ("I32"/
+# "TF") and ``LVType.type_descriptor()``'s faithful short label ("Boolean").
+# "long"/"word"/"byte"/"quad" are LabVIEW's own classic numeric-representation
+# names (NI's public docs); the bit-width + range in brackets/parens is plain
+# two's-complement/IEEE-754 math, not reverse-engineered. Boolean/I32/String
+# verified character-for-character against a real LabVIEW Context Help
+# screenshot (issue: cluster hover, error-cluster example); the remaining
+# integer widths/float precisions are the SAME pattern extrapolated
+# mathematically (clean-room deduction), not independently screenshot-verified.
+_CONTEXT_HELP_SCALAR_TEXT: dict[str, str] = {
+    "NumInt8": "byte [8-bit integer (-128 to 127)]",
+    "NumInt16": "word [16-bit integer (-32768 to 32767)]",
+    "NumInt32": "long [32-bit integer (-2147483648 to 2147483647)]",
+    "NumInt64": (
+        "quad [64-bit integer "
+        "(-9223372036854775808 to 9223372036854775807)]"
+    ),
+    "NumUInt8": "unsigned byte [8-bit integer (0 to 255)]",
+    "NumUInt16": "unsigned word [16-bit integer (0 to 65535)]",
+    "NumUInt32": "unsigned long [32-bit integer (0 to 4294967295)]",
+    "NumUInt64": (
+        "unsigned quad [64-bit integer (0 to 18446744073709551615)]"
+    ),
+    "NumFloat32": "single [32-bit real (single-precision) floating point]",
+    "NumFloat64": "double [64-bit real (double-precision) floating point]",
+    "NumFloatExt": (
+        "extended [extended-precision real floating point]"
+    ),
+    "Boolean": "boolean (TRUE or FALSE)",
+    "String": "string",
+    "Path": "path",
+    "Variant": "variant",
+    "LVVariant": "variant",
+}
+
+
+def context_help_type_text(lv_type: LVType | None) -> str:
+    """The Context-Help-style VERBOSE type text shown in parens/brackets
+    after a field's name (e.g. ``status (boolean (TRUE or FALSE))``) — see
+    ``_CONTEXT_HELP_SCALAR_TEXT`` for the scalar vocabulary and its
+    verification status. Non-scalar kinds get a short, honest description
+    (never a guessed elaborate structure): an enum/ring reads its own family
+    word, a refnum its ``ref_type``, an array "array of <element>" —
+    recursing into the element the same way — since no reference screenshot
+    covers those; a cluster is handled by the caller (see
+    ``draw._cluster_type_rows``), which recurses structurally instead of
+    calling this."""
+    if lv_type is None:
+        return "?"
+    ut = lv_type.underlying_type or ""
+    if ut in _CONTEXT_HELP_SCALAR_TEXT:
+        return _CONTEXT_HELP_SCALAR_TEXT[ut]
+    fam = type_family(lv_type)
+    if fam == "enum":
+        return "enum" if lv_type.kind == LVTypeKind.ENUM else "ring"
+    if fam == "refnum":
+        return f"{lv_type.ref_type} refnum" if lv_type.ref_type else "refnum"
+    if fam == "array":
+        dims = lv_type.dimensions or 1
+        inner = context_help_type_text(lv_type.element_type)
+        return "array of " + "array of " * (dims - 1) + inner
+    return ut or "?"
+
+
 def wire_style(
     lv_type: LVType | None,
     theme: Theme = DEFAULT_THEME,
