@@ -56,6 +56,28 @@ def test_vilib_parent_flagged() -> None:
     assert cls.is_vilib_parent is True
 
 
+def test_vilib_parent_link_path_carries_the_recorded_path_tokens() -> None:
+    """Issue #84: the binary ``ParentClassLinkInfo``'s own ``PTH0`` record
+    carries the parent's RECORDED PATH, not just its bare name -- dropped
+    entirely before this fix. TextTestRunner.JUnitXML's parent link decodes
+    to the vi.lib-rooted token list ending in the parent's own filename, in
+    the SAME shape ``parser.models.ParsedDependencyRef.path_tokens`` already
+    uses everywhere else (so a loader resolves it with the exact same
+    ``resolve_against`` machinery a SubVI/type ``<vilib>`` dependency does)."""
+    lvclass_path = (
+        SAMPLE_ROOT
+        / "Ant Plugin"
+        / "Source"
+        / "TextTestRunner.Ant"
+        / "TextTestRunner.JUnitXML.lvclass"
+    )
+    cls = parse_lvclass(lvclass_path)
+
+    assert cls.parent_link_path is not None
+    assert cls.parent_link_path[0] == "<vilib>"
+    assert cls.parent_link_path[-1] == "TextTestRunner.lvclass"
+
+
 def test_root_class_has_no_parent() -> None:
     """TestCase is a root class: it carries no ParentClassLinkInfo property
     at all, so parent_class must be None (not a guessed/heuristic value)."""

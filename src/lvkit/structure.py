@@ -24,6 +24,7 @@ from lvkit.models import (
     WireLineStyle,
     WireStyle,
 )
+from lvkit.parser.metadata import _decode_pth0_components
 
 
 @dataclass
@@ -70,6 +71,18 @@ class LVClass:
     # (the parent often sits in a sibling subtree, not up-tree). None when the
     # parent came only from the binary ``ParentClassLinkInfo`` (no URL there).
     parent_url: str | None = None
+    # The parent's recorded PATH from the binary ``NI.LVClass.
+    # ParentClassLinkInfo`` property's ``PTH0`` record (issue #84) — path
+    # TOKENS, e.g. ``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``
+    # for a vi.lib-rooted parent, in the SAME shape ``parser.models.
+    # ParsedDependencyRef.path_tokens`` already uses everywhere else, so a
+    # loader resolves it with the EXACT SAME ``resolve_against`` machinery a
+    # SubVI/type ``<vilib>`` dependency already uses — never a new decoder.
+    # None when ``ParentClassLinkInfo`` is absent (a root class) or carries
+    # no ``PTH0`` marker. Present even when ``parent_url`` is ALSO set (the
+    # plain-XML ``Parent`` Item, still preferred — see ``parent_url``); this
+    # is the fallback for a class that has ONLY the binary property.
+    parent_link_path: list[str] | None = None
     is_vilib_parent: bool = False
     private_data_ctl: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
@@ -591,12 +604,17 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # (e.g. the LabVIEW-Icon-Editor classes) would otherwise be mis-read as a
     # root, dropping its whole inherited-method surface.
     parent_url: str | None = None
+    # Always decoded (issue #84): even when the plain-XML Item wins for
+    # ``parent_class``/``parent_url``, its own recorded PATH is the fallback
+    # ``_resolve_parent`` needs when a class has ONLY the binary property
+    # (no ``Parent`` Item at all) -- cheap, the same already-parsed tree.
+    link_info = _parent_from_link_info(root)
+    parent_link_path = link_info[2] if link_info is not None else None
     item_parent = _parent_from_item(root)
     if item_parent is not None:
         parent_class, parent_url = item_parent
         is_vilib_parent = "<vilib>" in (parent_url or "")
     else:
-        link_info = _parent_from_link_info(root)
         parent_class = link_info[0] if link_info is not None else None
         is_vilib_parent = link_info[1] if link_info is not None else False
 
@@ -629,6 +647,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         path=lvclass_path,
         parent_class=parent_class,
         parent_url=parent_url,
+        parent_link_path=parent_link_path,
         is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
         methods=methods,
@@ -863,7 +882,9 @@ def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
     return None
 
 
-def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
+def _parent_from_link_info(
+    root: ET.Element,
+) -> tuple[str, bool, list[str] | None] | None:
     """Decode the authoritative parent class from
     ``NI.LVClass.ParentClassLinkInfo``.
 
@@ -887,10 +908,17 @@ def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
         root: The parsed ``.lvclass`` XML root element.
 
     Returns:
-        ``(parent_class_name, is_vilib)`` where ``parent_class_name`` has
-        no ``.lvclass`` suffix (matching ``LVClass.parent_class``'s
-        existing bare-name contract), or ``None`` if the property is
-        absent (this class is a root).
+        ``(parent_class_name, is_vilib, path_tokens)`` where
+        ``parent_class_name`` has no ``.lvclass`` suffix (matching
+        ``LVClass.parent_class``'s existing bare-name contract) and
+        ``path_tokens`` is the ``PTH0`` record's own decoded path
+        components (issue #84 -- e.g. ``["<vilib>", "ActorFramework",
+        "Actor", "Actor.lvclass"]``, via ``metadata._decode_pth0_components``
+        -- the SAME decoder ``parser.vi._walk_path`` uses, never a new one),
+        or ``None`` when the record carries no ``PTH0`` marker (rare; the
+        name is still returned via the printable-run scan below). Returns
+        ``None`` (the whole tuple) only when the property itself is absent
+        (this class is a root).
     """
     raw: str | None = None
     for prop in root.findall("Property"):
@@ -907,11 +935,23 @@ def _parent_from_link_info(root: ET.Element) -> tuple[str, bool] | None:
     ]
     is_vilib = any("<vilib>" in run for run in printable)
 
+    # The PTH0 record's own path components -- the parent's RECORDED path,
+    # dropped entirely by the printable-run scan below (which only ever
+    # extracts the trailing ``<Name>.lvclass`` token). Decoded straight from
+    # the raw bytes (not the ASCII-replaced printable runs, which would
+    # corrupt the record's binary length/count fields) via the same
+    # ``_decode_pth0_components`` a Path CONSTANT already uses.
+    path_tokens: list[str] | None = None
+    pth0_idx = decoded.find(b"PTH0")
+    if pth0_idx != -1:
+        parts, _ = _decode_pth0_components(decoded, pth0_idx, len(decoded))
+        path_tokens = parts or None
+
     for run in printable:
         match = _LVCLASS_TOKEN_RE.search(run)
         token = match.group(1) if match else (run if run.endswith(".lvclass") else None)
         if token:
-            return (token[: -len(".lvclass")], is_vilib)
+            return (token[: -len(".lvclass")], is_vilib, path_tokens)
 
     return None
 
