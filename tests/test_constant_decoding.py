@@ -160,6 +160,51 @@ class TestPath:
         assert v is not None
         assert "raw" not in str(v).lower() or "path" in str(v).lower()
 
+    def test_empty_path_ncomp_zero_decodes_and_advances(self):
+        """Issue #91: a ``PTH0`` record with ``ncomp==0`` (LabVIEW's own
+        encoding for an empty/unset Path -- e.g. ``PTH0 00 00 00 04 00 00 00
+        00``, verified against two real corpus instances) is a LEGITIMATE
+        empty path, never "truncated". ``_decode_pth0_components`` must
+        return ``([], 12)`` -- an empty component list AND the byte offset
+        past this 12-byte record -- not ``([], 0)`` (which left every
+        downstream sibling field/array reading from a stale offset)."""
+        from lvkit.parser.metadata import _decode_pth0_components
+        from lvkit.parser.utils import decode_xml_entities_to_bytes
+
+        data = decode_xml_entities_to_bytes(
+            "PTH0&#x00;&#x00;&#x00;&#x04;&#x00;&#x00;&#x00;&#x00;"
+        )
+        assert len(data) == 12
+        parts, next_idx = _decode_pth0_components(data, 0, len(data))
+        assert parts == []
+        assert next_idx == 12
+
+        # _decode_element's Path branch: displays as an empty path, and its
+        # OWN consumed byte count (not just the raw string) is now correct.
+        _, v = _decode(data.hex(), _make_type(LVTypeKind.PRIMITIVE, "Path"))
+        assert v == 'Path("")'
+
+    def test_real_path_with_components_unchanged(self):
+        """Regression guard: a genuinely populated PTH0 record (ncomp>0,
+        the pre-existing/already-working case) still decodes exactly as
+        before the #91 fix -- the ncomp==0 relaxation must not touch this
+        path at all."""
+        from lvkit.parser.utils import decode_xml_entities_to_bytes
+
+        data = decode_xml_entities_to_bytes(
+            "PTH0&#x00;&#x00;&#x00;r&#x00;&#x00;&#x00;&#x08;&#x01;C"
+            "&#x16;Documents and Settings"
+            "&#x0d;Administrator&#x07;Desktop&#x12;Plugin Development"
+            "&#x10;VI Tester Plugin"
+            "&#x0a;MyTestCase&#x0f;testExample.vit"
+        )
+        assert len(data) == 122
+        _, v = _decode(data.hex(), _make_type(LVTypeKind.PRIMITIVE, "Path"))
+        assert v == (
+            'Path("C/Documents and Settings/Administrator/Desktop/Plugin Development/'
+            'VI Tester Plugin/MyTestCase/testExample.vit")'
+        )
+
 
 # === Enum ===
 

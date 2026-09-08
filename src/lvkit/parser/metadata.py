@@ -515,11 +515,26 @@ def _decode_pth0_components(
     ``end`` bounds how far the decode may read (exclusive) -- either
     ``len(data)`` for a whole-file scan or a caller-defined record boundary.
     Reads the component count at ``pth0_offset+10:+12`` (guarded to
-    ``0 < ncomp <= 64`` -- a sanity bound against a garbage length), then
-    decodes each component as a pascal string (1-byte length prefix + native
-    text). Returns ``([], pth0_offset)`` if the record is truncated (would read
-    past ``end``) or the count is out of range -- a partial token list is never
-    returned, so a truncated record reads as "no components" to every caller.
+    ``0 <= ncomp <= 64`` -- a sanity bound against a garbage length; ``0`` is
+    a REAL, legitimate value -- LabVIEW's own encoding for an empty/unset
+    Path, e.g. ``PTH0 00 00 00 04 00 00 00 00`` -- never rejected as
+    "truncated": see issue #91, where treating ncomp==0 as an error made
+    ``_walk_path`` return ``consumed=0`` for a genuinely empty path, which
+    left the CALLER's byte offset stuck. For a cluster field, every
+    subsequent field then decoded from that stale offset -- e.g. GTR's SMUI
+    cluster's ``TestMethods``/``TestProjectClasses`` arrays (variable-size,
+    confirmed by their type descriptor's ``FixedSize="0xFFFFFF"`` sentinel,
+    never a fixed bound) read a residual `"PTH0"` tag as their 4-byte
+    element count once an earlier empty ``Open Path``/``Test Project``
+    field desynced them -- a real leading count IS present and correct once
+    alignment holds), then decodes each component as a pascal string
+    (1-byte length prefix + native text). Returns ``([], pth0_offset)`` if
+    the record is truncated (would read past ``end``) or the count is out
+    of range -- a partial token list is never returned, so a truncated
+    record reads as "no components" to every caller. An empty path
+    (``ncomp==0``) is NOT truncated -- it returns ``([], pth0_offset + 12)``,
+    the byte offset just past its magic+length+ncomp fields (see the
+    12-byte-record math above), so the caller's alignment stays correct.
     ``next_idx`` is the byte offset just past the last decoded component --
     the single source of both the decoded tokens AND the consumed-byte count,
     shared by every caller that needs to keep reading past this record (e.g.
@@ -529,8 +544,10 @@ def _decode_pth0_components(
     if pth0_offset + 12 > end:
         return [], pth0_offset
     ncomp = int.from_bytes(data[pth0_offset + 10 : pth0_offset + 12], "big")
-    if not (0 < ncomp <= 64):
+    if not (0 <= ncomp <= 64):
         return [], pth0_offset
+    if ncomp == 0:
+        return [], pth0_offset + 12
     idx = pth0_offset + 12
     tokens: list[str] = []
     for _ in range(ncomp):
