@@ -3506,6 +3506,36 @@ def test_refnum_glyph_expanded_terminal_positions_at_real_heap_offset():
     assert abs((my1 + mh) - expect_y2) < 0.5
 
 
+def test_class_glyph_shrinks_to_fit_instead_of_ellipsis_clipping():
+    """A class name that doesn't fit its field's real box at the default
+    size NEVER hard-clips to a mid-word "…" — it shrinks (and, if still too
+    wide, wraps to a second line) instead, like ``ConstantGlyph``'s own
+    ``fit=True`` mode. Regression for the real GTR SMUI-cluster case: a
+    48x48 class field (the real heap box size for e.g. "test"/"TestResult")
+    used to hard-clip "LabVIEW Object" to "LabVIEW O…"."""
+    from lvkit.render.glyph import ClassGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 48.0, 48.0)  # the real GTR heap box size
+    backend = SvgBackend()
+    glyph = ClassGlyph("LabVIEW Object", "#555555")
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "…" not in svg
+    assert "LabVIEW Object" in svg  # the FULL name, not a truncated prefix
+    # The box itself is UNCHANGED — never re-widened/inflated to fit text.
+    assert 'width="46.8" height="46.8"' in svg
+
+    # A name too long to fit even shrunk to one line wraps to a second
+    # line rather than clipping.
+    backend2 = SvgBackend()
+    long_glyph = ClassGlyph("SomeVeryLongClassNameIndeed", "#555555")
+    long_glyph.draw(backend2, bounds, DEFAULT_THEME)
+    svg2 = backend2.render(bounds)
+    assert svg2.count("<text") == 2  # wrapped onto 2 lines
+    assert "…" not in svg2  # still no ellipsis -- wrapping preferred over clipping
+
+
 def test_class_glyph_draws_cube_and_short_name():
     """``ClassGlyph`` draws a cube motif (LabVIEW draws a class as a cube)
     plus the class's own short name — never bare text."""

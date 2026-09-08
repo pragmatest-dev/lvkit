@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from ....parser.layout import Rect
 from ...backend import Backend
 from ...style import Theme
-from .base import fit_label
+from .base import fit_wrapped
 
 # Below this box size there's no room for a border + cube + name legibly —
 # LabVIEW-style MINI form: just the cube, scaled up, no chrome (see
@@ -50,17 +50,36 @@ class ClassGlyph:
         )
         pad = 3.0
         cube = min(w - 2 * pad, h - 2 * pad, max(0.0, h * 0.55))
-        text_y = y2 - pad
+        text_y1 = y1 + pad
         if cube > 6.0:
             self._draw_cube(backend, x1 + pad, y1 + pad, cube, self.color)
-            text_y = min(y1 + pad + cube + 8.0, y2 - pad)
-        if self.name:
-            size = min(7.0, max(4.0, h * 0.24))
-            label = fit_label(self.name, w - 2 * pad, backend, size)
-            if label:
-                backend.text(
-                    (x1 + x2) / 2, text_y, label, size, fill=self.color,
-                )
+            text_y1 = y1 + pad + cube + 3.0
+        if self.name and text_y1 < y2 - pad:
+            # Wrap to (up to) 2 lines and shrink-to-fit — never a hard
+            # mid-word ellipsis clip (issue: class-field name truncation).
+            # ``self.name`` already comes in as the class's SHORT name
+            # (``style.lv_type_label`` — lib-qualifier stripped, ``.lvclass``
+            # kept), so this only needs to fit THAT within the field's real
+            # heap box (never re-widened — same box, same cube).
+            max_size = min(7.0, max(4.0, h * 0.24))
+            # +1e-6: guard fit_wrapped's own floor-division line-count check
+            # against a height that lands JUST under a clean line-height
+            # multiple by float error, which would otherwise cap it one
+            # line short of what genuinely fits.
+            size, line_h, lines = fit_wrapped(
+                self.name,
+                w - 2 * pad,
+                (y2 - pad) - text_y1 + 1e-6,
+                backend,
+                max_size,
+                max_lines=2,
+            )
+            if lines:
+                cx = (x1 + x2) / 2
+                cy = text_y1 + ((y2 - pad) - text_y1) / 2
+                first = cy - (len(lines) - 1) * line_h / 2 + size * 0.32
+                for i, line in enumerate(lines):
+                    backend.text(cx, first + i * line_h, line, size, fill=self.color)
 
     def _draw_cube(
         self, backend: Backend, x: float, y: float, s: float, color: str
