@@ -81,6 +81,42 @@ it, honoring `layout.py`'s "render never reads heap XML itself" rule. See
 `parser.node_types.PropertyNode`'s class docstring for the full field
 contract (`bound_control_uid`, `bound_control_type`).
 
+## `eventRegNode` (Register For Events, task #56) is a growable property-node-style node — its name and row count are BOTH heap-recorded, never hard-coded
+
+`eventRegNode` was previously unhandled (`get_display_name` had no entry,
+so it leaked the raw XML class as its label — a plain "eventRegNode" box).
+Its heap shape is a direct structural twin of `propNode`/`invokeNode`:
+
+- `<nodeName>` carries this node's OWN display name — verified `"Reg
+  Events"` on ALL 23 real corpus instances across 21 files (GTR's "Main
+  UI" uid 11756, a 5-row example in DCAF-DAQModule's "Register For
+  Events.vi" uid 110, etc.) — no `"Unreg Events"`/other variant found. The
+  fix reads this field directly (the SAME mechanism `PropertyNode`/
+  `InvokeNode` already use for `object_name`), so an "Unregister For
+  Events" node, if the heap ever names one differently, would render
+  correctly with ZERO special-casing — never a hard-coded "Register For
+  Events" guess.
+- `<termList>` holds 4 fixed `hGrowCItem` terms (2 in/out PAIRS, split by
+  TYPE, never position: the `Refnum` pair with `ref_type == "EventReg"` is
+  the event-registration-refnum in/out; the `Cluster{status,code,source}`
+  pair is the standard error in/out) plus N `eventRegItem` terms — ONE per
+  registered event source, each a GROWABLE row's own INPUT terminal (the
+  source refnum, e.g. `ref_type == "UserEvent"`, to register events on).
+- `<dcoList>` lists the `eventRegItem` dco uids in heap/row order — the
+  EXACT SAME convention `PropertyNode.dco_terminal_uids`/`InvokeNode.
+  row_terminal_uids` already use (see `_dco_list_terminal_uids`), so the
+  row COUNT is fully data-driven (GTR's instance: 1 row; DCAF's: 5).
+
+Render draws a property-node-style box: header (gear + the heap-recorded
+name) above one "event N" row per registered source (always a LEFT input
+arrow — an event source is registered ON, never read back) with a "▼"
+grow-handle on the LAST row (reference image #68). The registration-refnum
+and error terminals thread the box edges at the header level, placed by the
+scene from the node's real heap terminal geometry — not drawn by the glyph,
+same as `PropertyNodeGlyph`'s reference/error terminals. See
+`parser.node_types.EventRegNode`'s class docstring for the full field
+contract (`object_name`, `event_row_terminal_uids`).
+
 ## Flat sequence frames execute ALL contained nodes — unwired nodes still run and block frame completion
 <!-- was memory: feedback_sequence_frames -->
 

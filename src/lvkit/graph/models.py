@@ -140,6 +140,13 @@ class PrimitiveNode(GraphNode):
     # rows 1..N = params [input, output]). Ids match ``terminals[i].id``.
     # See render/nodes.py:_invoke_node_glyph for how rows are built from this.
     invoke_row_terminal_ids: list[str] = []
+    # Register-For-Events node only (task #56): qualified terminal ids from
+    # the parser's dcoList, one per registered event source, in heap order
+    # -- each is a GROWABLE row's own INPUT terminal (the event source
+    # refnum to register on). Same dcoList convention as
+    # ``property_value_terminal_ids``/``invoke_row_terminal_ids``. See
+    # render/nodes.py:_event_reg_node_glyph.
+    event_row_terminal_ids: list[str] = []
     # Property node only: qualified terminal ids from the parser's dcoList,
     # ``properties[i]`` correlates to the terminal whose id is
     # ``property_value_terminal_ids[i]`` -- LabVIEW's real dcoList/permDCOList

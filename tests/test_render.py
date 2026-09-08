@@ -5373,6 +5373,98 @@ def test_explicit_property_node_in_corpus_keeps_class_header():
     assert target.glyph.class_name == "VI"
 
 
+def test_event_reg_node_glyph_draws_growable_rows_and_grow_handle():
+    """``_event_reg_node_glyph``/``EventRegNodeGlyph`` (task #56): a
+    Register-For-Events node draws a header naming this node's own
+    heap-recorded name (never "eventRegNode", the raw class), one "event N"
+    row per registered source (always a LEFT input arrow — an event source
+    is registered ON, never read back), and a "▼" grow-handle on the LAST
+    row. No properties -> None, so the caller falls back to the plain box."""
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import EventRegNodeGlyph
+    from lvkit.render.nodes import _event_reg_node_glyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    def term(idx, direction, ut, ref_type=None):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(
+                kind=LVTypeKind.PRIMITIVE, underlying_type=ut, ref_type=ref_type
+            ),
+        )
+
+    node = PrimitiveNode(
+        id="VI::700",
+        vi_path="VI",
+        node_type="eventRegNode",
+        name="Reg Events",
+        object_name="Reg Events",
+        terminals=[
+            term(0, "input", "Refnum", ref_type="EventReg"),
+            term(1, "output", "Refnum", ref_type="EventReg"),
+            term(2, "input", "Cluster"),
+            term(3, "output", "Cluster"),
+            term(4, "input", "Refnum", ref_type="UserEvent"),
+            term(5, "input", "Refnum", ref_type="UserEvent"),
+        ],
+        event_row_terminal_ids=["VI::4", "VI::5"],
+    )
+    glyph = _event_reg_node_glyph(node)
+    assert isinstance(glyph, EventRegNodeGlyph)
+    assert glyph.row_count == 2
+    assert glyph.class_name == "Reg Events"
+    # The resolved row label is pinned onto each row's own terminal, same
+    # hover-tooltip pattern as PropertyNode's property names.
+    assert node.terminals[4].display_name == "event 1"
+    assert node.terminals[5].display_name == "event 2"
+
+    bounds = (0.0, 0.0, 100.0, 60.0)
+    backend = SvgBackend()
+    glyph.draw(backend, bounds, DEFAULT_THEME)
+    svg = backend.render(bounds)
+    assert "⚙ Reg Events" in svg
+    assert ">event 1<" in svg and ">event 2<" in svg
+    assert svg.count(">▼<") == 1  # grow handle on the LAST row only
+
+    # No growable rows -> None (falls back to the plain labeled box).
+    empty = PrimitiveNode(
+        id="VI::701", vi_path="VI", node_type="eventRegNode", name="Reg Events"
+    )
+    assert _event_reg_node_glyph(empty) is None
+
+
+def test_gtr_eventreg_node_renders_with_real_name_and_row_count():
+    """Real-corpus check (task #56 / reference image #68): GTR's
+    "eventRegNode" (heap uid 11756) renders with its OWN heap-recorded name
+    ("Reg Events", from ``<nodeName>``, never the raw "eventRegNode" class)
+    and exactly 1 growable "event N" row — the real per-VI registered-event
+    count from the heap's ``<dcoList>``, not a hard-coded guess."""
+    from lvkit.render.glyph import EventRegNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::11756")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's eventRegNode not in scene"
+    assert isinstance(target.glyph, EventRegNodeGlyph)
+    assert target.glyph.class_name == "Reg Events"
+    assert target.glyph.row_count == 1
+
+
 def test_compact_array_terminal_brackets_element_type():
     """A COMPACT FP terminal (too small for the array index-column chrome)
     brackets the element type — "[DBL]" — so array-ness stays obvious; the

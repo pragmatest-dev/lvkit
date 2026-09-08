@@ -79,6 +79,7 @@ from .glyph import (
     DimmedGlyph,
     ErrorClusterGlyph,
     EventDataGlyph,
+    EventRegNodeGlyph,
     FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
@@ -839,6 +840,28 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     )
 
 
+def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
+    """A Register-For-Events node glyph (task #56): a property-node-style
+    box with one growable "event N" row per registered event source
+    (``node.event_row_terminal_ids``, from the heap's ``<dcoList>`` -- the
+    SAME structural convention ``_property_node_glyph``'s
+    ``property_value_terminal_ids`` already uses). The header shows this
+    node's own heap-recorded name (``object_name``, from ``<nodeName>`` --
+    NEVER a hard-coded "Register For Events"/"Unregister For Events" guess).
+    Returns None when the node carries no growable rows, so the caller
+    falls back to the plain labeled box rather than an empty drawer."""
+    row_ids = getattr(node, "event_row_terminal_ids", None) or []
+    if not row_ids:
+        return None
+    by_id = {t.id: t for t in node.terminals}
+    for i, tid in enumerate(row_ids):
+        term = by_id.get(tid)
+        if term is not None and term.display_name is None:
+            term.display_name = f"event {i + 1}"
+    class_name = (getattr(node, "object_name", None) or "").strip()
+    return EventRegNodeGlyph(row_count=len(row_ids), class_name=class_name)
+
+
 def _row_terminal_present(term: Terminal | None) -> bool:
     """Whether a dcoList row-side terminal is a real, wireable connection
     point. LabVIEW's invoke-node heap always allocates a left+right DCO slot
@@ -953,6 +976,8 @@ class OriginalGlyphResolver:
             return _property_node_glyph(node)
         if node.node_type == "invokeNode":
             return _invoke_node_glyph(node)
+        if node.node_type == "eventRegNode":
+            return _event_reg_node_glyph(node)
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)

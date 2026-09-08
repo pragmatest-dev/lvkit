@@ -33,6 +33,7 @@ NODE_CLASS_FEEDBACK_MASTER = "hiddenFBNode"
 NODE_CLASS_FEEDBACK_SLAVE = "slaveFBInputNode"
 NODE_CLASS_PROP_NODE = "propNode"
 NODE_CLASS_INVOKE_NODE = "invokeNode"
+NODE_CLASS_EVENT_REG = "eventRegNode"  # Register For Events (task #56)
 NODE_CLASS_CPD_ARITH = "cpdArith"  # Compound arithmetic (e.g., Or of multiple booleans)
 NODE_CLASS_ARRAY_BUILD = "aBuild"  # Array builder node
 NODE_CLASS_ARRAY_INIT = "aInit"  # Initialize Array (element + sizes -> array)
@@ -103,6 +104,7 @@ OPERATION_NODE_CLASSES = (
     NODE_CLASS_EVENT_STRUCT,
     NODE_CLASS_PROP_NODE,
     NODE_CLASS_INVOKE_NODE,
+    NODE_CLASS_EVENT_REG,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_ARRAY_BUILD,
     NODE_CLASS_ARRAY_INIT,

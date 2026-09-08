@@ -696,6 +696,45 @@ class InvokeNode(ParsedNode):
     row_terminal_uids: list[str] = field(default_factory=list)
 
 
+@dataclass
+class EventRegNode(ParsedNode):
+    """A Register-For-Events node (class="eventRegNode", task #56).
+
+    A property-node-style box with a GROWABLE drawer: one row per event
+    source registered on it ("event 1", "event 2", ... always an INPUT --
+    the source refnum to register events on -- unlike a property row, which
+    can be read or write). Verified on GTR's "Main UI" node (heap uid
+    11756, ``<nodeName>"Reg Events"</nodeName>``) and a 5-row real corpus
+    example (DCAF-DAQModule's "Register For Events.vi", uid 110): the
+    node's own ``<dcoList>`` lists each registered row's ``eventRegItem``
+    dco uid, in heap order -- the EXACT SAME structural convention
+    ``PropertyNode``/``InvokeNode`` already use for their own growable
+    parts (see ``_dco_list_terminal_uids``), so the row COUNT is fully
+    data-driven, never a hard-coded guess.
+
+    The header shows this node's own heap-recorded name -- ``object_name``,
+    from ``<nodeName>`` -- NEVER a hard-coded "Register For Events"/
+    "Unregister For Events" guess: every real corpus instance (23 across 21
+    files) records ``"Reg Events"``, and reading the field directly (the
+    SAME mechanism ``PropertyNode``/``InvokeNode`` already use) means a
+    differently-named variant (e.g. an "Unregister For Events" node, if one
+    ever turns up with a different recorded name) renders correctly with
+    ZERO special-casing.
+
+    The event-registration-refnum (in/out, ``LVType.ref_type == "EventReg"``)
+    and error (in/out, the standard status/code/source cluster) terminals
+    thread the box edges at the header level, placed by the scene from the
+    node's real heap terminal geometry -- not drawn here, same as
+    ``PropertyNode``'s reference/error terminals.
+    """
+
+    object_name: str = ""
+    object_method_id: str = ""
+    # <dcoList> re-expressed as TERMINAL uids, one per registered event
+    # source, in heap order -- each is a growable row's own INPUT terminal.
+    event_row_terminal_uids: list[str] = field(default_factory=list)
+
+
 class PropertyNodeHandler(NodeTypeHandler):
     """Handler for Property Node (class="propNode")."""
 
@@ -756,6 +795,26 @@ class InvokeNodeHandler(NodeTypeHandler):
             method_name=clean_labview_string(elem.findtext("methName")),
             method_code=meth_code,
             row_terminal_uids=_dco_list_terminal_uids(elem),
+        )
+
+
+class EventRegNodeHandler(NodeTypeHandler):
+    """Handler for Register-For-Events node (class="eventRegNode", task
+    #56). ``display_name`` is a generic last-resort fallback (matching the
+    convention "Property Node"/"Invoke Node" already use above) -- the REAL
+    per-instance name always comes from ``<nodeName>`` (see EventRegNode's
+    class docstring), never this hard-coded string."""
+
+    xml_class = "eventRegNode"
+    display_name = "Reg Events"
+
+    def parse(self, elem: ET.Element) -> EventRegNode:
+        common = self._extract_common(elem)
+        return EventRegNode(
+            **common,
+            object_name=clean_labview_string(elem.findtext("nodeName")),
+            object_method_id=elem.findtext("oMId") or "",
+            event_row_terminal_uids=_dco_list_terminal_uids(elem),
         )
 
 
@@ -1267,6 +1326,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     CaseStructHandler(),
     PropertyNodeHandler(),
     InvokeNodeHandler(),
+    EventRegNodeHandler(),
     FlatSequenceHandler(),
     StackedSequenceHandler(),
     _SequenceAliasHandler(),

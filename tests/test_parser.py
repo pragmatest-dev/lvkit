@@ -1443,6 +1443,67 @@ class TestParseVI:
         assert explicit.bound_control_uid == ""
         assert explicit.bound_control_type is None
 
+    def test_parse_event_reg_node_growable_rows(self, tmp_path: Path):
+        """A Register-For-Events node (task #56, class="eventRegNode") gets
+        its own display name from ``<nodeName>`` (the SAME field
+        PropertyNode/InvokeNode already use -- NEVER a hard-coded
+        "Register For Events" guess: every real corpus instance records
+        "Reg Events"), and its GROWABLE event-source rows come from
+        ``<dcoList>`` re-expressed as terminal uids (the same
+        ``_dco_list_terminal_uids`` convention), fully data-driven -- a
+        2-row node gets exactly 2 ``event_row_terminal_uids``, in heap
+        order."""
+        bd_xml = """<?xml version="1.0"?>
+<root>
+    <node class="eventRegNode" uid="700">
+        <termList elements="6">
+            <SL__arrayElement class="term" uid="701">
+                <dco class="hGrowCItem" uid="711"><typeDesc>TypeID(1)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="702">
+                <dco class="hGrowCItem" uid="712"><typeDesc>TypeID(2)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="703">
+                <dco class="hGrowCItem" uid="713"><typeDesc>TypeID(3)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="704">
+                <dco class="hGrowCItem" uid="714"><typeDesc>TypeID(4)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="705">
+                <dco class="eventRegItem" uid="715">
+                    <typeDesc>TypeID(5)</typeDesc>
+                    <code>03E8</code>
+                </dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="706">
+                <dco class="eventRegItem" uid="716">
+                    <typeDesc>TypeID(6)</typeDesc>
+                    <code>03E8</code>
+                </dco>
+            </SL__arrayElement>
+        </termList>
+        <dcoList elements="2">
+            <SL__arrayElement uid="715" />
+            <SL__arrayElement uid="716" />
+        </dcoList>
+        <nodeName>"Reg Events"</nodeName>
+        <oMId>0044</oMId>
+    </node>
+    <signalList></signalList>
+</root>"""
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(bd_xml)
+
+        vi = parse_vi(bd_xml=bd_file)
+        nodes = {n.uid: n for n in vi.block_diagram.nodes}
+
+        from lvkit.parser.node_types import EventRegNode
+
+        node = nodes["700"]
+        assert isinstance(node, EventRegNode)
+        assert node.object_name == "Reg Events"
+        assert node.event_row_terminal_uids == ["705", "706"]
+
     def test_parse_with_wires(self, tmp_path: Path):
         """Test parsing a block diagram with wires."""
         xml_content = """<?xml version="1.0"?>

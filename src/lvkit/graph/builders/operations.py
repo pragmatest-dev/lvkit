@@ -16,6 +16,7 @@ from typing import Any
 from lvkit.models import PropertyDef, Terminal
 from lvkit.parser.node_types import (
     CpdArithNode,
+    EventRegNode,
     InvokeNode,
     PropertyNode,
     SubVINode,
@@ -95,7 +96,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             prim_kwargs["prim_index"] = node.prim_index
         if isinstance(node, CpdArithNode):
             prim_kwargs["operation"] = node.operation
-        if isinstance(node, (PropertyNode, InvokeNode)):
+        if isinstance(node, (PropertyNode, InvokeNode, EventRegNode)):
             prim_kwargs["object_name"] = node.object_name
             prim_kwargs["object_method_id"] = node.object_method_id
             if isinstance(node, PropertyNode):
@@ -113,6 +114,10 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["method_code"] = node.method_code
                 prim_kwargs["invoke_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.row_terminal_uids
+                ]
+            elif isinstance(node, EventRegNode):
+                prim_kwargs["event_row_terminal_ids"] = [
+                    ctx.qid(uid) for uid in node.event_row_terminal_uids
                 ]
 
         return GraphPrimitiveNode(
