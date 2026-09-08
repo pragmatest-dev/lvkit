@@ -3,6 +3,12 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+
+## [0.8.2] - 2026-09-08
+- **Cluster constants render as real LabVIEW controls** — each field draws at its true heap layout with its own control glyph (dog-ear refnums with per-kind symbols incl. the User Event radar dish, class cubes, path/string/numeric type marks, nested clusters and array-of-cluster elements), replacing synthesized boxes of spaced text (#45).
+- **Cluster hover shows a Context-Help-style data-type tree** — each field with its type mark, name, and full type text; nested clusters indent under "(cluster of N elements)".
+- **A property node bound to a control renders distinctly** — the target control's name as the header, a type-color bar, and no reference terminals; wire-driven property nodes are unchanged (#51).
+- **Register For Events renders as a growable node** — its event rows and terminals, instead of the raw `eventRegNode` class box (#56).
 - **Class wires render in the class's own color** — an LVOOP class instance's wire now draws in the color (and width/line-style) set in the class's Wire Appearance, decoded from the `.lvclass`, instead of the generic default (#43).
 
 ## [0.8.1] - 2026-08-31
