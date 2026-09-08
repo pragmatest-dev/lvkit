@@ -5603,6 +5603,194 @@ def test_explicit_property_node_in_corpus_keeps_class_header():
     assert target.glyph.class_name == "VI"
 
 
+def test_implicit_invoke_node_shows_target_name_and_type_color_bar():
+    """An IMPLICIT invoke node (task #51/#55 extension, reference image #72)
+    — one permanently bound to a specific front-panel control, discriminated
+    by ``bound_control_uid`` (see ``parser.node_types.InvokeNode``'s class
+    docstring; NEVER inferred from the label text or wiring) — draws the
+    BOUND CONTROL's own name as its header (from the invoke node's own heap
+    ``<label>``, never the object class) plus a TYPE-COLOR BAR in that
+    control's wire color. An EXPLICIT node (no ``bound_control_uid``) is
+    completely unaffected — mirrors the property-node behavior exactly."""
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.nodes import _invoke_node_glyph
+    from lvkit.render.style import wire_style
+
+    def term(idx, direction, ut):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
+        )
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    node = PrimitiveNode(
+        id="VI::11387",
+        vi_path="VI",
+        node_type="invokeNode",
+        name="Test Hierarchy Tree",
+        label="Test Hierarchy Tree",
+        object_name="Tree (strict)",
+        method_name="Custom Item Symbols.Revert Symbols",
+        terminals=[
+            term(0, "output", "Void"),  # method select-slot (never an arrow)
+            term(1, "output", "Void"),  # return value (unused -> no arrow)
+        ],
+        invoke_row_terminal_ids=["VI::0", "VI::1"],
+        bound_control_uid="12",
+        bound_control_type=bool_type,
+    )
+    glyph = _invoke_node_glyph(node)
+    assert isinstance(glyph, InvokeNodeGlyph)
+    assert glyph.is_implicit is True
+    assert glyph.target_name == "Test Hierarchy Tree"
+    assert glyph.bar_color == wire_style(bool_type).color
+
+    # An implicit node whose bound control's class isn't reconstructible
+    # (bound_control_type is None, e.g. GTR's real "treeControl") still
+    # shows the target name, just no bar — never a guessed color.
+    unresolved = node.model_copy(update={"id": "VI::11388", "bound_control_type": None})
+    glyph2 = _invoke_node_glyph(unresolved)
+    assert isinstance(glyph2, InvokeNodeGlyph)
+    assert glyph2.is_implicit is True
+    assert glyph2.target_name == "Test Hierarchy Tree"
+    assert glyph2.bar_color is None
+
+    # EXPLICIT (no bound_control_uid): unaffected, same as the plain
+    # class-header form.
+    explicit = node.model_copy(
+        update={
+            "id": "VI::982",
+            "label": None,
+            "object_name": "VI",
+            "bound_control_uid": "",
+            "bound_control_type": None,
+        }
+    )
+    glyph3 = _invoke_node_glyph(explicit)
+    assert isinstance(glyph3, InvokeNodeGlyph)
+    assert glyph3.is_implicit is False
+    assert glyph3.target_name == ""
+    assert glyph3.bar_color is None
+    assert glyph3.class_name == "VI"
+
+
+def test_invoke_node_glyph_draws_bar_only_when_implicit():
+    """``InvokeNodeGlyph.draw()`` draws the header text (target name when
+    implicit, ``⚙ <class>`` otherwise) and, ONLY for an implicit node with a
+    resolved ``bar_color``, a solid color bar under the header — never for
+    an explicit node, and never a guessed color when unresolved."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 130.0, 68.0)
+
+    implicit = InvokeNodeGlyph(
+        method="Revert Symbols",
+        rows=(),
+        class_name="Tree (strict)",
+        is_implicit=True,
+        target_name="Test Hierarchy Tree",
+        bar_color="#4a9c3e",
+    )
+    b1 = SvgBackend()
+    implicit.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert ">Test Hierarchy Tree<" in svg1
+    assert "⚙" not in svg1  # target-name header, never the class gear icon
+    assert 'fill="#4a9c3e"' in svg1  # the type-color bar
+
+    explicit = InvokeNodeGlyph(
+        method="Revert Symbols", rows=(), class_name="Tree (strict)", is_implicit=False,
+    )
+    b2 = SvgBackend()
+    explicit.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "⚙ Tree (strict)" in svg2
+    assert 'fill="#4a9c3e"' not in svg2
+
+    # Implicit but unresolved bar_color: target name shows, no bar drawn.
+    unresolved = InvokeNodeGlyph(
+        method="Revert Symbols",
+        rows=(),
+        class_name="Tree (strict)",
+        is_implicit=True,
+        target_name="Test Hierarchy Tree",
+        bar_color=None,
+    )
+    b3 = SvgBackend()
+    unresolved.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert ">Test Hierarchy Tree<" in svg3
+    assert svg3.count("<rect") == 1  # the outer box only -- no bar rect drawn
+
+
+def test_gtr_test_hierarchy_tree_invoke_node_renders_implicit():
+    """Real-corpus check (task #51/#55 extension, reference image #72): GTR's
+    "Test Hierarchy Tree" invoke node (heap uid 11387, method "Custom Item
+    Symbols.Revert Symbols") renders IMPLICIT — header "Test Hierarchy Tree"
+    (the bound control's own name), never the "⚙ Tree (strict)" class
+    header. Its bound control (heap class ``treeControl``) isn't a class
+    ``reconstruct_control_lvtype`` models, so no color bar — never a guessed
+    color."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::11387")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Test Hierarchy Tree invoke node not in scene"
+    assert isinstance(target.glyph, InvokeNodeGlyph)
+    assert target.glyph.is_implicit is True
+    assert target.glyph.target_name == "Test Hierarchy Tree"
+    assert target.glyph.bar_color is None
+    assert target.glyph.method == "Custom Item Symbols.Revert Symbols"
+
+
+def test_explicit_invoke_node_in_corpus_keeps_class_header():
+    """Real-corpus check: GTR's "FP.Open" VI-reference invoke node (heap uid
+    982) is EXPLICIT (no bound-control ``<ddo>``) and renders EXACTLY as
+    before — "⚙ VI" class header, no target name, no color bar."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::982")
+        ),
+        None,
+    )
+    assert target is not None, "explicit FP.Open invoke node not in scene"
+    assert isinstance(target.glyph, InvokeNodeGlyph)
+    assert target.glyph.is_implicit is False
+    assert target.glyph.target_name == ""
+    assert target.glyph.bar_color is None
+    assert target.glyph.class_name == "VI"
+
+
 def test_event_reg_node_glyph_draws_growable_rows_and_grow_handle():
     """``_event_reg_node_glyph``/``EventRegNodeGlyph`` (task #56): a
     Register-For-Events node draws a header naming this node's own

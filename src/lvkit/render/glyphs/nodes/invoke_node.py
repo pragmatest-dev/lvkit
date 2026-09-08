@@ -12,8 +12,23 @@ from .base import _draw_drawer_row, fit_label
 class InvokeNodeGlyph:
     """An Invoke Node (heap class ``invokeNode``): like a Property Node, but the
     invoked METHOD name is the first drawer row, and the method's parameters
-    grow DOWNWARD beneath it. The reference (in/out) and error (in/out)
-    terminals thread the header edges and are placed by the scene.
+    grow DOWNWARD beneath it.
+
+    LabVIEW draws this in one of two forms (task #51/#55 extension of the
+    property-node distinction, reference image #72), keyed by whether the
+    node is permanently bound to a specific front-panel control (see
+    ``parser.node_types.InvokeNode``'s class docstring for the heap
+    discriminator):
+
+    - EXPLICIT (``is_implicit=False``, unchanged): the header names the
+      object CLASS the wired reference is of (``⚙ <class>``); the reference
+      (in/out) and error (in/out) terminals thread the box edges at the
+      header level, placed by the scene, not drawn here.
+    - IMPLICIT (``is_implicit=True``): the header names the BOUND control
+      itself (``target_name``, from the invoke node's own heap ``<label>``),
+      and a TYPE-COLOR BAR (``bar_color`` — the bound control's own wire
+      color) draws in a thin band under the header. No reference terminals
+      thread through (there's nothing to wire), so none are drawn.
 
     Row count and content come from the heap's ``dcoList`` (method + params,
     NOT one row per raw terminal — see ``render/nodes.py:_invoke_node_glyph``):
@@ -31,6 +46,9 @@ class InvokeNodeGlyph:
     # (param label, show_left, show_right)
     rows: tuple[tuple[str, bool, bool], ...] = ()
     class_name: str = ""  # object class shown in the header (e.g. "VI")
+    is_implicit: bool = False
+    target_name: str = ""  # the bound control's own name (implicit only)
+    bar_color: str | None = None  # the bound control's wire color (implicit only)
     fill_attr: str = "prim_fill"
     stroke_attr: str = "prim_stroke"
     text_attr: str = "prim_text"
@@ -54,16 +72,34 @@ class InvokeNodeGlyph:
         lpad = 3.0
         lsize = max(5.0, min(9.0, cell_h * 0.62) - 1.0)
 
-        # Header band: the object class, centered, with a divider beneath.
+        # Header band: the object class (explicit) or the BOUND CONTROL's own
+        # name (implicit), with a divider beneath. For an EXPLICIT node this
+        # is the row the reference + error terminals thread through (drawn by
+        # the scene at the box edges); an implicit node has none to thread.
         hy2 = y1 + cell_h
-        header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
+        if self.is_implicit and self.target_name:
+            header = self.target_name
+        else:
+            header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
+        bar_h = min(5.0, cell_h * 0.3) if self.is_implicit else 0.0
+        text_cy = y1 + (cell_h - bar_h) / 2
         backend.text(
             (x1 + x2) / 2,
-            y1 + cell_h / 2 + lsize * 0.34,
+            text_cy + lsize * 0.34,
             fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize),
             lsize,
             fill=text_fill,
         )
+        if bar_h > 0 and self.bar_color:
+            # The TYPE-COLOR BAR: a thin band in the bound control's own
+            # wire color, filling most of the header's width — LabVIEW's
+            # own cue for "this node's identity is a specific control of
+            # THIS type", replacing the (absent) reference terminals.
+            bar_pad = (x2 - x1) * 0.12
+            backend.rect(
+                x1 + bar_pad, hy2 - bar_h, x2 - bar_pad, hy2 - 1.0,
+                fill=self.bar_color, stroke="none",
+            )
         backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
 
         # Method row: the invoked method name, never a left arrow (that side is

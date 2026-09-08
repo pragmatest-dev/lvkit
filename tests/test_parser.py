@@ -1443,6 +1443,81 @@ class TestParseVI:
         assert explicit.bound_control_uid == ""
         assert explicit.bound_control_type is None
 
+    def test_parse_invoke_node_implicit_vs_explicit(self, tmp_path: Path):
+        """An Invoke Node's ``bound_control_uid`` (task #51/#55 extension)
+        comes ONLY from its own DIRECT ``<ddo>`` CHILD -- a sibling of
+        ``<termList>``, never a part of it, never inferred from the
+        ``<label>`` text -- the SAME discriminator ``PropertyNode`` uses.
+        When present, ``_parse_block_diagram`` resolves ``bound_control_type``
+        from that uid's ddo in the FRONT-PANEL heap. Absent entirely -> both
+        fields stay empty/None, exactly like the existing (unbound) invoke
+        node behavior. Modeled on GTR's "Test Hierarchy Tree" invoke node
+        (uid 11387, bound-control ddo uid 12) vs. its "FP.Open" VI-reference
+        invoke node (uid 982, no ``<ddo>``)."""
+        bd_xml = """<?xml version="1.0"?>
+<root>
+    <node class="invokeNode" uid="11387">
+        <termList elements="2">
+            <SL__arrayElement class="term" uid="11415">
+                <dco class="invokeItem" uid="11416"><typeDesc>TypeID(1)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="11421">
+                <dco class="invokeItem" uid="11422"><typeDesc>TypeID(2)</typeDesc></dco>
+            </SL__arrayElement>
+        </termList>
+        <label class="label" uid="11392">
+            <textRec class="textHair"><text>"Test Hierarchy Tree"</text></textRec>
+        </label>
+        <dcoList elements="2">
+            <SL__arrayElement uid="11416" />
+            <SL__arrayElement uid="11422" />
+        </dcoList>
+        <nodeName>"Tree (strict)"</nodeName>
+        <oMId>0046</oMId>
+        <ddo uid="12" />
+        <methName>"Custom Item Symbols.Revert Symbols"</methName>
+        <methCode>1969895444</methCode>
+    </node>
+    <node class="invokeNode" uid="982">
+        <termList elements="0" />
+        <dcoList elements="0" />
+        <nodeName>"VI"</nodeName>
+        <oMId>0001</oMId>
+        <methName>"FP.Open"</methName>
+        <methCode>123</methCode>
+    </node>
+    <signalList></signalList>
+</root>"""
+        fp_xml = """<?xml version="1.0"?>
+<root>
+    <ddo class="treeControl" uid="12">
+        <bounds>(0, 0, 100, 100)</bounds>
+    </ddo>
+</root>"""
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(bd_xml)
+        fp_file = tmp_path / "test_FPHb.xml"
+        fp_file.write_text(fp_xml)
+
+        vi = parse_vi(bd_xml=bd_file, fp_xml=fp_file)
+        nodes = {n.uid: n for n in vi.block_diagram.nodes}
+
+        from lvkit.parser.node_types import InvokeNode
+
+        implicit = nodes["11387"]
+        assert isinstance(implicit, InvokeNode)
+        assert implicit.label == "Test Hierarchy Tree"
+        assert implicit.bound_control_uid == "12"
+        # "treeControl" isn't a control class ``reconstruct_control_lvtype``
+        # models, so the type stays unresolved -- never a guessed color.
+        assert implicit.bound_control_type is None
+
+        explicit = nodes["982"]
+        assert isinstance(explicit, InvokeNode)
+        assert explicit.label is None
+        assert explicit.bound_control_uid == ""
+        assert explicit.bound_control_type is None
+
     def test_parse_event_reg_node_growable_rows(self, tmp_path: Path):
         """A Register-For-Events node (task #56, class="eventRegNode") gets
         its own display name from ``<nodeName>`` (the SAME field

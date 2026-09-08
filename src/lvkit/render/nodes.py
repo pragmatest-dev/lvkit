@@ -898,7 +898,13 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
     only draws the return-value arrow when the method actually returns
     something (also Void otherwise). Param NAMES aren't in the VI file (they
     belong to the method's VI-server signature), so rows are labeled by index
-    (``[i]``)."""
+    (``[i]``).
+
+    IMPLICIT vs EXPLICIT (task #51/#55 extension, reference image #72):
+    like a property node, an invoke node permanently bound to a specific
+    front-panel control draws a target-name header + type-color bar and no
+    reference terminals; see ``parser.node_types.InvokeNode``'s class
+    docstring for the heap discriminator."""
     row_ids = getattr(node, "invoke_row_terminal_ids", None) or []
     by_id = {t.id: t for t in node.terminals}
 
@@ -920,11 +926,25 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
             )
         )
 
+    # IMPLICIT vs EXPLICIT (extending task #51 / reference image #69's
+    # property-node distinction to invoke nodes, reference image #72) -- see
+    # parser.node_types.InvokeNode's class docstring for the heap
+    # discriminator: ``bound_control_uid`` is set ONLY when this invoke node
+    # carries its own direct ``<ddo>`` child (permanently bound to a
+    # specific front-panel control), never inferred from the label text.
+    is_implicit = bool(getattr(node, "bound_control_uid", ""))
+    target_name = (node.label or "").strip() if is_implicit else ""
+    bound_type = getattr(node, "bound_control_type", None)
+    bar_color = wire_style(bound_type).color if bound_type is not None else None
+
     return InvokeNodeGlyph(
         method=(getattr(node, "method_name", None) or "").strip(),
         return_present=return_present,
         rows=tuple(rows),
         class_name=(getattr(node, "object_name", None) or "").strip(),
+        is_implicit=is_implicit,
+        target_name=target_name,
+        bar_color=bar_color,
     )
 
 

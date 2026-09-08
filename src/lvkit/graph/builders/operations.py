@@ -115,6 +115,8 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["invoke_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.row_terminal_uids
                 ]
+                prim_kwargs["bound_control_uid"] = node.bound_control_uid
+                prim_kwargs["bound_control_type"] = node.bound_control_type
             elif isinstance(node, EventRegNode):
                 prim_kwargs["event_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.event_row_terminal_uids
