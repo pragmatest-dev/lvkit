@@ -1219,12 +1219,26 @@ def _endpoint_containers(
       terminals (``boundary == "inner"`` — the inner face is on the frame
       side). Inner and outer tunnels often share the same center point, so
       inner-vs-outer is read from the graph terminal, never from geometry.
+    * it is an FP TERMINAL's on-diagram glyph referenced from inside a
+      frame — an ``FPTerminal`` isn't itself a graph node (see
+      ``_fp_terminal_frame_path``'s docstring), so ``by_id.get(end.node_id)``
+      below finds nothing for it and would wrongly report "no containment"
+      (the #53/#72 bug: a wire touching an FP terminal escaped its frame's
+      confinement entirely — its coercion dot, and the wire itself, drew
+      unconditionally at the ROOT instead of inside the frame's toggle/clip
+      group). Resolved via the SAME structural walk ``_wire_path`` already
+      uses for this exact terminal kind, just reordered to this function's
+      innermost->outermost contract (``_fp_terminal_frame_path`` returns
+      root->leaf).
     """
+    term = graph.get_terminal(end.terminal_id)
+    if isinstance(term, FPTerminal):
+        struct_path = _fp_terminal_frame_path(term, by_id, vi_name)
+        return [uid for uid, _ in reversed(struct_path)] if struct_path else []
     node = by_id.get(end.node_id)
     if node is None:
         return []
     out: list[str] = []
-    term = graph.get_terminal(end.terminal_id)
     if (
         isinstance(term, TunnelTerminal)
         and term.boundary == "inner"

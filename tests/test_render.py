@@ -2413,6 +2413,80 @@ def _count_tunnel_face_mismatches(scene: Scene) -> tuple[int, int]:
     return mismatches, total
 
 
+def test_endpoint_containers_resolves_fp_terminal_endpoint():
+    """``_endpoint_containers`` (task #53/#72 coercion-dot fix): an endpoint
+    whose terminal is an ``FPTerminal`` — a front-panel control's on-diagram
+    glyph referenced from inside a frame — is NOT a graph node (see
+    ``_fp_terminal_frame_path``'s docstring), so ``by_id.get(end.node_id)``
+    can't find it. Before the fix this silently returned ``[]`` (no
+    containment at all); it must now resolve the SAME structural chain
+    ``_wire_path`` already uses for this terminal kind.
+
+    Real-corpus case: GTR's "Slide" DBL front-panel terminal (referenced
+    from inside the "UI: Initialize" event frame, structure uid 36) is fed
+    by a "100" constant (uid 17153) living inside structure 48, itself
+    inside 36. The wire's destination endpoint must now report ``['36']``
+    (not ``[]``), so the innermost COMMON container is 36 (shared with the
+    source's ``['36', '48']``) instead of ``None``."""
+    from lvkit.render.scene import _containment_of, _innermost_common_container
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    by_id = {n.id: n for n in graph.iter_nodes(vi)}
+
+    wires = [
+        w
+        for w in graph.get_wires(vi, include_internal=True)
+        if w.source.terminal_id.endswith("::17153")
+    ]
+    assert wires, "GTR's 'Slide' constant (uid 17153) wire not found"
+    w = wires[0]
+
+    assert _containment_of(w.source, graph, by_id, vi) == ["36", "48"]
+    assert _containment_of(w.dest, graph, by_id, vi) == ["36"]
+    assert _innermost_common_container(w, graph, by_id, vi) == "36"
+
+
+def test_gtr_slide_coercion_dot_frame_scoped_not_root():
+    """Real-corpus check (task #53/#72): GTR's "Slide" ``100``->DBL coercion
+    dot's ``RenderWireNet`` now gets a real ``container_uid`` (36, the
+    owning "UI: Initialize" event frame's structure) instead of ``None``
+    (the root diagram) — so ``composite.build_render_tree`` buckets it into
+    that frame's ``lv-frame`` toggle/clip group instead of drawing it
+    unconditionally at the top level, where it used to float independent of
+    whichever frame was actually selected."""
+    from lvkit.render.composite import build_render_tree
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+
+    target = next(
+        (
+            net
+            for net in scene.wire_nets
+            if net.source is not None
+            and net.source.source.terminal_id.endswith("::17153")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Slide coercion-dot wire net not in scene"
+    assert target.coercion_dots  # this IS the numeric-coercion wire
+    assert target.container_uid == "36"
+    assert target.container_uid is not None  # never root -- would escape its frame
+
+    tree = build_render_tree(scene)
+    assert not any(
+        pt in tree.content.dots for pt in target.coercion_dots
+    ), "the Slide coercion dot must NOT be in the root diagram's unconditional dots"
+
+
 def test_no_wire_segment_crosses_a_structure_it_is_not_inside():
     """Structures ARE obstacles: a wire must route AROUND the interior of any
     For/While Loop, Case, or Sequence box it does not LIVE INSIDE — including
