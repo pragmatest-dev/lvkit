@@ -566,10 +566,14 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         out_name = out.name or "output"
         var_name = to_var_name(out_name)
 
-        # Try to resolve from context
+        # Try to resolve from context. resolve() returns an EXPRESSION string
+        # (often compound, e.g. "low_000 + product" from an inlined output), so
+        # parse it into a real AST — a bare ast.Name(id=expr) is malformed and
+        # hides the variable loads from later passes (dead-code elimination then
+        # deletes the assignments the return depends on).
         value = ctx.resolve(out_id)
         if value:
-            value_ast = ast.Name(id=value, ctx=ast.Load())
+            value_ast: ast.expr = parse_expr(value)
         else:
             value_ast = ast.Constant(value=None)
 
