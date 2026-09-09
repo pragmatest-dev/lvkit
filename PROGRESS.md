@@ -33,41 +33,60 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
   `[]` lists, not the string `"[]"` (fixed a test that had enshrined the bug).
 - **Missing math import (prim 1076)** — declared `import math` the same way 1904
   already does (fixes `undefined name 'math'`).
+- **Case-structure default emitted last** (`7028e21`) — a bare `case _:` matches
+  everything, so Python rejects any case after it; the default frame's case is
+  now appended after the rest regardless of frame order. Convert File Extension
+  (and any VI whose Default frame isn't last) now compiles. Case/e2e: 46 passed.
+- **FP-layout-driven panel generator** (`114d8b9`) — `scripts/gen_panel.py` +
+  `scripts/panelgen/` emit logic/state/panel/app; **panel widgets are positioned
+  from the VI's real FP `bounds`** (this replaces the hand-picked layouts).
+  Verified serving HTTP 200. Two FP-parser gaps found (see below).
+- **Output-return expression parsed, not a bare Name** (`49d477d`) —
+  HIGH-LEVERAGE. `build_return_stmt` wrapped the resolved output in
+  `ast.Name(id=value)`, but `value` is often a compound expression string (e.g.
+  `"low + product"`); the malformed Name hid the loads, so dead-code elimination
+  deleted the assignments the return depended on. `parse_expr` fixes it for every
+  VI with a compound output. Random Number - Within Range now runs (0,10 → 7.08).
+  Broad codegen suite: 499 passed.
 
 ## Known bug classes (next targets, generic fixes)
-1. **Constant feeding a loop auto-index tunnel** — a nested array constant is
-   correctly formatted now, but when it drives a loop as an auto-indexed array
-   via a TUNNEL, `ctx.resolve(outer_terminal)` returns an auto-derived name
-   instead of tracing to the constant's literal binding. Deeper resolution/edge
-   issue than formatting (Trim Whitespace still fails on this).
-2. **Dropped intermediate (`product`) — single-use inlining × parallel tiers.**
-   Highest cascade value (unblocks the Random Number VIs). In
-   `Random Number - Within Range` the chain Subtract→Multiply→Add is inlined
-   into the return, but Multiply keeps its output NAME `product` with no
-   assignment emitted (Add reads `low + product`; `product` is undefined; the
-   parallel-tier `number` is also left dead). Root cause is the interaction
-   between single-use expression inlining and the parallel-tier / cross-tier
-   value passing in `builder.generate_body` / primitive output binding —
-   touches core logic, so fix it deliberately with the loop/case rigor, not a
-   spot patch. **Cross-branch UnboundLocal (`long_integer`) is likely the same
-   family.**
-3. **Constant feeding a loop auto-index tunnel** (see above) — resolution/edge
-   issue; blocks Trim Whitespace.
+1. **subVI import-name mismatch (single-VI generation) — highest cascade value.**
+   When a VI is generated on its own, the entry function is named by full path
+   (`homeryan…random_number___within_range__ogtk`) but a caller imports the SHORT
+   name (`from ..openg.<mod> import random_number___within_range__ogtk`) → the
+   subVI module doesn't define that name → ImportError in every importer. This is
+   what still blocks the Random Number, Trim Whitespace, To Proper Case, Compare
+   Two Paths importers even though those subVIs' own logic is now correct. Likely
+   a naming inconsistency between entry-VI vs dependency-VI function naming in the
+   single-VI path (pipeline/multi-VI e2e tests pass, so the multi-VI path is
+   consistent — diff the two). Fix unblocks the biggest cluster.
+2. **Constant feeding a loop auto-index tunnel** — a nested array constant is
+   formatted correctly now, but when it drives a loop as an auto-indexed array via
+   a TUNNEL, `ctx.resolve(outer_terminal)` returns an auto-derived name instead of
+   tracing to the constant's literal binding (resolution/edge issue, not
+   formatting). Blocks Trim Whitespace.
+3. **Cross-branch UnboundLocal (`long_integer`)** — a var assigned in one
+   parallel-tier branch is read in another; the branch return/capture wiring
+   doesn't surface it. (Related family to the return-expression fix, but distinct.)
 4. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
    "Comment" is legitimately empty).
 5. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
    real semantics, not a hack); several `Build Error Cluster`/vilib terminal gaps.
 
-### Cascade note
-Most run-failures on the sample are IMPORT cascades: VIs importing a broken subVI
-(`trim_whitespace`, `to_proper_case`, `random_number`, `compare_two_paths`). So
-fixing #2 and #3 (the roots) unblocks the most VIs at once — attack those first.
+FIXED this run: the `product` dropped-intermediate bug (was the parallel-tier
+theory — the actual root cause was the return-expression Name bug, #49d477d).
 
-## Metric
-Acceptance harness (`.tmp/acceptance.py`, 60-VI sample): started **9/60 execute**,
-now **10/60**, with generation gaps down 29→17. The bug fixes above are mostly
-prerequisites that unblock generation; the RUN count climbs once the two cascade
-roots (#2, #3) land.
+## Metric — read with care
+Acceptance harness (`.tmp/acceptance.py`, 60-VI sample) reports **10/60 execute**,
+generation gaps down **29→17**. BUT the harness UNDERCOUNTS real progress:
+- it passes `"test.txt"` for un-inferrable arg types, so numeric VIs fail with
+  `'<' not supported between str and int` etc. — a harness artifact, not a codegen
+  bug;
+- the subVI import-name mismatch (#1) fails every importer VI even when the subVI
+  itself is correct.
+Directly verified working this run (execution, not the harness): Build Path
+(scalar + array), Random Number - Within Range, Convert File Extension compiles.
+The harness RUN count will jump once #1 lands.
 
 ## How to review
 - Panels: `uv run python scripts/gen_panel.py <vi> -o outputs/panels/<name>` then
