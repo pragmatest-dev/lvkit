@@ -40,16 +40,42 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
    via a TUNNEL, `ctx.resolve(outer_terminal)` returns an auto-derived name
    instead of tracing to the constant's literal binding. Deeper resolution/edge
    issue than formatting (Trim Whitespace still fails on this).
-2. **Cross-branch UnboundLocal (`long_integer`)** — a var assigned in one
-   parallel-tier branch is read in another.
-3. **Dropped intermediate (`product`)** — a multiply feeding an output is
-   dropped (Random Number - Within Range).
-4. **match-case wildcard ordering** — `case _:` emitted before other cases
-   (Convert File Extension).
-5. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
+2. **Dropped intermediate (`product`) — single-use inlining × parallel tiers.**
+   Highest cascade value (unblocks the Random Number VIs). In
+   `Random Number - Within Range` the chain Subtract→Multiply→Add is inlined
+   into the return, but Multiply keeps its output NAME `product` with no
+   assignment emitted (Add reads `low + product`; `product` is undefined; the
+   parallel-tier `number` is also left dead). Root cause is the interaction
+   between single-use expression inlining and the parallel-tier / cross-tier
+   value passing in `builder.generate_body` / primitive output binding —
+   touches core logic, so fix it deliberately with the loop/case rigor, not a
+   spot patch. **Cross-branch UnboundLocal (`long_integer`) is likely the same
+   family.**
+3. **Constant feeding a loop auto-index tunnel** (see above) — resolution/edge
+   issue; blocks Trim Whitespace.
+4. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
    "Comment" is legitimately empty).
-6. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
+5. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
    real semantics, not a hack); several `Build Error Cluster`/vilib terminal gaps.
+
+### Cascade note
+Most run-failures on the sample are IMPORT cascades: VIs importing a broken subVI
+(`trim_whitespace`, `to_proper_case`, `random_number`, `compare_two_paths`). So
+fixing #2 and #3 (the roots) unblocks the most VIs at once — attack those first.
+
+## Metric
+Acceptance harness (`.tmp/acceptance.py`, 60-VI sample): started **9/60 execute**,
+now **10/60**, with generation gaps down 29→17. The bug fixes above are mostly
+prerequisites that unblock generation; the RUN count climbs once the two cascade
+roots (#2, #3) land.
+
+## How to review
+- Panels: `uv run python scripts/gen_panel.py <vi> -o outputs/panels/<name>` then
+  `uv run --with nicegui python outputs/panels/<name>/app.py` → http://localhost:8080.
+  Point it at a CONCRETE variant .vi (not a polymorphic wrapper) for clean widgets.
+- Tweak layout: `panel.py` positions are plain px from the VI's bounds in
+  `panelgen/panel_gen.py::_render_container` — one place to adjust.
+- Commits this run are on `feat/codegen-op-registry`.
 
 ## Front-panel-driven panels (DONE — replaces hand-picked layouts)
 `scripts/gen_panel.py` + `scripts/panelgen/` generates `logic.py` (via
