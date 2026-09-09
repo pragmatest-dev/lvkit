@@ -153,6 +153,12 @@ def _generate_match_case(
     _bind_input_tunnels(node, ctx)
 
     cases: list[ast.match_case] = []
+    # A bare wildcard (`case _:`, no guard) matches everything, so Python
+    # requires it LAST — any later case is "unreachable". The default frame can
+    # sit anywhere in node.frames, so hold its case aside and append it after
+    # the rest. (A guarded wildcard `case _ if …:` is NOT a catch-all and stays
+    # in place.)
+    default_case: ast.match_case | None = None
 
     for frame in node.frames:
         selector_str = str(frame.selector_value)
@@ -167,7 +173,20 @@ def _generate_match_case(
         bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
 
-        cases.append(ast.match_case(pattern=pattern, guard=guard, body=body))
+        match_case = ast.match_case(pattern=pattern, guard=guard, body=body)
+        is_bare_wildcard = (
+            isinstance(pattern, ast.MatchAs)
+            and pattern.pattern is None
+            and pattern.name is None
+            and guard is None
+        )
+        if is_bare_wildcard:
+            default_case = match_case
+        else:
+            cases.append(match_case)
+
+    if default_case is not None:
+        cases.append(default_case)
 
     output_bindings = _bind_output_tunnels(node, ctx)
     bindings.update(output_bindings)
