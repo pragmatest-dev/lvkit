@@ -68,3 +68,10 @@ def test_string_to_character_array() -> None:
     """Loops i over the string, taking one char at a time — needs the loop index."""
     r = _run_leaf("string/string.llb/String to Character Array__ogtk.vi", "hello")
     assert r.character_array == ["h", "e", "l", "l", "o"]
+
+
+def test_strip_path_traditional() -> None:
+    """Split a path into its last component (name) and its parent (stripped)."""
+    r = _run_leaf("file/file.llb/Strip Path - Traditional__ogtk.vi", "/home/u/f.txt")
+    assert r.name == "f.txt"
+    assert str(r.stripped_path) == "/home/u"
