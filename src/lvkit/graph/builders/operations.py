@@ -99,6 +99,12 @@ class PrimitiveBuildHandler(NodeBuildHandler):
         if isinstance(node, (PropertyNode, InvokeNode, EventRegNode)):
             prim_kwargs["object_name"] = node.object_name
             prim_kwargs["object_method_id"] = node.object_method_id
+            # Property/Invoke nodes share the SAME implicit-binding fields
+            # (task #51/#55) -- EventRegNode has neither, so it's excluded
+            # here rather than duplicating this pair per elif branch below.
+            if isinstance(node, (PropertyNode, InvokeNode)):
+                prim_kwargs["bound_control_uid"] = node.bound_control_uid
+                prim_kwargs["bound_control_type"] = node.bound_control_type
             if isinstance(node, PropertyNode):
                 prim_kwargs["properties"] = [
                     PropertyDef(name=p.get("name", "")) if isinstance(p, dict) else p
@@ -107,16 +113,12 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["property_value_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.dco_terminal_uids
                 ]
-                prim_kwargs["bound_control_uid"] = node.bound_control_uid
-                prim_kwargs["bound_control_type"] = node.bound_control_type
             elif isinstance(node, InvokeNode):
                 prim_kwargs["method_name"] = node.method_name
                 prim_kwargs["method_code"] = node.method_code
                 prim_kwargs["invoke_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.row_terminal_uids
                 ]
-                prim_kwargs["bound_control_uid"] = node.bound_control_uid
-                prim_kwargs["bound_control_type"] = node.bound_control_type
             elif isinstance(node, EventRegNode):
                 prim_kwargs["event_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.event_row_terminal_uids

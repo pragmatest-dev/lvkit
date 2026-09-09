@@ -123,7 +123,12 @@ def _format_const(value: object) -> str:
 
 
 _LV_TIMESTAMP_EPOCH = datetime(1904, 1, 1, tzinfo=timezone.utc)
-_TIMESTAMP_RAW_RE = re.compile(r"Timestamp\((-?\d+)\)")
+# Whole seconds, optionally with a decimal fraction -- parser.vi's default-
+# data decoder emits the fraction as decimal MICROSECONDS (e.g.
+# "Timestamp(1234567890.500000)"), threading LabVIEW's 128-bit timestamp's
+# real i64-seconds + u64-fraction through rather than always truncating to
+# ".000" (task #66 follow-up).
+_TIMESTAMP_RAW_RE = re.compile(r"Timestamp\((-?\d+(?:\.\d+)?)\)")
 
 
 def _format_timestamp_lines(raw: object) -> str:
@@ -137,14 +142,14 @@ def _format_timestamp_lines(raw: object) -> str:
     wrap machinery infer the break from spaces (verified unreliable: at a
     narrow box width it breaks mid-word instead of between time and date).
 
-    ``raw`` is the parser's decoded seconds-since-epoch for a genuinely SET
-    field (``parser.vi``'s default-data decoder emits the string
-    ``"Timestamp(<secs>)"``, or a caller may already hand back a bare
-    int/float) -- ``None`` (or any other unrecognized shape) is the unset
-    field, which is the LabVIEW epoch itself (0 seconds), never a guess.
-    NOTE: no real corpus example of a genuinely-SET Timestamp constant was
-    found to verify this branch against; only the unset/epoch default (the
-    common case, and the one in reference #73) is corpus-verified."""
+    ``raw`` is the parser's decoded seconds-since-epoch (with an optional
+    decimal fraction of a second — see ``_TIMESTAMP_RAW_RE``) for a
+    genuinely SET field (``parser.vi``'s default-data decoder emits the
+    string ``"Timestamp(<secs>)"``/``"Timestamp(<secs>.<frac>)"``, or a
+    caller may already hand back a bare int/float) -- ``None`` (or any
+    other unrecognized shape) is the unset field, which is the LabVIEW
+    epoch itself (0 seconds), never a guess. A real (non-epoch) timestamp's
+    fractional second shows as real milliseconds, not always ``.000``."""
     secs: float = 0.0
     if isinstance(raw, (int, float)):
         secs = float(raw)
@@ -157,6 +162,21 @@ def _format_timestamp_lines(raw: object) -> str:
     time_line = f"{dt.strftime('%I:%M:%S')}.{ms:03d} {dt.strftime('%p')}"
     date_line = f"{dt.month}/{dt.day}/{dt.year}"
     return f"{time_line}\n{date_line}"
+
+
+def _timestamp_const_glyph(raw: object, color: str) -> ConstantGlyph:
+    """The Timestamp leaf glyph (task #66/#84 dedup, ``fam == "timestamp"``
+    in ``_leaf_const_glyph``): LabVIEW shows a Timestamp as a two-line
+    time-over-date box (verified against the heap's own recorded display
+    format, ``%<%.3X\\n%x>T`` — locale time, then locale date — identical
+    across two independent corpus instances, and against NI's public "Time
+    Stamp Constant" docs plus the maintainer's own reference image #73: two
+    real Timestamp constants, each "<time> AM/PM" over "<date>"). This is
+    NOT "the same default codegen emits" (``type_defaults.
+    _get_primitive_default`` only special-cases "AbsTime"/"Time128", never
+    "MeasureData", so codegen's real default for this flavor is ``None``) —
+    the render shows a Timestamp on its own terms, independent of codegen."""
+    return ConstantGlyph(_format_timestamp_lines(raw), color, multiline=True)
 
 
 def string_const_display(raw: object) -> str:
@@ -824,6 +844,29 @@ def _event_data_glyph(
     return EventDataGlyph(rows=tuple(rows), is_filter=is_filter)
 
 
+def _implicit_binding(node: PrimitiveNode) -> tuple[bool, str, str | None]:
+    """IMPLICIT vs EXPLICIT binding for a Property/Invoke node (task #51/#55,
+    reference images #69/#72) -> ``(is_implicit, target_name, bar_color)``.
+    Shared by ``_property_node_glyph``/``_invoke_node_glyph`` -- both node
+    kinds carry the SAME heap discriminator: ``node.bound_control_uid`` is
+    set ONLY when the node carries its own direct ``<ddo>`` child
+    (permanently bound to a specific front-panel control), never inferred
+    from the label text. Direct attribute access (no ``getattr`` default) --
+    ``node`` is already a ``PrimitiveNode``, whose ``bound_control_uid``/
+    ``bound_control_type`` fields always exist (default ``""``/``None`` for
+    a node kind that doesn't use them). ``bar_color`` is self-consistent
+    with ``is_implicit``: never set for an explicit node, and (real color
+    or None, never guessed) for an implicit one depending on whether
+    ``bound_control_type`` resolved."""
+    is_implicit = bool(node.bound_control_uid)
+    target_name = (node.label or "").strip() if is_implicit else ""
+    bound_type = node.bound_control_type
+    bar_color = (
+        wire_style(bound_type).color if is_implicit and bound_type is not None else None
+    )
+    return is_implicit, target_name, bar_color
+
+
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
@@ -860,15 +903,7 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
             term.display_name = resolved
         rows.append((name, is_read))
     class_name = (getattr(node, "object_name", None) or "").strip()
-    # IMPLICIT vs EXPLICIT (task #51 / reference image #69) -- see
-    # parser.node_types.PropertyNode's class docstring for the heap
-    # discriminator: ``bound_control_uid`` is set ONLY when this propNode
-    # carries its own direct ``<ddo>`` child (permanently bound to a
-    # specific front-panel control), never inferred from the label text.
-    is_implicit = bool(getattr(node, "bound_control_uid", ""))
-    target_name = (node.label or "").strip() if is_implicit else ""
-    bound_type = getattr(node, "bound_control_type", None)
-    bar_color = wire_style(bound_type).color if bound_type is not None else None
+    is_implicit, target_name, bar_color = _implicit_binding(node)
     return PropertyNodeGlyph(
         rows=tuple(rows),
         class_name=class_name,
@@ -951,7 +986,8 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
 
     return_present = _row_terminal_present(term_at(1))
 
-    n_params = max(0, len(row_ids) // 2 - 1)
+    n_rows = len(row_ids) // 2  # 1 method row + N param rows
+    n_params = max(0, n_rows - 1)
     rows: list[tuple[str, bool, bool]] = []
     for i in range(n_params):
         left = term_at(2 + 2 * i)
@@ -964,16 +1000,7 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
             )
         )
 
-    # IMPLICIT vs EXPLICIT (extending task #51 / reference image #69's
-    # property-node distinction to invoke nodes, reference image #72) -- see
-    # parser.node_types.InvokeNode's class docstring for the heap
-    # discriminator: ``bound_control_uid`` is set ONLY when this invoke node
-    # carries its own direct ``<ddo>`` child (permanently bound to a
-    # specific front-panel control), never inferred from the label text.
-    is_implicit = bool(getattr(node, "bound_control_uid", ""))
-    target_name = (node.label or "").strip() if is_implicit else ""
-    bound_type = getattr(node, "bound_control_type", None)
-    bar_color = wire_style(bound_type).color if bound_type is not None else None
+    is_implicit, target_name, bar_color = _implicit_binding(node)
 
     return InvokeNodeGlyph(
         method=(getattr(node, "method_name", None) or "").strip(),
@@ -1187,27 +1214,15 @@ def _leaf_const_glyph(
         # A path control is visually identifiable even when unset — a
         # folder mark, never a featureless colored rectangle.
         return PathGlyph(string_const_display(raw) if raw is not None else "", color)
-    elif (
-        lv_type is not None
-        and lv_type.underlying_type == "MeasureData"
-        and lv_type.measure_flavor == "TimeStamp"
-    ):
+    elif fam == "timestamp":
         # A Timestamp constant (heap ddo class "absTime", graph
         # underlying_type "MeasureData" with measure_flavor "TimeStamp" —
-        # verified against GTR's "StartTestTime" field) used to draw a bare
-        # "0.0" (a float) for an unset field — reads as a number, not a
-        # Timestamp control. LabVIEW shows a Timestamp as a two-line
-        # time-over-date box (verified against the heap's own recorded
-        # display format, `%<%.3X\n%x>T` — locale time, then locale date —
-        # identical across two independent corpus instances, and against
-        # NI's public "Time Stamp Constant" docs plus the maintainer's own
-        # reference image #73: two real Timestamp constants, each
-        # "<time> AM/PM" over "<date>"). This is NOT "the same default
-        # codegen emits" (type_defaults._get_primitive_default only
-        # special-cases "AbsTime"/"Time128", never "MeasureData", so
-        # codegen's real default for this flavor is `None`) — the render
-        # shows a Timestamp on its own terms, independent of codegen.
-        return ConstantGlyph(_format_timestamp_lines(raw), color, multiline=True)
+        # verified against GTR's "StartTestTime" field; ``fam`` is
+        # ``type_family``'s own single source of truth for this, the SAME
+        # bucket ``wire_style`` already keyed ``color`` off two lines up)
+        # used to draw a bare "0.0" (a float) for an unset field — reads as
+        # a number, not a Timestamp control. See ``_timestamp_const_glyph``.
+        return _timestamp_const_glyph(raw, color)
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
         # A CLASS/LVObject refnum (``classname`` set) is a class instance,
         # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no

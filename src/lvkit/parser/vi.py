@@ -1695,11 +1695,24 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     if underlying in ("LVVariant", "Variant"):
         return "Variant()", len(data)
 
-    # MeasureData (timestamp): 16 bytes (8 int + 8 frac)
+    # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
+    # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
+    # (data[8:16], fraction = u64/2**64 sec) -- both halves threaded through
+    # so a real (non-epoch) timestamp shows its actual sub-second value
+    # (task #66 follow-up) instead of always truncating to ".000". Emitted
+    # as decimal microseconds (matching datetime.timedelta's own resolution
+    # ceiling -- finer precision would be silently rounded away by the
+    # renderer's timedelta(seconds=...) reconstruction anyway), carrying
+    # into the whole-second count on the (rare) round-up-to-1.0 edge.
     if underlying == "MeasureData":
         if len(data) >= 16:
             secs = int.from_bytes(data[:8], "big", signed=True)
-            return f"Timestamp({secs})", 16
+            frac_u64 = int.from_bytes(data[8:16], "big", signed=False)
+            frac_micros = round(frac_u64 * 1_000_000 / 2**64)
+            if frac_micros >= 1_000_000:
+                secs += 1
+                frac_micros = 0
+            return f"Timestamp({secs}.{frac_micros:06d})", 16
         return "Timestamp(0)", len(data)
 
     return None, 0

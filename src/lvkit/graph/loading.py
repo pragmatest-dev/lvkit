@@ -834,6 +834,18 @@ class LoadingMixin:
             try:
                 pd_fields = private_data_from_lvclass_xml(lvclass_path)
             except Exception:
+                # Intentional hard best-effort boundary, not a narrowable
+                # set: private_data_from_lvclass_xml decodes a possibly
+                # malformed/legacy embedded RSRC container through
+                # pylabview's OWN VI-resource parser (parse_flattened_
+                # private_data -> lv_rsrc.VI(...).parseData()), whose
+                # exception surface on untrusted/old-format binary data
+                # isn't a documented closed set (struct/index/value/key
+                # errors and more have all been observed from that parser
+                # elsewhere) -- this docstring's own contract is "a
+                # malformed/older embedded control must never break class
+                # loading", so any failure here degrades to "no fields
+                # recovered", never propagates.
                 logger.debug(
                     "flattened private-data recovery failed for %s",
                     lvclass_path,
@@ -843,6 +855,72 @@ class LoadingMixin:
             fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
         return fields
 
+    def _resolve_vilib_class_ref(
+        self,
+        parent_name: str,
+        path_tokens: list[str],
+        lvclass_path: Path,
+        search_paths: list[Path],
+    ) -> tuple[Path | None, Path | None]:
+        """Resolve a ``<vilib>``-rooted class reference's TOKENS (already
+        split — ``path_tokens[0] == "<vilib>"``) -> ``(parent_file,
+        parent_intended)``, via ``ParsedDependencyRef.resolve_against`` — the
+        EXACT SAME machinery a SubVI/type ``<vilib>`` dependency already
+        resolves through (``_resolve_dependency_path``), never a new
+        resolver. Shared by BOTH ``<vilib>``-rooted sources ``_resolve_parent``
+        can see (a plain-XML ``Parent`` Item's URL, and the binary
+        ``ParentClassLinkInfo``'s own recorded path — issue #84's #F1
+        correction: the URL case was previously naively joined, leaving a
+        literal ``<vilib>`` path component that never exists).
+
+        A configured ``vilib_root`` gives an exact, scan-free hit; otherwise
+        ``<vilib>`` maps onto ``search_paths`` (this loader's already-
+        configured SubVI roots) the same way, with ``_find_file``'s existing
+        bounded per-search-path lookup (used for every other unresolved
+        dependency) actually LOCATING the file when it's nested deeper than
+        a direct join reaches (e.g. actor-framework vendors ``Actor.lvclass``
+        under an extra ``Core/`` level the recorded path itself doesn't
+        record — LabVIEW's own vi.lib layout has no such prefix).
+        ``parent_intended`` is still produced via pure path math even when
+        no local file is found (one of ``vilib_root``/``search_paths[0]``),
+        so progressive/web staging can NAME + fetch it — never
+        ``.exists()``-gated away, same contract as the method-path code in
+        ``load_lvclass`` above."""
+        parent_file: Path | None = None
+        parent_intended: Path | None = None
+        dep_ref = ParsedDependencyRef(
+            name=parent_name + ".lvclass", path_tokens=path_tokens
+        )
+        candidate = dep_ref.resolve_against(
+            lvclass_path,
+            vilib_root=self._vilib_root,
+            userlib_root=self._userlib_root,
+            instrlib_root=self._instrlib_root,
+        )
+        if candidate is not None:
+            parent_intended = candidate
+            if candidate.exists():
+                parent_file = candidate
+        # Both the search_paths glob AND the search_paths[0]-as-vilib_root
+        # intended-path fallback are skipped once EITHER parent_file OR
+        # parent_intended is already known -- no point globbing when the
+        # exact vilib_root candidate already resolved, and no point
+        # recomputing parent_intended once parent_file has resolved (it's
+        # only ever consulted as parent_file's own fallback, never both).
+        if parent_file is None and parent_intended is None and search_paths:
+            parent_file = self._find_file(
+                parent_name + ".lvclass", search_paths, lvclass_path.parent
+            )
+        if parent_file is None and parent_intended is None and search_paths:
+            # No configured vilib_root — map <vilib> onto the first search
+            # root instead, so an absent parent still gets a deterministic
+            # (pure path math, no scan) intended path for web staging to
+            # name.
+            parent_intended = dep_ref.resolve_against(
+                lvclass_path, vilib_root=search_paths[0]
+            )
+        return parent_file, parent_intended
+
     def _resolve_parent(
         self, cls: LVClass, lvclass_path: Path, search_paths: list[Path]
     ) -> tuple[Path | None, Path | None]:
@@ -851,26 +929,20 @@ class LoadingMixin:
 
         PREFERS the parent's own recorded URL (a DIRECT relative path — the
         parent commonly lives in a sibling subtree an up-tree walk can't
-        reach, e.g. ``../../Layer/Layer.lvclass``). When there's no URL but
-        the parent's binary link record is ``<vilib>``-rooted
-        (``cls.is_vilib_parent`` + ``cls.parent_link_path``, issue #84 —
-        e.g. ``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``),
-        resolves it via ``ParsedDependencyRef.resolve_against`` — the EXACT
-        SAME machinery a SubVI/type ``<vilib>`` dependency already resolves
-        through (``_resolve_dependency_path``), never a new resolver. A
-        configured ``vilib_root`` gives an exact, scan-free hit; otherwise
-        ``<vilib>`` maps onto ``search_paths`` (this loader's already-
-        configured SubVI roots) the same way, with ``_find_file``'s
-        existing bounded per-search-path lookup (used for every other
-        unresolved dependency) actually LOCATING the file when it's nested
-        deeper than a direct join reaches (e.g. actor-framework vendors
-        ``Actor.lvclass`` under an extra ``Core/`` level the PTH0 record
-        itself doesn't record — LabVIEW's own vi.lib layout has no such
-        prefix). ``parent_intended`` is still produced via pure path math
-        even when no local file is found (one of ``vilib_root``/
-        ``search_paths[0]``), so progressive/web staging can NAME + fetch
-        it — never ``.exists()``-gated away, same contract as the
-        ``parent_url``/method-path code above.
+        reach, e.g. ``../../Layer/Layer.lvclass``) — UNLESS that URL is
+        itself ``<vilib>``-rooted (``cls.is_vilib_parent``, e.g.
+        ``"/<vilib>/ActorFramework/Actor/Actor.lvclass"``, verified against
+        Event Receiver Actor.lvclass's real ``Parent`` Item — a LEADING
+        SLASH, the marker, then forward-slash path components, NOT a normal
+        relative path), in which case it's tokenized and resolved via
+        ``_resolve_vilib_class_ref`` like any other vi.lib reference (issue
+        #84's #F1 correction — the naive join used to leave a literal
+        ``<vilib>`` path component that never exists).
+
+        When there's no URL but the parent's binary link record is
+        ``<vilib>``-rooted (``cls.parent_link_path``, issue #84 — e.g.
+        ``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``),
+        resolves it the SAME way via ``_resolve_vilib_class_ref``.
 
         A NON-vilib link record (the "in-repo" PTH0 shape — no recorded
         URL, parent lives elsewhere in the same tree) is deliberately left
@@ -890,7 +962,12 @@ class LoadingMixin:
         parent_file: Path | None = None
         parent_intended: Path | None = None
         if parent and parent != "LabVIEW Object":
-            if cls.parent_url:
+            if cls.parent_url and cls.is_vilib_parent:
+                tokens = [t for t in cls.parent_url.split("/") if t]
+                parent_file, parent_intended = self._resolve_vilib_class_ref(
+                    parent, tokens, lvclass_path, search_paths
+                )
+            elif cls.parent_url:
                 # LabVIEW ``.lvclass`` URLs are relative to the class FILE
                 # treated as a directory (members read ``../X.vi``), so
                 # resolve against ``lvclass_path`` itself — that absorbs the
@@ -899,31 +976,9 @@ class LoadingMixin:
                 if parent_intended.exists():
                     parent_file = parent_intended
             elif cls.is_vilib_parent and cls.parent_link_path:
-                dep_ref = ParsedDependencyRef(
-                    name=parent + ".lvclass", path_tokens=cls.parent_link_path
+                parent_file, parent_intended = self._resolve_vilib_class_ref(
+                    parent, cls.parent_link_path, lvclass_path, search_paths
                 )
-                candidate = dep_ref.resolve_against(
-                    lvclass_path,
-                    vilib_root=self._vilib_root,
-                    userlib_root=self._userlib_root,
-                    instrlib_root=self._instrlib_root,
-                )
-                if candidate is not None:
-                    parent_intended = candidate
-                    if candidate.exists():
-                        parent_file = candidate
-                if parent_file is None:
-                    parent_file = self._find_file(
-                        parent + ".lvclass", search_paths, lvclass_path.parent
-                    )
-                if parent_intended is None and search_paths:
-                    # No configured vilib_root — map <vilib> onto the first
-                    # search root instead, so an absent parent still gets a
-                    # deterministic (pure path math, no scan) intended path
-                    # for web staging to name.
-                    parent_intended = dep_ref.resolve_against(
-                        lvclass_path, vilib_root=search_paths[0]
-                    )
             if parent_file is None and parent_intended is None:
                 parent_file = self._walk_up_find(
                     lvclass_path.parent, parent + ".lvclass"
