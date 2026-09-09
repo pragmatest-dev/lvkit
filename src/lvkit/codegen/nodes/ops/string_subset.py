@@ -21,5 +21,7 @@ from . import register_op
 
 @register_op("STRING_SUBSET")
 def string_subset(node: PrimitiveNode, resolved: ResolvedPrimitive) -> dict[str, str]:
-    # length unwired (in_1 is None) -> slice to the end of the string.
-    return {"substring": "in_3[in_2:(in_2 + in_1) if in_1 is not None else None]"}
+    # From offset, take `length` chars. `[in_2:][:in_1]` reads idiomatically and
+    # handles an unwired length (in_1 is None -> [:None] = the rest) with no
+    # None-comparison, so a wired integer length doesn't emit `<int> is not None`.
+    return {"substring": "in_3[in_2:][:in_1]"}

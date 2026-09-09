@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import AnyGraphNode, LoopNode
-from lvkit.models import LVType, LVTypeKind, Tunnel
+from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelTerminal
 
 from ..ast_utils import (
     build_assign,
@@ -201,6 +201,21 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Decide: enumerate (single array, no N) vs indexed access for arrays
         depth = ctx.loop_depth
         idx_var = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
+
+        # The loop's iteration terminal (the LabVIEW `i` counter — a plain output
+        # Terminal, not a tunnel) is the Python loop index. Bind it so code inside
+        # the body reads `i`, not the terminal's default 0. Both the enumerate and
+        # the range(...) forms emit `idx_var` as the loop variable.
+        iter_term = next(
+            (
+                t
+                for t in node.terminals
+                if t.direction == "output" and not isinstance(t, TunnelTerminal)
+            ),
+            None,
+        )
+        if iter_term is not None:
+            inner_ctx.bind(iter_term.id, idx_var)
 
         if len(lpTun_array_inputs) == 1 and not n_terminal_var:
             # Single array, no N terminal: use enumerate, bind to singular form
