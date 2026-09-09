@@ -166,14 +166,22 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # (outer_var, inner_term, outer_term)
         lpTun_array_inputs: list[tuple[str, str, str]] = []
         lpTun_scalar_inputs: list[tuple[str, str]] = []  # (outer_var, inner_term)
+        materialized: set[str] = set()  # literal array sources already assigned
 
         for tunnel in tunnels:
             if tunnel.tunnel_type == "lpTun":
                 outer_var = ctx.resolve(tunnel.outer_terminal_uid)
-                # Resolved value must be a valid Python identifier
-                # (constants like '\x12' from the graph are not iterable names)
+                # A literal source (e.g. a list/array constant) can't be iterated
+                # or indexed by a bare value-derived name, so materialize it into
+                # a real local before the loop instead of leaving it undefined.
                 if outer_var and not outer_var.isidentifier():
-                    outer_var = to_var_name(outer_var) or "items"
+                    literal = outer_var
+                    outer_var = to_var_name(literal) or "items"
+                    if outer_var not in materialized:
+                        pre_loop_stmts.append(
+                            build_assign(outer_var, parse_expr(literal))
+                        )
+                        materialized.add(outer_var)
                 if outer_var and tunnel.inner_terminal_uid:
                     outer_term = tunnel.outer_terminal_uid
                     inner_term = tunnel.inner_terminal_uid
