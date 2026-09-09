@@ -716,7 +716,12 @@ def build_function_def(
     vi_context: VIContext, vi_name: str, body: list[ast.stmt]
 ) -> ast.FunctionDef:
     """Build function definition."""
-    func_name = to_function_name(vi_name)
+    # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
+    # single-VI generation is a filesystem path → a giant path-mangled name).
+    # Callers import/call it as to_function_name(node.name) == the display name,
+    # and the result class + return use vi_context.name too, so this keeps the
+    # def, the return annotation, the call sites, and the imports all consistent.
+    func_name = to_function_name(vi_context.name)
 
     # Build arguments
     args = build_args(vi_context.inputs)
@@ -724,7 +729,7 @@ def build_function_def(
     # Build return annotation
     returns = None
     if vi_context.outputs:
-        result_class = build_result_class_name(vi_name)
+        result_class = build_result_class_name(vi_context.name)
         returns = ast.Name(id=result_class, ctx=ast.Load())
 
     # Ensure non-empty body

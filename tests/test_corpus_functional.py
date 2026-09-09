@@ -43,8 +43,9 @@ def _run_leaf(vi_rel: str, *args: object) -> Any:
         pytest.skip(f"{vi_rel} has SubVI imports; not a leaf (needs package case)")
     ns: dict = {}
     exec(compile(code, f"<{vi_rel}>", "exec"), ns)  # noqa: S102
-    fn = ns.get(to_function_name(name))
-    assert callable(fn), f"entry function {to_function_name(name)} not defined"
+    func_name = to_function_name(ctx.name)
+    fn = ns.get(func_name)
+    assert callable(fn), f"entry function {func_name} not defined"
     return fn(*args)
 
 
