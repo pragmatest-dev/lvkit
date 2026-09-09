@@ -61,18 +61,6 @@ class ArrayBuildNode(ParsedNode):
 
 
 @dataclass
-class ArrayInitNode(ParsedNode):
-    """Initialize Array node (class="aInit").
-
-    Builds an N-dimensional array from an element value and one size input per
-    dimension. Terminals (element + dimension sizes → array) carry on the base
-    ParsedNode; no extra fields.
-    """
-
-    pass
-
-
-@dataclass
 class FormulaNode(ParsedNode):
     """A Formula Node (class="fBox") with an embedded C-like script.
 
@@ -498,17 +486,6 @@ class ArrayBuildHandler(NodeTypeHandler):
         return ArrayBuildNode(**common)
 
 
-class ArrayInitHandler(NodeTypeHandler):
-    """Handler for Initialize Array nodes (class="aInit")."""
-
-    xml_class = "aInit"
-    display_name = "Initialize Array"
-
-    def parse(self, elem: ET.Element) -> ArrayInitNode:
-        common = self._extract_common(elem)
-        return ArrayInitNode(**common)
-
-
 class WhileLoopHandler(NodeTypeHandler):
     """Handler for While Loop nodes (class="whileLoop")."""
 
@@ -687,6 +664,17 @@ class InvokeNode(ParsedNode):
     sides of a row, but only wireable sides get a real type. See the
     render layer (``render/nodes.py:_invoke_node_glyph``), which is where
     that Void check happens (type resolution isn't available at parse time).
+
+    Like ``PropertyNode``, an Invoke Node draws in one of two forms
+    depending on whether it is permanently bound to a specific front-panel
+    control (IMPLICIT) or takes its identity from a wired reference
+    (EXPLICIT) -- the SAME heap discriminator: an IMPLICIT node carries a
+    direct ``<ddo uid="...">`` CHILD (a sibling of its own ``<termList>``,
+    never a part of it) naming the bound control, plus a ``<label>``
+    showing that control's NAME instead of the generic node name (verified
+    on GTR's "Test Hierarchy Tree" invoke node, uid 11387, bound-control ddo
+    uid 12, ``<methName>"Custom Item Symbols.Revert Symbols"``). An EXPLICIT
+    node has neither.
     """
 
     object_name: str = ""
@@ -694,6 +682,18 @@ class InvokeNode(ParsedNode):
     method_name: str = ""
     method_code: int = 0
     row_terminal_uids: list[str] = field(default_factory=list)
+    # The BOUND control's own ddo uid (see class docstring) -- "" for an
+    # EXPLICIT invoke node (no such binding). The sole discriminator: never
+    # inferred from the label text or from wiring (those only corroborate).
+    bound_control_uid: str = ""
+    # The bound control's reconstructed LVType (via
+    # ``fp_heap_type.reconstruct_control_lvtype`` on ``bound_control_uid``'s
+    # ddo in the FRONT-PANEL heap -- resolved by ``_parse_block_diagram``,
+    # which has both heaps, never by ``render/`` reading heap XML itself).
+    # None for an explicit node, OR an implicit one whose control class this
+    # reconstructor doesn't model (see that function's own docstring) --
+    # never a guessed color in either case.
+    bound_control_type: LVType | None = None
 
 
 @dataclass
@@ -788,6 +788,12 @@ class InvokeNodeHandler(NodeTypeHandler):
             meth_code = int(meth_code_text)
         except ValueError:
             meth_code = 0
+        # An IMPLICIT invoke node's DIRECT <ddo> CHILD (a sibling of its own
+        # <termList>, never a part of it) names the front-panel control it's
+        # permanently bound to (see InvokeNode's class docstring) -- absent
+        # entirely for an EXPLICIT one.
+        bound_ddo = elem.find("ddo")
+        bound_control_uid = bound_ddo.get("uid", "") if bound_ddo is not None else ""
         return InvokeNode(
             **common,
             object_name=clean_labview_string(elem.findtext("nodeName")),
@@ -795,6 +801,7 @@ class InvokeNodeHandler(NodeTypeHandler):
             method_name=clean_labview_string(elem.findtext("methName")),
             method_code=meth_code,
             row_terminal_uids=_dco_list_terminal_uids(elem),
+            bound_control_uid=bound_control_uid,
         )
 
 
@@ -1319,7 +1326,6 @@ _HANDLERS: list[NodeTypeHandler] = [
     FeedbackSlaveHandler(),
     CpdArithHandler(),
     ArrayBuildHandler(),
-    ArrayInitHandler(),
     WhileLoopHandler(),
     ForLoopHandler(),
     SelectHandler(),

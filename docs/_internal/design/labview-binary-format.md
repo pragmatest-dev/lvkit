@@ -34,52 +34,63 @@ notes (behaviors) or other sections here.
 
 **How to apply:** Don't conflate sRN with propNode. sRN is wiring infrastructure for structure boundaries. propNode is the actual property get/set drawer.
 
-## A Property Node's own `<ddo>` child (task #51) distinguishes IMPLICIT (bound to a control) from EXPLICIT (wired reference) — draws differently either way
+## A Property/Invoke Node's own `<ddo>` child (task #51/#55) distinguishes IMPLICIT (bound to a control) from EXPLICIT (wired reference) — draws differently either way
 
-A `propNode` element can carry a DIRECT `<ddo uid="...">` CHILD — a sibling of
-its own `<termList>`, never a part of it, never nested under any part —
-naming the FRONT-PANEL control it is permanently bound to. Verified on GTR's
-"Abort" boolean property node (`_BDHb.xml` uid 16295, `<ddo uid="10449"/>`,
-which resolves in `_FPHb.xml` to `<ddo class="stdBool" uid="10449">`, the
-"Abort" front-panel control) vs. "Set Front Panel Object Control Value.vi"'s
-VI-reference property node (uid 1110), which has NEITHER a `<ddo>` child NOR
-a `<label>` at all.
+A `propNode` OR `invokeNode` element can carry a DIRECT `<ddo uid="...">`
+CHILD — a sibling of its own `<termList>`, never a part of it, never nested
+under any part — naming the FRONT-PANEL control it is permanently bound to.
+Verified on GTR's "Abort" boolean property node (`_BDHb.xml` uid 16295,
+`<ddo uid="10449"/>`, which resolves in `_FPHb.xml` to `<ddo class="stdBool"
+uid="10449">`, the "Abort" front-panel control) vs. "Set Front Panel Object
+Control Value.vi"'s VI-reference property node (uid 1110), which has NEITHER
+a `<ddo>` child NOR a `<label>` at all — and, for invoke nodes, on GTR's
+"Test Hierarchy Tree" invoke node (`_BDHb.xml` uid 11387, `<ddo uid="12"/>`,
+which resolves in `_FPHb.xml` to `<ddo class="treeControl" uid="12">`) vs.
+the same VI's "FP.Open" VI-reference invoke node (uid 982), which has no
+`<ddo>` child.
 
-**This is the SOLE discriminator between LabVIEW's two property-node forms**
+**This is the SOLE discriminator between LabVIEW's two forms of each node**
 (never inferred from the label text or from wiring — those only corroborate):
 - **IMPLICIT** (`<ddo>` present): created by dragging a control's icon onto
-  the diagram, or Right-click control -> Create -> Property Node. Draws with
-  the BOUND CONTROL's own name as the header (from the propNode's own
-  `<label>` textRec, e.g. "Abort" — populated by the SAME `extract_label`
-  every node's display name already goes through) instead of the object
-  CLASS, and a TYPE-COLOR BAR (the bound control's wire color) under the
+  the diagram, or Right-click control -> Create -> Property/Invoke Node.
+  Draws with the BOUND CONTROL's own name as the header (from the node's own
+  `<label>` textRec, e.g. "Abort"/"Test Hierarchy Tree" — populated by the
+  SAME `extract_label` every node's display name already goes through)
+  instead of the object CLASS, and a TYPE-COLOR BAR (the bound control's
+  wire color, when its class is reconstructible — see below) under the
   header — no reference (in/out) terminals thread through, since there's
   nothing to wire.
 - **EXPLICIT** (no `<ddo>`): identity comes from a wired reference; draws
   the object CLASS in the header (`⚙ <class>`) plus the reference/error
   terminals, unchanged from before this fix.
 
-Independently corroborated by wiring on both verified instances: the
-implicit node's reference-IN terminal is UNWIRED (identity needs no wire);
-the explicit node's is wired. The heap's own `<ddo>` presence is used as the
-primary signal rather than wire state because it's the direct causal fact
-(LabVIEW records WHICH control this node is bound to), not a consequence
-that could theoretically be absent mid-edit on an explicit node.
+Independently corroborated by wiring on both verified property-node
+instances: the implicit node's reference-IN terminal is UNWIRED (identity
+needs no wire); the explicit node's is wired. The heap's own `<ddo>`
+presence is used as the primary signal rather than wire state because it's
+the direct causal fact (LabVIEW records WHICH control this node is bound
+to), not a consequence that could theoretically be absent mid-edit on an
+explicit node.
 
 **Resolving the bound control's TYPE (for the color bar) stays entirely
 inside `parser/`, never touches `render/`:** `parser.vi.
-_resolve_property_node_bound_types` runs right after block-diagram node
-extraction (which already has `fp_xml` in hand — see `extract_fp_terminals`'s
+_resolve_bound_control_types` runs right after block-diagram node extraction
+(which already has `fp_xml` in hand — see `extract_fp_terminals`'s
 same-signature precedent), parses the FRONT-PANEL heap AT MOST ONCE per VI
-(only when some property node actually has a `bound_control_uid`), finds
-that uid's ddo, and reconstructs its `LVType` via the EXISTING
+(only when some property/invoke node actually has a `bound_control_uid`),
+finds that uid's ddo, and reconstructs its `LVType` via the EXISTING
 `fp_heap_type.reconstruct_control_lvtype` (the same function the pre-VCTP
 fallback front-panel-terminal path already uses) — never a new heap reader.
-`render/nodes.py`'s `_property_node_glyph` then just reads the already-
-resolved `PrimitiveNode.bound_control_type` and calls `style.wire_style` on
-it, honoring `layout.py`'s "render never reads heap XML itself" rule. See
-`parser.node_types.PropertyNode`'s class docstring for the full field
-contract (`bound_control_uid`, `bound_control_type`).
+`render/nodes.py`'s `_property_node_glyph`/`_invoke_node_glyph` then just
+read the already-resolved `PrimitiveNode.bound_control_type` and call
+`style.wire_style` on it, honoring `layout.py`'s "render never reads heap
+XML itself" rule. `reconstruct_control_lvtype` only models ring/cluster/
+array/scalar control classes — GTR's "Test Hierarchy Tree" is bound to a
+`treeControl`, which it doesn't model, so that node's `bound_control_type`
+stays `None` and it draws the target-name header with no color bar (never a
+guessed color). See `parser.node_types.PropertyNode`/`InvokeNode`'s class
+docstrings for the full field contract (`bound_control_uid`,
+`bound_control_type`).
 
 ## `eventRegNode` (Register For Events, task #56) is a growable property-node-style node — its name and row count are BOTH heap-recorded, never hard-coded
 

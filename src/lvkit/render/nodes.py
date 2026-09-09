@@ -26,6 +26,7 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -119,6 +120,63 @@ def _format_const(value: object) -> str:
             return value
         return str(int(f)) if f.is_integer() else value
     return str(value)
+
+
+_LV_TIMESTAMP_EPOCH = datetime(1904, 1, 1, tzinfo=timezone.utc)
+# Whole seconds, optionally with a decimal fraction -- parser.vi's default-
+# data decoder emits the fraction as decimal MICROSECONDS (e.g.
+# "Timestamp(1234567890.500000)"), threading LabVIEW's 128-bit timestamp's
+# real i64-seconds + u64-fraction through rather than always truncating to
+# ".000" (task #66 follow-up).
+_TIMESTAMP_RAW_RE = re.compile(r"Timestamp\((-?\d+(?:\.\d+)?)\)")
+
+
+def _format_timestamp_lines(raw: object) -> str:
+    """A Timestamp constant's TWO-LINE display (task #66): a 12-hour
+    time-with-milliseconds line over a date line, e.g. ``"12:00:00.000 AM"``
+    / ``"1/1/1904"`` for the unset/epoch default — verified against the
+    maintainer's reference image #73 (two real Timestamp constants, one at
+    the LabVIEW epoch, one at the Unix epoch, both in exactly this format).
+    Joined with a literal ``\\n`` for ``ConstantGlyph``'s ``multiline`` mode,
+    which hard-splits on it BEFORE any word-wrapping — unlike letting the
+    wrap machinery infer the break from spaces (verified unreliable: at a
+    narrow box width it breaks mid-word instead of between time and date).
+
+    ``raw`` is the parser's decoded seconds-since-epoch (with an optional
+    decimal fraction of a second — see ``_TIMESTAMP_RAW_RE``) for a
+    genuinely SET field (``parser.vi``'s default-data decoder emits the
+    string ``"Timestamp(<secs>)"``/``"Timestamp(<secs>.<frac>)"``, or a
+    caller may already hand back a bare int/float) -- ``None`` (or any
+    other unrecognized shape) is the unset field, which is the LabVIEW
+    epoch itself (0 seconds), never a guess. A real (non-epoch) timestamp's
+    fractional second shows as real milliseconds, not always ``.000``."""
+    secs: float = 0.0
+    if isinstance(raw, (int, float)):
+        secs = float(raw)
+    elif isinstance(raw, str):
+        m = _TIMESTAMP_RAW_RE.fullmatch(raw.strip())
+        if m:
+            secs = float(m.group(1))
+    dt = _LV_TIMESTAMP_EPOCH + timedelta(seconds=secs)
+    ms = dt.microsecond // 1000
+    time_line = f"{dt.strftime('%I:%M:%S')}.{ms:03d} {dt.strftime('%p')}"
+    date_line = f"{dt.month}/{dt.day}/{dt.year}"
+    return f"{time_line}\n{date_line}"
+
+
+def _timestamp_const_glyph(raw: object, color: str) -> ConstantGlyph:
+    """The Timestamp leaf glyph (task #66/#84 dedup, ``fam == "timestamp"``
+    in ``_leaf_const_glyph``): LabVIEW shows a Timestamp as a two-line
+    time-over-date box (verified against the heap's own recorded display
+    format, ``%<%.3X\\n%x>T`` — locale time, then locale date — identical
+    across two independent corpus instances, and against NI's public "Time
+    Stamp Constant" docs plus the maintainer's own reference image #73: two
+    real Timestamp constants, each "<time> AM/PM" over "<date>"). This is
+    NOT "the same default codegen emits" (``type_defaults.
+    _get_primitive_default`` only special-cases "AbsTime"/"Time128", never
+    "MeasureData", so codegen's real default for this flavor is ``None``) —
+    the render shows a Timestamp on its own terms, independent of codegen."""
+    return ConstantGlyph(_format_timestamp_lines(raw), color, multiline=True)
 
 
 def string_const_display(raw: object) -> str:
@@ -279,7 +337,6 @@ _MUX_TYPE_DEFAULT_NAMES = {
     "nMux": "Bundle/Unbundle By Name",
     "mux": "Bundle",
     "demux": "Unbundle",
-    "eventDataNode": "Event Data",
     "decomposeClusterNode": "Bundle/Unbundle By Name",
 }
 
@@ -786,6 +843,29 @@ def _event_data_glyph(
     return EventDataGlyph(rows=tuple(rows), is_filter=is_filter)
 
 
+def _implicit_binding(node: PrimitiveNode) -> tuple[bool, str, str | None]:
+    """IMPLICIT vs EXPLICIT binding for a Property/Invoke node (task #51/#55,
+    reference images #69/#72) -> ``(is_implicit, target_name, bar_color)``.
+    Shared by ``_property_node_glyph``/``_invoke_node_glyph`` -- both node
+    kinds carry the SAME heap discriminator: ``node.bound_control_uid`` is
+    set ONLY when the node carries its own direct ``<ddo>`` child
+    (permanently bound to a specific front-panel control), never inferred
+    from the label text. Direct attribute access (no ``getattr`` default) --
+    ``node`` is already a ``PrimitiveNode``, whose ``bound_control_uid``/
+    ``bound_control_type`` fields always exist (default ``""``/``None`` for
+    a node kind that doesn't use them). ``bar_color`` is self-consistent
+    with ``is_implicit``: never set for an explicit node, and (real color
+    or None, never guessed) for an implicit one depending on whether
+    ``bound_control_type`` resolved."""
+    is_implicit = bool(node.bound_control_uid)
+    target_name = (node.label or "").strip() if is_implicit else ""
+    bound_type = node.bound_control_type
+    bar_color = (
+        wire_style(bound_type).color if is_implicit and bound_type is not None else None
+    )
+    return is_implicit, target_name, bar_color
+
+
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
@@ -796,10 +876,10 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     per-row read/write flag is the direction of that correlated terminal.
     Returns None when the node carries no property names, so the caller falls
     back to the plain "Property Node" box rather than an empty drawer."""
-    props = getattr(node, "properties", None) or []
+    props = node.properties
     if not props:
         return None
-    value_ids = getattr(node, "property_value_terminal_ids", None) or []
+    value_ids = node.property_value_terminal_ids
     rows: list[tuple[str, bool]] = []
     for i, (p, term) in enumerate(
         correlate_property_terminals(props, node.terminals, value_ids)
@@ -821,16 +901,8 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
         if resolved and term is not None and term.display_name is None:
             term.display_name = resolved
         rows.append((name, is_read))
-    class_name = (getattr(node, "object_name", None) or "").strip()
-    # IMPLICIT vs EXPLICIT (task #51 / reference image #69) -- see
-    # parser.node_types.PropertyNode's class docstring for the heap
-    # discriminator: ``bound_control_uid`` is set ONLY when this propNode
-    # carries its own direct ``<ddo>`` child (permanently bound to a
-    # specific front-panel control), never inferred from the label text.
-    is_implicit = bool(getattr(node, "bound_control_uid", ""))
-    target_name = (node.label or "").strip() if is_implicit else ""
-    bound_type = getattr(node, "bound_control_type", None)
-    bar_color = wire_style(bound_type).color if bound_type is not None else None
+    class_name = (node.object_name or "").strip()
+    is_implicit, target_name, bar_color = _implicit_binding(node)
     return PropertyNodeGlyph(
         rows=tuple(rows),
         class_name=class_name,
@@ -850,7 +922,7 @@ def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
     NEVER a hard-coded "Register For Events"/"Unregister For Events" guess).
     Returns None when the node carries no growable rows, so the caller
     falls back to the plain labeled box rather than an empty drawer."""
-    row_ids = getattr(node, "event_row_terminal_ids", None) or []
+    row_ids = node.event_row_terminal_ids
     if not row_ids:
         return None
     by_id = {t.id: t for t in node.terminals}
@@ -858,7 +930,7 @@ def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
         term = by_id.get(tid)
         if term is not None and term.display_name is None:
             term.display_name = f"event {i + 1}"
-    class_name = (getattr(node, "object_name", None) or "").strip()
+    class_name = (node.object_name or "").strip()
     return EventRegNodeGlyph(row_count=len(row_ids), class_name=class_name)
 
 
@@ -898,8 +970,14 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
     only draws the return-value arrow when the method actually returns
     something (also Void otherwise). Param NAMES aren't in the VI file (they
     belong to the method's VI-server signature), so rows are labeled by index
-    (``[i]``)."""
-    row_ids = getattr(node, "invoke_row_terminal_ids", None) or []
+    (``[i]``).
+
+    IMPLICIT vs EXPLICIT (task #51/#55 extension, reference image #72):
+    like a property node, an invoke node permanently bound to a specific
+    front-panel control draws a target-name header + type-color bar and no
+    reference terminals; see ``parser.node_types.InvokeNode``'s class
+    docstring for the heap discriminator."""
+    row_ids = node.invoke_row_terminal_ids
     by_id = {t.id: t for t in node.terminals}
 
     def term_at(idx: int) -> Terminal | None:
@@ -907,7 +985,8 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
 
     return_present = _row_terminal_present(term_at(1))
 
-    n_params = max(0, len(row_ids) // 2 - 1)
+    n_rows = len(row_ids) // 2  # 1 method row + N param rows
+    n_params = max(0, n_rows - 1)
     rows: list[tuple[str, bool, bool]] = []
     for i in range(n_params):
         left = term_at(2 + 2 * i)
@@ -920,11 +999,16 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
             )
         )
 
+    is_implicit, target_name, bar_color = _implicit_binding(node)
+
     return InvokeNodeGlyph(
-        method=(getattr(node, "method_name", None) or "").strip(),
+        method=(node.method_name or "").strip(),
         return_present=return_present,
         rows=tuple(rows),
-        class_name=(getattr(node, "object_name", None) or "").strip(),
+        class_name=(node.object_name or "").strip(),
+        is_implicit=is_implicit,
+        target_name=target_name,
+        bar_color=bar_color,
     )
 
 
@@ -1129,20 +1213,15 @@ def _leaf_const_glyph(
         # A path control is visually identifiable even when unset — a
         # folder mark, never a featureless colored rectangle.
         return PathGlyph(string_const_display(raw) if raw is not None else "", color)
-    elif (
-        lv_type is not None
-        and lv_type.underlying_type == "MeasureData"
-        and lv_type.measure_flavor == "TimeStamp"
-    ):
+    elif fam == "timestamp":
         # A Timestamp constant (heap ddo class "absTime", graph
         # underlying_type "MeasureData" with measure_flavor "TimeStamp" —
-        # verified against GTR's "StartTestTime" field) used to fall through
-        # to the generic leaf and draw a blank box (raw is None for an
-        # unset field). Show it like a numeric constant — LabVIEW's own
-        # default for an unset timestamp is 0.0 (the epoch), the same
-        # default codegen emits (see type_defaults._python_default_for_type)
-        # — never a blank box.
-        value = _format_const(raw) if raw is not None else "0.0"
+        # verified against GTR's "StartTestTime" field; ``fam`` is
+        # ``type_family``'s own single source of truth for this, the SAME
+        # bucket ``wire_style`` already keyed ``color`` off two lines up)
+        # used to draw a bare "0.0" (a float) for an unset field — reads as
+        # a number, not a Timestamp control. See ``_timestamp_const_glyph``.
+        return _timestamp_const_glyph(raw, color)
     elif lv_type is not None and lv_type.underlying_type == "Refnum":
         # A CLASS/LVObject refnum (``classname`` set) is a class instance,
         # never a "refnum" in LabVIEW's own visual sense (no dog-ear, no

@@ -410,15 +410,39 @@ def _draw_node_tile(
 # fixed left gutter wide enough for one arrow, so a row's label starts at the
 # same x whether or not that row actually draws a left arrow.
 _ROW_LPAD = 3.0
-
-# Shared drawer-row geometry for PropertyNodeGlyph and InvokeNodeGlyph: a
-# fixed left gutter wide enough for one arrow, so a row's label starts at the
-# same x whether or not that row actually draws a left arrow.
-_ROW_LPAD = 3.0
-_ROW_ARROW_W = 7.0
-
 _ROW_ARROW_W = 7.0
 _ROW_GUTTER = _ROW_ARROW_W + _ROW_LPAD
+
+
+@dataclass(frozen=True)
+class DrawerHeaderGlyphBase:
+    """Common implicit/explicit-binding fields shared by ``PropertyNodeGlyph``
+    and ``InvokeNodeGlyph`` (task #51/#55) -- both draw a HEADER band (see
+    ``draw_drawer_header``) above a DRAWER of named rows, keyed by whether
+    the node is permanently bound to a specific front-panel control:
+
+    - EXPLICIT (``is_implicit=False``): the header names the object CLASS
+      the wired reference is of (``⚙ <class_name>``); the reference/error
+      terminals thread the box edges at the header level, placed by the
+      scene, not drawn here.
+    - IMPLICIT (``is_implicit=True``): the header names the BOUND control
+      itself (``target_name``), and a TYPE-COLOR BAR (``bar_color``) draws
+      under the header instead. No reference terminals thread through.
+
+    Subclasses add only their own row tuple (the drawer's per-row shape
+    differs — a property row is ``(name, is_read)``, an invoke row is
+    ``(name, show_left, show_right)``) plus any glyph-specific fields
+    (``InvokeNodeGlyph``'s ``method``/``return_present``), and their own
+    ``cell_h`` denominator (one header cell + one per row for a property
+    node; header + method + one per param for an invoke node)."""
+
+    class_name: str = ""  # object class shown in the header (e.g. "VI")
+    is_implicit: bool = False
+    target_name: str = ""  # the bound control's own name (implicit only)
+    bar_color: str | None = None  # the bound control's wire color (implicit only)
+    fill_attr: str = "prim_fill"
+    stroke_attr: str = "prim_stroke"
+    text_attr: str = "prim_text"
 
 
 def _draw_drawer_row(
@@ -466,3 +490,60 @@ def _draw_drawer_row(
             lsize,
             fill=text_fill,
         )
+
+
+def draw_drawer_header(
+    backend: Backend,
+    x1: float,
+    x2: float,
+    y1: float,
+    cell_h: float,
+    *,
+    is_implicit: bool,
+    target_name: str,
+    class_name: str,
+    bar_color: str | None,
+    stroke: str,
+    text_fill: str,
+    lsize: float,
+) -> float:
+    """Shared header band for ``PropertyNodeGlyph``/``InvokeNodeGlyph``: the
+    object class (explicit) or the BOUND CONTROL's own name (implicit) —
+    see either glyph's class docstring for the full implicit/explicit
+    contract — with a divider beneath. For an EXPLICIT node this is the row
+    the reference + error terminals thread through (drawn by the scene, not
+    here); an implicit node has none to thread, and instead draws a
+    TYPE-COLOR BAR (``bar_color``) in a thin band under the header text.
+    Returns ``hy2``, the header band's bottom y (where the caller's own
+    method/property drawer rows start)."""
+    lpad = _ROW_LPAD
+    hy2 = y1 + cell_h
+    if is_implicit and target_name:
+        header = target_name
+    else:
+        header = f"⚙ {class_name}".strip() if class_name else "⚙ class"
+    bar_h = min(5.0, cell_h * 0.3) if is_implicit else 0.0
+    text_cy = y1 + (cell_h - bar_h) / 2
+    backend.text(
+        (x1 + x2) / 2,
+        text_cy + lsize * 0.34,
+        fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize),
+        lsize,
+        fill=text_fill,
+    )
+    if bar_h >= 1.0 and bar_color:
+        # The TYPE-COLOR BAR: a thin band in the bound control's own wire
+        # color, filling most of the header's width — LabVIEW's own cue for
+        # "this node's identity is a specific control of THIS type",
+        # replacing the (absent) reference terminals. Guarded to bar_h>=1.0
+        # (not just >0): the rect's own top/bottom are hy2-bar_h/hy2-1.0, so
+        # a bar_h under 1px would draw with NEGATIVE height (top below
+        # bottom) — an inverted rect — for a very short cell (cell_h below
+        # ~3.3px, since bar_h = min(5.0, cell_h*0.3)).
+        bar_pad = (x2 - x1) * 0.12
+        backend.rect(
+            x1 + bar_pad, hy2 - bar_h, x2 - bar_pad, hy2 - 1.0,
+            fill=bar_color, stroke="none",
+        )
+    backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
+    return hy2

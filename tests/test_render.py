@@ -2413,6 +2413,80 @@ def _count_tunnel_face_mismatches(scene: Scene) -> tuple[int, int]:
     return mismatches, total
 
 
+def test_endpoint_containers_resolves_fp_terminal_endpoint():
+    """``_endpoint_containers`` (task #53/#72 coercion-dot fix): an endpoint
+    whose terminal is an ``FPTerminal`` — a front-panel control's on-diagram
+    glyph referenced from inside a frame — is NOT a graph node (see
+    ``_fp_terminal_frame_path``'s docstring), so ``by_id.get(end.node_id)``
+    can't find it. Before the fix this silently returned ``[]`` (no
+    containment at all); it must now resolve the SAME structural chain
+    ``_wire_path`` already uses for this terminal kind.
+
+    Real-corpus case: GTR's "Slide" DBL front-panel terminal (referenced
+    from inside the "UI: Initialize" event frame, structure uid 36) is fed
+    by a "100" constant (uid 17153) living inside structure 48, itself
+    inside 36. The wire's destination endpoint must now report ``['36']``
+    (not ``[]``), so the innermost COMMON container is 36 (shared with the
+    source's ``['36', '48']``) instead of ``None``."""
+    from lvkit.render.scene import _containment_of, _innermost_common_container
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    by_id = {n.id: n for n in graph.iter_nodes(vi)}
+
+    wires = [
+        w
+        for w in graph.get_wires(vi, include_internal=True)
+        if w.source.terminal_id.endswith("::17153")
+    ]
+    assert wires, "GTR's 'Slide' constant (uid 17153) wire not found"
+    w = wires[0]
+
+    assert _containment_of(w.source, graph, by_id, vi) == ["36", "48"]
+    assert _containment_of(w.dest, graph, by_id, vi) == ["36"]
+    assert _innermost_common_container(w, graph, by_id, vi) == "36"
+
+
+def test_gtr_slide_coercion_dot_frame_scoped_not_root():
+    """Real-corpus check (task #53/#72): GTR's "Slide" ``100``->DBL coercion
+    dot's ``RenderWireNet`` now gets a real ``container_uid`` (36, the
+    owning "UI: Initialize" event frame's structure) instead of ``None``
+    (the root diagram) — so ``composite.build_render_tree`` buckets it into
+    that frame's ``lv-frame`` toggle/clip group instead of drawing it
+    unconditionally at the top level, where it used to float independent of
+    whichever frame was actually selected."""
+    from lvkit.render.composite import build_render_tree
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    if scene is None:
+        pytest.skip("scene build failed (missing geometry)")
+
+    target = next(
+        (
+            net
+            for net in scene.wire_nets
+            if net.source is not None
+            and net.source.source.terminal_id.endswith("::17153")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Slide coercion-dot wire net not in scene"
+    assert target.coercion_dots  # this IS the numeric-coercion wire
+    assert target.container_uid == "36"
+    assert target.container_uid is not None  # never root -- would escape its frame
+
+    tree = build_render_tree(scene)
+    assert not any(
+        pt in tree.content.dots for pt in target.coercion_dots
+    ), "the Slide coercion dot must NOT be in the root diagram's unconditional dots"
+
+
 def test_no_wire_segment_crosses_a_structure_it_is_not_inside():
     """Structures ARE obstacles: a wire must route AROUND the interior of any
     For/While Loop, Case, or Sequence box it does not LIVE INSIDE — including
@@ -3665,14 +3739,17 @@ def test_empty_string_constant_is_empty_not_placeholder():
     assert real.value == "hello"
 
 
-def test_timestamp_constant_shows_numeric_value_not_blank_box():
+def test_timestamp_constant_shows_two_line_time_date_not_bare_float():
     """A Timestamp constant (heap ddo class ``absTime`` — the graph records
     it as ``underlying_type="MeasureData"``, ``measure_flavor="TimeStamp"``,
-    verified against GTR's real "StartTestTime" field) used to fall through
-    to the generic leaf glyph and draw a BLANK box for an unset field (``raw
-    is None``) — it now shows a real numeric-style value, LabVIEW's own
-    unset-timestamp default (``0.0``, the epoch — the same default codegen
-    emits), never a featureless rectangle (acceptance-gate rule 4)."""
+    verified against GTR's real "StartTestTime" field) used to draw a bare
+    ``"0.0"`` for an unset field — reads as a number, not a Timestamp
+    control. It now shows LabVIEW's own two-line time-over-date display
+    (task #66): a 12-hour time-with-milliseconds line over a date line,
+    MULTILINE (never fit/centered — the exact box-width-independent split
+    matters more than centering; see ``_format_timestamp_lines``). Verified
+    against the maintainer's reference image #73: the unset/epoch default is
+    exactly ``"12:00:00.000 AM"`` / ``"1/1/1904"``."""
     from lvkit.render.glyph import ConstantGlyph
     from lvkit.render.nodes import _leaf_const_glyph
 
@@ -3683,14 +3760,21 @@ def test_timestamp_constant_shows_numeric_value_not_blank_box():
     )
     unset = _leaf_const_glyph(ts_type, raw=None)
     assert isinstance(unset, ConstantGlyph)
-    assert unset.value == "0.0"
+    assert unset.multiline is True
+    assert unset.value == "12:00:00.000 AM\n1/1/1904"
+    assert unset.color == wire_style(ts_type).color == "#893000"
 
-    real = _leaf_const_glyph(ts_type, raw=1234.5)
+    # A genuinely SET value (parser.vi's default-data decoder emits
+    # "Timestamp(<secs>)") formats the same two-line way, not just the
+    # epoch — e.g. 90061 seconds past the LabVIEW epoch is 1904-01-02
+    # 01:01:01.
+    real = _leaf_const_glyph(ts_type, raw="Timestamp(90061)")
     assert isinstance(real, ConstantGlyph)
-    assert real.value == "1234.5"
+    assert real.value == "01:01:01.000 AM\n1/2/1904"
 
     # A DIFFERENT MeasureData flavor (a waveform, not a timestamp) is NOT
-    # touched by this branch — out of this fix's scope.
+    # touched by this branch — out of this fix's scope — and keeps the
+    # generic grey "unknown" wire, not the timestamp color.
     waveform_type = LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="MeasureData",
@@ -3698,7 +3782,39 @@ def test_timestamp_constant_shows_numeric_value_not_blank_box():
     )
     wf = _leaf_const_glyph(waveform_type, raw=None)
     assert isinstance(wf, ConstantGlyph)
-    assert wf.value != "0.0"
+    assert "AM" not in wf.value and "PM" not in wf.value
+    assert wire_style(waveform_type).color != "#893000"
+
+
+def test_timestamp_type_family_and_terminal_mark():
+    """``MeasureData``/``TimeStamp`` gets its OWN ``type_family`` bucket
+    ("timestamp") and ``wire_style`` color (task #66) instead of falling to
+    the generic grey "unknown" — the color is heap-recorded (the ``absTime``
+    control's own ``cosm`` border ``fgColor`` ``00893000``, consistent
+    across two independent corpus instances) and confirmed by the
+    maintainer's reference images #73/#75 (both the constant box border and
+    a real timestamp wire draw this same dark red-brown). ``type_repr``
+    gives it a clean-room "TS" mnemonic (no NI-doc source for a canonical
+    short form) — keyed on ``measure_flavor``, so a DIFFERENT MeasureData
+    flavor (waveform) is untouched, never mislabeled "TS"."""
+    from lvkit.render.style import type_family, type_repr
+
+    ts_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="TimeStamp",
+    )
+    assert type_family(ts_type) == "timestamp"
+    assert type_repr(ts_type) == "TS"
+    assert wire_style(ts_type).color == "#893000"
+
+    waveform_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="Float64Waveform",
+    )
+    assert type_family(waveform_type) == "unknown"
+    assert type_repr(waveform_type) == ""
 
 
 def test_refnum_glyph_mini_form_for_small_boxes():
@@ -5597,6 +5713,194 @@ def test_explicit_property_node_in_corpus_keeps_class_header():
     )
     assert target is not None, "explicit VI-reference property node not in scene"
     assert isinstance(target.glyph, PropertyNodeGlyph)
+    assert target.glyph.is_implicit is False
+    assert target.glyph.target_name == ""
+    assert target.glyph.bar_color is None
+    assert target.glyph.class_name == "VI"
+
+
+def test_implicit_invoke_node_shows_target_name_and_type_color_bar():
+    """An IMPLICIT invoke node (task #51/#55 extension, reference image #72)
+    — one permanently bound to a specific front-panel control, discriminated
+    by ``bound_control_uid`` (see ``parser.node_types.InvokeNode``'s class
+    docstring; NEVER inferred from the label text or wiring) — draws the
+    BOUND CONTROL's own name as its header (from the invoke node's own heap
+    ``<label>``, never the object class) plus a TYPE-COLOR BAR in that
+    control's wire color. An EXPLICIT node (no ``bound_control_uid``) is
+    completely unaffected — mirrors the property-node behavior exactly."""
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.nodes import _invoke_node_glyph
+    from lvkit.render.style import wire_style
+
+    def term(idx, direction, ut):
+        return Terminal(
+            id=f"VI::{idx}",
+            index=idx,
+            direction=direction,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=ut),
+        )
+
+    bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+    node = PrimitiveNode(
+        id="VI::11387",
+        vi_path="VI",
+        node_type="invokeNode",
+        name="Test Hierarchy Tree",
+        label="Test Hierarchy Tree",
+        object_name="Tree (strict)",
+        method_name="Custom Item Symbols.Revert Symbols",
+        terminals=[
+            term(0, "output", "Void"),  # method select-slot (never an arrow)
+            term(1, "output", "Void"),  # return value (unused -> no arrow)
+        ],
+        invoke_row_terminal_ids=["VI::0", "VI::1"],
+        bound_control_uid="12",
+        bound_control_type=bool_type,
+    )
+    glyph = _invoke_node_glyph(node)
+    assert isinstance(glyph, InvokeNodeGlyph)
+    assert glyph.is_implicit is True
+    assert glyph.target_name == "Test Hierarchy Tree"
+    assert glyph.bar_color == wire_style(bool_type).color
+
+    # An implicit node whose bound control's class isn't reconstructible
+    # (bound_control_type is None, e.g. GTR's real "treeControl") still
+    # shows the target name, just no bar — never a guessed color.
+    unresolved = node.model_copy(update={"id": "VI::11388", "bound_control_type": None})
+    glyph2 = _invoke_node_glyph(unresolved)
+    assert isinstance(glyph2, InvokeNodeGlyph)
+    assert glyph2.is_implicit is True
+    assert glyph2.target_name == "Test Hierarchy Tree"
+    assert glyph2.bar_color is None
+
+    # EXPLICIT (no bound_control_uid): unaffected, same as the plain
+    # class-header form.
+    explicit = node.model_copy(
+        update={
+            "id": "VI::982",
+            "label": None,
+            "object_name": "VI",
+            "bound_control_uid": "",
+            "bound_control_type": None,
+        }
+    )
+    glyph3 = _invoke_node_glyph(explicit)
+    assert isinstance(glyph3, InvokeNodeGlyph)
+    assert glyph3.is_implicit is False
+    assert glyph3.target_name == ""
+    assert glyph3.bar_color is None
+    assert glyph3.class_name == "VI"
+
+
+def test_invoke_node_glyph_draws_bar_only_when_implicit():
+    """``InvokeNodeGlyph.draw()`` draws the header text (target name when
+    implicit, ``⚙ <class>`` otherwise) and, ONLY for an implicit node with a
+    resolved ``bar_color``, a solid color bar under the header — never for
+    an explicit node, and never a guessed color when unresolved."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    bounds = (0.0, 0.0, 130.0, 68.0)
+
+    implicit = InvokeNodeGlyph(
+        method="Revert Symbols",
+        rows=(),
+        class_name="Tree (strict)",
+        is_implicit=True,
+        target_name="Test Hierarchy Tree",
+        bar_color="#4a9c3e",
+    )
+    b1 = SvgBackend()
+    implicit.draw(b1, bounds, DEFAULT_THEME)
+    svg1 = b1.render(bounds)
+    assert ">Test Hierarchy Tree<" in svg1
+    assert "⚙" not in svg1  # target-name header, never the class gear icon
+    assert 'fill="#4a9c3e"' in svg1  # the type-color bar
+
+    explicit = InvokeNodeGlyph(
+        method="Revert Symbols", rows=(), class_name="Tree (strict)", is_implicit=False,
+    )
+    b2 = SvgBackend()
+    explicit.draw(b2, bounds, DEFAULT_THEME)
+    svg2 = b2.render(bounds)
+    assert "⚙ Tree (strict)" in svg2
+    assert 'fill="#4a9c3e"' not in svg2
+
+    # Implicit but unresolved bar_color: target name shows, no bar drawn.
+    unresolved = InvokeNodeGlyph(
+        method="Revert Symbols",
+        rows=(),
+        class_name="Tree (strict)",
+        is_implicit=True,
+        target_name="Test Hierarchy Tree",
+        bar_color=None,
+    )
+    b3 = SvgBackend()
+    unresolved.draw(b3, bounds, DEFAULT_THEME)
+    svg3 = b3.render(bounds)
+    assert ">Test Hierarchy Tree<" in svg3
+    assert svg3.count("<rect") == 1  # the outer box only -- no bar rect drawn
+
+
+def test_gtr_test_hierarchy_tree_invoke_node_renders_implicit():
+    """Real-corpus check (task #51/#55 extension, reference image #72): GTR's
+    "Test Hierarchy Tree" invoke node (heap uid 11387, method "Custom Item
+    Symbols.Revert Symbols") renders IMPLICIT — header "Test Hierarchy Tree"
+    (the bound control's own name), never the "⚙ Tree (strict)" class
+    header. Its bound control (heap class ``treeControl``) isn't a class
+    ``reconstruct_control_lvtype`` models, so no color bar — never a guessed
+    color."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::11387")
+        ),
+        None,
+    )
+    assert target is not None, "GTR's Test Hierarchy Tree invoke node not in scene"
+    assert isinstance(target.glyph, InvokeNodeGlyph)
+    assert target.glyph.is_implicit is True
+    assert target.glyph.target_name == "Test Hierarchy Tree"
+    assert target.glyph.bar_color is None
+    assert target.glyph.method == "Custom Item Symbols.Revert Symbols"
+
+
+def test_explicit_invoke_node_in_corpus_keeps_class_header():
+    """Real-corpus check: GTR's "FP.Open" VI-reference invoke node (heap uid
+    982) is EXPLICIT (no bound-control ``<ddo>``) and renders EXACTLY as
+    before — "⚙ VI" class header, no target name, no color bar."""
+    from lvkit.render.glyph import InvokeNodeGlyph
+    from lvkit.render.scene import RenderNode, build_scene
+
+    loaded = _load_graph(BUILTIN_REF_VI)
+    if loaded is None:
+        pytest.skip(f"sample VI not available: {BUILTIN_REF_VI}")
+    graph, vi = loaded
+    scene = build_scene(graph, vi)
+    assert scene is not None
+
+    target = next(
+        (
+            rn
+            for rn in scene.nodes
+            if isinstance(rn, RenderNode) and rn.node.id.endswith("::982")
+        ),
+        None,
+    )
+    assert target is not None, "explicit FP.Open invoke node not in scene"
+    assert isinstance(target.glyph, InvokeNodeGlyph)
     assert target.glyph.is_implicit is False
     assert target.glyph.target_name == ""
     assert target.glyph.bar_color is None

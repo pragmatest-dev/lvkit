@@ -5,15 +5,18 @@ from dataclasses import dataclass
 from ....parser.layout import Rect
 from ...backend import Backend
 from ...style import Theme
-from .base import _draw_drawer_row, fit_label
+from .base import DrawerHeaderGlyphBase, _draw_drawer_row, draw_drawer_header
 
 
 @dataclass(frozen=True)
-class InvokeNodeGlyph:
+class InvokeNodeGlyph(DrawerHeaderGlyphBase):
     """An Invoke Node (heap class ``invokeNode``): like a Property Node, but the
     invoked METHOD name is the first drawer row, and the method's parameters
-    grow DOWNWARD beneath it. The reference (in/out) and error (in/out)
-    terminals thread the header edges and are placed by the scene.
+    grow DOWNWARD beneath it.
+
+    See ``DrawerHeaderGlyphBase``/``draw_drawer_header`` for the implicit/
+    explicit HEADER contract (task #51/#55 extension of the property-node
+    distinction, reference image #72) — identical here.
 
     Row count and content come from the heap's ``dcoList`` (method + params,
     NOT one row per raw terminal — see ``render/nodes.py:_invoke_node_glyph``):
@@ -30,10 +33,6 @@ class InvokeNodeGlyph:
     return_present: bool = False  # method row's return-value terminal (right ▸)
     # (param label, show_left, show_right)
     rows: tuple[tuple[str, bool, bool], ...] = ()
-    class_name: str = ""  # object class shown in the header (e.g. "VI")
-    fill_attr: str = "prim_fill"
-    stroke_attr: str = "prim_stroke"
-    text_attr: str = "prim_text"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -51,20 +50,22 @@ class InvokeNodeGlyph:
         rows = self.rows
         # header (class) + method row + one cell per parameter row.
         cell_h = (y2 - y1) / (len(rows) + 2)
-        lpad = 3.0
         lsize = max(5.0, min(9.0, cell_h * 0.62) - 1.0)
 
-        # Header band: the object class, centered, with a divider beneath.
-        hy2 = y1 + cell_h
-        header = f"⚙ {self.class_name}".strip() if self.class_name else "⚙ class"
-        backend.text(
-            (x1 + x2) / 2,
-            y1 + cell_h / 2 + lsize * 0.34,
-            fit_label(header, (x2 - x1) - 2 * lpad, backend, lsize),
-            lsize,
-            fill=text_fill,
+        hy2 = draw_drawer_header(
+            backend,
+            x1,
+            x2,
+            y1,
+            cell_h,
+            is_implicit=self.is_implicit,
+            target_name=self.target_name,
+            class_name=self.class_name,
+            bar_color=self.bar_color,
+            stroke=stroke,
+            text_fill=text_fill,
+            lsize=lsize,
         )
-        backend.line(x1, hy2, x2, hy2, stroke=stroke, stroke_width=1.0)
 
         # Method row: the invoked method name, never a left arrow (that side is
         # always a Void select-slot); the return value (if any) draws right.

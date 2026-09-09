@@ -158,17 +158,18 @@ class PrimitiveNode(GraphNode):
     # reference terminal, but this structural id list always can. See
     # ``op_walk.correlate_property_terminals``.
     property_value_terminal_ids: list[str] = []
-    # Property node only: the BOUND front-panel control's own ddo uid (RAW,
-    # unqualified -- not this node's own qualified id) when this property
-    # node is IMPLICIT (permanently tied to a specific control, e.g. GTR's
-    # "Abort" boolean property node) -- "" for an EXPLICIT one (identity from
-    # a wired reference). See ``parser.node_types.PropertyNode``'s class
-    # docstring for the full heap discriminator (a direct ``<ddo>`` child +
-    # a ``<label>`` naming the control, both absent when explicit).
+    # Property/Invoke node only: the BOUND front-panel control's own ddo uid
+    # (RAW, unqualified -- not this node's own qualified id) when this node
+    # is IMPLICIT (permanently tied to a specific control, e.g. GTR's
+    # "Abort" boolean property node or its "Test Hierarchy Tree" invoke
+    # node) -- "" for an EXPLICIT one (identity from a wired reference). See
+    # ``parser.node_types.PropertyNode``/``InvokeNode``'s class docstrings
+    # for the full heap discriminator (a direct ``<ddo>`` child + a
+    # ``<label>`` naming the control, both absent when explicit).
     bound_control_uid: str = ""
     # The bound control's reconstructed LVType (``parser.fp_heap_type.
     # reconstruct_control_lvtype``, resolved at PARSE time against the
-    # front-panel heap -- see ``parser.vi._resolve_property_node_bound_types``).
+    # front-panel heap -- see ``parser.vi._resolve_bound_control_types``).
     # None for an explicit node, or an implicit one whose control class isn't
     # modeled by that reconstructor.
     bound_control_type: LVType | None = None

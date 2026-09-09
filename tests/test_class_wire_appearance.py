@@ -117,3 +117,57 @@ def test_class_color_reaches_pane_and_terminal_via_the_one_lookup() -> None:
     assert svg is not None
     cells = re.findall(r'lv-pane-cell[^>]*fill="([^"]+)"', svg)
     assert "#006CFF" in cells
+
+
+@pytest.mark.skipif(not CONFIG_ACTOR_CLASS.exists(), reason="CAF sample not present")
+def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
+    """Issue #84: ConfigurableActor.lvclass's parent (Actor) has NO plain-XML
+    ``Parent`` Item (no ``parent_url``) and no in-repo cross-subtree URL —
+    only the binary ``ParentClassLinkInfo``'s ``<vilib>``-rooted PTH0 record
+    (``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``). Before the
+    fix, ``_resolve_parent``'s name-only ``_walk_up_find`` fallback (no
+    search_paths) couldn't reach a vi.lib-installed parent at all:
+    ``get_class_fields`` returned only ConfigurableActor's own 6 fields and
+    ``get_class_wire_style`` returned None (Actor's blue pen unreachable).
+    Resolved via ``ParsedDependencyRef.resolve_against`` (search_paths
+    mapped onto ``<vilib>``, no configured vilib_root needed) now inherits
+    both: Actor's fields prepend ConfigurableActor's own, and the wire style
+    is Actor's own pen."""
+    graph = InMemoryVIGraph()
+    graph.load_lvclass(
+        CONFIG_ACTOR_CLASS,
+        LoadMode.MINIMAL,
+        search_paths=[AF_ROOT.parent.parent, CAF_ROOT],
+    )
+
+    fields = graph.get_class_fields("ConfigurableActor.lvclass")
+    field_names = [f.name for f in fields]
+    own_fields = [
+        "ConfigManager",
+        "stopped event",
+        "Name",
+        "Fully Qualified Name",
+        "Registry",
+        "Registry Configuration",
+    ]
+    assert len(fields) > len(own_fields)
+    assert field_names[-len(own_fields) :] == own_fields  # own fields last
+    assert field_names[: len(field_names) - len(own_fields)]  # parent fields prepended
+
+    style = graph.get_class_wire_style("ConfigurableActor.lvclass")
+    assert style is not None
+    assert style.color == "#006CFF"  # Actor's own pen, inherited
+
+
+@pytest.mark.skipif(not TESTLOADER_CLASS.exists(), reason="JKI sample not present")
+def test_in_repo_same_tree_parent_still_resolves() -> None:
+    """No regression (issue #84): a class whose parent has NO ``<vilib>``
+    marker (TextTestRunner's parent TestRunner — in-repo, resolved via the
+    existing bare-name ``_walk_up_find`` fallback, completely untouched by
+    the new vilib-rooted-parent path since ``is_vilib_parent`` gates it) is
+    unaffected: same field count and names before and after the fix."""
+    lvclass_path = JKI_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
+    graph = InMemoryVIGraph()
+    graph.load_lvclass(lvclass_path, LoadMode.MINIMAL, search_paths=[JKI_ROOT])
+    fields = graph.get_class_fields("TextTestRunner.lvclass")
+    assert [f.name for f in fields] == ["stream", "descriptions", "verbosity"]

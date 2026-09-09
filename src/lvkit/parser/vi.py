@@ -64,7 +64,7 @@ from .models import (
     ParsedWire,
     SelectorTable,
 )
-from .node_types import PropertyNode, parse_node
+from .node_types import InvokeNode, PropertyNode, parse_node
 from .nodes import (
     extract_case_structures,
     extract_constants,
@@ -374,7 +374,7 @@ def _parse_block_diagram(
     root = tree.getroot()
 
     nodes = _extract_nodes(root)
-    _resolve_property_node_bound_types(nodes, fp_xml)
+    _resolve_bound_control_types(nodes, fp_xml)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
@@ -615,21 +615,25 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     return nodes
 
 
-def _resolve_property_node_bound_types(
+def _resolve_bound_control_types(
     nodes: list[ParsedNode], fp_xml: Path | str | None
 ) -> None:
-    """Resolve each IMPLICIT ``PropertyNode``'s ``bound_control_type`` from
-    the FRONT-PANEL heap (see ``PropertyNode``'s class docstring for the
-    ``bound_control_uid`` discriminator) -- in-place, mutating ``nodes``.
+    """Resolve each IMPLICIT ``PropertyNode``/``InvokeNode``'s
+    ``bound_control_type`` from the FRONT-PANEL heap (see each class's own
+    docstring for the ``bound_control_uid`` discriminator -- the SAME direct
+    ``<ddo>``-child convention for both node kinds) -- in-place, mutating
+    ``nodes``.
 
-    This is the one place render's "implicit vs explicit" property-node
+    This is the one place render's "implicit vs explicit" node-identity
     distinction touches the front-panel heap: done here at PARSE time (this
     module owns both heaps), never in ``render/``, which only ever reads the
     already-decoded graph/``Layout`` (see ``layout.py``'s own module
     docstring). The FP root is parsed at most ONCE per VI, only when at
-    least one property node actually needs it."""
-    bound: list[PropertyNode] = [
-        n for n in nodes if isinstance(n, PropertyNode) and n.bound_control_uid
+    least one node actually needs it."""
+    bound: list[PropertyNode | InvokeNode] = [
+        n
+        for n in nodes
+        if isinstance(n, (PropertyNode, InvokeNode)) and n.bound_control_uid
     ]
     if not bound or not fp_xml:
         return
@@ -637,10 +641,10 @@ def _resolve_property_node_bound_types(
     if not fp_path.exists():
         return
     fp_root = ET.parse(fp_path).getroot()
-    for prop_node in bound:
-        ddo = fp_root.find(f".//*[@uid='{prop_node.bound_control_uid}']")
+    for bound_node in bound:
+        ddo = fp_root.find(f".//*[@uid='{bound_node.bound_control_uid}']")
         if ddo is not None:
-            prop_node.bound_control_type = reconstruct_control_lvtype(ddo)
+            bound_node.bound_control_type = reconstruct_control_lvtype(ddo)
 
 
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:
@@ -1691,11 +1695,24 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     if underlying in ("LVVariant", "Variant"):
         return "Variant()", len(data)
 
-    # MeasureData (timestamp): 16 bytes (8 int + 8 frac)
+    # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
+    # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
+    # (data[8:16], fraction = u64/2**64 sec) -- both halves threaded through
+    # so a real (non-epoch) timestamp shows its actual sub-second value
+    # (task #66 follow-up) instead of always truncating to ".000". Emitted
+    # as decimal microseconds (matching datetime.timedelta's own resolution
+    # ceiling -- finer precision would be silently rounded away by the
+    # renderer's timedelta(seconds=...) reconstruction anyway), carrying
+    # into the whole-second count on the (rare) round-up-to-1.0 edge.
     if underlying == "MeasureData":
         if len(data) >= 16:
             secs = int.from_bytes(data[:8], "big", signed=True)
-            return f"Timestamp({secs})", 16
+            frac_u64 = int.from_bytes(data[8:16], "big", signed=False)
+            frac_micros = round(frac_u64 * 1_000_000 / 2**64)
+            if frac_micros >= 1_000_000:
+                secs += 1
+                frac_micros = 0
+            return f"Timestamp({secs}.{frac_micros:06d})", 16
         return "Timestamp(0)", len(data)
 
     return None, 0

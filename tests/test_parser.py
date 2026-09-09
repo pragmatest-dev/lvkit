@@ -1443,6 +1443,81 @@ class TestParseVI:
         assert explicit.bound_control_uid == ""
         assert explicit.bound_control_type is None
 
+    def test_parse_invoke_node_implicit_vs_explicit(self, tmp_path: Path):
+        """An Invoke Node's ``bound_control_uid`` (task #51/#55 extension)
+        comes ONLY from its own DIRECT ``<ddo>`` CHILD -- a sibling of
+        ``<termList>``, never a part of it, never inferred from the
+        ``<label>`` text -- the SAME discriminator ``PropertyNode`` uses.
+        When present, ``_parse_block_diagram`` resolves ``bound_control_type``
+        from that uid's ddo in the FRONT-PANEL heap. Absent entirely -> both
+        fields stay empty/None, exactly like the existing (unbound) invoke
+        node behavior. Modeled on GTR's "Test Hierarchy Tree" invoke node
+        (uid 11387, bound-control ddo uid 12) vs. its "FP.Open" VI-reference
+        invoke node (uid 982, no ``<ddo>``)."""
+        bd_xml = """<?xml version="1.0"?>
+<root>
+    <node class="invokeNode" uid="11387">
+        <termList elements="2">
+            <SL__arrayElement class="term" uid="11415">
+                <dco class="invokeItem" uid="11416"><typeDesc>TypeID(1)</typeDesc></dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="11421">
+                <dco class="invokeItem" uid="11422"><typeDesc>TypeID(2)</typeDesc></dco>
+            </SL__arrayElement>
+        </termList>
+        <label class="label" uid="11392">
+            <textRec class="textHair"><text>"Test Hierarchy Tree"</text></textRec>
+        </label>
+        <dcoList elements="2">
+            <SL__arrayElement uid="11416" />
+            <SL__arrayElement uid="11422" />
+        </dcoList>
+        <nodeName>"Tree (strict)"</nodeName>
+        <oMId>0046</oMId>
+        <ddo uid="12" />
+        <methName>"Custom Item Symbols.Revert Symbols"</methName>
+        <methCode>1969895444</methCode>
+    </node>
+    <node class="invokeNode" uid="982">
+        <termList elements="0" />
+        <dcoList elements="0" />
+        <nodeName>"VI"</nodeName>
+        <oMId>0001</oMId>
+        <methName>"FP.Open"</methName>
+        <methCode>123</methCode>
+    </node>
+    <signalList></signalList>
+</root>"""
+        fp_xml = """<?xml version="1.0"?>
+<root>
+    <ddo class="treeControl" uid="12">
+        <bounds>(0, 0, 100, 100)</bounds>
+    </ddo>
+</root>"""
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(bd_xml)
+        fp_file = tmp_path / "test_FPHb.xml"
+        fp_file.write_text(fp_xml)
+
+        vi = parse_vi(bd_xml=bd_file, fp_xml=fp_file)
+        nodes = {n.uid: n for n in vi.block_diagram.nodes}
+
+        from lvkit.parser.node_types import InvokeNode
+
+        implicit = nodes["11387"]
+        assert isinstance(implicit, InvokeNode)
+        assert implicit.label == "Test Hierarchy Tree"
+        assert implicit.bound_control_uid == "12"
+        # "treeControl" isn't a control class ``reconstruct_control_lvtype``
+        # models, so the type stays unresolved -- never a guessed color.
+        assert implicit.bound_control_type is None
+
+        explicit = nodes["982"]
+        assert isinstance(explicit, InvokeNode)
+        assert explicit.label is None
+        assert explicit.bound_control_uid == ""
+        assert explicit.bound_control_type is None
+
     def test_parse_event_reg_node_growable_rows(self, tmp_path: Path):
         """A Register-For-Events node (task #56, class="eventRegNode") gets
         its own display name from ``<nodeName>`` (the SAME field
@@ -1890,6 +1965,75 @@ class TestRealVIParsing:
         if main_xml and main_xml.exists():
             metadata = parse_vi_metadata(main_xml)
             assert "name" in metadata or "qualified_name" in metadata
+
+    def test_issue91_empty_path_no_longer_desyncs_cluster_and_array_fields(
+        self, caplog
+    ) -> None:
+        """Real-corpus regression for issue #91: GTR's "Main UI" SMUI
+        cluster constant has several bare, UNSET ``Path`` fields ("Open
+        Path", "Test Project", "Test Class") ahead of two VARIABLE-size
+        array-of-Path fields ("TestMethods"/"TestProjectClasses" -- their
+        type descriptor's ``Dimension`` carries ``FixedSize="0xFFFFFF"``,
+        LabVIEW's variable-size sentinel, never a fixed bound). Before the
+        fix, the first empty Path field's ``_decode_pth0_components``
+        ncomp==0 guard returned ``consumed=0``, desyncing the cluster
+        decode's byte offset for every field after it -- so the arrays
+        misread a residual ``PTH0`` tag as their 4-byte element count
+        (logged as "constant-array decode truncated: 0 of a claimed
+        1347700784 elements..."). After the fix, alignment holds throughout:
+        no truncation warning, empty Path fields decode as ``Path("")``, and
+        the arrays' real (variable) leading count decodes as an empty ``[]``
+        array -- not garbage."""
+        gtr = Path(
+            ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
+            "Graphical Test Runner/Graphical Test Runner - Main UI - .vi"
+        )
+        if not gtr.exists():
+            pytest.skip("sample VI not available")
+
+        from lvkit.graph.construction import decode_constant
+        from lvkit.graph.core import InMemoryVIGraph
+        from lvkit.graph.loading import LoadMode
+        from lvkit.graph.models import ConstantNode
+        from lvkit.models import LVTypeKind
+        from lvkit.parser.models import ParsedConstant
+
+        graph = InMemoryVIGraph()
+        with caplog.at_level("WARNING"):
+            graph.load_vi(gtr, mode=LoadMode.NONE)
+        assert "constant-array decode truncated" not in caplog.text
+
+        vi = graph.resolve_vi_name(gtr.name)
+        target = next(
+            (
+                n
+                for n in graph.iter_nodes(vi)
+                if isinstance(n, ConstantNode)
+                and n.lv_type is not None
+                and n.lv_type.kind == LVTypeKind.CLUSTER
+                and any(
+                    f.name == "TestMethods" for f in (n.lv_type.fields or [])
+                )
+            ),
+            None,
+        )
+        assert target is not None, "GTR's SMUI cluster constant not found"
+
+        raw_uid = target.id.rsplit("::", 1)[-1]
+        _, decoded = decode_constant(
+            ParsedConstant(uid=raw_uid, type_desc="", value=target.raw_value),
+            lv_type=target.lv_type,
+        )
+        # Sane, correctly-ordered decode of every field -- misalignment would
+        # scramble this into garbage well before reaching the trailing
+        # fields ("ProductName", a plain string).
+        assert "'Open Path': Path(\"\")" in decoded
+        assert "'Test Project': Path(\"\")" in decoded
+        assert "'Test Class': Path(\"\")" in decoded
+        assert "'TestMethods': []" in decoded
+        assert "'TestProjectClasses': []" in decoded
+        assert "'TotalTests': 0" in decoded
+        assert decoded.endswith("'ProductName': ''}")
 
 
 def test_every_registered_handler_is_reachable_by_extraction() -> None:

@@ -202,11 +202,6 @@ class RenderBorderTerminal:
     # in the frames that do wire it. Empty = always solid. Per-frame because the
     # border terminal is redrawn inside each frame group (see draw.draw_scene).
     unwired_frames: frozenset[str] = frozenset()
-    # Inner tunnels aren't drawn as glyphs today (see _structure_borders) —
-    # this field exists for symmetry with the other frame-tagged dataclasses
-    # and future inner-tunnel-per-frame work; it is currently always ()
-    # since only outer tunnels are emitted.
-    frame_path: FramePath = ()
     # The developer HID this border terminal via LabVIEW's "Visible Items"
     # (loop i/N/cond only — see LoopNode.hidden_border_terminals). The glyph is
     # still emitted (so the scene stays complete and a future "show hidden"
@@ -1219,12 +1214,26 @@ def _endpoint_containers(
       terminals (``boundary == "inner"`` — the inner face is on the frame
       side). Inner and outer tunnels often share the same center point, so
       inner-vs-outer is read from the graph terminal, never from geometry.
+    * it is an FP TERMINAL's on-diagram glyph referenced from inside a
+      frame — an ``FPTerminal`` isn't itself a graph node (see
+      ``_fp_terminal_frame_path``'s docstring), so ``by_id.get(end.node_id)``
+      below finds nothing for it and would wrongly report "no containment"
+      (the #53/#72 bug: a wire touching an FP terminal escaped its frame's
+      confinement entirely — its coercion dot, and the wire itself, drew
+      unconditionally at the ROOT instead of inside the frame's toggle/clip
+      group). Resolved via the SAME structural walk ``_wire_path`` already
+      uses for this exact terminal kind, just reordered to this function's
+      innermost->outermost contract (``_fp_terminal_frame_path`` returns
+      root->leaf).
     """
+    term = graph.get_terminal(end.terminal_id)
+    if isinstance(term, FPTerminal):
+        struct_path = _fp_terminal_frame_path(term, by_id, vi_name)
+        return [uid for uid, _ in reversed(struct_path)] if struct_path else []
     node = by_id.get(end.node_id)
     if node is None:
         return []
     out: list[str] = []
-    term = graph.get_terminal(end.terminal_id)
     if (
         isinstance(term, TunnelTerminal)
         and term.boundary == "inner"
