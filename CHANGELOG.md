@@ -4,6 +4,13 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-09
+- **A property/invoke node bound to a control renders distinctly** — an invoke node tied to a control (like a property node) now shows the target control's name as its header, with no reference terminals; wire-driven nodes are unchanged (#51).
+- **Coercion dots stay inside their case-structure frame** — a coercion dot on a wire feeding a front-panel terminal no longer floats outside the frame it belongs to (#53).
+- **Timestamp constants render as a date/time box** — a two-line time/date (e.g. `12:00:00.000 AM` / `1/1/1904`) in the timestamp color, with real fractional seconds, instead of a bare `0.0` (#66).
+- **Fix: array-of-Path constants decode correctly** — an empty Path field no longer desyncs a cluster's later fields, so Path arrays parse to their real values and the "constant-array decode truncated" warnings are gone (#91).
+- **Fix: classes inherit from a vi.lib parent** — a class whose parent is a name-only vi.lib class (e.g. Actor Framework's `Actor`) now loads that parent, so inherited fields and wire color resolve (#84).
+
 ## [0.8.2] - 2026-09-08
 - **Cluster constants render as real LabVIEW controls** — each field draws at its true heap layout with its own control glyph (dog-ear refnums with per-kind symbols incl. the User Event radar dish, class cubes, path/string/numeric type marks, nested clusters and array-of-cluster elements), replacing synthesized boxes of spaced text (#45).
 - **Cluster hover shows a Context-Help-style data-type tree** — each field with its type mark, name, and full type text; nested clusters indent under "(cluster of N elements)".
