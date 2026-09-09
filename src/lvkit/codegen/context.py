@@ -15,6 +15,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     AnyGraphNode,
     Constant,
+    ConstantNode,
     DestinationInfo,
     PrimitiveNode,
     SourceInfo,
@@ -648,7 +649,7 @@ def _decode_numeric_constant(value: str, underlying_type: str) -> str:
     return str(int(value, 16))
 
 
-def _format_constant(const: Constant) -> str:
+def _format_constant(const: Constant | ConstantNode) -> str:
     """Format a constant value as a Python expression.
 
     Note: enum imports are handled by the SubVI codegen (subvi.py) which
@@ -684,6 +685,17 @@ def _format_constant(const: Constant) -> str:
 
     if value is None:
         return "None"
+
+    # Array constants: LabVIEW's rendered value is already list-literal syntax
+    # (e.g. "[False, True]", "[1, 2, 3]"). Validate via literal_eval and re-emit
+    # canonically; fall through to scalar handling if it isn't a plain literal.
+    if underlying == "Array" and isinstance(value, str):
+        try:
+            return repr(ast.literal_eval(value))
+        except (ValueError, SyntaxError):
+            pass
+    if isinstance(value, list):
+        return repr(value)
 
     # Type-driven decoding: use underlying_type when available.
     if underlying == "Boolean":

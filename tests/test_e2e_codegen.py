@@ -444,8 +444,10 @@ class TestClassPrivateDataNmux:
         assert out is this
         assert out.testsrun == 0
         assert out.shouldstop is False
-        assert out.errors == "[]"
-        assert out.failures == "[]"
+        # errors/failures are arrays: an empty array constant is a real empty
+        # list, not the string "[]" (that was the array-constant-as-string bug).
+        assert out.errors == []
+        assert out.failures == []
         assert out.resultstatuschangedeventref == "event_ref"
 
 

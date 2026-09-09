@@ -26,21 +26,29 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
   set (those VIs now generate; several then hit the runtime bugs below).
 - **Runnable vertical** `examples/build-path-nicegui/` — OpenG Build Path →
   pure `logic.py` + NiceGUI panel bound to it.
+- **Constant formatting, single source of truth** — `_format_constant` gained an
+  array/list case (validates via literal_eval → canonical literal); `constant.py`
+  routes its non-pre-bound path through the SAME formatter instead of a broken
+  value-derived name. Concrete win: empty array constants now render as real
+  `[]` lists, not the string `"[]"` (fixed a test that had enshrined the bug).
+- **Missing math import (prim 1076)** — declared `import math` the same way 1904
+  already does (fixes `undefined name 'math'`).
 
 ## Known bug classes (next targets, generic fixes)
-1. **Missing import (`undefined name 'math'`)** — a template emits `math.*`
-   without emitting `import math`.
+1. **Constant feeding a loop auto-index tunnel** — a nested array constant is
+   correctly formatted now, but when it drives a loop as an auto-indexed array
+   via a TUNNEL, `ctx.resolve(outer_terminal)` returns an auto-derived name
+   instead of tracing to the constant's literal binding. Deeper resolution/edge
+   issue than formatting (Trim Whitespace still fails on this).
 2. **Cross-branch UnboundLocal (`long_integer`)** — a var assigned in one
    parallel-tier branch is read in another.
 3. **Dropped intermediate (`product`)** — a multiply feeding an output is
    dropped (Random Number - Within Range).
-4. **Array-constant → undefined identifier** — a boolean/array constant renders
-   as a name (`false_false_..._true`) instead of a list literal (Trim Whitespace).
-5. **match-case wildcard ordering** — `case _:` emitted before other cases
+4. **match-case wildcard ordering** — `case _:` emitted before other cases
    (Convert File Extension).
-6. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
+5. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
    "Comment" is legitimately empty).
-7. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
+6. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
    real semantics, not a hack); several `Build Error Cluster`/vilib terminal gaps.
 
 ## Front-panel-driven panels (planned)
