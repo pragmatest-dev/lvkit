@@ -152,6 +152,13 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 accum_tunnels.append((tunnel, accum_var))
                 bindings[outer_term] = accum_var
 
+    # Input auto-index arrays for a For loop, classified ONCE here (step 3) and
+    # reused by _build_for_loop for the loop structure — so the inner-terminal
+    # binding and the loop's iteration form can never disagree (a divergence
+    # here is what let an OUTPUT accumulator leak into the range()). Each entry
+    # is (outer_var, inner_terminal_uid).
+    for_input_arrays: list[tuple[str, str]] = []
+
     # 3. For forLoops: bind lpTun inner terminals based on loop style
     #    Must happen BEFORE generating inner statements
     if loop_type == "forLoop":
@@ -179,6 +186,13 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     else:
                         # Known scalar type: pass through directly (no indexing)
                         lpTun_scalar_inputs.append((outer_var, inner_term))
+
+        # Single source of truth for the loop's input arrays: _build_for_loop
+        # reuses exactly this set (never re-scans the tunnels), so the iteration
+        # form matches the bindings emitted just below.
+        for_input_arrays = [
+            (outer_var, inner) for outer_var, inner, _ in lpTun_array_inputs
+        ]
 
         # Bind scalar inputs directly - same value each iteration
         for outer_var, inner_term in lpTun_scalar_inputs:
@@ -317,7 +331,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         loop_ast, stop_condition_var = _build_while_loop(node, inner_stmts, inner_ctx)
     else:
         loop_ast = _build_for_loop(
-            node, inner_stmts, inner_ctx, tunnels, n_terminal_var
+            node, inner_stmts, inner_ctx, n_terminal_var, for_input_arrays
         )
 
     # 7. Handle lpTun outputs (last value)
@@ -678,8 +692,8 @@ def _build_for_loop(
     node: LoopNode,
     body: list[ast.stmt],
     ctx: CodeGenContext,
-    tunnels: list[Tunnel],
-    n_terminal_var: str | None = None,
+    n_terminal_var: str | None,
+    input_arrays: list[tuple[str, str]],
 ) -> ast.For:
     """Build a for loop AST node.
 
@@ -714,8 +728,10 @@ def _build_for_loop(
                 cond_expr = ast.UnaryOp(op=ast.Not(), operand=cond_expr)
             body = [*body, ast.If(test=cond_expr, body=[ast.Break()], orelse=[])]
 
-    # Find ALL auto-indexing array inputs
-    autoindex_arrays = _find_all_autoindex_arrays(tunnels, ctx)
+    # Auto-indexing input arrays, classified once by generate() (step 3) and
+    # passed in — NOT re-scanned here, so this iteration form always matches the
+    # inner-terminal bindings that step 3 already emitted.
+    autoindex_arrays = input_arrays
 
     # Get index variable for this loop depth (i, j, k, ...)
     # Use depth-1 because ctx was already incremented for loop interior
@@ -796,40 +812,6 @@ def _build_for_loop(
         body=body,
         orelse=[],
     )
-
-
-def _find_all_autoindex_arrays(
-    tunnels: list[Tunnel], ctx: CodeGenContext
-) -> list[tuple[str, str]]:
-    """Find array inputs for autoindexing (excludes scalar inputs).
-
-    LabVIEW For loops with multiple auto-indexing inputs iterate
-    min(len(arr1), len(arr2), ...) times.
-
-    In LabVIEW, lpTun inputs to For loops are auto-indexed IF they are arrays.
-    Scalar inputs pass through unchanged (same value each iteration).
-
-    Returns list of (array_var, inner_terminal_uid) tuples.
-    Only includes inputs with array type - scalar inputs are excluded.
-    """
-    results: list[tuple[str, str]] = []
-
-    for tunnel in tunnels:
-        tunnel_type = tunnel.tunnel_type
-        outer_term = tunnel.outer_terminal_uid
-        inner_term = tunnel.inner_terminal_uid
-
-        # In For loops, lpTun inputs are auto-indexed if array OR type unknown
-        # Only exclude if type is KNOWN and NOT an array (scalar)
-        if tunnel_type == "lpTun" and outer_term and inner_term:
-            outer_var = ctx.resolve(outer_term)
-            if outer_var:
-                lv_type = _get_terminal_type(outer_term, ctx)
-                # Treat as array if type is array OR unknown (backward compat)
-                if lv_type is None or lv_type.kind == LVTypeKind.ARRAY:
-                    results.append((outer_var, inner_term))
-
-    return results
 
 
 # Comparison operator inversions for cleaner negation
