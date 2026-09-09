@@ -291,6 +291,9 @@ jobs:
     # nothing is ever published from a dry-run.
     if: startsWith(github.ref, 'refs/tags/ext-v')
     runs-on: ubuntu-latest
+    # Bounds the worst case if a registry stays flaky through every retry of
+    # every target. A normal run publishes in ~2 min.
+    timeout-minutes: 30
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -301,12 +304,57 @@ jobs:
           path: vsix
           merge-multiple: true
 
+      # Shared retry wrapper, sourced by both publish steps below (DRY). The VS
+      # Code Marketplace's /_apis/gallery endpoint intermittently takes longer
+      # than vsce's ~180 s request timeout to answer a publish; that surfaces as
+      # `Request timeout: /_apis/gallery` and, without this, one slow response
+      # fails the entire release (it always died on the first target under
+      # `pipefail`). retry_publish re-runs the command with exponential backoff.
+      - name: Set up publish-with-retry helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/retry_publish.sh" <<'EOF'
+          # retry_publish "<label>" <command...>
+          # Runs a publish command with bounded exponential-backoff retries.
+          # Returns 0 on the first success. Treats an "already published this
+          # version" error as success too: an earlier attempt's upload may have
+          # landed even though its HTTP response timed out, so a retry would hit
+          # a version conflict — that idempotency check matches the registry's
+          # error text on purpose (flagged, not hidden).
+          retry_publish() {
+            local label="$1"; shift
+            local max="${PUBLISH_MAX_ATTEMPTS:-5}" attempt=1 delay=15 out rc
+            while :; do
+              echo "::group::$label (attempt $attempt/$max)"
+              set +e
+              out="$("$@" 2>&1)"; rc=$?
+              set -e
+              printf '%s\n' "$out"
+              echo "::endgroup::"
+              [ "$rc" -eq 0 ] && return 0
+              if printf '%s' "$out" | grep -qiE 'already (exists|published)|version number cannot be the same|conflict ?\(?409\)?'; then
+                echo "::warning::$label — this version is already published; treating as success"
+                return 0
+              fi
+              if [ "$attempt" -ge "$max" ]; then
+                echo "::error::$label failed after $max attempts (rc=$rc)"
+                return 1
+              fi
+              echo "::warning::$label attempt $attempt failed (rc=$rc); retrying in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1)); delay=$((delay * 2))
+            done
+          }
+          EOF
+
       - name: Publish all platform packages to the VS Code Marketplace
         shell: bash
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/retry_publish.sh"
           ls -la vsix
           # Every target must be present before anything is uploaded (web incl.).
           for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
@@ -314,10 +362,9 @@ jobs:
               echo "::error::missing vsix/lvkit-$target.vsix"; exit 1; }
           done
           for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
-            echo "::group::publish $target"
-            npx --yes @vscode/vsce publish \
+            retry_publish "publish $target" \
+              npx --yes @vscode/vsce publish \
               --packagePath "vsix/lvkit-$target.vsix" --pat "$VSCE_PAT"
-            echo "::endgroup::"
           done
 
       # Also publish to Open VSX (open-vsx.org) — the registry Cursor / Windsurf /
@@ -338,14 +385,14 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
         run: |
           set -euo pipefail
+          source "$RUNNER_TEMP/retry_publish.sh"
           if [ -z "${OVSX_PAT:-}" ]; then
             echo "OVSX_TOKEN not set — skipping Open VSX publish"
             exit 0
           fi
           for target in linux-x64 win32-x64 darwin-x64 darwin-arm64 web; do
-            echo "::group::open-vsx $target"
-            npx --yes ovsx publish "vsix/lvkit-$target.vsix"
-            echo "::endgroup::"
+            retry_publish "open-vsx $target" \
+              npx --yes ovsx publish "vsix/lvkit-$target.vsix"
           done
 
   # Attach ALL distribution forms to a GitHub Release for the tag — permanently
