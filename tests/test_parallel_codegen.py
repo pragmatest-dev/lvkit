@@ -177,11 +177,24 @@ class TestParallelCodegen:
         code = ast.unparse(ast.fix_missing_locations(mod))
         assert "ThreadPoolExecutor" not in code
 
-    def test_two_independent_ops_emit_executor(self):
-        """Two independent ops emit ThreadPoolExecutor."""
+    def test_two_independent_ops_sequential_without_held_error(self):
+        """Two independent PURE ops emit sequential code — no executor. The
+        ThreadPoolExecutor is reserved for the held-error model (below)."""
         a = _make_op("A")
         b = _make_op("B")
         ctx = CodeGenContext()
+        stmts = generate_body([a, b], ctx)
+        mod = ast.Module(body=stmts, type_ignores=[])
+        code = ast.unparse(ast.fix_missing_locations(mod))
+        assert "ThreadPoolExecutor" not in code
+
+    def test_two_independent_ops_emit_executor_under_held_error(self):
+        """Under the held-error model, independent ops run in a ThreadPoolExecutor
+        so each branch can hold its own error."""
+        a = _make_op("A")
+        b = _make_op("B")
+        ctx = CodeGenContext()
+        ctx.use_held_error_model = True
         stmts = generate_body([a, b], ctx)
         mod = ast.Module(body=stmts, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(mod))
@@ -225,16 +238,18 @@ class TestParallelCodegen:
             Wire.from_terminals(from_terminal_id="c_out", to_terminal_id="d_in2"),
         ]
         ctx = CodeGenContext.from_wires(wires)
+        ctx.use_held_error_model = True
         stmts = generate_body([a, b, c, d], ctx)
         mod = ast.Module(body=stmts, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(mod))
         assert "ThreadPoolExecutor" in code
 
     def test_imports_include_concurrent_futures(self):
-        """Parallel tier adds concurrent.futures to imports."""
+        """Held-error parallel tier adds concurrent.futures to imports."""
         a = _make_op("A")
         b = _make_op("B")
         ctx = CodeGenContext()
+        ctx.use_held_error_model = True
         generate_body([a, b], ctx)
         assert "import concurrent.futures" in ctx.imports
 
@@ -265,12 +280,13 @@ class TestSequenceParallelIntegration:
         assert "ThreadPoolExecutor" not in code
 
     def test_frame_with_two_independent_ops_uses_executor(self):
-        """Frame with two independent ops: executor used."""
+        """Frame with two independent ops under held-error: executor used."""
         from lvkit.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
         ctx = CodeGenContext(graph=InMemoryVIGraph(), _body_generator=generate_body)
+        ctx.use_held_error_model = True
         op = _mk_seq(
             ctx,
             id="seq1",

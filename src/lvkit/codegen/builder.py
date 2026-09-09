@@ -160,20 +160,25 @@ def generate_body(
         else:
             remaining = tier
 
-        # Process remaining operations
+        # A ThreadPoolExecutor parallel tier is used ONLY when the held-error
+        # model needs per-branch error holding. Otherwise independent nodes are
+        # emitted SEQUENTIALLY in dataflow order: equivalent for by-value LabVIEW
+        # dataflow (independent branches carry no shared mutable state), far more
+        # idiomatic Python, and free of the per-branch return wiring that dropped
+        # cross-branch inlined references (the `product`/UnboundLocal class).
         if remaining:
-            if len(remaining) == 1:
-                node = remaining[0]
-                fragment = generate_node(node, ctx)
-                for s in fragment.statements:
-                    tagged.append(({node.id}, s))
-                ctx.merge(fragment.bindings)
-                ctx.imports.update(fragment.imports)
-            else:
+            if ctx.use_held_error_model and len(remaining) > 1:
                 tier_ids = {op.id for op in remaining}
                 stmts = _generate_parallel_tier(remaining, ctx)
                 for s in stmts:
                     tagged.append((tier_ids, s))
+            else:
+                for node in remaining:
+                    fragment = generate_node(node, ctx)
+                    for s in fragment.statements:
+                        tagged.append(({node.id}, s))
+                    ctx.merge(fragment.bindings)
+                    ctx.imports.update(fragment.imports)
 
         # Apply Clear Errors wrapping for each extracted clear op
         for clear_op in clear_ops:

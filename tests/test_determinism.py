@@ -74,9 +74,8 @@ def test_codegen_is_hashseed_independent(tmp_path):
         for seed in ("0", "1", "12345")
     ]
     assert outputs[0], "expected generated Python output"
-    assert "ThreadPoolExecutor" in outputs[0], (
-        "fixture should exercise the parallel-tier ordering path"
-    )
-    # Every seed must produce identical source.
+    # Every seed must produce identical source — the codegen must not depend on
+    # hash-randomized iteration order (tier composition, sequential emission
+    # order, imports, etc.).
     assert outputs[1] == outputs[0]
     assert outputs[2] == outputs[0]
