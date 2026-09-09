@@ -122,4 +122,5 @@ addopts = "-n auto -m 'not slow'"
 markers = [
     "needs_samples: test reads the local-only sample VI corpus (.lvkit/cache/samples). Auto-skipped when the corpus is absent; pull it with scripts/pull_samples.sh.",
     "slow: full-corpus acceptance/integration test (e.g. indexing the whole sample set); excluded from the default run, opt in with `-m slow`.",
+    "functional: generates a corpus VI, EXECUTES the generated Python, and asserts its real output matches the VI's logic. Run/skip as a block with `-m functional` / `-m 'not functional'`.",
 ]
