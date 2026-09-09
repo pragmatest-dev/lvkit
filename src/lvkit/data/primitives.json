@@ -326,6 +326,7 @@
     },
     "1056": {
       "name": "Quotient & Remainder",
+      "op": "QUOTIENT_REMAINDER",
       "terminals": [
         {
           "index": 0,
@@ -665,6 +666,7 @@
     },
     "1073": {
       "name": "Not Exclusive Or",
+      "op": "NOT_EXCLUSIVE_OR",
       "terminals": [
         {
           "index": 0,
@@ -1880,6 +1882,7 @@
     },
     "1145": {
       "name": "To Unsigned Long Integer",
+      "op": "TO_U32",
       "terminals": [
         {
           "index": 0,
@@ -2759,6 +2762,7 @@
     },
     "1189": {
       "name": "To Lower Case",
+      "op": "TO_LOWER_CASE",
       "terminals": [
         {
           "index": 0,
@@ -5620,6 +5624,7 @@
     },
     "1537": {
       "name": "Reverse String",
+      "op": "REVERSE_STRING",
       "terminals": [
         {
           "index": 0,
@@ -5998,6 +6003,7 @@
     },
     "1609": {
       "name": "Byte Array To String",
+      "op": "BYTE_ARRAY_TO_STRING",
       "terminals": [
         {
           "index": 0,
