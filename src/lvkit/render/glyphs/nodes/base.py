@@ -531,11 +531,15 @@ def draw_drawer_header(
         lsize,
         fill=text_fill,
     )
-    if bar_h > 0 and bar_color:
+    if bar_h >= 1.0 and bar_color:
         # The TYPE-COLOR BAR: a thin band in the bound control's own wire
         # color, filling most of the header's width — LabVIEW's own cue for
         # "this node's identity is a specific control of THIS type",
-        # replacing the (absent) reference terminals.
+        # replacing the (absent) reference terminals. Guarded to bar_h>=1.0
+        # (not just >0): the rect's own top/bottom are hy2-bar_h/hy2-1.0, so
+        # a bar_h under 1px would draw with NEGATIVE height (top below
+        # bottom) — an inverted rect — for a very short cell (cell_h below
+        # ~3.3px, since bar_h = min(5.0, cell_h*0.3)).
         bar_pad = (x2 - x1) * 0.12
         backend.rect(
             x1 + bar_pad, hy2 - bar_h, x2 - bar_pad, hy2 - 1.0,

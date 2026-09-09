@@ -1502,10 +1502,22 @@ def generate_python_structure_plan(structure: dict[str, Any]) -> str:
                 for method in cls["methods"]:
                     decorator = "@staticmethod " if method["is_static"] else ""
                     scope = method["scope"]
+                    # Python's OWN convention: a single leading underscore is
+                    # the weak "internal use" marker (protected-ish, still
+                    # importable); a DOUBLE leading underscore triggers real
+                    # name-mangling inside the class (private). The previous
+                    # mapping had these swapped, making "protected" (`__`)
+                    # read as MORE private than "private" (`_`) — backwards.
+                    # LabVIEW's "community"/"package" scope (SCOPE_MAP's
+                    # value 4, see its own comment above) has no Python
+                    # equivalent, so it gets its own explicit marker instead
+                    # of silently falling into the public (no-prefix) case.
                     if scope == "private":
-                        visibility = "_"
-                    elif scope == "protected":
                         visibility = "__"
+                    elif scope == "protected":
+                        visibility = "_"
+                    elif scope == "community":
+                        visibility = "pkg_"
                     else:
                         visibility = ""
                     method_name = visibility + _to_python_identifier(method["name"])

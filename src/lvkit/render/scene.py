@@ -202,11 +202,6 @@ class RenderBorderTerminal:
     # in the frames that do wire it. Empty = always solid. Per-frame because the
     # border terminal is redrawn inside each frame group (see draw.draw_scene).
     unwired_frames: frozenset[str] = frozenset()
-    # Inner tunnels aren't drawn as glyphs today (see _structure_borders) —
-    # this field exists for symmetry with the other frame-tagged dataclasses
-    # and future inner-tunnel-per-frame work; it is currently always ()
-    # since only outer tunnels are emitted.
-    frame_path: FramePath = ()
     # The developer HID this border terminal via LabVIEW's "Visible Items"
     # (loop i/N/cond only — see LoopNode.hidden_border_terminals). The glyph is
     # still emitted (so the scene stays complete and a future "show hidden"

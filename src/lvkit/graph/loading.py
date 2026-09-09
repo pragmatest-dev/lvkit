@@ -647,13 +647,14 @@ class LoadingMixin:
         search_paths: list[Path] | None = None,
         owner_chain: list[str] | None = None,
     ) -> str:
-        """Load a .lvclass file. Returns the dep_graph qname it was
-        registered under (``cls_qname``, built from the ON-DISK file's own
-        stem casing) — the CALLER may have referenced this class under a
-        different casing (a type reference's recorded casing can differ
-        from the file's actual casing), so callers that add dep_graph edges
-        or aliases must use this return value, never re-derive/assume the
-        qname themselves (see ``_load_dependency``'s ``.lvclass`` branch).
+        """Load a .lvclass file. Returns the dep-graph KEY (the resolved
+        ``.lvclass`` path) it was registered under — mirrors ``load_lvlib``/
+        ``load_typedef``: callers add ownership/reference edges to THIS key,
+        never to the qname (``cls_qname``, built from the ON-DISK file's own
+        stem casing — the CALLER may have referenced this class under a
+        different casing, e.g. a type reference's recorded casing can differ
+        from the file's actual casing, so the qname alone isn't a safe edge
+        target; see ``_load_dependency``'s ``.lvclass`` branch).
 
         ``MINIMAL`` is an INTERFACE load: add the class's private-data fields
         (and its parent chain's, via walk-up — nMux field indices run into the
@@ -1753,19 +1754,19 @@ class LoadingMixin:
             owner_chain = parts[:-1] if len(parts) > 1 else None
             # MINIMAL: field-load the class (no method bodies) — enough for
             # by-name field names. FULL: load its whole method tree for codegen.
-            loaded_qname = self.load_lvclass(
+            loaded_key = self.load_lvclass(
                 resolved,
                 mode,
                 search_paths=search_paths,
                 owner_chain=owner_chain,
             )
             if caller_qname:
-                self._dep_graph.add_edge(caller_qname, loaded_qname)
+                self._dep_graph.add_edge(caller_qname, loaded_key)
             # See the walk-up branch above: alias rather than let a
             # differently-cased reference create a second, empty dep_graph
             # node that shadows the real (populated) one.
-            if qualified_name != loaded_qname:
-                self._qualified_aliases[qualified_name] = loaded_qname
+            if qualified_name != loaded_key:
+                self._qualified_aliases[qualified_name] = loaded_key
         elif leaf.endswith(".lvlib"):
             lib_key = self.load_lvlib(resolved, mode, search_paths=search_paths)
             if caller_qname:

@@ -337,7 +337,6 @@ _MUX_TYPE_DEFAULT_NAMES = {
     "nMux": "Bundle/Unbundle By Name",
     "mux": "Bundle",
     "demux": "Unbundle",
-    "eventDataNode": "Event Data",
     "decomposeClusterNode": "Bundle/Unbundle By Name",
 }
 
@@ -877,10 +876,10 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     per-row read/write flag is the direction of that correlated terminal.
     Returns None when the node carries no property names, so the caller falls
     back to the plain "Property Node" box rather than an empty drawer."""
-    props = getattr(node, "properties", None) or []
+    props = node.properties
     if not props:
         return None
-    value_ids = getattr(node, "property_value_terminal_ids", None) or []
+    value_ids = node.property_value_terminal_ids
     rows: list[tuple[str, bool]] = []
     for i, (p, term) in enumerate(
         correlate_property_terminals(props, node.terminals, value_ids)
@@ -902,7 +901,7 @@ def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
         if resolved and term is not None and term.display_name is None:
             term.display_name = resolved
         rows.append((name, is_read))
-    class_name = (getattr(node, "object_name", None) or "").strip()
+    class_name = (node.object_name or "").strip()
     is_implicit, target_name, bar_color = _implicit_binding(node)
     return PropertyNodeGlyph(
         rows=tuple(rows),
@@ -923,7 +922,7 @@ def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
     NEVER a hard-coded "Register For Events"/"Unregister For Events" guess).
     Returns None when the node carries no growable rows, so the caller
     falls back to the plain labeled box rather than an empty drawer."""
-    row_ids = getattr(node, "event_row_terminal_ids", None) or []
+    row_ids = node.event_row_terminal_ids
     if not row_ids:
         return None
     by_id = {t.id: t for t in node.terminals}
@@ -931,7 +930,7 @@ def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
         term = by_id.get(tid)
         if term is not None and term.display_name is None:
             term.display_name = f"event {i + 1}"
-    class_name = (getattr(node, "object_name", None) or "").strip()
+    class_name = (node.object_name or "").strip()
     return EventRegNodeGlyph(row_count=len(row_ids), class_name=class_name)
 
 
@@ -978,7 +977,7 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
     front-panel control draws a target-name header + type-color bar and no
     reference terminals; see ``parser.node_types.InvokeNode``'s class
     docstring for the heap discriminator."""
-    row_ids = getattr(node, "invoke_row_terminal_ids", None) or []
+    row_ids = node.invoke_row_terminal_ids
     by_id = {t.id: t for t in node.terminals}
 
     def term_at(idx: int) -> Terminal | None:
@@ -1003,10 +1002,10 @@ def _invoke_node_glyph(node: PrimitiveNode) -> InvokeNodeGlyph:
     is_implicit, target_name, bar_color = _implicit_binding(node)
 
     return InvokeNodeGlyph(
-        method=(getattr(node, "method_name", None) or "").strip(),
+        method=(node.method_name or "").strip(),
         return_present=return_present,
         rows=tuple(rows),
-        class_name=(getattr(node, "object_name", None) or "").strip(),
+        class_name=(node.object_name or "").strip(),
         is_implicit=is_implicit,
         target_name=target_name,
         bar_color=bar_color,
