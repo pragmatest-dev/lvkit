@@ -45,6 +45,11 @@ class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
 
     name: str = ""
+    # Neutral semantic-operation tag (e.g. "STRING_SUBSET"). Language-agnostic:
+    # each code generator maps this op to its own emission (see
+    # codegen/nodes/ops/). Lets the target-language translation live in the
+    # generator instead of as a Python string baked into this data file.
+    op: str | None = None
     python_code: str | dict[str, str] | None = None
     inline: bool = True
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
@@ -58,6 +63,10 @@ class ResolvedPrimitive(BaseModel):
 
     prim_id: str | None = None
     name: str = ""
+    # Neutral semantic-operation tag from the data file (see PrimitiveEntry.op).
+    # When set and no ``python_code`` is present, codegen asks the per-language
+    # op registry (codegen/nodes/ops/) to produce the template.
+    op: str | None = None
     python_code: str | dict[str, str] | None = None
     # Alternate template used when the wired operands are INTEGERS — LabVIEW's
     # boolean-logic prims (And/Or) are bitwise on ints. Codegen selects this over

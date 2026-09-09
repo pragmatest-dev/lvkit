@@ -124,6 +124,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             return CodeFragment.empty()
         return _emit_unknown(node, prim_id or 0, ctx)
 
+    # Generator-owned op handler: a neutral ``op`` tag in the data maps to a
+    # Python emission template here (codegen/nodes/ops/), keeping target-language
+    # translations in the generator instead of as strings in the data file. Only
+    # fires when the data carries no python_code, so existing JSON templates win.
+    if resolved.op and not resolved.python_code:
+        from .ops import get_op_template
+
+        op_template = get_op_template(resolved.op)
+        if op_template is not None:
+            resolved.python_code = op_template(node, resolved)
+
     # Placeholder: emit warning comment + pass, don't raise
     if resolved.confidence == "placeholder":
         return _emit_placeholder(node, resolved, ctx)

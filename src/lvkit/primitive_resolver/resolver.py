@@ -218,6 +218,7 @@ class PrimitiveResolver:
                 return ResolvedPrimitive(
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
+                    op=prim.get("op"),
                     python_code=prim.get("python_code", ""),
                     python_code_int=prim.get("python_code_int"),
                     inline=prim.get("inline", True),
@@ -273,6 +274,7 @@ class PrimitiveResolver:
             return ResolvedPrimitive(
                 prim_id=prim.get("id") or prim.get("prim_id"),
                 name=prim.get("name", name),
+                op=prim.get("op"),
                 python_code=prim.get("python_code", ""),
                 inline=prim.get("inline", True),
                 terminals=[
@@ -301,6 +303,7 @@ class PrimitiveResolver:
             info = self._by_node_type[node_type]
             return ResolvedPrimitive(
                 name=info.get("name", node_type),
+                op=info.get("op"),
                 python_code=info.get("python_code"),
                 inline=info.get("inline", True),
                 terminals=[

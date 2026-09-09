@@ -1297,6 +1297,7 @@
     },
     "1108": {
       "name": "Max & Min",
+      "op": "MAX_MIN",
       "terminals": [
         {
           "index": 0,
@@ -5158,6 +5159,7 @@
     },
     "1503": {
       "name": "String Subset",
+      "op": "STRING_SUBSET",
       "terminals": [
         {
           "index": 0,
@@ -5175,7 +5177,8 @@
           "index": 2,
           "direction": "in",
           "name": "offset (0)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_value": "0"
         },
         {
           "index": 3,
@@ -5974,6 +5977,7 @@
     },
     "1608": {
       "name": "String To Byte Array",
+      "op": "STRING_TO_BYTE_ARRAY",
       "terminals": [
         {
           "index": 0,
