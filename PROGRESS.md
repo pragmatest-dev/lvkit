@@ -51,9 +51,26 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
 6. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
    real semantics, not a hack); several `Build Error Cluster`/vilib terminal gaps.
 
-## Front-panel-driven panels (planned)
-Parsed FP model has per-control `bounds (top,left,bottom,right)`, `control_type`,
-`is_indicator`, `name`, `enum_values`, cluster `children` — enough to position
-NiceGUI widgets by the VI's real panel geometry. The NiceGUI generator will emit
-`logic.py` + `state.py` + `panel.py`, panel laid out from those bounds so it's
-tweakable and matches the VI (replacing the hand-picked layouts).
+## Front-panel-driven panels (DONE — replaces hand-picked layouts)
+`scripts/gen_panel.py` + `scripts/panelgen/` generates `logic.py` (via
+`build_module`) + `state.py` (dataclass per control/indicator) + `panel.py` +
+`app.py` for a VI. **panel.py lays widgets out by the VI's real FP `bounds`**
+(absolute px, normalized to a 16px margin), widget type by `control_type`,
+indicators disabled, Run handler matched by name to the logic signature. Verified
+serving (HTTP 200) for Build Path and a synthetic all-widget-types panel.
+Run: `uv run python scripts/gen_panel.py <vi> -o <dir>`, then
+`uv run --with nicegui python <dir>/app.py`.
+
+Two FP-data gaps found (parser work to make cluster layouts exact):
+- **Cluster-child bounds aren't panel-absolute** — the nested cluster pane's
+  `origin`/`docBounds` are discarded when recursing children
+  (`parser/vi.py:1386-1412`); children carry local (sometimes negative) coords,
+  so the generator flows cluster fields in a column instead of placing them.
+  Adding the nested pane origin to `ParsedFPControl` would fix it.
+- **Cluster children never get a decoded default** — `_parse_ddo`
+  (`parser/vi.py:1394-1400`) recurses children with `default_data=None`.
+
+Known limitation: a polymorphic VI's wrapper has empty `inputs`, so the generator
+picks the alphabetically-first variant (and says so); point it at a concrete
+variant .vi for a stable panel. Array-typed controls (`indArr`) fall back to a
+text input with a TODO.
