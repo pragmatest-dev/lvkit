@@ -147,5 +147,19 @@ Two FP-data gaps found (parser work to make cluster layouts exact):
 
 Known limitation: a polymorphic VI's wrapper has empty `inputs`, so the generator
 picks the alphabetically-first variant (and says so); point it at a concrete
-variant .vi for a stable panel. Array-typed controls (`indArr`) fall back to a
-text input with a TODO.
+variant .vi for a stable panel.
+
+### Update (2026-09-10) — real 1D array control (plan Phase 2 done)
+`indArr`/`array` controls now render a real, editable array control
+(`scripts/panelgen/controls_runtime.py::array_control`) composed from native
+NiceGUI (`ui.column`/`ui.row`/`ui.input`/`ui.button`, `@ui.refreshable`) — add,
+delete, edit elements — **not** the string-input fallback. `generate.py` copies
+it into each panel as `controls.py`. Array *indicators* refresh after Run
+(`_w_<field>()`; the control isn't `bind_value`-driven). Fixed a latent
+dataclass crash: `list` state fields now use `field(default_factory=…)`
+(`state_gen._field_default_rhs`) instead of a bare mutable `[]`.
+Guarded by `tests/test_panel_gen.py`; verified on Reorder 1D Array2 (I32)
+(round-trips `[10,20,30]`+`[2,0,1]`→`[30,10,20]`, serves HTTP 200).
+Remaining plan phases (typed scalar library, parser defaults + array
+element_type, size-from-bounds *height*, cluster control, 2D arrays) still open —
+see `docs/_internal/design/nicegui-control-library-plan.md`.

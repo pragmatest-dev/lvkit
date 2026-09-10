@@ -34,6 +34,11 @@ _KNOWN: dict[str, ControlTypeInfo] = {
     "stdNum": ControlTypeInfo("float", "0.0", "number"),
     "stdBool": ControlTypeInfo("bool", "False", "switch"),
     "stdEnum": ControlTypeInfo("str", '""', "select"),
+    # Arrays: an editable list, rendered by controls.array_control (composed
+    # from native NiceGUI). indArr is the FP control_type for an array
+    # control/indicator; "array" is a defensive alias.
+    "indArr": ControlTypeInfo("list", "[]", "array"),
+    "array": ControlTypeInfo("list", "[]", "array"),
 }
 
 _UNKNOWN = ControlTypeInfo("str", '""', "input")

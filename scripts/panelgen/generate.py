@@ -5,6 +5,7 @@ in ``output_dir``. See the module docstrings of ``logic_gen``/``state_gen``/
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from lvkit.parser import parse_vi
@@ -61,6 +62,11 @@ def generate_panel(
         result_fields,
     )
     (output_dir / "panel.py").write_text(panel_src, encoding="utf-8")
+
+    # Ship the composed-native control runtime alongside the panel so the
+    # generated dir is self-contained (the gallery loads panels standalone).
+    controls_src = Path(__file__).with_name("controls_runtime.py")
+    shutil.copyfile(controls_src, output_dir / "controls.py")
 
     title = parsed.metadata.qualified_name or logic_result.entry_vi_path.stem
     (output_dir / "app.py").write_text(build_app_module(title), encoding="utf-8")

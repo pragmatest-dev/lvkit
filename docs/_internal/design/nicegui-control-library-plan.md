@@ -1,6 +1,29 @@
 # NiceGUI control library + faithful front-panel layout — execution plan
 
-**Status:** planned, not started. Ready to execute in an overnight session.
+**Status:** in progress. **Phase 2 (1D ArrayControl) DONE** — see "Phase 2
+landed" below; remaining phases (typed scalar library, parser defaults/element
+type, size-from-bounds height, cluster control, 2D arrays) still to do.
+
+## Phase 2 landed (2026-09-10) — 1D array control, composed from native NiceGUI
+- `scripts/panelgen/controls_runtime.py` — `array_control(state, field, *,
+  readonly, label)`: one `ui.input` per element + add/delete buttons, composed
+  from `ui.column`/`ui.row`/`ui.button` (no custom Vue), `@ui.refreshable` rows.
+  `generate.py` copies it into each panel dir as `controls.py` (self-contained
+  for the gallery loader).
+- `control_types.py` — `indArr`/`array` → `ControlTypeInfo("list", "[]",
+  "array")`; `panel_gen._render_widget` emits `array_control(...)` for them
+  instead of the string-input fallback. Array *indicators* are refreshed after
+  Run via a captured `_w_<field>()` (the composed control isn't
+  `bind_value`-driven).
+- `state_gen._field_default_rhs` — a `list` field can't take a bare `[]` default
+  in a dataclass; mutable literals now route through `field(default_factory=…)`.
+  Keyed on the literal, so a future decoded array/cluster default is handled the
+  same way. Regression-guarded by `tests/test_panel_gen.py`.
+- Verified on `Reorder 1D Array2 (I32)`: array control renders, `[10,20,30]` +
+  `[2,0,1]` → `[30,10,20]` round-trips, panel serves HTTP 200, `pytest -m
+  functional` green (9).
+
+**Original plan (below) still stands for the remaining phases.**
 Owner context: the FP panel generator (`scripts/gen_panel.py` + `scripts/panelgen/`)
 currently renders EVERY unmapped control as a 15-char `ui.input`, so array-in/
 array-out VIs (the bulk of OpenG) get string boxes instead of usable controls.

@@ -106,6 +106,15 @@ def _render_widget(
             "-- rendered as a text input"
         )
 
+    if info.widget == "array":
+        # Editable/read-only 1D array, composed from native NiceGUI (controls.py).
+        # Returns a refresh callable used to re-render an indicator after Run.
+        lines.append(
+            f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
+            f"readonly={control.is_indicator}, label={label!r})"
+        )
+        return lines
+
     if control.control_type == "stdEnum":
         lines.append(
             f"{prefix}{var} = ui.select({control.enum_values!r}, label={label!r})"
@@ -123,10 +132,14 @@ def _render_widget(
     return lines
 
 
-def _render_container(front_panel: ParsedFrontPanel) -> tuple[list[str], int, int]:
+def _render_container(
+    front_panel: ParsedFrontPanel, field_names: dict[str, str]
+) -> tuple[list[str], int, int]:
     """Build the absolutely-positioned top-level widget block plus the
     container's own (width, height), derived entirely from
-    ``ParsedFPControl.bounds`` -- the ONE place bounds -> pixels happens."""
+    ``ParsedFPControl.bounds`` -- the ONE place bounds -> pixels happens.
+    ``field_names`` is the SINGLE naming shared with state.py and the arg/output
+    matchers, so a widget's var and its ``state.<field>`` always agree."""
     controls = front_panel.controls
     if not controls:
         return [], 400, 200
@@ -138,26 +151,30 @@ def _render_container(front_panel: ParsedFrontPanel) -> tuple[list[str], int, in
     width = (max_right - min_left) + 2 * _MARGIN
     height = (max_bottom - min_top) + 2 * _MARGIN
 
-    field_names = unique_field_names(controls)
     lines: list[str] = []
     for control in controls:
         fname = field_names[control.uid]
         top = control.bounds[0] - min_top + _MARGIN
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
-        style = f"position:absolute;left:{left}px;top:{top}px;width:{w}px;"
+        h = control.bounds[2] - control.bounds[0]
+        style = (
+            f"position:absolute;left:{left}px;top:{top}px;"
+            f"width:{w}px;min-height:{h}px;"
+        )
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(control, "state", fname, 12, [fname]))
     return lines, width, height
 
 
 def _match_args(
-    param_names: list[str], input_controls: list[ParsedFPControl]
+    param_names: list[str],
+    input_controls: list[ParsedFPControl],
+    field_names: dict[str, str],
 ) -> list[str]:
     """Map each logic-function parameter to a `state.<field>` expression: by
     NAME first (against the input controls' own field names), then by
     position for whatever's left -- never a hand-picked mapping."""
-    field_names = unique_field_names(input_controls)
     ordered = [field_names[c.uid] for c in input_controls]
     remaining = list(ordered)
     name_set = set(ordered)
@@ -179,13 +196,14 @@ def _match_args(
 
 
 def _match_outputs(
-    result_fields: list[str] | None, output_controls: list[ParsedFPControl]
+    result_fields: list[str] | None,
+    output_controls: list[ParsedFPControl],
+    field_names: dict[str, str],
 ) -> list[tuple[str, str]]:
     """Map each output indicator's field name to how to pull it out of the
     logic call's result: by NAME against the result NamedTuple's fields
     first, then by position. Returns (state_field_name, result_access_expr)
     pairs."""
-    field_names = unique_field_names(output_controls)
     ordered = [field_names[c.uid] for c in output_controls]
 
     if not result_fields:
@@ -208,6 +226,15 @@ def _match_outputs(
     return pairs
 
 
+def _has_array(controls: list[ParsedFPControl]) -> bool:
+    for c in controls:
+        if control_type_info(c.control_type).widget == "array":
+            return True
+        if c.control_type == "stdClust" and _has_array(c.children):
+            return True
+    return False
+
+
 def build_panel_module(
     front_panel: ParsedFrontPanel,
     logic_module_stem: str,
@@ -216,13 +243,25 @@ def build_panel_module(
     result_fields: list[str] | None,
 ) -> str:
     """Build the full ``panel.py`` source."""
-    widget_lines, width, height = _render_container(front_panel)
+    # ONE naming source, shared by state.py, the widget vars, and the arg/output
+    # matchers — so a widget's var and its state.<field> always agree.
+    field_names = unique_field_names(front_panel.controls)
+    widget_lines, width, height = _render_container(front_panel, field_names)
 
     input_controls = [c for c in front_panel.controls if not c.is_indicator]
     output_controls = [c for c in front_panel.controls if c.is_indicator]
 
-    call_args = _match_args(param_names, input_controls)
-    output_pairs = _match_outputs(result_fields, output_controls)
+    call_args = _match_args(param_names, input_controls, field_names)
+    output_pairs = _match_outputs(result_fields, output_controls, field_names)
+
+    has_array = _has_array(front_panel.controls)
+    # Top-level array indicators need an explicit refresh after Run writes a new
+    # list (the composed control isn't bind_value-driven). Var == _w_<field>.
+    array_out_fields = {
+        field_names[c.uid]
+        for c in output_controls
+        if control_type_info(c.control_type).widget == "array"
+    }
 
     lines: list[str] = [
         '"""Front panel, laid out from the VI\'s own front-panel geometry',
@@ -236,6 +275,10 @@ def build_panel_module(
         "from nicegui import run, ui",
         "",
         "from state import State",
+    ]
+    if has_array:
+        lines.append("from controls import array_control")
+    lines += [
         "",
         "",
         "def build_panel() -> None:",
@@ -260,6 +303,10 @@ def build_panel_module(
         lines.append(f"        result = await run.io_bound({logic_func_name})")
     for state_field, result_expr in output_pairs:
         lines.append(f"        state.{state_field} = {result_expr}")
+        if state_field in array_out_fields:
+            # The composed array control isn't bind_value-driven; refresh it so
+            # the new list shows. The widget var (see _render_widget) is _w_<field>.
+            lines.append(f"        _w_{state_field}()")
     if not output_pairs:
         lines.append("        _ = result  # no output indicator to write it into")
     lines.append("")

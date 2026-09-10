@@ -12,6 +12,21 @@ from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
 from .control_types import control_type_info, default_source
 from .naming import pascal_case, unique_field_names
 
+_EMPTY_FACTORY = {"[]": "list", "list()": "list", "{}": "dict", "dict()": "dict"}
+
+
+def _field_default_rhs(default: str) -> str:
+    """A dataclass forbids a bare mutable default (``list``/``dict``), so route
+    any mutable literal through ``default_factory``. Keyed on the literal, not
+    on a control type — so a future decoded array/cluster default is handled the
+    same way as today's empty ``[]``."""
+    stripped = default.strip()
+    if stripped in _EMPTY_FACTORY:
+        return f"field(default_factory={_EMPTY_FACTORY[stripped]})"
+    if stripped[:1] in "[{":
+        return f"field(default_factory=lambda: {stripped})"
+    return default
+
 _MODULE_HEADER = '''"""Front-panel state: one field per control/indicator, typed
 and defaulted from the VI's own front panel. No UI imports -- panel.py
 binds to this."""
@@ -46,9 +61,8 @@ def build_state_module(front_panel: ParsedFrontPanel) -> str:
                 )
             else:
                 info = control_type_info(control.control_type)
-                field_lines.append(
-                    f"    {fname}: {info.py_type} = {default_source(control)}"
-                )
+                rhs = _field_default_rhs(default_source(control))
+                field_lines.append(f"    {fname}: {info.py_type} = {rhs}")
         body = "\n".join(field_lines) if field_lines else "    pass"
         class_blocks.append(f"@dataclass\nclass {class_name}:\n{body}")
 
