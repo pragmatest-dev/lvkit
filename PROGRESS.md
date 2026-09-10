@@ -119,7 +119,14 @@ scoreboard.
   `panelgen/panel_gen.py::_render_container` — one place to adjust.
 - Commits this run are on `feat/codegen-op-registry`.
 
-## Front-panel-driven panels (DONE — replaces hand-picked layouts)
+## NEXT overnight session — planned, ready to go
+**`docs/_internal/design/nicegui-control-library-plan.md`** — build a typed
+control library (real ARRAY control with add/delete/modify; numeric/bool/enum/
+cluster controls), size widgets from the VI's bounds (not just position), and
+wire front-panel default values. Current panels render arrays as 15-char string
+inputs (the string fallback) and don't size by bounds — the plan fixes that.
+
+## Front-panel-driven panels (v1 done — bounds-positioned, string-fallback controls)
 `scripts/gen_panel.py` + `scripts/panelgen/` generates `logic.py` (via
 `build_module`) + `state.py` (dataclass per control/indicator) + `panel.py` +
 `app.py` for a VI. **panel.py lays widgets out by the VI's real FP `bounds`**
