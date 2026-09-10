@@ -295,8 +295,12 @@ def _generate_polymorphic_module(
             error_msg = textwrap.indent(str(e), "# ")
             lines.append(f"# ERROR generating {variant_name}:\n{error_msg}")
 
-    # Generate wrapper function
-    wrapper_func = to_function_name(wrapper_name)
+    # Generate wrapper function. Name it by the VI's DISPLAY name (basename),
+    # not the full path — callers import it as to_function_name(node.name) (the
+    # short name), so a path-mangled wrapper name is an ImportError for every
+    # caller. (Path(...).name strips a path prefix; a bare qualified name is
+    # left unchanged, so multi-VI generation is unaffected.)
+    wrapper_func = to_function_name(Path(wrapper_name).name)
 
     # Build parameter list from union of variant inputs
     params: list[str] = []
