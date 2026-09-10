@@ -326,6 +326,13 @@ def _generate_polymorphic_module(
     # Generate wrapper with runtime type dispatch
     lines.append("")
     lines.append("")
+    lines.append("def _lv_dispatch(_fn, /, **_kw):")
+    lines.append('    """Call a polymorphic variant with only the args it declares."""')
+    lines.append("    import inspect")
+    lines.append("    _p = inspect.signature(_fn).parameters")
+    lines.append("    return _fn(**{_k: _v for _k, _v in _kw.items() if _k in _p})")
+    lines.append("")
+    lines.append("")
     lines.append(f"def {wrapper_func}({param_str}) -> {returns}:")
     lines.append(f'    """Polymorphic wrapper for {wrapper_name}."""')
 
@@ -343,11 +350,15 @@ def _generate_polymorphic_module(
             if f not in array_variants and f not in traditional_variants
         ]
 
-        # Generate type-based dispatch
+        # Generate type-based dispatch. Variants have heterogeneous signatures
+        # (a 2D variant has `reorder_rows`, a 1D one doesn't), so route every
+        # call through _lv_dispatch, which passes only the arguments the chosen
+        # variant declares — the union of params would raise `unexpected keyword`.
         if array_variants and (traditional_variants or other_variants):
             # Have both array and non-array variants - dispatch on type
+            arr0 = array_variants[0]
             lines.append(f"    if isinstance({first_param}, (list, tuple)):")
-            lines.append(f"        return {array_variants[0]}({call_args})")
+            lines.append(f"        return _lv_dispatch({arr0}, {call_args})")
             lines.append("    else:")
             if traditional_variants:
                 fallback = traditional_variants[0]
@@ -355,10 +366,10 @@ def _generate_polymorphic_module(
                 fallback = other_variants[0]
             else:
                 fallback = variant_funcs[0]
-            lines.append(f"        return {fallback}({call_args})")
+            lines.append(f"        return _lv_dispatch({fallback}, {call_args})")
         else:
             # Only one type of variant - call first one
-            lines.append(f"    return {variant_funcs[0]}({call_args})")
+            lines.append(f"    return _lv_dispatch({variant_funcs[0]}, {call_args})")
     elif variant_funcs:
         lines.append(f"    return {variant_funcs[0]}()")
     else:
