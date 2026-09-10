@@ -49,6 +49,33 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
   VI with a compound output. Random Number - Within Range now runs (0,10 → 7.08).
   Broad codegen suite: 499 passed.
 
+## Design decisions made (review these — some I was unsure about)
+- **Pure independent tiers emit SEQUENTIALLY** (not a ThreadPoolExecutor). The
+  executor is now reserved for the held-error model. Rationale: by-value LabVIEW
+  branches are order-independent, sequential is a valid serialization, it's far
+  more idiomatic, and it removed the cross-branch wiring bug class. Determinism
+  preserved. **If you want actual concurrency preserved for some VIs, this is the
+  lever to revisit.**
+- **Entry function named by the VI's display name**, not its file path (single-VI
+  generation was producing giant path-mangled names that callers couldn't import).
+- **Op-registry**: target-language translation lives in the generator keyed by a
+  neutral `op` tag, not as Python strings in primitives.json.
+- **String Subset → `s[offset:][:length]`** (idiomatic; handles unwired length
+  with no None-comparison warning).
+- **Array/list constant feeding a loop is materialized into a real local** before
+  the loop (was an undefined value-derived name).
+- **Functional regression suite** (`tests/test_corpus_functional.py`, marker
+  `functional`): executes generated code and asserts real outputs — the guardrail
+  that a working VI stays correct. `pytest -m functional`.
+
+## Fixed this run (correctness, each verified by executing generated code)
+For-loop iteration index `i` now bound (String to Character Array: was
+['a','a','a'], now ['a','b','c']); subVI import-name mismatch (importer VIs run);
+return-expression parsed (Random Number runs); loop auto-index; array-constant
+formatting + materialization; case default-last; +8 Tier-A op handlers.
+Confirmed correct + locked in the functional suite: Random Number - Within Range,
+String to Character Array, Strip Path - Traditional.
+
 ## Known bug classes (next targets, generic fixes)
 1. **subVI import-name mismatch (single-VI generation) — highest cascade value.**
    When a VI is generated on its own, the entry function is named by full path
