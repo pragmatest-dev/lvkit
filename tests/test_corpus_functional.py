@@ -75,3 +75,9 @@ def test_strip_path_traditional() -> None:
     r = _run_leaf("file/file.llb/Strip Path - Traditional__ogtk.vi", "/home/u/f.txt")
     assert r.name == "f.txt"
     assert str(r.stripped_path) == "/home/u"
+
+
+def test_vi_library_appends_to_vilib() -> None:
+    """Appends the input to the (path-constant) vi.lib fragment."""
+    r = _run_leaf("file/file.llb/VI Library__ogtk.vi", "proj")
+    assert str(r.vi_library__relative) == "vi.lib/proj"

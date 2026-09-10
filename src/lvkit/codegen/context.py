@@ -701,6 +701,10 @@ def _format_constant(const: Constant | ConstantNode) -> str:
     if underlying == "Boolean":
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
+        # The parser already hands path constants back as a ``Path("…")``
+        # expression (parser/vi.py); don't double-wrap it into Path('Path("…")').
+        if isinstance(value, str) and value.startswith("Path("):
+            return value
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)
