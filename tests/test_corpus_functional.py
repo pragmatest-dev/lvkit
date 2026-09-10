@@ -107,3 +107,19 @@ def test_reorder_1d_array_string() -> None:
         [2, 1, 0],
     )
     assert r.reordered_array == ["c", "b", "a"]
+
+
+def test_empty_1d_array() -> None:
+    """len(array) == 0."""
+    assert _run_leaf("array/array.llb/Empty 1D Array (I32)__ogtk.vi", []).empty_array
+    got = _run_leaf("array/array.llb/Empty 1D Array (I32)__ogtk.vi", [1, 2])
+    assert got.empty_array is False
+
+
+def test_reorder_1d_array_with_pointers() -> None:
+    """Reorder 1D Array (the sort-pointer variant) reorders + passes pointers."""
+    r = _run_leaf(
+        "array/array.llb/Reorder 1D Array (I32)__ogtk.vi", [10, 20, 30], [2, 0, 1]
+    )
+    assert r.sorted_array_out == [30, 10, 20]
+    assert r.sorted_pointers_out == [2, 0, 1]
