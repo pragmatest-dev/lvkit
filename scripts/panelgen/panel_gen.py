@@ -244,7 +244,10 @@ def build_panel_module(
         f"    with ui.element('div').style("
         f"'position:relative;width:{width}px;height:{height}px;'):",
     ]
-    lines.extend(widget_lines)
+    if widget_lines:
+        lines.extend(widget_lines)
+    else:
+        lines.append("        pass  # no front-panel controls")
     lines.append("")
     lines.append("    async def on_run() -> None:")
     if call_args:
