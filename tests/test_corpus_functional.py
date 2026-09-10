@@ -91,3 +91,19 @@ def test_reorder_1d_array_by_indices() -> None:
         "array/array.llb/Reorder 1D Array2 (I32)__ogtk.vi", [10, 20, 30, 40], [3, 1, 0]
     )
     assert r.reordered_array == [40, 20, 10]
+
+
+def test_reorder_1d_array_dbl() -> None:
+    r = _run_leaf(
+        "array/array.llb/Reorder 1D Array2 (DBL)__ogtk.vi", [1.5, 2.5, 3.5], [2, 0, 1]
+    )
+    assert r.reordered_array == [3.5, 1.5, 2.5]
+
+
+def test_reorder_1d_array_string() -> None:
+    r = _run_leaf(
+        "array/array.llb/Reorder 1D Array2 (String)__ogtk.vi",
+        ["a", "b", "c"],
+        [2, 1, 0],
+    )
+    assert r.reordered_array == ["c", "b", "a"]
