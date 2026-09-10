@@ -81,3 +81,13 @@ def test_vi_library_appends_to_vilib() -> None:
     """Appends the input to the (path-constant) vi.lib fragment."""
     r = _run_leaf("file/file.llb/VI Library__ogtk.vi", "proj")
     assert str(r.vi_library__relative) == "vi.lib/proj"
+
+
+def test_reorder_1d_array_by_indices() -> None:
+    """array (passthrough tunnel, whole) reordered by indices (indexing tunnel):
+    out[i] = array[indices[i]]. Guards the input-tunnel indexing-vs-passthrough
+    distinction."""
+    r = _run_leaf(
+        "array/array.llb/Reorder 1D Array2 (I32)__ogtk.vi", [10, 20, 30, 40], [3, 1, 0]
+    )
+    assert r.reordered_array == [40, 20, 10]

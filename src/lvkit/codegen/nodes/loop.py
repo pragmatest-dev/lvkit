@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import AnyGraphNode, LoopNode
-from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelTerminal
+from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelMode, TunnelTerminal
 
 from ..ast_utils import (
     build_assign,
@@ -189,7 +189,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     # Treat as array if type is array OR unknown (backward compat)
                     # Only treat as scalar if type is known and NOT an array
                     is_array = lv_type is None or lv_type.kind == LVTypeKind.ARRAY
-                    if is_array:
+                    # A PASSTHROUGH input tunnel (LabVIEW "Disable Indexing")
+                    # passes the WHOLE value each iteration even when it's an
+                    # array — so it's a scalar pass-through, not auto-indexed.
+                    if tunnel.mode == TunnelMode.PASSTHROUGH:
+                        lpTun_scalar_inputs.append((outer_var, inner_term))
+                    elif is_array:
                         lpTun_array_inputs.append((outer_var, inner_term, outer_term))
                     else:
                         # Known scalar type: pass through directly (no indexing)
