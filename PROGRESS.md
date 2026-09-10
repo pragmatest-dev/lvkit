@@ -69,51 +69,47 @@ confirmed by direct execution. Baseline on 60 VIs (string/numeric/file/array):
   that a working VI stays correct. `pytest -m functional`.
 
 ## Fixed this run (correctness, each verified by executing generated code)
-For-loop iteration index `i` now bound (String to Character Array: was
-['a','a','a'], now ['a','b','c']); subVI import-name mismatch (importer VIs run);
-return-expression parsed (Random Number runs); loop auto-index; array-constant
-formatting + materialization; case default-last; +8 Tier-A op handlers.
-Confirmed correct + locked in the functional suite: Random Number - Within Range,
-String to Character Array, Strip Path - Traditional.
+Entry-function + poly-wrapper naming (single-VI generation named by full path →
+ImportError in every caller; now the display name); return-expression parsed as
+real AST (dead-code elim was deleting output producers); For-loop iteration index
+`i` bound; PASSTHROUGH input tunnels no longer auto-indexed (Reorder family now
+correct); poly wrapper passes only each variant's params; array + Path constants
+formatted correctly; array literal feeding a loop materialized; case default
+emitted last; pure tiers emit sequentially (idiomatic, no ThreadPoolExecutor);
++8 Tier-A op handlers.
 
-## Known bug classes (next targets, generic fixes)
-1. **subVI import-name mismatch (single-VI generation) — highest cascade value.**
-   When a VI is generated on its own, the entry function is named by full path
-   (`homeryan…random_number___within_range__ogtk`) but a caller imports the SHORT
-   name (`from ..openg.<mod> import random_number___within_range__ogtk`) → the
-   subVI module doesn't define that name → ImportError in every importer. This is
-   what still blocks the Random Number, Trim Whitespace, To Proper Case, Compare
-   Two Paths importers even though those subVIs' own logic is now correct. Likely
-   a naming inconsistency between entry-VI vs dependency-VI function naming in the
-   single-VI path (pipeline/multi-VI e2e tests pass, so the multi-VI path is
-   consistent — diff the two). Fix unblocks the biggest cluster.
-2. **Constant feeding a loop auto-index tunnel** — a nested array constant is
-   formatted correctly now, but when it drives a loop as an auto-indexed array via
-   a TUNNEL, `ctx.resolve(outer_terminal)` returns an auto-derived name instead of
-   tracing to the constant's literal binding (resolution/edge issue, not
-   formatting). Blocks Trim Whitespace.
-3. **Cross-branch UnboundLocal (`long_integer`)** — a var assigned in one
-   parallel-tier branch is read in another; the branch return/capture wiring
-   doesn't surface it. (Related family to the return-expression fix, but distinct.)
-4. **Empty body** — logic dropped entirely (Coerce to Enum, Timestamp Constant;
-   "Comment" is legitimately empty).
-5. **Coverage:** 1166 Type Cast, 3914 Search&Replace (Tier-B, deferred — need
-   real semantics, not a hack); several `Build Error Cluster`/vilib terminal gaps.
+**Confirmed correct + locked in the functional suite (`-m functional`):** Random
+Number - Within Range, String to Character Array, Strip Path - Traditional, VI
+Library, Reorder 1D Array (I32 / DBL / String).
 
-FIXED this run: the `product` dropped-intermediate bug (was the parallel-tier
-theory — the actual root cause was the return-expression Name bug, #49d477d).
+## Known bug classes (next targets — each needs generic, not spot, fixes)
+1. **Element-wise primitive over an array** — a scalar primitive (e.g. Boolean To
+   (0,1)) wired to an ARRAY should map over elements (`[int(bool(x)) for x in a]`),
+   but the elementwise machinery only broadcasts operators, not function templates
+   → `sum(int)` etc. Blocks the Conditional Auto-Indexing Tunnel family (~25).
+2. **Deep-chain complex VIs** — Trim Whitespace, To Proper Case, Compare Two Paths,
+   Number to Proper Engl Text each have several compounding issues (byte/char
+   coercion, nested lookup-table indexing, cross-node value drops). Fix by tracing
+   each to its generic root, not per-VI patches.
+3. **Empty body** — logic dropped entirely (Coerce to Enum / Timestamp Constant use
+   Variant/Timestamp ops that resolve to nothing; "Comment" is legitimately empty).
+4. **Coverage (Tier-B):** 1166 Type Cast, 3914 Search&Replace, To/From Variant,
+   Flatten/Unflatten — a real type-descriptor (de)serialization subsystem; several
+   `Build Error Cluster`/`Get File System …` vilib terminal-mapping gaps.
 
 ## Metric — read with care
-Acceptance harness (`.tmp/acceptance.py`, 60-VI sample) reports **10/60 execute**,
-generation gaps down **29→17**. BUT the harness UNDERCOUNTS real progress:
-- it passes `"test.txt"` for un-inferrable arg types, so numeric VIs fail with
-  `'<' not supported between str and int` etc. — a harness artifact, not a codegen
-  bug;
-- the subVI import-name mismatch (#1) fails every importer VI even when the subVI
-  itself is correct.
-Directly verified working this run (execution, not the harness): Build Path
-(scalar + array), Random Number - Within Range, Convert File Extension compiles.
-The harness RUN count will jump once #1 lands.
+Acceptance harness (`.tmp/acceptance.py`) executes each VI with dummy args over 6
+libs; the raw number stays ~17/140 because it UNDERCOUNTS badly and the remaining
+libs are the complex families:
+- it passes type-guessed dummies, so many "RUN-FAIL"s are arg-type mismatches
+  (a numeric VI given a string), not codegen bugs;
+- each complex-family VI (sort/reorder/tunnel) has a CHAIN of bugs — a fix moves it
+  one link forward without flipping "RUN" until the whole chain clears (the reorder
+  family did clear and is confirmed correct, but the harness masks that behind
+  poly-wrapper dummy shapes).
+The trustworthy signal is the **functional suite (7 VIs, exact-output asserted)**
+plus the direct executions cited above. The harness is a bug-finder, not a
+scoreboard.
 
 ## How to review
 - Panels: `uv run python scripts/gen_panel.py <vi> -o outputs/panels/<name>` then
