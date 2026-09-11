@@ -97,6 +97,18 @@ Library, Reorder 1D Array (I32 / DBL / String).
   - Traditional, Build Path - File Names Array, Build Path - Traditional - path,
   Build Path - File Names Array - path (leaves) + Index Array Elements (package).
 
+### ⛑️ THE corpus is now GATED on ONE fix: element-wise function-template broadcast
+Probing across libs shows most remaining VIs fail the SAME way — a scalar
+function template (Boolean To (0,1), a join/accumulate, len/round/int) applied to
+an array stays scalar (see bug class 1 below). Evidence (each executed):
+- `1D Array to String` (["a","b","c"], ",") → `delimited_string=''` (join dropped)
+- `Compute 1D Index` ([1,2],[3,4]) → `TypeError: int has no len()`
+- `Remove Duplicates from 1D Array` [1,2,2,3] → `output_array=[]`
+- `Conditional Auto-Indexing Tunnel (I32)` → `TypeError: int not iterable`
+Everything that does NOT need it is already locked (14: path joins, reorder,
+index, empty, random, strip path). **This one capability is the single highest-
+leverage unlock — recommend it as the next maintainer decision.**
+
 ### Two bug classes investigated to root cause — SPEC'd for the maintainer to decide
 (both need a design/semantics decision or an invasive change → per the bug-gate I
 did not implement them autonomously against the 14 locked VIs)
