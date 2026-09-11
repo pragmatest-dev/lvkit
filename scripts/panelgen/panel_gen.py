@@ -329,36 +329,31 @@ def build_panel_module(
         if control_type_info(c.control_type).widget == "array"
     }
 
+    imports = ["RunController", "toolbar"]
+    if has_array:
+        imports.append("array_control")
     lines: list[str] = [
-        '"""Front panel, laid out from the VI\'s own front-panel geometry',
-        '(control bounds) -- see panelgen.panel_gen for how bounds become',
-        'pixels. Binds widgets to State; the Run handler calls the pure',
-        'logic function off the event loop via run.io_bound."""',
+        '"""Front panel reproduced from the VI\'s own front-panel geometry (see',
+        'panelgen.panel_gen). A LabVIEW-style toolbar (Run / Run Continuously /',
+        'Abort / Pause) drives execution: Run latches the controls and calls the',
+        'pure logic off the event loop (run.io_bound), then writes the outputs."""',
         "",
         "from __future__ import annotations",
         "",
         f"from {logic_module_stem} import {logic_func_name}",
         "from nicegui import run, ui",
         "",
+        f"from controls import {', '.join(imports)}",
         "from state import State",
-    ]
-    if has_array:
-        lines.append("from controls import array_control")
-    lines += [
         "",
         "",
         "def build_panel() -> None:",
         "    state = State()",
         "",
-        f"    with ui.element('div').style("
-        f"'position:relative;width:{width}px;height:{height}px;'):",
     ]
-    if widget_lines:
-        lines.extend(widget_lines)
-    else:
-        lines.append("        pass  # no front-panel controls")
-    lines.append("")
-    lines.append("    async def on_run() -> None:")
+    # compute(): latch controls -> call pure logic -> write outputs. Handed to the
+    # RunController, which the toolbar drives (Run once / Run Continuously / etc.).
+    lines.append("    async def compute() -> None:")
     if call_args:
         lines.append("        result = await run.io_bound(")
         lines.append(f"            {logic_func_name},")
@@ -376,6 +371,16 @@ def build_panel_module(
     if not output_pairs:
         lines.append("        _ = result  # no output indicator to write it into")
     lines.append("")
-    lines.append("    ui.button('Run', on_click=on_run).classes('mt-2')")
+    lines.append("    controller = RunController(compute)")
+    lines.append("    toolbar(controller)")
+    lines.append("")
+    lines.append(
+        f"    with ui.element('div').style("
+        f"'position:relative;width:{width}px;height:{height}px;'):"
+    )
+    if widget_lines:
+        lines.extend(widget_lines)
+    else:
+        lines.append("        pass  # no front-panel controls")
     lines.append("")
     return "\n".join(lines)

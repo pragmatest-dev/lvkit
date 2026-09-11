@@ -86,12 +86,15 @@ def test_panel_uses_array_control_and_refreshes_indicator() -> None:
     )
     # No string-input fallback for the arrays.
     assert "ui.input" not in src
-    assert "from controls import array_control" in src
+    assert "array_control" in src
     # Inputs are editable, the indicator is read-only.
     assert "array_control(state, 'array', readonly=False" in src
     assert "array_control(state, 'reordered_array', readonly=True" in src
     # The indicator array is refreshed after Run writes the new list.
     assert "_w_reordered_array()" in src
+    # Execution goes through the VI toolbar + RunController, not a lone button.
+    assert "toolbar(controller)" in src
+    assert "RunController(compute)" in src
     # It's syntactically valid Python.
     compile(src, "<panel>", "exec")
 

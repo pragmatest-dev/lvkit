@@ -168,3 +168,129 @@ def array_control(
                     index_box.on_value_change(lambda e: _set_index(e.value))
             cells()
     return cells.refresh
+
+
+# --------------------------------------------------------------------------
+# VI toolbar / header — reproduces a LabVIEW VI window's execution toolbar.
+# Clean-room glyphs (our own shapes; NEVER NI's noloc_env_*.gif artwork):
+# Run = solid triangle, Run Continuously = looping arrows, Abort = red stop
+# square (live only while running), Pause = two bars. Styleable via the theme
+# classes below (a modern default; swap for a classic look later).
+# --------------------------------------------------------------------------
+
+_SVG_RUN = (
+    '<svg width="15" height="15" viewBox="0 0 16 16">'
+    '<polygon points="4,3 13,8 4,13" fill="currentColor"/></svg>'
+)
+_SVG_RUNCONT = (
+    '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" '
+    'stroke="currentColor" stroke-width="1.6">'
+    '<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2"/>'
+    '<path d="M12.6 2.2 12.2 5l-2.7-.6" fill="currentColor" stroke="none"/></svg>'
+)
+_SVG_ABORT = (
+    '<svg width="15" height="15" viewBox="0 0 16 16">'
+    '<rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg>'
+)
+_SVG_PAUSE = (
+    '<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">'
+    '<rect x="4.5" y="3" width="2.6" height="10"/>'
+    '<rect x="8.9" y="3" width="2.6" height="10"/></svg>'
+)
+
+# Theme (modern default). One place to restyle the whole toolbar.
+_TOOLBAR_CLASSES = (
+    "w-full items-center gap-1 px-2 py-1 border-b bg-gray-50 "
+    "dark:bg-neutral-800 dark:border-neutral-700"
+)
+
+
+class RunController:
+    """Drives a panel's execution the LabVIEW way, off ONE ``compute`` callable
+    (async: latch the controls, call the pure logic, write the outputs):
+
+    - **Run** runs ``compute`` once.
+    - **Run Continuously** runs ``compute`` repeatedly until aborted/paused.
+    - **Pause** suspends/resumes a continuous run.
+    - **Abort** stops a run immediately.
+
+    (A state-machine/event-structure VI will hand a longer-lived ``compute`` that
+    loops internally; the same Abort stops it.) ``running``/``paused`` drive the
+    toolbar's enabled states via ``_refresh`` (set by ``toolbar``)."""
+
+    def __init__(self, compute: Callable[[], Any], *, interval: float = 0.1):
+        self._compute = compute
+        self._interval = interval
+        self.running = False
+        self.paused = False
+        self._timer: Any = None
+        self._refresh: Callable[[], None] = lambda: None
+
+    async def run_once(self) -> None:
+        if self.running:
+            return
+        self.running = True
+        self._refresh()
+        try:
+            await self._compute()
+        finally:
+            self.running = False
+            self._refresh()
+
+    def run_continuous(self) -> None:
+        if self.running:
+            return
+        self.running = True
+        self.paused = False
+        self._refresh()
+        self._timer = ui.timer(self._interval, self._compute)
+
+    def pause(self) -> None:
+        if not self.running or self._timer is None:
+            return
+        self.paused = not self.paused
+        self._timer.active = not self.paused
+        self._refresh()
+
+    def abort(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        self.running = False
+        self.paused = False
+        self._refresh()
+
+
+def _tb_button(svg: str, tip: str, on_click: Callable, *, enabled: bool,
+               color: str) -> None:
+    btn = (
+        ui.button(on_click=on_click)
+        .props("flat dense round")
+        .classes(f"{color} min-w-0")
+    )
+    with btn:
+        ui.html(svg)
+        ui.tooltip(tip)
+    if not enabled:
+        btn.props("disable")
+
+
+def toolbar(controller: RunController) -> None:
+    """Render the VI execution toolbar bound to ``controller``. Run / Run
+    Continuously are enabled when idle; Abort / Pause only while running."""
+
+    @ui.refreshable
+    def bar() -> None:
+        running = controller.running
+        with ui.row().classes(_TOOLBAR_CLASSES):
+            _tb_button(_SVG_RUN, "Run", controller.run_once,
+                       enabled=not running, color="text-green-700")
+            _tb_button(_SVG_RUNCONT, "Run Continuously", controller.run_continuous,
+                       enabled=not running, color="text-green-700")
+            _tb_button(_SVG_ABORT, "Abort", controller.abort,
+                       enabled=running, color="text-red-600")
+            _tb_button(_SVG_PAUSE, "Pause", controller.pause,
+                       enabled=running, color="text-gray-600")
+
+    controller._refresh = bar.refresh
+    bar()
