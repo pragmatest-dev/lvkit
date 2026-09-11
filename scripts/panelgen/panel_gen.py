@@ -40,6 +40,9 @@ _MARGIN = 16
 # An array control's caption sits above its data box (LabVIEW draws it there);
 # the wrapper is lifted by this so the box itself keeps the full bounds height.
 _CAPTION_H = 16
+# A usable minimum of visible array rows, so a tiny FP box isn't a 1-row
+# peephole (the modern AG Grid presentation; the rest scroll).
+_MIN_ARRAY_ROWS = 4
 
 
 def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
@@ -135,8 +138,10 @@ def _array_geometry(control: ParsedFPControl) -> ArrayGeometry:
                              True, None, None)
     cell_h = max(1, element.bounds[2] - element.bounds[0])
     # Whole cells that fit the box the developer drew (LabVIEW never shows a
-    # partial row) — the count falls out of the real bounds + real cell height.
-    visible = max(1, outer_h // cell_h)
+    # partial row) — the count falls out of the real bounds + real cell height —
+    # but floored to a usable minimum so a small FP box isn't a 1-row peephole
+    # (the modern grid presentation; scroll reveals the rest).
+    visible = max(_MIN_ARRAY_ROWS, outer_h // cell_h)
     num_min = _num_prop(element.props, "StdNumMin")
     num_max = _num_prop(element.props, "StdNumMax")
     # Integer representation when the data range is integral (I32/U8/...); a
@@ -219,26 +224,45 @@ def _render_widget(
     return lines
 
 
+@dataclass
+class _Placed:
+    """One control's resolved on-panel geometry (px): css top/left, width, the
+    real rendered height, and whether it's an AG Grid array."""
+
+    control: ParsedFPControl
+    fname: str
+    left: int
+    right: int
+    width: int
+    top: int  # css top (arrays already lifted by the caption)
+    render_h: int
+    is_array: bool
+
+
+# Chrome above/around an array's grid: the caption row (label + add button) plus
+# the grid's own border, on top of the data rows.
+_ARRAY_CHROME_H = 32
+_ANTI_OVERLAP_GAP = 8
+
+
 def _render_container(
     front_panel: ParsedFrontPanel, field_names: dict[str, str]
 ) -> tuple[list[str], int, int]:
     """Build the absolutely-positioned top-level widget block plus the
-    container's own (width, height), derived entirely from
-    ``ParsedFPControl.bounds`` -- the ONE place bounds -> pixels happens.
-    ``field_names`` is the SINGLE naming shared with state.py and the arg/output
-    matchers, so a widget's var and its ``state.<field>`` always agree."""
+    container's own (width, height). Positions come from ``ParsedFPControl.bounds``
+    (the ONE place bounds -> pixels happens); arrays render as AG Grids taller
+    than their tiny FP box, so a MODERN reflow pass pushes any control a taller
+    array would collide with straight down, preserving order + horizontal
+    position. ``field_names`` is the SINGLE naming shared with state.py."""
     controls = front_panel.controls
     if not controls:
         return [], 400, 200
 
     min_top = min(c.bounds[0] for c in controls)
     min_left = min(c.bounds[1] for c in controls)
-    max_bottom = max(c.bounds[2] for c in controls)
-    max_right = max(c.bounds[3] for c in controls)
-    width = (max_right - min_left) + 2 * _MARGIN
-    height = (max_bottom - min_top) + 2 * _MARGIN
 
-    lines: list[str] = []
+    # 1) Base geometry from bounds; arrays get their real rendered height.
+    placed: list[_Placed] = []
     for control in controls:
         fname = field_names[control.uid]
         top = control.bounds[0] - min_top + _MARGIN
@@ -246,22 +270,48 @@ def _render_container(
         w = control.bounds[3] - control.bounds[1]
         h = control.bounds[2] - control.bounds[0]
         is_array = control_type_info(control.control_type).widget == "array"
-        cap = _CAPTION_H if is_array and (control.name or fname) else 0
         if is_array:
-            # An array renders as an AG Grid whose height is its own (data rows +
-            # the pinned add row) -- taller than the tiny FP box -- so position
-            # it (caption lifted above) but let it size to the grid, not clip.
+            geom = _array_geometry(control)
+            render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
+            cap = _CAPTION_H if (control.name or fname) else 0
+            top -= cap  # caption sits above the data box
+        else:
+            render_h = h
+        placed.append(
+            _Placed(control, fname, left, left + w, w, top, render_h, is_array)
+        )
+
+    # 2) Anti-overlap: top-down, push a control below any earlier one it would
+    #    overlap both horizontally and vertically (repeat until it clears them).
+    placed.sort(key=lambda p: (p.top, p.left))
+    for i, p in enumerate(placed):
+        moved = True
+        while moved:
+            moved = False
+            for q in placed[:i]:
+                horizontal = p.left < q.right and p.right > q.left
+                vertical = p.top < q.top + q.render_h and p.top + p.render_h > q.top
+                if horizontal and vertical:
+                    p.top = q.top + q.render_h + _ANTI_OVERLAP_GAP
+                    moved = True
+
+    # 3) Emit, and size the container to the resolved layout.
+    lines: list[str] = []
+    for p in placed:
+        if p.is_array:
             style = (
-                f"position:absolute;left:{left}px;top:{top - cap}px;width:{w}px;"
+                f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
             )
         else:
-            # A scalar control is pinned to the FP bounds exactly and clipped.
             style = (
-                f"position:absolute;left:{left}px;top:{top}px;"
-                f"width:{w}px;height:{h}px;overflow:hidden;"
+                f"position:absolute;left:{p.left}px;top:{p.top}px;"
+                f"width:{p.width}px;height:{p.render_h}px;overflow:hidden;"
             )
         lines.append(f"        with ui.element('div').style({style!r}):")
-        lines.extend(_render_widget(control, "state", fname, 12, [fname]))
+        lines.extend(_render_widget(p.control, "state", p.fname, 12, [p.fname]))
+
+    width = max(p.right for p in placed) + _MARGIN
+    height = max(p.top + p.render_h for p in placed) + _MARGIN
     return lines, width, height
 
 

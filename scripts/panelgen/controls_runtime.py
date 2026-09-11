@@ -25,6 +25,17 @@ from nicegui import ui
 # unavailable; normally this comes from the VI's front panel.
 _CELL_H = 22
 
+# The ✕ delete affordance is hidden until its row is hovered (uncluttered), grey
+# then, red when you point at it. Registered at MODULE IMPORT (before ui.run) so
+# it lands in the real <head> -- calling ui.add_css/ui.html from inside a page
+# build runs after the head is sent, so the rule never applies.
+ui.add_css(
+    ".lv-del{color:#9ca3af;opacity:0;transition:opacity .12s}"
+    ".ag-row-hover .lv-del{opacity:.85}"
+    ".lv-del:hover{color:#ef4444;opacity:1 !important}",
+    shared=True,  # apply to every page (default shared=False needs a live client)
+)
+
 
 def _coerce(text: str) -> Any:
     """Parse a cell back to int, then float, else keep the string — so numeric
@@ -103,19 +114,21 @@ def array_control(
         {
             "headerName": "",
             "valueGetter": "node.rowIndex",
-            "width": 30,  # just the index digits; the value gets the room
+            "width": 42 if not readonly else 30,  # +room for the drag handle
             "editable": False,
             "pinned": "left",
             "sortable": False,
             "suppressMovable": True,
             "resizable": False,
+            # Drag by the index cell to reorder elements (AG Grid managed drag).
+            "rowDrag": not readonly,
             "cellClass": "text-gray-400 text-right font-mono px-1",
         },
         value_col,
     ]
     if not readonly:
-        # AG Grid has no native remove UI, so a clickable ✕ action column
-        # (the Community pattern); cellClicked on it removes that element.
+        # AG Grid has no native remove UI, so a clickable ✕ action column (the
+        # Community pattern). It's hidden until the row is hovered (see _CSS).
         col_defs.append(
             {
                 "colId": "del",
@@ -127,7 +140,7 @@ def array_control(
                 "resizable": False,
                 "pinned": "right",
                 "valueGetter": "'✕'",
-                "cellClass": "text-red-400 text-center cursor-pointer select-none px-0",
+                "cellClass": "lv-del text-center cursor-pointer select-none px-0",
             }
         )
 
@@ -142,6 +155,7 @@ def array_control(
         "suppressMovableColumns": True,
         "suppressCellFocus": readonly,
         "suppressNoRowsOverlay": True,  # empty reads as empty, not a banner
+        "rowDragManaged": not readonly,  # drag reorders the rows
     }
 
     def _on_change(e: Any) -> None:
@@ -200,9 +214,16 @@ def array_control(
         grid.options["rowData"] = _rows()
         grid.update()
 
+    async def _drag_end(_e: Any) -> None:
+        # AG Grid (managed drag) already reordered the rows; read the new order
+        # back and sync state to it (the rowDragEnd event carries no payload).
+        data = await grid.get_client_data()
+        getattr(state, field)[:] = [d["value"] for d in data]
+
     if not readonly:
         grid.on("cellValueChanged", _on_change)
         grid.on("cellClicked", _on_click)
+        grid.on("rowDragEnd", _drag_end)
 
     return refresh
 
