@@ -18,6 +18,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from lvkit.parser.models import ParsedFPControl, ParsedFPPart, ParsedFrontPanel
 
 # panelgen lives under scripts/, alongside gen_panel.py's own path shim.
@@ -58,20 +60,23 @@ def _array_panel() -> ParsedFrontPanel:
     )
 
 
-def test_state_array_fields_use_default_factory() -> None:
-    """A list field with a bare ``[]`` default crashes at class definition; the
-    generator must emit ``field(default_factory=list)``. Exec proves it."""
+def test_state_is_bindable_and_lists_are_independent() -> None:
+    """State is a @binding.bindable_dataclass; a list field must use
+    default_factory (a bare ``[]`` default crashes) so instances don't share a
+    list. String-check always; exec only when NiceGUI is installed."""
     src = build_state_module(_array_panel())
+    assert "@binding.bindable_dataclass" in src
+    assert "from nicegui import binding" in src
     assert "field(default_factory=list)" in src
     assert ": list = []" not in src
+    pytest.importorskip("nicegui")  # exec needs the binding module
     ns: dict = {}
     exec(compile(src, "<state>", "exec"), ns)  # noqa: S102
     state = ns["State"]()
     assert state.array == []
-    # Independent instances must not share the same list object.
     other = ns["State"]()
     state.array.append(1)
-    assert other.array == []
+    assert other.array == []  # independent lists, and bindable
 
 
 def test_panel_uses_array_control_and_refreshes_indicator() -> None:

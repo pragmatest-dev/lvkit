@@ -1,8 +1,12 @@
-"""Generates ``state.py``: a plain ``@dataclass State`` with one field per
-front-panel control (inputs) and indicator (outputs), defaulted from the
-VI's own recorded ``default_value`` where available. A ``stdClust`` control
-becomes a nested dataclass field, recursively. No UI imports -- ``panel.py``
-binds widgets to this, never the other way round.
+"""Generates ``state.py``: a ``@binding.bindable_dataclass State`` with one field
+per front-panel control (input) and indicator (output), defaulted from the VI's
+own recorded ``default_value`` where available. A ``stdClust`` control becomes a
+nested bindable dataclass, recursively.
+
+This is the UI-layer VIEW-MODEL: every field is a NiceGUI ``BindableProperty``,
+so ``panel.py`` can ``bind_value``/``bind_value_from`` widgets to it and outputs
+update reactively. The PURE logic lives in ``logic.py`` (no UI imports); this
+model is only needed when someone wants the front panel.
 """
 
 from __future__ import annotations
@@ -27,13 +31,16 @@ def _field_default_rhs(default: str) -> str:
         return f"field(default_factory=lambda: {stripped})"
     return default
 
-_MODULE_HEADER = '''"""Front-panel state: one field per control/indicator, typed
-and defaulted from the VI's own front panel. No UI imports -- panel.py
-binds to this."""
+_MODULE_HEADER = '''"""Front-panel view-model: one bindable field per control/
+indicator, typed and defaulted from the VI's own front panel. Every field is a
+NiceGUI BindableProperty (via @binding.bindable_dataclass) so panel.py can bind
+widgets to it; the pure logic in logic.py stays UI-free."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import field
+
+from nicegui import binding
 '''
 
 
@@ -64,7 +71,9 @@ def build_state_module(front_panel: ParsedFrontPanel) -> str:
                 rhs = _field_default_rhs(default_source(control))
                 field_lines.append(f"    {fname}: {info.py_type} = {rhs}")
         body = "\n".join(field_lines) if field_lines else "    pass"
-        class_blocks.append(f"@dataclass\nclass {class_name}:\n{body}")
+        class_blocks.append(
+            f"@binding.bindable_dataclass\nclass {class_name}:\n{body}"
+        )
 
     emit_class(front_panel.controls, "State")
     return _MODULE_HEADER + "\n\n" + "\n\n\n".join(class_blocks) + "\n"

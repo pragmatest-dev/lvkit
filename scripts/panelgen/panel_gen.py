@@ -186,9 +186,13 @@ def _render_widget(
     else:
         lines.append(f"{prefix}{var} = ui.input({label!r}).classes('w-full')")
 
-    lines.append(f"{prefix}{var}.bind_value({owner_expr}, {field_name!r})")
     if control.is_indicator:
+        # Output: one-way state -> widget, so Run's results display reactively.
+        lines.append(f"{prefix}{var}.bind_value_from({owner_expr}, {field_name!r})")
         lines.append(f"{prefix}{var}.disable()")
+    else:
+        # Input: two-way, so edits latch into State for the next Run.
+        lines.append(f"{prefix}{var}.bind_value({owner_expr}, {field_name!r})")
     return lines
 
 
