@@ -107,12 +107,11 @@ def test_panel_uses_array_control_and_refreshes_indicator() -> None:
     compile(src, "<panel>", "exec")
 
 
-def test_wrappers_pin_bounds_and_clip_overflow() -> None:
-    """Each control wrapper is pinned to its FP bounds height with
-    overflow:hidden — the array control is an index-driven fixed viewport, never
-    a box that grows past its bounds. It must NOT use min-height (which grows).
-    An array's caption sits above the data box, so its wrapper is the bounds
-    height PLUS the caption strip (see _CAPTION_H)."""
+def test_array_wrappers_positioned_from_bounds_and_typed() -> None:
+    """An array renders as an AG Grid sized to its own content (data rows + the
+    pinned add row), so its wrapper is POSITIONED from the FP bounds (caption
+    lifted above) but not clipped to the tiny box. The grid is sized + typed
+    from the real parsed part geometry + properties."""
     src = build_panel_module(
         _array_panel(),
         logic_module_stem="logic",
@@ -120,12 +119,12 @@ def test_wrappers_pin_bounds_and_clip_overflow() -> None:
         param_names=["array", "indices"],
         result_fields=["reordered_array"],
     )
+    # Array wrappers position from bounds (array top 16, caption-lifted to 0),
+    # width 116 -- and do NOT clip (the grid provides its own height/scroll).
+    assert "left:16px;top:0px;width:116px;" in src
+    assert "overflow:hidden" not in src  # every control here is an array
     assert "min-height" not in src
-    # The array box is 51px tall (bounds 16..67); wrapper = 51 + 16 caption.
-    assert "height:67px;overflow:hidden;" in src
-    # The array control is sized + typed from the REAL parsed part geometry +
-    # properties: element cell 26px tall -> cell_h=26; the numeric range gives
-    # an integer representation.
+    # Sized + typed from the real element geometry + properties.
     assert "cell_h=26" in src
     assert "element_type='stdNum'" in src
     assert "integer=True" in src

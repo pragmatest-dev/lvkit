@@ -245,16 +245,21 @@ def _render_container(
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
         h = control.bounds[2] - control.bounds[0]
-        # Pin the DATA box to the FP bounds exactly (fixed size, like the LV
-        # control) and clip overflow. An array control's caption sits ABOVE the
-        # box (as in LabVIEW), so its wrapper is lifted by _CAPTION_H and grown by
-        # it — leaving the full bounds height for the element cells.
         is_array = control_type_info(control.control_type).widget == "array"
         cap = _CAPTION_H if is_array and (control.name or fname) else 0
-        style = (
-            f"position:absolute;left:{left}px;top:{top - cap}px;"
-            f"width:{w}px;height:{h + cap}px;overflow:hidden;"
-        )
+        if is_array:
+            # An array renders as an AG Grid whose height is its own (data rows +
+            # the pinned add row) -- taller than the tiny FP box -- so position
+            # it (caption lifted above) but let it size to the grid, not clip.
+            style = (
+                f"position:absolute;left:{left}px;top:{top - cap}px;width:{w}px;"
+            )
+        else:
+            # A scalar control is pinned to the FP bounds exactly and clipped.
+            style = (
+                f"position:absolute;left:{left}px;top:{top}px;"
+                f"width:{w}px;height:{h}px;overflow:hidden;"
+            )
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(control, "state", fname, 12, [fname]))
     return lines, width, height
