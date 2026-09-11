@@ -84,3 +84,20 @@ def test_panel_uses_array_control_and_refreshes_indicator() -> None:
     assert "_w_reordered_array()" in src
     # It's syntactically valid Python.
     compile(src, "<panel>", "exec")
+
+
+def test_wrappers_pin_bounds_and_clip_overflow() -> None:
+    """Each control wrapper is pinned to its FP bounds height with
+    overflow:hidden — so a growing array control scrolls inside its box instead
+    of expanding past its bounds and overlapping neighbors (the exact bug this
+    guards). It must NOT use min-height, which lets the box grow."""
+    src = build_panel_module(
+        _array_panel(),
+        logic_module_stem="logic",
+        logic_func_name="reorder",
+        param_names=["array", "indices"],
+        result_fields=["reordered_array"],
+    )
+    assert "min-height" not in src
+    # The array control (bounds 16..67 -> 51px tall) is pinned + clipped.
+    assert "height:51px;overflow:hidden;" in src

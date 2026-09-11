@@ -158,9 +158,12 @@ def _render_container(
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
         h = control.bounds[2] - control.bounds[0]
+        # Pin to the FP bounds exactly (fixed size, like the LV control) and clip
+        # overflow, so a growing array control scrolls inside its box instead of
+        # expanding past its bounds and overlapping neighbors.
         style = (
             f"position:absolute;left:{left}px;top:{top}px;"
-            f"width:{w}px;min-height:{h}px;"
+            f"width:{w}px;height:{h}px;overflow:hidden;"
         )
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(control, "state", fname, 12, [fname]))
