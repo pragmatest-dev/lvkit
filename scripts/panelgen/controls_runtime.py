@@ -219,6 +219,10 @@ def array_control(
         # back and sync state to it (the rowDragEnd event carries no payload).
         data = await grid.get_client_data()
         getattr(state, field)[:] = [d["value"] for d in data]
+        # Re-render from state: the index column is virtual (node.rowIndex) and
+        # AG Grid doesn't re-run its valueGetter after a managed move, so without
+        # this the indices go stale (a moved "0" ends up beside the wrong row).
+        refresh()
 
     if not readonly:
         grid.on("cellValueChanged", _on_change)
