@@ -16,6 +16,13 @@ VIs with dependencies get a package-level case (see _run_pkg) once available.
 
 from __future__ import annotations
 
+import importlib
+import inspect
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +36,8 @@ from lvkit.graph.loading import LoadMode
 pytestmark = [pytest.mark.functional, pytest.mark.needs_samples]
 
 CORPUS = Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
+SEARCH = Path(".lvkit/cache/samples/OpenG/extracted")
+_GEN = Path("scripts/generate_python.py")
 
 
 def _run_leaf(vi_rel: str, *args: object) -> Any:
@@ -47,6 +56,58 @@ def _run_leaf(vi_rel: str, *args: object) -> Any:
     fn = ns.get(func_name)
     assert callable(fn), f"entry function {func_name} not defined"
     return fn(*args)
+
+
+def _slug(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", s.replace("__ogtk.vi", "").lower())
+
+
+def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
+    """Generate a VI *with its SubVI dependencies* as a package (via the real
+    pipeline, in a subprocess), import the entry module, and call the entry
+    function with kwargs. This is the counterpart to ``_run_leaf`` for VIs that
+    emit relative imports — the bulk of OpenG. Kwargs (not positional) because a
+    poly-wrapped entry's parameter order isn't guaranteed."""
+    vi = CORPUS / vi_rel
+    if not vi.exists():
+        pytest.skip(f"corpus VI missing: {vi_rel}")
+    outdir = Path(tempfile.mkdtemp(prefix=f"lvkit_pkg_{_slug(vi.name)}_"))
+    proc = subprocess.run(
+        [sys.executable, str(_GEN), str(vi), "-o", str(outdir),
+         "--search-path", str(SEARCH)],
+        capture_output=True, text=True, timeout=180, check=False,
+    )
+    assert "error: 0" in proc.stdout, (
+        f"generation failed:\n{proc.stdout}\n{proc.stderr}"
+    )
+    pkgs = [p for p in outdir.iterdir() if p.is_dir()]
+    assert pkgs, f"no package emitted in {outdir}"
+    pkg = pkgs[0]
+    tgt = _slug(vi.name)
+    mods = list((pkg / "openg").glob("*.py")) if (pkg / "openg").exists() else []
+    best = next(
+        (m for m in mods if m.stem != "__init__" and tgt in _slug(m.stem)), None
+    )
+    assert best is not None, f"no entry module matching {tgt} in {pkg}"
+    sys.path.insert(0, str(outdir))
+    try:
+        modname = f"{pkg.name}.openg.{best.stem}"
+        mod = importlib.import_module(modname)
+        fn = next(
+            (o for n, o in inspect.getmembers(mod, inspect.isfunction)
+             if o.__module__ == modname and tgt in _slug(n)),
+            None,
+        )
+        assert fn is not None, f"no entry function matching {tgt} in {modname}"
+        return fn(**kwargs)
+    finally:
+        # Drop this package's modules + path entry so a later VI's identically
+        # named submodules don't resolve to this one, and remove the temp dir.
+        if str(outdir) in sys.path:
+            sys.path.remove(str(outdir))
+        for mod_name in [m for m in sys.modules if m.startswith(pkg.name)]:
+            del sys.modules[mod_name]
+        shutil.rmtree(outdir, ignore_errors=True)
 
 
 # --------------------------------------------------------------------------
@@ -123,3 +184,36 @@ def test_reorder_1d_array_with_pointers() -> None:
     )
     assert r.sorted_array_out == [30, 10, 20]
     assert r.sorted_pointers_out == [2, 0, 1]
+
+
+def test_build_path_traditional() -> None:
+    """base path + a name -> base/name (single-name join)."""
+    r = _run_leaf(
+        "file/file.llb/Build Path - Traditional__ogtk.vi", "/home/u", "f.txt"
+    )
+    assert str(r.appended_path) == "/home/u/f.txt"
+
+
+def test_build_path_file_names_array() -> None:
+    """base path + [names] -> [base/name ...] (element-wise join over the array)."""
+    r = _run_leaf(
+        "file/file.llb/Build Path - File Names Array__ogtk.vi",
+        "/home/u",
+        ["a.txt", "b.txt"],
+    )
+    assert [str(p) for p in r.appended_path] == ["/home/u/a.txt", "/home/u/b.txt"]
+
+
+# --------------------------------------------------------------------------
+# Package cases (VI + its SubVI deps), via _run_pkg. Kwargs, not positional.
+# --------------------------------------------------------------------------
+
+
+def test_index_array_elements() -> None:
+    """Index Array Elements picks array[i] for each i in indices."""
+    r = _run_pkg(
+        "array/array.llb/Index Array Elements__ogtk.vi",
+        array=[10, 20, 30],
+        indices=[0, 2],
+    )
+    assert r.elements == [10, 30]
