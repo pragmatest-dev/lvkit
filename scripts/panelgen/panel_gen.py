@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import sys
 import typing
 from pathlib import Path
 
@@ -38,12 +39,30 @@ _MARGIN = 16
 
 
 def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
-    spec = importlib.util.spec_from_file_location("_panelgen_logic_probe", logic_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load generated logic module: {logic_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return getattr(module, func_name)
+    # A non-leaf VI's logic.py imports sibling `_dep_*.py` (and `state`) by plain
+    # name, so the panel dir must be on sys.path for those to resolve during
+    # introspection — exactly as app.py puts it there at run time. Evict the
+    # plain names afterward so a later VI's same-named siblings (the gallery
+    # generates many in one process) don't resolve to this one's cache.
+    panel_dir = str(logic_path.parent)
+    added = panel_dir not in sys.path
+    if added:
+        sys.path.insert(0, panel_dir)
+    plain = {p.stem for p in logic_path.parent.glob("_dep_*.py")} | {"state"}
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_panelgen_logic_probe", logic_path
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load generated logic module: {logic_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return getattr(module, func_name)
+    finally:
+        if added:
+            sys.path.remove(panel_dir)
+        for name in [n for n in sys.modules if n in plain]:
+            del sys.modules[name]
 
 
 def introspect_entry(
