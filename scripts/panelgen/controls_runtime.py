@@ -68,9 +68,6 @@ def array_control(
     handler calls after writing a new list into an indicator.
     """
     view = {"index": 0}  # top element index of the visible window
-    # LabVIEW shows a greyed type-default in unset/past-end cells (0 for a
-    # numeric element, empty for text) rather than a blank box.
-    default_display = "0" if element_type in ("stdNum", "stdNumeric") else ""
 
     def _values() -> list:
         return getattr(state, field) or []
@@ -90,6 +87,9 @@ def array_control(
         except (TypeError, ValueError):
             i = 0
         view["index"] = _clamp(i)
+        # Snap the field back to the valid index so you can't sit on an
+        # out-of-range index and read phantom "valid" values.
+        index_box.value = view["index"]
         cells.refresh()
 
     def _edit(elem_index: int, text: str) -> None:
@@ -100,6 +100,10 @@ def array_control(
             values.append(_coerce(text))  # LabVIEW-style grow past the end
             cells.refresh()
 
+    numeric = element_type in ("stdNum", "stdNumeric")
+    # Right-align numeric values (spreadsheet convention) via the inner input.
+    input_align = "text-right" if numeric else "text-left"
+
     @ui.refreshable
     def cells() -> None:
         values = list(_values())
@@ -109,63 +113,74 @@ def array_control(
                 ei = view["index"] + row
                 past = ei >= n
                 # The first past-the-end cell of a control is the LabVIEW "grow"
-                # cell — editable, hinted; further past-end cells are inert.
+                # cell — editable; further past-end cells are empty (no element).
                 grow_cell = past and not readonly and ei == n
-                with ui.row().classes("no-wrap items-center gap-0 w-full").style(
-                    f"height:{cell_h}px"
-                ):
-                    shown = str(values[ei]) if not past else ""
+                border = "" if row == visible - 1 else "border-b border-gray-200 "
+                bg = ""
+                if past and not grow_cell:
+                    bg = "bg-gray-100 dark:bg-neutral-800 "  # clearly no element
+                elif grow_cell:
+                    bg = "bg-gray-50 dark:bg-neutral-800/60 "
+                with ui.element("div").classes(
+                    f"w-full flex items-center px-1 {border}{bg}"
+                    "dark:border-neutral-700"
+                ).style(f"height:{cell_h}px"):
+                    if past and not grow_cell:
+                        # Empty slot: read as empty, never as a valid value.
+                        ui.label("").classes("w-full")
+                        continue
                     cell = (
-                        ui.input(value=shown)
-                        .props("dense borderless")
-                        .classes("w-full text-xs")
-                        .style(f"min-height:{cell_h}px")
-                    )
-                    if past:
-                        cell.classes("opacity-40")  # greyed unset/past-end cell
-                        # Non-grow past-end cells show the type default (LV style).
-                        if not grow_cell and default_display:
-                            cell.props(f"placeholder={default_display}")
-                    if grow_cell:
-                        cell.props('placeholder="+"')
-                    if readonly or (past and not grow_cell):
-                        cell.props("readonly")
-                    else:
-                        cell.on_value_change(
-                            lambda e, i=ei: _edit(i, e.value)
+                        ui.input(value=str(values[ei]) if not past else "")
+                        .props(
+                            f"dense borderless input-class='font-mono {input_align}'"
                         )
+                        .classes("w-full text-xs")
+                        .style(f"min-height:{cell_h - 2}px")
+                    )
+                    if grow_cell:
+                        cell.props('placeholder="＋"')
+                    if readonly:
+                        cell.props("readonly").classes("text-gray-500")
+                    else:
+                        cell.on_value_change(lambda e, i=ei: _edit(i, e.value))
 
-    # Index control (left) + element viewport (right), filling the bounds box.
+    # Outer FRAME: index display (left) | element display (right), the array
+    # shell. A border + dividers make cells countable and their boundaries clear.
     with ui.column().classes("w-full h-full gap-0 no-wrap"):
         if label:
             ui.label(label).classes(
                 "text-xs font-semibold text-gray-500 shrink-0 truncate leading-none"
             )
-        with ui.row().classes("w-full grow no-wrap gap-0 items-start"):
-            # LabVIEW array index display (LEFT): a STACKED ▲/▼ spinner (up
-            # directly on down, together) next to the index digits — one small
-            # control, vertically centred against the element display. The
-            # element display sits to its RIGHT. (NI: "an array shell includes an
-            # index display on the left, an element display on the right".)
+        with ui.row().classes(
+            "w-full grow no-wrap gap-0 items-stretch overflow-hidden "
+            "border border-gray-300 rounded-sm bg-white "
+            "dark:bg-neutral-900 dark:border-neutral-600"
+        ):
+            # Index DISPLAY (LEFT), visually distinct (recessed, bordered off):
+            # a STACKED ▲/▼ spinner next to the current index number. (NI: "an
+            # array shell includes an index display on the left, an element
+            # display on the right".)
             with ui.element("div").classes(
-                "shrink-0 h-full flex items-center"
+                "shrink-0 flex items-center justify-center gap-px "
+                "border-r border-gray-300 bg-gray-100 "
+                "dark:bg-neutral-800 dark:border-neutral-600"
             ).style(f"width:{index_width}px"):
-                with ui.row().classes("no-wrap items-center gap-0"):
-                    spin = "cursor-pointer leading-none text-gray-600 select-none block"
-                    with ui.column().classes("no-wrap items-center gap-0 shrink-0"):
-                        ui.label("▲").classes(f"text-[8px] {spin}").on(
-                            "click", lambda: _step(1)
-                        )
-                        ui.label("▼").classes(f"text-[8px] {spin}").on(
-                            "click", lambda: _step(-1)
-                        )
-                    index_box = (
-                        ui.number(value=0, min=0)
-                        .props("dense borderless input-class=text-center")
-                        .classes("text-xs grow")
-                        .style("min-height:18px")
+                spin = "cursor-pointer leading-none text-gray-600 select-none block"
+                with ui.column().classes("no-wrap items-center gap-0 shrink-0"):
+                    ui.label("▲").classes(f"text-[8px] {spin}").on(
+                        "click", lambda: _step(1)
                     )
-                    index_box.on_value_change(lambda e: _set_index(e.value))
+                    ui.label("▼").classes(f"text-[8px] {spin}").on(
+                        "click", lambda: _step(-1)
+                    )
+                index_box = (
+                    ui.number(value=0, min=0)
+                    .props("dense borderless input-class='text-center font-mono'")
+                    .classes("text-xs")
+                    .style(f"width:{max(16, index_width - 16)}px;min-height:18px")
+                )
+                index_box.on_value_change(lambda e: _set_index(e.value))
+            # Element DISPLAY (RIGHT): the stacked cells.
             cells()
     return cells.refresh
 
