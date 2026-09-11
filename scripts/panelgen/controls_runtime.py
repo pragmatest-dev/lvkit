@@ -99,12 +99,11 @@ def array_control(
     else:
         value_col["cellDataType"] = "text"
 
-    # Index column shows the element index; on the pinned "add" row a "+" hint.
     col_defs: list[dict[str, Any]] = [
         {
             "headerName": "",
-            "valueGetter": "node.rowPinned ? '+' : node.rowIndex",
-            "width": 34,  # just the index digits; value gets the room
+            "valueGetter": "node.rowIndex",
+            "width": 30,  # just the index digits; the value gets the room
             "editable": False,
             "pinned": "left",
             "sortable": False,
@@ -121,13 +120,13 @@ def array_control(
             {
                 "colId": "del",
                 "headerName": "",
-                "width": 24,
+                "width": 22,
                 "editable": False,
                 "sortable": False,
                 "suppressMovable": True,
                 "resizable": False,
                 "pinned": "right",
-                "valueGetter": "node.rowPinned ? '' : '✕'",
+                "valueGetter": "'✕'",
                 "cellClass": "text-red-400 text-center cursor-pointer select-none px-0",
             }
         )
@@ -137,54 +136,61 @@ def array_control(
         "rowData": _rows(),
         "rowHeight": cell_h,
         "headerHeight": 0,  # a LabVIEW array has no column header
-        "alwaysShowVerticalScroll": True,
+        # Compact: no empty horizontal scroll track; the vertical scrollbar (the
+        # index navigator) shows only when there are more elements than fit.
+        "suppressHorizontalScroll": True,
         "suppressMovableColumns": True,
         "suppressCellFocus": readonly,
         "suppressNoRowsOverlay": True,  # empty reads as empty, not a banner
     }
-    if not readonly:
-        # A LabVIEW array grows by entering a value in its trailing empty
-        # element; AG Grid's pinned bottom row IS that "add" row.
-        options["pinnedBottomRowData"] = [{"value": None}]
 
     def _on_change(e: Any) -> None:
         a = e.args
         vals = getattr(state, field)
-        v = a["data"].get("value")
-        if a.get("rowPinned") == "bottom":  # the add row: append a new element
-            if v not in (None, ""):
-                vals.append(_coerce(v) if isinstance(v, str) else v)
-                refresh()
-            return
         i = a.get("rowIndex")
         if isinstance(i, int) and 0 <= i < len(vals):
+            v = a["data"].get("value")
             vals[i] = _coerce(v) if isinstance(v, str) else v
 
     def _on_click(e: Any) -> None:
-        a = e.args
-        if a.get("colId") != "del" or a.get("rowPinned"):
+        if e.args.get("colId") != "del":
             return
-        i = a.get("rowIndex")
+        i = e.args.get("rowIndex")
         vals = getattr(state, field)
         if isinstance(i, int) and 0 <= i < len(vals):
             del vals[i]
             refresh()
 
-    # Caption (control name) above the grid; the grid shows `visible` data rows
-    # plus (for an editable array) the pinned add row, at the VI's cell height.
-    grid_rows = visible + (0 if readonly else 1)
+    def _add() -> None:
+        # AG Grid has no native "add" UI; append (numeric default 0 / empty
+        # string) and drop straight into editing the new element.
+        vals = getattr(state, field)
+        vals.append(0 if numeric else "")
+        refresh()
+        grid.run_grid_method(
+            "startEditingCell", {"rowIndex": len(vals) - 1, "colKey": "value"}
+        )
+
+    # Caption row: the control name + a "+" add button for editable arrays. The
+    # grid shows `visible` rows and scrolls (the index navigator) only for more.
     with ui.column().classes("w-full h-full gap-0 no-wrap"):
-        if label:
-            ui.label(label).classes(
-                "text-xs font-semibold text-gray-500 shrink-0 truncate leading-none"
-            )
+        with ui.row().classes("w-full items-center gap-1 no-wrap shrink-0"):
+            if label:
+                ui.label(label).classes(
+                    "text-xs font-semibold text-gray-500 truncate flex-grow "
+                    "leading-none"
+                )
+            if not readonly:
+                ui.button(icon="add", on_click=_add).props(
+                    "flat dense round size=xs"
+                ).classes("text-gray-500 min-w-0")
         grid = (
             ui.aggrid(options)
             .classes("ag-theme-balham w-full shrink-0")
             .style(
-                # Compact cells so real values fit the VI's small box (the balham
-                # default padding is generous). One place to retune density.
-                f"height:{grid_rows * cell_h + 4}px;font-size:12px;"
+                # Compact density so real values fit the VI's small box (the
+                # balham default padding is generous). One place to retune.
+                f"height:{visible * cell_h + 4}px;font-size:12px;"
                 "--ag-cell-horizontal-padding:4px;--ag-grid-size:3px;"
                 "--ag-borders:solid 1px"
             )
@@ -192,8 +198,6 @@ def array_control(
 
     def refresh() -> None:
         grid.options["rowData"] = _rows()
-        if not readonly:
-            grid.options["pinnedBottomRowData"] = [{"value": None}]
         grid.update()
 
     if not readonly:
