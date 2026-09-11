@@ -204,6 +204,24 @@ def test_build_path_file_names_array() -> None:
     assert [str(p) for p in r.appended_path] == ["/home/u/a.txt", "/home/u/b.txt"]
 
 
+def test_build_path_traditional_path() -> None:
+    """The path-typed variant: base path + a name -> base/name."""
+    r = _run_leaf(
+        "file/file.llb/Build Path - Traditional - path__ogtk.vi", "/a/b", "c.txt"
+    )
+    assert str(r.appended_path) == "/a/b/c.txt"
+
+
+def test_build_path_file_names_array_path() -> None:
+    """The path-typed array variant: base + [names] -> [base/name ...]."""
+    r = _run_leaf(
+        "file/file.llb/Build Path - File Names Array - path__ogtk.vi",
+        "/a/b",
+        ["x", "y"],
+    )
+    assert [str(p) for p in r.appended_path] == ["/a/b/x", "/a/b/y"]
+
+
 # --------------------------------------------------------------------------
 # Package cases (VI + its SubVI deps), via _run_pkg. Kwargs, not positional.
 # --------------------------------------------------------------------------

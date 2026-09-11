@@ -82,6 +82,46 @@ emitted last; pure tiers emit sequentially (idiomatic, no ThreadPoolExecutor);
 Number - Within Range, String to Character Array, Strip Path - Traditional, VI
 Library, Reorder 1D Array (I32 / DBL / String).
 
+## Session 2026-09-10 (part 2) — front panel + coverage + two spec'd bug classes
+- **Array control honors FP bounds + scrolls** (commit `592aca9`). The array
+  control grew unbounded and overlapped neighbors; now every control wrapper is
+  pinned to its bounds height with `overflow:hidden`, and the array control is a
+  fixed-size viewport (label+add in one thin header; rows in an inner
+  `min-h-0 overflow-y-auto` region). Verified via Playwright: after adding 12
+  elements each box holds its exact bounds (51/53/50px), the inner region scrolls
+  (scrollHeight 480 ≫ clientHeight ~33), zero overlapping wrapper pairs.
+- **Package-run functional harness** (`_run_pkg`, commit `7bd3816`). Generates a
+  VI *with its SubVI deps* as a package (real pipeline, subprocess), imports,
+  calls, scrubs sys.modules/path. Opens the multi-VI tier to functional locking.
+- **Functional suite 9 → 14** (all executed, real outputs asserted): + Build Path
+  - Traditional, Build Path - File Names Array, Build Path - Traditional - path,
+  Build Path - File Names Array - path (leaves) + Index Array Elements (package).
+
+### Two bug classes investigated to root cause — SPEC'd for the maintainer to decide
+(both need a design/semantics decision or an invasive change → per the bug-gate I
+did not implement them autonomously against the 14 locked VIs)
+
+1. **Element-wise FUNCTION-TEMPLATE broadcast** (blocks Conditional Auto-Indexing
+   Tunnel family ~25, Remove Duplicates, etc.). Root cause: `codegen/elementwise.py`
+   only rewrites arithmetic/comparison/unary OPERATORS into `_lv.*` broadcast
+   calls (`_BINOP`/`_CMP` maps + `_ArrayifyBase`). A primitive whose template is a
+   *function* — e.g. Boolean To (0,1) = `int(bool(in_1))` — wired to an array is
+   emitted scalar: `zero_or_one = int(bool(elements_to_keep))` (bool of a whole
+   list → `True` → 1), then `sum(int)` crashes. Evidence:
+   `conditional_auto_indexing_tunnel_i32__ogtk` (generate in-process to see it).
+   Options for the maintainer: (a) emit an idiomatic comprehension
+   `[int(bool(x)) for x in in_1]` (zip multiple array inputs, broadcast scalars);
+   (b) a runtime `_lv.vmap(fn, *args)` helper + rewrite the template into a lambda.
+   Either is a real new capability with design choices → your call.
+2. **Array Subset (prim 2044) unwired index/length → undefined names.** Emits
+   `subarray = arr[index:index + length]` where `index`/`length` are the *bare
+   terminal names* when those inputs are unwired (→ NameError). Prim 2044 has no
+   `python_code` and is `verified:false`; the correct unwired defaults are
+   per-input semantics (index→0, length→to-end/len), not a blanket zero. Needs a
+   primitive-semantics decision (and likely the resolve-primitive skill), so
+   surfaced rather than guessed. Seen in Compare Two Paths - Scalar (which also
+   has other deep-chain issues).
+
 ## Known bug classes (next targets — each needs generic, not spot, fixes)
 1. **Element-wise primitive over an array** — a scalar primitive (e.g. Boolean To
    (0,1)) wired to an ARRAY should map over elements (`[int(bool(x)) for x in a]`),
