@@ -35,7 +35,10 @@ def _array_parts() -> list[ParsedFPPart]:
     — element cell 26px tall starting at x=47, so index column = 47 wide."""
     return [
         ParsedFPPart(8002, "stdNum", (14, 2, 44, 43)),
-        ParsedFPPart(None, "stdNum", (21, 47, 47, 112)),
+        ParsedFPPart(
+            None, "stdNum", (21, 47, 47, 112),
+            {"StdNumMin": "-2147483648", "StdNumMax": "2147483647", "StdNumInc": "0"},
+        ),
     ]
 
 
@@ -120,8 +123,9 @@ def test_wrappers_pin_bounds_and_clip_overflow() -> None:
     assert "min-height" not in src
     # The array box is 51px tall (bounds 16..67); wrapper = 51 + 16 caption.
     assert "height:67px;overflow:hidden;" in src
-    # The array control is sized from the REAL parsed part geometry: element cell
-    # 26px tall at x=47 -> cell_h=26, index_width=47, visible=(51-21)//26=1.
+    # The array control is sized + typed from the REAL parsed part geometry +
+    # properties: element cell 26px tall -> cell_h=26; the numeric range gives
+    # an integer representation.
     assert "cell_h=26" in src
-    assert "index_width=47" in src
     assert "element_type='stdNum'" in src
+    assert "integer=True" in src

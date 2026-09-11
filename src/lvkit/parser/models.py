@@ -483,11 +483,18 @@ class ParsedFPPart:
     layout the developer built: the index display (``part_id`` 8002), the caption
     (16), frame cosmetics, and the element type/cell (``part_id`` None, whose
     ``part_class`` is the element control type, e.g. ``stdNum``). A downstream
-    view sizes the array from these instead of guessing constants."""
+    view sizes the array from these instead of guessing constants.
+
+    ``props`` carries the part's own control PROPERTIES straight from the heap
+    (the scalar-valued children of its ddo) so a view can render the control
+    accurately, not generically — e.g. a numeric element's ``StdNumMin`` /
+    ``StdNumMax`` (data range), ``StdNumInc`` (increment), ``typeDesc``
+    (representation). Empty for parts that carry none."""
 
     part_id: int | None  # LabVIEW partID; None for the array element's own ddo
     part_class: str  # e.g. "stdNum", "stdString", "label", "cosm"
     bounds: tuple[int, int, int, int]  # top, left, bottom, right, control-local
+    props: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

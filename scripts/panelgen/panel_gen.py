@@ -95,33 +95,55 @@ def introspect_entry(
 
 @dataclass(frozen=True)
 class ArrayGeometry:
-    """An array control's layout, read from the VI's front panel (never guessed):
-    ``index_width`` = the index-display column width (the element cell's left
-    edge), ``cell_h`` = one element cell's height, ``visible`` = how many WHOLE
-    cells the box the developer drew shows, ``element_type`` = the cell's control
-    class (``stdNum``/``stdString``/...)."""
+    """An array control's layout + element spec, read from the VI's front panel
+    (never guessed): ``cell_h`` = one element cell's height, ``visible`` = how
+    many WHOLE cells the box the developer drew shows, ``element_type`` = the
+    cell's control class (``stdNum``/``stdString``/...), and for a numeric
+    element ``integer`` (representation) plus the ``num_min``/``num_max`` data
+    range straight from ``StdNumMin``/``StdNumMax``."""
 
-    index_width: int
     cell_h: int
     visible: int
     element_type: str
+    integer: bool
+    num_min: float | None
+    num_max: float | None
+
+
+def _num_prop(props: dict[str, str], key: str) -> float | None:
+    """A numeric element property (``StdNumMin``/``StdNumMax``) as a number, or
+    None if absent/unparseable. int when integral so it serialises cleanly."""
+    raw = props.get(key)
+    if raw is None:
+        return None
+    try:
+        f = float(raw)
+    except ValueError:
+        return None
+    return int(f) if f.is_integer() else f
 
 
 def _array_geometry(control: ParsedFPControl) -> ArrayGeometry:
-    """Derive an array control's layout from its parsed parts (the index display
-    partID 8002 and the element cell). Falls back to conservative sizes only if
-    the parts are absent (older cache / an odd control)."""
+    """Derive an array control's layout + element spec from its parsed parts (the
+    element cell's geometry and PROPERTIES). Falls back to conservative sizes
+    only if the parts are absent (older cache / an odd control)."""
     element = next((p for p in control.parts if p.part_id is None), None)
     outer_h = control.bounds[2] - control.bounds[0]
     if element is None:
         cell_h = 24
-        return ArrayGeometry(44, cell_h, max(1, outer_h // cell_h), "stdNum")
+        return ArrayGeometry(cell_h, max(1, outer_h // cell_h), "stdNum",
+                             True, None, None)
     cell_h = max(1, element.bounds[2] - element.bounds[0])
-    index_width = element.bounds[1]  # element-display left edge = index col width
     # Whole cells that fit the box the developer drew (LabVIEW never shows a
     # partial row) — the count falls out of the real bounds + real cell height.
     visible = max(1, outer_h // cell_h)
-    return ArrayGeometry(index_width, cell_h, visible, element.part_class)
+    num_min = _num_prop(element.props, "StdNumMin")
+    num_max = _num_prop(element.props, "StdNumMax")
+    # Integer representation when the data range is integral (I32/U8/...); a
+    # float representation (DBL/SGL) carries a fractional/scientific range.
+    integer = isinstance(num_min, int) and isinstance(num_max, int)
+    return ArrayGeometry(cell_h, visible, element.part_class, integer,
+                         num_min, num_max)
 
 
 def _render_widget(
@@ -170,8 +192,9 @@ def _render_widget(
         lines.append(
             f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
             f"readonly={control.is_indicator}, label={label!r}, "
-            f"index_width={geom.index_width}, cell_h={geom.cell_h}, "
-            f"visible={geom.visible}, element_type={geom.element_type!r})"
+            f"cell_h={geom.cell_h}, visible={geom.visible}, "
+            f"element_type={geom.element_type!r}, integer={geom.integer}, "
+            f"num_min={geom.num_min}, num_max={geom.num_max})"
         )
         return lines
 

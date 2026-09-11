@@ -1360,13 +1360,25 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
                 )
             )
     # The array element type/cell: the direct <ddo> child (its class is the
-    # element control type; its bounds one cell's real geometry).
+    # element control type; its bounds one cell's real geometry; its scalar-text
+    # children are the element's PROPERTIES -- representation/range/increment for
+    # a numeric, etc. -- carried so a view renders the control accurately).
     element = ddo.find("ddo")
     if element is not None:
         eb = element.find("bounds")
         if eb is not None and eb.text:
+            props = {
+                child.tag: child.text.strip()
+                for child in element
+                if child.tag != "bounds"
+                and len(child) == 0
+                and child.text
+                and child.text.strip()
+            }
             parts.append(
-                ParsedFPPart(None, element.get("class", ""), _parse_bounds(eb.text))
+                ParsedFPPart(
+                    None, element.get("class", ""), _parse_bounds(eb.text), props
+                )
             )
     return parts
 

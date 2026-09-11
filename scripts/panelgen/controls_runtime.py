@@ -21,10 +21,9 @@ from typing import Any
 
 from nicegui import ui
 
-# Fallback element-cell height / index-column width, used only when the parsed
-# part geometry is unavailable; normally these come from the VI's front panel.
+# Fallback element-cell height, used only when the parsed part geometry is
+# unavailable; normally this comes from the VI's front panel.
 _CELL_H = 22
-_INDEX_W = 44
 
 
 def _coerce(text: str) -> Any:
@@ -48,141 +47,107 @@ def array_control(
     *,
     readonly: bool = False,
     label: str = "",
-    index_width: int = _INDEX_W,
     cell_h: int = _CELL_H,
     visible: int = 2,
     element_type: str = "stdNum",
+    integer: bool = True,
+    num_min: float | None = None,
+    num_max: float | None = None,
 ) -> Callable[[], None]:
-    """1D array bound to ``state.<field>`` (a list), drawn like a LabVIEW array
-    control: an INDEX DISPLAY (stacked ▲/▼ spinner + a numeric index) on the left
-    and a viewport of ``visible`` WHOLE element cells on the right, showing
-    ``state.<field>[index : index + visible]``. Stepping the index pages the
-    window — there is no free scrollbar, so rows are never half-height.
+    """1D array bound to ``state.<field>`` (a list), rendered with AG Grid
+    (``ui.aggrid`` — a maintained data grid) configured from the VI's real
+    control properties. We own the MAPPING, not a bespoke grid:
 
-    ``index_width``, ``cell_h``, ``visible`` and ``element_type`` are READ FROM
-    THE VI's front panel (the panel passes them from the parsed part geometry —
-    the index display and element cell), so the control reproduces the box the
-    developer actually drew instead of guessing. Editing a cell writes it back;
-    on a control (not an indicator) typing into the first past-the-end cell
-    APPENDS, the way a LabVIEW array grows. Returns a refresh callable the Run
-    handler calls after writing a new list into an indicator.
+    - a pinned, read-only INDEX column (the element index, ``node.rowIndex``);
+    - a typed VALUE column — numeric (``cellDataType='number'``, integer
+      precision + data range from the VI's ``StdNumMin``/``StdNumMax``) or text —
+      editable unless this is an indicator;
+    - only ``visible`` rows show (``rowHeight`` = the VI's element-cell height);
+      the rest scroll, the always-on vertical scrollbar acting as the index
+      navigator — the way a LabVIEW array is paged by its index.
+
+    ``cell_h``, ``visible``, ``element_type``, ``integer`` and the numeric range
+    are READ FROM THE VI's front panel (the panel passes them from the parsed
+    part geometry + properties). Edits write straight back into
+    ``state.<field>``. Returns a refresh callable the Run handler calls after
+    writing a new list into an indicator.
     """
-    view = {"index": 0}  # top element index of the visible window
-
-    def _values() -> list:
-        return getattr(state, field) or []
-
-    def _clamp(i: int) -> int:
-        n = len(_values())
-        return max(0, min(i, max(0, n - 1)))
-
-    def _step(delta: int) -> None:
-        view["index"] = _clamp(view["index"] + delta)
-        index_box.value = view["index"]
-        cells.refresh()
-
-    def _set_index(value: Any) -> None:
-        try:
-            i = int(value)
-        except (TypeError, ValueError):
-            i = 0
-        view["index"] = _clamp(i)
-        # Snap the field back to the valid index so you can't sit on an
-        # out-of-range index and read phantom "valid" values.
-        index_box.value = view["index"]
-        cells.refresh()
-
-    def _edit(elem_index: int, text: str) -> None:
-        values = getattr(state, field)
-        if elem_index < len(values):
-            values[elem_index] = _coerce(text)
-        elif elem_index == len(values) and text.strip() != "":
-            values.append(_coerce(text))  # LabVIEW-style grow past the end
-            cells.refresh()
-
     numeric = element_type in ("stdNum", "stdNumeric")
-    # Right-align numeric values (spreadsheet convention) via the inner input.
-    input_align = "text-right" if numeric else "text-left"
 
-    @ui.refreshable
-    def cells() -> None:
-        values = list(_values())
-        n = len(values)
-        with ui.column().classes("grow no-wrap gap-0 h-full"):
-            for row in range(visible):
-                ei = view["index"] + row
-                past = ei >= n
-                # The first past-the-end cell of a control is the LabVIEW "grow"
-                # cell — editable; further past-end cells are empty (no element).
-                grow_cell = past and not readonly and ei == n
-                border = "" if row == visible - 1 else "border-b border-gray-200 "
-                bg = ""
-                if past and not grow_cell:
-                    bg = "bg-gray-100 dark:bg-neutral-800 "  # clearly no element
-                elif grow_cell:
-                    bg = "bg-gray-50 dark:bg-neutral-800/60 "
-                with ui.element("div").classes(
-                    f"w-full flex items-center px-1 {border}{bg}"
-                    "dark:border-neutral-700"
-                ).style(f"height:{cell_h}px"):
-                    if past and not grow_cell:
-                        # Empty slot: read as empty, never as a valid value.
-                        ui.label("").classes("w-full")
-                        continue
-                    cell = (
-                        ui.input(value=str(values[ei]) if not past else "")
-                        .props(
-                            f"dense borderless input-class='font-mono {input_align}'"
-                        )
-                        .classes("w-full text-xs")
-                        .style(f"min-height:{cell_h - 2}px")
-                    )
-                    if grow_cell:
-                        cell.props('placeholder="＋"')
-                    if readonly:
-                        cell.props("readonly").classes("text-gray-500")
-                    else:
-                        cell.on_value_change(lambda e, i=ei: _edit(i, e.value))
+    def _rows() -> list:
+        return [{"value": v} for v in (getattr(state, field) or [])]
 
-    # Outer FRAME: index display (left) | element display (right), the array
-    # shell. A border + dividers make cells countable and their boundaries clear.
+    value_col: dict[str, Any] = {
+        "headerName": "",
+        "field": "value",
+        "flex": 1,
+        "editable": not readonly,
+        "cellClass": "font-mono" + (" text-right" if numeric else ""),
+    }
+    if numeric:
+        value_col["cellDataType"] = "number"
+        editor: dict[str, Any] = {}
+        if num_min is not None:
+            editor["min"] = num_min
+        if num_max is not None:
+            editor["max"] = num_max
+        if integer:
+            editor["precision"] = 0
+        if editor:
+            value_col["cellEditor"] = "agNumberCellEditor"
+            value_col["cellEditorParams"] = editor
+    else:
+        value_col["cellDataType"] = "text"
+
+    options = {
+        "columnDefs": [
+            {
+                "headerName": "",
+                "valueGetter": "node.rowIndex",
+                "width": 46,
+                "editable": False,
+                "pinned": "left",
+                "sortable": False,
+                "suppressMovable": True,
+                "cellClass": "text-gray-400 text-right font-mono",
+            },
+            value_col,
+        ],
+        "rowData": _rows(),
+        "rowHeight": cell_h,
+        "headerHeight": 0,  # a LabVIEW array has no column header
+        "alwaysShowVerticalScroll": True,
+        "suppressMovableColumns": True,
+        "suppressCellFocus": readonly,
+    }
+
+    def _write(e: Any) -> None:
+        i = e.args.get("rowIndex")
+        vals = getattr(state, field)
+        if isinstance(i, int) and 0 <= i < len(vals):
+            v = e.args["data"]["value"]
+            vals[i] = _coerce(v) if isinstance(v, str) else v
+
+    # Caption (control name) above the grid; the grid shows exactly `visible`
+    # rows (sized to the VI's real cell height) and scrolls for the rest.
     with ui.column().classes("w-full h-full gap-0 no-wrap"):
         if label:
             ui.label(label).classes(
                 "text-xs font-semibold text-gray-500 shrink-0 truncate leading-none"
             )
-        with ui.row().classes(
-            "w-full grow no-wrap gap-0 items-stretch overflow-hidden "
-            "border border-gray-300 rounded-sm bg-white "
-            "dark:bg-neutral-900 dark:border-neutral-600"
-        ):
-            # Index DISPLAY (LEFT), visually distinct (recessed, bordered off):
-            # a STACKED ▲/▼ spinner next to the current index number. (NI: "an
-            # array shell includes an index display on the left, an element
-            # display on the right".)
-            with ui.element("div").classes(
-                "shrink-0 flex items-center justify-center gap-px "
-                "border-r border-gray-300 bg-gray-100 "
-                "dark:bg-neutral-800 dark:border-neutral-600"
-            ).style(f"width:{index_width}px"):
-                spin = "cursor-pointer leading-none text-gray-600 select-none block"
-                with ui.column().classes("no-wrap items-center gap-0 shrink-0"):
-                    ui.label("▲").classes(f"text-[8px] {spin}").on(
-                        "click", lambda: _step(1)
-                    )
-                    ui.label("▼").classes(f"text-[8px] {spin}").on(
-                        "click", lambda: _step(-1)
-                    )
-                index_box = (
-                    ui.number(value=0, min=0)
-                    .props("dense borderless input-class='text-center font-mono'")
-                    .classes("text-xs")
-                    .style(f"width:{max(16, index_width - 16)}px;min-height:18px")
-                )
-                index_box.on_value_change(lambda e: _set_index(e.value))
-            # Element DISPLAY (RIGHT): the stacked cells.
-            cells()
-    return cells.refresh
+        grid = (
+            ui.aggrid(options)
+            .classes("ag-theme-balham w-full shrink-0")
+            .style(f"height:{visible * cell_h + 4}px")
+        )
+    if not readonly:
+        grid.on("cellValueChanged", _write)
+
+    def refresh() -> None:
+        grid.options["rowData"] = _rows()
+        grid.update()
+
+    return refresh
 
 
 # --------------------------------------------------------------------------
