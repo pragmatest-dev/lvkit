@@ -88,9 +88,10 @@ def test_panel_uses_array_control_and_refreshes_indicator() -> None:
 
 def test_wrappers_pin_bounds_and_clip_overflow() -> None:
     """Each control wrapper is pinned to its FP bounds height with
-    overflow:hidden — so a growing array control scrolls inside its box instead
-    of expanding past its bounds and overlapping neighbors (the exact bug this
-    guards). It must NOT use min-height, which lets the box grow."""
+    overflow:hidden — the array control is an index-driven fixed viewport, never
+    a box that grows past its bounds. It must NOT use min-height (which grows).
+    An array's caption sits above the data box, so its wrapper is the bounds
+    height PLUS the caption strip (see _CAPTION_H)."""
     src = build_panel_module(
         _array_panel(),
         logic_module_stem="logic",
@@ -99,5 +100,7 @@ def test_wrappers_pin_bounds_and_clip_overflow() -> None:
         result_fields=["reordered_array"],
     )
     assert "min-height" not in src
-    # The array control (bounds 16..67 -> 51px tall) is pinned + clipped.
-    assert "height:51px;overflow:hidden;" in src
+    # The array box is 51px tall (bounds 16..67); wrapper = 51 + 16 caption.
+    assert "height:67px;overflow:hidden;" in src
+    # The array control is handed its real bounds height so it can size cells.
+    assert "height=51)" in src

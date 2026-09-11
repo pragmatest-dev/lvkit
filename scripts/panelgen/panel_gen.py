@@ -36,6 +36,9 @@ from .control_types import control_type_info, is_known_control_type
 from .naming import unique_field_names
 
 _MARGIN = 16
+# An array control's caption sits above its data box (LabVIEW draws it there);
+# the wrapper is lifted by this so the box itself keeps the full bounds height.
+_CAPTION_H = 16
 
 
 def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
@@ -126,11 +129,14 @@ def _render_widget(
         )
 
     if info.widget == "array":
-        # Editable/read-only 1D array, composed from native NiceGUI (controls.py).
+        # LabVIEW-style array control (index control + whole element cells; see
+        # controls.array_control). ``height`` is the control's real bounds height
+        # so the visible-cell count falls out of the box the developer drew.
         # Returns a refresh callable used to re-render an indicator after Run.
+        box_h = control.bounds[2] - control.bounds[0]
         lines.append(
             f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
-            f"readonly={control.is_indicator}, label={label!r})"
+            f"readonly={control.is_indicator}, label={label!r}, height={box_h})"
         )
         return lines
 
@@ -177,12 +183,15 @@ def _render_container(
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
         h = control.bounds[2] - control.bounds[0]
-        # Pin to the FP bounds exactly (fixed size, like the LV control) and clip
-        # overflow, so a growing array control scrolls inside its box instead of
-        # expanding past its bounds and overlapping neighbors.
+        # Pin the DATA box to the FP bounds exactly (fixed size, like the LV
+        # control) and clip overflow. An array control's caption sits ABOVE the
+        # box (as in LabVIEW), so its wrapper is lifted by _CAPTION_H and grown by
+        # it — leaving the full bounds height for the element cells.
+        is_array = control_type_info(control.control_type).widget == "array"
+        cap = _CAPTION_H if is_array and (control.name or fname) else 0
         style = (
-            f"position:absolute;left:{left}px;top:{top}px;"
-            f"width:{w}px;height:{h}px;overflow:hidden;"
+            f"position:absolute;left:{left}px;top:{top - cap}px;"
+            f"width:{w}px;height:{h + cap}px;overflow:hidden;"
         )
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(control, "state", fname, 12, [fname]))
