@@ -55,6 +55,7 @@ from .models import (
     ParsedConstant,
     ParsedDependencyRef,
     ParsedFPControl,
+    ParsedFPPart,
     ParsedFPTerminal,
     ParsedFrontPanel,
     ParsedNode,
@@ -1329,6 +1330,47 @@ def _recover_or_warn_unresolved_labels(
         )
 
 
+def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
+    """Collect a control's constituent parts with their control-local geometry
+    from the ddo's DIRECT children (the FPHb heap records these; we used to keep
+    only the outer box). For an array (``indArr``):
+
+    - the frame parts live under ``<partsList>`` as ``SL__arrayElement`` entries,
+      each with a ``partID`` + local ``bounds`` -- the index display (``partID``
+      8002), caption (16), and cosmetics;
+    - the array's element type/cell is a direct ``<ddo>`` child -- recorded with
+      ``part_id=None`` and its element control class (``stdNum`` etc.).
+
+    Simple scalar controls have no ``<partsList>`` frame parts / element ddo of
+    this shape, so this returns ``[]`` for them.
+    """
+    parts: list[ParsedFPPart] = []
+    parts_list = ddo.find("partsList")
+    if parts_list is not None:
+        for part in parts_list:
+            bounds_elem = part.find("bounds")
+            if bounds_elem is None or not bounds_elem.text:
+                continue
+            pid_elem = part.find("partID")
+            pid_text = pid_elem.text if pid_elem is not None else None
+            part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
+            parts.append(
+                ParsedFPPart(
+                    part_id, part.get("class", ""), _parse_bounds(bounds_elem.text)
+                )
+            )
+    # The array element type/cell: the direct <ddo> child (its class is the
+    # element control type; its bounds one cell's real geometry).
+    element = ddo.find("ddo")
+    if element is not None:
+        eb = element.find("bounds")
+        if eb is not None and eb.text:
+            parts.append(
+                ParsedFPPart(None, element.get("class", ""), _parse_bounds(eb.text))
+            )
+    return parts
+
+
 def _parse_ddo(
     ddo: ET.Element,
     uid: str,
@@ -1409,6 +1451,7 @@ def _parse_ddo(
         is_indicator=control_is_indicator,
         default_value=default_data,
         children=children,
+        parts=_parse_fp_parts(ddo),
     )
 
 

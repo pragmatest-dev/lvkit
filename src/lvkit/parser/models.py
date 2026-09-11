@@ -475,6 +475,21 @@ class ParsedFPDCOTypeMap:
         )
 
 
+@dataclass(frozen=True)
+class ParsedFPPart:
+    """A constituent part of a composite front-panel control, with its geometry
+    in the CONTROL'S OWN local coordinate space (the FPHb heap records these; the
+    parser used to discard them). For an array control these carry the real
+    layout the developer built: the index display (``part_id`` 8002), the caption
+    (16), frame cosmetics, and the element type/cell (``part_id`` None, whose
+    ``part_class`` is the element control type, e.g. ``stdNum``). A downstream
+    view sizes the array from these instead of guessing constants."""
+
+    part_id: int | None  # LabVIEW partID; None for the array element's own ddo
+    part_class: str  # e.g. "stdNum", "stdString", "label", "cosm"
+    bounds: tuple[int, int, int, int]  # top, left, bottom, right, control-local
+
+
 @dataclass
 class ParsedFPControl:
     """A control or indicator on the front panel."""
@@ -489,6 +504,9 @@ class ParsedFPControl:
     enum_values: list[str] = field(default_factory=list)
     ddo_uid: str | None = None  # UID of the inner ddo element (for ctlRefConst lookup)
     children: list[ParsedFPControl] = field(default_factory=list)  # For clusters
+    # Constituent parts with control-local geometry (array index display /
+    # element cell / frame). Empty for simple scalar controls.
+    parts: list[ParsedFPPart] = field(default_factory=list)
 
 
 @dataclass

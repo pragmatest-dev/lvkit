@@ -28,6 +28,7 @@ import importlib.util
 import inspect
 import sys
 import typing
+from dataclasses import dataclass
 from pathlib import Path
 
 from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
@@ -92,6 +93,37 @@ def introspect_entry(
     return param_names, result_fields
 
 
+@dataclass(frozen=True)
+class ArrayGeometry:
+    """An array control's layout, read from the VI's front panel (never guessed):
+    ``index_width`` = the index-display column width (the element cell's left
+    edge), ``cell_h`` = one element cell's height, ``visible`` = how many WHOLE
+    cells the box the developer drew shows, ``element_type`` = the cell's control
+    class (``stdNum``/``stdString``/...)."""
+
+    index_width: int
+    cell_h: int
+    visible: int
+    element_type: str
+
+
+def _array_geometry(control: ParsedFPControl) -> ArrayGeometry:
+    """Derive an array control's layout from its parsed parts (the index display
+    partID 8002 and the element cell). Falls back to conservative sizes only if
+    the parts are absent (older cache / an odd control)."""
+    element = next((p for p in control.parts if p.part_id is None), None)
+    outer_h = control.bounds[2] - control.bounds[0]
+    if element is None:
+        cell_h = 24
+        return ArrayGeometry(44, cell_h, max(1, outer_h // cell_h), "stdNum")
+    cell_h = max(1, element.bounds[2] - element.bounds[0])
+    index_width = element.bounds[1]  # element-display left edge = index col width
+    # Whole cells that fit the box the developer drew (LabVIEW never shows a
+    # partial row) — the count falls out of the real bounds + real cell height.
+    visible = max(1, outer_h // cell_h)
+    return ArrayGeometry(index_width, cell_h, visible, element.part_class)
+
+
 def _render_widget(
     control: ParsedFPControl,
     owner_expr: str,
@@ -129,14 +161,17 @@ def _render_widget(
         )
 
     if info.widget == "array":
-        # LabVIEW-style array control (index control + whole element cells; see
-        # controls.array_control). ``height`` is the control's real bounds height
-        # so the visible-cell count falls out of the box the developer drew.
-        # Returns a refresh callable used to re-render an indicator after Run.
-        box_h = control.bounds[2] - control.bounds[0]
+        # LabVIEW-style array control (index display + whole element cells; see
+        # controls.array_control). Its geometry is READ FROM THE VI: the parser
+        # exposes the index display (partID 8002) and element cell as parts, so
+        # the index-column width, cell height, visible-cell count and element
+        # widget all come from the real front panel, not invented constants.
+        geom = _array_geometry(control)
         lines.append(
             f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
-            f"readonly={control.is_indicator}, label={label!r}, height={box_h})"
+            f"readonly={control.is_indicator}, label={label!r}, "
+            f"index_width={geom.index_width}, cell_h={geom.cell_h}, "
+            f"visible={geom.visible}, element_type={geom.element_type!r})"
         )
         return lines
 

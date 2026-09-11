@@ -18,7 +18,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
+from lvkit.parser.models import ParsedFPControl, ParsedFPPart, ParsedFrontPanel
 
 # panelgen lives under scripts/, alongside gen_panel.py's own path shim.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -27,21 +27,31 @@ from panelgen.panel_gen import build_panel_module  # noqa: E402
 from panelgen.state_gen import build_state_module  # noqa: E402
 
 
+def _array_parts() -> list[ParsedFPPart]:
+    """The real array-control parts a VI records: an index display (partID 8002)
+    and an element cell (the element ddo, part_id None), in control-local coords
+    — element cell 26px tall starting at x=47, so index column = 47 wide."""
+    return [
+        ParsedFPPart(8002, "stdNum", (14, 2, 44, 43)),
+        ParsedFPPart(None, "stdNum", (21, 47, 47, 112)),
+    ]
+
+
 def _array_panel() -> ParsedFrontPanel:
     """array in, indices in, reordered array out — the Reorder shape."""
     return ParsedFrontPanel(
         controls=[
             ParsedFPControl(
                 uid="1", name="array", control_type="indArr",
-                bounds=(16, 16, 67, 132), is_indicator=False,
+                bounds=(16, 16, 67, 132), is_indicator=False, parts=_array_parts(),
             ),
             ParsedFPControl(
                 uid="2", name="indices", control_type="indArr",
-                bounds=(87, 16, 140, 132), is_indicator=False,
+                bounds=(87, 16, 140, 132), is_indicator=False, parts=_array_parts(),
             ),
             ParsedFPControl(
                 uid="3", name="reordered array", control_type="indArr",
-                bounds=(20, 269, 70, 386), is_indicator=True,
+                bounds=(20, 269, 70, 386), is_indicator=True, parts=_array_parts(),
             ),
         ],
         panel_bounds=(0, 0, 200, 400),
@@ -102,5 +112,8 @@ def test_wrappers_pin_bounds_and_clip_overflow() -> None:
     assert "min-height" not in src
     # The array box is 51px tall (bounds 16..67); wrapper = 51 + 16 caption.
     assert "height:67px;overflow:hidden;" in src
-    # The array control is handed its real bounds height so it can size cells.
-    assert "height=51)" in src
+    # The array control is sized from the REAL parsed part geometry: element cell
+    # 26px tall at x=47 -> cell_h=26, index_width=47, visible=(51-21)//26=1.
+    assert "cell_h=26" in src
+    assert "index_width=47" in src
+    assert "element_type='stdNum'" in src

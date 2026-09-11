@@ -21,10 +21,10 @@ from typing import Any
 
 from nicegui import ui
 
-# Element-cell height and index-column width, echoing the array glyph's
-# _CELL_H/_INDEX_W so the front panel reads like the block-diagram array.
-_CELL_H = 22.0
-_INDEX_W = 40.0
+# Fallback element-cell height / index-column width, used only when the parsed
+# part geometry is unavailable; normally these come from the VI's front panel.
+_CELL_H = 22
+_INDEX_W = 44
 
 
 def _coerce(text: str) -> Any:
@@ -48,23 +48,29 @@ def array_control(
     *,
     readonly: bool = False,
     label: str = "",
-    height: float = 3 * _CELL_H,
+    index_width: int = _INDEX_W,
+    cell_h: int = _CELL_H,
+    visible: int = 2,
+    element_type: str = "stdNum",
 ) -> Callable[[], None]:
     """1D array bound to ``state.<field>`` (a list), drawn like a LabVIEW array
-    control: an INDEX CONTROL (▲/▼ + a numeric index) on the left and a viewport
-    of ``visible = floor(height / _CELL_H)`` WHOLE element cells on the right,
-    showing ``state.<field>[index : index + visible]``. Stepping the index pages
-    the window — there is no free scrollbar, so rows are never half-height.
+    control: an INDEX DISPLAY (stacked ▲/▼ spinner + a numeric index) on the left
+    and a viewport of ``visible`` WHOLE element cells on the right, showing
+    ``state.<field>[index : index + visible]``. Stepping the index pages the
+    window — there is no free scrollbar, so rows are never half-height.
 
-    ``height`` is the control's real front-panel bounds height (the panel passes
-    it), so the visible-cell count falls out of the box the developer drew, just
-    like the block-diagram glyph. Editing a cell writes it back; on a control
-    (not an indicator) typing into the first past-the-end cell APPENDS, the way a
-    LabVIEW array grows. Returns a refresh callable the Run handler calls after
-    writing a new list into an indicator.
+    ``index_width``, ``cell_h``, ``visible`` and ``element_type`` are READ FROM
+    THE VI's front panel (the panel passes them from the parsed part geometry —
+    the index display and element cell), so the control reproduces the box the
+    developer actually drew instead of guessing. Editing a cell writes it back;
+    on a control (not an indicator) typing into the first past-the-end cell
+    APPENDS, the way a LabVIEW array grows. Returns a refresh callable the Run
+    handler calls after writing a new list into an indicator.
     """
-    visible = max(1, int(height // _CELL_H))
     view = {"index": 0}  # top element index of the visible window
+    # LabVIEW shows a greyed type-default in unset/past-end cells (0 for a
+    # numeric element, empty for text) rather than a blank box.
+    default_display = "0" if element_type in ("stdNum", "stdNumeric") else ""
 
     def _values() -> list:
         return getattr(state, field) or []
@@ -106,16 +112,20 @@ def array_control(
                 # cell — editable, hinted; further past-end cells are inert.
                 grow_cell = past and not readonly and ei == n
                 with ui.row().classes("no-wrap items-center gap-0 w-full").style(
-                    f"height:{_CELL_H}px"
+                    f"height:{cell_h}px"
                 ):
+                    shown = str(values[ei]) if not past else ""
                     cell = (
-                        ui.input(value="" if past else str(values[ei]))
+                        ui.input(value=shown)
                         .props("dense borderless")
                         .classes("w-full text-xs")
-                        .style(f"min-height:{_CELL_H}px")
+                        .style(f"min-height:{cell_h}px")
                     )
                     if past:
                         cell.classes("opacity-40")  # greyed unset/past-end cell
+                        # Non-grow past-end cells show the type default (LV style).
+                        if not grow_cell and default_display:
+                            cell.props(f"placeholder={default_display}")
                     if grow_cell:
                         cell.props('placeholder="+"')
                     if readonly or (past and not grow_cell):
@@ -131,26 +141,30 @@ def array_control(
             ui.label(label).classes(
                 "text-xs font-semibold text-gray-500 shrink-0 truncate leading-none"
             )
-        with ui.row().classes("w-full grow no-wrap gap-0 items-stretch"):
-            # Index control: tiny ▲/▼ carets (plain clickable labels so their
-            # height is exact — Quasar buttons won't shrink into a short box) plus
-            # a TYPEABLE index field, so you can step or jump to any index.
-            with ui.column().classes(
-                "shrink-0 no-wrap items-center justify-center gap-0"
-            ).style(f"width:{_INDEX_W}px"):
-                caret = "cursor-pointer leading-none text-gray-500 select-none"
-                ui.label("▲").classes(f"text-[9px] {caret}").on(
-                    "click", lambda: _step(1)
-                )
-                index_box = (
-                    ui.number(value=0, min=0)
-                    .props("dense borderless input-class=text-center")
-                    .classes("text-xs")
-                    .style(f"width:{_INDEX_W}px;min-height:18px")
-                )
-                index_box.on_value_change(lambda e: _set_index(e.value))
-                ui.label("▼").classes(f"text-[9px] {caret}").on(
-                    "click", lambda: _step(-1)
-                )
+        with ui.row().classes("w-full grow no-wrap gap-0 items-start"):
+            # LabVIEW array index display (LEFT): a STACKED ▲/▼ spinner (up
+            # directly on down, together) next to the index digits — one small
+            # control, vertically centred against the element display. The
+            # element display sits to its RIGHT. (NI: "an array shell includes an
+            # index display on the left, an element display on the right".)
+            with ui.element("div").classes(
+                "shrink-0 h-full flex items-center"
+            ).style(f"width:{index_width}px"):
+                with ui.row().classes("no-wrap items-center gap-0"):
+                    spin = "cursor-pointer leading-none text-gray-600 select-none block"
+                    with ui.column().classes("no-wrap items-center gap-0 shrink-0"):
+                        ui.label("▲").classes(f"text-[8px] {spin}").on(
+                            "click", lambda: _step(1)
+                        )
+                        ui.label("▼").classes(f"text-[8px] {spin}").on(
+                            "click", lambda: _step(-1)
+                        )
+                    index_box = (
+                        ui.number(value=0, min=0)
+                        .props("dense borderless input-class=text-center")
+                        .classes("text-xs grow")
+                        .style("min-height:18px")
+                    )
+                    index_box.on_value_change(lambda e: _set_index(e.value))
             cells()
     return cells.refresh
