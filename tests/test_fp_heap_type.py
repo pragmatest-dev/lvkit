@@ -125,6 +125,33 @@ def test_unmodelled_control_returns_none():
     )
 
 
+def test_array_of_clusters_exposes_element_fields():
+    """An ``indArr`` whose element ddo is a ``stdClust`` exposes the element
+    cluster's fields as the array control's ``children`` (so a view can render one
+    typed column per field), the same way a standalone cluster does."""
+    from lvkit.parser.vi import _parse_ddo
+
+    arr = ET.fromstring(
+        '<ddo class="indArr" uid="1">'
+        "  <bounds>(0,0,100,200)</bounds><objFlags>0</objFlags>"
+        '  <ddo class="stdClust" uid="2">'
+        "    <bounds>(0,0,60,100)</bounds>"
+        '    <ddo class="stdString" uid="3">'
+        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
+        '    <ddo class="stdNum" uid="4">'
+        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
+        '    <ddo class="stdBool" uid="5">'
+        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
+        "  </ddo>"
+        "</ddo>"
+    )
+    ctrl = _parse_ddo(arr, "1", set())
+    assert ctrl is not None and ctrl.control_type == "indArr"
+    assert [c.control_type for c in ctrl.children] == [
+        "stdString", "stdNum", "stdBool",
+    ]
+
+
 # --- end-to-end on a real LabVIEW 8.2 VI (no VCTP) --------------------------
 
 pytestmark_samples = pytest.mark.needs_samples

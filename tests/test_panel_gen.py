@@ -85,6 +85,50 @@ def test_scalar_label_is_a_caption_above_the_box() -> None:
     compile(src, "<panel>", "exec")
 
 
+def _cluster_array_panel() -> ParsedFrontPanel:
+    """An array whose element is a cluster (source:str, code:num, status:bool) —
+    the error-array shape. The parser exposes the element cluster's fields as the
+    array control's ``children``."""
+    return ParsedFrontPanel(
+        controls=[
+            ParsedFPControl(
+                uid="1", name="errors", control_type="indArr",
+                bounds=(16, 16, 140, 186), is_indicator=False, parts=_array_parts(),
+                children=[
+                    ParsedFPControl(uid="1a", name="source",
+                                    control_type="stdString", bounds=(0, 0, 17, 60),
+                                    is_indicator=False),
+                    ParsedFPControl(uid="1b", name="code", control_type="stdNum",
+                                    bounds=(0, 0, 17, 60), is_indicator=False),
+                    ParsedFPControl(uid="1c", name="status", control_type="stdBool",
+                                    bounds=(0, 0, 17, 60), is_indicator=False),
+                ],
+            ),
+        ],
+        panel_bounds=(0, 0, 200, 300),
+    )
+
+
+def test_array_of_clusters_emits_typed_columns() -> None:
+    """An array of clusters renders one typed AG Grid column per cluster field
+    (via ArrayField), not a single scalar value column."""
+    src = build_panel_module(
+        _cluster_array_panel(),
+        logic_module_stem="f",
+        logic_func_name="f",
+        param_names=["errors"],
+        result_fields=None,
+    )
+    assert "fields=[ArrayField(" in src
+    assert "ArrayField('source', 'source', 'stdString')" in src
+    assert "ArrayField('code', 'code', 'stdNum')" in src
+    assert "ArrayField('status', 'status', 'stdBool')" in src
+    # ArrayField is imported, and this array is NOT emitted as a scalar column.
+    assert "ArrayField" in src.split("def build_panel")[0]  # in the imports
+    assert "element_type=" not in src
+    compile(src, "<panel>", "exec")
+
+
 def _array_panel() -> ParsedFrontPanel:
     """array in, indices in, reordered array out — the Reorder shape."""
     return ParsedFrontPanel(

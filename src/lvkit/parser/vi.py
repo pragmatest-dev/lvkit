@@ -1383,6 +1383,27 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     return parts
 
 
+def _parse_cluster_fields(
+    cluster_ddo: ET.Element, unresolved_uids: set[str]
+) -> list[ParsedFPControl]:
+    """Parse a cluster's field controls (each descendant ``std*`` ddo, skipping
+    nested clusters) into ParsedFPControls -- the cluster's fields, in order. Used
+    for a standalone stdClust and for an array's stdClust element alike."""
+    fields: list[ParsedFPControl] = []
+    for child_elem in cluster_ddo.findall(".//*"):
+        child_class = child_elem.get("class", "")
+        if child_class.startswith("std") and child_class != "stdClust":
+            child_uid = child_elem.get("uid", "")
+            if child_uid:
+                child_control = _parse_ddo(
+                    child_elem, child_uid, set(), None,
+                    unresolved_uids=unresolved_uids,
+                )
+                if child_control:
+                    fields.append(child_control)
+    return fields
+
+
 def _parse_ddo(
     ddo: ET.Element,
     uid: str,
@@ -1437,23 +1458,16 @@ def _parse_ddo(
         flags = safe_int(ddo.find("objFlags"))
         control_is_indicator = is_indicator(flags)
 
-    # Parse children for clusters
+    # Cluster fields: a stdClust's own fields, or -- for an array OF clusters
+    # (indArr whose element ddo is a stdClust) -- the element cluster's fields,
+    # so a view can render one typed column per field. Same extraction either way.
     children = []
     if control_type == "stdClust":
-        for child_elem in ddo.findall(".//*"):
-            child_class = child_elem.get("class", "")
-            if child_class.startswith("std") and child_class != "stdClust":
-                child_uid = child_elem.get("uid", "")
-                if child_uid:
-                    child_control = _parse_ddo(
-                        child_elem,
-                        child_uid,
-                        set(),
-                        None,
-                        unresolved_uids=unresolved_uids,
-                    )
-                    if child_control:
-                        children.append(child_control)
+        children = _parse_cluster_fields(ddo, unresolved_uids)
+    elif control_type == "indArr":
+        element = ddo.find("ddo")
+        if element is not None and element.get("class") == "stdClust":
+            children = _parse_cluster_fields(element, unresolved_uids)
 
     return ParsedFPControl(
         uid=uid,

@@ -8,25 +8,30 @@ Python **script** plus an *optional* faithful NiceGUI **front panel** bound to i
 Status (2026-09-11): `state.py` already nests a cluster as a bindable dataclass
 (`state_gen`); the rest is partial/unbuilt.
 
-1. **Standalone cluster** (a cluster control/indicator) — REFRESH what exists:
-   a bordered "cluster shell" containing each field rendered BY ITS TYPE (recurse
-   the per-type widget logic: numeric/string/path/bool/enum/array/nested cluster),
-   each bound to `state.<cluster>.<field>`. Bring it up to the current outlined
-   controls + the anti-clip reflow so nested fields aren't clipped (the pre-
-   refactor `_render_widget` stdClust branch has the old peephole problem).
+1. **Standalone cluster** (a cluster control/indicator) — ✅ **DONE.** A bordered
+   "cluster shell" containing each field rendered BY ITS TYPE (the per-type widget
+   logic recurses: numeric/string/path/bool/enum), each bound to
+   `state.<cluster>.<field>` (a nested bindable dataclass). The caption-above-box
+   refactor also cleared the old peephole clipping, so no special handling is
+   needed. Verified on OpenG/JKI `Is an Error (error cluster)` (source/code/status).
 
-2. **Array of clusters** — AG Grid's sweet spot (a real multi-column table). For
-   an `indArr` whose element ddo is `stdClust`:
-   - ✅ **`array_control` DONE**: pass `fields=[ArrayField(...)]` (one per cluster
-     field) and it builds a COLUMN PER FIELD, each declaring its `cellDataType`
+2. **Array of clusters** — ✅ **DONE, end to end** (AG Grid's sweet spot: a real
+   multi-column table). For an `indArr` whose element ddo is `stdClust`:
+   - `array_control`: pass `fields=[ArrayField(...)]` (one per cluster field) and
+     it builds a COLUMN PER FIELD, each declaring its `cellDataType`
      (number/boolean/text) from the field's real type, with `state.<field>` a
      `list[dict]`. Rows are stored verbatim (AG Grid delivers each cell already
-     typed) — no per-value coercion, so a scalar array is just the one-field case
-     of the same path. add/remove/drag/edit all carry dicts.
-   - ⬜ Parser: expose the element cluster's FIELD SPECS (name + type + numeric
-     range/precision + enum values) — extend the element-part parsing.
-   - ⬜ `panel_gen`: detect an `indArr`-of-`stdClust` and emit the `fields=`.
-   Real corpus VIs: DAQ AO SFP/Main, LabVIEW-DAQ Two Photon.
+     typed) — no per-value coercion; a scalar array is the one-field case.
+   - Parser (`_parse_cluster_fields`): an `indArr` whose element ddo is a
+     `stdClust` exposes the element cluster's fields as the array control's
+     `children` (same extraction as a standalone cluster).
+   - `panel_gen`: an array control with `children` emits `fields=[ArrayField(key,
+     header, element_type)]`, a fixed row height + column header, and a widened
+     box. The codegen already types a cluster array as `list[dict]`, so state and
+     grid agree with no glue.
+   - Verified on JKI `Is an Error (error array)` (source/code/status columns).
+   Deferred: numeric int-vs-float representation + range per cluster field (the
+   scalar cluster child carries no StdNumMin/Max in the heap; defaults to float).
 
 3. **Depth**: a cluster field that is itself an array → nested array control in
    the standalone case; for array-of-clusters that's a 2D cell (defer — start

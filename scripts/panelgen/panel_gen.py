@@ -202,6 +202,22 @@ def _render_widget(
         # the index-column width, cell height, visible-cell count and element
         # widget all come from the real front panel, not invented constants.
         geom = _array_geometry(control)
+        if control.children:
+            # Array OF CLUSTERS: one typed column per cluster field (state is a
+            # list of dicts, matching the codegen's list[dict] for a cluster).
+            fnames = unique_field_names(control.children)
+            specs = ", ".join(
+                f"ArrayField({fnames[ch.uid]!r}, {ch.name!r}, "
+                f"{ch.control_type!r})"
+                for ch in control.children
+            )
+            lines.append(
+                f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
+                f"readonly={control.is_indicator}, label={label!r}, "
+                f"cell_h={_CLUSTER_ROW_H}, visible={geom.visible}, "
+                f"fields=[{specs}])"
+            )
+            return lines
         lines.append(
             f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
             f"readonly={control.is_indicator}, label={label!r}, "
@@ -269,6 +285,14 @@ class _Placed:
 # the grid's own border, on top of the data rows.
 _ARRAY_CHROME_H = 32
 _ANTI_OVERLAP_GAP = 8
+# An array OF CLUSTERS is a multi-column table: each cluster is one horizontal
+# ROW of a standard height (not the cluster's tall vertical FP layout), under a
+# column-header row.
+_CLUSTER_ROW_H = 28
+_CLUSTER_HEADER_H = 22
+# Width to give each cluster-field column, plus the index + delete gutters.
+_CLUSTER_COL_W = 96
+_CLUSTER_GUTTER_W = 60
 # A NiceGUI outlined dense input/number/select box is ~44px tall; a switch ~28.
 # The caption above adds _CAPTION_H. LV boxes are shorter, so scalars get this
 # usable box height (plus caption) rather than being clipped to the tiny box.
@@ -301,10 +325,21 @@ def _render_container(
         w = control.bounds[3] - control.bounds[1]
         widget = control_type_info(control.control_type).widget
         is_array = widget == "array"
+        if is_array and control.children:
+            # A cluster array is a multi-column table; the LV array box (drawn for
+            # the tall vertical cluster) is too narrow for it, so widen to fit one
+            # column per field plus the index/delete gutters.
+            w = max(w, len(control.children) * _CLUSTER_COL_W + _CLUSTER_GUTTER_W)
         cap = _CAPTION_H if (control.name or fname) else 0
         if is_array:
             geom = _array_geometry(control)
-            render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
+            if control.children:  # array of clusters: rows + a column header
+                render_h = (
+                    _ARRAY_CHROME_H + _CLUSTER_HEADER_H
+                    + geom.visible * _CLUSTER_ROW_H
+                )
+            else:
+                render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
             top -= cap  # caption sits above the data box
         else:
             # Scalars get the same caption-above-box treatment as arrays (the
@@ -423,6 +458,17 @@ def _has_path(controls: list[ParsedFPControl]) -> bool:
     return False
 
 
+def _has_cluster_array(controls: list[ParsedFPControl]) -> bool:
+    """Any array control whose element is a cluster (it carries the cluster's
+    field children) -- these emit ArrayField specs."""
+    for c in controls:
+        if control_type_info(c.control_type).widget == "array" and c.children:
+            return True
+        if c.control_type == "stdClust" and _has_cluster_array(c.children):
+            return True
+    return False
+
+
 def build_panel_module(
     front_panel: ParsedFrontPanel,
     logic_module_stem: str,
@@ -459,6 +505,8 @@ def build_panel_module(
     controls_imports = ["RunController", "toolbar"]
     if has_array:
         controls_imports.append("array_control")
+    if _has_cluster_array(front_panel.controls):
+        controls_imports.append("ArrayField")
     if _has_path(front_panel.controls):
         controls_imports.append("path_control")
 
