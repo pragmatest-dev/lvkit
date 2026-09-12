@@ -17,6 +17,7 @@ past-the-end (greyed) cell appends, the way a LabVIEW array grows.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from nicegui import ui
@@ -24,6 +25,69 @@ from nicegui import ui
 # Fallback element-cell height, used only when the parsed part geometry is
 # unavailable; normally this comes from the VI's front panel.
 _CELL_H = 22
+
+
+# --------------------------------------------------------------------------
+# Theme: ONE place that restyles the whole panel. Because we own the mapping
+# (not the widgets), every control + the toolbar read from the active Theme, so
+# a single switch re-skins everything — a modern look or a classic LabVIEW one —
+# WITHOUT touching any behavior. Styling only: colors/fonts/density, never
+# geometry or wiring.
+# --------------------------------------------------------------------------
+@dataclass(frozen=True)
+class Theme:
+    """Styling knobs for a panel. ``grid_class`` picks the AG Grid base theme;
+    ``grid_vars`` are its ``--ag-*`` design tokens; ``toolbar_classes`` styles the
+    VI toolbar row."""
+
+    name: str
+    grid_class: str
+    grid_vars: str
+    toolbar_classes: str
+
+
+MODERN = Theme(
+    name="modern",
+    grid_class="ag-theme-quartz",
+    grid_vars=(
+        "font-size:12px;--ag-grid-size:4px;--ag-cell-horizontal-padding:6px;"
+        "--ag-row-hover-color:#eff6ff;--ag-border-color:#e5e7eb"
+    ),
+    toolbar_classes=(
+        "w-full items-center gap-1 px-2 py-1 border-b bg-gray-50 "
+        "dark:bg-neutral-800 dark:border-neutral-700"
+    ),
+)
+
+# A nod to classic LabVIEW / Win-9x: compact, boxy, warm-grey, Tahoma.
+CLASSIC = Theme(
+    name="classic",
+    grid_class="ag-theme-balham",
+    grid_vars=(
+        "font-size:11px;--ag-grid-size:3px;--ag-cell-horizontal-padding:4px;"
+        "--ag-borders:solid 1px;--ag-border-color:#808080;"
+        "--ag-background-color:#ece9d8;--ag-header-background-color:#d4d0c8;"
+        "--ag-odd-row-background-color:#f5f4ec;--ag-row-hover-color:#e8e6d5;"
+        "--ag-font-family:Tahoma,Geneva,sans-serif"
+    ),
+    toolbar_classes=(
+        "w-full items-center gap-1 px-2 py-1 border-b "
+        "bg-[#d4d0c8] border-[#808080]"
+    ),
+)
+
+_ACTIVE_THEME = MODERN
+
+
+def set_theme(theme: Theme) -> None:
+    """Switch the active theme (call once, e.g. in app.py, before build_panel).
+    Restyles every control + the toolbar; behavior is unaffected."""
+    global _ACTIVE_THEME
+    _ACTIVE_THEME = theme
+
+
+def theme() -> Theme:
+    return _ACTIVE_THEME
 
 # The ✕ delete affordance is hidden until its row is hovered (uncluttered), grey
 # then, red when you point at it. Registered at MODULE IMPORT (before ui.run) so
@@ -198,16 +262,13 @@ def array_control(
                 ui.button(icon="add", on_click=_add).props(
                     "flat dense round size=xs"
                 ).classes("text-gray-500 min-w-0")
+        t = theme()
         grid = (
             ui.aggrid(options)
-            .classes("ag-theme-balham w-full shrink-0")
-            .style(
-                # Compact density so real values fit the VI's small box (the
-                # balham default padding is generous). One place to retune.
-                f"height:{visible * cell_h + 4}px;font-size:12px;"
-                "--ag-cell-horizontal-padding:4px;--ag-grid-size:3px;"
-                "--ag-borders:solid 1px"
-            )
+            .classes(f"{t.grid_class} w-full shrink-0")
+            # Height comes from the VI (visible rows x real cell height); the
+            # look (base theme + tokens) comes from the active Theme.
+            .style(f"height:{visible * cell_h + 4}px;{t.grid_vars}")
         )
 
     def refresh() -> None:
@@ -259,13 +320,6 @@ _SVG_PAUSE = (
     '<rect x="4.5" y="3" width="2.6" height="10"/>'
     '<rect x="8.9" y="3" width="2.6" height="10"/></svg>'
 )
-
-# Theme (modern default). One place to restyle the whole toolbar.
-_TOOLBAR_CLASSES = (
-    "w-full items-center gap-1 px-2 py-1 border-b bg-gray-50 "
-    "dark:bg-neutral-800 dark:border-neutral-700"
-)
-
 
 class RunController:
     """Drives a panel's execution the LabVIEW way, off ONE ``compute`` callable
@@ -344,7 +398,7 @@ def toolbar(controller: RunController) -> None:
     @ui.refreshable
     def bar() -> None:
         running = controller.running
-        with ui.row().classes(_TOOLBAR_CLASSES):
+        with ui.row().classes(theme().toolbar_classes):
             _tb_button(_SVG_RUN, "Run", controller.run_once,
                        enabled=not running, color="text-green-700")
             _tb_button(_SVG_RUNCONT, "Run Continuously", controller.run_continuous,
