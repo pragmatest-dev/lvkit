@@ -208,7 +208,13 @@ def _render_widget(
             fnames = unique_field_names(control.children)
             specs = ", ".join(
                 f"ArrayField({fnames[ch.uid]!r}, {ch.name!r}, "
-                f"{ch.control_type!r})"
+                f"{ch.control_type!r}"
+                + (
+                    f", values={list(ch.enum_values)!r}"
+                    if ch.control_type in ("stdEnum", "stdRing") and ch.enum_values
+                    else ""
+                )
+                + ")"
                 for ch in control.children
             )
             lines.append(
@@ -218,12 +224,15 @@ def _render_widget(
                 f"fields=[{specs}])"
             )
             return lines
+        enum_arg = ""
+        if geom.element_type in ("stdEnum", "stdRing") and control.enum_values:
+            enum_arg = f", enum_values={list(control.enum_values)!r}"
         lines.append(
             f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
             f"readonly={control.is_indicator}, label={label!r}, "
             f"cell_h={geom.cell_h}, visible={geom.visible}, "
             f"element_type={geom.element_type!r}, integer={geom.integer}, "
-            f"num_min={geom.num_min}, num_max={geom.num_max})"
+            f"num_min={geom.num_min}, num_max={geom.num_max}{enum_arg})"
         )
         return lines
 

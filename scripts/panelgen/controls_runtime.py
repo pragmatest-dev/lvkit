@@ -310,6 +310,10 @@ class ArrayField:
     integer: bool = False
     num_min: float | None = None
     num_max: float | None = None
+    values: list[str] | None = None  # enum/ring options (agSelectCellEditor)
+
+
+_ENUM_TYPES = ("stdEnum", "stdRing")
 
 
 def _field_default(f: ArrayField) -> Any:
@@ -318,6 +322,8 @@ def _field_default(f: ArrayField) -> Any:
         return 0
     if f.element_type == "stdBool":
         return False
+    if f.element_type in _ENUM_TYPES and f.values:
+        return f.values[0]
     return ""
 
 
@@ -349,6 +355,11 @@ def _field_column(f: ArrayField, *, editable: bool) -> dict[str, Any]:
             col["cellEditorParams"] = editor
     elif f.element_type == "stdBool":
         col["cellDataType"] = "boolean"
+    elif f.element_type in _ENUM_TYPES and f.values:
+        # enum/ring -> a dropdown of its options, matching ui.select outside.
+        col["cellDataType"] = "text"
+        col["cellEditor"] = "agSelectCellEditor"
+        col["cellEditorParams"] = {"values": list(f.values)}
     else:
         col["cellDataType"] = "text"
     return col
@@ -366,6 +377,7 @@ def array_control(
     integer: bool = True,
     num_min: float | None = None,
     num_max: float | None = None,
+    enum_values: list[str] | None = None,
     fields: list[ArrayField] | None = None,
 ) -> Callable[[], None]:
     """1D array bound to ``state.<field>`` (a list), rendered with AG Grid
@@ -391,7 +403,8 @@ def array_control(
     # a cluster array supplies its fields. Rows are dicts either way.
     cluster = fields is not None
     cols: list[ArrayField] = fields if cluster else [
-        ArrayField("value", "", element_type, integer, num_min, num_max)
+        ArrayField("value", "", element_type, integer, num_min, num_max,
+                   values=enum_values)
     ]
 
     def _row_from(elem: Any) -> dict[str, Any]:

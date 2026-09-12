@@ -129,6 +129,37 @@ def test_array_of_clusters_emits_typed_columns() -> None:
     compile(src, "<panel>", "exec")
 
 
+def test_array_of_clusters_enum_field_emits_values() -> None:
+    """An enum/ring cluster field carries its options through as ArrayField
+    values, so the grid gives a dropdown (agSelectCellEditor) like ui.select."""
+    panel = ParsedFrontPanel(
+        controls=[
+            ParsedFPControl(
+                uid="1", name="items", control_type="indArr",
+                bounds=(16, 16, 140, 186), is_indicator=False, parts=_array_parts(),
+                children=[
+                    ParsedFPControl(uid="1a", name="name",
+                                    control_type="stdString", bounds=(0, 0, 17, 60),
+                                    is_indicator=False),
+                    ParsedFPControl(uid="1b", name="mode", control_type="stdEnum",
+                                    bounds=(0, 0, 17, 60), is_indicator=False,
+                                    enum_values=["No Op", "Increment", "Reset"]),
+                ],
+            ),
+        ],
+        panel_bounds=(0, 0, 200, 300),
+    )
+    src = build_panel_module(
+        panel, logic_module_stem="f", logic_func_name="f",
+        param_names=["items"], result_fields=None,
+    )
+    assert (
+        "ArrayField('mode', 'mode', 'stdEnum', "
+        "values=['No Op', 'Increment', 'Reset'])"
+    ) in src
+    compile(src, "<panel>", "exec")
+
+
 def _array_panel() -> ParsedFrontPanel:
     """array in, indices in, reordered array out — the Reorder shape."""
     return ParsedFrontPanel(
