@@ -102,10 +102,24 @@ downstream spec that spans **logic AND UI presentation** can consume both from
 one model. This is a reason the parser-first work matters beyond the panel.
 
 ## Build order
-1. **Parser**: expose FP control child-part geometry (this note's §3) — real bounds.
-2. Rewire the array control to real index-display/element sizes + visible count.
-3. Consistent VI toolbar/header (Run / Run Continuous / Abort / Pause, clean-room
-   glyphs, styleable) + the Run/latch execution harness (§2).
-4. `bindable_dataclass` state + `panel.py` bindings; keep logic pure + UI optional (§1).
-5. State-machine / event-structure VIs under Run.
-6. Waveform example.
+1. ✅ **Parser**: expose FP control child-part geometry (§3) — real bounds
+   (`ParsedFPControl.parts`, commit dd47588).
+2. ✅ Array control sized from real index-display/element/visible geometry
+   (dd47588).
+3. ✅ Consistent VI toolbar (Run / Run Continuous / Abort / Pause, clean-room
+   glyphs) + Run/latch execution harness `RunController` (6ef73f1).
+4. ✅ `@binding.bindable_dataclass` state + reactive bindings (inputs two-way,
+   indicators one-way `bind_value_from`); logic stays pure + UI optional (e2885d4).
+5. ⬜ State-machine / event-structure VIs under Run (a longer-lived `compute`
+   that runs the VI's event loop; the same Abort stops it). The corpus has 84
+   event-structure VIs (incl. a WaveGen SFP) but they need event-structure +
+   hardware codegen — a separate lift beyond FP reproduction.
+6. ✅ Waveform example — `waveform_indicator` (ui.echart) in the control library
+   + `examples/waveform-nicegui/` (pure sine logic + toolbar; Run draws, Run
+   Continuously animates). No graph *controls* exist in the OpenG corpus, so
+   this is a focused example proving the pattern (adopt a maintained chart lib).
+
+**Also done:** a central `Theme` seam (MODERN/CLASSIC presets, one switch
+re-skins the whole panel); the array control adopts AG Grid (typed cells from
+the VI's real properties, add/remove/drag-reorder, hover-reveal chrome); and a
+click-to-run **gallery** (`scripts/gen_gallery.py`).
