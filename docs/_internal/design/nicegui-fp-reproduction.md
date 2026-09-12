@@ -3,6 +3,33 @@
 Captures the design as directed (2026-09-11). Goal: a VI becomes a lean, idiomatic
 Python **script** plus an *optional* faithful NiceGUI **front panel** bound to it.
 
+## Clusters — plan (standalone + arrays of clusters)
+
+Status (2026-09-11): `state.py` already nests a cluster as a bindable dataclass
+(`state_gen`); the rest is partial/unbuilt.
+
+1. **Standalone cluster** (a cluster control/indicator) — REFRESH what exists:
+   a bordered "cluster shell" containing each field rendered BY ITS TYPE (recurse
+   the per-type widget logic: numeric/string/path/bool/enum/array/nested cluster),
+   each bound to `state.<cluster>.<field>`. Bring it up to the current outlined
+   controls + the anti-clip reflow so nested fields aren't clipped (the pre-
+   refactor `_render_widget` stdClust branch has the old peephole problem).
+
+2. **Array of clusters** — NEW, and AG Grid's sweet spot (a real multi-column
+   table). For an `indArr` whose element ddo is `stdClust`:
+   - Parser: expose the element cluster's FIELD SPECS (name + type + numeric
+     range/precision + enum values) — extend the element-part parsing.
+   - `array_control`: when the element is a cluster, build a COLUMN PER FIELD with
+     a type-specific cellEditor (agNumber / text / checkbox / select), rows =
+     dicts `{field: value}`. The existing add/remove/drag/edit wiring already uses
+     dict rowData — this is just more columns.
+   - `state.<field>`: `list[dict]`.
+   Real corpus VIs: DAQ AO SFP/Main, LabVIEW-DAQ Two Photon.
+
+3. **Depth**: a cluster field that is itself an array → nested array control in
+   the standalone case; for array-of-clusters that's a 2D cell (defer — start
+   with scalar cluster fields).
+
 ## 1. The split: pure script vs UI wrapper (separation of concerns)
 
 - **`logic.py` — the pure script.** The VI's block-diagram logic as idiomatic
