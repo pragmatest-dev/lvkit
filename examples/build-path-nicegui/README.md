@@ -10,12 +10,14 @@ scalar instance).
 - **`logic.py`** — the block diagram, produced by lvkit's deterministic
   graph→Python pass. Pure Python; imports nothing from the UI. This is the
   deterministic-oracle output you validate/train an AI author against.
-- **`panel.py`** — the front panel, derived from the VI's connector pane: each
-  typed input picks its widget, widgets bind to a plain dataclass, and the Run
-  handler calls `logic.build_path` off the event loop via `run.io_bound`. This
-  is the shape the NiceGUI generator will emit from any function-style VI's pane
-  (hand-assembled here to prove the vertical).
-- **`app.py`** — mounts the panel and serves it.
+- **`panel.py`** — the front panel, built from the same control library the
+  generator uses: a bindable `State`, the VI toolbar + `RunController`, and
+  `path_control` (an outlined path field with a real server-filesystem Browse).
+  Run latches the inputs, calls `logic.build_path` off the event loop via
+  `run.io_bound`, and writes the appended path. Hand-assembled here to prove the
+  vertical; the generator emits the same building blocks as a `<vi>_panel.py`.
+- **`app.py`** — single-sources the control runtime (aliased as `controls`),
+  mounts the panel, and serves it.
 
 ## Run
 

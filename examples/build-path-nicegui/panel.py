@@ -1,45 +1,40 @@
-"""Front panel for Build Path, derived from its connector pane.
-
-The connector pane gives two typed inputs (base path, name/relative path) and
-one output (appended path). Each input's type picks its widget; widgets bind to
-a plain dataclass, and the Run handler calls the pure logic off the event loop
-via ``run.io_bound`` so a slow VI never freezes the UI. This is the shape the
-NiceGUI generator will emit from any function-style VI's pane.
+"""The UI wrapper (front panel) bound to the pure logic — the same building
+blocks a generated panel uses: a bindable ``State``, the VI toolbar +
+``RunController``, and the control library's ``path_control`` (an outlined field
+with a real server-filesystem Browse). Run latches the two path inputs, calls the
+pure logic, and writes the appended path.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from controls import RunController, path_control, toolbar
 from logic import build_path
-from nicegui import run, ui
+from nicegui import binding, run, ui
 
 
-@dataclass
-class Inputs:
+@binding.bindable_dataclass
+class State:
     base_path: str = "/tmp/data"
     name_or_relative_path: str = "report.txt"
+    appended_path: str = ""
 
 
 def build_panel() -> None:
-    state = Inputs()
+    state = State()
 
-    ui.label("Build Path").classes("text-2xl font-bold")
-    ui.label(
-        "OpenG VI · front panel → NiceGUI, bound to generated logic"
-    ).classes("text-sm text-gray-500")
+    async def compute() -> None:
+        # Latch the inputs, call the pure logic, write the appended path.
+        result = await run.io_bound(
+            build_path, state.base_path, state.name_or_relative_path
+        )
+        state.appended_path = str(result.appended_path)
 
-    with ui.card().classes("w-96"):
-        ui.input("base path").bind_value(state, "base_path").classes("w-full")
-        ui.input("name or relative path").bind_value(
-            state, "name_or_relative_path"
-        ).classes("w-full")
-        out = ui.input("appended path").props("readonly").classes("w-full")
+    controller = RunController(compute)
+    toolbar(controller)
 
-        async def on_run() -> None:
-            result = await run.io_bound(
-                build_path, state.base_path, state.name_or_relative_path
-            )
-            out.value = str(result.appended_path)
-
-        ui.button("Run", on_click=on_run).classes("mt-2")
+    with ui.column().classes("gap-3 p-3").style("width:460px"):
+        path_control(state, "base_path", label="base path")
+        ui.input("name or relative path").props("outlined dense").classes(
+            "w-full"
+        ).bind_value(state, "name_or_relative_path")
+        path_control(state, "appended_path", readonly=True, label="appended path")
