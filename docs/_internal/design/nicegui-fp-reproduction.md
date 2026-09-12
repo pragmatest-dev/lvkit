@@ -18,10 +18,16 @@ Status (2026-09-11): `state.py` already nests a cluster as a bindable dataclass
 2. **Array of clusters** — ✅ **DONE, end to end** (AG Grid's sweet spot: a real
    multi-column table). For an `indArr` whose element ddo is `stdClust`:
    - `array_control`: pass `fields=[ArrayField(...)]` (one per cluster field) and
-     it builds a COLUMN PER FIELD, each declaring its `cellDataType`
-     (number/boolean/text) from the field's real type, with `state.<field>` a
-     `list[dict]`. Rows are stored verbatim (AG Grid delivers each cell already
-     typed) — no per-value coercion; a scalar array is the one-field case.
+     it builds a COLUMN PER FIELD, with `state.<field>` a `list[dict]`. Rows are
+     stored verbatim (AG Grid delivers each cell already typed) — no per-value
+     coercion; a scalar array is the one-field case.
+   - **Same control per type, in-grid or out** (a cell gets the same affordance
+     the type has as a standalone control): number → `agNumberCellEditor` (range/
+     precision), string → text, boolean → checkbox, **enum/ring → a dropdown**
+     (`agSelectCellEditor`, from `ArrayField.values`), **path → a Browse cell**
+     that opens the same `_FilePicker` dialog `path_control` uses and writes the
+     pick back. Path/enum degrade to a text cell when their options/values aren't
+     known to the element.
    - Parser (`_parse_cluster_fields`): an `indArr` whose element ddo is a
      `stdClust` exposes the element cluster's fields as the array control's
      `children` (same extraction as a standalone cluster).
