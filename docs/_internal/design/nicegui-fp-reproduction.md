@@ -72,6 +72,59 @@ Presentation boundary: the logic returns real Python types (e.g. `pathlib.Path`)
 the control layer coerces anything non-JSON-serializable to text at the widget
 seam (`_jsonable`), so NiceGUI can serialize it and the logic stays pure.
 
+### Call direction, and the transport seam (now vs future)
+
+**Root principle.** UI and logic are **separate layers** so that (1) the logic
+stays callable **headless** (no UI dependency — it's the pytest/TesterKit target),
+and (2) the UI's **source of truth comes from the logic** (server / data service),
+never from a copy the UI owns. Everything below follows from those two.
+
+**Direction (one-way, enforced): the UI CALLS the logic, never the reverse.**
+`<vi>_panel.py` imports `<vi>.py` and calls it (`compute()` →
+`run.io_bound(<func>, …)`); `<vi>.py` imports nothing from the UI. So the logic
+is the **backend / source of truth** and the panel is a client of it. That single
+`compute()` call is the seam, and it is **transport-agnostic** — the same latch →
+invoke → write shape backs every variant below. The schema (proto/messages) is
+generated FROM the logic, never hand-written or owned by the UI.
+
+**Baseline (now, and the initial VI conversion): the UI calls the logic
+DIRECTLY, in-process.** Both files live in one directory; the panel imports the
+logic (and, for a shared type like an enum, the logic's generated symbol — see
+below) and calls it. This is the shipped form; the transports below are future.
+
+**Future — write it down (transport is pluggable, not one shape):**
+- **Point-to-point gRPC.** The panel becomes a gRPC client; `compute()` becomes a
+  stub call; inputs/outputs cross as proto messages generated from the logic.
+- **Central data service (the TesterKit variant — a likely later codegen form).**
+  Data does NOT flow UI↔logic directly. A **central data service (a hub / current-
+  value store)** sits in the middle: the logic publishes its outputs and reads its
+  inputs there; the UI writes controls and subscribes to indicators there. UI and
+  logic each connect to the *service*, never to each other (LabVIEW's network-
+  published-shared-variable / tag-engine shape). Here `compute()`'s "write the
+  outputs" is a publish, and the panel's indicators are subscriptions.
+
+Nothing about the logic changes across these — it already has no UI dependency,
+which is the whole point of keeping the direction one-way now.
+
+**Shared types are read THROUGH the transport, never re-declared by the UI**
+(the UI must not own its own copy of the truth):
+- **Enums** — the definition is the logic's (a typedef enum → a generated Python
+  `Enum`; over gRPC → a proto enum in the descriptor). The UI reads the members
+  from there: in-process by importing the logic's `Enum`; over gRPC from the
+  message descriptor / a `Describe`-style RPC. The value crossing the seam is the
+  wire form (an `int`), with the label carried for display; the UI holds a
+  *selection*, not the definition. Parsed FP `enum_values` (the `multiLabel`
+  labels) are a **fallback only** for an anonymous (non-typedef) enum that has no
+  backend symbol to read — and they also fixed a real bug (scalar enum selects
+  were rendering empty because the parser never populated `enum_values`).
+- **Clusters** — become proto **messages**; this is why the runtime models a
+  cluster as a `list[dict]` / dict (which serializes) rather than a shared
+  dataclass instance (which does not).
+
+Not built yet — this section is the direction, so the panel/enum/cluster work
+keeps pointing at "one definition in the backend, read through the seam" and a
+future contributor doesn't reach for a cross-process import or a UI-owned copy.
+
 ## 2. Execution model — Run / Run Continuous (LabVIEW semantics, NOT per-keystroke)
 
 Binding is the plumbing; **Run** is the trigger. Three cases, all off one model:
