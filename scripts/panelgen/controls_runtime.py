@@ -94,9 +94,15 @@ def theme() -> Theme:
 # it lands in the real <head> -- calling ui.add_css/ui.html from inside a page
 # build runs after the head is sent, so the rule never applies.
 ui.add_css(
+    # ✕ delete: hidden until the row is hovered.
     ".lv-del{color:#9ca3af;opacity:0;transition:opacity .12s}"
     ".ag-row-hover .lv-del{opacity:.85}"
-    ".lv-del:hover{color:#ef4444;opacity:1 !important}",
+    ".lv-del:hover{color:#ef4444;opacity:1 !important}"
+    # Drag handle: hidden (takes no space) until the row is hovered, and small
+    # when shown -- so it never crowds the index digits.
+    ".ag-drag-handle{display:none !important}"
+    ".ag-row-hover .ag-drag-handle{display:inline-block !important;"
+    "opacity:.5;transform:scale(.8)}",
     shared=True,  # apply to every page (default shared=False needs a live client)
 )
 
@@ -114,6 +120,49 @@ def _coerce(text: str) -> Any:
     except ValueError:
         pass
     return text
+
+
+def waveform_indicator(
+    state: Any, field: str, *, label: str = "", height: int = 160
+) -> Callable[[], None]:
+    """Read-only waveform / graph indicator: renders ``state.<field>`` (a list of
+    y-values, or ``[x, y]`` pairs) as a line chart via ``ui.echart`` -- a
+    maintained charting library (adopt-first; we own only the mapping). This is
+    the LabVIEW waveform-graph analogue. Returns a refresh callable the Run
+    handler calls after writing new samples.
+    """
+
+    def _data() -> list:
+        vals = list(getattr(state, field) or [])
+        if vals and isinstance(vals[0], list | tuple):
+            return [list(pt) for pt in vals]  # already [x, y] pairs
+        return [[i, v] for i, v in enumerate(vals)]  # y-only -> index on x
+
+    if label:
+        ui.label(label).classes(
+            "text-xs font-semibold text-gray-500 shrink-0 truncate leading-none"
+        )
+    chart = (
+        ui.echart(
+            {
+                "grid": {"left": 44, "right": 14, "top": 12, "bottom": 26},
+                "xAxis": {"type": "value"},
+                "yAxis": {"type": "value"},
+                "series": [
+                    {"type": "line", "showSymbol": False, "data": _data()}
+                ],
+                "animation": False,
+            }
+        )
+        .classes("w-full")
+        .style(f"height:{height}px")
+    )
+
+    def refresh() -> None:
+        chart.options["series"][0]["data"] = _data()
+        chart.update()
+
+    return refresh
 
 
 def array_control(
@@ -178,7 +227,7 @@ def array_control(
         {
             "headerName": "",
             "valueGetter": "node.rowIndex",
-            "width": 42 if not readonly else 30,  # +room for the drag handle
+            "width": 34,  # the handle hides until hover, so the index gets it all
             "editable": False,
             "pinned": "left",
             "sortable": False,
@@ -197,7 +246,7 @@ def array_control(
             {
                 "colId": "del",
                 "headerName": "",
-                "width": 22,
+                "width": 18,
                 "editable": False,
                 "sortable": False,
                 "suppressMovable": True,
