@@ -3,9 +3,9 @@
     uv run --with nicegui python examples/build-path-nicegui/app.py
     # then open http://localhost:8080
 
-Single-sources the control library from scripts/panelgen/controls_runtime.py
-(aliased as ``controls``) instead of copying it, so this committed example never
-drifts from the generator's controls.
+Single-sources the control library from the scripts/panelgen/controls_runtime
+package (aliased as ``controls``) instead of copying it, so this committed
+example never drifts from the generator's controls.
 """
 
 from __future__ import annotations

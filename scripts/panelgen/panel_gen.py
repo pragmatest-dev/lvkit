@@ -20,6 +20,11 @@ against the *real* signature of the generated logic entry function
 (introspected via ``inspect``/``typing.get_type_hints`` on the freshly
 written ``<vi>.py``), falling back to positional order when a name doesn't
 match -- never a hand-picked mapping.
+
+Widget/state-field/array-column emission for a given control_type lives in
+``strategies.py`` (``strategy_for(control)``); this module owns layout
+(container placement, sizing) and the logic-call wiring, and asks each
+control's strategy for its emitted source and its runtime import needs.
 """
 
 from __future__ import annotations
@@ -33,21 +38,21 @@ from pathlib import Path
 
 from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
 
-from .control_types import control_type_info, is_known_control_type
 from .naming import unique_field_names
 from .state_gen import build_state_classes
+from .strategies import (
+    CLUSTER_ROW_H,
+    ArrayStrategy,
+    BoolStrategy,
+    ControlStrategy,
+    strategy_for,
+)
 
 _MARGIN = 16
 # An array control's caption sits above its data box (LabVIEW draws it there);
 # the wrapper is lifted by this so the box itself keeps the full bounds height.
 # Scalars get the same caption treatment for a consistent, faithful layout.
 _CAPTION_H = 16
-# The caption label's classes -- kept in step with controls.array_control's
-# caption so a scalar's label and an array's caption render identically.
-_CAPTION_CLS = "text-xs font-semibold text-gray-500 truncate leading-none"
-# A usable minimum of visible array rows, so a tiny FP box isn't a 1-row
-# peephole (the modern AG Grid presentation; the rest scroll).
-_MIN_ARRAY_ROWS = 4
 
 
 def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
@@ -104,183 +109,13 @@ def introspect_entry(
     return param_names, result_fields
 
 
-@dataclass(frozen=True)
-class ArrayGeometry:
-    """An array control's layout + element spec, read from the VI's front panel
-    (never guessed): ``cell_h`` = one element cell's height, ``visible`` = how
-    many WHOLE cells the box the developer drew shows, ``element_type`` = the
-    cell's control class (``stdNum``/``stdString``/...), and for a numeric
-    element ``integer`` (representation) plus the ``num_min``/``num_max`` data
-    range straight from ``StdNumMin``/``StdNumMax``."""
-
-    cell_h: int
-    visible: int
-    element_type: str
-    integer: bool
-    num_min: float | None
-    num_max: float | None
-
-
-def _num_prop(props: dict[str, str], key: str) -> float | None:
-    """A numeric element property (``StdNumMin``/``StdNumMax``) as a number, or
-    None if absent/unparseable. int when integral so it serialises cleanly."""
-    raw = props.get(key)
-    if raw is None:
-        return None
-    try:
-        f = float(raw)
-    except ValueError:
-        return None
-    return int(f) if f.is_integer() else f
-
-
-def _array_geometry(control: ParsedFPControl) -> ArrayGeometry:
-    """Derive an array control's layout + element spec from its parsed parts (the
-    element cell's geometry and PROPERTIES). Falls back to conservative sizes
-    only if the parts are absent (older cache / an odd control)."""
-    element = next((p for p in control.parts if p.part_id is None), None)
-    outer_h = control.bounds[2] - control.bounds[0]
-    if element is None:
-        cell_h = 24
-        return ArrayGeometry(cell_h, max(1, outer_h // cell_h), "stdNum",
-                             True, None, None)
-    cell_h = max(1, element.bounds[2] - element.bounds[0])
-    # Whole cells that fit the box the developer drew (LabVIEW never shows a
-    # partial row) — the count falls out of the real bounds + real cell height —
-    # but floored to a usable minimum so a small FP box isn't a 1-row peephole
-    # (the modern grid presentation; scroll reveals the rest).
-    visible = max(_MIN_ARRAY_ROWS, outer_h // cell_h)
-    num_min = _num_prop(element.props, "StdNumMin")
-    num_max = _num_prop(element.props, "StdNumMax")
-    # Integer representation when the data range is integral (I32/U8/...); a
-    # float representation (DBL/SGL) carries a fractional/scientific range.
-    integer = isinstance(num_min, int) and isinstance(num_max, int)
-    return ArrayGeometry(cell_h, visible, element.part_class, integer,
-                         num_min, num_max)
-
-
-def _render_widget(
-    control: ParsedFPControl,
-    owner_expr: str,
-    field_name: str,
-    indent: int,
-    var_path: list[str],
-) -> list[str]:
-    prefix = " " * indent
-    var = "_w_" + "_".join(var_path)
-    label = control.name or field_name
-    lines: list[str] = []
-
-    if control.control_type == "stdClust":
-        cluster_classes = "border rounded-md p-2 gap-1"
-        lines.append(f"{prefix}with ui.column().classes({cluster_classes!r}):")
-        lines.append(
-            f"{prefix}    ui.label({label!r})"
-            ".classes('text-xs font-semibold text-gray-500')"
-        )
-        child_owner = f"{owner_expr}.{field_name}"
-        child_names = unique_field_names(control.children)
-        for child in control.children:
-            child_field = child_names[child.uid]
-            child_path = [*var_path, child_field]
-            lines.extend(
-                _render_widget(child, child_owner, child_field, indent + 4, child_path)
-            )
-        return lines
-
-    info = control_type_info(control.control_type)
-    if not is_known_control_type(control.control_type):
-        lines.append(
-            f"{prefix}# TODO: unsupported control_type {control.control_type!r} "
-            "-- rendered as a text input"
-        )
-
-    if info.widget == "array":
-        # LabVIEW-style array control (index display + whole element cells; see
-        # controls.array_control). Its geometry is READ FROM THE VI: the parser
-        # exposes the index display (partID 8002) and element cell as parts, so
-        # the index-column width, cell height, visible-cell count and element
-        # widget all come from the real front panel, not invented constants.
-        geom = _array_geometry(control)
-        if control.children:
-            # Array OF CLUSTERS: one typed column per cluster field (state is a
-            # list of dicts, matching the codegen's list[dict] for a cluster).
-            fnames = unique_field_names(control.children)
-            specs = ", ".join(
-                f"ArrayField({fnames[ch.uid]!r}, {ch.name!r}, "
-                f"{ch.control_type!r}"
-                + (
-                    f", values={list(ch.enum_values)!r}"
-                    if ch.control_type in ("stdEnum", "stdRing") and ch.enum_values
-                    else ""
-                )
-                + ")"
-                for ch in control.children
-            )
-            lines.append(
-                f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
-                f"readonly={control.is_indicator}, label={label!r}, "
-                f"cell_h={_CLUSTER_ROW_H}, visible={geom.visible}, "
-                f"fields=[{specs}])"
-            )
-            return lines
-        enum_arg = ""
-        if geom.element_type in ("stdEnum", "stdRing") and control.enum_values:
-            enum_arg = f", enum_values={list(control.enum_values)!r}"
-        lines.append(
-            f"{prefix}{var} = array_control({owner_expr}, {field_name!r}, "
-            f"readonly={control.is_indicator}, label={label!r}, "
-            f"cell_h={geom.cell_h}, visible={geom.visible}, "
-            f"element_type={geom.element_type!r}, integer={geom.integer}, "
-            f"num_min={geom.num_min}, num_max={geom.num_max}{enum_arg})"
-        )
-        return lines
-
-    # A scalar control renders its label as a CAPTION ABOVE the box -- consistent
-    # with the array control's caption, and faithful to the VI, where the label
-    # part (partID 16) sits above the control box, not inside it. The container
-    # (see _render_container) lifts the box by _CAPTION_H so the caption occupies
-    # the space above. The widget itself carries no internal label. _CAPTION_CLS
-    # matches controls.array_control's caption so scalars and arrays align.
-    inner = " " * (indent + 4)
-    lines.append(f"{prefix}with ui.column().classes('w-full gap-1 no-wrap'):")
-    lines.append(f"{inner}ui.label({label!r}).classes({_CAPTION_CLS!r})")
-
-    if control.control_type == "stdPath":
-        # Real path control: an outlined field with a filesystem Browse on an
-        # input (controls.path_control), which does its own state binding.
-        lines.append(
-            f"{inner}path_control({owner_expr}, {field_name!r}, "
-            f"readonly={control.is_indicator})"
-        )
-        return lines
-
-    outlined = ".props('outlined dense').classes('w-full')"
-    if info.widget == "select":  # enum or ring -> dropdown of its options
-        lines.append(f"{inner}{var} = ui.select({control.enum_values!r}){outlined}")
-    elif info.widget == "switch":
-        lines.append(f"{inner}{var} = ui.switch()")
-    elif info.widget == "number":
-        lines.append(f"{inner}{var} = ui.number(){outlined}")
-    else:
-        lines.append(f"{inner}{var} = ui.input(){outlined}")
-
-    if control.is_indicator:
-        # Output: one-way state -> widget, so Run's results display reactively.
-        lines.append(f"{inner}{var}.bind_value_from({owner_expr}, {field_name!r})")
-        lines.append(f"{inner}{var}.disable()")
-    else:
-        # Input: two-way, so edits latch into State for the next Run.
-        lines.append(f"{inner}{var}.bind_value({owner_expr}, {field_name!r})")
-    return lines
-
-
 @dataclass
 class _Placed:
     """One control's resolved on-panel geometry (px): css top/left, width, the
     real rendered height, and whether it's an AG Grid array."""
 
     control: ParsedFPControl
+    strategy: ControlStrategy
     fname: str
     left: int
     right: int
@@ -295,9 +130,11 @@ class _Placed:
 _ARRAY_CHROME_H = 32
 _ANTI_OVERLAP_GAP = 8
 # An array OF CLUSTERS is a multi-column table: each cluster is one horizontal
-# ROW of a standard height (not the cluster's tall vertical FP layout), under a
-# column-header row.
-_CLUSTER_ROW_H = 28
+# ROW under a column-header row of this height. MUST match the runtime grid's
+# own header_h literal (controls/arraygrid.py) -- generation reserves the
+# container space this constant claims, so the two can't be unified across the
+# generation/runtime boundary (the runtime can't import scripts/panelgen) but
+# must be kept in step by hand.
 _CLUSTER_HEADER_H = 22
 # Width to give each cluster-field column, plus the index + delete gutters.
 _CLUSTER_COL_W = 96
@@ -329,26 +166,30 @@ def _render_container(
     placed: list[_Placed] = []
     for control in controls:
         fname = field_names[control.uid]
+        strategy = strategy_for(control)
         top = control.bounds[0] - min_top + _MARGIN
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
-        widget = control_type_info(control.control_type).widget
-        is_array = widget == "array"
-        if is_array and control.children:
+        is_array = isinstance(strategy, ArrayStrategy)
+        if is_array and strategy.is_cluster_array():
             # A cluster array is a multi-column table; the LV array box (drawn for
             # the tall vertical cluster) is too narrow for it, so widen to fit one
             # column per field plus the index/delete gutters.
-            w = max(w, len(control.children) * _CLUSTER_COL_W + _CLUSTER_GUTTER_W)
+            w = max(
+                w,
+                len(control.children) * _CLUSTER_COL_W + _CLUSTER_GUTTER_W,
+            )
         cap = _CAPTION_H if (control.name or fname) else 0
         if is_array:
-            geom = _array_geometry(control)
-            if control.children:  # array of clusters: rows + a column header
+            cell_h, visible, _element_type, _integer, _num_min, _num_max = (
+                strategy.geometry()
+            )
+            if strategy.is_cluster_array():  # array of clusters: rows + a header
                 render_h = (
-                    _ARRAY_CHROME_H + _CLUSTER_HEADER_H
-                    + geom.visible * _CLUSTER_ROW_H
+                    _ARRAY_CHROME_H + _CLUSTER_HEADER_H + visible * CLUSTER_ROW_H
                 )
             else:
-                render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
+                render_h = _ARRAY_CHROME_H + visible * cell_h
             top -= cap  # caption sits above the data box
         else:
             # Scalars get the same caption-above-box treatment as arrays (the
@@ -356,10 +197,14 @@ def _render_container(
             # and size to caption + a usable box height (a NiceGUI outlined input
             # is taller than the tiny LV box, so don't clip to it).
             top -= cap
-            box_h = _SWITCH_BOX_H if widget == "switch" else _SCALAR_BOX_H
+            box_h = (
+                _SWITCH_BOX_H if isinstance(strategy, BoolStrategy) else _SCALAR_BOX_H
+            )
             render_h = cap + box_h
         placed.append(
-            _Placed(control, fname, left, left + w, w, top, render_h, is_array)
+            _Placed(
+                control, strategy, fname, left, left + w, w, top, render_h, is_array
+            )
         )
 
     # 2) Anti-overlap: top-down, push a control below any earlier one it would
@@ -383,7 +228,7 @@ def _render_container(
     for p in placed:
         style = f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
         lines.append(f"        with ui.element('div').style({style!r}):")
-        lines.extend(_render_widget(p.control, "state", p.fname, 12, [p.fname]))
+        lines.extend(p.strategy.emit_widget("state", p.fname, 12, [p.fname]))
 
     width = max(p.right for p in placed) + _MARGIN
     height = max(p.top + p.render_h for p in placed) + _MARGIN
@@ -449,35 +294,6 @@ def _match_outputs(
     return pairs
 
 
-def _has_array(controls: list[ParsedFPControl]) -> bool:
-    for c in controls:
-        if control_type_info(c.control_type).widget == "array":
-            return True
-        if c.control_type == "stdClust" and _has_array(c.children):
-            return True
-    return False
-
-
-def _has_path(controls: list[ParsedFPControl]) -> bool:
-    for c in controls:
-        if c.control_type == "stdPath":
-            return True
-        if c.control_type == "stdClust" and _has_path(c.children):
-            return True
-    return False
-
-
-def _has_cluster_array(controls: list[ParsedFPControl]) -> bool:
-    """Any array control whose element is a cluster (it carries the cluster's
-    field children) -- these emit ArrayField specs."""
-    for c in controls:
-        if control_type_info(c.control_type).widget == "array" and c.children:
-            return True
-        if c.control_type == "stdClust" and _has_cluster_array(c.children):
-            return True
-    return False
-
-
 def build_panel_module(
     front_panel: ParsedFrontPanel,
     logic_module_stem: str,
@@ -502,22 +318,28 @@ def build_panel_module(
     call_args = _match_args(param_names, input_controls, field_names)
     output_pairs = _match_outputs(result_fields, output_controls, field_names)
 
-    has_array = _has_array(front_panel.controls)
     # Top-level array indicators need an explicit refresh after Run writes a new
     # list (the composed control isn't bind_value-driven). Var == _w_<field>.
+    # NOTE: top-level only -- an array indicator nested inside a cluster would not
+    # get a _w_<field>() refresh here (its var is _w_<parent>_<child>). Arrays are
+    # effectively always top-level on a LabVIEW FP, so this is an accepted edge.
     array_out_fields = {
         field_names[c.uid]
         for c in output_controls
-        if control_type_info(c.control_type).widget == "array"
+        if isinstance(strategy_for(c), ArrayStrategy)
     }
 
+    # Every control (recursing through clusters/arrays via each strategy's own
+    # runtime_imports) reports what it needs from `controls` -- ONE walk
+    # replaces the old separate has-array/has-path/has-cluster-array scans.
+    needed: set[str] = set()
+    for control in front_panel.controls:
+        needed |= strategy_for(control).runtime_imports()
+
     controls_imports = ["RunController", "toolbar"]
-    if has_array:
-        controls_imports.append("array_control")
-    if _has_cluster_array(front_panel.controls):
-        controls_imports.append("ArrayField")
-    if _has_path(front_panel.controls):
-        controls_imports.append("path_control")
+    for name in ("CAPTION_CLS", "array_control", "ArrayField", "path_control"):
+        if name in needed:
+            controls_imports.append(name)
 
     state_src = build_state_classes(front_panel)
 
@@ -564,7 +386,8 @@ def build_panel_module(
         lines.append(f"        state.{state_field} = {result_expr}")
         if state_field in array_out_fields:
             # The composed array control isn't bind_value-driven; refresh it so
-            # the new list shows. The widget var (see _render_widget) is _w_<field>.
+            # the new list shows. The widget var (see strategies.emit_widget) is
+            # _w_<field>.
             lines.append(f"        _w_{state_field}()")
     if not output_pairs:
         lines.append("        _ = result  # no output indicator to write it into")

@@ -5,7 +5,8 @@ so many VIs share one flat directory without name collisions (unlike the old
 per-VI folders of identically-named files). Loading a panel is then just an
 import by its unique module name, with the panels directory on ``sys.path`` so
 its sibling imports (``from <vi> import ...``, ``from controls import ...``)
-resolve. The one shared ``controls`` runtime is imported once and reused.
+resolve. The one shared ``controls`` runtime package is imported once and
+reused.
 """
 
 from __future__ import annotations

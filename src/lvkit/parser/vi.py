@@ -1341,8 +1341,14 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     - the array's element type/cell is a direct ``<ddo>`` child -- recorded with
       ``part_id=None`` and its element control class (``stdNum`` etc.).
 
-    Simple scalar controls have no ``<partsList>`` frame parts / element ddo of
-    this shape, so this returns ``[]`` for them.
+    A plain (non-array) ddo has no ``<partsList>`` frame parts / nested element
+    ddo of that shape, but it still records its OWN scalar-text PROPERTIES
+    (``StdNumMin``/``StdNumMax``/``StdNumInc`` for a numeric, etc.) as direct
+    children -- carried below as a ``part_id=None`` "self" part, the same shape
+    the array-element branch uses, so a numeric field's data range is reachable
+    the same way (``next(p for p in control.parts if p.part_id is None)``)
+    whether the control is a top-level scalar or a cluster field (standalone or
+    inside an array-of-clusters).
     """
     parts: list[ParsedFPPart] = []
     parts_list = ddo.find("partsList")
@@ -1380,6 +1386,26 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
                     None, element.get("class", ""), _parse_bounds(eb.text), props
                 )
             )
+    else:
+        # A leaf ddo (no nested element): expose ITS OWN scalar-text properties
+        # the same way, keyed on itself rather than a nested element.
+        own_bounds = ddo.find("bounds")
+        if own_bounds is not None and own_bounds.text:
+            props = {
+                child.tag: child.text.strip()
+                for child in ddo
+                if child.tag not in ("bounds", "partsList")
+                and len(child) == 0
+                and child.text
+                and child.text.strip()
+            }
+            if props:
+                parts.append(
+                    ParsedFPPart(
+                        None, ddo.get("class", ""),
+                        _parse_bounds(own_bounds.text), props,
+                    )
+                )
     return parts
 
 
@@ -1406,19 +1432,10 @@ def _parse_cluster_fields(
     the same traversal that keeps nesting intact for type reconstruction. Used for
     a standalone stdClust and for an array's stdClust element alike.
 
-    Fallback: a heap with no ``ddoList``/``zPlaneList`` (older/odd) has no way to
-    identify direct fields, so drop back to a flat leaf-only descendant scan --
-    it can't preserve nesting, but such a cluster has none to preserve.
+    A stdClust in a real FPHb heap always carries a ``ddoList``/``zPlaneList``,
+    so ``direct`` is never empty for one.
     """
     direct = _direct_fields(cluster_ddo)
-    if not direct:
-        direct = [
-            e
-            for e in cluster_ddo.findall(".//*")
-            if e.get("class", "").startswith("std")
-            and e.get("class") != "stdClust"
-            and e.get("uid")
-        ]
 
     fields: list[ParsedFPControl] = []
     for field_elem in direct:

@@ -1,7 +1,7 @@
 """Generates the ``@binding.bindable_dataclass State`` — one field per
 front-panel control (input) and indicator (output), defaulted from the VI's own
 recorded ``default_value`` where available. A ``stdClust`` control becomes a
-nested bindable dataclass, recursively.
+nested bindable dataclass, recursively (``ClusterStrategy.state_field``).
 
 This is the UI-layer VIEW-MODEL: every field is a NiceGUI ``BindableProperty``,
 so the panel can ``bind_value``/``bind_value_from`` widgets to it and outputs
@@ -14,28 +14,18 @@ from __future__ import annotations
 
 from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
 
-from .control_types import control_type_info, default_source
-from .naming import pascal_case, unique_field_names
-
-_EMPTY_FACTORY = {"[]": "list", "list()": "list", "{}": "dict", "dict()": "dict"}
-
-
-def _field_default_rhs(default: str) -> str:
-    """A dataclass forbids a bare mutable default (``list``/``dict``), so route
-    any mutable literal through ``default_factory``. Keyed on the literal, not
-    on a control type — so a future decoded array/cluster default is handled the
-    same way as today's empty ``[]``."""
-    stripped = default.strip()
-    if stripped in _EMPTY_FACTORY:
-        return f"field(default_factory={_EMPTY_FACTORY[stripped]})"
-    if stripped[:1] in "[{":
-        return f"field(default_factory=lambda: {stripped})"
-    return default
+from .naming import unique_field_names
+from .strategies import strategy_for
 
 _MODULE_HEADER = '''"""Front-panel view-model: one bindable field per control/
 indicator, typed and defaulted from the VI's own front panel. Every field is a
 NiceGUI BindableProperty (via @binding.bindable_dataclass) so panel.py can bind
-widgets to it; the pure logic in logic.py stays UI-free."""
+widgets to it; the pure logic in logic.py stays UI-free.
+
+Standalone module for tests/callers that want the view-model on its own --
+NOT what generation emits: ``panel_gen`` builds its own inline header (this
+one predates a shared header build and intentionally isn't unified with it,
+see ``build_state_module``)."""
 
 from __future__ import annotations
 
@@ -59,20 +49,12 @@ def build_state_classes(front_panel: ParsedFrontPanel) -> str:
 
     def emit_class(controls: list[ParsedFPControl], class_name: str) -> None:
         field_names = unique_field_names(controls)
-        field_lines: list[str] = []
-        for control in controls:
-            fname = field_names[control.uid]
-            if control.control_type == "stdClust":
-                nested_name = reserve_class_name(pascal_case(control.name) + "State")
-                emit_class(control.children, nested_name)
-                field_lines.append(
-                    f"    {fname}: {nested_name} = "
-                    f"field(default_factory={nested_name})"
-                )
-            else:
-                info = control_type_info(control.control_type)
-                rhs = _field_default_rhs(default_source(control))
-                field_lines.append(f"    {fname}: {info.py_type} = {rhs}")
+        field_lines = [
+            strategy_for(control).state_field(
+                field_names[control.uid], reserve_class_name, emit_class
+            )
+            for control in controls
+        ]
         body = "\n".join(field_lines) if field_lines else "    pass"
         class_blocks.append(
             f"@binding.bindable_dataclass\nclass {class_name}:\n{body}"

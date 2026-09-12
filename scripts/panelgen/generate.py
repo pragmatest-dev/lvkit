@@ -1,8 +1,9 @@
 """Top-level orchestration: one VI -> two VI-named files in ``output_dir`` --
 ``<vi>.py`` (pure headless logic) and ``<vi>_panel.py`` (the NiceGUI UI: State +
-build_panel + a __main__ runner) -- plus one shared ``controls.py`` runtime per
-directory. Many VIs can therefore share a directory. See the module docstrings
-of ``logic_gen`` / ``state_gen`` / ``panel_gen`` for what each part contains.
+build_panel + a __main__ runner) -- plus one shared ``controls/`` runtime
+package per directory. Many VIs can therefore share a directory. See the
+module docstrings of ``logic_gen`` / ``state_gen`` / ``panel_gen`` for what
+each part contains.
 """
 
 from __future__ import annotations
@@ -29,11 +30,17 @@ class PanelResult:
 
 
 def _write_controls_runtime(output_dir: Path) -> None:
-    """Copy the shared control runtime to ``output_dir/controls.py`` once (every
-    ``<vi>_panel.py`` in the directory imports it). Idempotent: overwriting with
-    identical bytes is fine when several VIs target the same directory."""
-    controls_src = Path(__file__).with_name("controls_runtime.py")
-    shutil.copyfile(controls_src, output_dir / "controls.py")
+    """Copy the shared control runtime PACKAGE to ``output_dir/controls/`` once
+    (every ``<vi>_panel.py`` in the directory does ``from controls import
+    ...``). Idempotent: overwriting with identical bytes is fine when several
+    VIs target the same directory."""
+    controls_src = Path(__file__).with_name("controls_runtime")
+    shutil.copytree(
+        controls_src,
+        output_dir / "controls",
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
 
 
 def generate_panel(
@@ -43,9 +50,9 @@ def generate_panel(
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
 ) -> PanelResult:
-    """Generate ``<vi>.py`` + ``<vi>_panel.py`` (+ shared ``controls.py``) for
-    ``vi_path`` into ``output_dir``. Prints any polymorphic-fallback note to
-    stdout (see ``logic_gen.generate_logic``)."""
+    """Generate ``<vi>.py`` + ``<vi>_panel.py`` (+ shared ``controls/`` runtime
+    package) for ``vi_path`` into ``output_dir``. Prints any polymorphic-fallback
+    note to stdout (see ``logic_gen.generate_logic``)."""
     vi_path = Path(vi_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

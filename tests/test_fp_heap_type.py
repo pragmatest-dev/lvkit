@@ -128,20 +128,30 @@ def test_unmodelled_control_returns_none():
 def test_array_of_clusters_exposes_element_fields():
     """An ``indArr`` whose element ddo is a ``stdClust`` exposes the element
     cluster's fields as the array control's ``children`` (so a view can render one
-    typed column per field), the same way a standalone cluster does."""
+    typed column per field), the same way a standalone cluster does. The
+    element cluster's fields live under its own ``ddoList``/``paneHierarchy/
+    zPlaneList`` -- the shape a real FPHb heap always uses (see
+    ``test_fp_cluster_preserves_nested_cluster``)."""
     from lvkit.parser.vi import _parse_ddo
 
     arr = ET.fromstring(
         '<ddo class="indArr" uid="1">'
         "  <bounds>(0,0,100,200)</bounds><objFlags>0</objFlags>"
         '  <ddo class="stdClust" uid="2">'
-        "    <bounds>(0,0,60,100)</bounds>"
-        '    <ddo class="stdString" uid="3">'
-        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
-        '    <ddo class="stdNum" uid="4">'
-        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
-        '    <ddo class="stdBool" uid="5">'
-        "      <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags></ddo>"
+        "    <bounds>(0,0,60,100)</bounds><objFlags>0</objFlags>"
+        '    <ddoList elements="3"><SL__arrayElement uid="3"/>'
+        '<SL__arrayElement uid="4"/><SL__arrayElement uid="5"/></ddoList>'
+        '    <paneHierarchy class="pane"><zPlaneList>'
+        '      <SL__arrayElement class="stdString" uid="3">'
+        "        <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags>"
+        "      </SL__arrayElement>"
+        '      <SL__arrayElement class="stdNum" uid="4">'
+        "        <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags>"
+        "      </SL__arrayElement>"
+        '      <SL__arrayElement class="stdBool" uid="5">'
+        "        <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags>"
+        "      </SL__arrayElement>"
+        "    </zPlaneList></paneHierarchy>"
         "  </ddo>"
         "</ddo>"
     )

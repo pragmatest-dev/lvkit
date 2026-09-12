@@ -121,7 +121,13 @@ def test_array_of_clusters_emits_typed_columns() -> None:
     )
     assert "fields=[ArrayField(" in src
     assert "ArrayField('source', 'source', 'stdString')" in src
-    assert "ArrayField('code', 'code', 'stdNum')" in src
+    # H1 fix: a numeric cluster-array field carries its real range/
+    # representation (here None/None/True -- the synthetic control has no
+    # parsed StdNumMin/StdNumMax part), the same as a scalar array's element.
+    assert (
+        "ArrayField('code', 'code', 'stdNum', "
+        "integer=True, num_min=None, num_max=None)"
+    ) in src
     assert "ArrayField('status', 'status', 'stdBool')" in src
     # ArrayField is imported, and this array is NOT emitted as a scalar column.
     assert "ArrayField" in src.split("def build_panel")[0]  # in the imports
@@ -157,6 +163,39 @@ def test_array_of_clusters_enum_field_emits_values() -> None:
         "ArrayField('mode', 'mode', 'stdEnum', "
         "values=['No Op', 'Increment', 'Reset'])"
     ) in src
+    compile(src, "<panel>", "exec")
+
+
+def test_array_of_nested_clusters_emits_column_group() -> None:
+    """A cluster field that is itself a cluster, inside an array-of-clusters,
+    emits a NESTED ArrayField(..., 'stdClust', fields=[...]) — a column group —
+    by strategy composition, not a flat text cell."""
+    addr = ParsedFPControl(
+        uid="a", name="addr", control_type="stdClust", bounds=(0, 0, 40, 80),
+        is_indicator=False,
+        children=[
+            ParsedFPControl(uid="s", name="street", control_type="stdString",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
+            ParsedFPControl(uid="z", name="zip", control_type="stdNum",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
+        ],
+    )
+    arr = ParsedFPControl(
+        uid="1", name="people", control_type="indArr", bounds=(16, 16, 140, 186),
+        is_indicator=False, parts=_array_parts(),
+        children=[
+            ParsedFPControl(uid="n", name="name", control_type="stdString",
+                            bounds=(0, 0, 17, 40), is_indicator=False),
+            addr,
+        ],
+    )
+    src = build_panel_module(
+        ParsedFrontPanel(controls=[arr], panel_bounds=(0, 0, 200, 300)),
+        logic_module_stem="f", logic_func_name="f",
+        param_names=["people"], result_fields=None,
+    )
+    assert "ArrayField('addr', 'addr', 'stdClust', fields=[" in src
+    assert "ArrayField('street', 'street', 'stdString')" in src
     compile(src, "<panel>", "exec")
 
 
