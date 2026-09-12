@@ -105,7 +105,12 @@ ui.add_css(
     # when shown -- so it never crowds the index digits.
     ".ag-drag-handle{display:none !important}"
     ".ag-row-hover .ag-drag-handle{display:inline-block !important;"
-    "opacity:.5;transform:scale(.8)}",
+    "opacity:.5;transform:scale(.8)}"
+    # Path-cell Browse glyph: centered folder icon, brighter on hover.
+    ".lv-browse{display:flex;align-items:center;justify-content:center;"
+    "opacity:.6;transition:opacity .12s}"
+    ".ag-row-hover .lv-browse{opacity:.8}"
+    ".lv-browse:hover{opacity:1}",
     shared=True,  # apply to every page (default shared=False needs a live client)
 )
 
@@ -408,6 +413,26 @@ def array_control(
         return [_row_from(e) for e in (getattr(state, field) or [])]
 
     show_headers = cluster and any(f.header for f in cols)
+    # One typed column per field; a path field also gets a Browse column that
+    # opens the SAME server-filesystem picker path_control uses, so a path cell
+    # has the same affordance in the grid as outside it.
+    field_cols: list[dict[str, Any]] = []
+    for f in cols:
+        field_cols.append(_field_column(f, editable=not readonly))
+        if f.element_type == "stdPath" and not readonly:
+            field_cols.append(
+                {
+                    "colId": f"browse:{f.key}",
+                    "headerName": "",
+                    "width": 26,
+                    "editable": False,
+                    "sortable": False,
+                    "suppressMovable": True,
+                    "resizable": False,
+                    ":cellRenderer": f"() => `{_SVG_FOLDER}`",
+                    "cellClass": "lv-browse cursor-pointer select-none px-0",
+                }
+            )
     col_defs: list[dict[str, Any]] = [
         {
             "headerName": "",
@@ -422,7 +447,7 @@ def array_control(
             "rowDrag": not readonly,
             "cellClass": "text-gray-400 text-right font-mono px-1",
         },
-        *(_field_column(f, editable=not readonly) for f in cols),
+        *field_cols,
     ]
     if not readonly:
         # AG Grid has no native remove UI, so a clickable ✕ action column (the
@@ -470,14 +495,28 @@ def array_control(
             # "123" in a STRING array into int 123.
             vals[i] = _elem_from(a["data"])
 
-    def _on_click(e: Any) -> None:
-        if e.args.get("colId") != "del":
-            return
+    async def _on_click(e: Any) -> None:
+        col = e.args.get("colId", "")
         i = e.args.get("rowIndex")
         vals = getattr(state, field)
-        if isinstance(i, int) and 0 <= i < len(vals):
+        if not (isinstance(i, int) and 0 <= i < len(vals)):
+            return
+        if col == "del":
             del vals[i]
             refresh()
+        elif col.startswith("browse:"):
+            # Same picker as path_control -- open it for this cell's path, write
+            # the pick back into the row (dict field for a cluster, the scalar
+            # otherwise).
+            key = col.split(":", 1)[1]
+            current = vals[i].get(key) if cluster else vals[i]
+            picked = await _FilePicker(str(current or Path.home()))
+            if picked:
+                if cluster:
+                    vals[i][key] = picked
+                else:
+                    vals[i] = picked
+                refresh()
 
     def _start_edit(index: int) -> None:
         grid.run_grid_method("ensureIndexVisible", index)
