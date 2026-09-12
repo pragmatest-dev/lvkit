@@ -34,7 +34,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .flags import is_indicator, is_inverted_terminal, is_output_terminal
-from .fp_heap_type import reconstruct_control_lvtype
+from .fp_heap_type import _direct_fields, reconstruct_control_lvtype
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -1399,21 +1399,35 @@ def _enum_labels_of(ddo: ET.Element) -> list[str]:
 def _parse_cluster_fields(
     cluster_ddo: ET.Element, unresolved_uids: set[str]
 ) -> list[ParsedFPControl]:
-    """Parse a cluster's field controls (each descendant ``std*`` ddo, skipping
-    nested clusters) into ParsedFPControls -- the cluster's fields, in order. Used
-    for a standalone stdClust and for an array's stdClust element alike."""
+    """Parse a cluster's DIRECT field controls, in cluster (``ddoList``) order,
+    each by its own type -- so a nested cluster field recurses (via ``_parse_ddo``)
+    into ITS OWN children instead of leaking them up into this cluster. Reuses
+    ``fp_heap_type._direct_fields`` (the ``ddoList``/``zPlaneList`` uid match),
+    the same traversal that keeps nesting intact for type reconstruction. Used for
+    a standalone stdClust and for an array's stdClust element alike.
+
+    Fallback: a heap with no ``ddoList``/``zPlaneList`` (older/odd) has no way to
+    identify direct fields, so drop back to a flat leaf-only descendant scan --
+    it can't preserve nesting, but such a cluster has none to preserve.
+    """
+    direct = _direct_fields(cluster_ddo)
+    if not direct:
+        direct = [
+            e
+            for e in cluster_ddo.findall(".//*")
+            if e.get("class", "").startswith("std")
+            and e.get("class") != "stdClust"
+            and e.get("uid")
+        ]
+
     fields: list[ParsedFPControl] = []
-    for child_elem in cluster_ddo.findall(".//*"):
-        child_class = child_elem.get("class", "")
-        if child_class.startswith("std") and child_class != "stdClust":
-            child_uid = child_elem.get("uid", "")
-            if child_uid:
-                child_control = _parse_ddo(
-                    child_elem, child_uid, set(), None,
-                    unresolved_uids=unresolved_uids,
-                )
-                if child_control:
-                    fields.append(child_control)
+    for field_elem in direct:
+        child = _parse_ddo(
+            field_elem, field_elem.get("uid", ""), set(), None,
+            unresolved_uids=unresolved_uids,
+        )
+        if child:
+            fields.append(child)
     return fields
 
 

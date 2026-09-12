@@ -152,6 +152,38 @@ def test_array_of_clusters_exposes_element_fields():
     ]
 
 
+def test_fp_cluster_preserves_nested_cluster():
+    """A cluster field that is itself a cluster stays nested in the FP-control
+    tree (ParsedFPControl.children), rather than flattening its inner fields up
+    into the parent -- _parse_cluster_fields walks direct ddoList fields, not all
+    descendants. (Guards the vi.py path, distinct from the fp_heap_type one that
+    ``test_nested_cluster_does_not_leak_parent_fields`` covers.)"""
+    from lvkit.parser.vi import _parse_ddo
+
+    clust = ET.fromstring(
+        '<ddo class="stdClust" uid="1"><bounds>(0,0,80,120)</bounds>'
+        "<objFlags>0</objFlags>"
+        '<ddoList elements="2"><SL__arrayElement uid="2"/>'
+        '<SL__arrayElement uid="3"/></ddoList>'
+        '<paneHierarchy class="pane"><zPlaneList>'
+        '<SL__arrayElement class="stdNum" uid="2"><bounds>(0,0,17,40)</bounds>'
+        "<objFlags>0</objFlags></SL__arrayElement>"
+        '<SL__arrayElement class="stdClust" uid="3"><bounds>(0,0,40,80)</bounds>'
+        "<objFlags>0</objFlags>"
+        '<ddoList elements="1"><SL__arrayElement uid="4"/></ddoList>'
+        '<paneHierarchy class="pane"><zPlaneList>'
+        '<SL__arrayElement class="stdBool" uid="4"><bounds>(0,0,17,40)</bounds>'
+        "<objFlags>0</objFlags></SL__arrayElement>"
+        "</zPlaneList></paneHierarchy></SL__arrayElement>"
+        "</zPlaneList></paneHierarchy></ddo>"
+    )
+    ctrl = _parse_ddo(clust, "1", set())
+    assert ctrl is not None
+    kinds = [(c.control_type, [g.control_type for g in c.children])
+             for c in ctrl.children]
+    assert kinds == [("stdNum", []), ("stdClust", ["stdBool"])]
+
+
 def test_enum_control_exposes_option_labels():
     """An enum/ring control exposes its option labels (from its multiLabel buffer)
     as ``enum_values`` -- an enum is a fixed value set, rendered as a dropdown."""
