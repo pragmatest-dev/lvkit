@@ -16,6 +16,7 @@ past-the-end (greyed) cell appends, the way a LabVIEW array grows.
 
 from __future__ import annotations
 
+import asyncio
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -609,7 +610,7 @@ class RunController:
         self.paused = False
         self.error: str | None = None
         self.error_detail: str | None = None
-        self._timer: Any = None
+        self._task: asyncio.Task | None = None
         self._refresh: Callable[[], None] = lambda: None
         self._on_error: Callable[[], None] = lambda: None
 
@@ -638,33 +639,45 @@ class RunController:
             self._refresh()
 
     def run_continuous(self) -> None:
+        # LabVIEW semantics: run the VI to COMPLETION, then run it again, until
+        # aborted -- an async loop on the event loop (each iteration awaits the
+        # whole compute; iterations never overlap), NOT a fixed-interval timer.
         if self.running:
             return
         self.clear_error()
         self.running = True
         self.paused = False
         self._refresh()
-        self._timer = ui.timer(self._interval, self._tick)
+        self._task = asyncio.create_task(self._loop())
 
-    async def _tick(self) -> None:
-        # One continuous iteration; a raised exception stops the loop and shows.
+    async def _loop(self) -> None:
         try:
-            await self._compute()
+            while self.running:
+                if self.paused:
+                    await asyncio.sleep(0.05)  # idle; Pause/Abort still land
+                    continue
+                await self._compute()  # run to completion before the next run
+                await asyncio.sleep(self._interval)  # breather + yield the loop
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:  # noqa: BLE001 -- Run is the error boundary
             self._set_error(exc)
-            self.abort()
+        finally:
+            self.running = False
+            self.paused = False
+            self._task = None
+            self._refresh()
 
     def pause(self) -> None:
-        if not self.running or self._timer is None:
+        if not self.running:
             return
-        self.paused = not self.paused
-        self._timer.active = not self.paused
+        self.paused = not self.paused  # the loop reads this each iteration
         self._refresh()
 
     def abort(self) -> None:
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
+        # Ask the loop to stop; it exits after the current run (its finally clears
+        # running/paused and refreshes). Refresh now too so the toolbar responds
+        # instantly rather than waiting out the last iteration.
         self.running = False
         self.paused = False
         self._refresh()
