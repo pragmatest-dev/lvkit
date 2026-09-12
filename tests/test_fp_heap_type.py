@@ -152,6 +152,49 @@ def test_array_of_clusters_exposes_element_fields():
     ]
 
 
+def test_enum_control_exposes_option_labels():
+    """An enum/ring control exposes its option labels (from its multiLabel buffer)
+    as ``enum_values`` -- an enum is a fixed value set, rendered as a dropdown."""
+    from lvkit.parser.vi import _parse_ddo
+
+    ring = ET.fromstring(
+        '<ddo class="stdRing" uid="1">'
+        "  <bounds>(0,0,20,80)</bounds><objFlags>0</objFlags>"
+        "  <partsList>"
+        '    <SL__arrayElement class="multiLabel" uid="2">'
+        '      <buf>(3)"No Op""Increment""Reset"</buf>'
+        "    </SL__arrayElement>"
+        "  </partsList>"
+        "</ddo>"
+    )
+    ctrl = _parse_ddo(ring, "1", set())
+    assert ctrl is not None
+    assert ctrl.enum_values == ["No Op", "Increment", "Reset"]
+
+
+def test_array_of_enum_exposes_element_options():
+    """An array whose element is an enum exposes the element's option labels as the
+    array control's ``enum_values`` (so its cells become dropdowns)."""
+    from lvkit.parser.vi import _parse_ddo
+
+    arr = ET.fromstring(
+        '<ddo class="indArr" uid="1">'
+        "  <bounds>(0,0,100,200)</bounds><objFlags>0</objFlags>"
+        '  <ddo class="stdRing" uid="2">'
+        "    <bounds>(0,0,20,80)</bounds>"
+        "    <partsList>"
+        '      <SL__arrayElement class="multiLabel" uid="3">'
+        '        <buf>(2)"A""B"</buf>'
+        "      </SL__arrayElement>"
+        "    </partsList>"
+        "  </ddo>"
+        "</ddo>"
+    )
+    ctrl = _parse_ddo(arr, "1", set())
+    assert ctrl is not None and ctrl.control_type == "indArr"
+    assert ctrl.enum_values == ["A", "B"]
+
+
 # --- end-to-end on a real LabVIEW 8.2 VI (no VCTP) --------------------------
 
 pytestmark_samples = pytest.mark.needs_samples

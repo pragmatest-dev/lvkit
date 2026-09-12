@@ -1383,6 +1383,19 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     return parts
 
 
+def _enum_labels_of(ddo: ET.Element) -> list[str]:
+    """The enum/ring option labels for a control, read from its own ``multiLabel``
+    buffer in the FP heap (e.g. ``(3)"No Op""Increment""Reset"``). Empty when the
+    control carries none. An enum IS a fixed value set, so a view renders it as a
+    dropdown of exactly these."""
+    ml = ddo.find(f".//*[@class='{MULTI_LABEL_CLASS}']")
+    if ml is not None:
+        buf = ml.find("buf")
+        if buf is not None and buf.text:
+            return re.findall(r'"([^"]*)"', buf.text)
+    return []
+
+
 def _parse_cluster_fields(
     cluster_ddo: ET.Element, unresolved_uids: set[str]
 ) -> list[ParsedFPControl]:
@@ -1458,6 +1471,12 @@ def _parse_ddo(
         flags = safe_int(ddo.find("objFlags"))
         control_is_indicator = is_indicator(flags)
 
+    # Enum/ring options: this control's own value set, or -- for an array whose
+    # element is an enum -- the element's, so a view renders a dropdown of them.
+    enum_values: list[str] = []
+    if control_type in ("stdEnum", "stdRing"):
+        enum_values = _enum_labels_of(ddo)
+
     # Cluster fields: a stdClust's own fields, or -- for an array OF clusters
     # (indArr whose element ddo is a stdClust) -- the element cluster's fields,
     # so a view can render one typed column per field. Same extraction either way.
@@ -1466,8 +1485,12 @@ def _parse_ddo(
         children = _parse_cluster_fields(ddo, unresolved_uids)
     elif control_type == "indArr":
         element = ddo.find("ddo")
-        if element is not None and element.get("class") == "stdClust":
-            children = _parse_cluster_fields(element, unresolved_uids)
+        if element is not None:
+            element_class = element.get("class")
+            if element_class == "stdClust":
+                children = _parse_cluster_fields(element, unresolved_uids)
+            elif element_class in ("stdEnum", "stdRing"):
+                enum_values = _enum_labels_of(element)
 
     return ParsedFPControl(
         uid=uid,
@@ -1478,6 +1501,7 @@ def _parse_ddo(
         default_value=default_data,
         children=children,
         parts=_parse_fp_parts(ddo),
+        enum_values=enum_values,
     )
 
 
