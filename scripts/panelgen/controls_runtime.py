@@ -16,6 +16,7 @@ past-the-end (greyed) cell appends, the way a LabVIEW array grows.
 
 from __future__ import annotations
 
+import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -370,6 +371,15 @@ _SVG_PAUSE = (
     '<rect x="8.9" y="3" width="2.6" height="10"/></svg>'
 )
 
+def _format_error(exc: BaseException) -> tuple[str, str]:
+    """(one-line title, full traceback) for a caught exception."""
+    title = f"{type(exc).__name__}: {exc}"
+    detail = "".join(
+        traceback.format_exception(type(exc), exc, exc.__traceback__)
+    )
+    return title, detail
+
+
 class RunController:
     """Drives a panel's execution the LabVIEW way, off ONE ``compute`` callable
     (async: latch the controls, call the pure logic, write the outputs):
@@ -379,25 +389,48 @@ class RunController:
     - **Pause** suspends/resumes a continuous run.
     - **Abort** stops a run immediately.
 
+    It is also the ERROR BOUNDARY -- the analog of LabVIEW's error-out merge.
+    We strip error clusters in favour of natural Python exceptions, so the pure
+    logic just raises; the controller catches that at the Run boundary, stores it
+    (``error``/``error_detail``), stops the run, and the toolbar presents it as an
+    error banner (see ``toolbar``). A fresh Run clears it.
+
     (A state-machine/event-structure VI will hand a longer-lived ``compute`` that
     loops internally; the same Abort stops it.) ``running``/``paused`` drive the
-    toolbar's enabled states via ``_refresh`` (set by ``toolbar``)."""
+    toolbar's enabled states via ``_refresh``; ``error`` drives the banner via
+    ``_on_error`` (both set by ``toolbar``)."""
 
     def __init__(self, compute: Callable[[], Any], *, interval: float = 0.1):
         self._compute = compute
         self._interval = interval
         self.running = False
         self.paused = False
+        self.error: str | None = None
+        self.error_detail: str | None = None
         self._timer: Any = None
         self._refresh: Callable[[], None] = lambda: None
+        self._on_error: Callable[[], None] = lambda: None
+
+    def _set_error(self, exc: BaseException) -> None:
+        self.error, self.error_detail = _format_error(exc)
+        self._on_error()
+
+    def clear_error(self) -> None:
+        if self.error is not None:
+            self.error = None
+            self.error_detail = None
+            self._on_error()
 
     async def run_once(self) -> None:
         if self.running:
             return
+        self.clear_error()
         self.running = True
         self._refresh()
         try:
             await self._compute()
+        except Exception as exc:  # noqa: BLE001 -- Run is the error boundary
+            self._set_error(exc)
         finally:
             self.running = False
             self._refresh()
@@ -405,10 +438,19 @@ class RunController:
     def run_continuous(self) -> None:
         if self.running:
             return
+        self.clear_error()
         self.running = True
         self.paused = False
         self._refresh()
-        self._timer = ui.timer(self._interval, self._compute)
+        self._timer = ui.timer(self._interval, self._tick)
+
+    async def _tick(self) -> None:
+        # One continuous iteration; a raised exception stops the loop and shows.
+        try:
+            await self._compute()
+        except Exception as exc:  # noqa: BLE001 -- Run is the error boundary
+            self._set_error(exc)
+            self.abort()
 
     def pause(self) -> None:
         if not self.running or self._timer is None:
@@ -442,7 +484,10 @@ def _tb_button(svg: str, tip: str, on_click: Callable, *, enabled: bool,
 
 def toolbar(controller: RunController) -> None:
     """Render the VI execution toolbar bound to ``controller``. Run / Run
-    Continuously are enabled when idle; Abort / Pause only while running."""
+    Continuously are enabled when idle; Abort / Pause only while running. Below
+    the buttons, an error banner shows any exception the last Run raised (our
+    Python-exception stand-in for LabVIEW's error out) with an expandable
+    traceback; it clears on the next Run."""
 
     @ui.refreshable
     def bar() -> None:
@@ -457,5 +502,29 @@ def toolbar(controller: RunController) -> None:
             _tb_button(_SVG_PAUSE, "Pause", controller.pause,
                        enabled=running, color="text-gray-600")
 
+    @ui.refreshable
+    def error_banner() -> None:
+        if not controller.error:
+            return
+        with ui.row().classes(
+            "w-full items-start gap-2 px-2 py-1 border-b bg-red-50 "
+            "border-red-200 dark:bg-red-950 dark:border-red-900"
+        ):
+            ui.icon("error_outline").classes("text-red-600 mt-0.5 shrink-0")
+            with ui.column().classes("gap-0 grow min-w-0"):
+                ui.label(controller.error).classes(
+                    "text-red-700 dark:text-red-300 text-sm font-medium break-all"
+                )
+                if controller.error_detail:
+                    with ui.expansion("traceback").classes("text-xs w-full"):
+                        ui.code(controller.error_detail).classes(
+                            "text-xs whitespace-pre-wrap w-full"
+                        )
+            ui.button(icon="close", on_click=controller.clear_error).props(
+                "flat dense round size=xs"
+            ).classes("text-red-500 shrink-0")
+
     controller._refresh = bar.refresh
+    controller._on_error = error_banner.refresh
     bar()
+    error_banner()
