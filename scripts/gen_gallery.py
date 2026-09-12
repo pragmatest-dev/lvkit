@@ -3,13 +3,13 @@
 converts cleanly.
 
 Recursively finds ``*.vi`` under a corpus directory, generates each one's
-panel folder via ``scripts/panelgen`` (see ``scripts/gen_panel.py``), and
-keeps only the VIs whose generation succeeds AND whose ``logic.py`` and
-``panel.py`` import (and whose ``build_panel()`` runs) without raising. It
-then emits a single ``gallery_app.py``: one NiceGUI page with a list of the
-converted VIs on the left and a content area on the right that renders the
-selected VI's panel (see ``scripts/panelgen/loader.py`` for how one process
-loads many same-named panel modules without them colliding).
+``<vi>.py`` + ``<vi>_panel.py`` via ``scripts/panelgen`` (see
+``scripts/gen_panel.py``) into ONE shared ``panels`` directory, and keeps only
+the VIs whose generation succeeds AND whose ``<vi>_panel.py`` imports (and whose
+``build_panel()`` runs) without raising. It then emits a single
+``gallery_app.py``: one NiceGUI page with a list of the converted VIs on the
+left and a content area on the right that renders the selected VI's panel (see
+``scripts/panelgen/loader.py`` for how it imports each VI-named panel module).
 
 nicegui is not a lvkit dependency; run the generated app with:
   uv run --with nicegui python <output>/gallery_app.py
@@ -18,7 +18,6 @@ nicegui is not a lvkit dependency; run the generated app with:
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import traceback
 from dataclasses import dataclass
@@ -27,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from panelgen import generate_panel, load_build_panel, load_module  # noqa: E402
+from panelgen import generate_panel, load_build_panel  # noqa: E402
 
 _SKIP_SUBSTRINGS = ("example", "vi tree")
 _SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -37,9 +36,8 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 class GalleryEntry:
     """One VI that made it into the gallery."""
 
-    slug: str
+    panel_stem: str  # <vi>_panel — imported + run to render this VI's panel
     title: str
-    vi_path: Path
 
 
 def _iter_candidate_vis(corpus_dir: Path) -> list[Path]:
@@ -54,27 +52,15 @@ def _iter_candidate_vis(corpus_dir: Path) -> list[Path]:
     return candidates
 
 
-def _slugify(vi_path: Path, used: dict[str, int]) -> str:
-    base = re.sub(r"[^a-z0-9]+", "-", vi_path.stem.lower()).strip("-") or "vi"
-    count = used.get(base, 0)
-    used[base] = count + 1
-    return base if count == 0 else f"{base}-{count + 1}"
-
-
-def _verify_panel(panel_dir: Path) -> tuple[bool, str]:
-    """Import ``logic.py`` and ``panel.py`` in isolation and run
-    ``build_panel()`` once against a scratch element that's discarded right
-    after, to confirm this panel is actually usable -- not just that
-    generation produced files."""
+def _verify_panel(panels_dir: Path, panel_stem: str) -> tuple[bool, str]:
+    """Import ``<vi>_panel.py`` (which pulls in its ``<vi>.py`` logic + shared
+    ``controls``) and run ``build_panel()`` once against a scratch element that's
+    discarded right after, to confirm this panel is actually usable -- not just
+    that generation produced files."""
     try:
-        load_module(panel_dir, "logic")
+        build_panel = load_build_panel(panels_dir, panel_stem)
     except Exception:
-        return False, "logic.py import failed:\n" + traceback.format_exc()
-
-    try:
-        build_panel = load_build_panel(panel_dir)
-    except Exception:
-        return False, "panel.py import failed:\n" + traceback.format_exc()
+        return False, f"{panel_stem}.py import failed:\n" + traceback.format_exc()
 
     from nicegui import ui
 
@@ -99,8 +85,9 @@ def build_gallery(
 ) -> tuple[list[GalleryEntry], list[tuple[Path, str]]]:
     """Generate + verify a panel for each candidate VI under ``corpus_dirs``
     (one directory, or several -- each scanned in order, candidates
-    concatenated before ``limit`` is applied). Returns the entries that made
-    it in and the (vi_path, reason) failures that didn't."""
+    concatenated before ``limit`` is applied), all into ONE flat ``panels``
+    directory of VI-named modules. Returns the entries that made it in and the
+    (vi_path, reason) failures that didn't."""
     out_dir = Path(out_dir)
     panels_dir = out_dir / "panels"
     panels_dir.mkdir(parents=True, exist_ok=True)
@@ -112,15 +99,13 @@ def build_gallery(
 
     entries: list[GalleryEntry] = []
     failures: list[tuple[Path, str]] = []
-    used_slugs: dict[str, int] = {}
+    seen_stems: set[str] = set()
 
     for vi_path in candidates:
-        slug = _slugify(vi_path, used_slugs)
-        panel_dir = panels_dir / slug
         try:
-            generate_panel(
+            result = generate_panel(
                 vi_path,
-                panel_dir,
+                panels_dir,
                 search_paths=search_paths or [vi_path.parent],
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
@@ -130,12 +115,18 @@ def build_gallery(
             failures.append((vi_path, reason))
             continue
 
-        ok, reason = _verify_panel(panel_dir)
+        # A VI reached as another entry's SubVI (same module) may recur as its
+        # own candidate; list it once.
+        if result.panel_stem in seen_stems:
+            continue
+
+        ok, reason = _verify_panel(panels_dir, result.panel_stem)
         if not ok:
             failures.append((vi_path, reason))
             continue
 
-        entries.append(GalleryEntry(slug=slug, title=vi_path.stem, vi_path=vi_path))
+        seen_stems.add(result.panel_stem)
+        entries.append(GalleryEntry(panel_stem=result.panel_stem, title=result.title))
 
     return entries, failures
 
@@ -144,7 +135,7 @@ def _write_gallery_app(out_dir: Path, entries: list[GalleryEntry], port: int) ->
     """Emit ``gallery_app.py``: one page, a VI list on the left, a content
     area on the right that ``.clear()``s and re-``build_panel()``s on click.
     """
-    rows = ",\n".join(f"    ({e.slug!r}, {e.title!r})" for e in entries)
+    rows = ",\n".join(f"    ({e.panel_stem!r}, {e.title!r})" for e in entries)
     app_src = f'''"""Gallery viewer for converted LabVIEW front panels.
 
 Run it: uv run --with nicegui python gallery_app.py
@@ -164,7 +155,7 @@ from panelgen import load_build_panel  # noqa: E402
 
 PANELS_DIR = Path(__file__).resolve().parent / "panels"
 
-# (slug, title) for every VI that generated and imported cleanly.
+# (panel_stem, title) for every VI that generated and imported cleanly.
 ENTRIES = [
 {rows}
 ]
@@ -176,17 +167,17 @@ def index() -> None:
         _sidebar_classes = "w-64 shrink-0 border-r p-2 gap-1 h-screen overflow-auto"
         with ui.column().classes(_sidebar_classes):
             ui.label("VIs").classes("text-lg font-semibold")
-            for slug, title in ENTRIES:
+            for stem, title in ENTRIES:
                 ui.button(
                     title,
-                    on_click=lambda slug=slug, title=title: show(slug, title),
+                    on_click=lambda stem=stem, title=title: show(stem, title),
                 ).props("flat align=left").classes("w-full justify-start")
 
         content = ui.column().classes("flex-grow p-4")
 
-        def show(slug: str, title: str) -> None:
+        def show(stem: str, title: str) -> None:
             content.clear()
-            build_panel = load_build_panel(PANELS_DIR / slug)
+            build_panel = load_build_panel(PANELS_DIR, stem)
             with content:
                 ui.label(title).classes("text-xl font-bold mb-2")
                 build_panel()
@@ -211,7 +202,7 @@ def main() -> None:
         "--limit", type=int, default=None, help="Attempt at most N candidate VIs"
     )
     parser.add_argument(
-        "--port", type=int, default=8080, help="Port the generated app.py serves on"
+        "--port", type=int, default=8080, help="Port the gallery app serves on"
     )
     parser.add_argument(
         "--search-path",

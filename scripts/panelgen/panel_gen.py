@@ -18,7 +18,7 @@ Only ``bind_value`` targets are data-driven: which State attribute a widget
 binds to. The one-shot Run handler match is also data-driven, by NAME
 against the *real* signature of the generated logic entry function
 (introspected via ``inspect``/``typing.get_type_hints`` on the freshly
-written ``logic.py``), falling back to positional order when a name doesn't
+written ``<vi>.py``), falling back to positional order when a name doesn't
 match -- never a hand-picked mapping.
 """
 
@@ -35,27 +35,32 @@ from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
 
 from .control_types import control_type_info, is_known_control_type
 from .naming import unique_field_names
+from .state_gen import build_state_classes
 
 _MARGIN = 16
 # An array control's caption sits above its data box (LabVIEW draws it there);
 # the wrapper is lifted by this so the box itself keeps the full bounds height.
+# Scalars get the same caption treatment for a consistent, faithful layout.
 _CAPTION_H = 16
+# The caption label's classes -- kept in step with controls.array_control's
+# caption so a scalar's label and an array's caption render identically.
+_CAPTION_CLS = "text-xs font-semibold text-gray-500 truncate leading-none"
 # A usable minimum of visible array rows, so a tiny FP box isn't a 1-row
 # peephole (the modern AG Grid presentation; the rest scroll).
 _MIN_ARRAY_ROWS = 4
 
 
 def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
-    # A non-leaf VI's logic.py imports sibling `_dep_*.py` (and `state`) by plain
-    # name, so the panel dir must be on sys.path for those to resolve during
-    # introspection — exactly as app.py puts it there at run time. Evict the
-    # plain names afterward so a later VI's same-named siblings (the gallery
-    # generates many in one process) don't resolve to this one's cache.
+    # A non-leaf VI's <vi>.py imports its VI-named SubVI sibling modules by name,
+    # so the panel dir must be on sys.path for those to resolve during
+    # introspection. Afterward, evict whatever this import pulled in from that
+    # dir so a later VI's generation (the gallery does many in one process)
+    # starts from a clean sys.modules.
     panel_dir = str(logic_path.parent)
     added = panel_dir not in sys.path
     if added:
         sys.path.insert(0, panel_dir)
-    plain = {p.stem for p in logic_path.parent.glob("_dep_*.py")} | {"state"}
+    before = set(sys.modules)
     try:
         spec = importlib.util.spec_from_file_location(
             "_panelgen_logic_probe", logic_path
@@ -68,14 +73,17 @@ def _load_entry_function(logic_path: Path, func_name: str) -> typing.Callable:
     finally:
         if added:
             sys.path.remove(panel_dir)
-        for name in [n for n in sys.modules if n in plain]:
-            del sys.modules[name]
+        for name in set(sys.modules) - before:
+            mod = sys.modules.get(name)
+            mod_file = getattr(mod, "__file__", None)
+            if mod_file and str(Path(mod_file).parent) == panel_dir:
+                del sys.modules[name]
 
 
 def introspect_entry(
     logic_path: Path, func_name: str
 ) -> tuple[list[str], list[str] | None]:
-    """Import the freshly-written logic.py and read the REAL signature of its
+    """Import the freshly-written <vi>.py and read the REAL signature of its
     entry function: (parameter names in order, return NamedTuple field names
     or None). Runtime introspection, not a guess -- `from __future__ import
     annotations` makes every annotation a string, so this resolves them via
@@ -203,33 +211,42 @@ def _render_widget(
         )
         return lines
 
-    outlined = ".props('outlined dense').classes('w-full')"
-    if control.control_type == "stdEnum":
+    # A scalar control renders its label as a CAPTION ABOVE the box -- consistent
+    # with the array control's caption, and faithful to the VI, where the label
+    # part (partID 16) sits above the control box, not inside it. The container
+    # (see _render_container) lifts the box by _CAPTION_H so the caption occupies
+    # the space above. The widget itself carries no internal label. _CAPTION_CLS
+    # matches controls.array_control's caption so scalars and arrays align.
+    inner = " " * (indent + 4)
+    lines.append(f"{prefix}with ui.column().classes('w-full gap-1 no-wrap'):")
+    lines.append(f"{inner}ui.label({label!r}).classes({_CAPTION_CLS!r})")
+
+    if control.control_type == "stdPath":
+        # Real path control: an outlined field with a filesystem Browse on an
+        # input (controls.path_control), which does its own state binding.
         lines.append(
-            f"{prefix}{var} = ui.select({control.enum_values!r}, "
-            f"label={label!r}){outlined}"
+            f"{inner}path_control({owner_expr}, {field_name!r}, "
+            f"readonly={control.is_indicator})"
         )
+        return lines
+
+    outlined = ".props('outlined dense').classes('w-full')"
+    if info.widget == "select":  # enum or ring -> dropdown of its options
+        lines.append(f"{inner}{var} = ui.select({control.enum_values!r}){outlined}")
     elif info.widget == "switch":
-        lines.append(f"{prefix}{var} = ui.switch({label!r})")
+        lines.append(f"{inner}{var} = ui.switch()")
     elif info.widget == "number":
-        lines.append(f"{prefix}{var} = ui.number(label={label!r}){outlined}")
-    elif control.control_type == "stdPath":
-        # A path control: a text field with a folder affordance, so it reads as
-        # a path, not a bare string. (A server-side directory browser is a later
-        # enhancement; the icon marks the type today.)
-        lines.append(f"{prefix}{var} = ui.input({label!r}){outlined}")
-        lines.append(f"{prefix}with {var}.add_slot('append'):")
-        lines.append(f"{prefix}    ui.icon('folder').classes('text-gray-400 text-sm')")
+        lines.append(f"{inner}{var} = ui.number(){outlined}")
     else:
-        lines.append(f"{prefix}{var} = ui.input({label!r}){outlined}")
+        lines.append(f"{inner}{var} = ui.input(){outlined}")
 
     if control.is_indicator:
         # Output: one-way state -> widget, so Run's results display reactively.
-        lines.append(f"{prefix}{var}.bind_value_from({owner_expr}, {field_name!r})")
-        lines.append(f"{prefix}{var}.disable()")
+        lines.append(f"{inner}{var}.bind_value_from({owner_expr}, {field_name!r})")
+        lines.append(f"{inner}{var}.disable()")
     else:
         # Input: two-way, so edits latch into State for the next Run.
-        lines.append(f"{prefix}{var}.bind_value({owner_expr}, {field_name!r})")
+        lines.append(f"{inner}{var}.bind_value({owner_expr}, {field_name!r})")
     return lines
 
 
@@ -252,10 +269,11 @@ class _Placed:
 # the grid's own border, on top of the data rows.
 _ARRAY_CHROME_H = 32
 _ANTI_OVERLAP_GAP = 8
-# A NiceGUI outlined input/number/select is ~54px tall; a switch ~40. LV boxes
-# are shorter, so scalars get a usable minimum height rather than being clipped.
-_SCALAR_MIN_H = 54
-_SWITCH_MIN_H = 40
+# A NiceGUI outlined dense input/number/select box is ~44px tall; a switch ~28.
+# The caption above adds _CAPTION_H. LV boxes are shorter, so scalars get this
+# usable box height (plus caption) rather than being clipped to the tiny box.
+_SCALAR_BOX_H = 44
+_SWITCH_BOX_H = 28
 
 
 def _render_container(
@@ -266,7 +284,7 @@ def _render_container(
     (the ONE place bounds -> pixels happens); arrays render as AG Grids taller
     than their tiny FP box, so a MODERN reflow pass pushes any control a taller
     array would collide with straight down, preserving order + horizontal
-    position. ``field_names`` is the SINGLE naming shared with state.py."""
+    position. ``field_names`` is the SINGLE naming shared with the State."""
     controls = front_panel.controls
     if not controls:
         return [], 400, 200
@@ -281,19 +299,21 @@ def _render_container(
         top = control.bounds[0] - min_top + _MARGIN
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
-        h = control.bounds[2] - control.bounds[0]
         widget = control_type_info(control.control_type).widget
         is_array = widget == "array"
+        cap = _CAPTION_H if (control.name or fname) else 0
         if is_array:
             geom = _array_geometry(control)
             render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
-            cap = _CAPTION_H if (control.name or fname) else 0
             top -= cap  # caption sits above the data box
         else:
-            # A NiceGUI outlined input/select is taller than the tiny LV box, so
-            # give scalars a usable minimum height rather than clip them to it.
-            min_h = _SWITCH_MIN_H if widget == "switch" else _SCALAR_MIN_H
-            render_h = max(h, min_h)
+            # Scalars get the same caption-above-box treatment as arrays (the
+            # label is a caption, not inside the box): lift by the caption height
+            # and size to caption + a usable box height (a NiceGUI outlined input
+            # is taller than the tiny LV box, so don't clip to it).
+            top -= cap
+            box_h = _SWITCH_BOX_H if widget == "switch" else _SCALAR_BOX_H
+            render_h = cap + box_h
         placed.append(
             _Placed(control, fname, left, left + w, w, top, render_h, is_array)
         )
@@ -312,20 +332,12 @@ def _render_container(
                     p.top = q.top + q.render_h + _ANTI_OVERLAP_GAP
                     moved = True
 
-    # 3) Emit, and size the container to the resolved layout.
+    # 3) Emit, and size the container to the resolved layout. Every control is
+    #    positioned from bounds (never clipped to the tiny LV box) with its
+    #    caption above; the reflow above spaced each by its render_h.
     lines: list[str] = []
     for p in placed:
-        if p.is_array:
-            style = (
-                f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
-            )
-        else:
-            # Don't clip a scalar to the tiny LV box (that hid the input, leaving
-            # only its label) -- position it and let it show; the reflow spaced
-            # it by render_h.
-            style = (
-                f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
-            )
+        style = f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(p.control, "state", p.fname, 12, [p.fname]))
 
@@ -402,16 +414,30 @@ def _has_array(controls: list[ParsedFPControl]) -> bool:
     return False
 
 
+def _has_path(controls: list[ParsedFPControl]) -> bool:
+    for c in controls:
+        if c.control_type == "stdPath":
+            return True
+        if c.control_type == "stdClust" and _has_path(c.children):
+            return True
+    return False
+
+
 def build_panel_module(
     front_panel: ParsedFrontPanel,
     logic_module_stem: str,
     logic_func_name: str,
     param_names: list[str],
     result_fields: list[str] | None,
+    title: str = "Front panel",
+    port: int = 8080,
 ) -> str:
-    """Build the full ``panel.py`` source."""
-    # ONE naming source, shared by state.py, the widget vars, and the arg/output
-    # matchers — so a widget's var and its state.<field> always agree.
+    """Build the full ``<vi>_panel.py`` source: the bindable ``State`` view-model,
+    ``build_panel()`` bound to the pure ``<vi>.py`` logic, and a ``__main__``
+    runner so ``python <vi>_panel.py`` serves it. Importing the module (the
+    gallery does) is side-effect-free -- the runner is guarded."""
+    # ONE naming source, shared by the State fields, the widget vars, and the
+    # arg/output matchers — so a widget's var and its state.<field> always agree.
     field_names = unique_field_names(front_panel.controls)
     widget_lines, width, height = _render_container(front_panel, field_names)
 
@@ -430,22 +456,36 @@ def build_panel_module(
         if control_type_info(c.control_type).widget == "array"
     }
 
-    imports = ["RunController", "toolbar"]
+    controls_imports = ["RunController", "toolbar"]
     if has_array:
-        imports.append("array_control")
+        controls_imports.append("array_control")
+    if _has_path(front_panel.controls):
+        controls_imports.append("path_control")
+
+    state_src = build_state_classes(front_panel)
+
     lines: list[str] = [
         '"""Front panel reproduced from the VI\'s own front-panel geometry (see',
-        'panelgen.panel_gen). A LabVIEW-style toolbar (Run / Run Continuously /',
-        'Abort / Pause) drives execution: Run latches the controls and calls the',
-        'pure logic off the event loop (run.io_bound), then writes the outputs."""',
+        'panelgen.panel_gen), bound to the pure logic in the sibling module. A',
+        'LabVIEW-style toolbar (Run / Run Continuously / Abort / Pause) drives',
+        'execution: Run latches the controls, calls the logic off the event loop',
+        '(run.io_bound), then writes the outputs. The State view-model lives here',
+        'with the UI; run this file directly to serve the panel."""',
         "",
         "from __future__ import annotations",
         "",
-        f"from {logic_module_stem} import {logic_func_name}",
-        "from nicegui import run, ui",
+    ]
+    if "field(" in state_src:
+        lines.append("from dataclasses import field")
+        lines.append("")
+    lines += [
+        "from nicegui import binding, run, ui",
         "",
-        f"from controls import {', '.join(imports)}",
-        "from state import State",
+        f"from controls import {', '.join(controls_imports)}",
+        f"from {logic_module_stem} import {logic_func_name}",
+        "",
+        "",
+        state_src,
         "",
         "",
         "def build_panel() -> None:",
@@ -483,5 +523,12 @@ def build_panel_module(
         lines.extend(widget_lines)
     else:
         lines.append("        pass  # no front-panel controls")
+    lines.append("")
+    lines.append("")
+    lines.append('if __name__ in {"__main__", "__mp_main__"}:')
+    lines.append("    build_panel()")
+    lines.append(
+        f"    ui.run(title={title!r}, reload=False, port={port}, show=False)"
+    )
     lines.append("")
     return "\n".join(lines)

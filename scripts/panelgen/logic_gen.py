@@ -2,13 +2,11 @@
 one Python module per VI via ``lvkit.codegen.builder.build_module`` -- never
 reimplementing any of its code generation.
 
-The requested VI's own module is written as ``logic.py``; any SubVI it calls
-(within the same closure) is written as a sibling ``_dep_<name>.py`` module
-that ``logic.py`` (or another dependency) imports by plain module name -- the
-whole output directory is a flat, non-package directory added to
-``sys.path`` by the generated ``app.py``, matching
-``examples/build-path-nicegui/panel.py``'s ``from logic import build_path``
-style rather than a relative-import package.
+Every module is named after its VI (``<vi>.py``), so the entry VI and each SubVI
+it calls are peer modules in one flat directory, importing each other by that
+bare VI name. Many converted VIs therefore co-locate in a single directory (the
+way a LabVIEW ``.llb`` of VIs maps to a package of modules), and the pure entry
+module ``<vi>.py`` is self-describing and runs headless on its own.
 """
 
 from __future__ import annotations
@@ -27,7 +25,7 @@ class LogicResult:
     """What logic generation produced, for state_gen/panel_gen to build on."""
 
     entry_vi_path: Path  # the concrete .vi file the panel/state reflect
-    entry_module_stem: str  # always "logic"
+    entry_module_stem: str  # the entry VI's module name, e.g. "build_path"
     entry_func_name: str
     written_files: list[Path] = field(default_factory=list)
     polymorphic_note: str | None = None  # set when the input VI was a
@@ -110,13 +108,12 @@ def generate_logic(
     for key in order:
         display = graph.vi_display_name(key)
         func_name = to_function_name(display)
-        if key == entry_key:
-            module_stem = "logic"
-        else:
-            base_stem = "_dep_" + to_module_name(display)
-            count = used_stems.get(base_stem, 0)
-            used_stems[base_stem] = count + 1
-            module_stem = base_stem if count == 0 else f"{base_stem}_{count + 1}"
+        # Every VI -- entry and SubVI alike -- is named after itself, so the
+        # whole closure is a set of peer modules that co-locate in one directory.
+        base_stem = to_module_name(display)
+        count = used_stems.get(base_stem, 0)
+        used_stems[base_stem] = count + 1
+        module_stem = base_stem if count == 0 else f"{base_stem}_{count + 1}"
         name_map[key] = (module_stem, func_name)
 
     def import_resolver(subvi_name: str) -> str:

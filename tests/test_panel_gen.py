@@ -1,16 +1,18 @@
 """Unit tests for the NiceGUI front-panel generator (``scripts/panelgen``).
 
 Corpus-independent: they build a synthetic ``ParsedFrontPanel`` and drive the
-string generators directly, so they run on a fresh clone. They guard two things
-that the codegen functional suite can't see, because both live in the generated
-*panel* files, not the logic:
+string generators directly, so they run on a fresh clone. They guard three
+things that the codegen functional suite can't see, because all live in the
+generated *panel* file, not the logic:
 
-1. ``state.py`` must import cleanly — an array field is a ``list``, and a
-   dataclass rejects a bare mutable default, so the generator must route it
-   through ``field(default_factory=...)``. This test execs the emitted source.
+1. The bindable ``State`` classes must exec cleanly — an array field is a
+   ``list``, and a dataclass rejects a bare mutable default, so the generator
+   must route it through ``field(default_factory=...)``. This test execs it.
 2. An array control/indicator must render via the composed ``array_control``
    (native NiceGUI), not the string-input fallback, and an array *indicator*
    must be refreshed after Run.
+3. The panel module is self-contained: the ``State`` view-model is inlined (no
+   separate ``state`` import) and a guarded ``__main__`` runner serves it.
 """
 
 from __future__ import annotations
@@ -40,6 +42,47 @@ def _array_parts() -> list[ParsedFPPart]:
             {"StdNumMin": "-2147483648", "StdNumMax": "2147483647", "StdNumInc": "0"},
         ),
     ]
+
+
+def _scalar_panel() -> ParsedFrontPanel:
+    """A scalar numeric input + a scalar path indicator — to check that a scalar's
+    label renders as a caption ABOVE the box (like an array's), not inside it."""
+    return ParsedFrontPanel(
+        controls=[
+            ParsedFPControl(
+                uid="1", name="threshold", control_type="stdNum",
+                bounds=(20, 20, 60, 150), is_indicator=False,
+            ),
+            ParsedFPControl(
+                uid="2", name="out path", control_type="stdPath",
+                bounds=(20, 170, 60, 320), is_indicator=True,
+            ),
+        ],
+        panel_bounds=(0, 0, 90, 340),
+    )
+
+
+def test_scalar_label_is_a_caption_above_the_box() -> None:
+    """A scalar renders its label as a caption above the box (consistent with the
+    array control's caption, faithful to the VI's label-above-box geometry), and
+    the widget itself carries no internal (floating) label."""
+    src = build_panel_module(
+        _scalar_panel(),
+        logic_module_stem="f",
+        logic_func_name="f",
+        param_names=["threshold"],
+        result_fields=["out_path"],
+    )
+    # Caption label above, in a column wrapper.
+    assert "with ui.column().classes('w-full gap-1 no-wrap'):" in src
+    assert "ui.label('threshold')" in src
+    # The number widget has NO internal floating label.
+    assert "ui.number()" in src
+    assert "ui.number(label=" not in src
+    # The path control is given no label (the caption is external).
+    assert "path_control(state, 'out_path', readonly=True)" in src
+    assert "path_control(state, 'out_path', readonly=True, label=" not in src
+    compile(src, "<panel>", "exec")
 
 
 def _array_panel() -> ParsedFrontPanel:
@@ -103,6 +146,12 @@ def test_panel_uses_array_control_and_refreshes_indicator() -> None:
     # Execution goes through the VI toolbar + RunController, not a lone button.
     assert "toolbar(controller)" in src
     assert "RunController(compute)" in src
+    # The State view-model is inlined (no separate state module), and the file
+    # serves itself via a guarded runner.
+    assert "@binding.bindable_dataclass" in src
+    assert "class State:" in src
+    assert "from state import" not in src
+    assert 'if __name__ in {"__main__", "__mp_main__"}:' in src
     # It's syntactically valid Python.
     compile(src, "<panel>", "exec")
 

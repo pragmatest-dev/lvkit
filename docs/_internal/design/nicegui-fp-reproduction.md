@@ -15,38 +15,51 @@ Status (2026-09-11): `state.py` already nests a cluster as a bindable dataclass
    controls + the anti-clip reflow so nested fields aren't clipped (the pre-
    refactor `_render_widget` stdClust branch has the old peephole problem).
 
-2. **Array of clusters** — NEW, and AG Grid's sweet spot (a real multi-column
-   table). For an `indArr` whose element ddo is `stdClust`:
-   - Parser: expose the element cluster's FIELD SPECS (name + type + numeric
+2. **Array of clusters** — AG Grid's sweet spot (a real multi-column table). For
+   an `indArr` whose element ddo is `stdClust`:
+   - ✅ **`array_control` DONE**: pass `fields=[ArrayField(...)]` (one per cluster
+     field) and it builds a COLUMN PER FIELD, each declaring its `cellDataType`
+     (number/boolean/text) from the field's real type, with `state.<field>` a
+     `list[dict]`. Rows are stored verbatim (AG Grid delivers each cell already
+     typed) — no per-value coercion, so a scalar array is just the one-field case
+     of the same path. add/remove/drag/edit all carry dicts.
+   - ⬜ Parser: expose the element cluster's FIELD SPECS (name + type + numeric
      range/precision + enum values) — extend the element-part parsing.
-   - `array_control`: when the element is a cluster, build a COLUMN PER FIELD with
-     a type-specific cellEditor (agNumber / text / checkbox / select), rows =
-     dicts `{field: value}`. The existing add/remove/drag/edit wiring already uses
-     dict rowData — this is just more columns.
-   - `state.<field>`: `list[dict]`.
+   - ⬜ `panel_gen`: detect an `indArr`-of-`stdClust` and emit the `fields=`.
    Real corpus VIs: DAQ AO SFP/Main, LabVIEW-DAQ Two Photon.
 
 3. **Depth**: a cluster field that is itself an array → nested array control in
    the standalone case; for array-of-clusters that's a 2D cell (defer — start
    with scalar cluster fields).
 
-## 1. The split: pure script vs UI wrapper (separation of concerns)
+## 1. The split: pure logic vs UI wrapper (two VI-named files)
 
-- **`logic.py` — the pure script.** The VI's block-diagram logic as idiomatic
+Each converted VI produces **two VI-named files** (every VI has both a diagram
+and a panel, so both are always emitted), plus **one shared `controls.py`**
+runtime per directory. Because the files are VI-named, many converted VIs
+co-locate in a single directory — the way a LabVIEW `.llb` maps to a package.
+
+- **`<vi>.py` — the pure logic.** The VI's block-diagram logic as idiomatic
   Python, written *as if the UI does not exist*: no NiceGUI import, plain
   functions/values. This is the primary artifact and the **TesterKit / pytest**
-  target (the functional suite already executes exactly these). It must stay
-  **location-independent** so the logic can later run on a *different machine*
-  than the UI — the UI talks to it across a seam that can become RPC.
-- **UI is OPTIONAL and progressive.** Do **not** force UI files on someone who
-  just wants the logic. Keep generated overhead minimal; let people add the UI
-  layer only when they want it, implementing pieces as they need them.
-- **`state` — a `@binding.bindable_dataclass`.** One `BindableProperty` field per
-  FP control (input) and indicator (output). This is the decorator-based binding
-  (NiceGUI has several binding APIs; this is the clean MVC one).
-- **`panel.py` — the UI wrapper.** Reproduces the LV front panel (real geometry,
-  §3) and binds it to the pure script: inputs `bind_value(state,'x')`; indicators
-  `bind_value_from(state,'y')`; a change runs the pure `logic` and writes outputs.
+  target (the functional suite already executes exactly these), it runs
+  **headless**, and it stays **location-independent** so the logic can later run
+  on a *different machine* than the UI — the UI talks to it across a seam that can
+  become RPC. Its SubVI dependencies are VI-named peer modules in the same dir.
+- **`<vi>_panel.py` — the UI wrapper.** One file holding: the `State` view-model,
+  `build_panel()`, and a guarded `__main__` runner (`python <vi>_panel.py` serves
+  it). Reproduces the LV front panel (real geometry, §3) and binds it to the pure
+  logic: inputs `bind_value(state,'x')`; indicators `bind_value_from(state,'y')`;
+  Run calls the pure logic and writes the outputs.
+  - **`State` — a `@binding.bindable_dataclass`**, inlined here (it lives with the
+    UI). One `BindableProperty` field per FP control (input) and indicator
+    (output) — the clean decorator-based MVC binding.
+- **`controls.py` — the shared runtime**, written once per directory (not copied
+  per VI); every `<vi>_panel.py` imports it.
+
+Presentation boundary: the logic returns real Python types (e.g. `pathlib.Path`);
+the control layer coerces anything non-JSON-serializable to text at the widget
+seam (`_jsonable`), so NiceGUI can serialize it and the logic stays pure.
 
 ## 2. Execution model — Run / Run Continuous (LabVIEW semantics, NOT per-keystroke)
 
@@ -148,5 +161,11 @@ one model. This is a reason the parser-first work matters beyond the panel.
 
 **Also done:** a central `Theme` seam (MODERN/CLASSIC presets, one switch
 re-skins the whole panel); the array control adopts AG Grid (typed cells from
-the VI's real properties, add/remove/drag-reorder, hover-reveal chrome); and a
-click-to-run **gallery** (`scripts/gen_gallery.py`).
+the VI's real properties, add/remove/drag-reorder, hover-reveal chrome); a
+click-to-run **gallery** (`scripts/gen_gallery.py`); a real **path control**
+(`path_control`) with a server-filesystem Browse dialog (clean-room folder/file
+glyphs); the **two-VI-named-files + shared `controls.py`** output contract (many
+VIs co-locate in one dir; `python <vi>_panel.py` runs one); and the `_jsonable`
+presentation-boundary coercion (fixes path *outputs* silently no-op-ing on Run —
+a `Path` reaching NiceGUI's JSON serializer failed outside the Run error
+boundary).

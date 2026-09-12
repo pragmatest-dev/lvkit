@@ -2,15 +2,16 @@
 """Generate a NiceGUI front panel from a LabVIEW VI's real front-panel
 geometry.
 
-Emits four files into the output directory:
-  logic.py  - the block-diagram logic (via lvkit's build_module)
-  state.py  - a plain dataclass, one field per control/indicator
-  panel.py  - a NiceGUI panel laid out from the VI's control bounds
-  app.py    - serves the panel
+Emits two VI-named files into the output directory, plus one shared runtime:
+  <vi>.py        - the pure block-diagram logic (via lvkit's build_module),
+                   headless, no UI imports
+  <vi>_panel.py  - the NiceGUI UI (State + panel laid out from the VI's control
+                   bounds + a __main__ runner), bound to <vi>.py
+  controls.py    - the shared control runtime (one per directory)
 
-See scripts/panelgen/ for the generator itself. nicegui is not a lvkit
-dependency; run the generated app with:
-  uv run --with nicegui python <output>/app.py
+Many VIs can share one directory (the files are VI-named). nicegui is not a
+lvkit dependency; run a generated panel with:
+  uv run --with nicegui python <output>/<vi>_panel.py
 """
 
 from __future__ import annotations
@@ -50,15 +51,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    output_dir = generate_panel(
+    result = generate_panel(
         args.input,
         args.output,
         search_paths=[Path(p) for p in args.search_paths] or None,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
     )
-    print(f"\nGenerated panel in: {output_dir}")
-    print(f"Run:  uv run --with nicegui python {output_dir / 'app.py'}")
+    panel_file = result.output_dir / f"{result.panel_stem}.py"
+    print(f"\nGenerated panel in: {result.output_dir}")
+    print(f"  logic:  {result.logic_stem}.py")
+    print(f"  panel:  {result.panel_stem}.py")
+    print(f"Run:  uv run --with nicegui python {panel_file}")
 
 
 if __name__ == "__main__":

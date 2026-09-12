@@ -19,6 +19,7 @@ from __future__ import annotations
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from nicegui import ui
@@ -108,19 +109,139 @@ ui.add_css(
 )
 
 
-def _coerce(text: str) -> Any:
-    """Parse a cell back to int, then float, else keep the string — so numeric
-    arrays round-trip as numbers and string arrays stay strings."""
-    t = text.strip()
-    try:
-        return int(t)
-    except ValueError:
-        pass
-    try:
-        return float(t)
-    except ValueError:
-        pass
-    return text
+
+
+def _jsonable(value: Any) -> Any:
+    """Coerce a value to something NiceGUI can JSON-serialize to a widget. JSON
+    primitives pass through; anything else (a ``pathlib.Path``, a datetime, ...)
+    becomes its ``str()``. This is the presentation boundary: the pure logic
+    keeps its real types (it returns ``Path`` objects), and the widget shows text
+    -- without it a ``Path`` reaches NiceGUI's socket serializer and the update
+    fails silently outside the Run error boundary (nothing renders)."""
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+# Clean-room folder / file glyphs for the picker rows (inline SVG, our own
+# shapes -- robust where an emoji font is absent, unlike 📁/📄).
+_SVG_FOLDER = (
+    '<svg width="15" height="15" viewBox="0 0 16 16" style="vertical-align:-2px">'
+    '<path d="M1.5 3.5A1 1 0 0 1 2.5 2.5h3l1.2 1.4H13.5a1 1 0 0 1 1 1v7'
+    'a1 1 0 0 1-1 1H2.5a1 1 0 0 1-1-1z" fill="#f6c344" stroke="#d9a520" '
+    'stroke-width=".7"/></svg>'
+)
+_SVG_FILE = (
+    '<svg width="15" height="15" viewBox="0 0 16 16" style="vertical-align:-2px">'
+    '<path d="M4 1.5h5l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2.5a1 1 0 0 1 1-1z" '
+    'fill="#e9edf2" stroke="#9aa5b1" stroke-width=".7"/>'
+    '<path d="M9 1.5v3h3" fill="none" stroke="#9aa5b1" stroke-width=".7"/></svg>'
+)
+
+
+class _FilePicker(ui.dialog):
+    """A minimal server-filesystem browser dialog (adapted from NiceGUI's
+    local_file_picker example): a grid of the current directory's entries,
+    double-click a folder to descend / ``..`` to go up, pick a file/folder with
+    Select. ``submit(path)`` resolves the ``await``. Backs the path control's
+    real Browse -- the LabVIEW path-browse analog, adopt-first."""
+
+    def __init__(self, directory: str) -> None:
+        super().__init__()
+        start = Path(directory).expanduser()
+        self._dir = start if start.is_dir() else Path.home()
+        with self, ui.card().style("min-width:440px"):
+            self._grid = (
+                ui.aggrid(
+                    {
+                        "columnDefs": [{"field": "name", "headerName": ""}],
+                        "rowSelection": "single",
+                        "rowData": [],
+                    },
+                    html_columns=[0],
+                )
+                .classes("w-full h-64")
+                .on("cellDoubleClicked", self._descend)
+            )
+            with ui.row().classes("justify-end w-full gap-2"):
+                ui.button("Cancel", on_click=self.close).props("flat")
+                ui.button("Select", on_click=self._ok)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        try:
+            entries = sorted(
+                (p for p in self._dir.iterdir() if not p.name.startswith(".")),
+                key=lambda p: (p.is_file(), p.name.lower()),
+            )
+        except OSError:
+            entries = []
+        def _cell(icon: str, text: str) -> str:
+            # Inline-flex keeps the glyph beside the name on one row (a bare SVG
+            # + text wraps in an AG Grid html cell).
+            return (
+                '<span style="display:inline-flex;align-items:center;gap:6px">'
+                f"{icon}<span>{text}</span></span>"
+            )
+
+        rows = [
+            {"name": _cell(_SVG_FOLDER, ".."), "path": str(self._dir.parent)}
+        ]
+        for p in entries:
+            icon = _SVG_FOLDER if p.is_dir() else _SVG_FILE
+            rows.append({"name": _cell(icon, p.name), "path": str(p)})
+        self._grid.options["rowData"] = rows
+        self._grid.options["columnDefs"][0]["headerName"] = str(self._dir)
+        self._grid.update()
+
+    async def _descend(self, e: Any) -> None:
+        p = Path(e.args["data"]["path"])
+        if p.is_dir():
+            self._dir = p
+            self._refresh()
+        else:
+            self.submit(str(p))
+
+    async def _ok(self) -> None:
+        rows = await self._grid.get_selected_rows()
+        self.submit(rows[0]["path"] if rows else str(self._dir))
+
+
+def path_control(
+    state: Any, field: str, *, readonly: bool = False, label: str = ""
+) -> None:
+    """A LabVIEW path control: an outlined text field bound to ``state.<field>``,
+    with a real Browse (a server-filesystem picker dialog) on an input. A
+    read-only indicator shows the path without a browse button."""
+    inp = ui.input(label).props("outlined dense").classes("w-full")
+
+    def _text(v: Any) -> str:
+        return _jsonable(v) or ""
+
+    # A path is often longer than the field; a tooltip shows it in full on hover
+    # (hidden while empty so there's no blank bubble).
+    with inp:
+        tip = ui.tooltip().bind_text_from(state, field, backward=_text)
+        tip.bind_visibility_from(state, field, backward=bool)
+
+    if readonly:
+        # A path indicator holds a Path (from the logic); show it as text so
+        # NiceGUI can serialize it (see _jsonable).
+        inp.bind_value_from(state, field, backward=_text)
+        inp.disable()
+        return
+    inp.bind_value(state, field)
+
+    async def _browse() -> None:
+        picked = await _FilePicker(str(getattr(state, field) or Path.home()))
+        if picked:
+            setattr(state, field, picked)
+
+    with inp.add_slot("append"):
+        ui.button(icon="folder_open", on_click=_browse).props(
+            "flat dense round size=sm"
+        ).classes("text-gray-500")
+        ui.tooltip("Browse…")
 
 
 def waveform_indicator(
@@ -166,6 +287,67 @@ def waveform_indicator(
     return refresh
 
 
+_NUMERIC_TYPES = ("stdNum", "stdNumeric")
+
+
+@dataclass
+class ArrayField:
+    """One column of an array control. A scalar array has a single field keyed
+    ``value``; an array OF CLUSTERS has one ArrayField per cluster field. The
+    element type drives the AG Grid ``cellDataType``, so the grid stores each
+    cell already typed -- there is no Python-side coercion, and the same code path
+    serves scalars and clusters alike."""
+
+    key: str  # dict key in the row + AG Grid column field
+    header: str = ""  # column header (shown only for cluster columns)
+    element_type: str = "stdNum"
+    integer: bool = False
+    num_min: float | None = None
+    num_max: float | None = None
+
+
+def _field_default(f: ArrayField) -> Any:
+    """The zero value for a new cell of this field's declared type."""
+    if f.element_type in _NUMERIC_TYPES:
+        return 0
+    if f.element_type == "stdBool":
+        return False
+    return ""
+
+
+def _field_column(f: ArrayField, *, editable: bool) -> dict[str, Any]:
+    """One AG Grid column def built from a field's DECLARED type -- number
+    (int/float, with the VI's range/precision), boolean, or text. The declared
+    ``cellDataType`` is what makes the grid deliver each edited cell already
+    typed."""
+    numeric = f.element_type in _NUMERIC_TYPES
+    col: dict[str, Any] = {
+        "headerName": f.header,
+        "field": f.key,
+        "flex": 1,
+        "editable": editable,
+        "cellClass": "font-mono" + (" text-right" if numeric else ""),
+        "tooltipField": f.key,  # full value on hover when a cell is ellipsized
+    }
+    if numeric:
+        col["cellDataType"] = "number"
+        editor: dict[str, Any] = {}
+        if f.num_min is not None:
+            editor["min"] = f.num_min
+        if f.num_max is not None:
+            editor["max"] = f.num_max
+        if f.integer:
+            editor["precision"] = 0
+        if editor:
+            col["cellEditor"] = "agNumberCellEditor"
+            col["cellEditorParams"] = editor
+    elif f.element_type == "stdBool":
+        col["cellDataType"] = "boolean"
+    else:
+        col["cellDataType"] = "text"
+    return col
+
+
 def array_control(
     state: Any,
     field: str,
@@ -178,52 +360,53 @@ def array_control(
     integer: bool = True,
     num_min: float | None = None,
     num_max: float | None = None,
+    fields: list[ArrayField] | None = None,
 ) -> Callable[[], None]:
     """1D array bound to ``state.<field>`` (a list), rendered with AG Grid
     (``ui.aggrid`` — a maintained data grid) configured from the VI's real
     control properties. We own the MAPPING, not a bespoke grid:
 
     - a pinned, read-only INDEX column (the element index, ``node.rowIndex``);
-    - a typed VALUE column — numeric (``cellDataType='number'``, integer
-      precision + data range from the VI's ``StdNumMin``/``StdNumMax``) or text —
-      editable unless this is an indicator;
+    - one typed column PER FIELD — a scalar array has a single ``value`` column;
+      an ARRAY OF CLUSTERS passes ``fields`` (one ``ArrayField`` per cluster
+      field) and gets one column each, ``state.<field>`` then being a list of
+      dicts. Each column declares its ``cellDataType`` (number/boolean/text) from
+      the VI's real type, so the grid delivers every edited cell already typed —
+      no Python coercion, and clusters are just more columns, not a second path;
     - only ``visible`` rows show (``rowHeight`` = the VI's element-cell height);
       the rest scroll, the always-on vertical scrollbar acting as the index
       navigator — the way a LabVIEW array is paged by its index.
 
-    ``cell_h``, ``visible``, ``element_type``, ``integer`` and the numeric range
-    are READ FROM THE VI's front panel (the panel passes them from the parsed
-    part geometry + properties). Edits write straight back into
-    ``state.<field>``. Returns a refresh callable the Run handler calls after
-    writing a new list into an indicator.
+    ``cell_h``, ``visible`` and the field type(s)/range are READ FROM THE VI's
+    front panel. Edits write straight back into ``state.<field>``. Returns a
+    refresh callable the Run handler calls after writing a new list.
     """
-    numeric = element_type in ("stdNum", "stdNumeric")
+    # One code path for both: a scalar array is a single unnamed 'value' field;
+    # a cluster array supplies its fields. Rows are dicts either way.
+    cluster = fields is not None
+    cols: list[ArrayField] = fields if cluster else [
+        ArrayField("value", "", element_type, integer, num_min, num_max)
+    ]
+
+    def _row_from(elem: Any) -> dict[str, Any]:
+        # _jsonable: a cell may be a Path (path array) or other non-JSON type;
+        # coerce to text so NiceGUI can serialize the rowData.
+        if cluster:
+            src = elem if isinstance(elem, dict) else {}
+            return {f.key: _jsonable(src.get(f.key)) for f in cols}
+        return {"value": _jsonable(elem)}
+
+    def _elem_from(row: dict[str, Any]) -> Any:
+        # AG Grid delivers each cell already typed per its column's cellDataType,
+        # so read the row back verbatim -- no re-parsing.
+        if cluster:
+            return {f.key: row.get(f.key) for f in cols}
+        return row.get("value")
 
     def _rows() -> list:
-        return [{"value": v} for v in (getattr(state, field) or [])]
+        return [_row_from(e) for e in (getattr(state, field) or [])]
 
-    value_col: dict[str, Any] = {
-        "headerName": "",
-        "field": "value",
-        "flex": 1,
-        "editable": not readonly,
-        "cellClass": "font-mono" + (" text-right" if numeric else ""),
-    }
-    if numeric:
-        value_col["cellDataType"] = "number"
-        editor: dict[str, Any] = {}
-        if num_min is not None:
-            editor["min"] = num_min
-        if num_max is not None:
-            editor["max"] = num_max
-        if integer:
-            editor["precision"] = 0
-        if editor:
-            value_col["cellEditor"] = "agNumberCellEditor"
-            value_col["cellEditorParams"] = editor
-    else:
-        value_col["cellDataType"] = "text"
-
+    show_headers = cluster and any(f.header for f in cols)
     col_defs: list[dict[str, Any]] = [
         {
             "headerName": "",
@@ -238,7 +421,7 @@ def array_control(
             "rowDrag": not readonly,
             "cellClass": "text-gray-400 text-right font-mono px-1",
         },
-        value_col,
+        *(_field_column(f, editable=not readonly) for f in cols),
     ]
     if not readonly:
         # AG Grid has no native remove UI, so a clickable ✕ action column (the
@@ -258,11 +441,13 @@ def array_control(
             }
         )
 
+    header_h = 22 if show_headers else 0
     options: dict[str, Any] = {
         "columnDefs": col_defs,
         "rowData": _rows(),
         "rowHeight": cell_h,
-        "headerHeight": 0,  # a LabVIEW array has no column header
+        # A scalar array has no header; a cluster array shows one per field.
+        "headerHeight": header_h,
         # Compact: no empty horizontal scroll track; the vertical scrollbar (the
         # index navigator) shows only when there are more elements than fit.
         "suppressHorizontalScroll": True,
@@ -270,6 +455,7 @@ def array_control(
         "suppressCellFocus": readonly,
         "suppressNoRowsOverlay": True,  # empty reads as empty, not a banner
         "rowDragManaged": not readonly,  # drag reorders the rows
+        "enableBrowserTooltips": True,  # native title tooltips for tooltipField
     }
 
     def _on_change(e: Any) -> None:
@@ -277,8 +463,11 @@ def array_control(
         vals = getattr(state, field)
         i = a.get("rowIndex")
         if isinstance(i, int) and 0 <= i < len(vals):
-            v = a["data"].get("value")
-            vals[i] = _coerce(v) if isinstance(v, str) else v
+            # AG Grid already delivers each cell typed per its column's declared
+            # cellDataType (text -> str, number -> int/float, boolean -> bool), so
+            # store the row verbatim. No Python-side re-parsing: that's what turned
+            # "123" in a STRING array into int 123.
+            vals[i] = _elem_from(a["data"])
 
     def _on_click(e: Any) -> None:
         if e.args.get("colId") != "del":
@@ -289,15 +478,27 @@ def array_control(
             del vals[i]
             refresh()
 
-    def _add() -> None:
-        # AG Grid has no native "add" UI; append (numeric default 0 / empty
-        # string) and drop straight into editing the new element.
-        vals = getattr(state, field)
-        vals.append(0 if numeric else "")
-        refresh()
+    def _start_edit(index: int) -> None:
+        grid.run_grid_method("ensureIndexVisible", index)
         grid.run_grid_method(
-            "startEditingCell", {"rowIndex": len(vals) - 1, "colKey": "value"}
+            "startEditingCell", {"rowIndex": index, "colKey": cols[0].key}
         )
+
+    def _add() -> None:
+        # AG Grid has no native "add" UI; append a new element defaulted per its
+        # field type(s) -- a dict for a cluster, a scalar otherwise -- then edit
+        # its first cell. The rowData update and the edit-start are separate
+        # client messages, so starting the edit in THIS tick races the re-render
+        # (the new row may not exist yet, or the render wipes the editor). Defer
+        # the edit-start a tick so the row is rendered first, then focus its cell.
+        vals = getattr(state, field)
+        if cluster:
+            vals.append({f.key: _field_default(f) for f in cols})
+        else:
+            vals.append(_field_default(cols[0]))
+        refresh()
+        new_index = len(vals) - 1
+        ui.timer(0.15, lambda: _start_edit(new_index), once=True)
 
     # Caption row: the control name + a "+" add button for editable arrays. The
     # grid shows `visible` rows and scrolls (the index navigator) only for more.
@@ -316,9 +517,10 @@ def array_control(
         grid = (
             ui.aggrid(options)
             .classes(f"{t.grid_class} w-full shrink-0")
-            # Height comes from the VI (visible rows x real cell height); the
-            # look (base theme + tokens) comes from the active Theme.
-            .style(f"height:{visible * cell_h + 4}px;{t.grid_vars}")
+            # Height comes from the VI (visible rows x real cell height) plus the
+            # column-header row for a cluster array; the look (base theme +
+            # tokens) comes from the active Theme.
+            .style(f"height:{visible * cell_h + 4 + header_h}px;{t.grid_vars}")
         )
 
     def refresh() -> None:
@@ -329,7 +531,7 @@ def array_control(
         # AG Grid (managed drag) already reordered the rows; read the new order
         # back and sync state to it (the rowDragEnd event carries no payload).
         data = await grid.get_client_data()
-        getattr(state, field)[:] = [d["value"] for d in data]
+        getattr(state, field)[:] = [_elem_from(d) for d in data]
         # Re-render from state: the index column is virtual (node.rowIndex) and
         # AG Grid doesn't re-run its valueGetter after a managed move, so without
         # this the indices go stale (a moved "0" ends up beside the wrong row).
