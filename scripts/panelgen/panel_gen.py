@@ -203,16 +203,25 @@ def _render_widget(
         )
         return lines
 
+    outlined = ".props('outlined dense').classes('w-full')"
     if control.control_type == "stdEnum":
         lines.append(
-            f"{prefix}{var} = ui.select({control.enum_values!r}, label={label!r})"
+            f"{prefix}{var} = ui.select({control.enum_values!r}, "
+            f"label={label!r}){outlined}"
         )
     elif info.widget == "switch":
         lines.append(f"{prefix}{var} = ui.switch({label!r})")
     elif info.widget == "number":
-        lines.append(f"{prefix}{var} = ui.number(label={label!r}).classes('w-full')")
+        lines.append(f"{prefix}{var} = ui.number(label={label!r}){outlined}")
+    elif control.control_type == "stdPath":
+        # A path control: a text field with a folder affordance, so it reads as
+        # a path, not a bare string. (A server-side directory browser is a later
+        # enhancement; the icon marks the type today.)
+        lines.append(f"{prefix}{var} = ui.input({label!r}){outlined}")
+        lines.append(f"{prefix}with {var}.add_slot('append'):")
+        lines.append(f"{prefix}    ui.icon('folder').classes('text-gray-400 text-sm')")
     else:
-        lines.append(f"{prefix}{var} = ui.input({label!r}).classes('w-full')")
+        lines.append(f"{prefix}{var} = ui.input({label!r}){outlined}")
 
     if control.is_indicator:
         # Output: one-way state -> widget, so Run's results display reactively.
@@ -243,6 +252,10 @@ class _Placed:
 # the grid's own border, on top of the data rows.
 _ARRAY_CHROME_H = 32
 _ANTI_OVERLAP_GAP = 8
+# A NiceGUI outlined input/number/select is ~54px tall; a switch ~40. LV boxes
+# are shorter, so scalars get a usable minimum height rather than being clipped.
+_SCALAR_MIN_H = 54
+_SWITCH_MIN_H = 40
 
 
 def _render_container(
@@ -269,14 +282,18 @@ def _render_container(
         left = control.bounds[1] - min_left + _MARGIN
         w = control.bounds[3] - control.bounds[1]
         h = control.bounds[2] - control.bounds[0]
-        is_array = control_type_info(control.control_type).widget == "array"
+        widget = control_type_info(control.control_type).widget
+        is_array = widget == "array"
         if is_array:
             geom = _array_geometry(control)
             render_h = _ARRAY_CHROME_H + geom.visible * geom.cell_h
             cap = _CAPTION_H if (control.name or fname) else 0
             top -= cap  # caption sits above the data box
         else:
-            render_h = h
+            # A NiceGUI outlined input/select is taller than the tiny LV box, so
+            # give scalars a usable minimum height rather than clip them to it.
+            min_h = _SWITCH_MIN_H if widget == "switch" else _SCALAR_MIN_H
+            render_h = max(h, min_h)
         placed.append(
             _Placed(control, fname, left, left + w, w, top, render_h, is_array)
         )
@@ -303,9 +320,11 @@ def _render_container(
                 f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
             )
         else:
+            # Don't clip a scalar to the tiny LV box (that hid the input, leaving
+            # only its label) -- position it and let it show; the reflow spaced
+            # it by render_h.
             style = (
-                f"position:absolute;left:{p.left}px;top:{p.top}px;"
-                f"width:{p.width}px;height:{p.render_h}px;overflow:hidden;"
+                f"position:absolute;left:{p.left}px;top:{p.top}px;width:{p.width}px;"
             )
         lines.append(f"        with ui.element('div').style({style!r}):")
         lines.extend(_render_widget(p.control, "state", p.fname, 12, [p.fname]))
