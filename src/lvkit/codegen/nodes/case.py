@@ -94,12 +94,18 @@ def _resolve_output_tunnels(
             fv: ctx.resolve(inner) for fv, inner in ot.inner_by_frame.items()
         }
         distinct = {v for v in vals.values() if v}
-        wires_every_frame = None not in ot.inner_by_frame and (
-            len(ot.inner_by_frame) >= n_frames
+        # Every frame must both HAVE an inner terminal AND resolve it to a real
+        # value. A frame whose inner resolves to None is unwired (a `pass`
+        # frame, "use default if unwired") and its value must come from the
+        # pre-declared default below — aliasing to the other frames' value would
+        # reference a variable that frame never assigns (UnboundLocalError).
+        wires_every_frame = (
+            None not in ot.inner_by_frame
+            and len(ot.inner_by_frame) >= n_frames
+            and all(vals.get(fv) is not None for fv in ot.inner_by_frame)
         )
-        # Degenerate merge: one value across all frames that wire it, and every
-        # frame wires it (else an unwired frame needs the pre-declared default).
-        # Alias the outer straight to that value -- no merge variable.
+        # Degenerate merge: one value produced by every frame — alias the outer
+        # straight to that value, no merge variable.
         if len(distinct) == 1 and wires_every_frame:
             bindings[ot.outer_uid] = next(iter(distinct))
             continue

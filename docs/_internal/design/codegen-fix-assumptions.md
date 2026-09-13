@@ -16,6 +16,21 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Case output tunnel seeds its default in a pass/unwired frame
+`_resolve_output_tunnels` (codegen/nodes/case.py) aliased an output tunnel
+straight to a single produced value when every frame had an inner terminal —
+but a `pass`/unwired frame HAS an inner terminal that RESOLVES to None (LabVIEW
+"use default if unwired"). Aliasing to the other frames' variable then produced
+`UnboundLocalError` when the unwired frame ran (Trim Whitespace's leading/
+trailing-only modes; String to 1D Array). Fixed by requiring every frame to
+resolve to a real value before aliasing; otherwise the divergent path runs — a
+merge variable pre-declared to the type default before the match, so an unwired
+frame yields that default. Verified: String to 1D Array now runs
+(`"a,b,c"`,`,` → `['a','b','c']`); Trim Whitespace no longer raises (mode 0
+correct; leading/trailing-only still under-trim — that's the DEFERRED multi-case
+selector-value identity, not this tunnel bug). Contained: 6 OpenG VIs changed, 0
+syntax errors, full suite green.
+
 ### For-loop lpTun input-vs-output classified by DIRECTION, not resolve-truthiness
 `To Proper Case (String Array)` (and every OpenG `(… Array)` map variant that
 runs a SubVI per element and auto-indexes the result) generated a broken loop:
