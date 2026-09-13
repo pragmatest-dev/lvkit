@@ -364,3 +364,25 @@ consistency/robustness fix that also closes the cross-scope tunnel-sharing gap �
 verified: only number/place-number-to-proper-engl-text change (each concat gets a
 distinct name, every consumer binds to its real source node), all parse, full
 functional suite green.
+
+### OPEN BUG (found by executing): parameter default misalignment + ignored pane default
+`build_args` (builder.py) marks an input optional iff `wiring_rule >= 2` and, for
+each optional input, appends `default_value_expr(inp.lv_type)` to a flat
+`defaults` list. Python binds `ast.arguments.defaults` to the TRAILING args, so
+when an optional input PRECEDES a required/unknown one (wiring_rule < 2) the
+default lands on the wrong parameter. Verified wrong output (crash):
+  - MD5 Unrecoverable character padding -> `def f(message: str, block_size_16: int='')`
+    then `length % block_size_16` -> `int % ''` TypeError; and
+  - Convert EOLs (String) -> `def f(string_in: str, convert_to: int='')` -> `int('')`.
+The message/string input (wiring_rule=2) is optional and its String default `''`
+is misassigned to the FOLLOWING int param, which is left with no valid default.
+Two problems: (1) defaults misalign across an optional-before-required ordering
+(can even emit an invalid signature); (2) the terminal's REAL connector-pane
+default is ignored — Block Size carries `default_value='16'` but codegen uses the
+generic `default_value_expr` (0) / the misassigned ''.
+Recommended fix (needs maintainer OK — changes the generated calling convention
+corpus-wide): give EVERY input a default (LabVIEW semantics: any unwired terminal
+uses its default), sourced from `inp.default_value` when present else
+`default_value_expr(inp.lv_type)`. This eliminates the ordering constraint AND
+uses the real pane default. Affects any VI with an optional-before-required input
+ordering. NOT fixed pending direction.
