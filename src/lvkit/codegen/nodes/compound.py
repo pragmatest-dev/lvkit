@@ -124,7 +124,6 @@ def generate_compound_arith(
 
     sorted_inputs = sorted(inputs, key=lambda t: t.index)
     input_exprs = []
-    input_names = []
     for inp in sorted_inputs:
         val = ctx.resolve(inp.id)
         if val:
@@ -133,9 +132,10 @@ def generate_compound_arith(
                 expr = _invert_expr(expr, boolean, operation, inp.lv_type)
                 val = ast.unparse(expr)
             input_exprs.append(val)
-            input_names.append(val)
 
-    var_name = _make_arith_var_name(operation, input_names)
+    var_name = ctx.make_output_var(
+        _arith_base_name(operation, output_term), node.id, terminal_id=output_id
+    )
 
     if not input_exprs:
         default_value = False if operation in ("or", "and") else 0
@@ -218,19 +218,18 @@ def generate_compound_arith(
     )
 
 
-def _make_arith_var_name(operation: str, input_names: list[str]) -> str:
-    """Generate a semantic variable name for compound arithmetic."""
-    if operation in ("or", "and"):
-        stop_keywords = {"stop", "done", "exit", "quit", "end", "finish", "complete"}
-        for name in input_names:
-            if any(kw in name.lower() for kw in stop_keywords):
-                return "should_stop"
-        return "should_stop"
+def _arith_base_name(operation: str, output_term: Terminal) -> str:
+    """A base variable-name stem for a compound-arithmetic output.
 
-    if operation == "add" and input_names:
-        return "total"
-
-    return "combined"
+    Passed to ``ctx.make_output_var``, which uniquifies it on collision and
+    defers to output-tunnel naming when the output feeds a structure boundary
+    — so this only needs a reasonable, operation-derived stem, never a fixed
+    string. Prefer the output terminal's own name when it carries one.
+    """
+    name = (output_term.name or "").strip()
+    if name:
+        return name
+    return {"add": "total", "multiply": "product"}.get(operation, "combined")
 
 
 def generate_array_build(

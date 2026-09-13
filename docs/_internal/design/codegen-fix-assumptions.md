@@ -193,7 +193,15 @@ stale terminal orders. Audited all shipped primitives against nodes.json:
   name-differences are vocabulary-only labels on type-distinct terminals (code
   correct); the 14 binary arith/compare ops were verified correct (idx1=y, idx2=x).
 
-### OPEN BUG (found by executing, not yet fixed): polymorphic SubVI call kwarg-name mismatch
+### RESOLVED (bb5c284): polymorphic SubVI call kwarg-name mismatch
+Fixed by making the generated poly wrapper `(*args, **kwargs)` and dispatching
+POSITIONALLY through `_lv_dispatch` (which maps call-order values onto the
+resolved variant's own parameter names via `inspect.signature`), plus naming
+variant funcs by basename and dropping hoisted imports of inline siblings. The
+"always dispatches to the FIRST variant" part is the SEPARATE auto-adapt item
+above (OPEN) — the wrapper still can't select a variant by wired type, only the
+name/arg mechanics are fixed. Original finding below for context:
+
 A caller of a polymorphic SubVI emits `wrapper(<poly-pane-name>=value)` but the
 generated poly wrapper's parameter is named from the VARIANTS, so the names
 disagree and the call raises `TypeError: unexpected keyword argument`. Concrete:
@@ -319,3 +327,25 @@ CONSTRUCTS the tuple; Unbundle of an anonymous cluster indexes it. Assumption to
 revisit: a named/typedef cluster CONSTRUCTED by Bundle (no incoming wire) is not
 yet handled (falls through as before) — only anonymous construction is added
 here.
+
+### Compound-arithmetic output naming: uniquify + route through make_output_var
+`_make_arith_var_name` returned the fixed string `"should_stop"` for EVERY
+and/or compound-arith node (the `stop_keywords` substring loop was dead — both
+branches returned the same literal), and the caller used that raw string
+DIRECTLY as the variable name, bypassing `ctx.make_output_var()`. So every
+and/or output was named `should_stop` with no uniquification. In a function with
+two or more and/or nodes the assignments collided and the later one clobbered the
+earlier — and any consumer reading the shared name resolved to the textually-last
+assignment rather than the node it was actually wired to. Verified wrong output:
+Boolean Trigger returned `rising_edge == falling_edge` (both took the falling
+expr); Place Number to Proper Engl Text mis-referenced one and-node's result for
+another's. Fixed by routing the output through
+`ctx.make_output_var(base, node.id, terminal_id=output_id)` like every other
+handler — which uniquifies on collision AND defers to output-tunnel naming when
+the output crosses a structure boundary (so a value that SHOULD be one variable
+across case/loop frames still is) — and replacing the heuristic with an
+operation-neutral base (`total`/`product`/`combined`, or the output terminal's
+own name when present). The `should_stop`->`combined` rename is cosmetic across
+the corpus; the substantive change is correct per-node identity. Single-output
+"Array Changed" VIs were never miscompiled (one node per function) — only their
+variable name changed.

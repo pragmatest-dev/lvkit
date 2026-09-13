@@ -125,6 +125,44 @@ def test_random_number_within_range_is_in_bounds() -> None:
         assert 0.0 <= r.random_number <= 10.0
 
 
+def test_boolean_trigger_rising_and_falling_edges_are_independent() -> None:
+    """Boolean Trigger holds the previous input in a shift register and reports a
+    rising edge (F->T) and a falling edge (T->F) on SEPARATE outputs, both
+    suppressed on the first call. Guards the compound-arithmetic output-naming
+    collision where the two edge results shared one variable (`should_stop`) and
+    the second assignment clobbered the first, making rising_edge == falling_edge.
+
+    Driven in-process (not via _run_leaf) because edge detection needs several
+    calls with the module's first-call / previous-state globals set between them.
+    """
+    vi = CORPUS / "boolean/boolean.llb/Boolean Trigger__ogtk.vi"
+    if not vi.exists():
+        pytest.skip("corpus VI missing: Boolean Trigger")
+    graph, name = load_vi_by_path(str(vi), LoadMode.FULL)
+    ctx = graph.get_vi_context(name)
+    code = build_module(ctx, name, graph=graph)
+    ns: dict = {}
+    exec(compile(code, "<boolean_trigger>", "exec"), ns)  # noqa: S102
+    fn = ns[to_function_name(ctx.name)]
+
+    def set_state(first_call: bool, prev: bool) -> None:
+        for k in list(ns):
+            if k.startswith("_lv_first_call"):
+                ns[k] = first_call
+            elif k.startswith("_lv_state"):
+                ns[k] = prev
+
+    set_state(first_call=True, prev=False)
+    r = fn(True)  # first call: both edges suppressed
+    assert (r.rising_edge, r.falling_edge) == (False, False)
+    set_state(first_call=False, prev=False)
+    r = fn(True)  # F -> T: rising only
+    assert (r.rising_edge, r.falling_edge) == (True, False)
+    set_state(first_call=False, prev=True)
+    r = fn(False)  # T -> F: falling only
+    assert (r.rising_edge, r.falling_edge) == (False, True)
+
+
 def test_string_to_character_array() -> None:
     """Loops i over the string, taking one char at a time — needs the loop index."""
     r = _run_leaf("string/string.llb/String to Character Array__ogtk.vi", "hello")

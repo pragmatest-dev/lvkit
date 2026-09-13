@@ -11,38 +11,26 @@ from lvkit.models import LVType, LVTypeKind, Terminal
 from tests.helpers import make_ctx
 
 
-class TestCompoundArithMakeVarName:
-    """Tests for CompoundArithCodeGen._make_var_name()."""
+class TestCompoundArithBaseName:
+    """Tests for _arith_base_name() — the operation-neutral stem passed to
+    ctx.make_output_var (which owns uniquification and tunnel sharing)."""
 
-    def test_make_var_name_boolean_or_returns_should_stop(self):
-        """Test that boolean OR operation returns 'should_stop'."""
-        var_name = compound._make_arith_var_name("or", [])
-        assert var_name == "should_stop"
+    def _out(self, name: str | None = None) -> Terminal:
+        return Terminal(id="out", index=0, direction="output", name=name)
 
-    def test_make_var_name_boolean_and_returns_should_stop(self):
-        """Test that boolean AND operation returns 'should_stop'."""
-        var_name = compound._make_arith_var_name("and", [])
-        assert var_name == "should_stop"
+    def test_base_name_add_is_total(self):
+        assert compound._arith_base_name("add", self._out()) == "total"
 
-    def test_make_var_name_with_stop_keyword_input(self):
-        """Test detection of stop-related keywords in input names."""
-        var_name = compound._make_arith_var_name("or", ["user_stopped", "timeout"])
-        assert var_name == "should_stop"
+    def test_base_name_multiply_is_product(self):
+        assert compound._arith_base_name("multiply", self._out()) == "product"
 
-    def test_make_var_name_with_done_keyword_input(self):
-        """Test detection of done-related keywords in input names."""
-        var_name = compound._make_arith_var_name("or", ["is_done", "other_flag"])
-        assert var_name == "should_stop"
+    def test_base_name_or_and_xor_are_combined(self):
+        for op in ("or", "and", "xor"):
+            assert compound._arith_base_name(op, self._out()) == "combined"
 
-    def test_make_var_name_add_returns_total(self):
-        """Test that add operation returns 'total'."""
-        var_name = compound._make_arith_var_name("add", ["x", "y", "z"])
-        assert var_name == "total"
-
-    def test_make_var_name_unknown_returns_combined(self):
-        """Test that unknown operation returns 'combined'."""
-        var_name = compound._make_arith_var_name("multiply", [])
-        assert var_name == "combined"
+    def test_base_name_prefers_output_terminal_name(self):
+        got = compound._arith_base_name("or", self._out("rising edge"))
+        assert got == "rising edge"
 
 
 class TestCompoundArithGenerate:
@@ -72,10 +60,10 @@ class TestCompoundArithGenerate:
         assert len(fragment.statements) == 1
         assert "term_out" in fragment.bindings
 
-        # Should produce: should_stop = flag_a or flag_b
+        # Should produce: combined = flag_a or flag_b (unnamed output -> neutral base)
         ast.fix_missing_locations(fragment.statements[0])
         code = ast.unparse(fragment.statements[0])
-        assert "should_stop" in code
+        assert "combined" in code
         assert "flag_a" in code
         assert "flag_b" in code
         assert " or " in code
