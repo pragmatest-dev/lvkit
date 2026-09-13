@@ -156,7 +156,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
             if not outer_var:
                 if tunnel.mode == TunnelMode.PASSTHROUGH:
-                    last_var = _make_var_name(tunnel, ctx)
+                    # Disambiguate the generic fallback name ("value") so two
+                    # last-value tunnels in one VI don't collapse to one var and
+                    # clobber each other (mirrors the shift-register handling).
+                    last_var = _unique_shift_var_name(
+                        _make_var_name(tunnel, ctx), ctx
+                    )
                     outer_sr_term = term_by_id.get(outer_term)
                     seed = default_value_expr(
                         outer_sr_term.lv_type if outer_sr_term else None
