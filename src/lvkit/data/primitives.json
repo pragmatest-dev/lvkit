@@ -15623,9 +15623,14 @@
           "type": "ErrorCluster"
         }
       ],
+      "python_code": {
+        "result string": "in_0.replace(in_5, in_7) if in_1 else in_0.replace(in_5, in_7, 1)"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",
+      "note": "observed pane: in_0 input, in_5 search, in_7 replace, in_1 replace-all"
     },
     "3915": {
       "name": "Add",
@@ -16559,9 +16564,15 @@
           "type": "ErrorCluster"
         }
       ],
+      "python_code": {
+        "specific class reference": "in_3",
+        "error out": "in_4"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
+      "note": "downcast is identity on the reference (in_3); error passed through"
     },
     "8017": {
       "name": "To More Generic Class",
@@ -16594,9 +16605,14 @@
           "class_name": "Generic"
         }
       ],
+      "python_code": {
+        "generic class reference": "in_0"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html",
+      "note": "upcast is identity on the reference (in_0); target-class is a type spec"
     },
     "8018": {
       "name": "Preserve Run-Time Class",
