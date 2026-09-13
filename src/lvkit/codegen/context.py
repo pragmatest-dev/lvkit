@@ -733,11 +733,22 @@ def _format_constant(const: Constant | ConstantNode) -> str:
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)
     if underlying == "String" and isinstance(value, str):
-        if value == '""':
-            return "''"
-        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
-            return repr(value[1:-1])
-        return repr(value)
+        # The decoders hand back a QUOTED, escaped string literal — double-quoted
+        # from _decode_string_default, single-quoted from _decode_element — so we
+        # must recover the RAW text and re-emit it once. repr'ing the quoted form
+        # directly double-wraps it (a space -> "' '").
+        try:
+            # A fully-escaped literal round-trips through literal_eval.
+            return repr(ast.literal_eval(value))
+        except (ValueError, SyntaxError):
+            # _decode_element leaves control bytes (\n, \r, \t) RAW inside the
+            # quotes, so literal_eval rejects it. Strip one matching quote pair
+            # and undo only the escaping the decoder applied (quote, backslash).
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                q = value[0]
+                inner = value[1:-1].replace("\\" + q, q).replace("\\\\", "\\")
+                return repr(inner)
+            return repr(value)
 
     # Already-decoded Python values
     if isinstance(value, int | float):
