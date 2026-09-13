@@ -389,3 +389,14 @@ def lshift(a, b):
 
 def rshift(a, b):
     return _binop(a, b, lambda x, y: x >> y)
+
+
+def rotate(x, n, bits):
+    """LabVIEW Rotate: rotate the low ``bits`` bits of ``x`` left by ``n``
+    (``n < 0`` rotates right), modulo the integer width — ``n`` and ``n ± bits``
+    give the same result. ``x`` is treated as an unsigned bit pattern of that
+    width; the result is the rotated value in ``[0, 2**bits)``."""
+    mask = (1 << bits) - 1
+    x &= mask
+    n %= bits
+    return ((x << n) | (x >> (bits - n))) & mask

@@ -49,12 +49,13 @@
           "index": 2,
           "direction": "in",
           "name": "y",
-          "type": "NumInt16"
+          "type": "NumInt32"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "op": "ROTATE",
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate.html",
+      "note": "Rotates x left by y bits (y<0 rotates right), modulo x's integer width. Emitted via the ROTATE op handler, which reads the width from x's int type and defers to _lv.rotate. Pane observed on MD5 FGHI functions (x=U32 idx1, y=I32 idx2, out idx0)."
     },
     "1160": {
       "name": "Flatten To String",

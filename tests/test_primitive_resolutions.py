@@ -122,6 +122,21 @@ def test_boolean_logic_prims_have_integer_bitwise_variant():
     assert "in_1 or in_2" in str(res.resolve(prim_id=1062).python_code)
 
 
+def test_rotate_resolves_and_matches_ni_docs():
+    """Rotate (1082) resolves via the ROTATE op handler, and lv.rotate reproduces
+    NI's documented examples: 3 rotated left in 8 bits -> 6/12 at y=1/2, 96 at
+    y=-3, identity at y=0, and rotation is modulo the integer width."""
+    from lvkit.runtime import lv
+
+    assert get_resolver().resolve(prim_id=1082).op == "ROTATE"
+    assert lv.rotate(3, 1, 8) == 6
+    assert lv.rotate(3, 2, 8) == 12
+    assert lv.rotate(3, -3, 8) == 96
+    assert lv.rotate(3, 0, 8) == 3
+    assert lv.rotate(3, 9, 8) == lv.rotate(3, 1, 8)  # y +- width is a no-op
+    assert lv.rotate(0x12345678, 8, 32) == 0x34567812
+
+
 def test_numeric_primitives_are_elementwise():
     res = get_resolver()
     # Add, Subtract, Multiply, Sign all broadcast over arrays
