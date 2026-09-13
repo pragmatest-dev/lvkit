@@ -73,27 +73,24 @@ emits ndims + elem kind as literals. 1-D splits on the delimiter OR an EOL; 2-D
 splits rows by EOL and columns by delimiter; fields convert per element type
 (str/int/float). To Camel Case now yields a flat word list and runs end to end.
 
-### OPEN BUG (found, not fixed): To Camel Case case-branch inverted
-After the 1539 fix, `to_camel_case_(string)` returns `helloworld` not
-`helloWorld`: its Case Structure applies To Proper Case only in the frame taken
-when `size <= 1 and no_change_if_no_spaces` is TRUE (single word), and passes
-the raw words through otherwise — inverted from the intent (proper-case the
-words when there ARE spaces). Selector/condition prims (1104 Less Or Equal?,
-1061 And) generate correctly in isolation, so this is the case frame<->selector
-identity area (see the negative-selector deferral above), not the arithmetic.
-
-ROOT CAUSE (2026-09-13, boolean case): the raw BD XML carries NO per-frame
-selector string for this boolean case, so `_extract_frame` (parser/nodes/case.py
-~:490) falls back to `"True" if index == 1 else "False"`. The diagrams are
-ordered `[index0 = passthrough (diag 217), index1 = proper-case (diag 185)]`, so
-proper-case is guessed `True` — but correctness needs it `False`. The unused
-real signals: the `select` node's `selString`/`selLabel` shows `text=" False "`
-(the displayed frame's label), and the dataspace selector table. A general fix
-must resolve boolean frame values from one of those rather than diagram order,
-but the index guess is likely "accidentally correct" for the many boolean cases
-whose False frame IS index 0, so flipping it blindly would regress them —
-deferred to the maintainer (same reliable-identity requirement as the numeric
-negative-selector deferral). NOT a safe autonomous change.
+### Boolean case frame values come from the dataspace selector table
+`to_camel_case_(string)` returned `helloworld` not `helloWorld`: its boolean
+Case Structure ran To Proper Case only when `size <= 1 and no_change` was TRUE
+(single word), passing raw words through otherwise — inverted. The BD XML has NO
+per-frame selector string, so `_extract_frame` fell back to `"True" if index ==
+1 else "False"`; these frames are ordered `[index0 = passthrough, index1 =
+proper-case]`, and the index guess assumes diagram order `[False, True]` — but
+this VI is authored True-first, so the guess was backwards. The reliable signal
+is the DATASPACE selector table (a `DataFill` cluster): here `type_id=14
+ranges=[(0,0,1),(1,1,0)]` = value 0 (False) at diagram 1, value 1 (True) at
+diagram 0 — the exact inverse of the guess, matching the algorithm. But
+`_apply_selector_tables` EXCLUDED boolean cases ("their frames are implicit"),
+so the table was never applied. Fix: include booleans, correlating
+boolean-INCLUSIVE first and falling back to boolean-EXCLUDED (so a table-less
+boolean can't abort a tabled non-boolean case's correlation); convert a
+boolean table's 0/1 point-range to False/True in `_apply_one_table`; and treat
+`displayed_frame < 0` as the "none displayed" sentinel (this boolean table has
+`displayed=-1`) rather than a range failure. Full suite green.
 
 ### Multi-output dict `python_code` paired to outputs by INDEX ORDINAL, not wired position
 `_build_dict_hint`/`_detect_passthroughs` (codegen/nodes/primitive.py) paired the

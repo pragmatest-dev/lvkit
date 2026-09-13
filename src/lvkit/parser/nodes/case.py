@@ -618,45 +618,68 @@ def _apply_selector_tables(
     The correlation is deterministic and self-checking, never a guess: cases
     ordered by their selector-type VCTP index (``selector_vctp_index``) line up
     one-to-one with tables ordered by ``DataFill`` TypeID, because LabVIEW
-    assigns both indices in the same DCO-enumeration pass. Boolean cases store
-    no table (their True/False frames are implicit), so they are excluded from
-    the correlation and keep their existing labels.
+    assigns both indices in the same DCO-enumeration pass.
+
+    A BOOLEAN case DOES store a table — a 0/1 range pair naming which diagram is
+    True and which is False (the diagram order is NOT reliably [False, True], so
+    the index fallback is wrong for cases authored True-first). So booleans are
+    included in the correlation. But a boolean whose table is absent would, if
+    included, inflate the count and abort the whole VI — so we try the
+    boolean-INCLUSIVE correlation first and fall back to the boolean-EXCLUDED
+    set, preserving non-boolean correlation when a table-less boolean coexists
+    with a tabled non-boolean case.
 
     Application only proceeds if the counts match AND every zipped pair is
-    kind-consistent (a string table iff a string case) AND every frame index /
-    displayed frame lies in range. Any inconsistency aborts the WHOLE
-    application (leaving fallback values) rather than risk a wrong label.
+    kind-consistent (a string table iff a string case) AND every frame/displayed
+    index is in range. Any inconsistency aborts that attempt rather than risk a
+    wrong label.
     """
-    corr_cases = [
-        c
-        for c in cases
-        if c.selector_type != "boolean" and c.selector_vctp_index is not None
-    ]
+    with_vctp = [c for c in cases if c.selector_vctp_index is not None]
+    non_boolean = [c for c in with_vctp if c.selector_type != "boolean"]
+    for subset in (with_vctp, non_boolean):
+        if _try_apply_selector_tables(subset, tables):
+            return
+
+
+def _try_apply_selector_tables(
+    corr_cases: list[ParsedCaseStructure],
+    tables: list[SelectorTable],
+) -> bool:
+    """Validate then apply ``tables`` to ``corr_cases`` (sorted by VCTP index).
+
+    Returns True iff the counts matched and every pair validated (and was
+    applied); False leaves everything untouched for the caller to try a
+    different case subset.
+    """
     if len(corr_cases) != len(tables):
-        return
-    corr_cases.sort(key=lambda c: c.selector_vctp_index or 0)
+        return False
+    ordered = sorted(corr_cases, key=lambda c: c.selector_vctp_index or 0)
 
     # Validate every pair before mutating anything.
-    for case, table in zip(corr_cases, tables):
+    for case, table in zip(ordered, tables):
         is_string = case.selector_type == "string"
         if is_string != table.has_strings:
-            return
+            return False
         n_frames = len(case.frames)
-        # Full range check (matches the diag check below and
-        # parse_displayed_frame) -- a negative displayed_frame is invalid too.
-        if not (0 <= table.displayed_frame < n_frames):
-            return
+        # A negative displayed_frame is the "no frame displayed" sentinel
+        # (valid); only a positive out-of-range index is a mismatch.
+        if table.displayed_frame >= n_frames:
+            return False
         for _start, _end, diag in table.ranges:
             if not (0 <= diag < n_frames):
-                return
+                return False
 
-    for case, table in zip(corr_cases, tables):
+    for case, table in zip(ordered, tables):
         _apply_one_table(case, table)
+    return True
 
 
 def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
     """Overwrite a case's frame selector values from its correlated table."""
-    case.displayed_frame = table.displayed_frame
+    # displayed_frame < 0 is the "no frame displayed" sentinel — leave the
+    # case's own displayed_frame (from dIdx) rather than overwrite with -1.
+    if table.displayed_frame >= 0:
+        case.displayed_frame = table.displayed_frame
     covered: set[int] = {diag for _s, _e, diag in table.ranges}
     for idx, frame in enumerate(case.frames):
         my_ranges = [(s, e) for s, e, d in table.ranges if d == idx]
@@ -677,6 +700,11 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_strings = strings
             frame.selector_ranges = []
             frame.selector_value = strings[0] if strings else str(idx)
+        elif case.selector_type == "boolean":
+            # A boolean table names True/False by a 0/1 point range per diagram.
+            frame.selector_ranges = []
+            frame.selector_strings = []
+            frame.selector_value = "True" if my_ranges[0][0] == 1 else "False"
         else:
             frame.selector_ranges = [
                 SelectorRange(start=s, end=e) for s, e in my_ranges
