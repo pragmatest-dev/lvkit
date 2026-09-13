@@ -18,6 +18,16 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
+def _tunnel_is_input(outer_term_uid: str | None, term_by_id: dict) -> bool:
+    """True iff this lpTun is an INPUT tunnel — decided by its OUTER terminal's
+    direction, not by whether ``ctx.resolve`` finds a var. An OUTPUT tunnel's
+    outer can also resolve (through the loop to the body value), so a
+    resolve-truthiness test misclassifies the output accumulator as an input
+    array — dropping its accumulation and leaking it into the loop bound."""
+    t = term_by_id.get(outer_term_uid)
+    return t is not None and t.direction == "input"
+
+
 def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a loop structure."""
     loop_type = node.loop_type or "whileLoop"
@@ -101,8 +111,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # for why the rSR update does not mutate shift_var itself).
                 uninitialized_sr_writebacks.append((global_name, outer_term, shift_var))
 
-        elif tunnel_type == "lpTun":
-            # Check if input tunnel (outer has a source)
+        elif tunnel_type == "lpTun" and _tunnel_is_input(outer_term, term_by_id):
+            # INPUT tunnel (outer terminal direction is "input"): its outer has a
+            # source feeding the loop. Classify by DIRECTION, not by whether
+            # resolve() finds a var — an OUTPUT tunnel's outer can also resolve
+            # (through the loop to the body value), which would misclassify the
+            # accumulator as an input array and drop its accumulation.
             outer_var = ctx.resolve(outer_term)
             if outer_var:
                 # While loops: pass the whole value through
@@ -145,45 +159,44 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     # Integer or unknown - use directly
                     n_terminal_var = outer_var
 
-        elif tunnel_type == "lpTun" and loop_type == "forLoop":
-            # A For-loop lpTun OUTPUT tunnel (no external source feeding the
-            # outer). Its mode decides the shape:
+        elif (
+            tunnel_type == "lpTun"
+            and loop_type == "forLoop"
+            and not _tunnel_is_input(outer_term, term_by_id)
+        ):
+            # A For-loop lpTun OUTPUT tunnel (outer terminal direction is
+            # "output"). Its mode decides the shape:
             # - INDEXING (default): auto-indexed into an array (accumulate).
             # - PASSTHROUGH (indexing disabled): the LAST-iteration value, a
             #   scalar; assigned each pass, seeded to the type default so a
             #   0-iteration loop yields the default.
-            outer_var = ctx.resolve(outer_term)
-
-            if not outer_var:
-                if tunnel.mode == TunnelMode.PASSTHROUGH:
-                    # Disambiguate the generic fallback name ("value") so two
-                    # last-value tunnels in one VI don't collapse to one var and
-                    # clobber each other (mirrors the shift-register handling).
-                    last_var = _unique_shift_var_name(
-                        _make_var_name(tunnel, ctx), ctx
-                    )
-                    # Reserve it NOW: a second last-value tunnel on THIS loop is
-                    # bound only locally (not yet on the graph), so the next
-                    # _unique_shift_var_name must see this name to avoid reusing
-                    # it (both would clobber into one variable otherwise).
-                    ctx._allocated_vars.add(last_var)
-                    outer_sr_term = term_by_id.get(outer_term)
-                    seed = default_value_expr(
-                        outer_sr_term.lv_type if outer_sr_term else None
-                    )
-                    pre_loop_stmts.append(build_assign(last_var, seed))
-                    lastval_tunnels.append((tunnel, last_var))
-                    bindings[outer_term] = last_var
-                else:
-                    # Auto-indexed accumulator — pluralized name to avoid
-                    # conflict with the inner (singular) iteration variable.
-                    base_name = _make_var_name(tunnel, ctx)
-                    accum_var = _pluralize(base_name)
-                    pre_loop_stmts.append(
-                        build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
-                    )
-                    accum_tunnels.append((tunnel, accum_var))
-                    bindings[outer_term] = accum_var
+            if tunnel.mode == TunnelMode.PASSTHROUGH:
+                # Disambiguate the generic fallback name ("value") so two
+                # last-value tunnels in one VI don't collapse to one var and
+                # clobber each other (mirrors the shift-register handling).
+                last_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)
+                # Reserve it NOW: a second last-value tunnel on THIS loop is
+                # bound only locally (not yet on the graph), so the next
+                # _unique_shift_var_name must see this name to avoid reusing
+                # it (both would clobber into one variable otherwise).
+                ctx._allocated_vars.add(last_var)
+                outer_sr_term = term_by_id.get(outer_term)
+                seed = default_value_expr(
+                    outer_sr_term.lv_type if outer_sr_term else None
+                )
+                pre_loop_stmts.append(build_assign(last_var, seed))
+                lastval_tunnels.append((tunnel, last_var))
+                bindings[outer_term] = last_var
+            else:
+                # Auto-indexed accumulator — pluralized name to avoid
+                # conflict with the inner (singular) iteration variable.
+                base_name = _make_var_name(tunnel, ctx)
+                accum_var = _pluralize(base_name)
+                pre_loop_stmts.append(
+                    build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
+                )
+                accum_tunnels.append((tunnel, accum_var))
+                bindings[outer_term] = accum_var
 
     # Input auto-index arrays for a For loop, classified ONCE here (step 3) and
     # reused by _build_for_loop for the loop structure — so the inner-terminal
@@ -202,7 +215,9 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         materialized: set[str] = set()  # literal array sources already assigned
 
         for tunnel in tunnels:
-            if tunnel.tunnel_type == "lpTun":
+            if tunnel.tunnel_type == "lpTun" and _tunnel_is_input(
+                tunnel.outer_terminal_uid, term_by_id
+            ):
                 outer_var = ctx.resolve(tunnel.outer_terminal_uid)
                 # A literal source (e.g. a list/array constant) can't be iterated
                 # or indexed by a bare value-derived name, so materialize it into

@@ -16,6 +16,22 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### For-loop lpTun input-vs-output classified by DIRECTION, not resolve-truthiness
+`To Proper Case (String Array)` (and every OpenG `(… Array)` map variant that
+runs a SubVI per element and auto-indexes the result) generated a broken loop:
+`for i in range(min(len(strings), len(concatenated_string))): ...` — the
+per-element result never appended, the accumulator never initialised, and
+`return ... =concatenated_string[i]`. loop.py classified an lpTun as INPUT
+whenever `ctx.resolve(outer_term)` was truthy; an OUTPUT tunnel's outer can also
+resolve (through the loop to the body value), so the accumulator was treated as
+an input array — bound as `acc[i]`, leaked into the `min(len(...))` bound — and
+step 2's accumulator branch (`if not outer_var:`) was skipped, emitting no
+`acc=[]`/`.append`. Fixed with `_tunnel_is_input`: classify by the OUTER
+terminal's DIRECTION (input vs output), applied at all three sites (step 1 input
+bind, step 2 accumulator/last-value creation, step 3 input-array classification).
+Now the map generates `acc=[]; for … enumerate(strings): acc.append(result); return
+acc`. Full suite green.
+
 ### Delete From Array (aDelete) deleted-portion shape is type-driven (op handler)
 The static template always sliced `array[index:index+length]` for the "deleted
 portion". But that output is polymorphic: a single-element delete (length
