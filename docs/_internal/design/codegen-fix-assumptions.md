@@ -16,6 +16,20 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### SubVI call arguments are parsed to real AST (not wrapped in one Name)
+`subvi._to_ast_value` turned every argument string into a single
+`ast.Name(id=value)` — so a dotted argument like `result.field` became a Name
+whose id was the whole `"result.field"` string, not `Attribute(Name('result'),
+'field')`. It unparsed fine, but dead-code elimination matches by `Name.id`, so
+the load of `result` was hidden inside that opaque id: DCE saw `result` as
+unused, dropped its assignment (keeping the call bare for side effects), and the
+consumer then referenced an unbound name (`NameError`). Concrete: Delete
+Elements from 1D Array (DBL) crashed with `NameError: sort_array__ogtk_result_385`.
+Fixed by parsing the value with `parse_expr`; DCE now sees the real load. General
+— affects any SubVI argument that is a dotted/complex expression feeding another
+node. (Separate, pre-existing: that VI's `deleted_elements` output is nested/mis-
+ordered via its sort+reorder path — masked by the crash before, not this fix.)
+
 ### Spreadsheet String To Array (1539) is dimensionality-aware (op handler)
 The static template only did the 2-D string case (`[r.split(d) for r in
 s.splitlines()]`), so a 1-D `array type` (To Camel Case, String to 1D Array)
@@ -35,6 +49,19 @@ the raw words through otherwise — inverted from the intent (proper-case the
 words when there ARE spaces). Selector/condition prims (1104 Less Or Equal?,
 1061 And) generate correctly in isolation, so this is the case frame<->selector
 identity area (see the negative-selector deferral above), not the arithmetic.
+
+ROOT CAUSE (2026-09-13, boolean case): the raw BD XML carries NO per-frame
+selector string for this boolean case, so `_extract_frame` (parser/nodes/case.py
+~:490) falls back to `"True" if index == 1 else "False"`. The diagrams are
+ordered `[index0 = passthrough (diag 217), index1 = proper-case (diag 185)]`, so
+proper-case is guessed `True` — but correctness needs it `False`. The unused
+real signals: the `select` node's `selString`/`selLabel` shows `text=" False "`
+(the displayed frame's label), and the dataspace selector table. A general fix
+must resolve boolean frame values from one of those rather than diagram order,
+but the index guess is likely "accidentally correct" for the many boolean cases
+whose False frame IS index 0, so flipping it blindly would regress them —
+deferred to the maintainer (same reliable-identity requirement as the numeric
+negative-selector deferral). NOT a safe autonomous change.
 
 ### Multi-output dict `python_code` paired to outputs by INDEX ORDINAL, not wired position
 `_build_dict_hint`/`_detect_passthroughs` (codegen/nodes/primitive.py) paired the

@@ -17,7 +17,7 @@ from lvkit.vilib_resolver import (
     get_resolver,
 )
 
-from ..ast_utils import to_function_name, to_module_name, to_var_name
+from ..ast_utils import parse_expr, to_function_name, to_module_name, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
@@ -537,22 +537,16 @@ def _build_output_bindings(
 
 
 def _to_ast_value(value: str) -> ast.expr:
-    """Convert a value string to AST expression."""
-    if value == "None":
-        return ast.Constant(value=None)
-    # Check if it's a number
-    try:
-        int_val = int(value)
-        return ast.Constant(value=int_val)
-    except ValueError:
-        pass
-    try:
-        float_val = float(value)
-        return ast.Constant(value=float_val)
-    except ValueError:
-        pass
-    # It's a variable reference
-    return ast.Name(id=value, ctx=ast.Load())
+    """Parse an argument value string into a real AST expression.
+
+    Parsing (rather than wrapping the whole string in a single ``ast.Name``) is
+    what makes a dotted access like ``result.field`` an actual ``Attribute``
+    node over ``Name('result')``. Otherwise the load of ``result`` is hidden
+    inside an opaque name id, and dead-code elimination then wrongly drops
+    ``result``'s assignment as unused, leaving the consumer referencing an
+    unbound name.
+    """
+    return parse_expr(value)
 
 
 def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragment:
