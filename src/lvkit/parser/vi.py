@@ -1651,8 +1651,11 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         if len(data) < 4 + str_len:
             return None, 0
         string_val = decode_labview_text(data[4 : 4 + str_len])
-        escaped = string_val.replace("\\", "\\\\").replace("'", "\\'")
-        return f"'{escaped}'", 4 + str_len
+        # repr() yields a valid Python string literal with ALL escaping applied
+        # (quotes, backslashes, and control bytes like \r\n\t). Manual quote-only
+        # escaping left raw control bytes in the literal, which broke literal_eval
+        # both for scalar string constants and for arrays of strings.
+        return repr(string_val), 4 + str_len
 
     # Boolean: 1 byte in binary data
     if underlying == "Boolean":
