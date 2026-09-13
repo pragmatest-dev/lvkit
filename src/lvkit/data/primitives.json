@@ -2454,7 +2454,7 @@
         }
       ],
       "python_code": {
-        "joined": "(in_2 << (in_1.bit_length() or 8)) | in_1"
+        "joined": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
       },
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
@@ -7486,7 +7486,7 @@
         }
       ],
       "python_code": {
-        "boolean array": "[bool((in_1 >> i) & 1) for i in range(in_1.bit_length() or 8)]"
+        "boolean array": "[bool((in_1 >> i) & 1) for i in range((in_1).bit_length() or 8)]"
       },
       "verified": false
     },
