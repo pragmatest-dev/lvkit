@@ -52,6 +52,11 @@ OPENG_ARRAY_DIR = Path(
 )
 SEARCH_1D_I32_VI = OPENG_ARRAY_DIR / "Search 1D Array (I32)__ogtk.vi"
 SORT_1D_I32_VI = OPENG_ARRAY_DIR / "Sort 1D Array (I32)__ogtk.vi"
+OPENG_STRING_DIR = Path(
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/string/"
+    "string.llb"
+)
+TRIM_WHITESPACE_VI = OPENG_STRING_DIR / "Trim Whitespace (String)__ogtk.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -634,3 +639,33 @@ class TestClusterBundleUnbundle:
         func = self._func()
         r = func([3, 1, 2], 1)  # order 1 = descending
         assert list(r.sorted_array_out) == [3, 2, 1]
+
+
+class TestTrimWhitespace:
+    """Trim Whitespace (String): two conditional scan loops (last-value output
+    tunnels) index a 33-entry whitespace table by a raw byte (Index Array
+    out-of-range -> default). Exercises three fixes together: For-loop last-value
+    tunnels, unique names for multiple last-value tunnels on one loop, and Index
+    Array's out-of-range-to-default semantics. Executes the generated code."""
+
+    VI_NAME = "Trim Whitespace (String)__ogtk.vi"
+
+    def _func(self):
+        _skip_if_missing(TRIM_WHITESPACE_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(TRIM_WHITESPACE_VI), search_paths=SEARCH_PATHS)
+        code = _generate(graph, self.VI_NAME)
+        assert_valid_python(code, self.VI_NAME)
+        ns: dict = {"__name__": "m"}
+        exec(compile(code, "<trim>", "exec"), ns)  # noqa: S102
+        return ns["trim_whitespace_string__ogtk"]
+
+    def test_trims_leading_and_trailing_whitespace(self):
+        func = self._func()
+        # mode 0 = "remove leading and trailing"
+        assert func("  hi there  ", 0).string_out == "hi there"
+        assert func("\t\tabc\t", 0).string_out == "abc"
+        assert func("nows", 0).string_out == "nows"  # no whitespace, unchanged
+        assert func("   ", 0).string_out == ""  # all whitespace
+        assert func("  lead", 0).string_out == "lead"
+        assert func("trail  ", 0).string_out == "trail"

@@ -162,6 +162,11 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     last_var = _unique_shift_var_name(
                         _make_var_name(tunnel, ctx), ctx
                     )
+                    # Reserve it NOW: a second last-value tunnel on THIS loop is
+                    # bound only locally (not yet on the graph), so the next
+                    # _unique_shift_var_name must see this name to avoid reusing
+                    # it (both would clobber into one variable otherwise).
+                    ctx._allocated_vars.add(last_var)
                     outer_sr_term = term_by_id.get(outer_term)
                     seed = default_value_expr(
                         outer_sr_term.lv_type if outer_sr_term else None
