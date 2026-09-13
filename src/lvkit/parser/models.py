@@ -210,6 +210,11 @@ class SelectorTable:
     ranges: list[tuple[int, int, int]] = field(default_factory=list)
     #: value strings for a string selector; empty for numeric/enum/boolean
     strings: list[str] = field(default_factory=list)
+    #: True when a range endpoint is a SYMBOLIC filler (a nonzero range-type on
+    #: an INT_MIN/INT_MAX sentinel — an open bound). Used only to prefer
+    #: fully-literal tables when more tables than cases exist (an orphan table
+    #: left by a deleted case tends to be a symbolic open range).
+    has_open_bound: bool = False
 
     @property
     def has_strings(self) -> bool:

@@ -588,14 +588,23 @@ def _decode_selector_table(
         return None
     range_clusters = kids[2].findall("Cluster")
     ranges: list[tuple[int, int, int]] = []
+    has_open_bound = False
     for rc in range_clusters:
         fields = list(rc)
         if [f.tag for f in fields] != ["I32", "I32", "U8", "U8", "I16"]:
             return None
         start = int(fields[0].text or "0")
         end = int(fields[1].text or "0")
+        start_type = int(fields[2].text or "0")
+        end_type = int(fields[3].text or "0")
         diag = int(fields[4].text or "0")
         ranges.append((start, end, diag))
+        # A nonzero range-type on an INT_MIN/INT_MAX sentinel is a symbolic
+        # OPEN bound (mirrors the BD SelectRangeArray32 filler rule).
+        if (start_type != 0 and start in (_I32_MIN, _I32_MAX)) or (
+            end_type != 0 and end in (_I32_MIN, _I32_MAX)
+        ):
+            has_open_bound = True
     # A genuine selector table always has at least one range.
     if not ranges:
         return None
@@ -606,6 +615,7 @@ def _decode_selector_table(
         displayed_frame=displayed,
         ranges=ranges,
         strings=strings,
+        has_open_bound=has_open_bound,
     )
 
 
@@ -636,9 +646,26 @@ def _apply_selector_tables(
     """
     with_vctp = [c for c in cases if c.selector_vctp_index is not None]
     non_boolean = [c for c in with_vctp if c.selector_type != "boolean"]
-    for subset in (with_vctp, non_boolean):
-        if _try_apply_selector_tables(subset, tables):
-            return
+    # A deleted case leaves an ORPHAN table behind, over-subscribing the
+    # correlation (more tables than cases) and aborting it — leaving a wrong
+    # fallback (e.g. Remove Duplicates' Search-result case rendered `case 1`
+    # instead of `case -1`). The orphan tends to be a symbolic OPEN range, so
+    # when there are more tables than cases, also try the fully-literal tables
+    # alone. A real open-range case is unaffected: with no orphan its counts
+    # match and the all-tables attempt above wins first.
+    literal_tables = [t for t in tables if not t.has_open_bound]
+    for case_subset in (with_vctp, non_boolean):
+        table_options = [tables]
+        # The literal-only fallback is ONLY safe for a SINGLE case: picking the
+        # one literal table for one case is unambiguous. With multiple cases,
+        # dropping the symbolic tables can misalign the positional zip and apply
+        # the wrong table to the wrong case (observed miscorrelating Trim
+        # Whitespace's two case structures), so it is not attempted there.
+        if len(case_subset) == 1 and len(literal_tables) == 1:
+            table_options.append(literal_tables)
+        for table_subset in table_options:
+            if _try_apply_selector_tables(case_subset, table_subset):
+                return
 
 
 def _try_apply_selector_tables(

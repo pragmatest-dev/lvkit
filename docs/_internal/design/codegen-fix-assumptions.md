@@ -207,28 +207,28 @@ pre-seeded to the type default so a 0-iteration loop yields the default (LabVIEW
 "tunnel default" semantics). Mirrors the existing INPUT-tunnel PASSTHROUGH
 handling in the same file.
 
-### DEFERRED (needs maintainer / more investigation, NOT fixed): negative case selector value dropped
-Remove Duplicates from 1D Array (*, ~18 variants) and build_error_cluster render
-`case 1:` where the intent is `case -1:` (the "not found" frame of a Search →
-case). Root cause: the case has ONE structure but TWO dataspace selector tables
-(`parse_selector_tables`): the real one (`ranges=[(-1,-1,diag=1)]`) and a
-spurious `(INT_MIN, 0, startType=3, endType=1, diag=0)`. `_decode_selector_table`
-IGNORES the two U8 range-type fields (fields[2]/[3]) that mark symbolic/open
-filler — so the symbolic table decodes as a literal one. `_apply_selector_tables`
-then aborts on `len(tables)=2 != len(cases)=1`, leaving a wrong fallback value.
-A fix (honor the range-type fields to drop wholly-symbolic tables from the
-literal correlation, mirroring the SelectRangeArray32 symbolic handling) was
-INVESTIGATED and rejected: the orphan table's range is `(INT_MIN, 0, startType=3,
-endType=1)`, which SelectRangeArray32's own logic reads as a LEGITIMATE one-sided
-OPEN range (`x <= 0`: INT_MIN start is filler, `0` is a real endpoint) — NOT
-wholly-symbolic junk. So a "drop symbolic tables" rule would silently break real
-open-range selector cases elsewhere; the orphan is indistinguishable from a valid
-open-range table by its content alone. The real signal is that the table
-correlates to NO surviving case (it was left behind by a case removed at edit
-time). A safe fix needs a reliable case<->table identity beyond count/ordering
-(the correlation currently zips cases-by-vctp_index with tables-by-TypeID and
-aborts on any mismatch). Left deferred — needs that identity, verified corpus-
-wide. `SelectorTable.ranges` also drops the start/end range-type fields today.
+### Negative case selector value — fixed for SINGLE-case over-subscription
+Remove Duplicates from 1D Array (*, ~18 variants) rendered `case 1:` where the
+intent was `case -1:` (the "not found" frame of a Search → case). The case has
+ONE structure but TWO dataspace selector tables: the real one
+(`ranges=[(-1,-1,diag=1)]`, literal) and an orphan left by a deleted case
+(`(INT_MIN, 0, startType=3, endType=1, diag=0)` — a symbolic one-sided OPEN
+range). The count mismatch (2 tables ≠ 1 case) aborted correlation → wrong
+fallback. `_decode_selector_table` now reads the U8 range-type fields and flags a
+table with a symbolic-filler endpoint (`SelectorTable.has_open_bound`);
+`_apply_selector_tables`, when a SINGLE case is over-subscribed and exactly one
+table is fully literal, correlates that literal table. This resolves Remove Dup
+(now `case -1`, verified: `[1,2,2,3,1]`→`[1,2,3]`, removed `[2,4]`).
+
+GATED TO SINGLE CASE ON PURPOSE: with MULTIPLE case structures, dropping the
+symbolic tables misaligns the positional zip and applies the wrong table to the
+wrong case — observed miscorrelating Trim Whitespace's two cases (broke the
+`test_trims_leading_and_trailing_whitespace` e2e test). Multi-case
+over-subscription still needs a reliable case↔table identity beyond
+count/ordering and stays deferred. (Separately, Trim Whitespace's leading/
+trailing-only modes still raise UnboundLocalError — a case OUTPUT-tunnel default
+bug: a `pass`/unwired frame doesn't seed the tunnel var's type default before
+the match. Independent of selector-value identity.)
 
 ### 1. Positional Bundle/Unbundle field indices (parser)
 `class="mux"`/`"demux"` (classic positional Bundle/Unbundle) were inheriting the
