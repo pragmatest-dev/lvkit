@@ -103,8 +103,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     node_type = getattr(node, "node_type", None)
     if node_type and node_type != "prim":
         resolved = resolver.resolve_by_node_type(node_type)
-        # Fall through if node_type resolved but has no code
-        if resolved and not resolved.python_code:
+        # Fall through if node_type resolved but has no code -- unless it carries
+        # an ``op`` tag, whose generator-owned handler supplies python_code below.
+        if resolved and not resolved.python_code and not resolved.op:
             resolved = None
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(prim_id=prim_id)

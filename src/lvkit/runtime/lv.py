@@ -294,3 +294,12 @@ def sec(x):
 
 def sinc(x):
     return 1.0 if x == 0 else _math.sin(x) / x
+
+
+def index_array(arr, i, default):
+    """Index Array (node class ``aIndx``): LabVIEW returns the element type's
+    DEFAULT for an out-of-range index rather than raising, so a byte value
+    indexing a short lookup table yields the default instead of ``IndexError``.
+    ``default`` is the element type's real default, supplied by codegen."""
+    j = int(i)
+    return arr[j] if 0 <= j < len(arr) else default

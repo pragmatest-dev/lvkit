@@ -89,3 +89,15 @@ def test_empty_array_input():
     ns: dict = {}
     exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
     assert ns["formula_e"](n=0, data=[], out=[])["out"] == []
+
+
+def test_index_array_out_of_range_returns_default():
+    """Index Array (aIndx) returns the element DEFAULT for an out-of-range
+    index, never IndexError — codegen passes the element's real default."""
+    assert lv.index_array([10, 20, 30], 1, 0) == 20
+    assert lv.index_array([10, 20, 30], 9, 0) == 0  # OOB -> default
+    assert lv.index_array([10, 20, 30], -1, 0) == 0  # negative -> default
+    assert lv.index_array([], 0, 0) == 0  # empty -> default
+    assert lv.index_array([True, False], 5, False) is False
+    assert lv.index_array(["a"], 3, "") == ""
+    assert lv.index_array([10, 20], 1.0, 0) == 20  # index coerced to int

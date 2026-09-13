@@ -16,6 +16,24 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### 4. Index Array out-of-range → element default
+`aIndx` (Index Array) emitted `array[int(index)]`, which raises `IndexError` on
+an out-of-range index; LabVIEW instead returns the element type's DEFAULT and
+never raises (Trim Whitespace indexes a 33-entry whitespace table by a raw byte
+0-255). Fixed via the existing generator-owned "op" mechanism: aIndx now carries
+`op: "INDEX_ARRAY"`, whose handler injects the element's REAL default (from the
+output terminal's lv_type, via `default_value_expr`) into a runtime helper call
+`_lv.index_array(array, index, <default>)` — accurate, not a `type(arr[0])()`
+guess, and single-eval (no duplicated array expression). Multi-dimensional
+indexing (element type is itself an array) keeps a plain subscript, since the
+expandable machinery composes the dimensions. Two supporting fixes were needed:
+(a) `primitive.py` was discarding a node_type resolution with no `python_code`
+BEFORE the op handler could supply it — now it keeps op-carrying resolutions;
+(b) the polymorphic module builder dropped variant import lines — now it hoists
+them into the shared header (so `_lv` is imported). Verified: Search/Sort still
+correct; Trim's LEADING trim now works. (Trim's TRAILING trim + its use of
+primitive 1126 "Lexical Class" remain separate open bugs.)
+
 ### 3. For-loop output tunnels honor indexing mode (last-value vs accumulate)
 A For-loop output tunnel (lpTun, outer dir=output) was ALWAYS lowered as an
 auto-indexed accumulator (`var = []; var.append(...)`), ignoring the tunnel's

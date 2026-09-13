@@ -238,6 +238,11 @@ def _generate_polymorphic_module(
     variant_result_classes: list[str] = []  # Track result class names
     all_inputs: dict[int, Any] = {}
     all_outputs: dict[int, Any] = {}
+    # Imports a variant body needs (e.g. the runtime helper for Index Array).
+    # The variant bodies below drop their own import lines; collect them here so
+    # the shared module header carries every one a variant references.
+    _header = {ln for ln in lines if ln.startswith(("import ", "from "))}
+    variant_imports: set[str] = set()
 
     for variant_name in variants:
         vi_context = graph.get_vi_context(variant_name)
@@ -265,7 +270,8 @@ def _generate_polymorphic_module(
                 graph=graph,
                 soft_unresolved=soft_unresolved,
             )
-            # Extract just the function and result class (skip imports)
+            # Take the function and result class; collect imports the body needs
+            # into the shared header rather than dropping them.
             tree = ast.parse(code)
             for node in tree.body:
                 if isinstance(node, ast.ClassDef):
@@ -275,6 +281,10 @@ def _generate_polymorphic_module(
                 elif isinstance(node, ast.FunctionDef):
                     lines.append("")
                     lines.append(ast.unparse(node))
+                elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                    imp = ast.unparse(node)
+                    if imp not in _header:
+                        variant_imports.add(imp)
 
             # Collect inputs/outputs for union signature
             for inp in vi_context.inputs:
@@ -294,6 +304,11 @@ def _generate_polymorphic_module(
             # Comment out all lines of the error message
             error_msg = textwrap.indent(str(e), "# ")
             lines.append(f"# ERROR generating {variant_name}:\n{error_msg}")
+
+    # Hoist any imports the variant bodies referenced into the shared header
+    # (after the fixed imports, before the blank line separating header/body).
+    if variant_imports:
+        lines[4:4] = sorted(variant_imports)
 
     # Generate wrapper function. Name it by the VI's DISPLAY name (basename),
     # not the full path — callers import it as to_function_name(node.name) (the

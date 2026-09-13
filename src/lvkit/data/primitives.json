@@ -25573,7 +25573,8 @@
           "default_value": "0"
         }
       ],
-      "python_code": "array[int(index)]"
+      "op": "INDEX_ARRAY",
+      "imports": ["from lvkit.runtime import lv as _lv"]
     },
     "aInit": {
       "name": "Initialize Array",
