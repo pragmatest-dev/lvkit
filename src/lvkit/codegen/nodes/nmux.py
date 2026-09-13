@@ -12,6 +12,8 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import _flatten_fields
 from lvkit.models import (
     ClusterField,
+    LVType,
+    LVTypeKind,
     Terminal,
     TypeResolutionNeeded,
     _is_error_cluster,
@@ -20,6 +22,20 @@ from lvkit.models import (
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+
+
+def _is_anonymous_cluster(lv_type: LVType | None) -> bool:
+    """True for an on-diagram anonymous cluster — no typedef and no class, so
+    its fields are positional placeholders (e.g. ``field_1``) with no meaningful
+    names. Such a cluster is represented as a Python tuple accessed by position;
+    a named/typedef cluster keeps attribute access. See
+    docs/_internal/design/codegen-fix-assumptions.md."""
+    return (
+        lv_type is not None
+        and lv_type.kind == LVTypeKind.CLUSTER
+        and not lv_type.typedef_name
+        and not lv_type.classname
+    )
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -58,6 +74,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     # Get fields for field index lookup.
     class_fields = None
     agg_terminals = agg_in or agg_out
+    agg_lv_type = agg_terminals[0].lv_type if agg_terminals else None
+    anon = _is_anonymous_cluster(agg_lv_type)
     if agg_terminals and agg_terminals[0].lv_type:
         if ctx.graph is not None:
             class_fields = ctx.graph.get_type_fields(
@@ -79,11 +97,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         # LIST out only = unbundle (extract fields from cluster)
         for t in sorted(list_out, key=lambda t: t.index):
             if agg_var:
-                expr = _field_expr(t, agg_var, class_fields)
-                bindings[t.id] = expr
+                if anon:
+                    # Anonymous cluster = tuple; extract by position.
+                    idx = t.nmux_field_index if t.nmux_field_index is not None else 0
+                    bindings[t.id] = f"{agg_var}[{idx}]"
+                else:
+                    bindings[t.id] = _field_expr(t, agg_var, class_fields)
 
     elif list_in and not list_out:
-        # LIST in only = bundle (assign fields on cluster)
+        # LIST in only = bundle
         if (
             agg_terminals
             and agg_terminals[0].lv_type
@@ -94,6 +116,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             return CodeFragment.empty()
 
         if agg_var:
+            # Assign fields on an EXISTING cluster (incoming agg wire).
             for t in sorted(list_in, key=lambda t: t.index):
                 val = ctx.resolve(t.id)
                 if not val:
@@ -116,6 +139,19 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                         type_name=f"field[{t.nmux_field_index}]",
                         context=t.id,
                     )
+        elif anon and agg_out:
+            # CREATE a new anonymous cluster from the field inputs (a classic
+            # Bundle with no incoming cluster wire) as a positional tuple, bound
+            # to the agg output. Fields go in cluster-field-index order.
+            ordered = sorted(
+                list_in,
+                key=lambda t: t.nmux_field_index if t.nmux_field_index is not None
+                else t.index,
+            )
+            elts = [parse_expr(ctx.resolve(t.id) or "None") for t in ordered]
+            tup = ast.Tuple(elts=elts, ctx=ast.Load())
+            for t in agg_out:
+                bindings[t.id] = ast.unparse(tup)
 
     return CodeFragment(statements=statements, bindings=bindings)
 

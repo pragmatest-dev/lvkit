@@ -51,6 +51,7 @@ OPENG_ARRAY_DIR = Path(
     "array.llb"
 )
 SEARCH_1D_I32_VI = OPENG_ARRAY_DIR / "Search 1D Array (I32)__ogtk.vi"
+SORT_1D_I32_VI = OPENG_ARRAY_DIR / "Sort 1D Array (I32)__ogtk.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -599,3 +600,37 @@ class TestShiftRegisterAccumulation:
         c1 = _generate(graph, self.VI_NAME)
         c2 = _generate(graph, self.VI_NAME)
         assert c1 == c2
+
+
+class TestClusterBundleUnbundle:
+    """Positional Bundle/Unbundle over an anonymous cluster (Sort 1D Array
+    bundles value+index, sorts the cluster array, unbundles). Guards two bugs:
+    the classic (positional) Bundle assigned every field to index 0 (so both
+    fields unbundled as ``.numeric``), and a Bundle with no incoming cluster
+    wire emitted nothing (empty loop body). Executes the generated sort."""
+
+    VI_NAME = "Sort 1D Array (I32)__ogtk.vi"
+
+    def _func(self):
+        _skip_if_missing(SORT_1D_I32_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(SORT_1D_I32_VI), search_paths=SEARCH_PATHS)
+        code = _generate(graph, self.VI_NAME)
+        assert_valid_python(code, self.VI_NAME)
+        assert_no_garbage(code, self.VI_NAME)
+        # The anonymous (value, index) cluster is a tuple, not attribute access.
+        assert ".numeric" not in code
+        ns: dict = {"__name__": "m"}
+        exec(compile(code, "<sort_1d_array_i32>", "exec"), ns)  # noqa: S102
+        return ns["sort_1d_array_i32__ogtk"]
+
+    def test_ascending_sorts_and_tracks_pointers(self):
+        func = self._func()
+        r = func([3, 1, 2], 0)  # order 0 = ascending
+        assert list(r.sorted_array_out) == [1, 2, 3]
+        assert list(r.sorted_pointers) == [1, 2, 0]  # original indices
+
+    def test_descending(self):
+        func = self._func()
+        r = func([3, 1, 2], 1)  # order 1 = descending
+        assert list(r.sorted_array_out) == [3, 2, 1]

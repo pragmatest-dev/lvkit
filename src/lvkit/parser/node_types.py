@@ -952,24 +952,33 @@ class ScanfHandler(NodeTypeHandler):
 
 
 def _build_nmux_dco_maps(
-    elem: ET.Element, dco_list_uids: list[str], index_tag: str
+    elem: ET.Element,
+    dco_list_uids: list[str],
+    index_tag: str,
+    positional: bool = False,
 ) -> tuple[dict[str, str], dict[str, int]]:
-    """``(term_to_dco, dco_field_index)`` for a bundle/unbundle-by-name node's
-    ``termList`` — shared by the nMux and decompose (IPE) handlers, which differ
-    only in the field-index element name (``index_tag``: ``"i"`` for nMux,
-    ``"index"`` for the decompose structure).
+    """``(term_to_dco, dco_field_index)`` for a bundle/unbundle node's
+    ``termList`` — shared by the nMux, positional mux/demux, and decompose (IPE)
+    handlers.
 
     Every terminal maps to its DCO uid; each LIST DCO (a drawer) also gets the
-    cluster-field index it selects, read from its ``<index_tag>`` element.
-    LabVIEW OMITS that element when the selected field is index 0 (the default),
-    so an ABSENT element means field 0 — NOT the drawer's list position (that
-    mislabeled e.g. a "Name" drawer sitting at list slot 2, #36). A non-zero
-    index is always serialized, so the ``0`` fallback only ever fills in that
-    one case.
+    cluster-field index it selects. Two families differ in how that index is
+    determined:
+
+    - BY NAME (``positional=False`` — nMux, decompose): the index is read from
+      the drawer's ``<index_tag>`` element (``"i"`` for nMux, ``"index"`` for
+      decompose). LabVIEW OMITS that element when the selected field is index 0
+      (the default), so an ABSENT element means field 0 — NOT the drawer's list
+      position (that mislabeled e.g. a "Name" drawer sitting at list slot 2,
+      #36). A non-zero index is always serialized, so the ``0`` fallback only
+      ever fills in that one case.
+    - POSITIONAL (``positional=True`` — classic Bundle/Unbundle): drawers carry
+      no per-field index element at all; the k-th LIST drawer selects the k-th
+      cluster field. The index is the drawer's position in ``dco_list_uids``.
     """
     term_to_dco: dict[str, str] = {}
     dco_field_index: dict[str, int] = {}
-    list_dco_set = set(dco_list_uids)
+    list_dco_pos = {uid: pos for pos, uid in enumerate(dco_list_uids)}
     term_list = elem.find("termList")
     if term_list is not None:
         for term_elem in term_list.findall("SL__arrayElement"):
@@ -979,13 +988,16 @@ def _build_nmux_dco_maps(
                 d_uid = dco_elem.get("uid")
                 if d_uid:
                     term_to_dco[t_uid] = d_uid
-                    if d_uid in list_dco_set:
-                        i_elem = dco_elem.find(index_tag)
-                        dco_field_index[d_uid] = (
-                            int(i_elem.text)
-                            if i_elem is not None and i_elem.text
-                            else 0
-                        )
+                    if d_uid in list_dco_pos:
+                        if positional:
+                            dco_field_index[d_uid] = list_dco_pos[d_uid]
+                        else:
+                            i_elem = dco_elem.find(index_tag)
+                            dco_field_index[d_uid] = (
+                                int(i_elem.text)
+                                if i_elem is not None and i_elem.text
+                                else 0
+                            )
     return term_to_dco, dco_field_index
 
 
@@ -998,6 +1010,9 @@ class NMuxHandler(NodeTypeHandler):
 
     xml_class = "nMux"
     display_name = "Bundle/Unbundle By Name"
+    # By-name (nMux): each drawer's field is read from its <i> element.
+    # Positional (classic mux/demux): the k-th drawer selects the k-th field.
+    positional_fields = False
 
     def parse(self, elem: ET.Element) -> SelectNode:
         common = self._extract_common(elem)
@@ -1015,8 +1030,9 @@ class NMuxHandler(NodeTypeHandler):
                 if uid:
                     dco_list_uids.append(uid)
 
-        # nMux stores each drawer's selected field index in an <i> element.
-        term_to_dco, dco_field_index = _build_nmux_dco_maps(elem, dco_list_uids, "i")
+        term_to_dco, dco_field_index = _build_nmux_dco_maps(
+            elem, dco_list_uids, "i", positional=self.positional_fields
+        )
 
         return SelectNode(
             **common,
@@ -1036,6 +1052,7 @@ class _MuxHandler(NMuxHandler):
 
     xml_class = "mux"
     display_name = "Bundle"
+    positional_fields = True
 
 
 class _DemuxHandler(NMuxHandler):
@@ -1047,6 +1064,7 @@ class _DemuxHandler(NMuxHandler):
 
     xml_class = "demux"
     display_name = "Unbundle"
+    positional_fields = True
 
 
 class _EventDataNodeHandler(NMuxHandler):
