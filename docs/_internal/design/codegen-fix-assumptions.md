@@ -400,3 +400,16 @@ uses its default), sourced from `inp.default_value` when present else
 `default_value_expr(inp.lv_type)`. This eliminates the ordering constraint AND
 uses the real pane default. Affects any VI with an optional-before-required input
 ordering. NOT fixed pending direction.
+
+### Unwired array inputs normalize None -> [] (LabVIEW empty-array semantics)
+With every input now defaulted, an unwired array input defaults to None (a
+literal [] default would be the shared-mutable-default anti-pattern). Iterating
+None crashes (1D Array to String, Convert EOLs (String Array), Trim Whitespace
+(String Array) — 'NoneType' is not iterable). Fixed by emitting `name = name or
+[]` at the top of the function for each array-typed input (build_module ->
+build_array_input_normalization), matching LabVIEW's "unwired array == empty
+array"; the array param's annotation becomes `<type> | None` to match its None
+default. `x or []` also folds an already-empty list to [] harmlessly. Scalars
+keep their immutable type/pane default and need no guard. Verified: the three VIs
+run with defaults AND real input; crash sweep across string/md5/numeric/boolean/
+comparison now reports 0 runtime crashes; functional + e2e + ast_builder green.

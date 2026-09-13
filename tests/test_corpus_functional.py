@@ -163,6 +163,19 @@ def test_boolean_trigger_rising_and_falling_edges_are_independent() -> None:
     assert (r.rising_edge, r.falling_edge) == (False, True)
 
 
+def test_unwired_array_input_defaults_to_empty() -> None:
+    """An array input left unwired defaults to None and is normalized to [] at
+    the top of the function (LabVIEW's unwired array == empty array), so the body
+    iterates it instead of crashing on None. 1D Array to String joins its input
+    with a delimiter -> '' for the empty default, 'a,b,c' for a real array."""
+    empty = _run_leaf("string/string.llb/1D Array to String__ogtk.vi")
+    assert empty.delimited_string == ""
+    joined = _run_leaf(
+        "string/string.llb/1D Array to String__ogtk.vi", ["a", "b", "c"], ","
+    )
+    assert joined.delimited_string == "a,b,c"
+
+
 def test_string_to_character_array() -> None:
     """Loops i over the string, taking one char at a time — needs the loop index."""
     r = _run_leaf("string/string.llb/String to Character Array__ogtk.vi", "hello")

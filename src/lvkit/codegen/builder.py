@@ -9,10 +9,11 @@ from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext
-from lvkit.models import Terminal
+from lvkit.models import LVTypeKind, Terminal
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
+    build_assign,
     default_value_expr,
     parse_expr,
     to_function_name,
@@ -98,6 +99,12 @@ def build_module(
 
     # Generate function body
     body: list[ast.stmt] = []
+
+    # Normalize unwired array inputs: they default to None (a mutable [] default
+    # would be shared across calls), so map None -> [] up front, matching
+    # LabVIEW's "unwired array input == empty array". `x or []` also folds an
+    # already-empty list to [] harmlessly.
+    body.extend(build_array_input_normalization(vi_context.inputs))
 
     # Add held error initialization if needed
     if use_error_handling:
@@ -783,10 +790,15 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         if inp.is_error_cluster:
             continue
 
+        # Array inputs default to None (see build_array_input_normalization), so
+        # their annotation is honestly `<type> | None`.
+        type_hint = inp.python_type()
+        if _is_array_input(inp):
+            type_hint = f"{type_hint} | None"
         args.append(
             ast.arg(
                 arg=to_var_name(inp.name or "input"),
-                annotation=parse_expr(inp.python_type()),
+                annotation=parse_expr(type_hint),
             )
         )
         defaults.append(_param_default_expr(inp))
@@ -800,6 +812,27 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         kwarg=None,
         defaults=defaults,
     )
+
+
+def _is_array_input(inp: Terminal) -> bool:
+    """True for a non-error array/list-typed input parameter."""
+    return (
+        not inp.is_error_cluster
+        and inp.lv_type is not None
+        and inp.lv_type.kind == LVTypeKind.ARRAY
+    )
+
+
+def build_array_input_normalization(inputs: list[Terminal]) -> list[ast.stmt]:
+    """`name = name or []` for each array input, so an unwired (None-defaulted)
+    array behaves as LabVIEW's empty array instead of crashing on iteration."""
+    stmts: list[ast.stmt] = []
+    for inp in inputs:
+        if not _is_array_input(inp):
+            continue
+        name = to_var_name(inp.name or "input")
+        stmts.append(build_assign(name, parse_expr(f"{name} or []")))
+    return stmts
 
 
 def _param_default_expr(inp: Terminal) -> ast.expr:
