@@ -87,11 +87,18 @@ IGNORES the two U8 range-type fields (fields[2]/[3]) that mark symbolic/open
 filler — so the symbolic table decodes as a literal one. `_apply_selector_tables`
 then aborts on `len(tables)=2 != len(cases)=1`, leaving a wrong fallback value.
 A fix (honor the range-type fields to drop wholly-symbolic tables from the
-literal correlation, mirroring the SelectRangeArray32 symbolic handling) is
-plausible but touches selector-table correlation used corpus-wide, incl. error
-clusters — HIGH regression risk. Left for a dedicated, carefully-verified pass.
-Evidence lives in the graph: `SelectorTable.ranges` carries start/end/diag but
-NOT the range-type; that decode gap is the concrete thing to fix.
+literal correlation, mirroring the SelectRangeArray32 symbolic handling) was
+INVESTIGATED and rejected: the orphan table's range is `(INT_MIN, 0, startType=3,
+endType=1)`, which SelectRangeArray32's own logic reads as a LEGITIMATE one-sided
+OPEN range (`x <= 0`: INT_MIN start is filler, `0` is a real endpoint) — NOT
+wholly-symbolic junk. So a "drop symbolic tables" rule would silently break real
+open-range selector cases elsewhere; the orphan is indistinguishable from a valid
+open-range table by its content alone. The real signal is that the table
+correlates to NO surviving case (it was left behind by a case removed at edit
+time). A safe fix needs a reliable case<->table identity beyond count/ordering
+(the correlation currently zips cases-by-vctp_index with tables-by-TypeID and
+aborts on any mismatch). Left deferred — needs that identity, verified corpus-
+wide. `SelectorTable.ranges` also drops the start/end range-type fields today.
 
 ### 1. Positional Bundle/Unbundle field indices (parser)
 `class="mux"`/`"demux"` (classic positional Bundle/Unbundle) were inheriting the
