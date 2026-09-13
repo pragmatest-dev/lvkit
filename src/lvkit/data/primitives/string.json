@@ -195,12 +195,10 @@
           "type": "Array"
         }
       ],
-      "python_code": {
-        "array": "[r.split(in_1 or '\\t') for r in in_3.splitlines()]"
-      },
-      "inline": true,
+      "op": "SPREADSHEET_STRING_TO_ARRAY",
+      "imports": ["from lvkit.runtime import lv as _lv"],
       "verified": false,
-      "note": "Spreadsheet String To Array -- splits a delimited string into a typed array. python_code covers only the 2-D string case; real dimensionality/element type come from array_type + format_string and need an lvkit runtime helper."
+      "note": "Spreadsheet String To Array. Op handler splits by output dimensionality (1-D: delimiter or EOL; 2-D: rows by EOL, columns by delimiter) and converts fields to the element type."
     },
     "1540": {
       "name": "Array To Spreadsheet String",

@@ -16,6 +16,26 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Spreadsheet String To Array (1539) is dimensionality-aware (op handler)
+The static template only did the 2-D string case (`[r.split(d) for r in
+s.splitlines()]`), so a 1-D `array type` (To Camel Case, String to 1D Array)
+got a nested `[[...]]` that broke downstream joins. Replaced with op
+`SPREADSHEET_STRING_TO_ARRAY` (codegen/nodes/ops/) + runtime helper
+`_lv.spreadsheet_string_to_array(s, delim, ndims, elem)`: the op reads the
+OUTPUT terminal's `dimensions` and element type (a wire can't carry them) and
+emits ndims + elem kind as literals. 1-D splits on the delimiter OR an EOL; 2-D
+splits rows by EOL and columns by delimiter; fields convert per element type
+(str/int/float). To Camel Case now yields a flat word list and runs end to end.
+
+### OPEN BUG (found, not fixed): To Camel Case case-branch inverted
+After the 1539 fix, `to_camel_case_(string)` returns `helloworld` not
+`helloWorld`: its Case Structure applies To Proper Case only in the frame taken
+when `size <= 1 and no_change_if_no_spaces` is TRUE (single word), and passes
+the raw words through otherwise — inverted from the intent (proper-case the
+words when there ARE spaces). Selector/condition prims (1104 Less Or Equal?,
+1061 And) generate correctly in isolation, so this is the case frame<->selector
+identity area (see the negative-selector deferral above), not the arithmetic.
+
 ### Multi-output dict `python_code` paired to outputs by INDEX ORDINAL, not wired position
 `_build_dict_hint`/`_detect_passthroughs` (codegen/nodes/primitive.py) paired the
 dict's expressions to wired outputs by position in the *wired* list. An unwired

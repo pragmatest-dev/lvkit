@@ -16,6 +16,7 @@ from __future__ import annotations
 import math as _math
 import operator as _op
 import random as _random
+import re as _re
 from collections.abc import Callable
 
 
@@ -303,6 +304,45 @@ def index_array(arr, i, default):
     ``default`` is the element type's real default, supplied by codegen."""
     j = int(i)
     return arr[j] if 0 <= j < len(arr) else default
+
+
+def _spreadsheet_convert(x: str, elem: str):
+    """Convert one spreadsheet field to the array element type (LabVIEW scans an
+    unparseable/empty numeric field as the numeric default, never raising)."""
+    if elem == "int":
+        try:
+            return int(x)
+        except ValueError:
+            return 0
+    if elem == "float":
+        try:
+            return float(x)
+        except ValueError:
+            return 0.0
+    return x
+
+
+def spreadsheet_string_to_array(s, delimiter, ndims: int = 1, elem: str = "str"):
+    """Spreadsheet String To Array (prim 1539).
+
+    A 2-D ``array type`` splits rows on the end-of-line and columns on the
+    delimiter; a 1-D ``array type`` treats BOTH the delimiter and an EOL as
+    element separators. The delimiter defaults to a tab when empty. An empty
+    input yields an empty array. ``elem`` (``"str"``/``"int"``/``"float"``,
+    from the output element type) drives per-field conversion.
+    """
+    delim = delimiter if delimiter else "\t"
+    if s == "":
+        return []
+    if ndims >= 2:
+        return [
+            [_spreadsheet_convert(c, elem) for c in row.split(delim)]
+            for row in s.splitlines()
+        ]
+    # 1-D: delimiter OR end-of-line separates elements (EOL alternatives first
+    # so CRLF matches as one separator, not CR then an empty field).
+    pattern = "|".join(_re.escape(sep) for sep in ("\r\n", "\r", "\n", delim))
+    return [_spreadsheet_convert(p, elem) for p in _re.split(pattern, s)]
 
 
 # Element-wise unary conversions: LabVIEW's numeric/boolean conversion functions
