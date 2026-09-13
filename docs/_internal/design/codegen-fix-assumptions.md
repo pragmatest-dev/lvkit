@@ -16,6 +16,35 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### 3. For-loop output tunnels honor indexing mode (last-value vs accumulate)
+A For-loop output tunnel (lpTun, outer dir=output) was ALWAYS lowered as an
+auto-indexed accumulator (`var = []; var.append(...)`), ignoring the tunnel's
+mode. A tunnel with indexing DISABLED (`TunnelMode.PASSTHROUGH`) is a
+LAST-VALUE tunnel — it carries the value from the final iteration, a scalar —
+so accumulating it into a list is wrong (e.g. Trim Whitespace's leading/trailing
+scan loops output a stop index that downstream arithmetic negates: `-values`
+crashed on a list). Fix: branch on `tunnel.mode` — INDEXING accumulates into a
+list; PASSTHROUGH assigns `var = <inner value>` each iteration (final = last),
+pre-seeded to the type default so a 0-iteration loop yields the default (LabVIEW
+"tunnel default" semantics). Mirrors the existing INPUT-tunnel PASSTHROUGH
+handling in the same file.
+
+### DEFERRED (needs maintainer / more investigation, NOT fixed): negative case selector value dropped
+Remove Duplicates from 1D Array (*, ~18 variants) and build_error_cluster render
+`case 1:` where the intent is `case -1:` (the "not found" frame of a Search →
+case). Root cause: the case has ONE structure but TWO dataspace selector tables
+(`parse_selector_tables`): the real one (`ranges=[(-1,-1,diag=1)]`) and a
+spurious `(INT_MIN, 0, startType=3, endType=1, diag=0)`. `_decode_selector_table`
+IGNORES the two U8 range-type fields (fields[2]/[3]) that mark symbolic/open
+filler — so the symbolic table decodes as a literal one. `_apply_selector_tables`
+then aborts on `len(tables)=2 != len(cases)=1`, leaving a wrong fallback value.
+A fix (honor the range-type fields to drop wholly-symbolic tables from the
+literal correlation, mirroring the SelectRangeArray32 symbolic handling) is
+plausible but touches selector-table correlation used corpus-wide, incl. error
+clusters — HIGH regression risk. Left for a dedicated, carefully-verified pass.
+Evidence lives in the graph: `SelectorTable.ranges` carries start/end/diag but
+NOT the range-type; that decode gap is the concrete thing to fix.
+
 ### 1. Positional Bundle/Unbundle field indices (parser)
 `class="mux"`/`"demux"` (classic positional Bundle/Unbundle) were inheriting the
 by-name field-index reader (read `<i>`, default 0), so every field collapsed to

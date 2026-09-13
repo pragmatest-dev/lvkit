@@ -119,7 +119,10 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     #
     # For For loops, lpTun OUTPUT tunnels are auto-indexed by default
     # (they accumulate into arrays, not just return last value)
-    accum_tunnels: list[tuple[Tunnel, str]] = []  # (tunnel, accum_var)
+    accum_tunnels: list[tuple[Tunnel, str]] = []  # (tunnel, accum_var) — indexed
+    # (tunnel, var) for indexing-DISABLED output tunnels: the loop's LAST-value
+    # output, a scalar assigned each iteration rather than accumulated.
+    lastval_tunnels: list[tuple[Tunnel, str]] = []
     n_terminal_var: str | None = None  # For loop count
 
     for tunnel in tunnels:
@@ -143,23 +146,34 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     n_terminal_var = outer_var
 
         elif tunnel_type == "lpTun" and loop_type == "forLoop":
-            # In For loops, lpTun OUTPUT tunnels are auto-indexed (accumulate)
-            # Distinguish input vs output:
-            # - INPUT tunnel: outer terminal has external source (resolvable)
-            # - OUTPUT tunnel: outer terminal has NO external source
+            # A For-loop lpTun OUTPUT tunnel (no external source feeding the
+            # outer). Its mode decides the shape:
+            # - INDEXING (default): auto-indexed into an array (accumulate).
+            # - PASSTHROUGH (indexing disabled): the LAST-iteration value, a
+            #   scalar; assigned each pass, seeded to the type default so a
+            #   0-iteration loop yields the default.
             outer_var = ctx.resolve(outer_term)
 
             if not outer_var:
-                # No external source to outer -> this is an OUTPUT tunnel
-                # Treat as accumulator - use pluralized name to avoid
-                # conflict with inner iteration variable
-                base_name = _make_var_name(tunnel, ctx)
-                accum_var = _pluralize(base_name)
-                pre_loop_stmts.append(
-                    build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
-                )
-                accum_tunnels.append((tunnel, accum_var))
-                bindings[outer_term] = accum_var
+                if tunnel.mode == TunnelMode.PASSTHROUGH:
+                    last_var = _make_var_name(tunnel, ctx)
+                    outer_sr_term = term_by_id.get(outer_term)
+                    seed = default_value_expr(
+                        outer_sr_term.lv_type if outer_sr_term else None
+                    )
+                    pre_loop_stmts.append(build_assign(last_var, seed))
+                    lastval_tunnels.append((tunnel, last_var))
+                    bindings[outer_term] = last_var
+                else:
+                    # Auto-indexed accumulator — pluralized name to avoid
+                    # conflict with the inner (singular) iteration variable.
+                    base_name = _make_var_name(tunnel, ctx)
+                    accum_var = _pluralize(base_name)
+                    pre_loop_stmts.append(
+                        build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
+                    )
+                    accum_tunnels.append((tunnel, accum_var))
+                    bindings[outer_term] = accum_var
 
     # Input auto-index arrays for a For loop, classified ONCE here (step 3) and
     # reused by _build_for_loop for the loop structure — so the inner-terminal
@@ -252,12 +266,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # 4. Generate inner node code
     inner_stmts = _generate_inner(inner_nodes, inner_ctx)
 
-    # 4. Add accumulator appends for lMax at end of loop body
+    # 4. Add output-tunnel writes at end of loop body: append for indexed
+    # accumulators, plain assignment for last-value (indexing-disabled) tunnels.
     for tunnel, accum_var in accum_tunnels:
         inner_term = tunnel.inner_terminal_uid
         inner_val = inner_ctx.resolve(inner_term)
         if inner_val and inner_val != accum_var:
-            # accum_var.append(inner_val)
             inner_stmts.append(
                 ast.Expr(
                     value=ast.Call(
@@ -271,6 +285,11 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     )
                 )
             )
+
+    for tunnel, last_var in lastval_tunnels:
+        inner_val = inner_ctx.resolve(tunnel.inner_terminal_uid)
+        if inner_val and inner_val != last_var:
+            inner_stmts.append(build_assign(last_var, parse_expr(inner_val)))
 
     # 5. Handle shift register updates (rSR) at end of loop body
     #
