@@ -400,3 +400,53 @@ def rotate(x, n, bits):
     x &= mask
     n %= bits
     return ((x << n) | (x >> (bits - n))) & mask
+
+
+# Integer type spec -> (byte width, signed). Type Cast (below) speaks these.
+_INT_SPEC = {
+    "i8": (1, True), "u8": (1, False),
+    "i16": (2, True), "u16": (2, False),
+    "i32": (4, True), "u32": (4, False),
+    "i64": (8, True), "u64": (8, False),
+}
+
+
+def _flatten_bytes(x, spec: str) -> bytes:
+    """Flatten a value to LabVIEW's big-endian FLAT byte form (no length prefix,
+    which is what Type Cast uses — unlike Flatten To String). Supports strings,
+    scalar integers, and 1-D integer arrays; raises for anything else."""
+    if spec == "str":
+        return x.encode("latin-1") if isinstance(x, str) else bytes(x)
+    if spec in _INT_SPEC:
+        width, signed = _INT_SPEC[spec]
+        return int(x).to_bytes(width, "big", signed=signed)
+    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
+        width, signed = _INT_SPEC[spec[:-2]]
+        return b"".join(int(e).to_bytes(width, "big", signed=signed) for e in x)
+    raise NotImplementedError(f"Type Cast cannot flatten spec {spec!r}")
+
+
+def _unflatten_bytes(b: bytes, spec: str):
+    """Interpret big-endian flat bytes as the target type spec (inverse of
+    _flatten_bytes). Supports strings, scalar integers, and 1-D integer arrays."""
+    if spec == "str":
+        return b.decode("latin-1")
+    if spec in _INT_SPEC:
+        width, signed = _INT_SPEC[spec]
+        return int.from_bytes(b[:width], "big", signed=signed)
+    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
+        width, signed = _INT_SPEC[spec[:-2]]
+        return [
+            int.from_bytes(b[i:i + width], "big", signed=signed)
+            for i in range(0, len(b) - len(b) % width, width)
+        ]
+    raise NotImplementedError(f"Type Cast cannot unflatten spec {spec!r}")
+
+
+def type_cast(x, src: str, dst: str):
+    """LabVIEW Type Cast: reinterpret x's flat bytes as the destination type.
+    Flattens x (big-endian, no length prefix) then reads those bytes back as
+    dst. Supported specs: 'str', scalar ints ('u32', 'i16', …) and 1-D integer
+    arrays ('u32[]', …); other type pairs raise NotImplementedError (loud, never
+    silently wrong)."""
+    return _unflatten_bytes(_flatten_bytes(x, src), dst)

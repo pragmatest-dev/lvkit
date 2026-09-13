@@ -273,7 +273,7 @@
           "index": 0,
           "direction": "in",
           "name": "x",
-          "type": "NumFloatExt"
+          "type": "Array"
         },
         {
           "index": 1,
@@ -284,13 +284,14 @@
         {
           "index": 2,
           "direction": "out",
-          "name": "*(type *) &x",
+          "name": "x_cast",
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "op": "TYPE_CAST",
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/type-cast.html",
+      "note": "Reinterprets x's flat bytes as the type-prototype's type (LabVIEW: flatten then unflatten). Emitted via TYPE_CAST op handler, which reads the source type from in_0 and the dest type from the output and defers to _lv.type_cast. Terminal types here are nominal; the handler reads real per-node types. Numeric-scalar/array<->string supported (big-endian, no length prefix); cluster/variant/float pairs raise loudly pending fuller flat-format support."
     },
     "1170": {
       "name": "Split Number",

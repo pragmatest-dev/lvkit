@@ -137,6 +137,24 @@ def test_rotate_resolves_and_matches_ni_docs():
     assert lv.rotate(0x12345678, 8, 32) == 0x34567812
 
 
+def test_type_cast_resolves_and_reinterprets_bytes():
+    """Type Cast (1166) resolves via the TYPE_CAST op handler, and lv.type_cast
+    reinterprets flat bytes big-endian with no length prefix: a U32 array casts
+    to its raw bytes and round-trips, and an unsupported pair raises loudly
+    (never a silently-wrong cast)."""
+    import pytest as _pytest
+
+    from lvkit.runtime import lv
+
+    assert get_resolver().resolve(prim_id=1166).op == "TYPE_CAST"
+    s = lv.type_cast([0x12345678, 0xDEADBEEF], "u32[]", "str")
+    assert s.encode("latin-1").hex() == "12345678deadbeef"
+    assert lv.type_cast(s, "str", "u32[]") == [0x12345678, 0xDEADBEEF]
+    assert lv.type_cast(258, "i16", "str").encode("latin-1").hex() == "0102"
+    with _pytest.raises(NotImplementedError):
+        lv.type_cast(1.0, "f64", "str")
+
+
 def test_numeric_primitives_are_elementwise():
     res = get_resolver()
     # Add, Subtract, Multiply, Sign all broadcast over arrays
