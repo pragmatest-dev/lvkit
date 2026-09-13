@@ -235,3 +235,22 @@ def test_index_array_elements() -> None:
         indices=[0, 2],
     )
     assert r.elements == [10, 30]
+
+
+def test_conditional_auto_indexing_tunnel_filters_by_boolean_array() -> None:
+    """Conditional Auto-Indexing Tunnel keeps array_in[i] where the boolean
+    elements_to_keep[i] is True. Exercises element-wise broadcast of the
+    conversion chain (Boolean To (0,1) -> To U32 -> Add Array Elements) over a
+    boolean-array input, which used to crash with 'int' object is not iterable."""
+    r = _run_pkg(
+        "array/array.llb/Conditional Auto-Indexing Tunnel (I32)__ogtk.vi",
+        elements_to_keep=[True, False, True],
+        array_in=[10, 20, 30],
+    )
+    assert list(r.filtered_array_out) == [10, 30]
+    r2 = _run_pkg(
+        "array/array.llb/Conditional Auto-Indexing Tunnel (I32)__ogtk.vi",
+        elements_to_keep=[False, True, True, False],
+        array_in=[1, 2, 3, 4],
+    )
+    assert list(r2.filtered_array_out) == [2, 3]

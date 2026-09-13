@@ -22,6 +22,11 @@ _BINOP = {
     ast.FloorDiv: "floordiv",
     ast.Mod: "mod",
     ast.Pow: "pow_",
+    ast.BitAnd: "bitand",
+    ast.BitOr: "bitor",
+    ast.BitXor: "bitxor",
+    ast.LShift: "lshift",
+    ast.RShift: "rshift",
 }
 _CMP = {
     ast.Gt: "gt",
@@ -30,6 +35,16 @@ _CMP = {
     ast.LtE: "le",
     ast.Eq: "eq",
     ast.NotEq: "ne",
+}
+# Unary conversion builtins whose templates (int(bool(x)), int(round(x)), …) must
+# broadcast when their argument is an array (LabVIEW's conversions are
+# polymorphic). Mapped to the scalar-safe, recursively-broadcasting _lv helpers.
+_UNARY_FN = {
+    "int": "int_",
+    "float": "float_",
+    "bool": "bool_",
+    "round": "round_",
+    "abs": "abs_",
 }
 
 
@@ -95,6 +110,23 @@ class _ArrayifyBase(ast.NodeTransformer):
             if fn and self._should(node.left, node.comparators[0]):
                 self.used = True
                 return _call(fn, [node.left, node.comparators[0]])
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        # Broadcast a unary conversion builtin (int/bool/round/float/abs) over an
+        # array-valued argument. Visited bottom-up, so nested conversions like
+        # int(bool(arr)) rewrite to _lv.int_(_lv.bool_(arr)).
+        self.generic_visit(node)
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id in _UNARY_FN
+            and len(node.args) == 1
+            and not node.keywords
+            and not any(isinstance(a, ast.Starred) for a in node.args)
+            and self._should(node.args[0])
+        ):
+            self.used = True
+            return _call(_UNARY_FN[node.func.id], [node.args[0]])
         return node
 
 

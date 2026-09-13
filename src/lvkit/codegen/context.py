@@ -24,6 +24,7 @@ from lvkit.graph.models import (
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.models import (
     Frame,
+    LVTypeKind,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -608,7 +609,14 @@ def _bind_inputs_and_constants(
     """
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
-            ctx.bind(inp.id, to_var_name(inp.name or "input"))
+            var = to_var_name(inp.name or "input")
+            ctx.bind(inp.id, var)
+            # Track array-typed inputs so the final arrayify pass broadcasts
+            # operators/conversions applied to them (same as array-typed
+            # primitive outputs) — an array parameter is just as array-valued.
+            lv_type = getattr(inp, "lv_type", None)
+            if lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
+                ctx.array_vars.add(var)
     for const in constants:
         if const.id:
             ctx.bind(const.id, _format_constant(const))

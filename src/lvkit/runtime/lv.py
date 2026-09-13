@@ -303,3 +303,49 @@ def index_array(arr, i, default):
     ``default`` is the element type's real default, supplied by codegen."""
     j = int(i)
     return arr[j] if 0 <= j < len(arr) else default
+
+
+# Element-wise unary conversions: LabVIEW's numeric/boolean conversion functions
+# are polymorphic (scalar OR array OR nested), so codegen's arrayify pass rewrites
+# int()/bool()/round()/float()/abs() over an array-valued argument into these,
+# which broadcast (recursively) via _unop.
+def int_(a):
+    return _unop(a, int)
+
+
+def float_(a):
+    return _unop(a, float)
+
+
+def bool_(a):
+    return _unop(a, bool)
+
+
+def round_(a):
+    return _unop(a, round)
+
+
+def abs_(a):
+    return _unop(a, abs)
+
+
+# Bitwise operators broadcast element-wise (LabVIEW masks/shifts are polymorphic;
+# e.g. To U32 lowers to `x & 0xFFFFFFFF`, which must map over an array x).
+def bitand(a, b):
+    return _binop(a, b, lambda x, y: x & y)
+
+
+def bitor(a, b):
+    return _binop(a, b, lambda x, y: x | y)
+
+
+def bitxor(a, b):
+    return _binop(a, b, lambda x, y: x ^ y)
+
+
+def lshift(a, b):
+    return _binop(a, b, lambda x, y: x << y)
+
+
+def rshift(a, b):
+    return _binop(a, b, lambda x, y: x >> y)

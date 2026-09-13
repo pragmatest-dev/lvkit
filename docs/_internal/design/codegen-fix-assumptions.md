@@ -28,21 +28,23 @@ gives 3 bits, not 8). The accurate width comes from the input terminal's integer
 type (see `uint_mask` in primitive.py for the type→width pattern); lower these as
 ops that inject the type width. Deferred.
 
-### DEFERRED (systemic, needs careful arrayify work): conversion primitives don't broadcast over arrays
-`arrayify` (codegen/elementwise.py) broadcasts numeric OPERATORS (`+ - * …`) into
-`_lv.*` calls when an operand is an array, but NOT primitives whose template is a
-function CALL — e.g. Boolean To (0,1) `int(bool(in_1))` (prim 1167), To Long
-Integer `int(round(in_1))` (1142), To U32, etc. When such a conversion's input is
-an ARRAY (LabVIEW applies it element-wise, producing an array), codegen emits the
-scalar template and crashes: OpenG "Conditional Auto-Indexing Tunnel (*)" (~24
-VIs) counts kept elements via `sum(int(bool(elements_to_keep)))` -> `bool()` of a
-list is a scalar -> `sum(<int>)` raises "'int' object is not iterable". Fix
-direction: give these conversion prims an element-wise broadcast (a runtime
-helper like `_lv.index_array`, applied when the input terminal's lv_type is an
-array — the op handler can see the type), or extend arrayify to rewrite the
-registered conversion templates the way it rewrites operators. Systemic (several
-prims + the broadcast decision) and touches the widely-used conversion path, so
-verify with a full corpus regen. Not attempted here.
+### 6. Conversion primitives + bitwise operators broadcast over arrays
+`arrayify` broadcast numeric OPERATORS (`+ - * …`) but NOT unary conversion
+CALLS (`int(bool(x))`, `int(round(x))`) or BITWISE operators (`x & 0xFFFFFFFF`).
+When a conversion/mask's input is an ARRAY (LabVIEW conversions are polymorphic,
+applying element-wise), codegen emitted the scalar form and crashed: OpenG
+Conditional Auto-Indexing Tunnel / Filter 1D Array (~48 VIs) count kept elements
+via `sum(int(bool(elements_to_keep)))` — `bool()` of a list is a scalar, so
+`sum(<int>)` raised "'int' object is not iterable". Fixed by extending arrayify:
+(a) a `visit_Call` rewrites `int/bool/round/float/abs` over an array-valued arg
+into recursively-broadcasting `_lv.int_/bool_/round_/float_/abs_` (nested calls
+compose, since an `_lv.*` result is array-valued); (b) bitwise `& | ^ << >>` join
+the broadcast operator map (`_lv.bitand/bitor/bitxor/lshift/rshift`); (c) VI input
+parameters whose lv_type is an array are now tracked in `array_vars` (they were
+not — only primitive array OUTPUTS were), so the module arrayify pass fires on
+them. Conditional Auto-Indexing now filters correctly; guarded by an executing
+test. Impact is contained to the ~48 array-conversion VIs; full corpus regen has
+0 syntax errors and the full suite is green.
 
 ### 4. Index Array out-of-range → element default
 `aIndx` (Index Array) emitted `array[int(index)]`, which raises `IndexError` on
