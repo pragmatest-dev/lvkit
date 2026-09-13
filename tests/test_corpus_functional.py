@@ -254,3 +254,72 @@ def test_conditional_auto_indexing_tunnel_filters_by_boolean_array() -> None:
         array_in=[1, 2, 3, 4],
     )
     assert list(r2.filtered_array_out) == [2, 3]
+
+
+def test_search_1d_array_collects_all_match_indices() -> None:
+    """Search 1D Array walks the array from start_index, appending each match's
+    index to an accumulator shift register and advancing a start-index shift
+    register past the last hit, until no match remains. Guards against the
+    dropped-shift-register-feedback regression where the loop returned an empty
+    list because the accumulator/back-edge inside the case were never wired."""
+    r = _run_pkg(
+        "array/array.llb/Search 1D Array (I32)__ogtk.vi",
+        array=[5, 3, 5, 7],
+        element_data=5,
+        start_index_0=0,
+    )
+    assert list(r.indices_of_elements) == [0, 2]
+    r_none = _run_pkg(
+        "array/array.llb/Search 1D Array (I32)__ogtk.vi",
+        array=[1, 2, 3],
+        element_data=9,
+        start_index_0=0,
+    )
+    assert list(r_none.indices_of_elements) == []
+    r_off = _run_pkg(
+        "array/array.llb/Search 1D Array (I32)__ogtk.vi",
+        array=[5, 3, 5, 7],
+        element_data=5,
+        start_index_0=1,
+    )
+    assert list(r_off.indices_of_elements) == [2]
+
+
+def test_sort_1d_array_returns_values_and_original_pointers() -> None:
+    """Sort 1D Array pairs each element with its original index, sorts the pairs,
+    optionally reverses (order=1), then splits back into sorted values and the
+    original-position pointers. Guards the shift-register/case-tunnel regression
+    where the value-collecting loop body was emitted as a bare ``pass``."""
+    r_asc = _run_pkg(
+        "array/array.llb/Sort 1D Array (I32)__ogtk.vi",
+        array_in=[30, 10, 20],
+        order=0,
+    )
+    assert list(r_asc.sorted_array_out) == [10, 20, 30]
+    assert list(r_asc.sorted_pointers) == [1, 2, 0]
+    r_desc = _run_pkg(
+        "array/array.llb/Sort 1D Array (I32)__ogtk.vi",
+        array_in=[30, 10, 20],
+        order=1,
+    )
+    assert list(r_desc.sorted_array_out) == [30, 20, 10]
+    assert list(r_desc.sorted_pointers) == [0, 2, 1]
+
+
+def test_remove_duplicates_keeps_first_and_records_removed_indices() -> None:
+    """Remove Duplicates from 1D Array keeps the first occurrence of each value
+    (appending unseen values to the output shift register) and records the input
+    index of every dropped duplicate. Exercises the ``case -1`` selector
+    correlation (not-found -> append) and both shift-register back-edges."""
+    r = _run_pkg(
+        "array/array.llb/Remove Duplicates from 1D Array (DBL)__ogtk.vi",
+        input_array=[1.0, 2.0, 1.0, 3.0, 2.0],
+    )
+    assert list(r.output_array) == [1.0, 2.0, 3.0]
+    assert list(r.indices_of_removed_elements) == [2, 4]
+    r_none = _run_pkg(
+        "array/array.llb/Remove Duplicates from 1D Array (DBL)__ogtk.vi",
+        input_array=[1.0, 2.0, 3.0],
+    )
+    assert list(r_none.output_array) == [1.0, 2.0, 3.0]
+    assert list(r_none.indices_of_removed_elements) == []
