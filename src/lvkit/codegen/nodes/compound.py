@@ -291,6 +291,53 @@ def generate_array_build(
     )
 
 
+def generate_concat_strings(
+    node: PrimitiveNode,
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """Generate code for Concatenate Strings (``concat``).
+
+    LabVIEW's Concatenate Strings joins all input strings, in terminal order,
+    into a single output string. A 1D-array-of-strings input contributes all
+    of its elements concatenated together (``"".join(arr)``); a scalar string
+    input contributes its own value. With no inputs the result is ``""``.
+    """
+    inputs = [t for t in node.terminals if t.direction == "input"]
+    outputs = [t for t in node.terminals if t.direction == "output"]
+
+    if not outputs:
+        return CodeFragment()
+
+    output_id = outputs[0].id
+
+    parts: list[ast.expr] = []
+    for inp in sorted(inputs, key=lambda t: t.index):
+        val = ctx.resolve(inp.id)
+        if not val:
+            continue
+        is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
+        if is_array:
+            # A 1D array of strings concatenates its elements.
+            parts.append(parse_expr(f'"".join({val})'))
+        else:
+            parts.append(parse_expr(val))
+
+    if not parts:
+        expr: ast.expr = ast.Constant(value="")
+    else:
+        expr = parts[0]
+        for part in parts[1:]:
+            expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
+
+    out_name = outputs[0].name
+    var_name = to_var_name(out_name) if out_name else "concatenated_string"
+
+    return CodeFragment(
+        statements=[build_assign(var_name, expr)],
+        bindings={output_id: var_name},
+    )
+
+
 def _make_array_var_name(input_names: list[str]) -> str:
     """Generate a semantic variable name for array building."""
     if not input_names:

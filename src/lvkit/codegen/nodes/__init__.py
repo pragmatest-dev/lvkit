@@ -100,6 +100,7 @@ _PrimGen = Callable[[PrimitiveNode, CodeGenContext], CodeFragment]
 _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "cpdArith": compound.generate_compound_arith,
     "aBuild": compound.generate_array_build,
+    "concat": compound.generate_concat_strings,
     "aInit": compound.generate_array_init,
     "aReplace": compound.generate_array_replace,
     "aInsert": compound.generate_array_insert,

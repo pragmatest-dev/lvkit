@@ -228,13 +228,13 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "first subarray",
+          "name": "second subarray",
           "type": "polymorphic"
         },
         {
           "index": 1,
           "direction": "out",
-          "name": "second subarray",
+          "name": "first subarray",
           "type": "polymorphic"
         },
         {
@@ -251,8 +251,8 @@
         }
       ],
       "python_code": {
-        "first subarray": "in_3[:in_2]",
-        "second subarray": "in_3[in_2:]"
+        "second subarray": "in_3[in_2:]",
+        "first subarray": "in_3[:in_2]"
       },
       "verified": false
     },

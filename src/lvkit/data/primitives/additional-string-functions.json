@@ -224,13 +224,13 @@
         {
           "index": 1,
           "direction": "out",
-          "name": "substring_before_match",
+          "name": "match_rest_of_string",
           "type": "String"
         },
         {
           "index": 2,
           "direction": "out",
-          "name": "match_rest_of_string",
+          "name": "substring_before_match",
           "type": "String"
         },
         {
@@ -242,20 +242,20 @@
         {
           "index": 4,
           "direction": "in",
-          "name": "string",
+          "name": "search_string_char",
           "type": "String"
         },
         {
           "index": 5,
           "direction": "in",
-          "name": "search_string_char",
+          "name": "string",
           "type": "String"
         }
       ],
       "python_code": {
-        "offset_of_match": "in_4.find(in_5, in_3)",
-        "substring_before_match": "in_4[:in_4.find(in_5, in_3)] if in_4.find(in_5, in_3) >= 0 else in_4",
-        "match_rest_of_string": "in_4[in_4.find(in_5, in_3):] if in_4.find(in_5, in_3) >= 0 else ''"
+        "offset_of_match": "in_5.find(in_4, in_3)",
+        "match_rest_of_string": "in_5[in_5.find(in_4, in_3):] if in_5.find(in_4, in_3) >= 0 else ''",
+        "substring_before_match": "in_5[:in_5.find(in_4, in_3)] if in_5.find(in_4, in_3) >= 0 else in_5"
       },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-split-string.html"

@@ -94,13 +94,13 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "t_button_name",
+          "name": "f_button_name",
           "type": "String"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "f_button_name",
+          "name": "t_button_name",
           "type": "String"
         },
         {
@@ -112,7 +112,7 @@
       ],
       "placeholder": true,
       "python_code": "pass",
-      "note": "Two Button Dialog (NI Two Button Dialog doc) -> T button?. Terminals from 'Graphical Test Runner - Main UI - .vi', 'Dictionary Example.vi', 'Folder Reuse Warning.vi'. Placeholder: T-vs-F is a real branch, python_code hard-codes True."
+      "note": "Two Button Dialog. idx1=F button, idx2=T button (VI-Scripting nodes export). Placeholder: T-vs-F is a real branch, python_code hard-codes True."
     },
     "2147": {
       "name": "Merge Errors",

@@ -16,6 +16,42 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Multi-output dict `python_code` paired to outputs by INDEX ORDINAL, not wired position
+`_build_dict_hint`/`_detect_passthroughs` (codegen/nodes/primitive.py) paired the
+dict's expressions to wired outputs by position in the *wired* list. An unwired
+earlier output shifted every later expression onto the wrong terminal (Search/Split
+String's unused `offset of match` pushed `before`/`rest` onto To Upper/To Lower
+wrong). Fixed: pair each wired output with the expression at its ordinal among ALL
+outputs by index (`_output_index_ordinals`), since dict exprs are authored in
+output-terminal order. Verified by To Proper Case executing correctly.
+
+### Concatenate Strings (`concat`) handler added
+`node_type="concat"` was known-but-unimplemented (emitted empty → dropped the node
+and its downstream). Added `compound.generate_concat_strings`: joins string inputs
+in terminal order (`+`), a 1D-string-array input contributes `"".join(arr)`, no
+inputs → `""`. Registered in nodes/`_PRIM_CODEGEN`.
+
+### Terminal-order audit vs nodes.json (VI-Scripting export) — 3 real swaps fixed
+The gitignored `.tmp/nodes.json` (695-node VI-Scripting export) is the authoritative
+per-terminal source, but `import_nodes_primitives.py`'s PRESERVE branch NEVER
+overwrites terminals when the entry name matches — so hand-authored entries kept
+stale terminal orders. Audited all shipped primitives against nodes.json:
+- **nodes.json indices are DENSE (0..N); the parser's `terminal.index` is the real
+  parmIndex, which is SPARSE for panes with error clusters** (verified: prim 8003
+  Variant To Data parser=`0,3,8,9,11`, nodes=`0-4`). So nodes.json's order is only
+  applicable when the current index SET matches it; for the 36 sparse ops
+  (file/queue/notifier/VI-server/variant) the current entries are parser-correct and
+  nodes.json's numbering must NOT be encoded.
+- Same-index-set + genuine role permutation → real swap. Found 3: 1538 Search/Split
+  String (in string/search + out before/rest), 1908 Split 1D Array (out first/second),
+  1341 Two Button Dialog (in T/F button name; code is `pass`, data-only). All fixed
+  from nodes.json + geometry + (for 1538/1908) execution/wiring.
+- parmIndex within a connector-pane column runs bottom-to-top vs NI doc reading order,
+  so same-typed terminal PAIRS (two strings, two arrays) are what earlier resolutions
+  mis-ordered; type-distinguishable terminals were fine. The remaining ~42
+  name-differences are vocabulary-only labels on type-distinct terminals (code
+  correct); the 14 binary arith/compare ops were verified correct (idx1=y, idx2=x).
+
 ### OPEN BUG (found by executing, not yet fixed): polymorphic SubVI call kwarg-name mismatch
 A caller of a polymorphic SubVI emits `wrapper(<poly-pane-name>=value)` but the
 generated poly wrapper's parameter is named from the VARIANTS, so the names
