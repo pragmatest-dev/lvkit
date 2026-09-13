@@ -16,6 +16,22 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Delete From Array (aDelete) deleted-portion shape is type-driven (op handler)
+The static template always sliced `array[index:index+length]` for the "deleted
+portion". But that output is polymorphic: a single-element delete (length
+unwired) returns the ELEMENT (scalar), a run delete returns a subarray. In a
+per-index delete loop (OpenG Delete Elements from 1D Array) the scalar case was
+emitted as a 1-element slice, which the auto-indexing tunnel accumulated into a
+2-D array instead of a flat 1-D one. Moved to op `DELETE_FROM_ARRAY`: reads the
+deleted-portion terminal's type — subarray keeps the slice; scalar emits
+`_lv.index_array(array, index, <default>)` (guarded like Index Array, since the
+array shrinks each pass and a stale index must yield the element default, not
+raise — the slice form silently returned []). Verified: Delete Elements now
+returns a flat `deleted_elements` with correct values and a correct trimmed
+array. (Separate, pre-existing: the deleted-elements ORDER is
+descending-by-index; its sort_pointers/reorder_array2 restore-order chain does
+not reorder — a SubVI-chain issue, not aDelete.)
+
 ### SubVI call arguments are parsed to real AST (not wrapped in one Name)
 `subvi._to_ast_value` turned every argument string into a single
 `ast.Name(id=value)` — so a dotted argument like `result.field` became a Name

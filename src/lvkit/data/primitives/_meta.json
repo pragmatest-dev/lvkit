@@ -71,10 +71,8 @@
           "default_value": "-1"
         }
       ],
-      "python_code": {
-        "deleted portion": "array[index:index + length]",
-        "output array": "array[:index] + array[index + length:]"
-      }
+      "op": "DELETE_FROM_ARRAY",
+      "imports": ["from lvkit.runtime import lv as _lv"]
     },
     "aIndx": {
       "name": "Index Array",
