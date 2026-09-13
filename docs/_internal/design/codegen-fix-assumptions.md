@@ -16,6 +16,36 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Polymorphic SubVI wrapper: imports, variant names, positional dispatch
+`_generate_polymorphic_module` (pipeline.py) emitted a broken poly module three
+ways: (1) a variant body that calls a SIBLING variant hoisted an import for it as
+a standalone module — but siblings are DEFINED inline, so no such module exists
+(`ModuleNotFoundError`); (2) the wrapper referenced variants by their full-path
+name while `build_module` DEFINES them by basename (`NameError`); (3) the
+wrapper passed caller kwargs by NAME, but a caller names args by the poly VI's
+own connector pane, which need not match a variant's parameter names (e.g. a
+scalar `string` vs an array `strings` → `unexpected keyword`/`missing arg`).
+Fixed: drop hoisted imports whose bound name is an inline variant; name variant
+funcs by basename (matching build_module); make the wrapper `(*args, **kwargs)`
+that collects values in call order and dispatches POSITIONALLY via `_lv_dispatch`
+(mapping to the chosen variant's own param names by slot). Verified: To Proper
+Case (String Array) poly now runs — `['hi there','foo BAR']`→`['Hi there','Foo
+bar']`, `'hi there'`→`'Hi there'`. Full suite green (2041).
+
+### OPEN (poly): auto-adapt variant selection by wired type
+Filter 1D Array (I32) still crashes: it calls the Remove Duplicates poly wrapper,
+which dispatches on `isinstance(_vals[0], (list, tuple))` and so picks the FIRST
+array variant (Path) — runtime Python type can't tell an I32-list from a
+Path-list, and the caller then hits `AttributeError` on the wrong variant's
+result class. The `polyIUse` call node has `preferredInstIndex=FF` (auto-adapt: no
+stored instance), so LabVIEW resolves the variant by the WIRED input type at edit
+time — info the graph has (the input terminal's lv_type) but the SubVI codegen
+doesn't use (poly_variant_name is None). Fix direction: for a polyIUse call,
+resolve the variant by matching the wired input type to the variant whose input
+type matches, and emit a DIRECT call to it (not the runtime-dispatch wrapper).
+Deeper subvi-codegen work; the wrapper stays the fallback for a genuinely dynamic
+call.
+
 ### Case structure ↔ selector table correlated DIRECTLY via tdOffset (the real link)
 The positional case↔table correlation (sort cases by VCTP index, sort tables by
 DataFill TypeID, zip) broke whenever a deleted case left an ORPHAN table, and no
