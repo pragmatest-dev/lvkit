@@ -1,0 +1,202 @@
+{
+  "primitives": {
+    "8013": {
+      "name": "Open VI Object Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "object refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "vi object class",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "name/order",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "owner refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8014": {
+      "name": "New VI",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "vi refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "type specifier VI Refnum (for type only)",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "password",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "not connected",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "vi type (standard vi)",
+          "type": "Enum32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "template",
+          "type": "Path"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "application refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8015": {
+      "name": "New VI Object",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "object refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "bounds",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "auto wire? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "vi object class",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "position/next to",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "style",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "owner refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

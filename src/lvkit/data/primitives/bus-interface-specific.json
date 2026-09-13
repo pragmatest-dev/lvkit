@@ -1,0 +1,436 @@
+{
+  "primitives": {
+    "2304": {
+      "name": "VISA GPIB Control REN",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2305": {
+      "name": "VISA VXI Cmd or Query",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "response",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "command",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "mode (x200: 16-bit cmd)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2309": {
+      "name": "VISA Assert Interrupt Signal",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "status ID",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2310": {
+      "name": "VISA Assert Utility Signal",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "bus signal",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2311": {
+      "name": "VISA Map Trigger",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "trigger destination",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "trigger source",
+          "type": "NumInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2312": {
+      "name": "VISA Unmap Trigger",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "trigger destination (all)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "trigger source",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2315": {
+      "name": "VISA GPIB Command",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "return count",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "command",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2316": {
+      "name": "VISA GPIB Control ATN",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2317": {
+      "name": "VISA GPIB Pass Control",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "secondary address (none)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "primary address",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2318": {
+      "name": "VISA GPIB Send IFC",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

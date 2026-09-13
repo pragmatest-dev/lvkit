@@ -1,0 +1,3771 @@
+{
+  "primitives": {
+    "1056": {
+      "name": "Quotient & Remainder",
+      "op": "QUOTIENT_REMAINDER",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "floor(x/y)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "x-y*floor(x/y)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1088": {
+      "name": "Resource Index",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Resource",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1108": {
+      "name": "Max & Min",
+      "op": "MAX_MIN",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "min(x,y)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "max(x,y)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1150": {
+      "name": "Mantissa & Exponent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "mantissa",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "exponent",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1220": {
+      "name": "Sine & Cosine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "sin(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "cos(x)",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1402": {
+      "name": "New Directory",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "dup directory path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "directory path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1403": {
+      "name": "Open File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "open mode (0)",
+          "type": "Enum16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "deny mode (2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "datalog type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1404": {
+      "name": "New File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "datalog type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "overwrite (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "deny mode (2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1407": {
+      "name": "Read File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "byte stream type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "convert eol (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "line mode (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "pos offset (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "pos mode (0:2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1408": {
+      "name": "Write File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "convert eol (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "header (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pos offset (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "pos mode (0:2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1409": {
+      "name": "Seek",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "pos offset (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "pos mode (0:2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1410": {
+      "name": "EOF",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "pos offset (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "pos mode (0:1)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1411": {
+      "name": "Lock Range",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "set lock (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "pos offset (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pos mode (0:2)",
+          "type": "Enum16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1412": {
+      "name": "Access Rights",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "owner",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "dup path",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "new permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "new group",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "new owner",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1414": {
+      "name": "Volume Info",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "free",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "used",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "size",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "volume path",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1426": {
+      "name": "Current VI's Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "path": "_Path(__file__)"
+      },
+      "inline": true,
+      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-path.html"
+    },
+    "1430": {
+      "name": "Open Device",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "err",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "device refnum",
+          "type": "Refnum",
+          "refnum_type": "device"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "unit(0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "device name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1431": {
+      "name": "Write Device",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "new offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "err",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "spc reset (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "misc (-)",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "async (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pos offset (-)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pos mode (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "device refnum",
+          "type": "Refnum",
+          "refnum_type": "device"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1432": {
+      "name": "Read Device",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "new offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "err",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "spc reset (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "misc (-)",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "async (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pos offset (-)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pos mode (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "device refnum",
+          "type": "Refnum",
+          "refnum_type": "device"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1433": {
+      "name": "Device Control/Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "new param",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "err",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "spc reset (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "async (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "param (-)",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "code (-)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "ctrl/stat (T:ctrl)",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "device refnum",
+          "type": "Refnum",
+          "refnum_type": "device"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1434": {
+      "name": "Type and Creator",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "creator",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "dup path",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "new creator",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "new type",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1603": {
+      "name": "Size Handle",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "handle",
+          "type": "Void"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "handle (-)",
+          "type": "Void"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "size",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1604": {
+      "name": "Handle Peek",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "num type (long)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "handle",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1605": {
+      "name": "Handle Poke",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "old value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "handle",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "new value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "handle",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1718": {
+      "name": "TCP Flattened Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data out",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1719": {
+      "name": "TCP Flattened Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1720": {
+      "name": "TCP Flex Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "coerced?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1721": {
+      "name": "TCP Flex Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1722": {
+      "name": "Wait For Activity",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection IDs active",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "listener IDs active",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "connection IDs",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "listener IDs",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1727": {
+      "name": "UDP Multicast Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "net address",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "time-to-live",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "multicast addr",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "port",
+          "type": "NumUInt16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1738": {
+      "name": "Add Entropy",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "entropy",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1739": {
+      "name": "Re-accept TLS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "client certificate chain",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "TLS connection out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "CA certificates",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "TLS connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1830": {
+      "name": "String to Shared Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "valid Shared Variable?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "Shared Variable",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1831": {
+      "name": "Shared Variable to String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Shared Variable",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1907": {
+      "name": "Array Max & Min",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-max-min.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "max value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "max index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "min value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "min index",
+          "type": "NumInt32"
+        }
+      ],
+      "python_code": {
+        "max_value": "(max(in_0) if in_0 else 0)",
+        "max_index": "(in_0.index(max(in_0)) if in_0 else -1)",
+        "min_value": "(min(in_0) if in_0 else 0)",
+        "min_index": "(in_0.index(min(in_0)) if in_0 else -1)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Array Max & Min -- returns max value & its first index, min value & its first index (NI array-max-min doc); terminals from OpenG samples 'limitDecendantsTo1Level', 'Fit VI window to Largest Dec'."
+    },
+    "1912": {
+      "name": "Swap Vector Element",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "swapped element value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "returned index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "changed vector",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "element value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "vector",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1921": {
+      "name": "Old VISA Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout (0)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "access mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "resource name (\"\")",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name (for class)",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1924": {
+      "name": "VISA Status Description",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status description",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1993": {
+      "name": "VISA Lock",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "access key",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "lock type (exclusive:  1)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "requested key",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout (0)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1997": {
+      "name": "VISA Mem Alloc",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "size",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1998": {
+      "name": "VISA Mem Free",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2050": {
+      "name": "Code Interface Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input",
+          "type": "Void"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2056": {
+      "name": "Index & Bundle Cluster Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array of clusters",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "component array",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2250": {
+      "name": "Generate User-Defined Trace Event",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "trace integer",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "trace string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2300": {
+      "name": "VISA Refnum to Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "session",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Visa Refnum",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2306": {
+      "name": "Refnum to Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Session",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in(no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "Refnum",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2307": {
+      "name": "Session to Refnum",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Refnum",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in(no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "Session",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "Class Type",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2319": {
+      "name": "Register Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "duplicate refnum",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "cleanup mode (default to class = 0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "session",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "resource name",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2320": {
+      "name": "Unregister Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2322": {
+      "name": "FPGA Refnum to Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Session",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in(no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "Refnum",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2372": {
+      "name": "Unknown",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2403": {
+      "name": "IsDebuggingActive",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "debugging?",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2410": {
+      "name": "Leak Variant Value Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "variant value ref out",
+          "type": "Refnum",
+          "refnum_type": "data_value"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "variant value ref in",
+          "type": "Refnum",
+          "refnum_type": "data_value"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2411": {
+      "name": "Unleak Variant Value Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "variant value reference out",
+          "type": "Refnum",
+          "refnum_type": "data_value"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "variant value reference in",
+          "type": "Refnum",
+          "refnum_type": "data_value"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2412": {
+      "name": "ArrayMemInfo",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "mem info out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "array out",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array in",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2413": {
+      "name": "To Probe String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "probe string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "maximum string length",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data value",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2414": {
+      "name": "Type Of",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "type",
+          "type": "LVVariant"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "any",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2415": {
+      "name": "Type Error",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bool const",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2417": {
+      "name": "Type Must Be Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "any",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2418": {
+      "name": "Type Must Be Cluster",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "any",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2455": {
+      "name": "Read Set Max & Min",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "minimum",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "maximum",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "set",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2459": {
+      "name": "Read Map Max & Min Keys",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "minimum",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "maximum",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "map",
+          "type": "MapCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3135": {
+      "name": "Bitpack to Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "bparray",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3136": {
+      "name": "Unbitpack from Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "data",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "bparray",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5565": {
+      "name": "Fixed-Point Overflowed?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "overflow?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "FXP",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5690": {
+      "name": "Dynamic FPGA Interface Cast",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "Type",
+          "type": "Refnum",
+          "refnum_type": "generic_class"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Session In",
+          "type": "Refnum",
+          "refnum_type": "generic_class"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "Session Out",
+          "type": "Refnum",
+          "refnum_type": "generic_class"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5691": {
+      "name": "Open Dynamic Bitfile Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "Device address",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Bitfile path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "Run When Loaded",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "Error In",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "Type",
+          "type": "Refnum",
+          "refnum_type": "generic_class"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "Refnum",
+          "type": "Refnum",
+          "refnum_type": "generic_class"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "Error Out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8001": {
+      "name": "Automation Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in(no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "Automation Refnum",
+          "type": "Refnum",
+          "refnum_type": "auto"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8002": {
+      "name": "To OLE Variant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "LVVariant"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "vt VARTYPE",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "OLE Variant",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8102": {
+      "name": "IVI New Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "IVI session",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "IVI session handle",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "resource name (\"\")",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "IVI session (for class)",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8103": {
+      "name": "IVI Delete Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "IVI session",
+          "type": "Refnum",
+          "refnum_type": "ivi"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8209": {
+      "name": "Delete Waveform Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "no found",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "waveform out",
+          "type": "Waveform"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "name (all attributes)",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "waveform",
+          "type": "Waveform"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9000": {
+      "name": "Current VI's Menubar",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/current-vi-s-menubar.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "menu_reference",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Current VI's Menubar (NI Menu-category doc) -- single output, no inputs; returns the current VI's menu reference (ref_type=Menu). Terminals from 'Graphical Test Runner - Main UI - .vi'. Placeholder codegen (no lvkit Menu runtime)."
+    },
+    "9020": {
+      "name": "Script Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9155": {
+      "name": "Lookup Channel Probe",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "refnum to monitor",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "probe type specifier",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "force create?",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "probe VI refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "type mismatched?",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "11163": {
+      "name": "Unknown",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input fixed-point number",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Encoding",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23000": {
+      "name": "Unpackage Matrix",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "matrix",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "matrix",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23001": {
+      "name": "Package Matrix",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "matrix",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "matrix",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23064": {
+      "name": "Floating Point Equal",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x ~ y?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "tolerance",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23065": {
+      "name": "Sort Array of String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sorted array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23066": {
+      "name": "Text to UTF-8",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "utf-8 text",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "encoding",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "text",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23067": {
+      "name": "Text to UTF-8",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "text",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "encoding",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "utf-8 text",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23068": {
+      "name": "Transpose 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "transposed array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "1D array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23789": {
+      "name": "Write Variable with Timeout",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23793": {
+      "name": "Create Network Stream Endpoint",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "endpoint",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "element allocation mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "buffer sizes",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "remote endpoint url",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "endpoint name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23795": {
+      "name": "Create Unique Network Stream Endpoint",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "endpoint",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "max connections (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "element allocation mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "buffer sizes",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "base endpoint name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23796": {
+      "name": "Create Stream",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "endpoint in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "endpoint out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "access",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "buffer size",
+          "type": "NumUInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23806": {
+      "name": "Create Unique Network Stream Writer Endpoint",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "writer endpoint",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "max connections (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "element allocation mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "writer buffer size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "base writer name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23807": {
+      "name": "Create Unique Network Stream Reader Endpoint",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reader endpoint",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "max connections (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "element allocation mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "reader buffer size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "base reader name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24000": {
+      "name": "RT FIFO Create",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "name (unnamed)",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type",
+          "type": "LVVariant"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "create if not found? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "size (10)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datapoints in waveform (1)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "elements in array (1)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "r/w modes (polling,polling)",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "rt fifo",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "created new?",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24001": {
+      "name": "RT FIFO Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "rt fifo",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "# elements",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "rt fifo out",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "element out",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "empty?",
+          "type": "Boolean"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24002": {
+      "name": "RT FIFO Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "rt fifo",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "overwrite on timeout (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "# elements",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "rt fifo out",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24003": {
+      "name": "RT FIFO Delete",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "rt fifo",
+          "type": "Refnum",
+          "refnum_type": "rt_fifo"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "force destroy? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24118": {
+      "name": "TDMS Write IP",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "channel names in",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "channel names out",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "data out",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24120": {
+      "name": "TDMS Refnum To File ID",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "object id",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "tdms file id",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24131": {
+      "name": "Current Processor ID",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "current processor ID",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24210": {
+      "name": "Call MATLAB Function",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "session in",
+          "type": "Refnum",
+          "refnum_type": "matlab_session"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "session out",
+          "type": "Refnum",
+          "refnum_type": "matlab_session"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "source file path",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "function name",
+          "type": "Path",
+          "hidden": true
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "String",
+          "hidden": true
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "error out",
+          "type": "String",
+          "hidden": true
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "function name",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error out",
+          "type": "Void"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "return type",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

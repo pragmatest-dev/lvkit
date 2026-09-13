@@ -1,0 +1,323 @@
+{
+  "primitives": {
+    "9140": {
+      "name": "IrDA Create Listener",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "listener ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "service name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9141": {
+      "name": "IrDA Discover",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "device list",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "number of devices",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9142": {
+      "name": "IrDA Open Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms (60000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "remote device id",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "service name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9143": {
+      "name": "IrDA Wait On Listener",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "remote device ID",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "remote LSAP-SEL",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "listener ID out",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout ms (wait forever: -1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "resolve remote address (T)",
+          "type": "Boolean",
+          "hidden": true
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "listener ID in",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9144": {
+      "name": "IrDA Close Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "abort (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9145": {
+      "name": "IrDA Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "mode (standard)",
+          "type": "Enum16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "bytes to read",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9146": {
+      "name": "IrDA Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "bytes written",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "data in",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "irda"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -1,0 +1,608 @@
+{
+  "primitives": {
+    "1102": {
+      "name": "Equal?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "equal",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "equal": "in_1 == in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1103": {
+      "name": "Greater Or Equal?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "greater_or_equal",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "greater_or_equal": "in_2 >= in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1104": {
+      "name": "Less Or Equal?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_less_or_equal_y",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "x_less_or_equal_y": "in_2 <= in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1105": {
+      "name": "Not Equal?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 != in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1110": {
+      "name": "Greater?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic",
+          "default_value": "0"
+        }
+      ],
+      "python_code": {
+        "result": "in_2 > in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1111": {
+      "name": "Less?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_less_than_y",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "x_less_than_y": "in_2 < in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1112": {
+      "name": "Empty String/Path?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-string-path.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "is_empty",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string_or_path",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "is_empty": "len(in_1) == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "Was mislabeled 'Not A Number/Path/Refnum?' (which takes NUMBERS). Observed polymorphic over String (Number to Proper Engl Text) AND Path (Get Class Inheritance from Class Path.vi), both -> Boolean. NI docs (labview-api-ref/functions/empty-string-path): Empty String/Path? 'returns TRUE if string/path is an empty string or an empty path'. The String/Path->Bool polymorphism uniquely pins it."
+    },
+    "1113": {
+      "name": "Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x_equals_zero",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "x_equals_zero": "in_1 == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/equal-to-0.html",
+      "note": "Equal To 0? (=0), the dominant to-0 form (NI equal-to-0 doc). On non-negative feeders ==0 and <=0 are behaviorally identical, so 1113(=0) vs 1115(<=0) is not corpus-separable; pinned by doc slug. See 1115."
+    },
+    "1114": {
+      "name": "Greater Or Equal To 0?",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 >= 0"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-or-equal-to-0.html",
+      "note": "Greater Or Equal To 0? (>=0) -- unary comparison-to-0, complement of 1118 (<0); pinned >=0 by search-result-offset feeders (Search 1D Array, Match Pattern offset-past-match) across the corpus. Was mislabeled 'Greater Or Equal?'."
+    },
+    "1115": {
+      "name": "Less Or Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 <= 0"
+      },
+      "inline": true,
+      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-or-equal-to-0.html",
+      "note": "Less Or Equal To 0? (<=0) (NI less-or-equal-to-0 doc) -- best-supported <=0 in 'test Queue Size is Zero' (checks a queue count >=0). UNVERIFIED: <=0 vs ==0 not corpus-separable. Was a duplicate 'Equal To 0?'."
+    },
+    "1116": {
+      "name": "Not Equal To 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x != 0?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 != 0"
+      },
+      "inline": true,
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-equal-to-0.html",
+      "note": "Missing member of the compare-to-0 family (1113/1114/1115/1117/1118); operator fixed by the 'x != 0?' output name."
+    },
+    "1117": {
+      "name": "Greater Than 0?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 > 0"
+      },
+      "inline": true,
+      "verified": false,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/greater-than-0.html",
+      "note": "Greater Than 0? (>0) (NI greater-than-0 doc) -- fed by Array Size -> Select ('non-empty') and Match Pattern offset. UNVERIFIED: >0 vs !=0 not corpus-separable. Was mislabeled 'Not Equal To 0?'."
+    },
+    "1118": {
+      "name": "Less Than 0?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/less-than-0.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 < 0"
+      },
+      "inline": true,
+      "verified": true
+    },
+    "1119": {
+      "name": "Decimal Digit?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "digit?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1123": {
+      "name": "Hex Digit?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "hex?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1124": {
+      "name": "Printable?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "printable ASCII?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1125": {
+      "name": "White Space?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "space, h/v tab, cr, lf, ff?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1126": {
+      "name": "Lexical Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "class number",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1127": {
+      "name": "In Range and Coerce",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/in-range-and-coerce.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "In Range?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "coerced(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "lower limit",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "upper limit",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "in_range": "in_2 <= in_3 <= in_4",
+        "coerced": "max(in_2, min(in_3, in_4))"
+      },
+      "verified": true,
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+    },
+    "1128": {
+      "name": "Not A Number/Path/Refnum?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not_a_refnum",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "not_a_refnum": "not bool(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-a-number-path-refnum.html",
+      "note": "Polymorphic variant of 1112 for Refnum type."
+    },
+    "1129": {
+      "name": "Octal Digit?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "octal?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "char",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1516": {
+      "name": "Select",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "f_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "selector",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "t_value",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_3 if in_2 else in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/select.html",
+      "note": "Select -- result = t_value if selector else f_value (class='prim' primResID 1516; real Array Subset uses class='subset', resolved by node_type)."
+    },
+    "23063": {
+      "name": "Empty Array?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "empty",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "empty": "len(in_1) == 0"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/empty-array.html"
+    }
+  }
+}

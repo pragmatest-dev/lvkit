@@ -1,0 +1,400 @@
+{
+  "primitives": {
+    "9001": {
+      "name": "Get Menu Selection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "menu reference",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ms timeout (200)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "block menu (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "timed out",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "menu reference out",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "item tag",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "item path",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9002": {
+      "name": "Enable Menu Tracking",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "menu reference out",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "enable (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "menu reference",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9003": {
+      "name": "Insert Menu Items",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-menu-items.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "after_item",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "menu_tag",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "item_tags",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "item_names",
+          "type": "Array"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "item_tags_out",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Insert Menu Items (NI Insert Menu Items doc) -- 9-terminal pane exact match; terminals pinned by type + termBounds from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime)."
+    },
+    "9004": {
+      "name": "Delete Menu Items",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-menu-items.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "items",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "menu_tag",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Delete Menu Items (NI Delete Menu Items doc) -- 6-terminal pane exact match (every input unique-typed); terminals from 'Graphical Test Runner - Main UI - .vi' (JKI VI-Tester). Placeholder codegen (no lvkit Menu runtime)."
+    },
+    "9005": {
+      "name": "Get Menu Item Info",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-menu-item-info.html",
+      "verified": false,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "item_tag",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "menu_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "enabled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "item_name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu_reference_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "checked",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "submenu_tags",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "shortcut_info",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Get Menu Item Info (NI Get Menu Item Info doc) -- 3 inputs + 7 real outputs (doc's shortcut fields collapse into one cluster); terminals from 'Graphical Test Runner - Main UI - .vi'. idx1/idx4 (enabled?/checked?) unconfirmed. Placeholder codegen."
+    },
+    "9006": {
+      "name": "Set Menu Item Info",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "menu reference out",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "short cut",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "checked",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "item tag",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "enabled",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "item name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "menu reference",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9007": {
+      "name": "Get Menu Short Cut Info",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "item path",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "item tag",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "menu reference out",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "short cut",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "menu reference",
+          "type": "Refnum",
+          "refnum_type": "menu"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

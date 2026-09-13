@@ -177,7 +177,7 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    entries = load_primitive_entries(data_dir() / "primitives.json")
+    entries = load_primitive_entries(data_dir() / "primitives")
     target_ids = {args.only} if args.only is not None else set(entries)
     print(
         f"Loaded {len(entries)} primitives.json entries; auditing {len(target_ids)}.",

@@ -1,0 +1,110 @@
+{
+  "primitives": {
+    "2452": {
+      "name": "Insert Into Set",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "already included?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "set out",
+          "type": "SetCollection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "set in",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2453": {
+      "name": "Remove From Set",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not included?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "set out",
+          "type": "SetCollection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "set in",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2454": {
+      "name": "Element of Set?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "found?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "set",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2462": {
+      "name": "Build Set",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "set",
+          "type": "SetCollection"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

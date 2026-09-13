@@ -1,0 +1,365 @@
+{
+  "primitives": {
+    "1710": {
+      "name": "IP To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "dot notation? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "net address",
+          "type": "NumUInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1711": {
+      "name": "String To IP",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "net address",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1712": {
+      "name": "TCP Wait On Listener",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "remote port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "remote address",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "listener ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout ms (wait forever: -1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "resolve remote address (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "listener ID in",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1713": {
+      "name": "TCP Close Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "abort (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1714": {
+      "name": "TCP Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "bytes written",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "data in",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1715": {
+      "name": "TCP Open Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "local port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms (60000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "remote port or service name",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "address",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1716": {
+      "name": "TCP Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "mode (standard)",
+          "type": "Enum16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "bytes to read",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1717": {
+      "name": "TCP Create Listener",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "listener ID",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "net address",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "service name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

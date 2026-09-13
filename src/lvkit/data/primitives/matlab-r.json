@@ -1,0 +1,62 @@
+{
+  "primitives": {
+    "24208": {
+      "name": "Open MATLAB Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "release name",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "session out",
+          "type": "Refnum",
+          "refnum_type": "matlab_session"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24209": {
+      "name": "Close MATLAB Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "session in",
+          "type": "Refnum",
+          "refnum_type": "matlab_session"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -2081,11 +2080,10 @@ def test_every_dco_keyed_primitive_template_is_reachable() -> None:
     dco_ref-carrying entry's class name MUST be in OPERATION_NODE_CLASSES,
     or its node is silently dropped exactly like aInsert/aReshape were.
     """
-    from lvkit._data import data_dir
+    from lvkit._data import load_primitives
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
 
-    with open(data_dir() / "primitives.json") as f:
-        data = json.load(f)
+    data = load_primitives()
 
     dco_keyed_classes = sorted(
         node_class

@@ -1,0 +1,199 @@
+{
+  "primitives": {
+    "1300": {
+      "name": "Tick Count (ms)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "millisecond_timer_value": "int(time.time() * 1000)"
+      },
+      "_import": "import time",
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tick-count-ms.html"
+    },
+    "1302": {
+      "name": "Wait (ms)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "milliseconds_to_wait",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "_import": "import time",
+        "_body": "time.sleep(in_1 / 1000)",
+        "millisecond_timer_value": "0"
+      },
+      "imports": [
+        "import time"
+      ],
+      "inline": false,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-ms.html"
+    },
+    "1303": {
+      "name": "Get Date/Time In Seconds",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "current_time",
+          "type": "MeasureData"
+        }
+      ],
+      "python_code": {
+        "_import": "import time",
+        "current_time": "time.time()"
+      },
+      "imports": [
+        "import time"
+      ],
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-date-time-in-seconds.html"
+    },
+    "1308": {
+      "name": "Date/Time To Seconds",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "time stamp",
+          "type": "Timestamp"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "is UTC (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "date time rec",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1309": {
+      "name": "Seconds To Date/Time",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "date time rec",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "to UTC (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "time stamp (now)",
+          "type": "Timestamp"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1327": {
+      "name": "Wait Until Next ms Multiple",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-until-next-ms-multiple.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ms_multiple",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond_timer_value",
+          "type": "NumUInt32"
+        }
+      ],
+      "python_code": {
+        "millisecond_timer_value": "__import__('time').monotonic_ns() // 1_000_000"
+      },
+      "note": "sleeps until the ms timer is a multiple of ms_multiple; returns the timer value.",
+      "verified": false
+    },
+    "1600": {
+      "name": "Get Date/Time String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "time string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "date string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "want seconds? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "seconds (now)",
+          "type": "Timestamp"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "date format (0)",
+          "type": "Enum16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5560": {
+      "name": "To Time Stamp",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Time Stamp",
+          "type": "Timestamp"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

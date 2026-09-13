@@ -1,0 +1,184 @@
+{
+  "primitives": {
+    "23784": {
+      "name": "Scanned Variable Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "data out",
+          "type": "Void"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timestamp",
+          "type": "Timestamp"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23785": {
+      "name": "Direct Variable Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "data out",
+          "type": "Void"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timestamp",
+          "type": "Timestamp"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23787": {
+      "name": "Scanned Variable Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23788": {
+      "name": "Direct Variable Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

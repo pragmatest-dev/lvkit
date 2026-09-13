@@ -17,12 +17,11 @@ from __future__ import annotations
 import argparse
 import collections
 import glob
-import json
 import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-PRIMS_JSON = REPO / "src" / "lvkit" / "data" / "primitives.json"
+PRIMS_JSON = REPO / "src" / "lvkit" / "data" / "primitives"
 PRIM_RE = re.compile(r"<primResID>(\d+)</primResID>")
 
 
@@ -45,7 +44,8 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    data = json.loads(PRIMS_JSON.read_text())
+    from lvkit._data import load_primitives
+    data = load_primitives(PRIMS_JSON)
     known = {pid: entry.get("name", pid) for pid, entry in data["primitives"].items()}
 
     counts: collections.Counter[str] = collections.Counter()

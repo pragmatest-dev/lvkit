@@ -1,0 +1,79 @@
+{
+  "primitives": {
+    "1353": {
+      "name": "Control Help Window",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "Top Left Corner",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Show",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1354": {
+      "name": "Get Help Window Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Top Left Corner",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Show",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1355": {
+      "name": "Control Online Help",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "Path to the help file",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "String to search for",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "Operation",
+          "type": "Enum16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

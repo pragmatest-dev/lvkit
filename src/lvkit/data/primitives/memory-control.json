@@ -1,0 +1,143 @@
+{
+  "primitives": {
+    "1610": {
+      "name": "Request Deallocation",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "flag",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2400": {
+      "name": "Always Copy",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Output",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "Input",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2401": {
+      "name": "Swap Values",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": " y'",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": " x'  ",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "?(T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "x",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "2408": {
+      "name": "New Data Value Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/new-data-value-reference.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data_value_reference",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "data_value_reference": "[in_7]",
+        "error_out": "in_4"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "New Data Value Reference -- identity from ref_type=DataValueRef on the out#3 refnum; every call site is a *_New.vi LVOOP constructor. python_code models the DVR as a 1-element list and is PROVISIONAL (belongs with the lvkit runtime decision)."
+    },
+    "2409": {
+      "name": "Delete Data Value Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "data value reference",
+          "type": "Refnum",
+          "refnum_type": "data_value"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

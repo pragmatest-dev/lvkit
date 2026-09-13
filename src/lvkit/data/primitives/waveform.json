@@ -1,0 +1,152 @@
+{
+  "primitives": {
+    "2066": {
+      "name": "Build Waveform",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output waveform",
+          "type": "Waveform"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "waveform",
+          "type": "Waveform"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "Y",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2067": {
+      "name": "Get Waveform Components",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "waveform",
+          "type": "Waveform"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Y",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8207": {
+      "name": "Set Waveform Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "replaced",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "waveform out",
+          "type": "Waveform"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "waveform",
+          "type": "Waveform"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8208": {
+      "name": "Get Waveform Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "values",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "duplicate waveform",
+          "type": "Waveform"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "default value (empty Variant)",
+          "type": "LVVariant"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "waveform",
+          "type": "Waveform"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

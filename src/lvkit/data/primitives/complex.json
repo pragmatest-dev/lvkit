@@ -1,0 +1,190 @@
+{
+  "primitives": {
+    "1044": {
+      "name": "Complex To Re/Im",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/complex-to-re-im.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumComplex"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "re",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "im",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "re": "in_0.real",
+        "im": "in_0.imag"
+      },
+      "note": "re/im output index order (out1=re,out2=im) assumed by convention; confirm geometry.",
+      "verified": false
+    },
+    "1045": {
+      "name": "Complex To Polar",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "r * e^(i*theta)",
+          "type": "NumComplex128"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "r",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "theta",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1046": {
+      "name": "Re/Im To Complex",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x + iy",
+          "type": "NumComplex128"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1047": {
+      "name": "Polar To Complex",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "r * e^(i*theta)",
+          "type": "NumComplex128"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "theta",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "r",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1048": {
+      "name": "Complex Conjugate",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x - iy",
+          "type": "NumComplex128"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x + iy",
+          "type": "NumComplex128"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23060": {
+      "name": "Re/Im To Polar",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "theta",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "r",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23061": {
+      "name": "Polar To Re/Im",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "theta",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "r",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

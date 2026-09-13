@@ -1,0 +1,487 @@
+{
+  "primitives": {
+    "9108": {
+      "name": "Obtain Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-queue.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "max_queue_size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element_data_type",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "create_if_not_found",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "created",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Obtain Queue (9108) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.obtain_queue()."
+    },
+    "9109": {
+      "name": "Release Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "force_destroy",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "remaining_elements",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": "Release Queue (NI Release Queue doc; corrected from a mislabeled 'Get Queue Status') -- 6-terminal pane with no queue_out output (releasing invalidates the ref), distinct from Get Queue Status/9110."
+    },
+    "9110": {
+      "name": "Get Queue Status",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "return_elements",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "max_queue_size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "elements",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "queue_name",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "elements_in_queue",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "pending_remove",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "pending_insert",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": "Get Queue Status -- full 11-terminal pane, exact type+count match to the NI Get Queue Status doc; terminals pinned from 'Graphical Test Runner - Main UI - .vi' and 'test Queue Size is Zero.vi' (JKI VI-Tester). 9109 is the corrected Release Queue."
+    },
+    "9111": {
+      "name": "Enqueue Element",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Enqueue Element (9111) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element()."
+    },
+    "9112": {
+      "name": "Preview Queue Element",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum",
+          "refnum_type": "queue"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "queue out",
+          "type": "Refnum",
+          "refnum_type": "queue"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9113": {
+      "name": "Dequeue Element",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/dequeue-element.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "element",
+          "type": "Cluster"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Dequeue Element (9113) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.dequeue_element()."
+    },
+    "9114": {
+      "name": "Flush Queue",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-queue.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "remaining_elements",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Flush Queue (9114) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Flush Queue -- empties a queue, returns the drained elements (NI Flush Queue doc); terminals pinned from 'Graphical Test Runner - Main UI - .vi', 'Measurement UI.vi'. Distinct from Release Queue/9109 and Get Queue Status/9110."
+    },
+    "9129": {
+      "name": "Enqueue Element At Opposite End",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element-at-opposite-end.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "queue_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('Enqueue Element At Opposite End (9129) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
+      },
+      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py -> lvkit.labview_queue.enqueue_element_at_opposite_end()."
+    },
+    "9130": {
+      "name": "Lossy Enqueue Element",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "queue",
+          "type": "Refnum",
+          "refnum_type": "queue"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "queue out",
+          "type": "Refnum",
+          "refnum_type": "queue"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "overflow element",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "overflow?",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

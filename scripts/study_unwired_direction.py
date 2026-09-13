@@ -47,7 +47,7 @@ from lvkit.tools.connector_geometry_profile import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PRIMITIVES_JSON = REPO_ROOT / "src" / "lvkit" / "data" / "primitives.json"
+PRIMITIVES_JSON = REPO_ROOT / "src" / "lvkit" / "data" / "primitives"
 REPORT_PATH = REPO_ROOT / "outputs" / "unwired_direction_flag_study.md"
 
 # Per-primResID corpus-instance cap. Raised from the module default (5) used

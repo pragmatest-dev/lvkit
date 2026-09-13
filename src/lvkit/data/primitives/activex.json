@@ -1,0 +1,114 @@
+{
+  "primitives": {
+    "8000": {
+      "name": "Automation Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Automation Refnum",
+          "type": "Refnum",
+          "refnum_type": "auto"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "machine name",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "Automation Refnum",
+          "type": "Refnum",
+          "refnum_type": "auto"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8003": {
+      "name": "Variant To Data",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "error in",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "data": "in_8"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-data.html",
+      "note": "primResID 8003 is file I/O range but this instance has variant terminals. Variant To Data confirmed by terminal signature and PDF."
+    },
+    "8201": {
+      "name": "To Variant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "variant": "in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html"
+    }
+  }
+}

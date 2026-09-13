@@ -1,0 +1,1289 @@
+{
+  "primitives": {
+    "1960": {
+      "name": "AllSpoll",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "serial poll byte list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1961": {
+      "name": "DevClear",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1962": {
+      "name": "DevClearList",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1963": {
+      "name": "EnableLocal",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1964": {
+      "name": "EnableRemote",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1965": {
+      "name": "FindLstn",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "number of listeners",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "listener address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "limit",
+          "type": "NumInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1966": {
+      "name": "FindRQS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "requester status byte",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "requester index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1967": {
+      "name": "MakeAddr",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "packed address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "secondary address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "primary address",
+          "type": "NumInt16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1968": {
+      "name": "PassControl",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1969": {
+      "name": "PPoll",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "parallel poll byte",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1970": {
+      "name": "PPollConfig",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "sense",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "dataline",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1971": {
+      "name": "PPollUnconfig",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1972": {
+      "name": "RcvRespMsg",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1973": {
+      "name": "ReadStatus",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "serial poll response",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1974": {
+      "name": "Receive",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1975": {
+      "name": "ReceiveSetup",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1976": {
+      "name": "ResetSys",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1977": {
+      "name": "Send",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1978": {
+      "name": "SendCmds",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "command string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1979": {
+      "name": "SendDataBytes",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1980": {
+      "name": "SendIFC",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1981": {
+      "name": "SendList",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mode",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1982": {
+      "name": "SendLLO",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1983": {
+      "name": "SendSetup",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1984": {
+      "name": "SetRWLS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1985": {
+      "name": "SetTimeOut",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "previous timeout",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "new timeout (10000)",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1986": {
+      "name": "TestSRQ",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "SRQ",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1987": {
+      "name": "TestSys",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "result list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "failed devices",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1988": {
+      "name": "Trigger",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1989": {
+      "name": "TriggerList",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address list",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1990": {
+      "name": "WaitSRQ",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "bus",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "SRQ",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

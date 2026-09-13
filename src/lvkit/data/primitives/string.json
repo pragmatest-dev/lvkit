@@ -1,0 +1,536 @@
+{
+  "primitives": {
+    "1188": {
+      "name": "To Upper Case",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-upper-case.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "all_upper_case_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "all_upper_case_string": "in_1.upper() if isinstance(in_1, str) else [s.upper() for s in in_1]"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "2-terminal unary type-preserving string op (same pane class as 1537 To Lower Case); candidates were to-upper/reverse/rotate-string. Consumer-forced: in GIF.Read.Unpack its output is Equal?-compared to literals 'GIF87A'/'GIF89A' (GIF signatures), so it must PRESERVE letters -> rules out reverse/rotate; UPPER because the compared targets are uppercase (case-insensitive header check). Also fits To Proper Case. Cleanroom: no glyph; resolved from consumer dataflow."
+    },
+    "1189": {
+      "name": "To Lower Case",
+      "op": "TO_LOWER_CASE",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "all lower case string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1502": {
+      "name": "String Length",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "length",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "length": "len(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-length.html"
+    },
+    "1503": {
+      "name": "String Subset",
+      "op": "STRING_SUBSET",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "substring",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "length (rest)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "offset (0)",
+          "type": "NumInt32",
+          "default_value": "0"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1535": {
+      "name": "Match Pattern",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "string",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "regular expression",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "offset",
+          "type": "polymorphic",
+          "default_value": "0"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "before substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "match substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "after substring",
+          "type": "polymorphic"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "offset past match",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "_import": "import re",
+        "_body": "_m = re.search(in_1, in_0[in_2:])",
+        "before_substring": "in_0[in_2:][:_m.start()] if _m else in_0[in_2:]",
+        "match_substring": "_m.group() if _m else ''",
+        "after_substring": "in_0[in_2:][_m.end():] if _m else ''",
+        "offset_past_match": "(in_2 + _m.end()) if _m else -1"
+      },
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"
+    },
+    "1539": {
+      "name": "Spreadsheet String To Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/spreadsheet-string-to-array.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "delimiter",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array_type",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "spreadsheet_string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "format_string",
+          "type": "String"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "array": "[r.split(in_1 or '\\t') for r in in_3.splitlines()]"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Spreadsheet String To Array -- splits a delimited string into a typed array. python_code covers only the 2-D string case; real dimensionality/element type come from array_type + format_string and need an lvkit runtime helper."
+    },
+    "1540": {
+      "name": "Array To Spreadsheet String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "spreadsheet_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "delimiter",
+          "type": "String",
+          "default_value": "'\\t'"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "format_string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "spreadsheet_string": "(in_1 or '\\t').join(in_3 % x for x in in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-to-spreadsheet-string.html",
+      "note": "parmIndex from OBSERVED caller dataflow (OpenG '1D Array to String' control wiring: in_1<-delimiter, in_2<-array, in_3<-format '%s'): in_1=delimiter (default Tab), in_2=array, in_3=format string, out=spreadsheet string. python_code covers the common 1-D case; full N-D (Tab columns / EOL rows / page headers) would need an lvkit runtime helper, as with 1539."
+    },
+    "2040": {
+      "name": "Concatenate Strings",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "concatenated string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2080": {
+      "name": "Scan From String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "remaining string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "initial scan location",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "offset past scan",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "default value 14",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "output 7",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2081": {
+      "name": "Format Into String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "initial string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "resulting string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "input 6",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3913": {
+      "name": "Replace Substring",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "replaced substring",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "result string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "length",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "substring",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3914": {
+      "name": "Search and Replace String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "replace all?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "case sensitive?",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "multiline?",
+          "type": "Boolean",
+          "hidden": true
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "result string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "search string",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "replace string",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "number of replacements",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "offset past replacement",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "python_code": {
+        "result string": "in_0.replace(in_5, in_7) if in_1 else in_0.replace(in_5, in_7, 1)"
+      },
+      "inline": true,
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",
+      "note": "observed pane: in_0 input, in_5 search, in_7 replace, in_1 replace-all"
+    },
+    "8100": {
+      "name": "Format Date/Time String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "datetime_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "utc_format",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timestamp",
+          "type": "MeasureData"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "time_format_string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "datetime_string": "in_2.strftime(in_3) if in_3 else str(in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-date-time-string.html"
+    }
+  }
+}

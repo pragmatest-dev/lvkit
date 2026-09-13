@@ -9,7 +9,6 @@ Architecture:
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import struct
@@ -106,13 +105,9 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 
     Returns: {node_class: {dco_ref_tag: terminal_index}}
     """
-    from .._data import data_dir as _bundled_data_dir
+    from .._data import load_primitives
 
-    primitives_path = _bundled_data_dir() / "primitives.json"
-    if not primitives_path.exists():
-        return {}
-    with open(primitives_path, encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_primitives()
     result = {}
     for node_type, info in data.get("node_types", {}).items():
         dco_map = {}

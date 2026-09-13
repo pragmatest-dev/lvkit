@@ -1,0 +1,243 @@
+{
+  "primitives": {
+    "1209": {
+      "name": "Natural Logarithm",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "ln(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1210": {
+      "name": "Logarithm Base 10",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "log(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1211": {
+      "name": "Exponential",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "exp(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1212": {
+      "name": "Power Of 10",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "10^x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1213": {
+      "name": "Power Of X",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-x.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x^y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "x_to_the_y": "in_1 ** in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+    },
+    "1221": {
+      "name": "Natural Logarithm (Arg +1)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "ln(x+1)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1222": {
+      "name": "Exponential (Arg) -1",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "exp(x) -1",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1223": {
+      "name": "Power Of 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-2.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "two_pow_x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "two_pow_x": "2.0 ** in_1"
+      },
+      "verified": false
+    },
+    "1224": {
+      "name": "Logarithm Base X",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logx(y)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1225": {
+      "name": "Logarithm Base 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logarithm-base-2.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "__import__('math').log2(in_1)"
+      },
+      "note": "context-inferred: GIF min-code-size = ceil(log2(colors)); feeds a round op.",
+      "verified": false
+    },
+    "23062": {
+      "name": "Y-th Root of X",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "y-th root(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

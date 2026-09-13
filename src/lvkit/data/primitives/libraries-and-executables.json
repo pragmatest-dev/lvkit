@@ -1,0 +1,49 @@
+{
+  "primitives": {
+    "2062": {
+      "name": "Call Library Function Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "path in",
+          "type": "Path",
+          "hidden": true
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "path out",
+          "type": "Path",
+          "hidden": true
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -137,7 +137,9 @@ def test_and_function_enriched_to_correct_pane():
 def test_vilib_docurls_agree_with_primitives():
     """A vilib entry and a primitive that resolve to the same NI function name
     must not point at contradictory doc pages."""
-    prims = json.loads((_data_dir() / "primitives.json").read_text(encoding="utf-8"))
+    from lvkit._data import load_primitives
+
+    prims = load_primitives()
     prim_by_name = {
         p["name"]: p["doc_url"]
         for p in prims["primitives"].values()

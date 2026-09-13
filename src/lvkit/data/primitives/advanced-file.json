@@ -1,0 +1,1189 @@
+{
+  "primitives": {
+    "1406": {
+      "name": "Flush File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "dup refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1413": {
+      "name": "File/Directory Info",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "last mod",
+          "type": "Timestamp"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "dup path",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "directory",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1415": {
+      "name": "Move",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "new path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "target path",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "source path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1416": {
+      "name": "Copy",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "new path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "target path",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "source path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1417": {
+      "name": "Delete",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "dup path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1418": {
+      "name": "List Folder",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "folder names",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "file names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "dup folder path",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datalog type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "folder path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1421": {
+      "name": "Path Type",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/path-type.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "type",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "type": "(0 if __import__('os').path.isabs(in_1) else 1)"
+      },
+      "note": "type code: 0=absolute,1=relative,2=UNC,3=not a path (confirm exact mapping vs doc).",
+      "verified": false
+    },
+    "1424": {
+      "name": "Refnum to Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8053": {
+      "name": "Copy",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "overwrite",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "target_path",
+          "type": "Path"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "source_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "new_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "new_path": "__import__('shutil').copy2(in_11, in_10)",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/copy.html",
+      "verified": false
+    },
+    "8055": {
+      "name": "Create Folder",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "created path",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "prompt (Create Folder)",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "path (use dialog)",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8056": {
+      "name": "Delete",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete.html",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "entire_hierarchy",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "confirm",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path_out": "in_11",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "note": "Delete (NI Delete doc; renamed from a mislabelled 'File Dialog'). in#9/in#10 Boolean order (entire-hierarchy vs confirm) not disambiguated. python_code is a no-op placeholder, not execution-verified.",
+      "verified": false
+    },
+    "8057": {
+      "name": "Deny Access",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "deny mode (0:deny read/write)",
+          "type": "Enum16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8059": {
+      "name": "Flush File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8062": {
+      "name": "Get File Position",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "offset",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "offset": "in_7.tell()",
+        "refnum_out": "in_7",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-position.html",
+      "verified": false
+    },
+    "8063": {
+      "name": "Get File Size",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "size": "__import__('os').fstat(in_7.fileno()).st_size",
+        "refnum_out": "in_7",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-file-size.html",
+      "verified": false
+    },
+    "8065": {
+      "name": "Get Permissions",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "owner",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "permissions",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "permissions": "__import__('os').stat(in_11).st_mode & 0o777",
+        "owner": "''",
+        "group": "''",
+        "path_out": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-permissions.html",
+      "verified": false
+    },
+    "8066": {
+      "name": "Get Type and Creator",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "creator",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path out",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8067": {
+      "name": "Get Volume Info",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "free (bytes)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size (bytes)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path out",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "volume path",
+          "type": "Path"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8068": {
+      "name": "Move",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "overwrite",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "target_path",
+          "type": "Path"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "source_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "new_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "new_path": "__import__('shutil').move(in_11, in_10)",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/move.html",
+      "verified": false
+    },
+    "8073": {
+      "name": "Set File Position",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "from",
+          "type": "enum"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt64"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum_out": "(in_7.seek(in_6, in_5), in_7)[1]",
+        "error_out": "in_4"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-position.html",
+      "verified": false
+    },
+    "8074": {
+      "name": "Set File Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "size (in bytes)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "file",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8076": {
+      "name": "Set Permissions",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "path out",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "permissions",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "new group",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "new owner",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "8077": {
+      "name": "Set Type and Creator",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "path out",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "creator (no change)",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "type (no change)",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8082": {
+      "name": "File/Directory Info",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "last_mod",
+          "type": "MeasureData"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "resolved_path",
+          "type": "Path"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "is_directory",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "is_shortcut",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "size": "__import__('os').path.getsize(in_11)",
+        "last_mod": "__import__('os').path.getmtime(in_11)",
+        "is_directory": "__import__('os').path.isdir(in_11)",
+        "is_shortcut": "False",
+        "path_out": "in_11",
+        "resolved_path": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/file-directory-info.html",
+      "verified": false
+    },
+    "8083": {
+      "name": "List Folder",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "file_names",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "folder_names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path_out",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "file_names": "[e.name for e in __import__('os').scandir(in_11) if e.is_file()]",
+        "folder_names": "[e.name for e in __import__('os').scandir(in_11) if e.is_dir()]",
+        "path_out": "in_11",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/list-folder.html",
+      "verified": false
+    },
+    "24135": {
+      "name": "Preallocated Read from Binary File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "num elements read",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data out",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "byte order (0:big-endian, network order)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data in",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum in",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

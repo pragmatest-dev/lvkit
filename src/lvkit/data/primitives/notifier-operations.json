@@ -1,0 +1,345 @@
+{
+  "primitives": {
+    "9101": {
+      "name": "Obtain Notifier",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/obtain-notifier.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element_data_type",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "create_if_not_found",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "notifier_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "created_new",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Obtain Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+    },
+    "9102": {
+      "name": "Release Notifier",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "force_destroy",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "notifier_name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "last_notification",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Release Notifier -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+    },
+    "9103": {
+      "name": "Get Notifier Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "notifier name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "notifier out",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "current notification",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "# waiting",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9104": {
+      "name": "Send Notification",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send-notification.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "notification",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "notifier_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Send Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+    },
+    "9105": {
+      "name": "Wait on Notification",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-notification.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore_previous",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout_ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "notifier_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "notification",
+          "type": "Boolean"
+        },
+        {
+          "index": 10,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Wait on Notification -- Notifier family (ref_type=NotifierRef is the identity); lifecycle 9101 obtain -> 9104 send -> 9105 wait -> 9102 release, confirmed in VI-Tester. Placeholder codegen (no lvkit notifier runtime yet)."
+    },
+    "9106": {
+      "name": "Wait on Notification from Multiple",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifiers",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore previous (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "notifier out",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "notifiers out",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9107": {
+      "name": "Cancel Notification",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "notifier out",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "canceled notifcation",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

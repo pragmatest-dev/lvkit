@@ -1,0 +1,136 @@
+{
+  "primitives": {
+    "2086": {
+      "name": "VISA USB Control In",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value (0)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index (0)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "request type",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "read buffer",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "request",
+          "type": "NumInt16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "length (0)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2087": {
+      "name": "VISA USB Control Out",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value (0)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index (0)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "request type",
+          "type": "NumInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "request",
+          "type": "NumInt16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "length (0)",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

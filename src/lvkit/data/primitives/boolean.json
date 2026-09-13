@@ -1,0 +1,349 @@
+{
+  "primitives": {
+    "1061": {
+      "name": "And",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and.html",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "boolean"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 and in_2"
+      },
+      "python_code_int": {
+        "result": "in_1 & in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1062": {
+      "name": "Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or.html",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "boolean"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 or in_2"
+      },
+      "python_code_int": {
+        "result": "in_1 | in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1063": {
+      "name": "Exclusive Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/exclusive-or.html",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "in_1 != in_2"
+      },
+      "python_code_int": {
+        "result": "in_1 ^ in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Polymorphic over Boolean and integers (bitwise); python_code=boolean, python_code_int=bitwise. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1064": {
+      "name": "Not",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "not_x",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "not_x": "not in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not.html"
+    },
+    "1071": {
+      "name": "Not And",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": ".not. (x .and. y)?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1072": {
+      "name": "Not Or",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/not-or.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "nor",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "nor": "not (in_1 or in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Not Or (NOR) -- deduced from a Valid Path idiom: NOT(empty OR not-a-path); only NOR fits that truth table (And/Or/Xor/Not already claimed at 1061-1064). Commutative. Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1073": {
+      "name": "Not Exclusive Or",
+      "op": "NOT_EXCLUSIVE_OR",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": ".not. (x .xor. y)?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1080": {
+      "name": "Implies",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x .implies. y?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1167": {
+      "name": "Boolean To (0,1)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "zero_or_one",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "zero_or_one": "int(bool(in_1))"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-to-0-1.html",
+      "note": "Polymorphic: Boolean -> I16 (1 or 0). Array of Boolean -> Array of I16. primIndex=69."
+    },
+    "1814": {
+      "name": "Number To Boolean Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-boolean-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "boolean array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "boolean array": "[bool((in_1 >> i) & 1) for i in range((in_1).bit_length() or 8)]"
+      },
+      "verified": false
+    },
+    "1815": {
+      "name": "Boolean Array To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/boolean-array-to-number.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "number": "sum((1 << i) for i, b in enumerate(in_1) if b)"
+      },
+      "verified": false
+    },
+    "1910": {
+      "name": "Or Array Elements",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_or",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "logical_or": "any(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/or-array-elements.html"
+    },
+    "1911": {
+      "name": "And Array Elements",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "logical_and",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "boolean_array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "logical_and": "all(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/and-array-elements.html"
+    }
+  }
+}

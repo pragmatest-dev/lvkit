@@ -1,0 +1,123 @@
+{
+  "primitives": {
+    "5562": {
+      "name": "Clear Fixed-Point Overflow Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "overflow?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "FXP with overflow cleared",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "FXP",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5563": {
+      "name": "Remove Fixed-Point Overflow Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "overflow?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "FXP with overflow removed",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "FXP",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5564": {
+      "name": "Include Fixed-Point Overflow Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "FXP with overflow included",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "overflow",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "FXP",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5566": {
+      "name": "Fixed-Point to Integer Cast",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "integer",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "fixed-point",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "5567": {
+      "name": "Integer to Fixed-Point Cast",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "integer",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "fixed-point type",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "fixed-point",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

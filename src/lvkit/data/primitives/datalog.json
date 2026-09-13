@@ -1,0 +1,312 @@
+{
+  "primitives": {
+    "8054": {
+      "name": "Open/Create/Replace Datalog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "record type",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "access (0:read/write)",
+          "type": "Enum16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "operation (0:open)",
+          "type": "Enum16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "datalog path (use dialog)",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8061": {
+      "name": "Get Datalog Position",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset (in records)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8064": {
+      "name": "Get Number of Records",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "# of records",
+          "type": "NumInt64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8069": {
+      "name": "Read Datalog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "record(s)",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "count (1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8072": {
+      "name": "Set Datalog Position",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "from (0:start)",
+          "type": "Enum16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "offset (in records) (0)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8075": {
+      "name": "Set Number of Records",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "# of records",
+          "type": "NumInt64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8079": {
+      "name": "Write Datalog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "record(s)",
+          "type": "Void"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "datalog"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

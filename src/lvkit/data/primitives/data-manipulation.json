@@ -1,0 +1,417 @@
+{
+  "primitives": {
+    "1081": {
+      "name": "Logical Shift",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/logical-shift.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x << y",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "shifted": "(in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+    },
+    "1082": {
+      "name": "Rotate",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x rotated left by y",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumInt16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1160": {
+      "name": "Flatten To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "anything",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "type string",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1161": {
+      "name": "Unflatten From String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "err",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "binary string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1162": {
+      "name": "Swap Bytes",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-bytes.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "swapped",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "swapped": "[((v & 0x00FF00FF) << 8) | ((v >> 8) & 0x00FF00FF) for v in in_1]"
+      },
+      "note": "Swap Bytes -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
+      "verified": false
+    },
+    "1163": {
+      "name": "Swap Words",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-words.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "swapped",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "swapped": "[((v & 0xFFFF) << 16) | ((v >> 16) & 0xFFFF) for v in in_1]"
+      },
+      "note": "Swap Words -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
+      "verified": false
+    },
+    "1164": {
+      "name": "Flatten To String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "type string",
+          "type": "Array",
+          "hidden": true
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "byte order (0:big-endian, network order)",
+          "type": "Enum16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "prepend array or string size? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "anything",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1165": {
+      "name": "Unflatten From String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "rest of the binary string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "byte order (0:big-endian, network order)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data includes array or string size? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "binary string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1166": {
+      "name": "Type Cast",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloatExt"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "*(type *) &x",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1170": {
+      "name": "Split Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-number.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "high",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "low",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "high": "in_0 >> 16",
+        "low": "in_0 & 0xFFFF"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
+    },
+    "1171": {
+      "name": "Join Numbers",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/join-numbers.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "(hi.lo)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "lo",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "hi",
+          "type": "NumUInt16"
+        }
+      ],
+      "python_code": {
+        "joined": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
+      },
+      "verified": true,
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+    },
+    "1606": {
+      "name": "Rotate Left With Carry",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "msb carry out",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "carry",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1607": {
+      "name": "Rotate Right With Carry",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "lsb carry out",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "carry",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

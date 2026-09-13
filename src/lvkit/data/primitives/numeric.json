@@ -1,0 +1,659 @@
+{
+  "primitives": {
+    "1049": {
+      "name": "Sign",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sign.html",
+      "elementwise": true,
+      "guess_reason": "Unary, type-preserving numeric op (DBL->DBL, Array[DBL]->Array[DBL]); raw typeDescs confirm both ends NumFloat64. Forced by this VI's direction detection: consecutive angle deltas -> Sign(each) -> Add Array Elements(sum) -> Sign(sum) -> To Byte Integer -> xcreasing in {-1,0,+1}. Only Sign (returns 1/0/-1, type-preserving) collapses the sum to a +/-1 direction; sum (not product) makes it a wrap-robust majority vote. Array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sign",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "sign": "(in_1 > 0) - (in_1 < 0)"
+      },
+      "inline": true,
+      "verified": true
+    },
+    "1050": {
+      "name": "Add",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sum",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "sum": "in_1 + in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1051": {
+      "name": "Subtract",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "difference",
+          "type": "numeric"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "numeric"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "difference": "in_2 - in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/subtract.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1052": {
+      "name": "Multiply",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "product",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "product": "in_1 * in_2"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply.html",
+      "note": "Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1053": {
+      "name": "Divide",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "quotient",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "quotient": "in_2 / in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",
+      "note": "Divide -- polymorphic; per NI docs int/int -> Float64 (Python `/` matches). Input slots run Bottom->Top, so the upper input `x` takes the higher index."
+    },
+    "1054": {
+      "name": "Absolute Value",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "abs_x",
+          "type": "numeric"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "abs_x": "abs(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/absolute-value.html"
+    },
+    "1055": {
+      "name": "Round To Nearest",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "nearest integer value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1057": {
+      "name": "Increment",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x+1",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": true,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); python_code restored (in_1 + 1) once the terminal geometry was confirmed -- x is the sole input, no operand-order ambiguity.",
+      "python_code": {
+        "incremented": "in_1 + 1"
+      },
+      "elementwise": true
+    },
+    "1058": {
+      "name": "Decrement",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x-1",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": true,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); python_code restored (in_1 - 1) once the terminal geometry was confirmed -- x is the sole input, no operand-order ambiguity.",
+      "python_code": {
+        "decremented": "in_1 - 1"
+      },
+      "elementwise": true
+    },
+    "1059": {
+      "name": "Reciprocal",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "1/x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1060": {
+      "name": "Square Root",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sqrt(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1069": {
+      "name": "Negate",
+      "elementwise": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "neg_x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "neg_x": "-in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/negate.html"
+    },
+    "1070": {
+      "name": "Random Number (0-1)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "number": "random.random()"
+      },
+      "_import": "import random",
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/random-number-0-1.html"
+    },
+    "1074": {
+      "name": "Scale By Power Of 2",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scale-by-power-of-2.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x*2^n",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "n",
+          "type": "NumInt16"
+        }
+      ],
+      "python_code": {
+        "scaled": "in_1 * (2.0 ** in_2)"
+      },
+      "verified": true,
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+    },
+    "1075": {
+      "name": "Round Toward -Infinity",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/round-toward-infinity.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "floor_x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "floor_x": "__import__('math').floor(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "Round Toward -Infinity (floor) -- forced in 'MasterAquisitionFile_2P' (a scaled index must floor); distinct from 1076 (+Inf), co-occurring in 'GenerateStimulusOutputs_FP'. NB NI slug misleads: unsuffixed round-toward-infinity.html is -Inf."
+    },
+    "1076": {
+      "name": "Round Toward +Infinity",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "ceiling",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "_import": "import math",
+        "ceiling": "math.ceil(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "Unary DBL->DBL. Consumer dataflow pins the mode: String Length (1502) -> /3 (Divide 1053) -> 1076 -> For Loop N count, i.e. ceil(len/3) = number of 3-digit blocks (a 4-digit number needs 2 blocks; only rounding UP is correct). NI docs (labview-api-ref/functions/round-toward-infinity-2): Round Toward +Infinity 'rounds to the next highest integer... equivalent of the ceiling function'."
+    },
+    "1903": {
+      "name": "Add Array Elements",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/add-array-elements.html",
+      "guess_reason": "Was mislabeled 'Array Size'. Raw typeDesc proves the output is element-typed (Array[NumFloat64] -> NumFloat64), not an I32 count, so it is a numeric reduction, not Array Size (the real Array Size is primResID 1809, Array[X] -> I32). Sits in the array-reduction cluster (1910 Or Array Elements, 1911 And Array Elements). Forced by this VI's logic: sum of per-step Sign(deltas) gives a wrap-robust direction vote. Corpus I32-array instances (sum of int array -> int) are consistent.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sum",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "sum": "sum(in_1)"
+      },
+      "inline": true,
+      "verified": true
+    },
+    "1904": {
+      "name": "Multiply Array Elements",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/multiply-array-elements.html",
+      "guess_reason": "Was mislabeled 'Array Size'. Output tracks the element type (Array[UInt32]->UInt32, Array[Int32]->Int32), so it is a numeric reduction, not an I32 count. Sibling of Add Array Elements (1903) in the array-reduction cluster (1910 Or, 1911 And Array Elements). Sum-vs-product settled by context: in 'MultiD Array to 1D Array', 1904(dimension_sizes) feeds a For Loop count -- the total element count of an n-D array is the PRODUCT of its dimension sizes. Empty array -> 1 (math.prod identity), matching LabVIEW.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "product",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "_import": "import math",
+        "product": "math.prod(in_1)"
+      },
+      "inline": true,
+      "verified": true
+    },
+    "2200": {
+      "name": "Compound Arithmetic",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "value",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2201": {
+      "name": "Expression Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3915": {
+      "name": "Add",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x+y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3916": {
+      "name": "Subtract",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x-y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3917": {
+      "name": "Multiply",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x*y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3918": {
+      "name": "Divide",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x/y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23059": {
+      "name": "Square",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "x^2",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

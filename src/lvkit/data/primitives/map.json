@@ -1,0 +1,184 @@
+{
+  "primitives": {
+    "2450": {
+      "name": "Collection Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "collection",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2451": {
+      "name": "Empty Collection?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "empty?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "collection",
+          "type": "SetCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2456": {
+      "name": "Insert Into Map",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value unchanged?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "key already included?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "map out",
+          "type": "MapCollection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "key",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "map in",
+          "type": "MapCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2457": {
+      "name": "Remove From Map",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "key not found?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "map out",
+          "type": "MapCollection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "key",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "map in",
+          "type": "MapCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2458": {
+      "name": "Look In Map",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "key not found?",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default value",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "key",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "map",
+          "type": "MapCollection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2463": {
+      "name": "Build Map",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "map",
+          "type": "MapCollection"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "key",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "value",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

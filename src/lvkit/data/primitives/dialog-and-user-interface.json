@@ -1,0 +1,143 @@
+{
+  "primitives": {
+    "1328": {
+      "name": "Wait For Front Panel Activity",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "millisecond timer value",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "timeout ms (-1 never timeout)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "front panel (this VI's panel)",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "do not wait! (False)",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1329": {
+      "name": "Generate Front Panel Activity",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "front panel (this VI's panel)",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1340": {
+      "name": "One Button Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/one-button-dialog.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "button_name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "true",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "true": "True"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "One Button Dialog -- 3-terminal pane; message (idx2) wired 19/19, button name (idx1) never wired (defaults 'OK'). Two Button Dialog excluded (three strings). Side-effecting dialog; python_code does not emit it."
+    },
+    "1341": {
+      "name": "Two Button Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/two-button-dialog.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "t_button_pressed",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "t_button_name",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "f_button_name",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "message",
+          "type": "String"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": "Two Button Dialog (NI Two Button Dialog doc) -> T button?. Terminals from 'Graphical Test Runner - Main UI - .vi', 'Dictionary Example.vi', 'Folder Reuse Warning.vi'. Placeholder: T-vs-F is a real branch, python_code hard-codes True."
+    },
+    "2147": {
+      "name": "Merge Errors",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

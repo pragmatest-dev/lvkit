@@ -1,0 +1,565 @@
+{
+  "primitives": {
+    "1120": {
+      "name": "Sort 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sorted_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "sorted_array": "sorted(in_1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sort-1d-array.html",
+      "note": "Sort 1D Array (sorts ascending) -- in OpenG Sort wrappers, the separate 1900 (Reverse 1D Array) flips to descending (case frame 1)."
+    },
+    "1168": {
+      "name": "Array To Cluster",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1169": {
+      "name": "Cluster To Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "cluster",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1809": {
+      "name": "Array Size",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-size.html",
+      "guess_reason": "class=prim primResID 1809 is Array Size (Array[X] -> NumInt32), verified across many samples with varied element types (Path/Refnum/String/Cluster/NumInt32) all yielding a single I32 output. The expandable Index Array is XML class aIndx (resolved by node_type), not this primResID.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "size",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
+        }
+      ],
+      "python_code": "len(in_1)",
+      "inline": true,
+      "verified": true
+    },
+    "1900": {
+      "name": "Reverse 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "reversed_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "reversed_array": "in_1[::-1]"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reverse-1d-array.html",
+      "note": "Polymorphic variant of 1902 (Reverse 1D Array). primIndex=207. Used in OpenG Sort wrappers to flip ascending sort to descending (case frame labeled \"descending\")."
+    },
+    "1901": {
+      "name": "Search 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "index_of_element",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "start_index",
+          "type": "NumInt32",
+          "default_value": "0"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "array",
+          "type": "array"
+        }
+      ],
+      "python_code": {
+        "index_of_element": "next((i for i in range(int(in_1), len(in_3)) if in_3[i] == in_2), -1)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-1d-array.html",
+      "note": "Search 1D Array -- returns the index of element (searching from start_index) or -1 if not found. Delete From Array (class='aDelete') is a separate node_type entry. Was mislabeled 'Delete From Array'."
+    },
+    "1902": {
+      "name": "Transpose 2D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "transposed_array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "transposed_array": "[list(r) for r in zip(*in_1)]"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/transpose-2d-array.html"
+    },
+    "1905": {
+      "name": "Interpolate 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "y value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "fractional index or x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array of numbers or points",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1906": {
+      "name": "Rotate 1D Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate-1d-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array (rotated)",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "n",
+          "type": "NumInt32"
+        }
+      ],
+      "python_code": {
+        "array (rotated)": "in_1[-in_2 % len(in_1):] + in_1[:-in_2 % len(in_1)] if in_1 else in_1"
+      },
+      "verified": false
+    },
+    "1908": {
+      "name": "Split 1D Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/split-1d-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "first subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "second subarray",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "array",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "first subarray": "in_3[:in_2]",
+        "second subarray": "in_3[in_2:]"
+      },
+      "verified": false
+    },
+    "1909": {
+      "name": "Threshold 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "fractional index or x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "start index (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "threshold y",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "array of numbers or points",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2041": {
+      "name": "Build Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2042": {
+      "name": "Index Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "element",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2044": {
+      "name": "Array Subset",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "subarray",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "length",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2045": {
+      "name": "Interleave 1D Arrays",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "interleaved array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2046": {
+      "name": "Decimate 1D Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "decimated array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "decimated array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2053": {
+      "name": "Initialize Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "element",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "initialized array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension size",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2055": {
+      "name": "Reshape Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension size",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3910": {
+      "name": "Replace Array Subset",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "new element/subarray",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3911": {
+      "name": "Insert Into Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "new element/subarray",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3912": {
+      "name": "Delete From Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "deleted portion",
+          "type": "Void"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "length",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "array w/ subset deleted",
+          "type": "Void"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

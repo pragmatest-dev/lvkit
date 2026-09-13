@@ -1,0 +1,233 @@
+{
+  "primitives": {
+    "1923": {
+      "name": "VISA Find Resource",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "return count",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "find list",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "search mode (0)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "expression (\"\")",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1994": {
+      "name": "VISA Unlock",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2308": {
+      "name": "VISA Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout (0)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "access mode",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "duplicate session (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2313": {
+      "name": "VISA Read To File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "return count",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "byte count",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "filename",
+          "type": "Path"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2314": {
+      "name": "VISA Write From File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "return count",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "count (entire file)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "filename",
+          "type": "Path"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

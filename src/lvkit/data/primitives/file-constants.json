@@ -1,0 +1,48 @@
+{
+  "primitives": {
+    "1425": {
+      "name": "VI Library",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/vi-library.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path": "__import__('os').environ.get('LABVIEW_VI_LIB', 'vi.lib')"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "VI Library constant (vi.lib path) -- node XML is byte-identical to the User/Instrument Library variants; identified in 'Is VI-LIB' (output feeds Path To Array Of Strings + Equal? on the path). python_code is a placeholder."
+    },
+    "1427": {
+      "name": "Default Directory",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1435": {
+      "name": "Temporary Directory",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

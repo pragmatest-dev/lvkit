@@ -1,0 +1,177 @@
+{
+  "primitives": {
+    "8400": {
+      "name": "Flatten To XML",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "xml string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8401": {
+      "name": "Unflatten From XML",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "type",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "xml string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8402": {
+      "name": "Flatten To XML",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "xml string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24201": {
+      "name": "Flatten To JSON",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "anything",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "enable LabVIEW extensions? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "JSON string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24202": {
+      "name": "Unflatten From JSON",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "JSON string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type and defaults",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "path",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "default null elements? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "enable LabVIEW extensions? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "strict validation? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -46,7 +46,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRIMS_JSON = ROOT / "src" / "lvkit" / "data" / "primitives.json"
+PRIMS_JSON = ROOT / "src" / "lvkit" / "data" / "primitives"
 VILIB_DIR = ROOT / "src" / "lvkit" / "data" / "vilib"
 # Two DIFFERENT roots, deliberately: extracted XML now lives in the project-local
 # cache, while the .vi source files it describes still live in the corpus tree.
@@ -146,7 +146,8 @@ def _classify_formula(formula: str, input_types: list[str]) -> str:
 
 
 def load_prim_specs() -> list[PrimSpec]:
-    data = json.loads(PRIMS_JSON.read_text())
+    from lvkit._data import load_primitives
+    data = load_primitives(PRIMS_JSON)
     specs: list[PrimSpec] = []
     for res_id, entry in data["primitives"].items():
         formula = _formula_text(entry.get("python_code", ""))

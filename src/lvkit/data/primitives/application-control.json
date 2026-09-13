@@ -1,0 +1,460 @@
+{
+  "primitives": {
+    "1350": {
+      "name": "Stop",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "stop? (T)",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1352": {
+      "name": "Quit LabVIEW",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "quit? (T)",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1920": {
+      "name": "Property Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reference out",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "Property",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1999": {
+      "name": "Call Chain",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "call chain",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "call chain": "[]"
+      },
+      "inline": true,
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-chain.html",
+      "note": "No headless analogue (runtime VI call chain); emits []. verified:false = approximation."
+    },
+    "2084": {
+      "name": "Static VI Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "vi reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2091": {
+      "name": "VI Server Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "This VI",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3900": {
+      "name": "Invoke Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reference out",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "Method",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "Method",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "3901": {
+      "name": "Call By Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reference out",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8010": {
+      "name": "Open VI Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-vi-reference.html",
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "password",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "application_reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "options",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "vi_path",
+          "type": "Path"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "type_specifier",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "vi_reference",
+          "type": "Refnum"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Open VI Reference (renamed from a mislabelled 'Open/Create/Replace File') -- VI-server call, not file I/O; every call site is Open Untitled VI / Current VIs Reference. Placeholder codegen (no lvkit VI-server runtime yet)."
+    },
+    "8011": {
+      "name": "Close Reference",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-reference.html",
+      "terminals": [
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "verified": false,
+      "note": "Close Reference (renamed from a mislabelled 'Close File') -- in#11 accepts Array|Refnum; all call sites are VI-server/appcontrol. Placeholder codegen (no lvkit VI-server runtime yet)."
+    },
+    "8012": {
+      "name": "Open Application Reference",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "application reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 1,
+          "class_name": "Application"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "port number or service name (3363)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "machine name (\"\":  open local reference)",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9154": {
+      "name": "Get Drag Drop Data",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data name",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24203": {
+      "name": "Set Control Values by Index",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "VI Refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "control indexes",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "data values",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24204": {
+      "name": "Get Control Values by Index",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "VI Refnum",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 2,
+          "class_name": "VI"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "control indexes",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "data values",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

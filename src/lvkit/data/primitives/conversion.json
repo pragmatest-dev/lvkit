@@ -1,0 +1,450 @@
+{
+  "primitives": {
+    "1079": {
+      "name": "Cast Unit Bases",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "unit (none)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1140": {
+      "name": "To Byte Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-byte-integer.html",
+      "guess_reason": "Conversion to signed 8-bit integer: output is always NumInt8 (or Array[NumInt8]) regardless of input numeric type, verified across corpus (NumInt8/NumInt64/NumInt32/Array[NumFloat64] inputs). NI docs: rounds float to nearest (ties to even) and saturates to [-128, 127]. Scalar template; array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "byte_integer",
+          "type": "NumInt8"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "max(-128, min(127, int(round(in_1))))",
+      "inline": true,
+      "verified": true
+    },
+    "1141": {
+      "name": "To Word Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "int16_value",
+          "type": "NumInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "int16_value": "int(in_1) & 0xFFFF"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
+    },
+    "1142": {
+      "name": "To Long Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-long-integer.html",
+      "guess_reason": "Conversion to signed 32-bit integer: output is always NumInt32 regardless of input numeric type, verified across corpus (NumUInt8/NumInt16/NumUInt16/NumFloat64/NumInt64/NumInt32 inputs all -> NumInt32). Sits in the To-<T> conversion family (1140 To Byte I8, 1141 To Word I16). NI docs: rounds float to nearest (ties to even) and saturates to [-(2^31), (2^31)-1]. Scalar template; array inputs would need element-wise handling.",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "long_integer",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "max(-2147483648, min(2147483647, int(round(in_1))))",
+      "inline": true,
+      "verified": true
+    },
+    "1143": {
+      "name": "To Unsigned Byte Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumUInt8"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "numeric"
+        }
+      ],
+      "python_code": {
+        "result": "int(in_1) & 0xFF"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html"
+    },
+    "1144": {
+      "name": "To Unsigned Word Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "uint16_value",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "uint16_value": "int(in_1) & 0xFFFF"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html"
+    },
+    "1145": {
+      "name": "To Unsigned Long Integer",
+      "op": "TO_U32",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "unsigned 32bit integer",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "NumUInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1146": {
+      "name": "To Single Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1147": {
+      "name": "To Double Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1149": {
+      "name": "To Extended Precision Float",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-float.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "float(in_1)"
+      },
+      "verified": true
+    },
+    "1151": {
+      "name": "To Single Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-single-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1152": {
+      "name": "To Double Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-double-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1154": {
+      "name": "To Extended Precision Complex",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-extended-precision-complex.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "complex(in_1)"
+      },
+      "verified": true
+    },
+    "1155": {
+      "name": "To Quad Integer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "64bit integer",
+          "type": "NumInt64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "number",
+          "type": "NumInt64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1156": {
+      "name": "To Unsigned Quad Integer",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-quad-integer.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "result": "int(in_1) & 0xFFFFFFFFFFFFFFFF"
+      },
+      "inline": true,
+      "note": "To Unsigned Quad Integer (NI doc) -- completes the To-<T> conversion family (1140-1144), idx0=out/idx1=in. Terminals from 'pco.camera_FloatingMean_Example_IMAQ.vi', 'testNumericU64.vi' (JKI-EasyXML)."
+    },
+    "1608": {
+      "name": "String To Byte Array",
+      "op": "STRING_TO_BYTE_ARRAY",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "unsigned byte array",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1609": {
+      "name": "Byte Array To String",
+      "op": "BYTE_ARRAY_TO_STRING",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "unsigned byte array",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "2059": {
+      "name": "Convert Unit",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2402": {
+      "name": "Coerce To Type",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloatExt"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type",
+          "type": "NumFloatExt"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "coerced x",
+          "type": "NumFloatExt"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "5561": {
+      "name": "To Fixed-Point",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "number",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "fixed-point type",
+          "type": "FixedPoint"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "fixed-point",
+          "type": "FixedPoint"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -1,0 +1,424 @@
+{
+  "primitives": {
+    "1180": {
+      "name": "Number To Decimal String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-decimal-string.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "width",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "decimal_integer_string",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "decimal_integer_string": "str(int(round(in_2))).rjust(in_1)"
+      },
+      "inline": true,
+      "verified": false,
+      "note": "Number To Decimal String -- pane identical to sibling 1181 (Number To Hexadecimal String), adjacent palette slot (Decimal precedes Hex); 2 inputs excludes Engineering/Fractional/Exponential. python_code not execution-verified for width/pad."
+    },
+    "1181": {
+      "name": "Number To Hexadecimal String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/number-to-hexadecimal-string.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "width",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "number",
+          "type": "Array"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "hex_string",
+          "type": "Array"
+        }
+      ],
+      "python_code": {
+        "hex_string": "['%0*X' % (in_1, b) for b in in_2]"
+      },
+      "note": "polymorphic: scalar number->hex string, or array->array of hex strings; width pads digits.",
+      "verified": false
+    },
+    "1182": {
+      "name": "Number To Octal String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "octal integer string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "width (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "number",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1183": {
+      "name": "Number To Engineering String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "Engineering string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "use system decimal point (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "precision (6)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "width (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1184": {
+      "name": "Decimal String To Number",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-string-to-number.html",
+      "verified": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "polymorphic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset_past_number",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "placeholder": true,
+      "python_code": "pass",
+      "note": "Decimal String To Number (NI doc) -- string, offset, default -> offset past number, number. Terminals from 'Results Status Update Process__core.vi', 'Get LV Mem Usage.vi'. Placeholder codegen: integer-only scan, needs float/exponent handling."
+    },
+    "1185": {
+      "name": "Hexadecimal String To Number",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset past number",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default (0uL)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1186": {
+      "name": "Octal String To Number",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset past number",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default (0uL)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1187": {
+      "name": "Fract/Exp String To Number",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "number",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "offset past number",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "use system decimal point (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "default (0 dbl)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1505": {
+      "name": "Number To Exponential String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "E-format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "use system decimal point (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "precision (6)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "width (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1506": {
+      "name": "Number To Fractional String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "F-format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "use system decimal point (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "precision (6)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "width (-)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "number",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1512": {
+      "name": "Format Value",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "value (0)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string (\"\")",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1534": {
+      "name": "Scan Value",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "value",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "default (0 dbl)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "primitives": {
+    "1214": {
+      "name": "Hyperbolic Sine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sinh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1215": {
+      "name": "Hyperbolic Cosine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cosh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1216": {
+      "name": "Hyperbolic Tangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "tanh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1217": {
+      "name": "Inverse Hyperbolic Sine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "argsinh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1218": {
+      "name": "Inverse Hyperbolic Cosine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "argcosh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1219": {
+      "name": "Inverse Hyperbolic Tangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "argtanh(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23053": {
+      "name": "Hyperbolic Cosecant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "csch(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23054": {
+      "name": "Hyperbolic Secant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sech(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23055": {
+      "name": "Hyperbolic Cotangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "coth(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23056": {
+      "name": "Inverse Hyperbolic Cosecant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arccsch(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23057": {
+      "name": "Inverse Hyperbolic Secant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arcsech(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23058": {
+      "name": "Inverse Hyperbolic Cotangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arccoth(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

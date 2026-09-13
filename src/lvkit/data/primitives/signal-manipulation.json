@@ -1,0 +1,55 @@
+{
+  "primitives": {
+    "2350": {
+      "name": "Merge Signals",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "combined signal",
+          "type": "ExpressData"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input signal",
+          "type": "ExpressData"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "input signal",
+          "type": "ExpressData"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2351": {
+      "name": "Split Signals",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "combined signal",
+          "type": "ExpressData"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output signal",
+          "type": "ExpressData"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "combined signal",
+          "type": "ExpressData",
+          "hidden": true
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

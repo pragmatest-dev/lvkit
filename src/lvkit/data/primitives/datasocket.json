@@ -1,0 +1,214 @@
+{
+  "primitives": {
+    "1084": {
+      "name": "DataSocket Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection id",
+          "type": "Refnum",
+          "refnum_type": "data_socket"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "ms timeout (10000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "mode",
+          "type": "Enum16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "URL",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1085": {
+      "name": "DataSocket Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "timed out",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "ms timeout (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "connection id",
+          "type": "Refnum",
+          "refnum_type": "data_socket"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1086": {
+      "name": "DataSocket Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "timed out",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data",
+          "type": "LVVariant"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "connection out",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "timestamp",
+          "type": "Timestamp"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "quality",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "wait for updated value (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "status",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "ms timeout (10000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "type (Variant)",
+          "type": "LVVariant"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "connection in",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1087": {
+      "name": "DataSocket Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "timed out",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection out",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "ms timeout (0)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "data",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "connection in",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

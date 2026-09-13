@@ -1,0 +1,422 @@
+{
+  "primitives": {
+    "1950": {
+      "name": "GPIB Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mode (0)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms (488.2 global)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1951": {
+      "name": "GPIB Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mode (0)",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms (488.2 global)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1952": {
+      "name": "Wait for GPIB RQS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "poll response byte",
+          "type": "NumInt16"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms (488.2 global)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1953": {
+      "name": "GPIB Trigger",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1954": {
+      "name": "GPIB Clear",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1955": {
+      "name": "GPIB Serial Poll",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "serial poll byte",
+          "type": "NumInt16"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1956": {
+      "name": "GPIB Misc",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "command string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1957": {
+      "name": "GPIB Initialization",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "require re-addressing (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "disallow DMA (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "assert REN with IFC (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "IST bit sense (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "system controller (T)",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1958": {
+      "name": "GPIB Wait",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout ms (488.2 global)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "wait state vector",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1959": {
+      "name": "GPIB Status",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "address string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "status",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "GPIB error",
+          "type": "NumInt16"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "byte count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

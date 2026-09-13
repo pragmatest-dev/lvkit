@@ -1,0 +1,230 @@
+{
+  "primitives": {
+    "1429": {
+      "name": "File Dialog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "exists",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "pattern label",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "button label",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datalog type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "default name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "select mode (2)",
+          "type": "Enum32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "start path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8058": {
+      "name": "File Dialog",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/express/express-input/filedialogblock-llb/file-dialog-source-vi.html",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "pattern_label",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "patterns",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "button_label",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "default_name",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "start_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "exists",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "selected_path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "selected_path": "in_11",
+        "cancelled": "False",
+        "exists": "__import__('os').path.exists(in_11)",
+        "error_out": "in_8"
+      },
+      "note": "File Dialog -- identified by pane signature (file-pattern + start path -> path + cancelled?/exists?). Express-VI doc page has no backend connector pane, so verify names if refining.",
+      "verified": false
+    },
+    "8081": {
+      "name": "File Dialog",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "exists",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "pattern label",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "button label",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "datalog type",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "pattern",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "default name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "select mode (2)",
+          "type": "Enum32"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "start path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

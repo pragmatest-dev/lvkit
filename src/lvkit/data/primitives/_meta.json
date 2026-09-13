@@ -1,0 +1,309 @@
+{
+  "metadata": {
+    "description": "Primitive ID to Python mapping (runtime version)",
+    "source": "OpenG + JKI VI Tester + LabVIEW VI Scripting nodes export (issue #59)",
+    "total_primitives": 680,
+    "identified": 90,
+    "verified_count": 90,
+    "unverified_count": 590,
+    "note": "verified_count = confirmed identity + codegen (doc/corpus/geometry-checked, has python_code); unverified_count = VI-Scripting export baseline only (real name+terminals from nodes.json, #59, but no codegen and no independent confirmation yet). See primitives-codegen-full.json for count/vis metadata."
+  },
+  "node_types": {
+    "aBuild": {
+      "name": "Build Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic",
+          "expandable": true
+        }
+      ],
+      "python_code": "[{expandable_inputs}]"
+    },
+    "aDelete": {
+      "name": "Delete From Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-from-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "deleted portion",
+          "type": "polymorphic",
+          "dco_ref": "delDCO"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO4"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "length",
+          "type": "numeric",
+          "dco_ref": "lenDCO",
+          "default_value": "1"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "-1"
+        }
+      ],
+      "python_code": {
+        "deleted portion": "array[index:index + length]",
+        "output array": "array[:index] + array[index + length:]"
+      }
+    },
+    "aIndx": {
+      "name": "Index Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "element",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg",
+          "expandable": true
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0"
+        }
+      ],
+      "op": "INDEX_ARRAY",
+      "imports": [
+        "from lvkit.runtime import lv as _lv"
+      ]
+    },
+    "aInit": {
+      "name": "Initialize Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/initialize-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "initialized array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension size",
+          "type": "numeric"
+        }
+      ],
+      "python_code": "[element] * dimension_size"
+    },
+    "aInsert": {
+      "name": "Insert Into Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/insert-into-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO3"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "-1"
+        }
+      ],
+      "python_code": "array[:index] + [element] + array[index:]"
+    },
+    "aReplace": {
+      "name": "Replace Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-array-subset.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO2"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "new element",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0"
+        }
+      ],
+      "python_code": "array[:index] + [new_element] + array[index + 1:]"
+    },
+    "aReshape": {
+      "name": "Reshape Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/reshape-array.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "srcDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "reshaped array",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "dimension sizes",
+          "type": "array"
+        }
+      ],
+      "python_code": "array"
+    },
+    "subset": {
+      "name": "Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/array-subset.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "array",
+          "type": "array",
+          "dco_ref": "inArrDCO"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "subarray",
+          "type": "polymorphic",
+          "dco_ref": "dcoAgg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "index",
+          "type": "numeric",
+          "default_value": "0",
+          "dco_ref": "dcoList",
+          "expandable": true
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "length",
+          "type": "numeric",
+          "dco_ref": "lengthDCOList",
+          "expandable": true
+        }
+      ],
+      "python_code": "array[index:index + length]"
+    },
+    "cpdArith": {
+      "name": "Compound Arithmetic",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/compound-arithmetic.html"
+    },
+    "unbundle": {
+      "name": "Unbundle",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unbundle.html"
+    },
+    "bundle": {
+      "name": "Bundle",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/bundle.html"
+    },
+    "arrayIdx": {
+      "name": "Index Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/index-array.html"
+    },
+    "arrayRepl": {
+      "name": "Replace Array Subset",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-array-subset.html"
+    },
+    "strIdx": {
+      "name": "String Index"
+    },
+    "strRepl": {
+      "name": "Replace Substring",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/replace-substring.html"
+    },
+    "strLen": {
+      "name": "String Length",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-length.html"
+    },
+    "concat": {
+      "name": "Concatenate"
+    },
+    "split": {
+      "name": "Split"
+    }
+  }
+}

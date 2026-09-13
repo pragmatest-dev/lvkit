@@ -1,0 +1,215 @@
+{
+  "primitives": {
+    "2065": {
+      "name": "Register For Events",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "event registration refnum",
+          "type": "Refnum",
+          "refnum_type": "event_reg"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "event registration refnum",
+          "type": "Refnum",
+          "refnum_type": "event_reg"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "event source",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2073": {
+      "name": "Create User Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-user-event.html",
+      "verified": true,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "user_event_data_type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "user_event_out",
+          "type": "Refnum"
+        },
+        {
+          "index": 11,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Create User Event (NI Create User Event doc) -- user event data-type -> UserEvent refnum out (ref_type=UserEvent is the identity). Terminals from 'Graphical Test Runner - Main UI - .vi', 'WaveGen.vi'. Placeholder codegen."
+    },
+    "2074": {
+      "name": "Generate User Event",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "user event",
+          "type": "Refnum",
+          "refnum_type": "user_event"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "event data cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "priority (normal)",
+          "type": "Enum32"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "user event out",
+          "type": "Refnum",
+          "refnum_type": "user_event"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "2075": {
+      "name": "Destroy User Event",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
+      "verified": true,
+      "placeholder": true,
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "user_event",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Cluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Cluster"
+        }
+      ],
+      "python_code": "pass",
+      "note": "Destroy User Event (NI Destroy User Event doc) -- UserEvent refnum + error in -> error out only (destroying invalidates the ref). Terminals from 'Graphical Test Runner - Main UI - .vi', 'Run Client.vi'. Placeholder codegen."
+    },
+    "2135": {
+      "name": "Flush Event Queue",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "event registration refnum",
+          "type": "Refnum",
+          "refnum_type": "event_reg"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "include static events? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "event type or object",
+          "type": "Enum32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "oldest event time",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "keep most recent",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "event reg refnum out",
+          "type": "Refnum",
+          "refnum_type": "event_reg"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "number of events discarded",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    }
+  }
+}

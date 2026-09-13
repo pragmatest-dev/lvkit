@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-PRIMS = REPO / "src" / "lvkit" / "data" / "primitives.json"
+PRIMS = REPO / "src" / "lvkit" / "data" / "primitives"
 CACHE = REPO / ".lvkit" / "cache" / "extracted"
 WORKER_FLAG = "--_worker"
 
@@ -104,7 +104,8 @@ def main() -> None:
     ap.add_argument("--only", type=int, default=None, help="audit one primResID")
     args = ap.parse_args()
 
-    known = json.loads(PRIMS.read_text())["primitives"]
+    from lvkit._data import load_primitives
+    known = load_primitives(PRIMS)["primitives"]
     bds = sorted(str(p) for p in CACHE.rglob("*_BDHb.xml"))
     print(f"auditing {len(known)} entries against {len(bds)} extracted VIs", flush=True)
 

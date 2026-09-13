@@ -60,7 +60,6 @@ it like everything else.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
@@ -82,7 +81,8 @@ X_LOWER_PRIMS: set[int] = {1074, 1081, 1082, 1213, 1224, 1228, 23062}
 
 
 def _entries() -> dict[str, dict]:
-    return json.loads(PRIMS.read_text(encoding="utf-8"))["primitives"]
+    from lvkit._data import load_primitives
+    return load_primitives()["primitives"]
 
 
 def _positional_two_input_entries():

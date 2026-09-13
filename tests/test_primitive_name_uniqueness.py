@@ -38,7 +38,6 @@ the same name. That override must win and must never fail this gate. Do NOT
 from __future__ import annotations
 
 import collections
-import json
 from pathlib import Path
 
 PRIMS = Path(__file__).resolve().parents[1] / "src/lvkit/data/primitives.json"
@@ -124,7 +123,8 @@ IMPORT_UNVERIFIED_DUPLICATES: dict[str, set[str]] = {
 
 
 def _duplicate_groups() -> dict[str, set[str]]:
-    entries = json.loads(PRIMS.read_text())["primitives"]
+    from lvkit._data import load_primitives
+    entries = load_primitives()["primitives"]
     by_name: dict[str, set[str]] = collections.defaultdict(set)
     for pid, entry in entries.items():
         name = entry.get("name")

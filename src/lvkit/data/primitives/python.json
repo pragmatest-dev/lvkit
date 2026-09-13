@@ -1,0 +1,139 @@
+{
+  "primitives": {
+    "24205": {
+      "name": "Python Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "session in",
+          "type": "Refnum",
+          "refnum_type": "python_session"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "session out",
+          "type": "Refnum",
+          "refnum_type": "python_session"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "module in",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "module out",
+          "type": "Path",
+          "hidden": true
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "module out",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "function name in",
+          "type": "String",
+          "hidden": true
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "function name in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "function name out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "Void"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "error out",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24206": {
+      "name": "Open Python Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "python version",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "python path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "session out",
+          "type": "Refnum",
+          "refnum_type": "python_session"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24207": {
+      "name": "Close Python Session",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "session in",
+          "type": "Refnum",
+          "refnum_type": "python_session"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

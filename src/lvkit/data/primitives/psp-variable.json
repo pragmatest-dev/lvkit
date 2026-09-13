@@ -1,0 +1,175 @@
+{
+  "primitives": {
+    "23786": {
+      "name": "Read Variable with Timeout",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "data out",
+          "type": "Void"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "timestamp",
+          "type": "Timestamp"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23790": {
+      "name": "Open and Verify Variable Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "access",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "buffer size in elements",
+          "type": "NumUInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23791": {
+      "name": "Open Variable Connection in Background",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "access",
+          "type": "Cluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "buffer size in elements",
+          "type": "NumUInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

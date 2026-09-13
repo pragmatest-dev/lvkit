@@ -1,0 +1,49 @@
+{
+  "primitives": {
+    "2416": {
+      "name": "Assert Structural Type Match",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "LVVariant"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "anything",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2464": {
+      "name": "Assert Structural Type Mismatch",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "mismatch",
+          "type": "NumInt32",
+          "hidden": true
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "type",
+          "type": "LVVariant"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "mismatch",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

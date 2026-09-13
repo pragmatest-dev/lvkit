@@ -1,0 +1,116 @@
+{
+  "primitives": {
+    "9131": {
+      "name": "Wait on Notification with Notifier History",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifier",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore previous (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "notifier out",
+          "type": "Refnum",
+          "refnum_type": "notifier"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "notification",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "9132": {
+      "name": "Wait on Notification from Multiple with Notifier History",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "notifiers",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore previous (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout in ms (-1)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "notifier out",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "notifiers out",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timed out?",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "primitives": {
+    "2353": {
+      "name": "Feedback Node",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23778": {
+      "name": "Shared Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "?",
+          "type": "Void"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

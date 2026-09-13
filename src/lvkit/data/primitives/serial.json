@@ -1,0 +1,114 @@
+{
+  "primitives": {
+    "1922": {
+      "name": "VISA Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2301": {
+      "name": "VISA Set I/O Buffer Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "size (4096)",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "mask (16)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2302": {
+      "name": "VISA Flush I/O Buffer",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "VISA resource name out",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "mask (16)",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "VISA resource name",
+          "type": "Refnum",
+          "refnum_type": "visa"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

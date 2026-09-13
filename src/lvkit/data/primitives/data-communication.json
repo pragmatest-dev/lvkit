@@ -1,0 +1,30 @@
+{
+  "primitives": {
+    "2060": {
+      "name": "Global Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2061": {
+      "name": "Local Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "primitives": {
+    "1723": {
+      "name": "UDP Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "service name",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "port",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "net address",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "",
+          "type": "NumUInt16"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1724": {
+      "name": "UDP Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "port",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "address",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "max size (548)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1725": {
+      "name": "UDP Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "port or service name",
+          "type": "NumUInt16"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "address",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "timeout ms (25000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data in",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1726": {
+      "name": "UDP Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "connection ID out",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "connection ID",
+          "type": "Refnum",
+          "refnum_type": "udp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

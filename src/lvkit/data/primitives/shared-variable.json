@@ -1,0 +1,229 @@
+{
+  "primitives": {
+    "23779": {
+      "name": "Open Variable Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "access",
+          "type": "Cluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23781": {
+      "name": "Read Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data type",
+          "type": "Void"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "data out",
+          "type": "Void"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "timestamp",
+          "type": "Timestamp"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23782": {
+      "name": "Write Variable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "shared variable refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data in",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23783": {
+      "name": "Close Variable Connection",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "shared variable refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23802": {
+      "name": "Search Variable Container",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "refnum array out",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "container refnum out",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "access type",
+          "type": "Cluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "class",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "data type",
+          "type": "LVVariant"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "regular expression",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "container refnum in",
+          "type": "Refnum",
+          "refnum_type": "user_defined_refnum_tag"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

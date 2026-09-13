@@ -1,0 +1,279 @@
+{
+  "primitives": {
+    "1200": {
+      "name": "Sine",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/sine.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "result",
+          "type": "NumFloat64"
+        }
+      ],
+      "python_code": {
+        "result": "__import__('math').sin(in_1)"
+      },
+      "verified": true
+    },
+    "1201": {
+      "name": "Cosine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "cos(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1202": {
+      "name": "Tangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "tan(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1203": {
+      "name": "Secant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "1/cos(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1204": {
+      "name": "Cosecant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "1/sin(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1205": {
+      "name": "Cotangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "1/tan(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1206": {
+      "name": "Inverse Sine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arcsin(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1207": {
+      "name": "Inverse Cosine",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arccos(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1208": {
+      "name": "Inverse Tangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arctan(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1227": {
+      "name": "Sinc",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "sin(x)/x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1228": {
+      "name": "Inverse Tangent (2 Input)",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "atan2(y,x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "y",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23050": {
+      "name": "Inverse Cosecant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arccsc(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23051": {
+      "name": "Inverse Secant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arcsec(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "23052": {
+      "name": "Inverse Cotangent",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "arccot(x)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "x",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

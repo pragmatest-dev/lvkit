@@ -1,0 +1,546 @@
+{
+  "primitives": {
+    "1405": {
+      "name": "Close File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1419": {
+      "name": "Build Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "appended path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "name or relative path",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "base path",
+          "type": "Path",
+          "default_value": "''"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "appended_path": "_Path(in_2) / in_1"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/build-path.html"
+    },
+    "1420": {
+      "name": "Strip Path",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "path",
+          "type": "Path"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "stripped path",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "name",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "_import": "from pathlib import Path as _Path",
+        "stripped_path": "_Path(in_0).parent",
+        "name": "_Path(in_0).name"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/strip-path.html"
+    },
+    "2082": {
+      "name": "Scan From File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input file",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "output file refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "default value 14",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "output 7",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2083": {
+      "name": "Format Into File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "format string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input file",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "output file refnum",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "input 6",
+          "type": "NumFloat64"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8050": {
+      "name": "Open/Create/Replace File",
+      "terminals": [
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "advisory_locking",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "access",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "operation",
+          "type": "enum"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "file_path",
+          "type": "Path"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum": "open(in_11, 'r+b')",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html",
+      "verified": false
+    },
+    "8051": {
+      "name": "Read from Binary File",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "byte_order",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "eof",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "data": "in_11.read(in_10)",
+        "refnum_out": "in_11",
+        "error_out": "in_8",
+        "eof": "False"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
+      "verified": false
+    },
+    "8052": {
+      "name": "Close File",
+      "terminals": [
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "path",
+          "type": "Path"
+        }
+      ],
+      "python_code": {
+        "path": "getattr(in_7, 'name', None)",
+        "error_out": "in_4"
+      },
+      "note": "runtime: in_7.close(); path output is the closed file's path",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
+      "verified": false
+    },
+    "8070": {
+      "name": "Read from Text File",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-text-file.html",
+      "terminals": [
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "prompt",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "count",
+          "type": "NumInt32"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "file",
+          "type": "polymorphic"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "text",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11).read())",
+        "refnum_out": "in_11",
+        "cancelled": "False",
+        "error_out": "in_8"
+      },
+      "note": "Read from Text File (renamed from a mislabelled 'List Folder') -- file (in#11) accepts a refnum or path; text (out#2) is a string, or array of strings when count is wired. Side-effecting IO, not execution-verified.",
+      "verified": false
+    },
+    "8078": {
+      "name": "Write to Binary File",
+      "terminals": [
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "prepend_size",
+          "type": "Boolean"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "byte_order",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "datalog_type",
+          "type": "enum"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "data",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "refnum",
+          "type": "Refnum"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "eof",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "refnum_out",
+          "type": "Refnum"
+        }
+      ],
+      "python_code": {
+        "refnum_out": "(in_11.write(in_10), in_11)[1]",
+        "error_out": "in_8",
+        "eof": "False"
+      },
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
+      "verified": false
+    },
+    "8080": {
+      "name": "Write to Text File",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "cancelled",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "refnum out",
+          "type": "Refnum",
+          "refnum_type": "byte_stream"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "prompt (Choose or enter file path)",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "text",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "file (use dialog)",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

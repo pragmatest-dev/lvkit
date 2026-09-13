@@ -59,7 +59,6 @@ finding for a same-type pair proves nothing.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -100,7 +99,9 @@ class PrimEntry:
 def load_primitive_entries(primitives_json: Path) -> dict[int, PrimEntry]:
     """Load every ``primitives.json`` ``"primitives"`` entry as a typed
     ``PrimEntry``, keyed by primResID."""
-    data = json.loads(primitives_json.read_text(encoding="utf-8"))
+    from .._data import load_primitives
+
+    data = load_primitives(primitives_json)
     out: dict[int, PrimEntry] = {}
     for pid_str, entry in data.get("primitives", {}).items():
         terminals = tuple(

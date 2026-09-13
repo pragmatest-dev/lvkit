@@ -1,0 +1,393 @@
+{
+  "primitives": {
+    "2159": {
+      "name": "TDMS Delete Data",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "file path out",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "count (-1: all)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "keep empty group/channel? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "from (0: start)",
+          "type": "Enum16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "channel name(s) in",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24121": {
+      "name": "TDMS Advanced Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "sector size",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "enable asynchronous? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "disable buffering? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "operation (0:open)",
+          "type": "Enum16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24122": {
+      "name": "TDMS Set Channel Information",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "samples per channel",
+          "type": "NumUInt32"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "data type",
+          "type": "NumUInt8"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "data layout (0:non-interleaved)",
+          "type": "Enum16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "channel name(s)",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "group name (Untitled)",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24123": {
+      "name": "TDMS Reserve File Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "data type",
+          "type": "NumUInt8"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "append? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "reserve size",
+          "type": "NumUInt64"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24125": {
+      "name": "TDMS Set Next Write Position",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "channel name in",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "from (0:start)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "offset (0)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24138": {
+      "name": "TDMS Advanced Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "file path out",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "timeout (10 s)",
+          "type": "NumFloat64"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "truncate file? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24139": {
+      "name": "TDMS Set Next Read Position",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "channel name in",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "from (0: start)",
+          "type": "Enum16"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "offset (0)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

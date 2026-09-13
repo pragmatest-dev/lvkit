@@ -9,7 +9,6 @@ Lookup order (see ``PrimitiveResolver.resolve``):
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from .._data import data_dir as _bundled_data_dir
@@ -38,7 +37,9 @@ class PrimitiveResolver:
         """
         bundled = _bundled_data_dir()
         if primitives_path is None:
-            primitives_path = bundled / "primitives.json"
+            # Shipped catalog is split into per-category files under
+            # data/primitives/; _load_codegen merges a directory or a file.
+            primitives_path = bundled / "primitives"
 
         self._by_id: dict[str, dict] = {}
         self._by_name: dict[str, dict] = {}  # Normalized name -> primitive
@@ -132,8 +133,11 @@ class PrimitiveResolver:
         if not path.exists():
             return
 
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
+        # Merge the split per-category files (a directory) or a single JSON
+        # file (project-local override / legacy monolith).
+        from .._data import load_primitives
+
+        data = load_primitives(path)
 
         primitives = data.get("primitives", {})
 

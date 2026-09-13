@@ -1,0 +1,270 @@
+{
+  "primitives": {
+    "2047": {
+      "name": "Build Cluster Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "array of clusters",
+          "type": "Array"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "component element",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2048": {
+      "name": "Unbundle",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "element",
+          "type": "Void"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "element",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2049": {
+      "name": "Bundle",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "Void"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "element",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2057": {
+      "name": "Bundle By Name",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "input cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "element",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2058": {
+      "name": "Unbundle By Name",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "input cluster",
+          "type": "Cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "element",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2354": {
+      "name": "Call Parent Class Method",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "",
+          "type": "Void"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "8016": {
+      "name": "To More Specific Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "specific class reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "target class",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        }
+      ],
+      "python_code": {
+        "specific class reference": "in_3",
+        "error out": "in_4"
+      },
+      "inline": true,
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-specific-class.html",
+      "note": "downcast is identity on the reference (in_3); error passed through"
+    },
+    "8017": {
+      "name": "To More Generic Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "target class",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "generic class reference",
+          "type": "Refnum",
+          "refnum_type": "vi_server",
+          "class_id": 3,
+          "class_name": "Generic"
+        }
+      ],
+      "python_code": {
+        "generic class reference": "in_0"
+      },
+      "inline": true,
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-more-generic-class.html",
+      "note": "upcast is identity on the reference (in_0); target-class is a type spec"
+    },
+    "8018": {
+      "name": "Preserve Run-Time Class",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "object out",
+          "type": "Polymorphic",
+          "note": "data_type was null in the VI-Scripting export"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "target object",
+          "type": "Polymorphic",
+          "note": "data_type was null in the VI-Scripting export"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "object in",
+          "type": "Polymorphic",
+          "note": "data_type was null in the VI-Scripting export"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    }
+  }
+}

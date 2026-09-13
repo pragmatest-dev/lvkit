@@ -1,0 +1,22 @@
+{
+  "primitives": {
+    "1083": {
+      "name": "First Call?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/first-call.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "first_call",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "_body": "raise RuntimeError('First Call? (1083) should be dispatched to codegen/nodes/first_call.py by primResID -- this stub should be unreachable')"
+      },
+      "inline": true,
+      "verified": true,
+      "note": "First Call? -- 0 inputs, 1 Boolean out; returns TRUE only on the first execution after the VI runs, FALSE thereafter (stateful, not a constant); matches NI Synchronization doc."
+    }
+  }
+}

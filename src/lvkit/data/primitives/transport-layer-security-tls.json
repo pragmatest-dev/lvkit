@@ -1,0 +1,395 @@
+{
+  "primitives": {
+    "1730": {
+      "name": "New TLS Configuration",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "TLS configuration out",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "load OS trusted CAs?",
+          "type": "Boolean"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1731": {
+      "name": "Start TLS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "server certificate chain",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "TLS connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "server certificate validation",
+          "type": "Enum32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "timeout ms",
+          "type": "NumInt32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "server hostname",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "immutable TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "TCP connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1732": {
+      "name": "Accept TLS",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "client certificate chain",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "TLS connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "timeout ms (300000)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "immutable TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "TCP connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1733": {
+      "name": "Load Private Key Into Memory",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "private key",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "password",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "format",
+          "type": "Enum32"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "path to private key",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1734": {
+      "name": "Load Certificates Into Memory",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "certificates",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "format",
+          "type": "Enum32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "path to certificates",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1735": {
+      "name": "Add Private Key To TLS Configuration",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "TLS configuration out",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "certificate chain",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "private key",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1736": {
+      "name": "Add Trusted Certificate To TLS Configuration",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "TLS configuration out",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "certificate",
+          "type": "Array"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1737": {
+      "name": "Make TLS Configuration Immutable",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "immutable TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1740": {
+      "name": "TLS Connection?",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "TLS?",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "TCP connection",
+          "type": "Refnum",
+          "refnum_type": "tcp_net_connection"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1741": {
+      "name": "Close TLS Configuration",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "TLS configuration",
+          "type": "Refnum",
+          "refnum_type": "tls_configuration"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

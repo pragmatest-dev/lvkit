@@ -1,0 +1,221 @@
+{
+  "primitives": {
+    "8202": {
+      "name": "Flattened String To Variant",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "Variant",
+          "type": "LVVariant"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "data string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "type string",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "8203": {
+      "name": "Variant To Flattened String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "Variant",
+          "type": "LVVariant"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "type string",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "data string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "8204": {
+      "name": "Set Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "replaced",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "Variant out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "value",
+          "type": "Cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "Variant",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "8205": {
+      "name": "Get Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "cluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "attribute_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "found",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "duplicate_variant",
+          "type": "polymorphic"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error_in",
+          "type": "cluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "default_value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "attribute_name",
+          "type": "polymorphic"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "variant",
+          "type": "polymorphic"
+        }
+      ],
+      "python_code": {
+        "attribute_value": "getattr(in_7, in_6, in_5)",
+        "found": "hasattr(in_7, in_6)"
+      },
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-variant-attribute.html"
+    },
+    "8206": {
+      "name": "Delete Variant Attribute",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "found",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "Variant out",
+          "type": "LVVariant"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "name (all attributes)",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "Variant",
+          "type": "LVVariant"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

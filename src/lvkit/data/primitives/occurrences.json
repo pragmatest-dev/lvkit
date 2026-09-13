@@ -1,0 +1,67 @@
+{
+  "primitives": {
+    "1700": {
+      "name": "Generate Occurrence",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "occurrence",
+          "type": "Refnum",
+          "refnum_type": "occurence"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1701": {
+      "name": "Wait on Occurrence",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/wait-on-occurrence.html",
+      "terminals": [
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "ignore_previous",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "occurrence",
+          "type": "Refnum"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "ms_timeout",
+          "type": "NumInt32"
+        },
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "timed_out",
+          "type": "Boolean"
+        }
+      ],
+      "python_code": {
+        "timed_out": "in_2.wait(None if in_3 < 0 else in_3 / 1000.0) is False"
+      },
+      "note": "waits on an Occurrence refnum (mapped to threading.Event); returns timed_out.",
+      "verified": false
+    },
+    "1702": {
+      "name": "Set Occurrence",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "occurrence",
+          "type": "Refnum",
+          "refnum_type": "occurence"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

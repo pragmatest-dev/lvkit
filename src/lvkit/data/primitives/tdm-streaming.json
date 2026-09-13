@@ -1,0 +1,519 @@
+{
+  "primitives": {
+    "24110": {
+      "name": "TDMS Write",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "data layout (0:decimated)",
+          "type": "Enum16"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "group name in (Untitled)",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "channel name(s) in (Untitled)",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "channel name(s) out",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "data",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24111": {
+      "name": "TDMS Read",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "offset (0)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "count (-1: all)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "group name in",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "out",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "channel name(s) in",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "out",
+          "name": "channel name(s) out",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "out",
+          "name": "data",
+          "type": "Array"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "data type",
+          "type": "Array"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "return channels in file order? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 12,
+          "direction": "out",
+          "name": "end of file?",
+          "type": "Boolean"
+        },
+        {
+          "index": 13,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24112": {
+      "name": "TDMS Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "create index file? (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "disable buffering (T)",
+          "type": "Boolean"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "file format version (2.0)",
+          "type": "Enum16"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "byte order (2:little-endian)",
+          "type": "Enum16"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "operation (0:open)",
+          "type": "Enum16"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24113": {
+      "name": "TDMS Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "file path out",
+          "type": "Path"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24114": {
+      "name": "TDMS Set Properties",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "channel name out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "property values",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "property names",
+          "type": "Array"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24115": {
+      "name": "TDMS Get Properties",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "channel name out",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group name out",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 4,
+          "direction": "out",
+          "name": "property values",
+          "type": "Array"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "data type",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "out",
+          "name": "property names",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "property name",
+          "type": "String"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "channel name",
+          "type": "String"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24116": {
+      "name": "TDMS List Contents",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "group/channel names",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "group names",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "group name",
+          "type": "String"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24117": {
+      "name": "TDMS Flush",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24119": {
+      "name": "TDMS Defragment",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

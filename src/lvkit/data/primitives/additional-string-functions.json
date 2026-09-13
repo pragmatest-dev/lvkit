@@ -1,0 +1,331 @@
+{
+  "primitives": {
+    "1510": {
+      "name": "Pick Line",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/pick-line.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output_string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "line_index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "multi_line_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "output_string": "in_3 + (in_2.splitlines()[in_1] if 0 <= in_1 < len(in_2.splitlines()) else \"\")"
+      },
+      "inline": true,
+      "verified": true,
+      "guess_reason": "Pick Line primitive (String >> Additional String Functions): chooses the zero-based line_index-th line from multi_line_string and appends it to string; out-of-range index returns the base string unchanged (NI docs). Confirmed a primitive not the vi.lib Pick Line & Append.vi: heap node is class=prim primResID=1510 with no VI-link fields. Observed 5x in Number to Proper Engl Text__ogtk.vi as (I32 index <- Scan From String, String source, String base unwired) -> String -> Concatenate. idx2=multi-line source vs idx3=append-base disambiguated by dataflow: if idx3 were the source it is empty, making the node a no-op passthrough."
+    },
+    "1511": {
+      "name": "Append True/False String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "selector",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "false string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "true string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string (\"\")",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1531": {
+      "name": "Index String Array",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "string array",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string (\"\")",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1532": {
+      "name": "Match First String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "string array",
+          "type": "Array"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1533": {
+      "name": "Match True/False String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "selection",
+          "type": "Boolean"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "output string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "false string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "true string",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1536": {
+      "name": "Rotate String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "first char last",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "1537": {
+      "name": "Reverse String",
+      "op": "REVERSE_STRING",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "reversed",
+          "type": "String"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025",
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+    },
+    "1538": {
+      "name": "Search/Split String",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "offset_of_match",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "substring_before_match",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "match_rest_of_string",
+          "type": "String"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "string",
+          "type": "String"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "search_string_char",
+          "type": "String"
+        }
+      ],
+      "python_code": {
+        "offset_of_match": "in_4.find(in_5, in_3)",
+        "substring_before_match": "in_4[:in_4.find(in_5, in_3)] if in_4.find(in_5, in_3) >= 0 else in_4",
+        "match_rest_of_string": "in_4[in_4.find(in_5, in_3):] if in_4.find(in_5, in_3) >= 0 else ''"
+      },
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-split-string.html"
+    },
+    "8101": {
+      "name": "Scan String For Tokens",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "token index",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "token string",
+          "type": "String"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "offset past token",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "string out",
+          "type": "String"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "use cached delim/oper data? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "allow empty tokens? (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "delimiters (\\s,\\t,\\r,\\n)",
+          "type": "Array"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "operators (none)",
+          "type": "Array"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "offset",
+          "type": "NumInt32"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "input string",
+          "type": "String"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

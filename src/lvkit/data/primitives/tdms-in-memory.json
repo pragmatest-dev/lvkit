@@ -1,0 +1,125 @@
+{
+  "primitives": {
+    "2156": {
+      "name": "TDMS In Memory Open",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "byte array or file path",
+          "type": "Array"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2157": {
+      "name": "TDMS In Memory Close",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "in",
+          "name": "overwrite (F)",
+          "type": "Boolean"
+        },
+        {
+          "index": 2,
+          "direction": "in",
+          "name": "file path",
+          "type": "Path"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "2158": {
+      "name": "TDMS In Memory Read Bytes",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error out",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "data",
+          "type": "Array"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "tdms file out",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        },
+        {
+          "index": 3,
+          "direction": "in",
+          "name": "byte count (-1: all)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 4,
+          "direction": "in",
+          "name": "offset (0)",
+          "type": "NumInt64"
+        },
+        {
+          "index": 5,
+          "direction": "in",
+          "name": "error in (no error)",
+          "type": "ErrorCluster"
+        },
+        {
+          "index": 6,
+          "direction": "in",
+          "name": "tdms file",
+          "type": "Refnum",
+          "refnum_type": "tdms_file"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

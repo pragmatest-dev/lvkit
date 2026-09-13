@@ -1,0 +1,73 @@
+{
+  "primitives": {
+    "24130": {
+      "name": "CPU Information",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "# of logical processors",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "# of packages",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "# of cores per package",
+          "type": "NumInt32"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "# of logical processors per core",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24132": {
+      "name": "Data Cache Size",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "in",
+          "name": "cache level (2)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 1,
+          "direction": "out",
+          "name": "total cache size (in bytes)",
+          "type": "NumInt32"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "cache entry size (in bytes)",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    },
+    "24133": {
+      "name": "Number of Cache Levels",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "# of cache levels",
+          "type": "NumInt32"
+        }
+      ],
+      "verified": false,
+      "source": "vi-scripting-nodes-lv2025"
+    }
+  }
+}

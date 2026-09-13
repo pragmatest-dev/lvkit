@@ -26,7 +26,6 @@ step.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -163,7 +162,8 @@ def test_1116_is_not_equal_to_zero():
     assert r.confidence != "placeholder"
     assert r.python_code == {"result": "in_1 != 0"}
 
-    entry = json.loads(PRIMS.read_text())["primitives"]["1116"]
+    from lvkit._data import load_primitives
+    entry = load_primitives()["primitives"]["1116"]
     assert entry.get("verified") is False
     assert entry["python_code"] == {"result": "in_1 != 0"}
     assert "placeholder" not in entry

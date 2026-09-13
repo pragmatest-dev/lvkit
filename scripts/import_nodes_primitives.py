@@ -196,6 +196,12 @@ def convert_terminal(
 
 
 def main() -> None:
+    if not PRIMITIVES_PATH.exists():
+        raise SystemExit(
+            "primitives.json was split into per-category files under "
+            "src/lvkit/data/primitives/. This one-time import/merge tool writes a "
+            "monolith and needs reworking to target the split layout before reuse."
+        )
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--nodes-json",
