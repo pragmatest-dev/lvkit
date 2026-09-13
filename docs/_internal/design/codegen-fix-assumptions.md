@@ -365,7 +365,21 @@ verified: only number/place-number-to-proper-engl-text change (each concat gets 
 distinct name, every consumer binds to its real source node), all parse, full
 functional suite green.
 
-### OPEN BUG (found by executing): parameter default misalignment + ignored pane default
+### RESOLVED: parameter default misalignment — every input now gets a default
+Maintainer chose to keep connector-pane ORDER (not reorder) and give EVERY input
+a default. Reordering (required-first, optional-last) was tried first but desyncs
+positional callers — class-method dynamic dispatch passes args in pane order, so
+a reordered def mis-binds `self`/the object (broke TestResult_Init). Making every
+parameter optional-with-default matches LabVIEW (any unwired terminal takes its
+own default), keeps pane order (positional calls stay correct), and sidesteps
+Python's "non-default arg follows default arg" rule with no reordering. The
+default is the terminal's real connector-pane `default_value` when it maps
+cleanly to the scalar type (so Block Size is `16`, not `0` — no `% 0`), else
+`default_value_expr`. Verified: MD5 Unrecoverable character padding and Convert
+EOLs (String) run (previously `int % ''` / `int('')`); functional + e2e suites
+green incl. the class-method standalone-build test. Original finding below.
+
+### (original) parameter default misalignment + ignored pane default
 `build_args` (builder.py) marks an input optional iff `wiring_rule >= 2` and, for
 each optional input, appends `default_value_expr(inp.lv_type)` to a flat
 `defaults` list. Python binds `ast.arguments.defaults` to the TRAILING args, so

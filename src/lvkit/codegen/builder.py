@@ -767,11 +767,14 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
 
     Skips error cluster inputs - Python uses exceptions instead.
 
-    Wiring rules:
-    - 0 = unknown (treat as required)
-    - 1 = required (no default)
-    - 2 = recommended (has default)
-    - 3 = optional (has default)
+    Every input gets a default, in connector-pane order. In LabVIEW any input
+    terminal may be left unwired and then takes its own default value, so every
+    generated parameter is optional-with-default — which also sidesteps Python's
+    "non-default argument follows default argument" rule without reordering the
+    parameters (reordering would desync positional callers, e.g. class-method
+    dynamic dispatch, which pass arguments in connector-pane order). The default
+    is the terminal's real connector-pane default when known, else the type
+    default (e.g. 0 / '' / None).
     """
     args = []
     defaults = []
@@ -780,20 +783,13 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         if inp.is_error_cluster:
             continue
 
-        name = to_var_name(inp.name or "input")
-        type_hint = inp.python_type()
-
-        # wiring_rule >= 2 means recommended or optional
-        is_optional = inp.wiring_rule >= 2
-
-        arg = ast.arg(
-            arg=name,
-            annotation=parse_expr(type_hint),
+        args.append(
+            ast.arg(
+                arg=to_var_name(inp.name or "input"),
+                annotation=parse_expr(inp.python_type()),
+            )
         )
-        args.append(arg)
-
-        if is_optional:
-            defaults.append(default_value_expr(inp.lv_type))
+        defaults.append(_param_default_expr(inp))
 
     return ast.arguments(
         posonlyargs=[],
@@ -804,6 +800,27 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         kwarg=None,
         defaults=defaults,
     )
+
+
+def _param_default_expr(inp: Terminal) -> ast.expr:
+    """Default-value AST for a parameter: the terminal's real connector-pane
+    default when it maps cleanly to the scalar type, else the type default."""
+    dv = inp.default_value
+    if dv is None:
+        return default_value_expr(inp.lv_type)
+    underlying = inp.lv_type.underlying_type if inp.lv_type else None
+    try:
+        if underlying and underlying.startswith(("NumInt", "NumUInt")):
+            return ast.Constant(value=int(dv))
+        if underlying in ("NumFloat32", "NumFloat64"):
+            return ast.Constant(value=float(dv))
+        if underlying == "Boolean":
+            return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))
+        if underlying == "String":
+            return ast.Constant(value=str(dv))
+    except (ValueError, TypeError):
+        pass
+    return default_value_expr(inp.lv_type)
 
 
 def build_result_class_name(vi_name: str) -> str:
