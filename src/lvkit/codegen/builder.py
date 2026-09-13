@@ -65,6 +65,18 @@ def build_module(
     Returns:
         Python source code as string
     """
+    # Canonicalize the VI reference to its graph key (source path) ONCE, so every
+    # downstream graph lookup (child_nodes, top_level_nodes, var_name_in_use,
+    # clear_var_names) keys on the path directly instead of each re-resolving a
+    # bare name -- and var_name_in_use no longer silently falls back to scanning
+    # the whole graph when handed a bare filename. A no-op when already a key.
+    if graph is not None:
+        vi_name = graph.resolve_vi_name(vi_name)
+        # Clear any var_name scratch a prior build left on the graph's terminals
+        # so this build is idempotent (see InMemoryVIGraph.clear_var_names).
+        # No-op on a freshly loaded graph.
+        graph.clear_var_names(vi_name)
+
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
     ctx.import_resolver = import_resolver

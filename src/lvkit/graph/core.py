@@ -512,6 +512,24 @@ class InMemoryVIGraph(
                 t.var_name = var_name
                 return
 
+    def clear_var_names(self, vi_name: str) -> None:
+        """Clear the Python ``var_name`` scratch state on every terminal of a
+        VI's nodes.
+
+        ``var_name`` is generation-time scratch that codegen writes onto the
+        graph's terminals. Clearing it before a build makes code generation
+        IDEMPOTENT: a second ``build_module`` over the same graph starts from the
+        same clean state as the first and produces identical output, instead of
+        resolving through a prior run's stale bindings. A no-op on a freshly
+        loaded graph (the normal single-generation path)."""
+        resolved = self.resolve_vi_name(vi_name)
+        for node_id in self._vi_nodes.get(resolved, set()):
+            gnode = self._graph.nodes.get(node_id, {}).get("node")
+            if gnode is None:
+                continue
+            for t in gnode.terminals:
+                t.var_name = None
+
     def get_graph_node(self, node_id: str) -> AnyGraphNode | None:
         """Get the typed graph node for a node_id."""
         if not self._graph.has_node(node_id):

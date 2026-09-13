@@ -32,6 +32,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
 
     # Track shift register variable names for update statements
     shift_reg_vars: dict[str, str] = {}  # lSR outer_terminal -> var_name
+    # lSR outer terminals whose left side is wired from OUTSIDE the loop
+    # (an initializer). These are local accumulators: their right-side value
+    # must be fed back into the local each iteration so the loop advances.
+    # An UNINITIALIZED lSR (not in this set) is LabVIEW's functional-global
+    # idiom -- it persists across CALLS via a module global (see below), so
+    # its local must NOT be overwritten mid-loop; a separate branch reads the
+    # pre-update value after the loop (e.g. the OpenG "Changed?" family).
+    initialized_sr_outers: set[str] = set()
     # (global_name, lsr_outer_term, fallback_shift_var) for uninitialized
     # SRs -- written back to the module global after the loop so the next
     # VI call sees them. The final value used is looked up after step 5
@@ -62,6 +70,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 pre_loop_stmts.append(build_assign(shift_var, parse_expr(outer_var)))
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
+                initialized_sr_outers.add(outer_term)
             else:
                 # Uninitialized shift register: nothing wired into the
                 # left terminal from outside the loop. In LabVIEW this is
@@ -317,17 +326,16 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
                 bindings[outer_term] = updated_var
                 # Feed the new value back into the lSR local for the NEXT
-                # iteration ONLY when it is genuine accumulation -- i.e. the
-                # new value is computed FROM the SR's current value
-                # (`counter = counter + 1`). When the new value is INDEPENDENT
-                # of the SR (a functional global storing an external input,
-                # e.g. the OpenG "Changed?" family: `state_new = u16`), we must
-                # NOT overwrite: rsr_shift_var still holds the PRE-update value
-                # that a separate branch consumes after the loop (the
-                # `old != new` comparison). Overwriting only where there is real
-                # feedback keeps those branch consumers correct without needing
-                # a per-iteration snapshot.
-                if _expr_references(inner_val, rsr_shift_var):
+                # iteration when the SR is INITIALIZED (a local accumulator):
+                # its next value is whatever the body wired to the right side
+                # -- `counter + 1`, a case-merged array, the found index + 1 --
+                # and it MUST advance each iteration regardless of whether that
+                # expression textually mentions the SR var. An UNINITIALIZED SR
+                # is skipped: it is the functional-global idiom whose state
+                # persists across CALLS via the module global below, and whose
+                # pre-update value is read by a post-loop branch (the OpenG
+                # "Changed?" `old != new`), so an in-loop write would clobber it.
+                if lsr_outer in initialized_sr_outers:
                     sr_feedbacks.append((rsr_shift_var, updated_var))
             else:
                 bindings[outer_term] = rsr_shift_var
@@ -402,21 +410,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         bindings=bindings,
         imports=inner_ctx.imports,
     )
-
-
-def _expr_references(expr_str: str, var: str) -> bool:
-    """True if the Python expression ``expr_str`` reads the name ``var``.
-
-    Used to detect true shift-register accumulation: the rSR's new value is
-    computed FROM the SR's current value (so it must be fed back for the next
-    iteration), versus an independent value (which must not overwrite the lSR
-    local a separate branch still reads). AST-based so ``state`` does not match
-    ``state2``."""
-    try:
-        tree = ast.parse(expr_str, mode="eval")
-    except SyntaxError:
-        return False
-    return any(isinstance(n, ast.Name) and n.id == var for n in ast.walk(tree))
 
 
 def _make_var_name(tunnel: Tunnel, ctx: CodeGenContext | None = None) -> str:

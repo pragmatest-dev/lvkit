@@ -46,6 +46,11 @@ OPENG_COMPARISON_DIR = Path(
     "comparison.llb"
 )
 U16_CHANGED_VI = OPENG_COMPARISON_DIR / "U16 Changed__ogtk.vi"
+OPENG_ARRAY_DIR = Path(
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/array/"
+    "array.llb"
+)
+SEARCH_1D_I32_VI = OPENG_ARRAY_DIR / "Search 1D Array (I32)__ogtk.vi"
 
 
 def _skip_if_missing(*paths: Path) -> None:
@@ -551,3 +556,46 @@ class TestU16ChangedPersistentState:
         state_name_b = next(k for k in ns_b if k.startswith("_lv_state_"))
         assert ns_a[state_name_a] == 99
         assert ns_b[state_name_b] == 0  # untouched -- separate namespace
+
+
+class TestShiftRegisterAccumulation:
+    """Accumulate-in-loop shift registers whose next-iteration value is wired
+    through a case-structure output tunnel. Guards the exact bug this task
+    fixes: the initialized SR must feed back each iteration AND the case output
+    tunnel must merge each frame's value -- otherwise the loop silently returns
+    empty. Executes the generated logic and asserts real output."""
+
+    VI_NAME = "Search 1D Array (I32)__ogtk.vi"
+
+    def _func(self):
+        _skip_if_missing(SEARCH_1D_I32_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        code = _generate(graph, self.VI_NAME)
+        assert_valid_python(code, self.VI_NAME)
+        assert_no_garbage(code, self.VI_NAME)
+        ns: dict = {}
+        exec(compile(code, "<search_1d_array_i32>", "exec"), ns)  # noqa: S102
+        return ns["search_1d_array_i32__ogtk"]
+
+    def test_accumulates_every_matching_index(self):
+        """Search must return ALL matching indices, not [] -- the accumulator
+        SR (via a case output tunnel) and the search-cursor SR both advance."""
+        func = self._func()
+        assert list(func([5, 3, 5, 7, 5], 5).indices_of_elements) == [0, 2, 4]
+        assert list(func([1, 2, 3], 2).indices_of_elements) == [1]
+
+    def test_no_match_returns_empty(self):
+        func = self._func()
+        assert list(func([1, 2, 3], 9).indices_of_elements) == []
+
+    def test_build_is_idempotent(self):
+        """A second build over the SAME graph produces byte-identical output:
+        var_name scratch is cleared per build, so a re-generation never resolves
+        through the prior run's stale bindings (the flakiness this guards)."""
+        _skip_if_missing(SEARCH_1D_I32_VI)
+        graph = InMemoryVIGraph()
+        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        c1 = _generate(graph, self.VI_NAME)
+        c2 = _generate(graph, self.VI_NAME)
+        assert c1 == c2

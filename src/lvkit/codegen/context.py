@@ -258,27 +258,43 @@ class CodeGenContext:
                     continue
 
                 # This terminal IS a tunnel inner — derive name from outer
-                outer_id = term.paired_id
-
-                # Priority 1: downstream consumer of the outer terminal
-                for outer_dest in self.graph.outgoing_edges(outer_id):
-                    # Skip self-edges (tunnel inner terminals on same structure)
-                    if outer_dest.node_id == dest.node_id:
-                        continue
-                    if outer_dest.name:
-                        name = to_var_name(outer_dest.name)
-                        self._allocated_vars.add(name)
-                        return name
-
-                # Priority 2: outer terminal's own name
-                outer_term = next(
-                    (t for t in dest_gnode.terminals if t.id == outer_id),
-                    None,
-                )
-                if outer_term and outer_term.name:
-                    name = to_var_name(outer_term.name)
+                name = self.output_tunnel_var_name(term.paired_id, dest.node_id)
+                if name:
                     self._allocated_vars.add(name)
                     return name
+
+        return None
+
+    def output_tunnel_var_name(
+        self, outer_id: str, structure_node_id: str
+    ) -> str | None:
+        """Variable name for a structure output tunnel's merge, derived from
+        its outer terminal: the downstream consumer's name, else the outer
+        terminal's own name. ``None`` when neither is named — the caller then
+        picks a fallback.
+
+        A case output tunnel is a MERGE: one outer terminal, one inner per
+        frame. All of a frame's producers and the case generator resolve the
+        merge variable through THIS one derivation, so every frame writes the
+        same name and no override table is needed.
+        """
+        if self.graph is None:
+            return None
+
+        # Priority 1: downstream consumer of the outer terminal (skip edges
+        # back into the same structure — its own inner tunnel terminals).
+        for outer_dest in self.graph.outgoing_edges(outer_id):
+            if outer_dest.node_id == structure_node_id:
+                continue
+            if outer_dest.name:
+                return to_var_name(outer_dest.name)
+
+        # Priority 2: the outer terminal's own name.
+        node = self.graph._graph.nodes.get(structure_node_id, {}).get("node")
+        if node is not None:
+            outer_term = next((t for t in node.terminals if t.id == outer_id), None)
+            if outer_term and outer_term.name:
+                return to_var_name(outer_term.name)
 
         return None
 

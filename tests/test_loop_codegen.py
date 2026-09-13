@@ -9,7 +9,6 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
 from lvkit.codegen.nodes.loop import (
     _build_while_loop,
-    _expr_references,
     _get_dest_terminal_name,
     _get_source_terminal_name,
     _make_var_name,
@@ -132,24 +131,6 @@ class TestMakeVarName:
 
         var_name = _make_var_name(tunnel, ctx)
         assert var_name == "value"
-
-
-class TestExprReferences:
-    """Tests for loop._expr_references (accumulation vs independent SR value)."""
-
-    def test_accumulation_references_sr(self):
-        assert _expr_references("counter + 1", "counter") is True
-        assert _expr_references("acc * factor", "acc") is True
-
-    def test_independent_value_does_not_reference_sr(self):
-        assert _expr_references("u16", "state") is False
-        assert _expr_references("some_input + 1", "state") is False
-
-    def test_name_is_not_substring_matched(self):
-        assert _expr_references("state2 + 1", "state") is False
-
-    def test_malformed_expression_is_safe(self):
-        assert _expr_references("", "state") is False
 
 
 class TestSingularize:
