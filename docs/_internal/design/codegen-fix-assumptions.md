@@ -16,6 +16,26 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### Case structure ↔ selector table correlated DIRECTLY via tdOffset (the real link)
+The positional case↔table correlation (sort cases by VCTP index, sort tables by
+DataFill TypeID, zip) broke whenever a deleted case left an ORPHAN table, and no
+heuristic (literal-vs-symbolic, single-case gating) resolved the multi-case case
+safely. The real link was in the binary all along and the parser discarded it: a
+case's select node carries **`tdOffset`**, a client index into the dataspace type
+map, and **`tdOffset + TM80.IndexShift` = the TypeID of that case's DataFill
+selector table** (verified: Remove Dup 11+2=13; To Camel Case 8+6=14; Trim
+Whitespace's two cases 9+2=11 and 11+2=13, orphan type_id=29 referenced by
+neither). `_apply_selector_tables` now correlates each case to its table by this
+direct TypeID (positional zip kept only as a fallback for a case with no
+tdOffset). This fixes MULTI-case VIs the heuristic couldn't: Trim Whitespace's
+leading/trailing/both modes are now each correct (the enum really is 0=leading,
+1=trailing, 2=both — the old boolean-guess accidentally matched a WRONG test that
+assumed 0=both; test corrected), and Sort's `method_magnitude` recovers its third
+mode (0=real, 1=imag, 2=magnitude→`abs`) that the boolean guess dropped. Parser
+threads the TM80 IndexShift through; the now-unused `has_open_bound` heuristic was
+removed. Verified by execution + full suite green (the earlier single-case
+literal/gating machinery is superseded by this).
+
 ### Case output tunnel seeds its default in a pass/unwired frame
 `_resolve_output_tunnels` (codegen/nodes/case.py) aliased an output tunnel
 straight to a single produced value when every frame had an inner terminal —

@@ -210,11 +210,6 @@ class SelectorTable:
     ranges: list[tuple[int, int, int]] = field(default_factory=list)
     #: value strings for a string selector; empty for numeric/enum/boolean
     strings: list[str] = field(default_factory=list)
-    #: True when a range endpoint is a SYMBOLIC filler (a nonzero range-type on
-    #: an INT_MIN/INT_MAX sentinel — an open bound). Used only to prefer
-    #: fully-literal tables when more tables than cases exist (an orphan table
-    #: left by a deleted case tends to be a symbolic open range).
-    has_open_bound: bool = False
 
     @property
     def has_strings(self) -> bool:
@@ -235,6 +230,11 @@ class ParsedCaseStructure:
     # the dataspace ``DataFill`` TypeID order — used to correlate each case to
     # its ``SelectorTable``.
     selector_vctp_index: int | None = None
+    # The select node's ``tdOffset`` — a client index into the dataspace type
+    # map (TM80). Adding the TM80 ``IndexShift`` yields the TypeID of THIS case's
+    # ``DataFill`` selector table, so each case maps DIRECTLY to its table (no
+    # positional guess; orphan tables from deleted cases are simply unreferenced).
+    selector_table_offset: int | None = None
     # Frame LabVIEW last displayed (from the correlated SelectorTable). None if
     # no table correlated. Consumed by the renderer's faithful initial view.
     displayed_frame: int | None = None

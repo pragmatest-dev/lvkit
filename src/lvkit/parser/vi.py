@@ -190,7 +190,7 @@ def parse_vi(
     # Parse case-structure selector-value tables from the dataspace XML. These
     # carry the real per-frame selector labels, which the block-diagram heap
     # does not (see parse_selector_tables / _apply_selector_tables).
-    selector_tables = _parse_selector_tables(main_xml)
+    selector_tables, table_index_shift = _parse_selector_tables(main_xml)
 
     # Parse block diagram (+ optional geometry from the SAME parsed heap)
     block_diagram, bd_layout = _parse_block_diagram(
@@ -200,6 +200,7 @@ def parse_vi(
         selector_tables,
         want_layout=layout,
         main_xml=main_xml,
+        table_index_shift=table_index_shift,
     )
 
     # Parse front panel
@@ -341,14 +342,25 @@ def _parse_metadata(
 
 def _parse_selector_tables(
     main_xml_path: Path | str | None,
-) -> list[SelectorTable]:
-    """Parse case selector-value tables from the main dataspace XML."""
+) -> tuple[list[SelectorTable], int]:
+    """Parse case selector-value tables + the TM80 IndexShift from the main
+    dataspace XML. The shift converts a case's ``tdOffset`` (a TM80 client
+    index) to its table's absolute DataFill TypeID (see _apply_selector_tables).
+    """
     if main_xml_path is None:
-        return []
+        return [], 0
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
-        return []
-    return parse_selector_tables(ET.parse(main_xml).getroot())
+        return [], 0
+    root = ET.parse(main_xml).getroot()
+    tm80 = root.find("TM80/Section")
+    shift = 0
+    if tm80 is not None and (raw := tm80.get("IndexShift")) is not None:
+        try:
+            shift = int(raw)
+        except ValueError:
+            shift = 0
+    return parse_selector_tables(root), shift
 
 
 def _parse_block_diagram(
@@ -359,6 +371,7 @@ def _parse_block_diagram(
     *,
     want_layout: bool = False,
     main_xml: Path | str | None = None,
+    table_index_shift: int = 0,
 ) -> tuple[ParsedBlockDiagram, Layout | None]:
     """Parse block diagram from BD XML.
 
@@ -390,6 +403,7 @@ def _parse_block_diagram(
         root,
         terminal_info,
         selector_tables,
+        table_index_shift,
     )
     flat_sequences = extract_flat_sequences(root)
     decompose_structures = extract_decompose_structures(root)

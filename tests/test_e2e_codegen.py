@@ -662,10 +662,18 @@ class TestTrimWhitespace:
 
     def test_trims_leading_and_trailing_whitespace(self):
         func = self._func()
-        # mode 0 = "remove leading and trailing"
-        assert func("  hi there  ", 0).string_out == "hi there"
-        assert func("\t\tabc\t", 0).string_out == "abc"
-        assert func("nows", 0).string_out == "nows"  # no whitespace, unchanged
-        assert func("   ", 0).string_out == ""  # all whitespace
-        assert func("  lead", 0).string_out == "lead"
-        assert func("trail  ", 0).string_out == "trail"
+        # The enum "Remove (leading and trailing)" is 0=leading, 1=trailing,
+        # 2=both (from the VI's own enum labels + the case selector tables) —
+        # mode 2 is "both", NOT mode 0.
+        assert func("  hi there  ", 2).string_out == "hi there"
+        assert func("\t\tabc\t", 2).string_out == "abc"
+        assert func("nows", 2).string_out == "nows"  # no whitespace, unchanged
+        assert func("   ", 2).string_out == ""  # all whitespace
+        assert func("  lead", 2).string_out == "lead"
+        assert func("trail  ", 2).string_out == "trail"
+
+    def test_trims_one_side_per_mode(self):
+        func = self._func()
+        # 0 = leading only, 1 = trailing only (per the enum labels).
+        assert func("  hi  ", 0).string_out == "hi  "
+        assert func("  hi  ", 1).string_out == "  hi"

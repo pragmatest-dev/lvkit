@@ -76,6 +76,7 @@ def extract_case_structures(
     root: ET.Element,
     terminal_info: dict[str, ParsedTerminalInfo] | None = None,
     selector_tables: list[SelectorTable] | None = None,
+    table_index_shift: int = 0,
 ) -> list[ParsedCaseStructure]:
     """Extract case structures with frame mappings.
 
@@ -88,6 +89,9 @@ def extract_case_structures(
             (parsed from the main ``*.xml``). When present and consistent, they
             supply the real per-frame selector values that are absent from the
             block-diagram heap.
+        table_index_shift: the dataspace type map (TM80) ``IndexShift``. Added to
+            a case's ``selector_table_offset`` (its ``tdOffset``) it yields that
+            case's DataFill TypeID — the direct case→table link.
 
     Returns:
         List of ParsedCaseStructure with frame mappings
@@ -108,7 +112,7 @@ def extract_case_structures(
             case_structures.append(cs)
 
     if selector_tables:
-        _apply_selector_tables(case_structures, selector_tables)
+        _apply_selector_tables(case_structures, selector_tables, table_index_shift)
 
     return case_structures
 
@@ -385,11 +389,23 @@ def _extract_one_case_structure(
                     frame.selector_ranges = ranges
                 frames.append(frame)
 
+    # tdOffset: the select node's client index into the dataspace type map;
+    # +TM80 IndexShift = this case's DataFill selector-table TypeID (the direct
+    # case->table link resolved in _apply_selector_tables). Stored as hex.
+    td_offset_text = case_elem.findtext("tdOffset")
+    selector_table_offset: int | None = None
+    if td_offset_text:
+        try:
+            selector_table_offset = int(td_offset_text, 16)
+        except ValueError:
+            selector_table_offset = None
+
     return ParsedCaseStructure(
         uid=case_uid,
         selector_terminal_uid=selector_terminal_uid,
         selector_type=selector_type,
         selector_vctp_index=selector_vctp_index,
+        selector_table_offset=selector_table_offset,
         # Case Insensitive Match only applies to string selectors.
         case_insensitive=case_insensitive and selector_type == "string",
         frames=frames,
@@ -588,23 +604,14 @@ def _decode_selector_table(
         return None
     range_clusters = kids[2].findall("Cluster")
     ranges: list[tuple[int, int, int]] = []
-    has_open_bound = False
     for rc in range_clusters:
         fields = list(rc)
         if [f.tag for f in fields] != ["I32", "I32", "U8", "U8", "I16"]:
             return None
         start = int(fields[0].text or "0")
         end = int(fields[1].text or "0")
-        start_type = int(fields[2].text or "0")
-        end_type = int(fields[3].text or "0")
         diag = int(fields[4].text or "0")
         ranges.append((start, end, diag))
-        # A nonzero range-type on an INT_MIN/INT_MAX sentinel is a symbolic
-        # OPEN bound (mirrors the BD SelectRangeArray32 filler rule).
-        if (start_type != 0 and start in (_I32_MIN, _I32_MAX)) or (
-            end_type != 0 and end in (_I32_MIN, _I32_MAX)
-        ):
-            has_open_bound = True
     # A genuine selector table always has at least one range.
     if not ranges:
         return None
@@ -615,57 +622,61 @@ def _decode_selector_table(
         displayed_frame=displayed,
         ranges=ranges,
         strings=strings,
-        has_open_bound=has_open_bound,
     )
+
+
+def _table_fits_case(case: ParsedCaseStructure, table: SelectorTable) -> bool:
+    """Whether ``table`` is structurally consistent with ``case`` — same kind
+    (a string table iff a string case) and every diagram/displayed index in
+    range. A negative ``displayed_frame`` is the "none displayed" sentinel."""
+    if (case.selector_type == "string") != table.has_strings:
+        return False
+    n_frames = len(case.frames)
+    if table.displayed_frame >= n_frames:
+        return False
+    return all(0 <= diag < n_frames for _s, _e, diag in table.ranges)
 
 
 def _apply_selector_tables(
     cases: list[ParsedCaseStructure],
     tables: list[SelectorTable],
+    index_shift: int = 0,
 ) -> None:
     """Correlate dataspace selector tables to case structures and apply values.
 
-    The correlation is deterministic and self-checking, never a guess: cases
-    ordered by their selector-type VCTP index (``selector_vctp_index``) line up
-    one-to-one with tables ordered by ``DataFill`` TypeID, because LabVIEW
-    assigns both indices in the same DCO-enumeration pass.
+    PRIMARY (direct link): a case's ``selector_table_offset`` (its select node's
+    ``tdOffset``, a TM80 client index) plus the TM80 ``index_shift`` IS the
+    TypeID of that case's ``DataFill`` selector table. This maps each case to its
+    own table with no positional guessing, so multi-case VIs and orphan tables
+    (left by a deleted case, referenced by no surviving case) resolve correctly.
 
-    A BOOLEAN case DOES store a table — a 0/1 range pair naming which diagram is
-    True and which is False (the diagram order is NOT reliably [False, True], so
-    the index fallback is wrong for cases authored True-first). So booleans are
-    included in the correlation. But a boolean whose table is absent would, if
-    included, inflate the count and abort the whole VI — so we try the
-    boolean-INCLUSIVE correlation first and fall back to the boolean-EXCLUDED
-    set, preserving non-boolean correlation when a table-less boolean coexists
-    with a tabled non-boolean case.
-
-    Application only proceeds if the counts match AND every zipped pair is
-    kind-consistent (a string table iff a string case) AND every frame/displayed
-    index is in range. Any inconsistency aborts that attempt rather than risk a
-    wrong label.
+    FALLBACK (positional): for any case the direct link doesn't resolve (no
+    ``tdOffset``, or the named table is missing/inconsistent), correlate the
+    still-unassigned cases and tables by order — cases by VCTP index against
+    tables by TypeID — boolean-inclusive first, then boolean-excluded so a
+    table-less boolean can't abort a tabled case's correlation.
     """
-    with_vctp = [c for c in cases if c.selector_vctp_index is not None]
+    tables_by_id = {t.type_id: t for t in tables}
+    applied: set[int] = set()
+    used_type_ids: set[int] = set()
+    for case in cases:
+        if case.selector_table_offset is None:
+            continue
+        table = tables_by_id.get(case.selector_table_offset + index_shift)
+        if table is not None and _table_fits_case(case, table):
+            _apply_one_table(case, table)
+            applied.add(id(case))
+            used_type_ids.add(table.type_id)
+
+    leftover_cases = [c for c in cases if id(c) not in applied]
+    leftover_tables = [t for t in tables if t.type_id not in used_type_ids]
+    if not leftover_cases or not leftover_tables:
+        return
+    with_vctp = [c for c in leftover_cases if c.selector_vctp_index is not None]
     non_boolean = [c for c in with_vctp if c.selector_type != "boolean"]
-    # A deleted case leaves an ORPHAN table behind, over-subscribing the
-    # correlation (more tables than cases) and aborting it — leaving a wrong
-    # fallback (e.g. Remove Duplicates' Search-result case rendered `case 1`
-    # instead of `case -1`). The orphan tends to be a symbolic OPEN range, so
-    # when there are more tables than cases, also try the fully-literal tables
-    # alone. A real open-range case is unaffected: with no orphan its counts
-    # match and the all-tables attempt above wins first.
-    literal_tables = [t for t in tables if not t.has_open_bound]
     for case_subset in (with_vctp, non_boolean):
-        table_options = [tables]
-        # The literal-only fallback is ONLY safe for a SINGLE case: picking the
-        # one literal table for one case is unambiguous. With multiple cases,
-        # dropping the symbolic tables can misalign the positional zip and apply
-        # the wrong table to the wrong case (observed miscorrelating Trim
-        # Whitespace's two case structures), so it is not attempted there.
-        if len(case_subset) == 1 and len(literal_tables) == 1:
-            table_options.append(literal_tables)
-        for table_subset in table_options:
-            if _try_apply_selector_tables(case_subset, table_subset):
-                return
+        if _try_apply_selector_tables(case_subset, leftover_tables):
+            return
 
 
 def _try_apply_selector_tables(
