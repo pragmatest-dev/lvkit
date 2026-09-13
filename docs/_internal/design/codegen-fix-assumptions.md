@@ -16,6 +16,24 @@ why, and how it was verified. Revisit any of these if they prove wrong.
 
 <!-- append entries below -->
 
+### OPEN BUG (found by executing, not yet fixed): polymorphic SubVI call kwarg-name mismatch
+A caller of a polymorphic SubVI emits `wrapper(<poly-pane-name>=value)` but the
+generated poly wrapper's parameter is named from the VARIANTS, so the names
+disagree and the call raises `TypeError: unexpected keyword argument`. Concrete:
+Filter 1D Array (I32) calls `remove_duplicates_from_1d_array__ogtk(array=...)`
+but the wrapper is `def remove_duplicates_from_1d_array__ogtk(input_array=None)`.
+Root: subvi call codegen takes the kwarg name from the caller's enriched
+terminal (the POLY VI's connector-pane name, "array"); `_generate_polymorphic_
+module` (pipeline.py) names the wrapper params from the union of VARIANT inputs
+("input array"). NOTE: the poly VI's OWN `get_vi_context(...).inputs` is empty,
+so naming the wrapper params from the poly pane is NOT available — the viable fix
+is to emit POSITIONAL args when calling a poly wrapper (order by slot), which is
+robust to the name divergence. Affects any poly SubVI whose pane terminal name
+!= variant input name. Also observed nearby (separate, bigger concern): the
+wrapper ALWAYS dispatches to the FIRST variant (`_path__ogtk`) regardless of
+input type — `_lv_dispatch` only filters kwargs, it does not select a variant by
+type, so every poly SubVI call runs variant #1.
+
 ### 5. Attribute access on a substituted literal (bit_length templates)
 Number To Boolean Array (prim 1814) and Join Numbers (1171) used
 `in_1.bit_length()`; when `in_1` substitutes to an integer LITERAL the result is
