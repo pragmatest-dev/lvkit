@@ -349,3 +349,18 @@ own name when present). The `should_stop`->`combined` rename is cosmetic across
 the corpus; the substantive change is correct per-node identity. Single-output
 "Array Changed" VIs were never miscompiled (one node per function) — only their
 variable name changed.
+
+### Build Array / Concatenate Strings outputs also route through make_output_var
+Same class as the compound-arithmetic naming fix, completing the choke-point
+routing: `generate_array_build` used `_make_array_var_name(...)` and
+`generate_concat_strings` used `to_var_name(out_name) or "concatenated_string"`
+as the variable name DIRECTLY, bypassing `ctx.make_output_var()`. So neither
+uniquified on collision nor deferred to output-tunnel naming. Both now route the
+base through `ctx.make_output_var(base, node.id, terminal_id=output_id)` like
+every other output. No confirmed wrong-output manifestation in the corpus (the
+build-array collisions that exist sit in mutually-exclusive match branches and
+are consumed immediately; concat had no in-scope collision), so this is a
+consistency/robustness fix that also closes the cross-scope tunnel-sharing gap —
+verified: only number/place-number-to-proper-engl-text change (each concat gets a
+distinct name, every consumer binds to its real source node), all parse, full
+functional suite green.

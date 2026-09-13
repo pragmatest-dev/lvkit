@@ -271,7 +271,9 @@ def generate_array_build(
         else:
             parts.append(ast.List(elts=[ast.Constant(value=None)], ctx=ast.Load()))
 
-    var_name = _make_array_var_name(input_names)
+    var_name = ctx.make_output_var(
+        _make_array_var_name(input_names), node.id, terminal_id=output_id
+    )
 
     if not parts:
         expr: ast.expr = ast.List(elts=[], ctx=ast.Load())
@@ -329,7 +331,9 @@ def generate_concat_strings(
             expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
 
     out_name = outputs[0].name
-    var_name = to_var_name(out_name) if out_name else "concatenated_string"
+    var_name = ctx.make_output_var(
+        out_name or "concatenated_string", node.id, terminal_id=output_id
+    )
 
     return CodeFragment(
         statements=[build_assign(var_name, expr)],
