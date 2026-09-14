@@ -34,10 +34,13 @@ def index_array(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
     out = next((t for t in node.terminals if t.direction == "output"), None)
     elem = out.lv_type if out else None
     if elem is not None and elem.kind == LVTypeKind.ARRAY:
-        # Multi-dimensional index: leave a plain subscript; the expandable
-        # machinery composes the dimensions and a per-dimension default would be
-        # an empty inner array the next subscript can't safely index.
-        return "in_0[int(in_2)]"
+        # Partial index of a multi-dimensional array: indexing one dimension
+        # yields a SUBARRAY (e.g. a row of a 2-D array). LabVIEW returns an EMPTY
+        # subarray for an out-of-range index rather than raising, so use the
+        # runtime helper with an empty-array default -- a real caller with a
+        # populated array is unaffected, and an empty/short array no longer
+        # IndexErrors (e.g. Sort/Reverse 2D Array on an empty input).
+        return "_lv.index_array(in_0, in_2, [])"
     # 1D: return the element's real default on out-of-range (LabVIEW semantics)
     # via the runtime helper, so the array expression is evaluated once.
     default = ast.unparse(default_value_expr(elem))

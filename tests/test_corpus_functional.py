@@ -243,6 +243,18 @@ def test_empty_1d_array() -> None:
     assert got.empty_array is False
 
 
+def test_2d_array_ops_survive_empty_input() -> None:
+    """A partial Index Array (one dimension of a 2-D array -> a row) returns an
+    EMPTY subarray for an out-of-range index, LabVIEW's behavior, instead of
+    raising IndexError -- so Sort/Reverse 2D Array no longer crash on an empty
+    array (they used to raise on `case_output[0]`)."""
+    for vi in (
+        "array/array.llb/Sort 2D Array (I32)__ogtk.vi",
+        "array/array.llb/Reverse 2D Array (I32)__ogtk.vi",
+    ):
+        _run_leaf(vi)  # all-default (empty) input must not raise
+
+
 def test_get_header_from_td_builds_cluster() -> None:
     """Get Header from TD constructs a typedef cluster from a constant and fills
     its fields via Bundle By Name -- exercises cluster-constant lowering (to a
