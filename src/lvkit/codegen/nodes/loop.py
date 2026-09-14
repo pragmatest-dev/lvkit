@@ -368,7 +368,6 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     terminal_id=outer_term,
                 )
                 inner_stmts.append(build_assign(updated_var, parse_expr(inner_val)))
-                bindings[outer_term] = updated_var
                 # Feed the new value back into the lSR local for the NEXT
                 # iteration when the SR is INITIALIZED (a local accumulator):
                 # its next value is whatever the body wired to the right side
@@ -381,6 +380,16 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # "Changed?" `old != new`), so an in-loop write would clobber it.
                 if lsr_outer in initialized_sr_outers:
                     sr_feedbacks.append((rsr_shift_var, updated_var))
+                    # A post-loop reader of an initialized SR reads the
+                    # loop-carried variable -- its initial value when the loop
+                    # runs 0 times, the last fed-back value otherwise -- NOT the
+                    # body-local updated_var, which is unbound if the body never
+                    # executes (e.g. an empty input array).
+                    bindings[outer_term] = rsr_shift_var
+                else:
+                    # Uninitialized (functional-global) SR: the module-global
+                    # writeback below reads this fresh updated_var.
+                    bindings[outer_term] = updated_var
             else:
                 bindings[outer_term] = rsr_shift_var
 
