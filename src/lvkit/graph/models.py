@@ -328,6 +328,12 @@ class ConstantNode(GraphNode):
     value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
+    # Human-readable DISPLAY form of a string constant, decoded with the LabVIEW
+    # codepage (a repr'd literal, like ``value``) — render/describe show this so
+    # CJK/localized text stays readable, while ``value`` is byte-faithful latin-1
+    # for codegen. None for non-string constants (``value`` is already legible).
+    # Mirrors the Terminal.name (codegen) vs display_name (display) split.
+    display_value: str | None = None
     # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
     # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser

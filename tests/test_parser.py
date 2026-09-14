@@ -2019,7 +2019,7 @@ class TestRealVIParsing:
         assert target is not None, "GTR's SMUI cluster constant not found"
 
         raw_uid = target.id.rsplit("::", 1)[-1]
-        _, decoded = decode_constant(
+        _, decoded, _ = decode_constant(
             ParsedConstant(uid=raw_uid, type_desc="", value=target.raw_value),
             lv_type=target.lv_type,
         )

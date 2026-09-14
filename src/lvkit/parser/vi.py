@@ -18,7 +18,6 @@ from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType, LVTypeKind
-from lvkit.text_encoding import decode_labview_text
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -1611,7 +1610,9 @@ def _decode_string_default(data: bytes) -> str | None:
             return None
         length = int.from_bytes(data[:4], "big")
         if len(data) >= 4 + length:
-            string_val = decode_labview_text(data[4 : 4 + length])
+            # Byte-preserving latin-1 (see _decode_element): a String is a byte
+            # array, so a text codec would corrupt binary data bytes to U+FFFD.
+            string_val = data[4 : 4 + length].decode("latin-1")
             escaped = string_val.replace("\\", "\\\\").replace('"', '\\"')
             return f'"{escaped}"'
     except ValueError:
@@ -1664,7 +1665,15 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         str_len = int.from_bytes(data[:4], "big")
         if len(data) < 4 + str_len:
             return None, 0
-        string_val = decode_labview_text(data[4 : 4 + str_len])
+        # A LabVIEW String is a BYTE array; decode it byte-preserving (latin-1:
+        # 0-255 <-> U+0000-U+00FF) so binary bytes survive losslessly into the
+        # generated code. A text codec (locale/UTF-8, errors="replace") corrupts
+        # non-ASCII data bytes to U+FFFD irreversibly -- e.g. the 0x80 pad byte in
+        # MD5's string constants. The runtime treats str as latin-1 bytes too (see
+        # _lv.type_cast), so this keeps parse and codegen consistent. Human-
+        # readable codepage text for DISPLAY is a separate value: ConstantNode
+        # carries display_value (see graph/construction.py decode_constant).
+        string_val = data[4 : 4 + str_len].decode("latin-1")
         # repr() yields a valid Python string literal with ALL escaping applied
         # (quotes, backslashes, and control bytes like \r\n\t). Manual quote-only
         # escaping left raw control bytes in the literal, which broke literal_eval

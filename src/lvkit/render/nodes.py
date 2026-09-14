@@ -1572,7 +1572,12 @@ class GeneratedGlyphResolver:
                 return _array_const_glyph(
                     node, ctx.array_element_cluster.get(raw_uid)
                 )
+            # Prefer the codepage-decoded display form (readable CJK/localized
+            # text) over the byte-faithful latin-1 codegen value; display_value
+            # is set only for string constants.
             raw = node.raw_value if node.value is None else node.value
+            if node.display_value is not None:
+                raw = node.display_value
             raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
             return _leaf_const_glyph(
                 node.lv_type,

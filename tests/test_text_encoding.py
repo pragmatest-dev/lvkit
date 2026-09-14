@@ -69,27 +69,39 @@ def test_windows_uses_active_ansi_code_page(
     assert labview_text_encoding() == "cp936"
 
 
-def test_string_defaults_and_constants_use_labview_encoding(
+def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A LabVIEW String is a byte array: the CODEGEN value is byte-faithful
+    (latin-1, so binary bytes survive losslessly into generated code), while the
+    human-readable DISPLAY value is codepage-decoded. Two separate values, like
+    Terminal.name (codegen) vs display_name (display)."""
+    from lvkit.graph.construction import decode_constant
+    from lvkit.parser.models import ParsedConstant
+
     monkeypatch.setattr(
         "lvkit.text_encoding.labview_text_encoding",
         lambda: "gbk",
     )
     encoded = "打开连接".encode("gbk")
     data = len(encoded).to_bytes(4, "big") + encoded
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
 
-    assert (
-        _decode_default_data(
-            _byte_entities(data),
-            "stdString",
-        )
-        == '"打开连接"'
+    # Codegen decoders are byte-faithful (latin-1): the raw bytes round-trip.
+    byte_faithful = encoded.decode("latin-1")
+    assert _decode_default_data(_byte_entities(data), "stdString") == (
+        '"' + byte_faithful.replace("\\", "\\\\").replace('"', '\\"') + '"'
     )
-    assert _decode_element(
-        data,
-        LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
-    ) == ("'打开连接'", len(data))
+    assert _decode_element(data, string_type) == (repr(byte_faithful), len(data))
+
+    # A string constant carries BOTH: codegen value (byte-faithful) and
+    # display_value (codepage-decoded, readable CJK).
+    _, value, display_value = decode_constant(
+        ParsedConstant(uid="c", type_desc="", value=data.hex()),
+        lv_type=string_type,
+    )
+    assert value == repr(byte_faithful)
+    assert display_value == repr("打开连接")
 
 
 def test_libd_names_use_labview_encoding(

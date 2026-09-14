@@ -41,6 +41,7 @@ from ..parser.node_types import (
 from ..parser.vi import _decode_element
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..primitive_resolver import resolve_primitive
+from ..text_encoding import decode_labview_text
 from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders import (
@@ -108,11 +109,28 @@ def _dispatch_class_names(terminals: list[Terminal]) -> list[str]:
     return out
 
 
+def _string_display_value(raw_bytes: bytes) -> str | None:
+    """Codepage-decoded, repr'd DISPLAY form of a length-prefixed String
+    constant's bytes (for render/describe), or None if it isn't a well-formed
+    string. Kept separate from the byte-faithful latin-1 codegen value so
+    CJK/localized text stays readable while binary bytes round-trip in codegen."""
+    if len(raw_bytes) < 4:
+        return None
+    n = int.from_bytes(raw_bytes[:4], "big")
+    if len(raw_bytes) < 4 + n:
+        return None
+    return repr(decode_labview_text(raw_bytes[4 : 4 + n]))
+
+
 def decode_constant(
     const: ParsedConstant,
     lv_type: LVType | None = None,
-) -> tuple[str, str]:
-    """Decode a constant value to (python_type, human_readable_value).
+) -> tuple[str, str, str | None]:
+    """Decode a constant to (python_type, codegen_value, display_value).
+
+    ``codegen_value`` is byte-faithful (latin-1) for correct execution;
+    ``display_value`` is the codepage-decoded readable form for a string
+    constant (else None). See ConstantNode.display_value.
 
     Args:
         const: The constant to decode
@@ -124,14 +142,19 @@ def decode_constant(
         raw_bytes = bytes.fromhex(value)
         underlying = getattr(lv_type, "underlying_type", "")
         if underlying == "Boolean" and len(raw_bytes) > 1:
-            return (lv_type.to_python(), "True" if any(raw_bytes) else "False")
+            return (lv_type.to_python(), "True" if any(raw_bytes) else "False", None)
         decoded, _ = _decode_element(raw_bytes, lv_type)
+        display = (
+            _string_display_value(raw_bytes)
+            if underlying in ("String", "Tag")
+            else None
+        )
         py_type = lv_type.to_python()
         if decoded is not None:
-            return (py_type, decoded)
-        return (py_type, get_default_for_type(lv_type))
+            return (py_type, decoded, display)
+        return (py_type, get_default_for_type(lv_type), display)
 
-    return ("raw", value)
+    return ("raw", value, None)
 
 
 # Type categories for terminal matching
@@ -444,7 +467,7 @@ class ConstructionMixin:
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
 
-            _, decoded_value = decode_constant(const, lv_type=lv_type)
+            _, decoded_value, display_value = decode_constant(const, lv_type=lv_type)
 
             q_const_uid = self._qid(vi_key, const.uid)
             # Single output terminal
@@ -461,6 +484,7 @@ class ConstructionMixin:
                 value=decoded_value,
                 lv_type=lv_type,
                 raw_value=const.value,
+                display_value=display_value,
                 label=const.label,
                 display_format=const.display_format,
                 collapsed=const.collapsed,
