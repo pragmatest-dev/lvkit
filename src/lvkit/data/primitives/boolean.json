@@ -272,10 +272,9 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "boolean array": "[bool((in_1 >> i) & 1) for i in range((in_1).bit_length() or 8)]"
-      },
-      "verified": false
+      "op": "NUMBER_TO_BOOLEAN_ARRAY",
+      "verified": true,
+      "note": "Array length is the input's integer TYPE width, not the value's bit_length. Emitted via the NUMBER_TO_BOOLEAN_ARRAY op handler, which reads the width from the number input's int type."
     },
     "1815": {
       "name": "Boolean Array To Number",

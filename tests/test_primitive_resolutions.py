@@ -155,6 +155,13 @@ def test_type_cast_resolves_and_reinterprets_bytes():
         lv.type_cast(1.0, "f64", "str")
 
 
+def test_number_to_boolean_array_uses_type_width():
+    """Number To Boolean Array (1814) resolves via the NUMBER_TO_BOOLEAN_ARRAY op
+    handler, whose array length is the input's integer TYPE width, not the value's
+    bit_length (a U32 always yields 32 bits, even for small/zero values)."""
+    assert get_resolver().resolve(prim_id=1814).op == "NUMBER_TO_BOOLEAN_ARRAY"
+
+
 def test_numeric_primitives_are_elementwise():
     res = get_resolver()
     # Add, Subtract, Multiply, Sign all broadcast over arrays
