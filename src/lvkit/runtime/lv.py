@@ -306,6 +306,17 @@ def index_array(arr, i, default):
     return arr[j] if 0 <= j < len(arr) else default
 
 
+def array_subset(arr, index, length):
+    """Array Subset (node class ``subset``): the contiguous run of ``length``
+    elements starting at ``index``. An UNWIRED length is ``None`` -- LabVIEW then
+    returns the rest of the array from ``index`` to the end (not an empty run).
+    Python slicing clips both ends to the array bounds, matching LabVIEW."""
+    i = int(index)
+    if length is None:
+        return arr[i:]
+    return arr[i:i + int(length)]
+
+
 def _spreadsheet_convert(x: str, elem: str):
     """Convert one spreadsheet field to the array element type (LabVIEW scans an
     unparseable/empty numeric field as the numeric default, never raising)."""

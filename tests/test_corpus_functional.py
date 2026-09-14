@@ -406,3 +406,21 @@ def test_md5_message_digest_matches_known_vectors() -> None:
         )
         got = r.md5_message_digest.encode("latin-1").hex()
         assert got == hashlib.md5(msg.encode()).hexdigest(), f"MD5({msg!r})"
+
+
+def test_compare_two_paths_common_and_relative() -> None:
+    """Compare Two Paths - Scalar walks both paths' components to the first
+    difference and returns the shared prefix. Exercises Array Subset with a wired
+    length (common prefix, `arr[0:state]`) and an UNWIRED length (the remainder
+    `arr[index:]` -- LabVIEW's "rest of array", not an empty run), plus the
+    expandable index/length name substitution."""
+    from pathlib import Path
+
+    r = _run_leaf(
+        "file/file.llb/Compare Two Paths - Scalar__ogtk.vi",
+        Path("/a/b/c"),
+        Path("/a/b/d"),
+    )
+    assert str(r.common_path) == "/a/b"
+    assert str(r.relative_path_from_1_to_2) == "d"
+    assert r.different_types is False

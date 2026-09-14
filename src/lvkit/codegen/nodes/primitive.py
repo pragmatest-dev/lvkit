@@ -379,6 +379,16 @@ def _build_input_map(
             name = resolved_inputs.get(base_idx, ("expandable",))[0]
             key = to_var_name(name) + "_values"
             input_map[key] = ", ".join(values)
+    # Also expose each expandable group under its bare terminal NAME, so a
+    # template that references the input by name works in the common 1-D case
+    # (Array Subset's `array[index:index + length]` -- index/length are
+    # "expandable" for N-D, but a single dimension resolves to one value each).
+    for base_idx, values in expandable_groups.items():
+        name = resolved_inputs.get(base_idx, ("",))[0]
+        if name and name not in input_map:
+            joined = ", ".join(values)
+            input_map[name] = joined
+            input_map[to_var_name(name)] = joined
 
     # Fill defaults for template terminals the heap did not serialize at all
     # (truly-absent optional terminals). NOTE: merely UNWIRED terminals DO

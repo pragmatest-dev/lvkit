@@ -260,11 +260,12 @@
           "direction": "in",
           "name": "length",
           "type": "numeric",
+          "default_value": "None",
           "dco_ref": "lengthDCOList",
           "expandable": true
         }
       ],
-      "python_code": "array[index:index + length]"
+      "python_code": "_lv.array_subset(array, index, length)"
     },
     "cpdArith": {
       "name": "Compound Arithmetic",
