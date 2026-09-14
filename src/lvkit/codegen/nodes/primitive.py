@@ -641,6 +641,8 @@ def _build_dict_hint(
             expr_substituted = _substitute_template(
                 exprs[expr_idx], input_map, resolved
             )
+            if "_lv" in expr_substituted:
+                imports.add(LV_IMPORT)
             expr_ast = parse_expr(expr_substituted)
             if arrayify_ops:
                 expr_ast, used = arrayify(expr_ast)
@@ -682,6 +684,11 @@ def _build_string_hint(
 
     # Substitute inputs
     expr_substituted = _substitute_template(expr, input_map, resolved)
+
+    # A template that calls a runtime helper directly (e.g. the TYPE_CAST op's
+    # `_lv.type_cast(...)`) needs the `_lv` import even when arrayify never fires.
+    if "_lv" in expr_substituted:
+        imports.add(LV_IMPORT)
 
     expr_ast = parse_expr(expr_substituted)
     if arrayify_ops:

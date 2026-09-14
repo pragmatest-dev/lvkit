@@ -424,3 +424,24 @@ def test_compare_two_paths_common_and_relative() -> None:
     assert str(r.common_path) == "/a/b"
     assert str(r.relative_path_from_1_to_2) == "d"
     assert r.different_types is False
+
+
+def test_append_path_to_root_if_relative() -> None:
+    """Append Path to Root if Relative - Scalar: an absolute path passes through;
+    a relative path is appended to the root. Exercises os.path.isabs (attribute
+    access preserved), a Type Cast to a physical-UNIT type (a no-op in Python),
+    and the _lv import for a direct runtime-helper template."""
+    from pathlib import Path
+
+    rel = _run_leaf(
+        "file/file.llb/Append Path to Root if Relative - Scalar__ogtk.vi",
+        Path("/root"),
+        Path("rel/x"),
+    )
+    assert str(rel.absolute_or_appended_path) == "/root/rel/x"
+    absolute = _run_leaf(
+        "file/file.llb/Append Path to Root if Relative - Scalar__ogtk.vi",
+        Path("/root"),
+        Path("/abs/y"),
+    )
+    assert str(absolute.absolute_or_appended_path) == "/abs/y"

@@ -47,6 +47,11 @@ def _spec(lt: LVType | None) -> str:
     underlying = lt.underlying_type or ""
     if underlying == "String":
         return "str"
+    # A LabVIEW unit type (UnitUInt16, UnitFloat64, …) is the underlying numeric
+    # value plus a physical unit; units are meaningless in Python, so cast on the
+    # underlying number (Unit -> Num maps onto the numeric specs).
+    if underlying.startswith("Unit"):
+        underlying = "Num" + underlying[len("Unit"):]
     return _INT_SPEC.get(underlying, underlying or "unknown")
 
 
