@@ -619,7 +619,10 @@ def _bind_inputs_and_constants(
                 ctx.array_vars.add(var)
     for const in constants:
         if const.id:
-            ctx.bind(const.id, _format_constant(const))
+            bound = _format_constant(const)
+            ctx.bind(const.id, bound)
+            if _needs_simplenamespace(bound):
+                ctx.add_import(_SIMPLENAMESPACE_IMPORT)
             # VIRefnum constants need an import for the callable.
             if (
                 const.lv_type
@@ -673,6 +676,47 @@ def _decode_numeric_constant(value: str, underlying_type: str) -> str:
     return str(int(value, 16))
 
 
+# A named cluster constant lowers to types.SimpleNamespace; sites that bind such
+# a constant add this import (see _needs_simplenamespace).
+_SIMPLENAMESPACE_IMPORT = "from types import SimpleNamespace"
+
+
+def _needs_simplenamespace(expr: str) -> bool:
+    """True if a formatted-constant expression uses ``SimpleNamespace`` and thus
+    needs its import added at the binding site."""
+    return "SimpleNamespace(" in expr
+
+
+def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
+    """Format a CLUSTER constant as a Python object: a named/typedef cluster as
+    ``SimpleNamespace(field=value, ...)`` (attribute access, and mutable so
+    Bundle By Name can assign fields), an anonymous cluster as a positional
+    tuple. Returns None if the value or fields can't be resolved, so the caller
+    falls back to generic formatting."""
+    lv_type = const.lv_type
+    if lv_type is None or not lv_type.fields:
+        return None
+    fields = lv_type.fields
+    anon = not lv_type.typedef_name and not lv_type.classname
+    value = const.value
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return None
+    if not isinstance(value, dict):
+        return None
+    # Values in field order; a field absent from the parsed dict falls back to
+    # None (LabVIEW's cluster default fills every field, so this is defensive).
+    ordered = [(f.name, repr(value.get(f.name))) for f in fields]
+    if anon:
+        elts = ", ".join(v for _name, v in ordered)
+        trailing = "," if len(ordered) == 1 else ""
+        return f"({elts}{trailing})"
+    kwargs = ", ".join(f"{to_var_name(name)}={v}" for name, v in ordered)
+    return f"SimpleNamespace({kwargs})"
+
+
 def _format_constant(const: Constant | ConstantNode) -> str:
     """Format a constant value as a Python expression.
 
@@ -699,6 +743,16 @@ def _format_constant(const: Constant | ConstantNode) -> str:
     python_hint = getattr(const, "python", None)
     if python_hint:
         return str(python_hint)
+
+    # Cluster constant: emit a mutable attribute object so Bundle/Unbundle By
+    # Name (which read and write ``.field``) operate on it. A named/typedef
+    # cluster uses attribute access with field names matched to nmux's
+    # ``to_var_name(field.name)``; an anonymous cluster (no field names) is a
+    # positional tuple, the representation nmux uses for anonymous clusters.
+    if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
+        cluster_expr = _format_cluster_constant(const)
+        if cluster_expr is not None:
+            return cluster_expr
 
     value = const.value
     underlying = const.lv_type.underlying_type if const.lv_type else None

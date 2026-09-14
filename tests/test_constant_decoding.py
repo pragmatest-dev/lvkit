@@ -439,3 +439,44 @@ class TestNoType:
         t, v, _ = decode_constant(_make_const("01"))
         assert t == "raw"
         assert v == "01"
+
+
+# === Cluster constant formatting (codegen) ===
+
+
+class TestClusterConstantFormatting:
+    """A cluster constant lowers to a mutable attribute object so Bundle/Unbundle
+    By Name (which read and write ``.field``) operate on it."""
+
+    def _const(self, value, typedef_name=None, classname=None):
+        from lvkit.graph.models import ConstantNode
+
+        fields = [
+            ClusterField(name="length", type=None),
+            ClusterField(name="# elements", type=None),
+        ]
+        lv_type = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=fields,
+            typedef_name=typedef_name,
+            classname=classname,
+        )
+        return ConstantNode(id="test", vi_path="test.vi", value=value, lv_type=lv_type)
+
+    def test_named_cluster_is_simplenamespace(self):
+        from lvkit.codegen.context import _format_cluster_constant
+
+        c = self._const("{'length': 0, '# elements': 3}", typedef_name="Header.ctl")
+        # field names are sanitized to valid identifiers, matching nmux's access
+        assert _format_cluster_constant(c) == "SimpleNamespace(length=0, _elements=3)"
+
+    def test_anonymous_cluster_is_positional_tuple(self):
+        from lvkit.codegen.context import _format_cluster_constant
+
+        c = self._const("{'length': 1, '# elements': 2}")  # no typedef -> anonymous
+        assert _format_cluster_constant(c) == "(1, 2)"
+
+    def test_unparseable_value_falls_back(self):
+        from lvkit.codegen.context import _format_cluster_constant
+
+        assert _format_cluster_constant(self._const("not-a-dict")) is None

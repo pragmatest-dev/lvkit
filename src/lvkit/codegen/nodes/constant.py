@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from lvkit.graph.models import ConstantNode
 
-from ..context import CodeGenContext, _format_constant
+from ..context import (
+    _SIMPLENAMESPACE_IMPORT,
+    CodeGenContext,
+    _format_constant,
+    _needs_simplenamespace,
+)
 from ..fragment import CodeFragment
 
 
@@ -23,4 +28,8 @@ def generate(node: ConstantNode, ctx: CodeGenContext) -> CodeFragment:
     if ctx.resolve(const_id) is not None:
         return CodeFragment.empty()
 
-    return CodeFragment(bindings={const_id: _format_constant(node)})
+    bound = _format_constant(node)
+    imports = (
+        {_SIMPLENAMESPACE_IMPORT} if _needs_simplenamespace(bound) else set()
+    )
+    return CodeFragment(bindings={const_id: bound}, imports=imports)

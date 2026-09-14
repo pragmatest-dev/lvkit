@@ -116,6 +116,25 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             return CodeFragment.empty()
 
         if agg_var:
+            # Assign fields on the aggregate cluster. Bundle By Name mutates the
+            # object in place, so the aggregate must be a single materialized
+            # VARIABLE — when it resolves to an EXPRESSION (a cluster constant
+            # inlined as `SimpleNamespace(...)`), each `.field =` would otherwise
+            # hit a throwaway object and the mutations would be lost. Bind it to
+            # one variable, then mutate and pass that on.
+            if not agg_var.isidentifier():
+                cluster_var = ctx.make_output_var(
+                    "cluster", node.id, agg_out[0].id if agg_out else None
+                )
+                statements.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=cluster_var, ctx=ast.Store())],
+                        value=parse_expr(agg_var),
+                    )
+                )
+                agg_var = cluster_var
+                for t in agg_out:
+                    bindings[t.id] = cluster_var
             # Assign fields on an EXISTING cluster (incoming agg wire).
             for t in sorted(list_in, key=lambda t: t.index):
                 val = ctx.resolve(t.id)
