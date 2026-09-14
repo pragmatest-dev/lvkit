@@ -163,6 +163,21 @@ def test_boolean_trigger_rising_and_falling_edges_are_independent() -> None:
     assert (r.rising_edge, r.falling_edge) == (False, True)
 
 
+def test_case_default_frame_on_integer_selector() -> None:
+    """An integer-selector case has an infinite domain, so it ALWAYS has a
+    default frame. MD5's unrecoverable-character padding gates on
+    (length mod block), with frame 0 = aligned (no pad) and a "1, Default" frame
+    that pads by (block - remainder) for EVERY other remainder. The default frame
+    must compile to `case _`, or a remainder like 5 falls through and never pads.
+    Pads 'hello' (len 5) to the 64-byte block: 5 + (64-5) zeros."""
+    r = _run_leaf(
+        "md5/md5.llb/MD5 Unrecoverable character padding__ogtk.vi", "hello", 64
+    )
+    assert len(r.padded_message) == 64
+    assert r.padded_message[:5] == "hello"
+    assert r.padded_message[5:] == "\x00" * 59
+
+
 def test_unwired_array_input_defaults_to_empty() -> None:
     """An array input left unwired defaults to None and is normalized to [] at
     the top of the function (LabVIEW's unwired array == empty array), so the body
@@ -374,3 +389,20 @@ def test_remove_duplicates_keeps_first_and_records_removed_indices() -> None:
     )
     assert list(r_none.output_array) == [1.0, 2.0, 3.0]
     assert list(r_none.indices_of_removed_elements) == []
+
+
+def test_md5_message_digest_matches_known_vectors() -> None:
+    """OpenG's MD5 computed end-to-end (padding, the 64-step F/G/H/I round loop
+    over 16-word blocks, and the element-wise block-state add) must reproduce the
+    RFC 1321 test vectors. This is the whole-algorithm guard: it exercises Rotate,
+    Type Cast, byte-faithful string constants, the integer-case default frame, the
+    Index Array output naming, the list-concat-vs-elementwise-add distinction, and
+    array-typed shift-register tracking -- any regression in those breaks it."""
+    import hashlib
+
+    for msg in ("", "abc", "message digest"):
+        r = _run_pkg(
+            "md5/md5.llb/MD5 Message Digest (Binary String)__ogtk.vi", message=msg
+        )
+        got = r.md5_message_digest.encode("latin-1").hex()
+        assert got == hashlib.md5(msg.encode()).hexdigest(), f"MD5({msg!r})"

@@ -81,6 +81,17 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 inner_ctx.bind(inner_term, shift_var)
                 shift_reg_vars[outer_term] = shift_var
                 initialized_sr_outers.add(outer_term)
+                # An array-typed shift register carries an array; track it so the
+                # module arrayify pass broadcasts operators over it (e.g. an
+                # element-wise Add of the accumulator to a per-iteration array,
+                # inlined past the per-node hook -- MD5's block-state update).
+                _sr_t = term_by_id.get(outer_term)
+                if (
+                    _sr_t is not None
+                    and _sr_t.lv_type is not None
+                    and _sr_t.lv_type.kind == LVTypeKind.ARRAY
+                ):
+                    ctx.array_vars.add(shift_var)
             else:
                 # Uninitialized shift register: nothing wired into the
                 # left terminal from outside the loop. In LabVIEW this is

@@ -369,8 +369,11 @@ class TestSymbolicRangeTypes:
         assert f1.selector_ranges == []
 
     def test_literal_enum_case_unchanged(self):
-        """Fully-literal ranges (type 0/0) — the common enum/int/bool/string
-        case — must resolve exactly as before the range-type fix."""
+        """Fully-literal ranges (type 0/0) resolve to their literal values. An
+        INTEGER selector has an infinite domain, so the case always has a default
+        frame: with no explicit SelectDefaultCase, the last frame is the default
+        (see _apply_last_frame_default) — it still carries its own value ("1,
+        Default"), which codegen emits as the ``case _`` catch-all."""
         root = _build_case_xml(
             "cs1",
             "sel1",
@@ -383,7 +386,7 @@ class TestSymbolicRangeTypes:
         assert cs.frames[0].selector_value == "0"
         assert cs.frames[1].selector_value == "1"
         assert cs.frames[0].is_default is False
-        assert cs.frames[1].is_default is False
+        assert cs.frames[1].is_default is True
 
 
 # ---------------------------------------------------------------------------

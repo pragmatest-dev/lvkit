@@ -114,7 +114,27 @@ def extract_case_structures(
     if selector_tables:
         _apply_selector_tables(case_structures, selector_tables, table_index_shift)
 
+    for cs in case_structures:
+        _apply_last_frame_default(cs)
+
     return case_structures
+
+
+def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
+    """An integer/string selector has an infinite domain, so a case on one ALWAYS
+    has a default frame. When neither ``SelectDefaultCase`` nor a value-less frame
+    identified it, the default is the LAST frame (validated: every numeric
+    ``SelectDefaultCase`` in the corpus points at the last frame, and value-less
+    defaults are the last frame too). LabVIEW writes ``SelectDefaultCase`` only to
+    RELOCATE the default off that last position. The last frame may also carry an
+    explicit value ("N, Default"); marking it default is correct because codegen
+    emits it as the ``case _`` catch-all, which subsumes that value.
+    """
+    if cs.selector_type not in ("integer", "string"):
+        return
+    if not cs.frames or any(f.is_default for f in cs.frames):
+        return
+    cs.frames[-1].is_default = True
 
 
 def _extract_one_case_structure(

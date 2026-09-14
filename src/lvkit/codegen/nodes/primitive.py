@@ -555,10 +555,18 @@ def _get_wired_outputs(
         if not term_name and term_index in resolved_outputs:
             term_name = resolved_outputs[term_index]
 
-        # Expandable output: accept all terminals mapped to expandable index
+        # Expandable output: accept all terminals mapped to expandable index.
+        # ``_{len(outputs)}`` distinguishes several expandable outputs WITHIN one
+        # node; route through make_output_var so the name is also unique ACROSS
+        # nodes (four single-output Index Array nodes would otherwise all be
+        # ``element_0`` and clobber each other -- MD5's a/b/c/d extraction).
         if expandable_out_index is not None and term_index == expandable_out_index:
             base_name = resolved_outputs.get(expandable_out_index, "element")
-            var_name = to_var_name(base_name) + f"_{len(outputs)}"
+            var_name = ctx.make_output_var(
+                f"{to_var_name(base_name)}_{len(outputs)}",
+                node.id,
+                terminal_id=term_id,
+            )
             outputs.append((term_id, term_name or base_name, var_name, term_index))
             continue
 
