@@ -268,3 +268,21 @@ def test_arithmetic_block_is_not_build_array():
     res = get_resolver()
     for prim_id in (1050, 1051, 1052, 1053):
         assert res.resolve(prim_id=prim_id).name != "Build Array"
+
+
+def test_substitute_template_preserves_attribute_access():
+    """A terminal named `path`/`index` must not clobber an attribute access in
+    the template (`os.path.isabs`, `x.index`) -- only standalone placeholder
+    identifiers are substituted."""
+    from lvkit.codegen.nodes.primitive import _substitute_template
+
+    imap = {"path": "my_path", "in_1": "my_path", "index": "i", "length": "n"}
+    # `os.path` and `.isabs` survive; the standalone in_1 is substituted.
+    assert (
+        _substitute_template("(0 if __import__('os').path.isabs(in_1) else 1)", imap)
+        == "(0 if __import__('os').path.isabs(my_path) else 1)"
+    )
+    # standalone bare names (Array Subset) still substitute.
+    assert _substitute_template("array[index:index + length]", imap) == (
+        "array[i:i + n]"
+    )

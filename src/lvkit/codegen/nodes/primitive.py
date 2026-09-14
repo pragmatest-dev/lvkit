@@ -746,7 +746,11 @@ def _substitute_template(
     for n in names:
         escaped = re.escape(n)
         patterns.append(r"\{" + escaped + r"\}")  # {name} with braces
-        patterns.append(r"\b" + escaped + r"\b")  # bare name
+        # Bare name, but NOT an attribute access: a terminal named "path" or
+        # "index" must not clobber the `path` in `os.path.isabs(in_1)` or a
+        # `.index` method -- only standalone placeholder identifiers (`array`,
+        # `index`, `length` in `array[index:index + length]`) are substituted.
+        patterns.append(r"(?<![\w.])" + escaped + r"\b")
     combined = "|".join(patterns)
 
     def _replace(m: re.Match) -> str:
