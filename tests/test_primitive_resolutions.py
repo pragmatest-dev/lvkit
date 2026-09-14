@@ -71,8 +71,10 @@ def test_array_size_collision_does_not_return():
 
 def test_key_python_code_semantics():
     res = get_resolver()
-    # Array Size = count; reductions = sum / product (element-typed)
-    assert "len(in_1)" in str(res.resolve(prim_id=1809).python_code)
+    # Array Size = count (now the ARRAY_SIZE op handler: `len` for 1-D, a size
+    # vector for N-D -- see test_array_size_returns_dimension_vector_for_nd);
+    # reductions = sum / product (element-typed)
+    assert res.resolve(prim_id=1809).op == "ARRAY_SIZE"
     assert "sum(in_1)" in str(res.resolve(prim_id=1903).python_code)
     assert "prod(in_1)" in str(res.resolve(prim_id=1904).python_code)
     # 1057 no longer carries "abs(in_1)" -- it was corrected from the
@@ -153,6 +155,32 @@ def test_type_cast_resolves_and_reinterprets_bytes():
     assert lv.type_cast(258, "i16", "str").encode("latin-1").hex() == "0102"
     with _pytest.raises(NotImplementedError):
         lv.type_cast(1.0, "f64", "str")
+
+
+def test_array_size_returns_dimension_vector_for_nd():
+    """Array Size (1809) resolves via the ARRAY_SIZE op handler; lv.array_size
+    returns a scalar element COUNT for a 1-D array but a 1-D vector of
+    per-dimension sizes for a 2-D+ array (LabVIEW's multi-dim Array Size)."""
+    from lvkit.runtime import lv
+
+    assert get_resolver().resolve(prim_id=1809).op == "ARRAY_SIZE"
+    assert lv.array_size([1, 2, 3], 1) == 3
+    assert lv.array_size([[1, 2, 3], [4, 5, 6]], 2) == [2, 3]
+    assert lv.array_size([], 2) == [0, 0]  # empty 2-D array is [rows=0, cols=0]
+    assert lv.array_size([[]], 2) == [1, 0]  # one empty row
+
+
+def test_type_cast_refnum_to_refnum_is_identity():
+    """A refnum-to-refnum Type Cast reinterprets an opaque reference handle, not
+    bytes (Cast Queue <-> Msg Queue), so the handler emits the value unchanged
+    rather than a byte round-trip the runtime can't model."""
+    from lvkit.codegen.nodes.ops.type_cast import _is_refnum
+    from lvkit.models import LVType, LVTypeKind
+
+    refnum = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
+    assert _is_refnum(refnum)
+    assert not _is_refnum(LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"))
+    assert not _is_refnum(None)
 
 
 def test_number_to_boolean_array_uses_type_width():

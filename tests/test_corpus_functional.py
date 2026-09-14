@@ -243,6 +243,15 @@ def test_empty_1d_array() -> None:
     assert got.empty_array is False
 
 
+def test_empty_2d_array() -> None:
+    """Empty 2D Array is True when EITHER dimension is 0 -- exercises Array Size
+    returning the per-dimension size vector for a 2-D array (not a scalar len)."""
+    vi = "array/array.llb/Empty 2D Array (I32)__ogtk.vi"
+    assert _run_leaf(vi, []).empty_array is True  # 0 rows
+    assert _run_leaf(vi, [[]]).empty_array is True  # 1 row, 0 cols
+    assert _run_leaf(vi, [[1, 2], [3, 4]]).empty_array is False
+
+
 def test_reorder_1d_array_with_pointers() -> None:
     """Reorder 1D Array (the sort-pointer variant) reorders + passes pointers."""
     r = _run_leaf(

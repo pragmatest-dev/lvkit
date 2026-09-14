@@ -63,6 +63,21 @@ def type_cast(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
                 return t.lv_type
         return None
 
-    src_spec = _spec(_term("input", 0))
-    dst_spec = _spec(_term("output", 2))
-    return f"_lv.type_cast(in_0, {src_spec!r}, {dst_spec!r})"
+    src = _term("input", 0)
+    dst = _term("output", 2)
+    # A Type Cast whose source and destination type are identical round-trips to
+    # the same value (flatten then unflatten one type), so emit the value
+    # unchanged. This covers same-type casts the byte round-trip can't model
+    # (clusters, floats) and is a genuine identity, not a fallback.
+    if src is not None and src == dst:
+        return "in_0"
+    # A refnum-to-refnum cast reinterprets an opaque reference HANDLE, not bytes
+    # (e.g. Cast Queue <-> Msg Queue). We model refnums as opaque Python objects,
+    # so the handle is unchanged — identity — regardless of the element subtype.
+    if _is_refnum(src) and _is_refnum(dst):
+        return "in_0"
+    return f"_lv.type_cast(in_0, {_spec(src)!r}, {_spec(dst)!r})"
+
+
+def _is_refnum(lt: LVType | None) -> bool:
+    return lt is not None and lt.underlying_type == "Refnum"

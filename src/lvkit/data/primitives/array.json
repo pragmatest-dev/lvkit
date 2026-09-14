@@ -80,8 +80,7 @@
           "type": "array"
         }
       ],
-      "python_code": "len(in_1)",
-      "inline": true,
+      "op": "ARRAY_SIZE",
       "verified": true
     },
     "1900": {

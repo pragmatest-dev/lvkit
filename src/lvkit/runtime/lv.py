@@ -317,6 +317,22 @@ def array_subset(arr, index, length):
     return arr[i:i + int(length)]
 
 
+def array_size(a, ndims: int):
+    """LabVIEW Array Size for an ``ndims``-dimensional array. A 1-D array yields
+    a scalar element count; a 2-D+ array yields a 1-D list of per-dimension sizes
+    ``[d0, d1, ...]`` (LabVIEW's multi-dimensional Array Size returns the size
+    vector, not a scalar). Dimension sizes are read down the first element of
+    each axis, matching LabVIEW's rectangular arrays; an empty axis is size 0."""
+    if ndims <= 1:
+        return len(a)
+    sizes = []
+    cur = a
+    for _ in range(ndims):
+        sizes.append(len(cur) if isinstance(cur, (list, tuple)) else 0)
+        cur = cur[0] if isinstance(cur, (list, tuple)) and cur else []
+    return sizes
+
+
 def _spreadsheet_convert(x: str, elem: str):
     """Convert one spreadsheet field to the array element type (LabVIEW scans an
     unparseable/empty numeric field as the numeric default, never raising)."""
