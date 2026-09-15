@@ -19,6 +19,7 @@ prefix-match answer — not the ``shared/…`` tier the old substring scan gave.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -75,8 +76,13 @@ class TestClassify:
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(proj.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
-        assert target == _cache() / "projects" / slug / "extract" / xfp / "src"
-        assert source == str(Path("src") / "bar.vi")
+        rel = Path("src") / "bar.vi"
+        vslot = cache_paths._vi_slot(rel)
+        # Bounded per-VI slot (vi-<hash of the owner-relative path>), NOT the
+        # reproduced ``src/`` hierarchy — so tree depth can't overflow the path.
+        assert target == _cache() / "projects" / slug / "extract" / xfp / vslot
+        # source_label still carries the REAL owner-relative path for meta.json.
+        assert source == str(rel)
         assert ns == "projects"
 
     def test_under_vilib_root_is_shared_vilib(self, tmp_path: Path) -> None:
@@ -86,10 +92,12 @@ class TestClassify:
         target, source, ns = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(vilib.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
+        rel = Path("Utility") / "u.vi"
+        vslot = cache_paths._vi_slot(rel)
         assert (
-            target == _cache() / "shared" / "vilib" / slug / "extract" / xfp / "Utility"
+            target == _cache() / "shared" / "vilib" / slug / "extract" / xfp / vslot
         )
-        assert source == str(Path("Utility") / "u.vi")
+        assert source == str(rel)
         assert ns == "shared"
 
     def test_under_userlib_root_is_shared_userlib(self, tmp_path: Path) -> None:
@@ -99,9 +107,10 @@ class TestClassify:
         target, _, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(userlib.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
+        rel = Path("MyAddon") / "a.vi"
+        vslot = cache_paths._vi_slot(rel)
         assert (
-            target
-            == _cache() / "shared" / "userlib" / slug / "extract" / xfp / "MyAddon"
+            target == _cache() / "shared" / "userlib" / slug / "extract" / xfp / vslot
         )
 
     def test_vendored_openg_under_project_is_projects_not_shared(
@@ -407,12 +416,20 @@ class TestRepoCleanliness:
         assert not (repo / ".lvkit").exists()
 
         # And the extraction landed under LVKIT_CACHE_DIR (projects/<slug>/extract).
+        # The managed cache names the artifact ``vi_BDHb.xml`` (a bounded fixed
+        # name), under a per-VI ``vi-<hash>`` slot; the real source name lives in
+        # the meta sidecar, not the filename.
         cache_root = Path(os.environ["LVKIT_CACHE_DIR"])
-        bd_files = list(cache_root.rglob("MyVI_BDHb.xml"))
+        bd_files = list(cache_root.rglob("vi_BDHb.xml"))
         assert bd_files, f"no extraction found under {cache_root}"
         parents = bd_files[0].parents
+        assert bd_files[0].parent.name.startswith("vi-")
         assert (cache_root / "projects") in parents
         assert "extract" in {p.name for p in parents}
+        meta = json.loads(
+            (bd_files[0].parent / "vi.meta.json").read_text(encoding="utf-8")
+        )
+        assert meta["source"].endswith("MyVI.vi")
 
     def test_cold_and_warm_runs_are_byte_identical(self, tmp_path: Path) -> None:
         if not _SAMPLE_VI.exists():
@@ -481,8 +498,10 @@ class TestGlobalHomeGuard:
         target, source, _ = cache_paths.classify(vi, "extract")
         slug = cache_paths._slug(repo.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
-        assert target == _cache() / "projects" / slug / "extract" / xfp / "source"
-        assert source == str(Path("source") / "x.vi")
+        rel = Path("source") / "x.vi"
+        vslot = cache_paths._vi_slot(rel)
+        assert target == _cache() / "projects" / slug / "extract" / xfp / vslot
+        assert source == str(rel)
 
 
 def test_fingerprints_prefer_embedded_build_values(monkeypatch):

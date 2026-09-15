@@ -47,18 +47,27 @@ PARALLEL_THRESHOLD = 50
 # process-pool scheduling/pickling overhead across many small XML files.
 _BATCH_SIZE = 20
 
-_ParseItem = tuple[Path, Path | None, Path | None]
+# (vi_path, bd_xml, fp_xml, main_xml): vi_path is the REAL source .vi, carried so
+# the worker can pin the parser's identity to it — the managed cache names BD XML
+# ``vi_BDHb.xml`` (a bounded fixed name), so parsing without the real path would
+# label every VI ``vi.vi`` (see parse_vi's source_override).
+_ParseItem = tuple[Path, Path, Path | None, Path | None]
 
 
 def _parse_batch(items: list[_ParseItem]) -> dict[str, ParsedVI]:
-    """Worker entry point: parse a batch of (bd_xml, fp_xml, main_xml)
-    triples. Runs in a worker process. A single unparseable VI is skipped,
+    """Worker entry point: parse a batch of (vi_path, bd_xml, fp_xml, main_xml)
+    tuples. Runs in a worker process. A single unparseable VI is skipped,
     not fatal to the rest of the batch -- the caller's serial path parses it
     (and reports its error, same as today) when it finds no cache entry."""
     out: dict[str, ParsedVI] = {}
-    for bd_xml, fp_xml, main_xml in items:
+    for vi_path, bd_xml, fp_xml, main_xml in items:
         try:
-            out[str(bd_xml)] = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+            out[str(bd_xml)] = parse_vi(
+                bd_xml=bd_xml,
+                fp_xml=fp_xml,
+                main_xml=main_xml,
+                source_override=vi_path,
+            )
         except Exception:
             logger.debug("parallel parse: skipping %s", bd_xml, exc_info=True)
     return out
@@ -93,7 +102,7 @@ def parallel_parse_directory(
         except Exception:
             # Extraction failure -- let the serial path hit (and report) it.
             continue
-        resolved.append((bd_xml, fp_xml, main_xml))
+        resolved.append((vi_path, bd_xml, fp_xml, main_xml))
 
     if not resolved:
         return {}

@@ -111,6 +111,35 @@ def _slug(path: Path) -> str:
     return f"{tail}-{h}"
 
 
+# The fixed short stem every MANAGED-cache artifact (extract/render/diff) uses
+# instead of the real VI's filename stem — the second Windows MAX_PATH axis
+# alongside the bounded ``vi-<hash>`` slot below. Owned by this module (the
+# single source of the cache-layout policy); ``extractor.py`` and
+# ``output_cache.py`` import it rather than repeating the literal.
+MANAGED_ARTIFACT_STEM = "vi"
+
+
+def _vi_slot(rel: Path) -> str:
+    """A per-VI cache dir name that is ALWAYS bounded, whatever the source tree's
+    depth: ``vi-`` + 16 hex of a sha256 of the owner-relative path.
+
+    Owned namespaces used to hang a VI's cache under ``<rel.parent>`` — the full
+    source-directory hierarchy reproduced beneath the cache root. A deep repo (or
+    a long VI filename) then pushed the final cache path past Windows' MAX_PATH
+    even with a short ``LVKIT_CACHE_DIR``, because BOTH the depth and the source
+    stem were unbounded inputs (the failure this replaces). Collapsing the whole
+    owner-relative path to one fixed-width hash segment removes the depth axis;
+    fixed short artifact names inside the slot remove the stem axis. The path is
+    keyed on the FULL ``rel`` (parent + filename), so every source VI maps to its
+    own slot and sibling VIs never collide. The real source path is NOT lost — it
+    is recorded as the ``source`` field of each slot's ``.meta.json`` sidecar
+    (see ``extractor._write_cache_meta`` / ``output_cache._write``). The
+    separators are normalized to ``/`` so the same VI hashes identically
+    regardless of how its path was spelled on this platform."""
+    key = rel.as_posix()
+    return "vi-" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
 def kind_fingerprint(kind: str) -> str:
     """The 8-hex build-compatibility tag stamped into a cache path for ``kind``.
 
@@ -215,14 +244,20 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
 
-    ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<fp>/<rel-parent>`` — project-
+    ``cache_dir`` is ``<cache>/<ns>/<slug>/<kind>/<fp>/vi-<hash>`` — project-
     first: the VI's identity (namespace + slug) is named ONCE and the ``kind``
-    hangs off it, so one project's whole cache is a single subtree and sibling VIs
-    of the same kind + build share a dir. ``<fp>`` is the per-kind build tag
-    (:func:`kind_fingerprint`) so two incompatible lvkit builds get separate slots
-    instead of clobbering each other. ``namespace`` is ``"projects"``,
+    hangs off it, so one project's whole cache is a single subtree. ``<fp>`` is
+    the per-kind build tag (:func:`kind_fingerprint`) so two incompatible lvkit
+    builds get separate slots instead of clobbering each other. ``vi-<hash>``
+    (:func:`_vi_slot`) is a bounded per-VI slot standing in for the owner-relative
+    directory hierarchy, so an arbitrarily deep source tree can never push the
+    cache path past Windows' MAX_PATH; the artifact names inside it are fixed and
+    short (``vi_BDHb.xml`` / ``vi.<ext>``) for the same reason. ``source_label``
+    stays the REAL owner-relative path (``str(rel)``) so the true source is
+    recorded in each slot's ``.meta.json``. ``namespace`` is ``"projects"``,
     ``"shared"``, or ``"adhoc"`` — callers path-address the first two and
-    content-address ``adhoc`` (its paths never repeat).
+    content-address ``adhoc`` (its paths never repeat; its dir is already a single
+    bounded ``_slug`` segment).
     """
     resolved = vi_path.resolve()
     cache = global_cache_root()
@@ -237,7 +272,7 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
         rel = _rel_under(resolved, vilib)
         if rel is not None:
             _note_owner(vilib)
-            d = cache / "shared" / "vilib" / _slug(vilib) / kind / fp / rel.parent
+            d = cache / "shared" / "vilib" / _slug(vilib) / kind / fp / _vi_slot(rel)
             return d, str(rel), "shared"
 
     userlib = _userlib_root
@@ -245,7 +280,8 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
         rel = _rel_under(resolved, userlib)
         if rel is not None:
             _note_owner(userlib)
-            d = cache / "shared" / "userlib" / _slug(userlib) / kind / fp / rel.parent
+            slug = _slug(userlib)
+            d = cache / "shared" / "userlib" / slug / kind / fp / _vi_slot(rel)
             return d, str(rel), "shared"
 
     project = _project_root_for(resolved)
@@ -253,7 +289,7 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
         proj_abs = project.resolve()
         rel = resolved.relative_to(proj_abs)
         _note_owner(proj_abs)
-        d = cache / "projects" / _slug(proj_abs) / kind / fp / rel.parent
+        d = cache / "projects" / _slug(proj_abs) / kind / fp / _vi_slot(rel)
         return d, str(rel), "projects"
 
     # adhoc has NO owner (not a project, not a library) -> no identity slug to
@@ -474,7 +510,10 @@ def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:
 # source/fingerprint change — that is handled by the <fp> path level). A mismatch
 # triggers a one-time drop of the derived namespaces in cleanup_legacy_cache.
 #   "2": project-first with a per-kind <fp> level and <tail>-<hash8> slugs.
-_LAYOUT_VERSION = "2"
+#   "3": owned VIs sit in a bounded per-VI ``vi-<hash>`` slot with fixed short
+#        artifact names (was the reproduced ``<rel.parent>`` hierarchy + source
+#        stem), so a deep source tree can't overflow Windows MAX_PATH.
+_LAYOUT_VERSION = "3"
 
 
 def cleanup_legacy_cache() -> None:
