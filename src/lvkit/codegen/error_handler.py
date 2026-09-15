@@ -52,8 +52,10 @@ from lvkit.graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     PrimitiveNode,
+    VINode,
 )
 from lvkit.models import _is_error_cluster
+from lvkit.parser.constants import VI_NAME_MERGE_ERRORS
 
 if TYPE_CHECKING:
     from lvkit.codegen.context import CodeGenContext
@@ -76,6 +78,12 @@ def classify_error_node(op: AnyGraphNode) -> ErrorHandlingPattern:
     """
     # Merge Errors primitive (prim 2147; not 2401, which is Swap Values -- #59)
     if isinstance(op, PrimitiveNode) and op.prim_id == 2147:
+        return ErrorHandlingPattern.MERGE
+
+    # Merge Errors, called as the vi.lib WRAPPER VI (SubVI call) instead of the
+    # raw primitive glyph above -- same operation, same semantics, identified
+    # by its exact canonical vi.lib name (see VI_NAME_MERGE_ERRORS).
+    if isinstance(op, VINode) and op.name == VI_NAME_MERGE_ERRORS:
         return ErrorHandlingPattern.MERGE
 
     # Clear Errors VI

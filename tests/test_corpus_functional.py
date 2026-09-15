@@ -88,17 +88,27 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     best = next(
         (m for m in mods if m.stem != "__init__" and tgt in _slug(m.stem)), None
     )
-    assert best is not None, f"no entry module matching {tgt} in {pkg}"
+    # A polymorphic VARIANT's module is often named after the BASE (unsuffixed)
+    # VI -- the wrapper folds every variant's function into one file named for
+    # the family, not the specific variant (e.g. "Close Generic Object Refnum
+    # (Array)" lands in "close_generic_object_refnum__ogtk.py"). When no module
+    # STEM matches, fall back to searching every module for a FUNCTION whose
+    # own name matches -- the variant's function still carries its full name.
+    candidate_mods = [best] if best else [m for m in mods if m.stem != "__init__"]
     sys.path.insert(0, str(outdir))
     try:
-        modname = f"{pkg.name}.openg.{best.stem}"
-        mod = importlib.import_module(modname)
-        fn = next(
-            (o for n, o in inspect.getmembers(mod, inspect.isfunction)
-             if o.__module__ == modname and tgt in _slug(n)),
-            None,
-        )
-        assert fn is not None, f"no entry function matching {tgt} in {modname}"
+        fn = None
+        for m in candidate_mods:
+            mn = f"{pkg.name}.openg.{m.stem}"
+            mod = importlib.import_module(mn)
+            fn = next(
+                (o for n, o in inspect.getmembers(mod, inspect.isfunction)
+                 if o.__module__ == mn and tgt in _slug(n)),
+                None,
+            )
+            if fn is not None:
+                break
+        assert fn is not None, f"no entry function matching {tgt} in {pkg}"
         return fn(**kwargs)
     finally:
         # Drop this package's modules + path entry so a later VI's identically
@@ -265,6 +275,21 @@ def test_get_header_from_td_builds_cluster() -> None:
     r = _run_leaf(vi, [(5, (7 << 16) | 9, 11)])
     h = r.type_descriptor_header
     assert (h.length, h.private, h.type_, h._elements) == (5, 7, 9, 11)
+
+
+def test_merge_errors_vilib_subvi_generates_and_runs() -> None:
+    """Close Generic Object Refnum (Array) calls the vi.lib WRAPPER form of
+    Merge Errors (an ordinary SubVI call to 'Merge Errors.vi', not the raw
+    primitive) at its per-element merge point. This used to fail generation
+    entirely (VILibResolutionNeeded: the wrapper's real .vi body is an NI
+    vi.lib file never present in any search path). It must now generate
+    clean -- no vilib error -- and run to completion for an empty array
+    (0 iterations, so _held_error stays None and nothing raises)."""
+    r = _run_pkg(
+        "appcontrol/appcontrol.llb/Close Generic Object Refnum (Array)__ogtk.vi",
+        gen_refnum_array=[],
+    )
+    assert r is None  # no outputs other than the (Python-exception) error out
 
 
 def test_empty_2d_array() -> None:

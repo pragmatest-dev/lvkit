@@ -49,6 +49,15 @@ NODE_CLASS_ARRAY_RESHAPE = "aReshape"  # Reshape Array
 NODE_CLASS_CONCAT = "concat"  # Concatenate (strings/arrays)
 NODE_CLASS_SUBSET = "subset"  # Array/String Subset
 NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
+# LabVIEW ships "Merge Errors" as BOTH the raw builtin above (drawn directly on
+# a diagram, class="mergeErrors") AND a thin vi.lib WRAPPER VI with the same
+# semantics that some callers invoke via an ordinary SubVI call (class="iUse")
+# instead of the primitive glyph. NI's own vi.lib copy of this wrapper is never
+# present in a downstream user's search path (only the resolvable copy of a
+# VI a user actually owns would be), so it can't be identified by loading its
+# body -- only by this exact, canonical vi.lib name, the same way vilib.json
+# entries and NODE_CLASS_MERGE_ERRORS itself identify other known builtins.
+VI_NAME_MERGE_ERRORS = "Merge Errors.vi"
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 NODE_CLASS_MUX = "mux"  # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)

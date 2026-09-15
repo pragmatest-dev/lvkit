@@ -8,6 +8,7 @@ from typing import NoReturn
 
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal
+from lvkit.parser.constants import VI_NAME_MERGE_ERRORS
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     ResolutionContext,
@@ -27,6 +28,20 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a SubVI call."""
     subvi_name = node.name or ""
     if not subvi_name:
+        return CodeFragment.empty()
+
+    # Merge Errors' vi.lib WRAPPER VI (see VI_NAME_MERGE_ERRORS) is a
+    # structural signal, not a code node -- same as the raw primitive (prim
+    # 2147, primitive.py). Its real .vi body is never present in a downstream
+    # search path (it's an NI vi.lib file, not something a user owns), so it
+    # can never be resolved as an ordinary SubVI/vilib call; and even if it
+    # were, calling it as a function returning an error-cluster VALUE would be
+    # the wrong, non-idiomatic shape -- LabVIEW error clusters become Python
+    # exceptions, and sequential dataflow already raises before this node is
+    # ever reached (mirroring the primitive's own semantics). The genuinely
+    # parallel-branch case is handled by classify_error_node's MERGE
+    # classification, which the held-error-model tier wrapping already covers.
+    if subvi_name == VI_NAME_MERGE_ERRORS:
         return CodeFragment.empty()
 
     # Dynamic dispatch → obj.method(args) / super().method(args)

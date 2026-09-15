@@ -114,6 +114,13 @@ class TestClassifyErrorNode:
         op = _make_op("c", name="Clear Errors.vi", kind="vi")
         assert classify_error_node(op) == ErrorHandlingPattern.CLEAR
 
+    def test_merge_errors_vilib_wrapper_subvi(self):
+        """Merge Errors called as the vi.lib WRAPPER VI (an ordinary SubVI
+        call, class="iUse") classifies the same as the raw primitive (prim
+        2147) -- same LabVIEW operation, two on-diagram representations."""
+        op = _make_op("m", name="Merge Errors.vi", kind="vi")
+        assert classify_error_node(op) == ErrorHandlingPattern.MERGE
+
     def test_error_case_structure(self):
         error_type = LVType(kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster")
         sel_term = _make_terminal("sel", "input", lv_type=error_type)
@@ -162,6 +169,16 @@ class TestNeedsErrorHandling:
         ops = [_make_op("c", name="Clear Errors.vi", kind="vi")]
         assert needs_error_handling(ops, _ctx_for(ops)) is False
 
+    def test_merge_errors_vilib_wrapper_returns_true(self):
+        """The vi.lib wrapper SubVI form is detected the same as the raw
+        primitive -- this is the form OpenG (and most real corpora) actually
+        use on their diagrams."""
+        ops = [
+            _make_op("a"),
+            _make_op("m", name="Merge Errors.vi", kind="vi"),
+        ]
+        assert needs_error_handling(ops, _ctx_for(ops)) is True
+
     def test_merge_errors_in_case_frame(self):
         """Merge Errors nested in a case frame is detected."""
         inner_op = _make_op(
@@ -201,6 +218,23 @@ class TestMergeErrorsNoOp:
         fragment = primitive.generate(merge_op, ctx)
         assert fragment.statements == []
         assert fragment.bindings == {}
+
+    def test_merge_errors_vilib_wrapper_empty_fragment(self):
+        """The vi.lib wrapper SubVI form ALSO produces no code -- it can never
+        be resolved as an ordinary SubVI (its real .vi body is an NI vi.lib
+        file, never present in a downstream search path), and even if it
+        could be, calling it as a function returning an error-cluster VALUE
+        would be the wrong, non-idiomatic shape (LabVIEW errors -> Python
+        exceptions, everywhere)."""
+        from lvkit.codegen.nodes import subvi
+
+        merge_op = _make_op("m", name="Merge Errors.vi", kind="vi")
+        assert isinstance(merge_op, VINode)
+        ctx = CodeGenContext()
+        fragment = subvi.generate(merge_op, ctx)
+        assert fragment.statements == []
+        assert fragment.bindings == {}
+        assert fragment.imports == set()
 
 
 # =============================================================
