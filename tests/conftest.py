@@ -30,6 +30,30 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(autouse=True)
+def _sanitize_git_env(monkeypatch):
+    """Strip git's repo-locating env vars so a test's ``git -C <sample repo>``
+    subprocess resolves THAT repo, not whatever the ambient environment points at.
+
+    Under the pre-commit hook the suite runs with ``GIT_DIR`` / ``GIT_WORK_TREE`` /
+    ``GIT_INDEX_FILE`` (and friends) exported, pointing at the lvkit repo. A child
+    ``git -C <other repo> show`` then INHERITS them, they take precedence over
+    ``-C``, git looks the ref up in the wrong repo, and the call fails with exit
+    128 (yielding an empty / unreadable VI). That flake appears ONLY under
+    pre-commit — never in a bare ``pytest`` run — so it is invisible until commit
+    time. Clearing these makes ``-C`` authoritative for every git-extracting test
+    (test_diff, test_class_field_walkup, …) in one place."""
+    for var in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_COMMON_DIR",
+        "GIT_PREFIX",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _hermetic_cache(tmp_path_factory, monkeypatch):
     """Point the extraction cache at a per-test tmp dir so no test ever writes
     to the real ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``), and each test
