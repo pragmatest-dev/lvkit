@@ -42,10 +42,12 @@ class TestRenderCache:
         assert output_cache.lookup_render(vi, "html", OPT, V) is None
         slot = output_cache.store_render(vi, "html", OPT, V, "<html>BODY</html>")
         assert output_cache.lookup_render(vi, "html", OPT, V) == "<html>BODY</html>"
-        # Path-addressed under projects/<slug>/render (project-first), named by
-        # the VI stem.
-        assert slot.name == "Foo.html"
+        # Path-addressed under projects/<slug>/render (project-first). The slot
+        # dir is a bounded per-VI ``vi-<hash>`` and the body has a fixed short
+        # name (no source stem) so a deep tree / long VI name can't overflow it.
+        assert slot.name == "vi.html"
         parents = slot.parents
+        assert slot.parent.name.startswith("vi-")
         assert (cache_paths.global_cache_root() / "projects") in parents
         assert "render" in {p.name for p in parents}
 
@@ -120,7 +122,7 @@ class TestAdhocContentAddressed:
         b = _vi(tmp_path / "tmpB" / "blob.vi", b"identical blob")
         assert output_cache.lookup_render(b, "html", OPT, V) == "RENDERED"
         # It lives in the flat adhoc/render pool, named by content hash.
-        slot, _, is_adhoc = output_cache._render_paths(b, "html")
+        slot, _, _, is_adhoc = output_cache._render_paths(b, "html")
         assert is_adhoc
         assert (
             slot.parent
@@ -141,8 +143,10 @@ class TestDiffCache:
         assert output_cache.lookup_diff(before, after, "html", OPT, V) is None
         slot = output_cache.store_diff(before, after, "html", OPT, V, "<diff/>")
         assert output_cache.lookup_diff(before, after, "html", OPT, V) == "<diff/>"
-        # Named by the after-VI stem + the before-content hash prefix.
-        assert slot.name.startswith("Foo.")
+        # Fixed short base + the before-content hash prefix (no after-VI stem);
+        # the slot dir is a bounded per-VI ``vi-<hash>``.
+        assert slot.name.startswith("vi.")
+        assert slot.parent.name.startswith("vi-")
         assert slot.suffix == ".html"
 
     def test_before_version_change_is_new_slot(self, tmp_path: Path) -> None:

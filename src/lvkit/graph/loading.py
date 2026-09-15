@@ -496,8 +496,10 @@ class LoadingMixin:
 
         for member in lib.members:
             if member.member_type == "VI":
-                member_name = Path(member.url).name
-                if member_name.lower().endswith(".ctl"):
+                member_url = Path(member.url)
+                member_name = member_url.name
+                member_suffix = member_url.suffix.lower()
+                if member_suffix == ".ctl":
                     # .ctl members are type definitions, not loadable VIs
                     typedef_qname = lib_qname + ":" + member_name
                     ctl_path = lvlib_path.parent / member.url
@@ -528,7 +530,7 @@ class LoadingMixin:
                             caller=lib_key,
                             rel="owns",
                         )
-                else:
+                elif member_suffix == ".vi":
                     member_qname = lib_qname + ":" + member_name
                     vi_path = lvlib_path.parent / member.url
                     if not vi_path.exists():
@@ -558,6 +560,21 @@ class LoadingMixin:
                             caller=lib_key,
                             rel="owns",
                         )
+                else:
+                    # A member the library XML declares Type="VI" but whose URL
+                    # is neither .vi nor .ctl -- a source-metadata anomaly, not
+                    # a code entity. No node, no stub (a stub means "a VI we
+                    # expect to resolve later", which is wrong here): warn and
+                    # move on rather than sending a non-VI file to load_vi
+                    # (which raises ValueError and would abort the whole load).
+                    logger.warning(
+                        'library %s declares member %r as Type="VI" but its '
+                        "URL %r is not a loadable .vi or .ctl file — skipping "
+                        "it.",
+                        lvlib_path.name,
+                        member.name,
+                        member.url,
+                    )
             elif member.member_type == "LVClass":
                 class_name = Path(member.url).name
                 class_path = lvlib_path.parent / member.url
@@ -1220,6 +1237,7 @@ class LoadingMixin:
         main_xml: Path | None,
         search_paths: list[Path],
         visited: set[str],
+        *,
         source_dir: Path | None = None,
         source_override: Path | None = None,
         mode: LoadMode = LoadMode.FULL,
@@ -1251,6 +1269,9 @@ class LoadingMixin:
                 bd_xml=bd_xml,
                 fp_xml=fp_xml if fp_xml and fp_xml.exists() else None,
                 main_xml=main_xml if main_xml and main_xml.exists() else None,
+                # Pin the parser's identity (name, source_path, warnings) to the
+                # real source path, not the fixed ``vi_BDHb.xml`` cache name.
+                source_override=source_override,
                 layout=self._want_layout,
             )
         )
@@ -1260,7 +1281,19 @@ class LoadingMixin:
         fp = vi.front_panel
         conpane = vi.connector_pane
 
-        unqualified_name = bd_xml.name.replace("_BDHb.xml", ".vi")
+        # The VI's real unqualified name comes from its SOURCE path when we have
+        # one (``source_override``), NOT from the extracted BD XML filename: the
+        # managed extraction cache names every artifact ``vi_BDHb.xml`` (a bounded
+        # fixed name — see ``extractor.extract_vi_xml``), so deriving the name from
+        # the XML would make every VI ``vi.vi``. The source path is authoritative
+        # and is threaded here for the top-level VI (``load_vi``) and every SubVI
+        # dependency (``_leaf_load_vi``). Only a raw ``*_BDHb.xml`` handed in
+        # directly (no source path) falls back to the XML-derived name.
+        unqualified_name = (
+            source_override.name
+            if source_override is not None
+            else bd_xml.name.replace("_BDHb.xml", ".vi")
+        )
         # own_qname is this VI's (possibly NON-unique) qualified name — kept only
         # for the self-dependency compare below and the qname reverse index. It
         # is NOT the identity: two on-disk copies (a source VI + its stripped
@@ -1826,6 +1859,10 @@ class LoadingMixin:
                 search_paths=search_paths,
                 visited=set(),
                 source_dir=resolved.parent,
+                # ``resolved`` is this SubVI's real source ``.vi`` path — pin the
+                # VI's identity (key + unqualified name) to it, never to the
+                # fixed-name ``vi_BDHb.xml`` in the extraction cache.
+                source_override=resolved,
                 mode=child_mode,
             )
             if loaded_name:

@@ -34,6 +34,7 @@ install_pylabview_patches()
 # pylabview). Re-exported here so long-standing callers of ``extractor.X`` (e.g.
 # ``graph.core`` -> ``extractor.set_extraction_roots``) keep working unchanged.
 from lvkit.cache_paths import (  # noqa: E402
+    MANAGED_ARTIFACT_STEM,
     _slug,
     classify,
     cleanup_legacy_cache,
@@ -179,7 +180,7 @@ def _make_read_po(**overrides: object) -> argparse.Namespace:
     return argparse.Namespace(**opts)
 
 
-def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
+def _extract_in_process(vi_path: Path, output_dir: Path, artifact_stem: str) -> None:
     """Extract a VI to XML in-process, matching ``readRSRC -i <vi> -x``.
 
     pylabview places each block's sidecar XML (``_BDHb.xml`` etc.) in
@@ -190,17 +191,21 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     request concurrency. This avoids the per-call interpreter boot + pylabview
     re-import that the subprocess path pays on every extraction.
 
+    ``artifact_stem`` names the produced files — the caller's real VI stem for a
+    caller-owned ``output_dir``, or the fixed ``MANAGED_ARTIFACT_STEM`` in the
+    managed cache; it is NOT necessarily ``vi_path.stem``.
+
     Mirrors the option set that ``readRSRC.main()`` builds for the ``-x``
     (extract) subcommand via argparse.
     """
-    xml_path = output_dir / f"{vi_stem}.xml"
+    xml_path = output_dir / f"{artifact_stem}.xml"
     po = _make_read_po(
         rsrc=str(vi_path),
         xml=str(xml_path),
         textcp="mac_roman",
         raw_connectors=False,
         keep_names=False,
-        filebase=vi_stem,
+        filebase=artifact_stem,
         list=False,
         dump=False,
         extract=True,
@@ -214,8 +219,8 @@ def _extract_in_process(vi_path: Path, output_dir: Path, vi_stem: str) -> None:
     with open(xml_path, "wb") as xml_fh:
         tree.write(xml_fh, encoding="utf-8", xml_declaration=True)
     for path in output_dir.iterdir():
-        belongs_to_vi = path.name == f"{vi_stem}.xml" or path.name.startswith(
-            f"{vi_stem}_"
+        belongs_to_vi = path.name == f"{artifact_stem}.xml" or path.name.startswith(
+            f"{artifact_stem}_"
         )
         if path.suffix == ".xml" and belongs_to_vi:
             normalize_extracted_xml(path)
@@ -249,15 +254,24 @@ def extract_vi_xml(
     """
     vi_path = Path(vi_path).resolve()
 
-    if output_dir is None:
+    # A caller-supplied output_dir is caller-owned, so keep the real source stem
+    # in the artifact names there. The MANAGED cache (output_dir is None) uses a
+    # FIXED short stem instead: a long source filename would otherwise overflow
+    # the cache path once a ``_BDHb.xml`` suffix is appended — the second Windows
+    # MAX_PATH axis, paired with the bounded per-VI slot dir (cache_paths._vi_slot).
+    # The real source name/path is preserved for callers: the graph loader keys
+    # every node on the source path (never on this stem), and the ``source`` field
+    # of the ``.meta.json`` records the real owner-relative path.
+    managed = output_dir is None
+    if managed:
         output_dir = _cache_target(vi_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    vi_stem = vi_path.stem
-    bd_xml = output_dir / f"{vi_stem}_BDHb.xml"
-    fp_xml = output_dir / f"{vi_stem}_FPHb.xml"
-    main_xml = output_dir / f"{vi_stem}.xml"
-    meta_path = output_dir / f"{vi_stem}.meta.json"
+    artifact_stem = MANAGED_ARTIFACT_STEM if managed else vi_path.stem
+    bd_xml = output_dir / f"{artifact_stem}_BDHb.xml"
+    fp_xml = output_dir / f"{artifact_stem}_FPHb.xml"
+    main_xml = output_dir / f"{artifact_stem}.xml"
+    meta_path = output_dir / f"{artifact_stem}.meta.json"
 
     # Cache hit: XML present and the recorded content-hash (or mtime/size
     # fast-path) still matches the VI. The extraction-code compatibility check is
@@ -316,15 +330,15 @@ def extract_vi_xml(
     tmp_dir = Path(tempfile.mkdtemp(prefix=".x-", dir=_staging_root()))
     try:
         try:
-            _extract_in_process(vi_path, tmp_dir, vi_stem)
+            _extract_in_process(vi_path, tmp_dir, artifact_stem)
         except Exception as exc:
             raise RuntimeError(
                 f"pylabview extraction failed for {vi_path.name}: {exc}"
-                f"{_windows_long_path_hint(tmp_dir / f'{vi_stem}_BDHb.xml')}"
+                f"{_windows_long_path_hint(tmp_dir / f'{artifact_stem}_BDHb.xml')}"
             ) from exc
 
-        if not (tmp_dir / f"{vi_stem}_BDHb.xml").exists():
-            raise RuntimeError(f"Block diagram XML not found: {vi_stem}_BDHb.xml")
+        if not (tmp_dir / f"{artifact_stem}_BDHb.xml").exists():
+            raise RuntimeError(f"Block diagram XML not found: {artifact_stem}_BDHb.xml")
 
         # Publish every produced artifact atomically (same filesystem as the
         # temp dir), then meta.json last so its appearance marks the cache valid.

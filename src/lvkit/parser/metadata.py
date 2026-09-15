@@ -506,7 +506,7 @@ def parse_iuse_from_libd(libd_path: Path) -> dict[str, str]:
 
 
 def _decode_pth0_components(
-    data: bytes, pth0_offset: int, end: int
+    data: bytes | memoryview, pth0_offset: int, end: int
 ) -> tuple[list[str], int]:
     """Decode one ``PTH0`` record's pascal-string path components ->
     ``(tokens, next_idx)``.
@@ -557,7 +557,7 @@ def _decode_pth0_components(
         idx += 1
         if idx + ln > end:
             return [], pth0_offset
-        tokens.append(decode_labview_text(data[idx : idx + ln]))
+        tokens.append(decode_labview_text(bytes(data[idx : idx + ln])))
         idx += ln
     return tokens, idx
 

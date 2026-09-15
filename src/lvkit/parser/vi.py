@@ -129,6 +129,7 @@ def parse_vi(
     bd_xml: Path | str | None = None,
     fp_xml: Path | str | None = None,
     main_xml: Path | str | None = None,
+    source_override: Path | str | None = None,
     layout: bool = False,
 ) -> ParsedVI:
     """Parse a VI file into all components.
@@ -141,6 +142,11 @@ def parse_vi(
         bd_xml: Path to *_BDHb.xml (for direct XML parsing)
         fp_xml: Path to *_FPHb.xml (optional)
         main_xml: Path to main *.xml (optional)
+        source_override: the VI's real source path, when the caller already
+            knows it and ``bd_xml`` lives under a fixed cache name (e.g.
+            ``vi_BDHb.xml``) that can't itself supply it. Pins the parsed VI's
+            name/``source_path``/warnings to this path instead of deriving them
+            from ``bd_xml``'s filename. Takes precedence over ``vi_path``.
         layout: also decode block-diagram GEOMETRY (node/terminal/wire bounds)
             from the same parsed heap and attach it as ``ParsedVI.layout``. Off
             by default — codegen needs no positions. Rendering passes True so
@@ -175,9 +181,17 @@ def parse_vi(
             )
             fp_xml = None
 
-    # Derive source .vi path. Prefer the explicit vi_path argument since BD XML
-    # may now live in a temp cache dir rather than next to the source file.
-    if vi_path is not None:
+    # Derive source .vi path. Prefer an explicit real source path — the caller
+    # passes ``source_override`` (the graph loader / parallel pre-parse) or
+    # ``vi_path`` — because the BD XML now lives in the managed cache under a
+    # bounded FIXED name (``vi_BDHb.xml``; see ``extractor.extract_vi_xml``).
+    # Deriving identity from that filename would mislabel every VI ``vi.vi`` (its
+    # name, ``metadata.source_path``, and every warning), so the source path is
+    # authoritative. ``source_override`` is NOT ``.exists()``-gated: the real .vi
+    # need not sit beside the cached XML.
+    if source_override is not None:
+        source_path_str = str(Path(source_override).resolve())
+    elif vi_path is not None:
         source_path_str = str(Path(vi_path).resolve())
     else:
         source_path = bd_xml.with_name(bd_xml.name.replace("_BDHb.xml", ".vi"))
@@ -1582,7 +1596,7 @@ def _decode_default_data(
     return None
 
 
-def _walk_path(data: bytes) -> tuple[str | None, int]:
+def _walk_path(data: bytes | memoryview) -> tuple[str | None, int]:
     """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
 
     Delegates the pascal-string component decode to
@@ -1592,7 +1606,9 @@ def _walk_path(data: bytes) -> tuple[str | None, int]:
     cluster stays aligned with the following field. Returns ``(None, 0)``
     when ``data`` is not a ``PTH0`` blob.
     """
-    if not data.startswith(b"PTH0"):
+    # An equality slice (not ``.startswith``, which memoryview lacks) works for
+    # both ``bytes`` and ``memoryview`` callers.
+    if data[:4] != b"PTH0":
         return None, 0
     parts, idx = _decode_pth0_components(data, 0, len(data))
     return (f'Path("{"/".join(parts)}")' if parts else None), idx
@@ -1639,7 +1655,9 @@ def _decode_numeric_default(data: bytes) -> str | None:
     return None
 
 
-def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, int]:
+def _decode_element(
+    data: bytes | memoryview, elem_type: LVType | None
+) -> tuple[str | None, int]:
     """Decode a single element and return (value, bytes_consumed).
 
     Handles all LabVIEW types recursively: primitives, enums,
@@ -1654,6 +1672,14 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
     """
     if not elem_type or len(data) == 0:
         return None, 0
+
+    # A memoryview instead of bytes so the ARRAY/CLUSTER branches' recursive
+    # ``data[idx:]`` slices below are non-copying subviews -- an array/cluster
+    # element decode used to re-copy the whole remaining payload bytes object
+    # on every recursive call, making a large array's decode O(N^2) (a
+    # 65,160,056-byte NumInt32 array default effectively hung parse_vi()).
+    if isinstance(data, bytes):
+        data = memoryview(data)
 
     underlying = elem_type.underlying_type or ""
     kind = elem_type.kind
@@ -1673,7 +1699,7 @@ def _decode_element(data: bytes, elem_type: LVType | None) -> tuple[str | None, 
         # _lv.type_cast), so this keeps parse and codegen consistent. Human-
         # readable codepage text for DISPLAY is a separate value: ConstantNode
         # carries display_value (see graph/construction.py decode_constant).
-        string_val = data[4 : 4 + str_len].decode("latin-1")
+        string_val = bytes(data[4 : 4 + str_len]).decode("latin-1")
         # repr() yields a valid Python string literal with ALL escaping applied
         # (quotes, backslashes, and control bytes like \r\n\t). Manual quote-only
         # escaping left raw control bytes in the literal, which broke literal_eval

@@ -92,13 +92,17 @@ def _ext_for(fmt: str) -> str:
 # ── path resolution ─────────────────────────────────────────────────────────
 
 
-def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, bool]:
-    """``(body_path, meta_path, is_adhoc)`` for a render of ``input_path``.
+def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, str, bool]:
+    """``(body_path, meta_path, source_label, is_adhoc)`` for a render of
+    ``input_path``.
 
     Path-addressed for project/shared VIs; flat content-addressed for adhoc.
+    ``source_label`` is ``classify()``'s real owner-relative path (or, for
+    adhoc, the bare filename) — the caller writes it into the cache entry's
+    meta so the fixed ``vi.<ext>`` body name doesn't lose which VI it is.
     """
     ext = _ext_for(fmt)
-    d, _, ns = cache_paths.classify(input_path, "render")
+    d, source_label, ns = cache_paths.classify(input_path, "render")
     if ns == "adhoc":
         # Flat content-addressed pool, but still per-build: the <fp> keeps two
         # lvkit builds from colliding on the same <sha>.<ext> (classify's dir is
@@ -111,8 +115,12 @@ def _render_paths(input_path: Path, fmt: str) -> tuple[Path, Path, bool]:
         )
         base = f"{cache_paths.sha256_file(input_path)}.{ext}"
     else:
-        base = f"{input_path.stem}.{ext}"
-    return d / base, d / f"{base}.meta.json", ns == "adhoc"
+        # classify's dir is now a bounded per-VI slot (vi-<hash>), so the source
+        # stem in the filename is both redundant AND a MAX_PATH hazard (a long VI
+        # name overflows the path) — use a fixed short base. The slot holds one
+        # source VI, so ``vi.<ext>`` is unique per format.
+        base = f"{cache_paths.MANAGED_ARTIFACT_STEM}.{ext}"
+    return d / base, d / f"{base}.meta.json", source_label, ns == "adhoc"
 
 
 def _diff_ext(fmt: str) -> str:
@@ -121,17 +129,20 @@ def _diff_ext(fmt: str) -> str:
 
 def _diff_paths(
     before_path: Path, after_path: Path, fmt: str
-) -> tuple[Path, Path, str, bool]:
-    """``(body_path, meta_path, before_sha, is_adhoc)`` for a diff.
+) -> tuple[Path, Path, str, str, bool]:
+    """``(body_path, meta_path, before_sha, source_label, is_adhoc)`` for a diff.
 
     Path-addressed by the AFTER (working-tree) VI — the side lvkit is handed as a
     real path — with the before-content hash and the format in the filename
     (lvkit is git-agnostic; the before side arrives only as bytes). Flat
-    content-addressed when even the after side is adhoc.
+    content-addressed when even the after side is adhoc. ``source_label`` is the
+    AFTER VI's real owner-relative path (or, for adhoc, its bare filename) — the
+    caller writes it into the cache entry's meta so the fixed ``vi.<sha>.<ext>``
+    body name doesn't lose which VI it is.
     """
     ext = _diff_ext(fmt)
     before_sha = cache_paths.sha256_file(before_path)
-    d, _, ns = cache_paths.classify(after_path, "diff")
+    d, source_label, ns = cache_paths.classify(after_path, "diff")
     if ns == "adhoc":
         after_sha = cache_paths.sha256_file(after_path)
         d = (
@@ -142,8 +153,12 @@ def _diff_paths(
         )
         base = f"{before_sha[:16]}_{after_sha[:16]}.{ext}"
     else:
-        base = f"{after_path.stem}.{before_sha[:16]}.{ext}"
-    return d / base, d / f"{base}.meta.json", before_sha, ns == "adhoc"
+        # classify's dir is a bounded per-VI slot (vi-<hash>) holding one AFTER
+        # VI, so the after-stem in the filename is redundant AND a MAX_PATH
+        # hazard — a fixed short base plus the before-content hash still
+        # distinguishes every (before, format) pair.
+        base = f"{cache_paths.MANAGED_ARTIFACT_STEM}.{before_sha[:16]}.{ext}"
+    return d / base, d / f"{base}.meta.json", before_sha, source_label, ns == "adhoc"
 
 
 # ── read / write ────────────────────────────────────────────────────────────
@@ -200,7 +215,7 @@ def diff_slot(before_path: Path, after_path: Path, fmt: str) -> Path:
 
 def lookup_render(input_path: Path, fmt: str, options: str, version: str) -> str | None:
     """Return cached render output for ``input_path`` if fresh, else ``None``."""
-    body_path, meta_path, _ = _render_paths(input_path, fmt)
+    body_path, meta_path, _, _ = _render_paths(input_path, fmt)
     return _read_if_fresh(
         input_path,
         body_path,
@@ -217,7 +232,7 @@ def store_render(
     input_path: Path, fmt: str, options: str, version: str, body: str
 ) -> Path:
     """Cache ``body`` as the render of ``input_path``; return the slot path."""
-    body_path, meta_path, _ = _render_paths(input_path, fmt)
+    body_path, meta_path, source_label, _ = _render_paths(input_path, fmt)
     _write(
         body_path,
         meta_path,
@@ -228,6 +243,9 @@ def store_render(
             "options": options,
             "kind": "render",
             "text_encoding": labview_text_encoding(),
+            # The fixed ``vi.<ext>`` body name carries no source info by
+            # itself — record the real path (mirrors extraction's meta.json).
+            "source": source_label,
         },
     )
     return body_path
@@ -237,7 +255,7 @@ def lookup_diff(
     before_path: Path, after_path: Path, fmt: str, options: str, version: str
 ) -> str | None:
     """Return cached diff output for the ``(before, after)`` pair if fresh."""
-    body_path, meta_path, before_sha, _ = _diff_paths(before_path, after_path, fmt)
+    body_path, meta_path, before_sha, _, _ = _diff_paths(before_path, after_path, fmt)
     return _read_if_fresh(
         after_path,
         body_path,
@@ -260,7 +278,9 @@ def store_diff(
     body: str,
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path."""
-    body_path, meta_path, before_sha, _ = _diff_paths(before_path, after_path, fmt)
+    body_path, meta_path, before_sha, source_label, _ = _diff_paths(
+        before_path, after_path, fmt
+    )
     _write(
         body_path,
         meta_path,
@@ -272,6 +292,9 @@ def store_diff(
             "before_sha": before_sha,
             "kind": "diff",
             "text_encoding": labview_text_encoding(),
+            # The fixed ``vi.<sha>.<ext>`` body name carries no source info by
+            # itself — record the AFTER VI's real path (mirrors extraction).
+            "source": source_label,
         },
     )
     return body_path
