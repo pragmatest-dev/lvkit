@@ -4,6 +4,11 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-09-16
+- **Fix: a VI with a huge front-panel default parses fast** — decoding array/cluster front-panel defaults on a memoryview drops the O(N²) re-copy, so a VI with a 65-million-element default no longer hangs the parser (#96).
+- **Fix: a `.lvlib` with a non-VI member no longer crashes the index** — a library member declared `Type="VI"` whose URL isn't a `.vi`/`.ctl` (e.g. a stray `.bin`) is warn-skipped; the library and its real members still load (#98).
+- **Fix: cache paths stay within Windows `MAX_PATH`** — a deep source tree or long VI filename can no longer overflow the extract/render/diff cache path; owned VIs use a short per-VI cache slot while VI identity stays the real source path (#97).
+
 ## [0.8.3] - 2026-09-09
 - **A property/invoke node bound to a control renders distinctly** — an invoke node tied to a control (like a property node) now shows the target control's name as its header, with no reference terminals; wire-driven nodes are unchanged (#51).
 - **Coercion dots stay inside their case-structure frame** — a coercion dot on a wire feeding a front-panel terminal no longer floats outside the frame it belongs to (#53).
