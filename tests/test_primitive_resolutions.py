@@ -157,6 +157,22 @@ def test_type_cast_resolves_and_reinterprets_bytes():
         lv.type_cast(1.0, "f64", "str")
 
 
+def test_decimal_digit_checks_first_character_ascii_range():
+    """Decimal Digit? (1119) resolves via python_code; NI's doc semantics:
+    'Returns TRUE if char represents a decimal digit ranging from 0 through
+    9. If char is a string, this function uses the first character in the
+    string. ... Otherwise, this function returns FALSE.' Distinguished from
+    its siblings (Hex Digit? = 1123, Octal Digit?) by resID, confirmed via
+    NI's own VI-Scripting export identity, not shape (all share the same
+    String -> Boolean pane)."""
+    resolved = get_resolver().resolve(prim_id=1119)
+    assert resolved.name == "Decimal Digit?"
+    code = resolved.python_code["result"]
+    for char, expected in [("5", True), ("a", False), ("", False), ("9x", True)]:
+        env = {"in_1": char}
+        assert eval(code, env) is expected, f"{char!r} -> expected {expected}"  # noqa: S307
+
+
 def test_array_size_returns_dimension_vector_for_nd():
     """Array Size (1809) resolves via the ARRAY_SIZE op handler; lv.array_size
     returns a scalar element COUNT for a 1-D array but a 1-D vector of

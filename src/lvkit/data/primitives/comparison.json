@@ -367,11 +367,13 @@
     },
     "1119": {
       "name": "Decimal Digit?",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/decimal-digit.html",
+      "note": "NI doc: 'Returns TRUE if char represents a decimal digit ranging from 0 through 9. If char is a string, this function uses the first character in the string. ... Otherwise, this function returns FALSE.' Every corpus instance (grep of the OpenG sample tree) wires a String -- matches the observed pane (String in, Boolean out) and the VI-Scripting export identity ('vi-scripting-nodes-lv2025'), which already distinguishes this resID from its siblings Hex Digit? (1123) and Octal Digit? -- confirmed, not guessed from shape.",
       "terminals": [
         {
           "index": 0,
           "direction": "out",
-          "name": "digit?",
+          "name": "result",
           "type": "Boolean"
         },
         {
@@ -381,8 +383,11 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "python_code": {
+        "result": "48 <= ord(in_1[0]) <= 57 if in_1 else False"
+      },
+      "inline": true,
+      "verified": true
     },
     "1123": {
       "name": "Hex Digit?",
