@@ -324,6 +324,14 @@ def to_module_name(vi_name: str) -> str:
     Examples:
         "Get Settings Path.vi" -> "get_settings_path"
         "GraphicalTestRunner.lvlib:Run.vi" -> "run"
+        "1D Boolean Array Changed.vi" -> "var_1d_boolean_array_changed"
+
+    A LEADING DIGIT (e.g. a VI named "1D ...") is a valid Python FILENAME
+    stem but not a valid MODULE NAME for ``from <name> import ...`` -- that's
+    a SyntaxError ("invalid decimal literal"), since the parser tries to read
+    it as a number. Guard it the same way to_var_name() already does, so a
+    module's own filename and every ``from <module> import`` referencing it
+    agree and are both syntactically valid.
     """
     # Strip library prefix
     if ":" in vi_name:
@@ -331,4 +339,6 @@ def to_module_name(vi_name: str) -> str:
     vi_name = vi_name.replace(".vi", "").replace(".VI", "")
     result = vi_name.lower().replace(" ", "_").replace("-", "_")
     result = "".join(c for c in result if c.isalnum() or c == "_")
+    if result and not result[0].isalpha() and result[0] != "_":
+        result = "var_" + result
     return result or "module"

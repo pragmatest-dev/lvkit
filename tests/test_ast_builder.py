@@ -1543,6 +1543,43 @@ class TestToVarName:
         assert to_var_name("1st value") == "var_1st_value"
 
 
+class TestToModuleName:
+    """Tests for to_module_name -- a VI's on-disk module filename must be a
+    valid Python identifier (used both as a file stem and, wherever a caller
+    or a package build imports it, as the target of ``from <name> import``),
+    the same leading-digit constraint to_var_name already guards against."""
+
+    def test_numeric_prefix(self):
+        """A VI name starting with a digit (e.g. '1D Boolean Array Changed')
+        must not produce a module name Python can't import: bare
+        'from 1d_boolean_array_changed import x' is a SyntaxError ('invalid
+        decimal literal') because the parser tries to read '1d' as a number."""
+        from lvkit.codegen.ast_utils import to_module_name
+
+        assert to_module_name("1D Boolean Array Changed.vi") == (
+            "var_1d_boolean_array_changed"
+        )
+        assert to_module_name("123abc") == "var_123abc"
+
+    def test_normal_name_unchanged(self):
+        from lvkit.codegen.ast_utils import to_module_name
+
+        assert to_module_name("Get Settings Path.vi") == "get_settings_path"
+        assert to_module_name("GraphicalTestRunner.lvlib:Run.vi") == "run"
+
+    def test_generated_import_is_syntactically_valid(self):
+        """Regression guard for the real bug: build the exact import
+        statement a caller emits and confirm it PARSES."""
+        import ast
+
+        from lvkit.codegen.ast_utils import to_function_name, to_module_name
+
+        vi_name = "1D Boolean Array Changed.vi"
+        module = to_module_name(vi_name)
+        func = to_function_name(vi_name)
+        ast.parse(f"from {module} import {func}")
+
+
 # === Error Cluster Filtering Tests ===
 
 
