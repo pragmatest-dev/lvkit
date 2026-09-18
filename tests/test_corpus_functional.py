@@ -292,6 +292,26 @@ def test_merge_errors_vilib_subvi_generates_and_runs() -> None:
     assert r is None  # no outputs other than the (Python-exception) error out
 
 
+def test_get_file_system_separator_vilib_inline_resolves_and_runs() -> None:
+    """Strip Path Extension - String calls the real NI vi.lib utility
+    'Get File System Separator.vi' (<vilib>/Utility/sysinfo.llb/, class="iUse"
+    -- confirmed via direct XML inspection of the LinkObj Ref: it is an
+    ordinary vi.lib VI, never shipped in any downstream search path, whose
+    real body just returns the platform's path-separator character). This was
+    the largest remaining corpus-gallery failure bucket (147/251 failing VIs):
+    with no vilib/file-io.json entry, the caller's wired output terminal had
+    no name to resolve against (kind='subvi' -- vilib_vi was None), so it fell
+    through to TerminalResolutionNeeded instead of the vilib inline path. Now
+    resolved as an inline `os.sep` substitution (equivalent to LabVIEW's own
+    platform-native separator, confirmed via NI Community discussion since no
+    public Functions-reference page exists for this VI). Must generate a LEAF
+    (no SubVI import -- the call is inlined) and run correctly end-to-end."""
+    r = _run_leaf(
+        "file/file.llb/Strip Path Extension - String__ogtk.vi", "archive.tar.gz"
+    )
+    assert (r.root, r.extension) == ("archive.tar", "gz")
+
+
 def test_empty_2d_array() -> None:
     """Empty 2D Array is True when EITHER dimension is 0 -- exercises Array Size
     returning the per-dimension size vector for a 2-D array (not a scalar len)."""

@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 103,
+  "count": 104,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -1972,6 +1972,33 @@
       "python": "get_system_directory(directory_type)",
       "python_code": "def _get_system_directory_path(directory_type: int) -> Path:\n    \"\"\"Get OS-specific system directory path.\"\"\"\n    home = Path.home()\n\n    if sys.platform == 'win32':\n        # Windows paths\n        appdata = Path(os.environ.get('APPDATA', home / 'AppData/Roaming'))\n        local_appdata = Path(os.environ.get('LOCALAPPDATA', home / 'AppData/Local'))\n        programdata = Path(os.environ.get('PROGRAMDATA', 'C:/ProgramData'))\n        public = Path(os.environ.get('PUBLIC', 'C:/Users/Public'))\n        systemroot = Path(os.environ.get('SYSTEMROOT', 'C:/Windows'))\n        programfiles = Path(os.environ.get('PROGRAMFILES', 'C:/Program Files'))\n        systemdrive = Path(os.environ.get('SYSTEMDRIVE', 'C:'))\n        temp = Path(os.environ.get('TEMP', local_appdata / 'Temp'))\n\n        paths = [\n            home,  # 0: USER_HOME\n            home / 'Desktop',  # 1: USER_DESKTOP\n            home / 'Documents',  # 2: USER_DOCUMENTS\n            appdata,  # 3: USER_APP_DATA\n            appdata,  # 4: USER_PREFERENCES\n            temp,  # 5: USER_TEMP\n            public / 'Documents',  # 6: PUBLIC_DOCUMENTS\n            programdata,  # 7: PUBLIC_APP_DATA\n            programdata,  # 8: PUBLIC_PREFERENCES\n            systemroot / 'System32',  # 9: SYSTEM_CORE_LIBS\n            programfiles,  # 10: SYSTEM_INSTALLED_LIBS\n            programfiles,  # 11: APPLICATION_FILES\n            systemdrive / '',  # 12: BOOT_VOLUME_ROOT\n            local_appdata / 'Cache',  # 13: PUBLIC_CACHE\n        ]\n    elif sys.platform == 'darwin':\n        # macOS paths\n        paths = [\n            home,  # 0: USER_HOME\n            home / 'Desktop',  # 1: USER_DESKTOP\n            home / 'Documents',  # 2: USER_DOCUMENTS\n            home / 'Library/Application Support',  # 3: USER_APP_DATA\n            home / 'Library/Preferences',  # 4: USER_PREFERENCES\n            Path('/tmp'),  # 5: USER_TEMP\n            Path('/Users/Shared/Documents'),  # 6: PUBLIC_DOCUMENTS\n            Path('/Library/Application Support'),  # 7: PUBLIC_APP_DATA\n            Path('/Library/Preferences'),  # 8: PUBLIC_PREFERENCES\n            Path('/usr/lib'),  # 9: SYSTEM_CORE_LIBS\n            Path('/Library'),  # 10: SYSTEM_INSTALLED_LIBS\n            Path('/Applications'),  # 11: APPLICATION_FILES\n            Path('/'),  # 12: BOOT_VOLUME_ROOT\n            home / 'Library/Caches',  # 13: PUBLIC_CACHE\n        ]\n    else:\n        # Linux/Unix paths (XDG Base Directory specification)\n        xdg_data = Path(os.environ.get('XDG_DATA_HOME', home / '.local/share'))\n        xdg_config = Path(os.environ.get('XDG_CONFIG_HOME', home / '.config'))\n        xdg_cache = Path(os.environ.get('XDG_CACHE_HOME', home / '.cache'))\n\n        paths = [\n            home,  # 0: USER_HOME\n            home / 'Desktop',  # 1: USER_DESKTOP\n            home / 'Documents',  # 2: USER_DOCUMENTS\n            xdg_data,  # 3: USER_APP_DATA\n            xdg_config,  # 4: USER_PREFERENCES\n            Path('/tmp'),  # 5: USER_TEMP\n            Path('/usr/share/doc'),  # 6: PUBLIC_DOCUMENTS\n            Path('/usr/local/share'),  # 7: PUBLIC_APP_DATA\n            Path('/etc'),  # 8: PUBLIC_PREFERENCES\n            Path('/usr/lib'),  # 9: SYSTEM_CORE_LIBS\n            Path('/usr/local/lib'),  # 10: SYSTEM_INSTALLED_LIBS\n            Path('/opt'),  # 11: APPLICATION_FILES\n            Path('/'),  # 12: BOOT_VOLUME_ROOT\n            xdg_cache,  # 13: PUBLIC_CACHE\n        ]\n\n    return paths[directory_type] if 0 <= directory_type < len(paths) else home\n\n\nclass GetSystemDirectoryResult(NamedTuple):\n    \"\"\"Result of get_system_directory.\"\"\"\n    system_directory_path: Path\n\n\ndef get_system_directory(directory_type: int, create_if_not_found: bool = False) -> GetSystemDirectoryResult:\n    \"\"\"Get the system directory path.\n\n    Args:\n        directory_type: SystemDirectoryType enum value.\n        create_if_not_found: If True, create directory if it doesn't exist.\n\n    Returns:\n        GetSystemDirectoryResult with the resolved path.\n    \"\"\"\n    path = _get_system_directory_path(int(directory_type))\n    if create_if_not_found and not path.exists():\n        path.mkdir(parents=True, exist_ok=True)\n    return GetSystemDirectoryResult(system_directory_path=path)",
       "inline": false
+    },
+    {
+      "name": "Get File System Separator",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Returns the file-path separator character for the platform LabVIEW is running on: backslash (\\) on Windows, forward slash (/) on Mac OS and Linux. No public NI Functions-reference page exists for this VI; confirmed via NI Community forum discussion and its vi.lib location (vi.lib/Utility/sysinfo.llb) alongside the other platform-detection utilities in this file. Equivalent to Python's os.sep.",
+      "vi_path": "vi.lib/Utility/sysinfo.llb/Get File System Separator.vi",
+      "is_polymorphic": false,
+      "python_hint": "os.sep",
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "separator",
+          "description": "separator is the platform's file-path separator character.",
+          "default_value": null,
+          "enum_values": null,
+          "python_param": "separator",
+          "index": 0,
+          "direction": "output",
+          "type": "String"
+        }
+      ],
+      "imports": [
+        "import os"
+      ],
+      "python_code": "{separator} = os.sep",
+      "inline": true
     },
     {
       "name": "Default Directory Function",
