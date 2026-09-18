@@ -83,7 +83,7 @@
       "source": "vi-scripting-nodes-lv2025"
     },
     "1161": {
-      "name": "Unflatten From String",
+      "name": "Unknown Data-Manipulation Primitive 1161",
       "terminals": [
         {
           "index": 0,
@@ -111,6 +111,7 @@
         }
       ],
       "verified": false,
+      "note": "MISLABELED as 'Unflatten From String' by the vi-scripting-nodes-lv2025 baseline import -- that name is now correctly claimed by 1165, whose 8-terminal pane (type/binary_string/byte_order/includes_size/error_in/rest_of_string/value/error_out) matches NI's real documented connector pane exactly, confirmed against ~15 real corpus instances. This entry's own pane (4 terminals; a Boolean 'err' rather than a real error cluster) does NOT match Unflatten From String's real shape at all, so the label was wrong. No real corpus instance of primResID 1161 was found anywhere in the available extracted corpus to independently re-identify it -- flagged unresolved rather than guessed.",
       "source": "vi-scripting-nodes-lv2025"
     },
     "1162": {
@@ -292,6 +293,65 @@
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/type-cast.html",
       "note": "Reinterprets x's flat bytes as the type-prototype's type (LabVIEW: flatten then unflatten). Emitted via TYPE_CAST op handler, which reads the source type from in_0 and the dest type from the output and defers to _lv.type_cast. Terminal types here are nominal; the handler reads real per-node types. Numeric-scalar/array<->string supported (big-endian, no length prefix); cluster/variant/float pairs raise loudly pending fuller flat-format support."
+    },
+    "1165": {
+      "name": "Unflatten From String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",
+      "terminals": [
+        {
+          "index": 0,
+          "direction": "out",
+          "name": "error_out",
+          "type": "Error"
+        },
+        {
+          "index": 2,
+          "direction": "out",
+          "name": "value",
+          "type": "polymorphic"
+        },
+        {
+          "index": 3,
+          "direction": "out",
+          "name": "rest_of_string",
+          "type": "String"
+        },
+        {
+          "index": 7,
+          "direction": "in",
+          "name": "type",
+          "type": "polymorphic"
+        },
+        {
+          "index": 8,
+          "direction": "in",
+          "name": "error_in",
+          "type": "Error"
+        },
+        {
+          "index": 9,
+          "direction": "in",
+          "name": "byte_order",
+          "type": "UnitUInt16",
+          "default_value": "0"
+        },
+        {
+          "index": 10,
+          "direction": "in",
+          "name": "includes_size",
+          "type": "Boolean",
+          "default_value": "True"
+        },
+        {
+          "index": 11,
+          "direction": "in",
+          "name": "binary_string",
+          "type": "String"
+        }
+      ],
+      "op": "UNFLATTEN_FROM_STRING",
+      "verified": true,
+      "note": "Confirmed via NI doc (parses binary_string into type's type; error_in/out, byte_order 0/1/2=big/native/little default 0, includes_size default True, rest_of_string = leftover bytes) and via ~15 real corpus instances (dictionary/appcontrol/msgqueue/lvdata, plus JKI-VI-Tester) whose 'type'/'value' terminals (idx 7/2) vary together across Array/Cluster/Refnum/6 numeric types while 'error in'/'error out' (idx 8/0) stay fixed as the error cluster -- confirms the role split, not shape. Emitted via UNFLATTEN_FROM_STRING op handler (mirrors TYPE_CAST's dest-type-from-output-terminal reading), which defers to _lv.unflatten_from_string. Numeric-scalar/array<->string supported (length-prefixed when includes_size, all 3 byte orders); cluster/refnum/float targets (observed in this same corpus, e.g. Strip Units__ogtk.vi) raise loudly pending fuller flat-format support, same policy as Type Cast (1166)."
     },
     "1170": {
       "name": "Split Number",

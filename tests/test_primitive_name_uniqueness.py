@@ -117,7 +117,16 @@ IMPORT_UNVERIFIED_DUPLICATES: dict[str, set[str]] = {
     "Multiply": {"1052", "3917"},
     "Subtract": {"1051", "3916"},
     "Text to UTF-8": {"23066", "23067"},
-    "Unflatten From String": {"1161", "1165"},
+    # NOTE (resolved): "Unflatten From String" {1161, 1165} -- 1165's 8-terminal
+    # pane (type/binary_string/byte_order/includes_size/error_in/rest_of_string/
+    # value/error_out) matches NI's real documented connector pane exactly,
+    # confirmed against ~15 real corpus instances spanning Array/Cluster/
+    # Refnum/6 numeric types. 1161's own pane (4 terminals; a Boolean "err"
+    # rather than a real error cluster) does not match Unflatten From String's
+    # real shape at all, so 1161 was mislabeled by the baseline import; renamed
+    # to an honest "unknown" placeholder (no real corpus instance of 1161 was
+    # found to independently re-identify it) -- collision dissolved, removed
+    # from this dict.
     "Unknown": {"2372", "11163"},
 }
 

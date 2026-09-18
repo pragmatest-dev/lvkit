@@ -157,6 +157,36 @@ def test_type_cast_resolves_and_reinterprets_bytes():
         lv.type_cast(1.0, "f64", "str")
 
 
+def test_unflatten_from_string_resolves_and_parses_flat_format():
+    """Unflatten From String (1165) resolves via the UNFLATTEN_FROM_STRING op
+    handler, and lv.unflatten_from_string parses LabVIEW's Flatten To String
+    format (length-prefixed strings/arrays, selectable byte order), returning
+    (value, rest_of_the_binary_string) -- distinct from Type Cast's no-prefix
+    reinterpret. An unsupported target (e.g. a real corpus float/cluster/refnum
+    target) raises loudly, never a silently-wrong value."""
+    import pytest as _pytest
+
+    from lvkit.runtime import lv
+
+    assert get_resolver().resolve(prim_id=1165).op == "UNFLATTEN_FROM_STRING"
+    # Length-prefixed string (Flatten To String's own output format)
+    flat = len("hi").to_bytes(4, "big").decode("latin-1") + "hi" + "TAIL"
+    value, rest = lv.unflatten_from_string(flat, "str")
+    assert (value, rest) == ("hi", "TAIL")
+    # Scalar int has no size concept; byte_order selects endianness
+    u32_bytes = (300).to_bytes(4, "big").decode("latin-1")
+    value, _rest = lv.unflatten_from_string(u32_bytes, "u32")
+    assert value == 300
+    u16_le_bytes = (5).to_bytes(2, "little").decode("latin-1")
+    value, _ = lv.unflatten_from_string(u16_le_bytes, "u16", 2)
+    assert value == 5
+    # includes_size=False: no prefix, whole string is the value
+    value, rest = lv.unflatten_from_string("rawtext", "str", includes_size=False)
+    assert (value, rest) == ("rawtext", "")
+    with _pytest.raises(NotImplementedError):
+        lv.unflatten_from_string("x", "Cluster")
+
+
 def test_decimal_digit_checks_first_character_ascii_range():
     """Decimal Digit? (1119) resolves via python_code; NI's doc semantics:
     'Returns TRUE if char represents a decimal digit ranging from 0 through

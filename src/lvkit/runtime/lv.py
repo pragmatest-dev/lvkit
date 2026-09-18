@@ -17,7 +17,9 @@ import math as _math
 import operator as _op
 import random as _random
 import re as _re
+import sys as _sys
 from collections.abc import Callable
+from typing import Literal
 
 
 def _binop(a, b, f: Callable):
@@ -477,3 +479,54 @@ def type_cast(x, src: str, dst: str):
     arrays ('u32[]', …); other type pairs raise NotImplementedError (loud, never
     silently wrong)."""
     return _unflatten_bytes(_flatten_bytes(x, src), dst)
+
+
+# LabVIEW's 3 byte-order codes -> Python's from_bytes/to_bytes literal.
+_BYTE_ORDER: dict[int, Literal["little", "big"]] = {
+    0: "big", 1: _sys.byteorder, 2: "little"
+}
+
+
+def unflatten_from_string(
+    binary_string, dst: str, byte_order: int = 0, includes_size: bool = True
+):
+    """LabVIEW Unflatten From String: parse ``binary_string`` (LabVIEW's
+    Flatten To String format) as ``dst``'s type, returning
+    ``(value, rest_of_the_binary_string)``. Unlike Type Cast, a String/array
+    target carries a 4-byte length PREFIX when ``includes_size`` is True (the
+    default — matching Flatten To String's own output format), and
+    ``byte_order`` selects big-endian/native/little-endian (LabVIEW's 0/1/2).
+    Supported specs: 'str', scalar ints, and 1-D integer arrays (same set Type
+    Cast supports); other type pairs raise NotImplementedError (loud, never
+    silently wrong -- clusters/refnums/floats await a fuller flat-format
+    implementation, same as Type Cast)."""
+    order = _BYTE_ORDER[byte_order]
+    data = (
+        binary_string.encode("latin-1")
+        if isinstance(binary_string, str)
+        else bytes(binary_string)
+    )
+    if dst == "str":
+        if includes_size:
+            n = int.from_bytes(data[:4], order)
+            value, rest = data[4 : 4 + n], data[4 + n :]
+        else:
+            value, rest = data, b""
+        return value.decode("latin-1"), rest.decode("latin-1")
+    if dst in _INT_SPEC:
+        width, signed = _INT_SPEC[dst]
+        value = int.from_bytes(data[:width], order, signed=signed)
+        return value, data[width:].decode("latin-1")
+    if dst.endswith("[]") and dst[:-2] in _INT_SPEC:
+        width, signed = _INT_SPEC[dst[:-2]]
+        if includes_size:
+            count = int.from_bytes(data[:4], order)
+            body, rest = data[4 : 4 + count * width], data[4 + count * width :]
+        else:
+            body, rest = data, b""
+        value = [
+            int.from_bytes(body[i : i + width], order, signed=signed)
+            for i in range(0, len(body) - len(body) % width, width)
+        ]
+        return value, rest.decode("latin-1")
+    raise NotImplementedError(f"Unflatten From String cannot unflatten spec {dst!r}")
