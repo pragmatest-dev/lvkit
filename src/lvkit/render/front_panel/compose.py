@@ -1,28 +1,19 @@
-"""Recursive front-panel draw: for each placed ``FPBox``, draw its own
-chrome then recurse into its children — the same "container chrome first,
-recurse into already-placed children" split
-``composite.py::StructureObject.draw`` uses for block-diagram structures,
-just without a clip group (a front panel's children are already placed
-strictly inside their parent's box by ``geometry.py``, so there's nothing to
-clip away).
+"""Draw every top-level front-panel control: its own caption, then its
+resolved value glyph. Recursion into a cluster's fields or an array's
+element is now the resolved glyph's OWN job (``ClusterConstantGlyph``/
+``ArrayConstantGlyph``, see ``controls.py``), not this module's -- there is
+nothing left here to clip or recurse into.
 """
 
 from __future__ import annotations
 
 from ..backend import Backend
 from ..style import Theme
-from .controls import COMPOSITE_CONTROL_TYPES, resolve_control_glyph
+from .controls import draw_label, resolve_glyph
 from .geometry import FPBox
-
-
-def draw_box(box: FPBox, backend: Backend, theme: Theme) -> None:
-    draw = resolve_control_glyph(box.control.control_type)
-    draw(box, backend, theme)
-    if box.control.control_type in COMPOSITE_CONTROL_TYPES:
-        for child in box.children:
-            draw_box(child, backend, theme)
 
 
 def draw_front_panel(boxes: list[FPBox], backend: Backend, theme: Theme) -> None:
     for box in boxes:
-        draw_box(box, backend, theme)
+        draw_label(box.control.name, box.bounds, backend, theme)
+        resolve_glyph(box.control, theme).draw(backend, box.bounds, theme)

@@ -9,6 +9,7 @@ renderer.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,29 @@ from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
 from lvkit.render.front_panel import render_front_panel_svg
 from lvkit.render.front_panel.geometry import build_boxes, content_bounds
 from lvkit.render.style import DEFAULT_THEME
+
+_RECT_RE = re.compile(
+    r'<rect x="([\d.-]+)" y="([\d.-]+)" width="([\d.-]+)" height="([\d.-]+)"'
+    r' fill="([^"]*)"(?: stroke="([^"]*)")?'
+)
+
+
+def _rects_filled(
+    svg: str, fill: str, stroke: str | None = None
+) -> list[tuple[float, float, float, float]]:
+    """Every drawn ``<rect>``'s ``(x1, y1, x2, y2)`` whose ``fill`` (and,
+    when given, ``stroke``) matches -- used to pick out one glyph's own
+    cells (e.g. every numeric value cell) out of the full SVG markup, per
+    ``feedback_verify_render_against_reference``: read the real SVG markup
+    for placement, not a screenshot crop. ``stroke`` disambiguates a fill
+    color the background rect happens to share (``canvas`` and
+    ``fp_value_fill`` are both ``#ffffff`` by default; the background has no
+    stroke)."""
+    out = []
+    for x, y, w, h, f, s in _RECT_RE.findall(svg):
+        if f == fill and (stroke is None or s == stroke):
+            out.append((float(x), float(y), float(x) + float(w), float(y) + float(h)))
+    return out
 
 
 def _control(name: str, control_type: str, bounds, **kw) -> ParsedFPControl:
@@ -51,8 +75,12 @@ def test_unsupported_control_type_falls_back_to_labeled_box():
 
 
 def test_nested_cluster_children_placed_inside_parent_bounds():
-    """A cluster's children (from cluster_geom) land INSIDE the parent's own
-    real box -- the correctness the origin-transform work exists for."""
+    """A cluster's fields (from cluster_geom) land INSIDE the parent's own
+    real box, at their real relative order -- placement is now
+    ClusterConstantGlyph's own job (reused as-is, see controls.resolve_glyph),
+    so this reads the actual drawn rects out of the SVG markup rather than a
+    geometry.py-precomputed FPBox tree (per
+    feedback_verify_render_against_reference: read the real markup)."""
     geom = ClusterGeom(
         width=100.0, height=100.0,
         fields=(
@@ -69,16 +97,28 @@ def test_nested_cluster_children_placed_inside_parent_bounds():
         children=[field_a, field_b], cluster_geom=geom,
     )
     fp = ParsedFrontPanel(controls=[cluster], panel_bounds=(0, 0, 300, 300))
-    boxes = build_boxes(fp)
-    root = boxes[0]
-    assert len(root.children) == 2
-    box_a, box_b = root.children
-    # B's box is strictly to the right of A's -- real relative order preserved.
-    assert box_b.bounds[0] >= box_a.bounds[2]
-    # Both children stay within the parent's own placed box.
-    for child in root.children:
-        assert child.bounds[0] >= root.bounds[0]
-        assert child.bounds[2] <= root.bounds[2]
+    svg = render_front_panel_svg(fp)
+
+    outer = _rects_filled(svg, DEFAULT_THEME.fp_panel)
+    assert len(outer) == 1
+    root_x1, root_y1, root_x2, root_y2 = outer[0]
+
+    cells = _rects_filled(
+        svg, DEFAULT_THEME.fp_value_fill, stroke=DEFAULT_THEME.struct_border
+    )
+    assert len(cells) == 2
+    cell_a, cell_b = sorted(cells, key=lambda c: c[0])
+    # B's cell is strictly to the right of A's -- real relative order preserved.
+    assert cell_b[0] >= cell_a[2]
+    # Both fields stay within the parent's own drawn box (a ~1px slack for the
+    # two different stroke widths' own inset -- see Backend._stroke_inset --
+    # not a placement tolerance).
+    slack = 1.0
+    for cell in (cell_a, cell_b):
+        assert cell[0] >= root_x1 - slack
+        assert cell[2] <= root_x2 + slack
+        assert cell[1] >= root_y1 - slack
+        assert cell[3] <= root_y2 + slack
 
 
 def test_content_bounds_ignores_panel_bounds_when_smaller_than_controls():

@@ -14,6 +14,7 @@ view in this codebase only ever reads the graph.
 from __future__ import annotations
 
 from ...parser.models import ParsedFrontPanel
+from .. import _BASE_CSS
 from ..backend import SvgBackend
 from ..style import DEFAULT_THEME, Theme
 from .compose import draw_front_panel
@@ -29,13 +30,24 @@ def render_front_panel_svg(
     """Render one already-parsed ``ParsedFrontPanel`` to a self-contained SVG
     string. The shared entry point both ``render_vi_front_panel`` and
     ``render_ctl_front_panel`` reduce to, once each has found its
-    ``ParsedFrontPanel`` on the graph."""
+    ``ParsedFrontPanel`` on the graph.
+
+    Emits the SAME base ``<style>`` (``_BASE_CSS``) the block-diagram
+    renderer emits -- reusing ``ArrayConstantGlyph``'s ``lv-disabled-mask``
+    wash (an empty array's "unset" rows) only draws right when
+    ``.lv-disabled-mask{opacity:.5}`` is actually present; without it the
+    mask is a fully OPAQUE rect, hiding the real content it's meant to dim.
+    The other rules (``.lv-clickable`` cursor, the frame/menu classes) are
+    harmless no-ops here -- nothing in a front-panel SVG has those classes
+    except the array index spinner's own click targets, which stay inert
+    (no controller JS) exactly per ``ArrayConstantGlyph``'s own documented
+    static-fallback contract."""
     boxes = build_boxes(front_panel)
     bounds = content_bounds(boxes)
     backend = SvgBackend()
     backend.rect(*bounds, fill=theme.canvas)
     draw_front_panel(boxes, backend, theme)
-    return backend.render(bounds, title=title)
+    return backend.render(bounds, title=title, style=_BASE_CSS)
 
 
 def render_vi_front_panel(

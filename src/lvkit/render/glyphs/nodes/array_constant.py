@@ -67,12 +67,17 @@ class ArrayConstantGlyph:
     cell_h: float | None = None
     cell_w: float | None = None
     default_element: Glyph | None = None
+    # The container's own fill token -- ``const_fill`` (a block-diagram value
+    # box) by default; a caller in a different visual context (e.g. a
+    # front-panel array CONTROL, which wants the panel's group-box grey
+    # instead) overrides it. Mirrors ``ConstantGlyph.fill_attr``.
+    fill_attr: str = "const_fill"
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
             x1, y1, x2, y2,
-            fill=theme.const_fill,
+            fill=getattr(theme, self.fill_attr),
             stroke=self.element_color,
             stroke_width=1.0,
         )
