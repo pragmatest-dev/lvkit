@@ -162,6 +162,88 @@ def test_array_of_clusters_exposes_element_fields():
     ]
 
 
+def test_fp_cluster_geom_from_real_pane_hierarchy():
+    """A front-panel stdClust's REAL field geometry (layout._cluster_field_geoms,
+    already proven on block-diagram cluster CONSTANTS) decodes unmodified from a
+    front-panel cluster CONTROL's ddo too -- verified end to end against a real
+    corpus .ctl this session (AC Current Source Settings.ctl: a 6-field root
+    cluster + nested clusters all decoded correctly). Two fields side by side
+    (field B to the right of field A) must come out with field B's value_rect
+    strictly to the right of field A's -- this is what a faithful front-panel
+    renderer needs to place children correctly, the gap that made
+    scripts/panelgen/panel_gen.py auto-flow cluster children instead."""
+    from lvkit.parser.vi import _parse_ddo
+
+    def _field(uid: str, cls: str, bounds: str, label: str) -> str:
+        return (
+            f'<SL__arrayElement class="{cls}" uid="{uid}">'
+            f"<bounds>{bounds}</bounds><objFlags>0</objFlags>"
+            '<partsList><SL__arrayElement class="label" uid="{uid}0">'
+            f'<objFlags>0</objFlags><textRec class="textHair"><text>"{label}"</text>'
+            "</textRec></SL__arrayElement></partsList>"
+            "</SL__arrayElement>"
+        ).format(uid=uid)
+
+    clust = ET.fromstring(
+        '<ddo class="stdClust" uid="1"><bounds>(0,0,100,200)</bounds>'
+        "<objFlags>0</objFlags>"
+        '<ddoList elements="2"><SL__arrayElement uid="2"/>'
+        '<SL__arrayElement uid="3"/></ddoList>'
+        '<paneHierarchy class="pane"><bounds>(0,0,100,200)</bounds><zPlaneList>'
+        + _field("2", "stdNum", "(10,10,50,60)", "Field A")
+        + _field("3", "stdBool", "(10,110,50,160)", "Field B")
+        + "</zPlaneList></paneHierarchy></ddo>"
+    )
+    ctrl = _parse_ddo(clust, "1", set())
+    assert ctrl is not None and ctrl.cluster_geom is not None
+    geom = ctrl.cluster_geom
+    assert [f.name for f in geom.fields] == ["Field A", "Field B"]
+    field_a, field_b = geom.fields
+    # field B's box starts to the RIGHT of field A's box (x1: left, matching the
+    # source bounds' left-to-right order) -- proves real relative placement
+    # survived, not a guessed/flowed layout.
+    assert field_b.value_rect[0] > field_a.value_rect[2]
+
+
+def test_fp_array_of_typedef_wrapped_cluster_gets_geom():
+    """An indArr whose element is a NAMED typedef (a `.ctl`) wrapping a cluster
+    -- e.g. a real corpus case, "Scope Time/Div Settings" typed as
+    TIMECONTROL.ctl -- must be unwrapped the SAME way a top-level typeDef
+    control is, so both children AND cluster_geom populate from the REAL
+    wrapped stdClust, not the inert typeDef wrapper. Regression guard: before
+    this fix, a typedef-wrapped array element silently produced no children
+    and no geom at all."""
+    from lvkit.parser.vi import _parse_ddo
+
+    field_label = (
+        '<partsList><SL__arrayElement class="label" uid="30">'
+        '<objFlags>0</objFlags><textRec class="textHair"><text>"Value"</text>'
+        "</textRec></SL__arrayElement></partsList>"
+    )
+    arr = ET.fromstring(
+        '<ddo class="indArr" uid="1">'
+        "  <bounds>(0,0,100,200)</bounds><objFlags>0</objFlags>"
+        '  <ddo class="typeDef" uid="9">'
+        '    <ddo class="stdClust" uid="2">'
+        "      <bounds>(0,0,60,100)</bounds><objFlags>0</objFlags>"
+        '      <ddoList elements="1"><SL__arrayElement uid="3"/></ddoList>'
+        '      <paneHierarchy class="pane"><bounds>(0,0,60,100)</bounds>'
+        "<zPlaneList>"
+        '        <SL__arrayElement class="stdNum" uid="3">'
+        f"          <bounds>(0,0,17,60)</bounds><objFlags>0</objFlags>{field_label}"
+        "        </SL__arrayElement>"
+        "      </zPlaneList></paneHierarchy>"
+        "    </ddo>"
+        "  </ddo>"
+        "</ddo>"
+    )
+    ctrl = _parse_ddo(arr, "1", set())
+    assert ctrl is not None and ctrl.control_type == "indArr"
+    assert [c.control_type for c in ctrl.children] == ["stdNum"]
+    assert ctrl.cluster_geom is not None
+    assert len(ctrl.cluster_geom.fields) == 1
+
+
 def test_fp_cluster_preserves_nested_cluster():
     """A cluster field that is itself a cluster stays nested in the FP-control
     tree (ParsedFPControl.children), rather than flattening its inner fields up

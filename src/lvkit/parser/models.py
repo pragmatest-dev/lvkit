@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
 
 if TYPE_CHECKING:
-    from .layout import Layout
+    from .layout import ClusterGeom, Layout
 
 
 @dataclass
@@ -519,6 +519,21 @@ class ParsedFPControl:
     # Constituent parts with control-local geometry (array index display /
     # element cell / frame). Empty for simple scalar controls.
     parts: list[ParsedFPPart] = field(default_factory=list)
+    # This control's REAL field geometry, decoded from the heap's own
+    # front-panel-editor layout (`layout._cluster_field_geoms`) -- present when
+    # `control_type == "stdClust"` (a standalone cluster, or a typedef-wrapped
+    # one -- `.ctl` typedef controls included, see `layout._cluster_shape`), OR
+    # when this is an `indArr` whose ELEMENT is a `stdClust` (the geometry
+    # then describes one visible row's field layout). None for every other
+    # control type, or when the heap carries no decodable `paneHierarchy`.
+    # NOTE the coordinate convention differs from `bounds` above: `bounds` is
+    # `(top, left, bottom, right)` (this module's convention); `ClusterGeom`'s
+    # rects are `(x1, y1, x2, y2)` (the layout module's convention) relative
+    # to this control's own (0, 0) at its NATIVE (`cluster_geom.width`/
+    # `height`) size -- a consumer places/scales it into wherever it actually
+    # draws this control (see `ClusterGeom`'s own docstring for the uniform-
+    # scale contract).
+    cluster_geom: ClusterGeom | None = None
 
 
 @dataclass

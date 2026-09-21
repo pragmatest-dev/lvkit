@@ -40,7 +40,7 @@ from .front_panel import (
     parse_connector_pane_labels,
 )
 from .image_resources import resource_sections, resources_for_heap
-from .layout import Layout, _icon_for_heap, build_layout_from_root
+from .layout import Layout, _cluster_field_geoms, _icon_for_heap, build_layout_from_root
 from .metadata import (
     _decode_pth0_components,
     parse_iuse_from_libd,
@@ -1470,6 +1470,19 @@ def _parse_cluster_fields(
     return fields
 
 
+def _unwrap_typedef_element(typedef_el: ET.Element) -> ET.Element | None:
+    """The real ``std*``-class control element a ``class="typeDef"`` wrapper
+    embeds (a control typed as a NAMED typedef/`.ctl`, e.g. an array element
+    typed as `TIMECONTROL.ctl`), or None if none is found. Shared by the
+    top-level typeDef-control branch and the indArr-element branch of
+    ``_parse_ddo`` -- both need the WRAPPED control's own real class, never
+    the wrapper's."""
+    for child in typedef_el.findall(".//*"):
+        if child.get("class", "").startswith("std"):
+            return child
+    return None
+
+
 def _parse_ddo(
     ddo: ET.Element,
     uid: str,
@@ -1484,12 +1497,7 @@ def _parse_ddo(
 
     # For typeDef, look inside for the actual control
     if control_type == "typeDef":
-        inner_ddo = None
-        for child in ddo.findall(".//*"):
-            child_class = child.get("class", "")
-            if child_class.startswith("std"):
-                inner_ddo = child
-                break
+        inner_ddo = _unwrap_typedef_element(ddo)
         if inner_ddo is not None:
             name = extract_label(ddo) or _placeholder_control_name(
                 uid,
@@ -1533,15 +1541,32 @@ def _parse_ddo(
     # Cluster fields: a stdClust's own fields, or -- for an array OF clusters
     # (indArr whose element ddo is a stdClust) -- the element cluster's fields,
     # so a view can render one typed column per field. Same extraction either way.
+    # cluster_geom carries the SAME cluster's real field placement (heap-decoded
+    # via layout._cluster_field_geoms, the same routine already proven on
+    # block-diagram cluster constants -- verified to work unmodified here too,
+    # since a front-panel stdClust ddo carries the identical paneHierarchy/
+    # zPlaneList shape). For an array of clusters this describes one visible
+    # row's layout, not the array's own bounds.
     children = []
+    cluster_geom = None
     if control_type == "stdClust":
         children = _parse_cluster_fields(ddo, unresolved_uids)
+        cluster_geom = _cluster_field_geoms(ddo)
     elif control_type == "indArr":
         element = ddo.find("ddo")
+        # The element ddo may itself be typeDef-wrapped (an array of a NAMED
+        # cluster/enum typedef, e.g. an array element typed as a `.ctl` --
+        # "Scope Time/Div Settings"'s TIMECONTROL.ctl element, verified on the
+        # real corpus) -- unwrap it the same way a top-level typeDef control
+        # is unwrapped above, so its real class (stdClust/stdEnum/stdRing)
+        # is what gets checked, not the "typeDef" wrapper's own class.
+        if element is not None and element.get("class") == "typeDef":
+            element = _unwrap_typedef_element(element)
         if element is not None:
             element_class = element.get("class")
             if element_class == "stdClust":
                 children = _parse_cluster_fields(element, unresolved_uids)
+                cluster_geom = _cluster_field_geoms(element)
             elif element_class in ("stdEnum", "stdRing"):
                 enum_values = _enum_labels_of(element)
 
@@ -1555,6 +1580,7 @@ def _parse_ddo(
         children=children,
         parts=_parse_fp_parts(ddo),
         enum_values=enum_values,
+        cluster_geom=cluster_geom,
     )
 
 
