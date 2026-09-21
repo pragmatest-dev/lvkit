@@ -393,3 +393,30 @@ def test_ctl_typedef_loads_real_front_panel_geometry():
     nested_field = next(f for f in root.cluster_geom.fields if f.name == "Text color")
     assert nested_field.nested is not None
     assert len(nested_field.nested.fields) == 4
+
+
+_LIST_VI_HIERARCHY = (
+    _SAMPLES / "OpenG" / "extracted" / "File Group 0" / "user.lib" / "_OpenG.lib"
+    / "appcontrol" / "appcontrol.llb" / "List VI Hierarchy__ogtk.vi"
+)
+
+
+@pytest.mark.needs_samples
+@pytest.mark.skipif(not _LIST_VI_HIERARCHY.exists(), reason="OpenG sample absent")
+def test_vi_node_carries_its_own_front_panel():
+    """A top-level VI's graph node carries its FULL front panel (every
+    control, not just the subset wired to the connector pane) -- front-panel
+    renderer, part 3. Before this change, _add_vi_to_graph already received
+    the parsed ParsedFrontPanel (used internally to build FPTerminal) but
+    never attached it to the VINode itself, so nothing downstream of the
+    graph could read a VI's own panel layout."""
+    from lvkit.graph import load_vi_by_path
+    from lvkit.graph.loading import LoadMode
+    from lvkit.graph.models import VINode
+
+    g, name = load_vi_by_path(str(_LIST_VI_HIERARCHY), LoadMode.NONE)
+    node = g._graph.nodes[name]["node"]
+    assert isinstance(node, VINode)
+    assert node.front_panel is not None
+    assert len(node.front_panel.controls) >= 1
+    assert all(c.bounds != (0, 0, 100, 200) for c in node.front_panel.controls)

@@ -26,6 +26,7 @@ from ..models import (
     SequenceFrame,
     Terminal,
 )
+from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
 
 # ============================================================
@@ -121,6 +122,17 @@ class VINode(GraphNode):
     # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
     # Set on SubVI call nodes when the parser captured a path ref.
     qualified_path: str | None = None
+    # This VI's OWN front-panel layout: every control's real bounds, nested
+    # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
+    # per-field placement -- the full panel as the user sees it, not just the
+    # subset wired to the connector pane (``terminals`` above). Set on a
+    # top-level VI node (None on a SubVI-call node, which has no front panel
+    # of its own to render). A faithful front-panel renderer is the reader;
+    # nothing else on this node needs it. Mirrors the identical
+    # `front_panel=front_panel` attachment on a `.ctl` typedef's dep-graph
+    # node (``graph/loading.py::load_typedef``) -- both graph citizens carry
+    # their own front panel the same way.
+    front_panel: ParsedFrontPanel | None = None
 
 
 class PrimitiveNode(GraphNode):

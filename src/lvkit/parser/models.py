@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
+from .layout import ClusterGeom
 
 if TYPE_CHECKING:
-    from .layout import ClusterGeom, Layout
+    from .layout import Layout
 
 
 @dataclass
