@@ -358,3 +358,38 @@ def test_lv82_ring_and_clusters_resolve_end_to_end():
     assert "Error" in labels, labels
     # No structured terminal is left as the bare family word.
     assert "ring" not in labels and "cluster" not in labels, labels
+
+
+_TEST_SETTINGS_CTL = (
+    _SAMPLES / "ni-labview-icon-editor" / "vi.lib" / "LabVIEW Icon API"
+    / "API_Test Settings.ctl"
+)
+
+
+@pytest.mark.needs_samples
+@pytest.mark.skipif(
+    not _TEST_SETTINGS_CTL.exists(), reason="ni-labview-icon-editor sample absent"
+)
+def test_ctl_typedef_loads_real_front_panel_geometry():
+    """load_typedef attaches the .ctl's OWN front-panel geometry to its graph
+    node (front-panel renderer, part 2) -- verified end to end on a real
+    corpus .ctl with genuine nested-cluster structure (a "Text color" field
+    that is itself a nested cluster of 4 sub-fields). Before this change,
+    load_typedef/_ctl_root_fields touched the FPHb only once (root TypeID
+    disambiguation) and discarded the rest; front_panel was never attached."""
+    from lvkit.graph.core import InMemoryVIGraph
+
+    g = InMemoryVIGraph()
+    key = g.load_typedef(str(_TEST_SETTINGS_CTL))
+    node = g._dep_graph.nodes[key]
+    fp = node.get("front_panel")
+    assert fp is not None and fp.controls
+    root = fp.controls[0]
+    assert root.control_type == "stdClust"
+    assert root.cluster_geom is not None
+    field_names = {f.name for f in root.cluster_geom.fields}
+    assert {"Font", "Size", "Text color"} <= field_names
+    # The nested cluster field's OWN geometry recurses too.
+    nested_field = next(f for f in root.cluster_geom.fields if f.name == "Text color")
+    assert nested_field.nested is not None
+    assert len(nested_field.nested.fields) == 4

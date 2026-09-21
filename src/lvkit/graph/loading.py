@@ -845,7 +845,7 @@ class LoadingMixin:
         if not fields:
             ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
             if ctl is not None:
-                ctl_fields, _ = self._ctl_root_fields(ctl)
+                ctl_fields, _, _ = self._ctl_root_fields(ctl)
                 if ctl_fields:
                     fields = ctl_fields
         if not fields:
@@ -1482,29 +1482,45 @@ class LoadingMixin:
     def _ctl_root_fields(
         self,
         ctl_path: Path,
-    ) -> tuple[list[ClusterField] | None, dict[int, LVType]]:
-        """The root cluster fields + full type_map of a control (.ctl). The
-        single ``.ctl`` field-extraction, shared by ``load_typedef`` and the
-        class private-data fallback in ``load_lvclass`` (a class whose private
-        data is a ``.ctl`` control, not an inline cluster). Returns
-        ``(None, {})`` when the control's XML can't be produced."""
+    ) -> tuple[list[ClusterField] | None, dict[int, LVType], ParsedFrontPanel | None]:
+        """The root cluster fields + full type_map + front-panel geometry of a
+        control (.ctl). The single ``.ctl`` extraction, shared by
+        ``load_typedef`` and the class private-data fallback in
+        ``load_lvclass`` (a class whose private data is a ``.ctl`` control,
+        not an inline cluster). Returns ``(None, {}, None)`` when the
+        control's XML can't be produced.
+
+        ``front_panel`` is the control's OWN front-panel layout (real
+        per-control bounds + nested cluster field geometry, see
+        ``ParsedFPControl.cluster_geom``) — decoded by the SAME
+        ``parse_vi``/``_parse_front_panel`` path a VI's own front panel uses;
+        a ``.ctl``'s FPHb carries the identical shape (verified: this needs
+        no special-casing, just feeding the SAME ``bd_xml``/``fp_xml``/
+        ``main_xml`` triple ``extract_vi_xml`` already produces for a
+        typedef's near-empty block diagram). None when ``fp_xml`` is absent
+        or carries no parseable front panel.
+        """
         # Guard the whole extract+parse. A control can extract to XML that is
         # then malformed, so parse_type_map_rich / _get_fp_root_type_id can raise
         # ET.ParseError (a SyntaxError subclass — NOT an OSError/ValueError) or
-        # ValueError. Honor this method's documented "(None, {}) on failure"
-        # contract for those too (load_typedef and lvkit.list_deps rely on it).
+        # ValueError. Honor this method's documented "(None, {}, None) on
+        # failure" contract for those too (load_typedef and lvkit.list_deps
+        # rely on it).
         try:
-            _, fp_xml, main_xml = extract_vi_xml(ctl_path)
+            bd_xml, fp_xml, main_xml = extract_vi_xml(ctl_path)
             if not (main_xml and main_xml.exists()):
-                return None, {}
+                return None, {}, None
             type_map = parse_type_map_rich(main_xml)
             root_type_id = _get_fp_root_type_id(fp_xml)
+            front_panel = parse_vi(
+                bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml
+            ).front_panel
         except (RuntimeError, OSError, ValueError, ET.ParseError):
-            return None, {}
+            return None, {}, None
         if root_type_id is None:
             root_type_id = 1  # cluster control default
         root = type_map.get(root_type_id)
-        return (root.fields if root is not None else None), type_map
+        return (root.fields if root is not None else None), type_map, front_panel
 
     def _find_private_data_ctl(
         self,
@@ -1557,9 +1573,11 @@ class LoadingMixin:
             self._register_dep_name(ctl_key, ctl_path.name, qname)
             return ctl_key
 
-        fields, type_map = self._ctl_root_fields(ctl_path)
+        fields, type_map, front_panel = self._ctl_root_fields(ctl_path)
         if type_map:
-            self._dep_graph.add_node(ctl_key, node_type="typedef", fields=fields)
+            self._dep_graph.add_node(
+                ctl_key, node_type="typedef", fields=fields, front_panel=front_panel
+            )
             self._register_dep_node(ctl_key, ctl_path_r, ctl_path.name, qname)
             self._stubs.discard(ctl_key)
 
