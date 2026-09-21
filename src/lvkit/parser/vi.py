@@ -32,7 +32,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .flags import is_indicator, is_inverted_terminal, is_output_terminal
-from .fp_heap_type import _direct_fields, reconstruct_control_lvtype
+from .fp_heap_type import _direct_fields, _wrapped_control, reconstruct_control_lvtype
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -513,6 +513,7 @@ def _parse_front_panel(
 
         # Extract default data
         default_value = None
+        field_defaults = None
         default_elem = fpdco.find("DefaultData")
         if default_elem is not None and default_elem.text:
             # Strip only the wrapping quotes — NOT clean_labview_string, which
@@ -529,7 +530,14 @@ def _parse_front_panel(
             if type_desc_elem is not None and type_desc_elem.text and type_map:
                 lv_type = resolve_type_rich(type_desc_elem.text, type_map)
 
-            default_value = _decode_default_data(raw_data, control_type, lv_type)
+            # field_defaults is this control's own STRUCTURED per-field
+            # breakdown (a dict by field name, recursively, for a cluster;
+            # None for a scalar or when lv_type wasn't resolved) -- threaded
+            # into _parse_ddo so a cluster's OWN fields get their real decoded
+            # value instead of None (see _parse_cluster_fields).
+            default_value, field_defaults = _decode_default_data(
+                raw_data, control_type, lv_type
+            )
 
         control = _parse_ddo(
             ddo,
@@ -537,6 +545,7 @@ def _parse_front_panel(
             indicator_dco_uids,
             default_value,
             unresolved_uids=unresolved_uids,
+            field_defaults=field_defaults,
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -696,6 +705,15 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     return wires
 
 
+def _parse_multi_label_buf(buf_text: str) -> list[str]:
+    """The quoted item labels out of a ``multiLabel`` ``<buf>`` text (e.g.
+    ``(3)"No Op""Increment""Reset"``) -- shared by ``_extract_enum_labels``
+    (every enum/ring in a whole XML tree, keyed by uid) and ``_enum_labels_of``
+    (one control's own multiLabel), since both solve the identical "regex the
+    quoted items out of this buffer" step."""
+    return re.findall(r'"([^"]*)"', buf_text)
+
+
 def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     """Extract enum/ring labels from the XML.
 
@@ -706,8 +724,7 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
     for multi_label in root.findall(f".//*[@class='{MULTI_LABEL_CLASS}']"):
         buf = multi_label.find("buf")
         if buf is not None and buf.text:
-            # Extract all quoted strings using regex
-            labels = re.findall(r'"([^"]*)"', buf.text)
+            labels = _parse_multi_label_buf(buf.text)
             if labels:
                 uid = multi_label.get("uid")
                 if uid:
@@ -1440,12 +1457,14 @@ def _enum_labels_of(ddo: ET.Element) -> list[str]:
     if ml is not None:
         buf = ml.find("buf")
         if buf is not None and buf.text:
-            return re.findall(r'"([^"]*)"', buf.text)
+            return _parse_multi_label_buf(buf.text)
     return []
 
 
 def _parse_cluster_fields(
-    cluster_ddo: ET.Element, unresolved_uids: set[str]
+    cluster_ddo: ET.Element,
+    unresolved_uids: set[str],
+    field_defaults: dict[str, object] | None = None,
 ) -> list[ParsedFPControl]:
     """Parse a cluster's DIRECT field controls, in cluster (``ddoList``) order,
     each by its own type -- so a nested cluster field recurses (via ``_parse_ddo``)
@@ -1456,31 +1475,39 @@ def _parse_cluster_fields(
 
     A stdClust in a real FPHb heap always carries a ``ddoList``/``zPlaneList``,
     so ``direct`` is never empty for one.
+
+    ``field_defaults`` is this cluster's own STRUCTURED default value (see
+    ``_decode_element``'s docstring) -- a ``dict`` from field NAME to that
+    field's own real decoded value, ``None`` for a field whose own value
+    couldn't be decoded, or itself a nested ``dict``/``list`` when the field
+    is a cluster/array (recursed one more level by the field's own
+    ``_parse_ddo`` call). Looked up BY NAME (never position -- the same rule
+    ``cluster_geom.fields`` already follows), since a field-name mismatch
+    between the caption and the type's own field name (a known, separate,
+    already-flagged gap -- see the "Record Length" caption disagreement) would
+    otherwise misalign values silently.
     """
     direct = _direct_fields(cluster_ddo)
 
     fields: list[ParsedFPControl] = []
     for field_elem in direct:
+        field_name = extract_label(field_elem)
+        value = (
+            field_defaults.get(field_name)
+            if field_defaults and field_name
+            else None
+        )
         child = _parse_ddo(
-            field_elem, field_elem.get("uid", ""), set(), None,
+            field_elem,
+            field_elem.get("uid", ""),
+            set(),
+            value if isinstance(value, str) else None,
             unresolved_uids=unresolved_uids,
+            field_defaults=value if isinstance(value, (dict, list)) else None,
         )
         if child:
             fields.append(child)
     return fields
-
-
-def _unwrap_typedef_element(typedef_el: ET.Element) -> ET.Element | None:
-    """The real ``std*``-class control element a ``class="typeDef"`` wrapper
-    embeds (a control typed as a NAMED typedef/`.ctl`, e.g. an array element
-    typed as `TIMECONTROL.ctl`), or None if none is found. Shared by the
-    top-level typeDef-control branch and the indArr-element branch of
-    ``_parse_ddo`` -- both need the WRAPPED control's own real class, never
-    the wrapper's."""
-    for child in typedef_el.findall(".//*"):
-        if child.get("class", "").startswith("std"):
-            return child
-    return None
 
 
 def _parse_ddo(
@@ -1489,15 +1516,28 @@ def _parse_ddo(
     indicator_dco_uids: set[str],
     default_data: str | None = None,
     unresolved_uids: set[str] | None = None,
+    field_defaults: object | None = None,
 ) -> ParsedFPControl | None:
-    """Parse a data display object (ddo) into a ParsedFPControl."""
+    """Parse a data display object (ddo) into a ParsedFPControl.
+
+    ``field_defaults`` is THIS ddo's own structured default value when it's a
+    container (a ``dict`` by field name for a ``stdClust``, a ``list`` of
+    per-element dicts for an ``indArr`` of clusters) -- threaded down from
+    ``_decode_element``'s structured decode (see its docstring) so
+    ``_parse_cluster_fields`` can give each field its own real value instead
+    of ``None``. ``None`` for a scalar leaf, or when the type-aware decode
+    path didn't run.
+    """
     control_type = ddo.get("class", "unknown")
     if unresolved_uids is None:
         unresolved_uids = set()
 
-    # For typeDef, look inside for the actual control
+    # For typeDef, look inside for the actual control -- reuses
+    # fp_heap_type._wrapped_control (the same typeDef-unwrap the pre-LV9
+    # LVType reconstructor already needed), rather than a second, looser
+    # re-derivation of the same "first known-class descendant" search.
     if control_type == "typeDef":
-        inner_ddo = _unwrap_typedef_element(ddo)
+        inner_ddo = _wrapped_control(ddo)
         if inner_ddo is not None:
             name = extract_label(ddo) or _placeholder_control_name(
                 uid,
@@ -1509,6 +1549,7 @@ def _parse_ddo(
                 indicator_dco_uids,
                 default_data,
                 unresolved_uids=unresolved_uids,
+                field_defaults=field_defaults,
             )
             if inner_control:
                 inner_control.name = name
@@ -1550,10 +1591,21 @@ def _parse_ddo(
     children = []
     cluster_geom = None
     if control_type == "stdClust":
-        children = _parse_cluster_fields(ddo, unresolved_uids)
+        clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
+        children = _parse_cluster_fields(ddo, unresolved_uids, clust_defaults)
         cluster_geom = _cluster_field_geoms(ddo)
     elif control_type == "indArr":
         element = ddo.find("ddo")
+        # field_defaults for an array is a list of PER-ELEMENT structured
+        # values (see _decode_element's docstring) -- children here describes
+        # one representative (the first encoded) row's fields, so its own
+        # field defaults come from field_defaults[0], the same "one visible
+        # row" convention cluster_geom already documents for array geometry.
+        elem_defaults = (
+            field_defaults[0]
+            if isinstance(field_defaults, list) and field_defaults
+            else None
+        )
         # The element ddo may itself be typeDef-wrapped (an array of a NAMED
         # cluster/enum typedef, e.g. an array element typed as a `.ctl` --
         # "Scope Time/Div Settings"'s TIMECONTROL.ctl element, verified on the
@@ -1561,11 +1613,16 @@ def _parse_ddo(
         # is unwrapped above, so its real class (stdClust/stdEnum/stdRing)
         # is what gets checked, not the "typeDef" wrapper's own class.
         if element is not None and element.get("class") == "typeDef":
-            element = _unwrap_typedef_element(element)
+            element = _wrapped_control(element)
         if element is not None:
             element_class = element.get("class")
             if element_class == "stdClust":
-                children = _parse_cluster_fields(element, unresolved_uids)
+                elem_clust_defaults = (
+                    elem_defaults if isinstance(elem_defaults, dict) else None
+                )
+                children = _parse_cluster_fields(
+                    element, unresolved_uids, elem_clust_defaults
+                )
                 cluster_geom = _cluster_field_geoms(element)
             elif element_class in ("stdEnum", "stdRing"):
                 enum_values = _enum_labels_of(element)
@@ -1588,38 +1645,46 @@ def _decode_default_data(
     raw_data: str,
     control_type: str,
     lv_type: LVType | None = None,
-) -> str | None:
+) -> tuple[str | None, object]:
     """Decode DefaultData from FPHb XML to a Python literal.
 
     Uses _decode_element (the single type-aware decoder) when lv_type
     is available. Falls back to control_type dispatch only when no
     type info exists.
+
+    Returns ``(decoded, structured)``. ``structured`` is ``_decode_element``'s
+    own structured breakdown (see its docstring) -- a per-field ``dict``, by
+    name, when ``lv_type`` is a cluster (recursively, so a nested cluster's
+    fields carry their own dict too); ``None`` whenever the type-aware path
+    didn't run (no ``lv_type``, or a control_type-string fallback, which has
+    no field-level type info to break down). Callers that only want the
+    flattened display string (most of them) can ignore the second element.
     """
     if not raw_data:
-        return None
+        return None, None
 
     try:
         raw_bytes = decode_xml_entities_to_bytes(raw_data)
     except (ValueError, UnicodeError):
-        return None
+        return None, None
 
     # Use the type-aware decoder when we have type info
     if lv_type is not None:
-        decoded, _ = _decode_element(raw_bytes, lv_type)
+        decoded, _, structured = _decode_element(raw_bytes, lv_type)
         if decoded is not None:
-            return decoded
+            return decoded, structured
 
     # Fallback: dispatch by control_type string (no type info)
     if raw_bytes.startswith(b"PTH0"):
-        return _decode_path_default(raw_bytes)
+        return _decode_path_default(raw_bytes), None
     if control_type == "stdString" and len(raw_bytes) >= 4:
-        return _decode_string_default(raw_bytes)
+        return _decode_string_default(raw_bytes), None
     if control_type in ("stdNumeric", "stdNum"):
-        return _decode_numeric_default(raw_bytes)
+        return _decode_numeric_default(raw_bytes), None
     if control_type == "stdBool" and len(raw_bytes) == 1:
-        return "True" if raw_bytes[0] else "False"
+        return ("True" if raw_bytes[0] else "False"), None
 
-    return None
+    return None, None
 
 
 def _walk_path(data: bytes | memoryview) -> tuple[str | None, int]:
@@ -1683,8 +1748,8 @@ def _decode_numeric_default(data: bytes) -> str | None:
 
 def _decode_element(
     data: bytes | memoryview, elem_type: LVType | None
-) -> tuple[str | None, int]:
-    """Decode a single element and return (value, bytes_consumed).
+) -> tuple[str | None, int, object]:
+    """Decode a single element and return (value, bytes_consumed, structured).
 
     Handles all LabVIEW types recursively: primitives, enums,
     arrays (with element_type), and clusters (with fields).
@@ -1694,10 +1759,18 @@ def _decode_element(
         elem_type: Type of the element
 
     Returns:
-        Tuple of (decoded value string, number of bytes consumed)
+        Tuple of (decoded value string, number of bytes consumed, structured
+        value). ``structured`` is the SAME decoded value for a scalar leaf; for
+        an array it's ``list[structured]`` (one per element); for a cluster
+        it's ``dict[str, structured]`` BY FIELD NAME, recursively -- the exact
+        per-field breakdown the CLUSTER branch below already computes as
+        ``field_values`` before flattening it into the single display string
+        ``value`` -- kept instead of discarded so a caller (see
+        ``_parse_cluster_fields``) can thread each field's own real value down
+        to its own control, not just the aggregate string.
     """
     if not elem_type or len(data) == 0:
-        return None, 0
+        return None, 0, None
 
     # A memoryview instead of bytes so the ARRAY/CLUSTER branches' recursive
     # ``data[idx:]`` slices below are non-copying subviews -- an array/cluster
@@ -1713,10 +1786,10 @@ def _decode_element(
     # String (and Tag, which is string-encoded): 4-byte length prefix + data
     if underlying in ("String", "Tag"):
         if len(data) < 4:
-            return None, 0
+            return None, 0, None
         str_len = int.from_bytes(data[:4], "big")
         if len(data) < 4 + str_len:
-            return None, 0
+            return None, 0, None
         # A LabVIEW String is a BYTE array; decode it byte-preserving (latin-1:
         # 0-255 <-> U+0000-U+00FF) so binary bytes survive losslessly into the
         # generated code. A text codec (locale/UTF-8, errors="replace") corrupts
@@ -1730,28 +1803,30 @@ def _decode_element(
         # (quotes, backslashes, and control bytes like \r\n\t). Manual quote-only
         # escaping left raw control bytes in the literal, which broke literal_eval
         # both for scalar string constants and for arrays of strings.
-        return repr(string_val), 4 + str_len
+        value = repr(string_val)
+        return value, 4 + str_len, value
 
     # Boolean: 1 byte in binary data
     if underlying == "Boolean":
-        return ("True" if data[0] else "False"), 1
+        value = "True" if data[0] else "False"
+        return value, 1, value
 
     # Enum: decode as its underlying integer type
     if kind == LVTypeKind.ENUM:
         size = _get_numeric_size(underlying)
         if len(data) < size:
-            return None, 0
+            return None, 0, None
         val = int.from_bytes(data[:size], "big")
-        return str(val), size
+        return str(val), size, str(val)
 
     # Numeric integer types
     if underlying.startswith("NumInt") or underlying.startswith("NumUInt"):
         size = _get_numeric_size(underlying)
         if len(data) < size:
-            return None, 0
+            return None, 0, None
         signed = underlying.startswith("NumInt")
         val = int.from_bytes(data[:size], "big", signed=signed)
-        return str(val), size
+        return str(val), size, str(val)
 
     # Float and complex types. Widths are load-bearing: a complex is TWO
     # components (NumComplex64 = 2x f32 = 8 bytes, NumComplex128 = 2x f64 = 16),
@@ -1767,7 +1842,7 @@ def _decode_element(
             "NumComplexExt": 32,
         }.get(underlying)
         if width is None or len(data) < width:
-            return None, 0
+            return None, 0, None
         try:
             if underlying == "NumFloat32":
                 val = str(struct.unpack(">f", data[:4])[0])
@@ -1782,25 +1857,32 @@ def _decode_element(
             else:  # extended-precision (80/128-bit) — width known, no struct fmt
                 val = f"<{underlying}>"
         except struct.error:
-            return None, 0
-        return val, width
+            return None, 0, None
+        return val, width, val
 
     # Path: PTH0 prefix — one walk yields both the value and the byte count.
     if underlying == "Path":
         value, consumed = _walk_path(data)
-        return value or 'Path("")', consumed
+        value = value or 'Path("")'
+        return value, consumed, value
 
     # Array: 4-byte length + elements
     if kind == LVTypeKind.ARRAY and elem_type.element_type:
         if len(data) < 4:
-            return None, 0
+            return None, 0, None
         array_len = int.from_bytes(data[:4], "big")
         idx = 4
         elements = []
+        # The STRUCTURED per-element values (see the docstring) -- kept
+        # alongside ``elements``'s display strings so a caller can thread each
+        # element's own real value down to its own control (see
+        # _parse_cluster_fields), the same reason the CLUSTER branch below
+        # keeps ``field_structured``.
+        elements_structured: list[object] = []
         for _ in range(array_len):
             if idx >= len(data):
                 break
-            elem_val, consumed = _decode_element(
+            elem_val, consumed, elem_structured = _decode_element(
                 data[idx:],
                 elem_type.element_type,
             )
@@ -1827,27 +1909,34 @@ def _decode_element(
                 )
                 break
             elements.append(elem_val)
+            elements_structured.append(elem_structured)
             idx += consumed
-        return "[" + ", ".join(elements) + "]", idx
+        return "[" + ", ".join(elements) + "]", idx, elements_structured
 
     # Cluster: sequential fields
     if kind == LVTypeKind.CLUSTER and elem_type.fields:
         idx = 0
         field_values = {}
+        # By field NAME, recursively -- see the docstring and
+        # _parse_cluster_fields (the reason this is kept instead of only the
+        # flattened ``field_values`` display string below).
+        field_structured: dict[str, object] = {}
         for field in elem_type.fields:
             if idx >= len(data):
                 break
-            field_val, consumed = _decode_element(
+            field_val, consumed, field_val_structured = _decode_element(
                 data[idx:],
                 field.type,
             )
             if field_val is None:
                 field_values[field.name] = "None"
+                field_structured[field.name] = None
             else:
                 field_values[field.name] = field_val
+                field_structured[field.name] = field_val_structured
             idx += consumed
         items = [f"'{k}': {v}" for k, v in field_values.items()]
-        return "{" + ", ".join(items) + "}", idx
+        return "{" + ", ".join(items) + "}", idx, field_structured
 
     # Refnum: a 4-byte opaque handle. A CLASS/LVObject refnum reads as its CLASS
     # NAME (from the resolved type), never the handle — the handle is a
@@ -1882,15 +1971,16 @@ def _decode_element(
                             idx = 4  # malformed descriptor — fall back to 4
                             break
                         idx += blk
-                    return name, idx
-            return name, min(4, len(data))
+                    return name, idx, name
+            return name, min(4, len(data)), name
         size = min(4, len(data))
         val = int.from_bytes(data[:size], "big")
-        return f"Refnum({val})" if val else "None", size
+        value = f"Refnum({val})" if val else "None"
+        return value, size, value
 
     # LVVariant: opaque — just report the byte count
     if underlying in ("LVVariant", "Variant"):
-        return "Variant()", len(data)
+        return "Variant()", len(data), "Variant()"
 
     # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
     # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
@@ -1909,10 +1999,11 @@ def _decode_element(
             if frac_micros >= 1_000_000:
                 secs += 1
                 frac_micros = 0
-            return f"Timestamp({secs}.{frac_micros:06d})", 16
-        return "Timestamp(0)", len(data)
+            value = f"Timestamp({secs}.{frac_micros:06d})"
+            return value, 16, value
+        return "Timestamp(0)", len(data), "Timestamp(0)"
 
-    return None, 0
+    return None, 0, None
 
 
 def _get_numeric_size(type_name: str) -> int:

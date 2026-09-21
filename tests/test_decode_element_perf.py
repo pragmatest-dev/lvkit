@@ -33,9 +33,10 @@ def _build_int32_array_buf(values: list[int]) -> bytes:
 def test_int32_array_decodes_correct_values():
     """Small correctness case: a 3-element NumInt32 array."""
     buf = _build_int32_array_buf([1, 2, 3])
-    val, consumed = _decode_element(buf, _int32_array_type())
+    val, consumed, structured = _decode_element(buf, _int32_array_type())
     assert val == "[1, 2, 3]"
     assert consumed == len(buf)
+    assert structured == ["1", "2", "3"]
 
 
 def test_cluster_containing_array_decodes_correct_values():
@@ -54,12 +55,17 @@ def test_cluster_containing_array_decodes_correct_values():
     buf = (99).to_bytes(4, "big", signed=True) + array_buf
     buf += (7).to_bytes(4, "big", signed=True)
 
-    val, consumed = _decode_element(buf, cluster_type)
+    val, consumed, structured = _decode_element(buf, cluster_type)
     assert val is not None
     assert "'tag': 99" in val
     assert "'values': [10, 20, 30]" in val
     assert "'trailer': 7" in val
     assert consumed == len(buf)
+    assert structured == {
+        "tag": "99",
+        "values": ["10", "20", "30"],
+        "trailer": "7",
+    }
 
 
 def test_array_recursion_slices_noncopying_views(monkeypatch):
@@ -87,7 +93,7 @@ def test_array_recursion_slices_noncopying_views(monkeypatch):
     # resolves ``_decode_element`` through the module namespace) hits the spy.
     monkeypatch.setattr(_vi, "_decode_element", _spy)
 
-    val, consumed = _vi._decode_element(buf, _int32_array_type())
+    val, consumed, _structured = _vi._decode_element(buf, _int32_array_type())
 
     # Correctness is unchanged (the fix only avoids copying).
     assert val == "[10, 20, 30, 40, 50]"

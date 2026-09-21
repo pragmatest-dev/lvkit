@@ -62,7 +62,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
         "205365727665722e6c766c69621a4d6561737572656d656e74436f6e746578742e"
         "6c76636c6173730000000000000000000000"
     )
-    val, size = _decode_element(raw, cls)
+    val, size, _structured = _decode_element(raw, cls)
     assert val == "MeasurementContext.lvclass"
     assert "Refnum(" not in val
     # count(4) + self-inclusive block(0x45=69) = the whole name descriptor.
@@ -72,7 +72,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     gen = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
     )
-    val2, _ = _decode_element((5).to_bytes(4, "big"), gen)
+    val2, _, _ = _decode_element((5).to_bytes(4, "big"), gen)
     assert val2 == "Refnum(5)"
 
 
@@ -678,7 +678,7 @@ def test_fp_default_with_null_bytes_not_corrupted():
         _decode_default_data(
             strip_surrounding_quotes(serialized),
             "stdString",
-        )
+        )[0]
         == '"hi"'
     )
     # Old path deletes the length prefix -> len < 4 -> value lost.
@@ -686,7 +686,7 @@ def test_fp_default_with_null_bytes_not_corrupted():
         _decode_default_data(
             clean_labview_string(serialized),
             "stdString",
-        )
+        )[0]
         != '"hi"'
     )
 

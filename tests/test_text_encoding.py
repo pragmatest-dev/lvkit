@@ -90,9 +90,14 @@ def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(
     # Codegen decoders are byte-faithful (latin-1): the raw bytes round-trip.
     byte_faithful = encoded.decode("latin-1")
     assert _decode_default_data(_byte_entities(data), "stdString") == (
-        '"' + byte_faithful.replace("\\", "\\\\").replace('"', '\\"') + '"'
+        '"' + byte_faithful.replace("\\", "\\\\").replace('"', '\\"') + '"',
+        None,
     )
-    assert _decode_element(data, string_type) == (repr(byte_faithful), len(data))
+    assert _decode_element(data, string_type) == (
+        repr(byte_faithful),
+        len(data),
+        repr(byte_faithful),
+    )
 
     # A string constant carries BOTH: codegen value (byte-faithful) and
     # display_value (codepage-decoded, readable CJK).

@@ -143,7 +143,7 @@ def decode_constant(
         underlying = getattr(lv_type, "underlying_type", "")
         if underlying == "Boolean" and len(raw_bytes) > 1:
             return (lv_type.to_python(), "True" if any(raw_bytes) else "False", None)
-        decoded, _ = _decode_element(raw_bytes, lv_type)
+        decoded, _, _ = _decode_element(raw_bytes, lv_type)
         display = (
             _string_display_value(raw_bytes)
             if underlying in ("String", "Tag")
