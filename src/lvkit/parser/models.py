@@ -514,6 +514,15 @@ class ParsedFPControl:
     is_indicator: bool = False  # True if output, False if input
     type_desc: str | None = None
     default_value: str | None = None
+    # A developer-set CAPTION (partID 82, see extract_caption) -- a display-
+    # only alias, distinct from `name` (the LABEL, partID 16). Most controls
+    # have none: a caption is something a developer sets deliberately, for a
+    # more descriptive/exotic display string while keeping the underlying
+    # label simple (e.g. for wiring/identification). `name` is ALWAYS the
+    # label and is the only thing ever used for cluster-field IDENTITY/
+    # matching (see layout._field_name/vi._parse_cluster_fields) -- caption
+    # is for DISPLAY ONLY, and only when actually set.
+    caption: str | None = None
     enum_values: list[str] = field(default_factory=list)
     ddo_uid: str | None = None  # UID of the inner ddo element (for ctlRefConst lookup)
     children: list[ParsedFPControl] = field(default_factory=list)  # For clusters

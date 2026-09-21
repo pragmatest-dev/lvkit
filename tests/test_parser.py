@@ -151,6 +151,7 @@ _CLUSTER_CONST_FIXTURE = """
         <partsList elements="2">
           <SL__arrayElement class="label" uid="201">
             <objFlags>0</objFlags>
+            <partID>16</partID>
             <bounds>(-15, 0, 0, 40)</bounds>
             <textRec class="textHair"><text>"count"</text></textRec>
           </SL__arrayElement>
@@ -164,6 +165,7 @@ _CLUSTER_CONST_FIXTURE = """
         <partsList elements="2">
           <SL__arrayElement class="label" uid="211">
             <objFlags>0</objFlags>
+            <partID>16</partID>
             <bounds>(0, 0, 35, 15)</bounds>
             <textRec class="textHair"><text>"note"</text></textRec>
           </SL__arrayElement>
@@ -177,6 +179,7 @@ _CLUSTER_CONST_FIXTURE = """
         <partsList elements="1">
           <SL__arrayElement class="label" uid="221">
             <objFlags>0</objFlags>
+            <partID>16</partID>
             <bounds>(-15, 0, 0, 40)</bounds>
             <textRec class="textHair"><text>"inner"</text></textRec>
           </SL__arrayElement>
@@ -189,6 +192,7 @@ _CLUSTER_CONST_FIXTURE = """
               <partsList elements="2">
                 <SL__arrayElement class="label" uid="231">
                   <objFlags>0</objFlags>
+                  <partID>16</partID>
                   <bounds>(-15, 0, 0, 30)</bounds>
                   <textRec class="textHair"><text>"a"</text></textRec>
                 </SL__arrayElement>
@@ -202,6 +206,7 @@ _CLUSTER_CONST_FIXTURE = """
               <partsList elements="2">
                 <SL__arrayElement class="label" uid="241">
                   <objFlags>0</objFlags>
+                  <partID>16</partID>
                   <bounds>(-15, 0, 0, 30)</bounds>
                   <textRec class="textHair"><text>"b"</text></textRec>
                 </SL__arrayElement>
@@ -432,6 +437,7 @@ _REFNUM_PAYLOAD_FIXTURE = """
         <partsList elements="2">
           <SL__arrayElement class="label" uid="501">
             <objFlags>0</objFlags>
+            <partID>16</partID>
             <bounds>(-15, 0, 0, 60)</bounds>
             <textRec class="textHair"><text>"ResultChangedRef"</text></textRec>
           </SL__arrayElement>
@@ -449,6 +455,7 @@ _REFNUM_PAYLOAD_FIXTURE = """
                 <partsList elements="1">
                   <SL__arrayElement class="label" uid="521">
                     <objFlags>8</objFlags>
+                    <partID>16</partID>
                     <bounds>(-15, 0, 0, 40)</bounds>
                     <textRec class="textHair"><text>"test"</text></textRec>
                   </SL__arrayElement>
@@ -459,6 +466,7 @@ _REFNUM_PAYLOAD_FIXTURE = """
                 <partsList elements="1">
                   <SL__arrayElement class="label" uid="531">
                     <objFlags>8</objFlags>
+                    <partID>16</partID>
                     <bounds>(-15, 0, 0, 20)</bounds>
                     <textRec class="textHair"><text>"execution time"</text></textRec>
                   </SL__arrayElement>
@@ -566,6 +574,7 @@ _ARRAY_OF_CLUSTER_FIXTURE = """
               <partsList elements="1">
                 <SL__arrayElement class="label" uid="590">
                   <objFlags>0</objFlags>
+                  <partID>16</partID>
                   <bounds>(-17, 2, 0, 26)</bounds>
                   <textRec class="textHair"><text>"test"</text></textRec>
                 </SL__arrayElement>
@@ -576,6 +585,7 @@ _ARRAY_OF_CLUSTER_FIXTURE = """
               <partsList elements="1">
                 <SL__arrayElement class="label" uid="627">
                   <objFlags>0</objFlags>
+                  <partID>16</partID>
                   <bounds>(-17, 0, 0, 30)</bounds>
                   <textRec class="textHair"><text>"error"</text></textRec>
                 </SL__arrayElement>
@@ -588,6 +598,7 @@ _ARRAY_OF_CLUSTER_FIXTURE = """
                     <partsList elements="1">
                       <SL__arrayElement class="label" uid="944">
                         <objFlags>0</objFlags>
+                        <partID>16</partID>
                         <bounds>(-17, 0, 0, 34)</bounds>
                         <textRec class="textHair"><text>"status"</text></textRec>
                       </SL__arrayElement>
@@ -598,6 +609,7 @@ _ARRAY_OF_CLUSTER_FIXTURE = """
                     <partsList elements="1">
                       <SL__arrayElement class="label" uid="950">
                         <objFlags>0</objFlags>
+                        <partID>16</partID>
                         <bounds>(-17, 0, 0, 29)</bounds>
                         <textRec class="textHair"><text>"code"</text></textRec>
                       </SL__arrayElement>
@@ -608,6 +620,7 @@ _ARRAY_OF_CLUSTER_FIXTURE = """
                     <partsList elements="1">
                       <SL__arrayElement class="label" uid="960">
                         <objFlags>0</objFlags>
+                        <partID>16</partID>
                         <bounds>(-17, 0, 0, 19)</bounds>
                         <textRec class="textHair"><text>"source"</text></textRec>
                       </SL__arrayElement>

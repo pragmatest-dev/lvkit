@@ -179,7 +179,8 @@ def test_fp_cluster_geom_from_real_pane_hierarchy():
             f'<SL__arrayElement class="{cls}" uid="{uid}">'
             f"<bounds>{bounds}</bounds><objFlags>0</objFlags>"
             '<partsList><SL__arrayElement class="label" uid="{uid}0">'
-            f'<objFlags>0</objFlags><textRec class="textHair"><text>"{label}"</text>'
+            f"<objFlags>0</objFlags><partID>16</partID>"
+            f'<textRec class="textHair"><text>"{label}"</text>'
             "</textRec></SL__arrayElement></partsList>"
             "</SL__arrayElement>"
         ).format(uid=uid)
@@ -217,7 +218,8 @@ def test_fp_array_of_typedef_wrapped_cluster_gets_geom():
 
     field_label = (
         '<partsList><SL__arrayElement class="label" uid="30">'
-        '<objFlags>0</objFlags><textRec class="textHair"><text>"Value"</text>'
+        "<objFlags>0</objFlags><partID>16</partID>"
+        '<textRec class="textHair"><text>"Value"</text>'
         "</textRec></SL__arrayElement></partsList>"
     )
     arr = ET.fromstring(

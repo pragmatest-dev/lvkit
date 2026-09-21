@@ -81,7 +81,9 @@ from .type_resolution import resolve_type_rich
 from .utils import (
     clean_labview_string,
     decode_xml_entities_to_bytes,
+    extract_caption,
     extract_label,
+    extract_label_strict,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -1481,17 +1483,20 @@ def _parse_cluster_fields(
     field's own real decoded value, ``None`` for a field whose own value
     couldn't be decoded, or itself a nested ``dict``/``list`` when the field
     is a cluster/array (recursed one more level by the field's own
-    ``_parse_ddo`` call). Looked up BY NAME (never position -- the same rule
-    ``cluster_geom.fields`` already follows), since a field-name mismatch
-    between the caption and the type's own field name (a known, separate,
-    already-flagged gap -- see the "Record Length" caption disagreement) would
-    otherwise misalign values silently.
+    ``_parse_ddo`` call). Looked up BY NAME, via ``extract_label_strict`` --
+    the field's LABEL (partID 16) ONLY, NEVER its caption (partID 82, a
+    separate developer-set DISPLAY alias, see ``ParsedFPControl.caption``) --
+    the exact same strict lookup ``cluster_geom.fields`` is built from
+    (``layout._field_name``), so the two can never disagree the way a field's
+    label and caption can (verified on the real corpus: "Record Length" 's
+    label and caption differ). The LABEL is always the identity; a caption,
+    when a developer has set one, is display-only and never part of a match.
     """
     direct = _direct_fields(cluster_ddo)
 
     fields: list[ParsedFPControl] = []
     for field_elem in direct:
-        field_name = extract_label(field_elem)
+        field_name = extract_label_strict(field_elem)
         value = (
             field_defaults.get(field_name)
             if field_defaults and field_name
@@ -1506,6 +1511,13 @@ def _parse_cluster_fields(
             field_defaults=value if isinstance(value, (dict, list)) else None,
         )
         if child:
+            # Force the child's own identity to the SAME strict label used for
+            # the field_defaults lookup above (when one exists) -- guarantees
+            # ParsedFPControl.name always matches cluster_geom.fields' name
+            # by construction, rather than relying on _parse_ddo's own (more
+            # lenient, display-oriented) extract_label call to happen to agree.
+            if field_name:
+                child.name = field_name
             fields.append(child)
     return fields
 
@@ -1563,8 +1575,11 @@ def _parse_ddo(
     else:
         bounds = (0, 0, 100, 200)
 
-    # Get label/name
+    # Get label/name (the IDENTITY -- see ParsedFPControl.caption for the
+    # separate, optional, display-only caption text; never used for identity
+    # or matching).
     name = extract_label(ddo) or _placeholder_control_name(uid, unresolved_uids)
+    caption = extract_caption(ddo)
 
     # Determine if indicator
     if indicator_dco_uids:
@@ -1634,6 +1649,7 @@ def _parse_ddo(
         bounds=bounds,
         is_indicator=control_is_indicator,
         default_value=default_data,
+        caption=caption,
         children=children,
         parts=_parse_fp_parts(ddo),
         enum_values=enum_values,

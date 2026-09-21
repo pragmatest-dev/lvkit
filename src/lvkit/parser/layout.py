@@ -30,6 +30,7 @@ from pathlib import Path
 
 from ..extractor import extract_vi_xml
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
+from .utils import extract_label_strict
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -390,22 +391,32 @@ def _fp_label_box(term: ET.Element) -> Rect | None:
 
 
 def _field_name(field_el: ET.Element) -> str | None:
-    """A cluster field's own name — its caption's ``textRec/text`` — or None
-    when the field carries no caption part to read a name from at all (a
-    field with no name can't be joined to the graph's ``ClusterField.name``,
-    so callers skip it)."""
-    lab = field_el.find("partsList/SL__arrayElement[@class='label']")
-    if lab is None:
-        return None
-    text = lab.findtext("textRec/text")
-    return text.strip('"') if text else None
+    """A cluster field's own IDENTITY -- its LABEL (partID 16), via
+    ``utils.extract_label_strict`` -- NEVER its caption (partID 82, a
+    separate developer-set DISPLAY alias). None when the field carries no
+    label part at all (a field with no name can't be joined to the graph's
+    ``ClusterField.name``, so callers skip it). This must stay the exact
+    same lookup ``vi._parse_cluster_fields`` uses for a ``ParsedFPControl``
+    field's own ``.name`` -- both are joined by this name elsewhere (e.g.
+    ``render.glyphs.nodes.cluster_constant.ClusterConstantGlyph``), and a
+    field can have both a label and a caption part in either XML order
+    (verified on the real corpus), so grabbing "the first label-class part"
+    without filtering by partID can silently return the caption instead."""
+    return extract_label_strict(field_el)
 
 
 def _field_label_hidden(field_el: ET.Element) -> bool:
-    """True when a cluster field's caption is hidden (objFlags bit 0x8,
-    mirroring ``_LayoutBuilder._record_label_hidden``) or the field carries no
-    caption part at all — either way, nothing to draw a label rect for."""
-    lab = field_el.find("partsList/SL__arrayElement[@class='label']")
+    """True when a cluster field's LABEL (partID 16, objFlags bit 0x8,
+    mirroring ``_LayoutBuilder._record_label_hidden``) is hidden, or the
+    field carries no label part at all — either way, nothing to draw a label
+    rect for. Filters by partID=16 specifically (same fix as
+    ``_field_name``/``extract_label_strict``) -- a field can carry BOTH a
+    label (16) and a caption (82) part, in either XML order, so grabbing
+    "the first label-class part" would check the WRONG one's hidden flag
+    when the caption happens to sit first (verified on the real corpus:
+    "Record Length" -- this bug silently dropped that field's label text
+    entirely, since its caption part happened to be hidden)."""
+    lab = field_el.find("partsList/SL__arrayElement[@class='label'][partID='16']")
     if lab is None:
         return True
     try:
