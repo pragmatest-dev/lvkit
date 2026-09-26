@@ -93,6 +93,7 @@ from .netlist_models import (
     NetlistTunnelInfo,
     NetRef,
 )
+from .node_kinds import NodeType
 from .op_walk import (
     ComponentPort,
     _const_value_str,
@@ -2132,7 +2133,7 @@ def _build_dependency_manifest(
     class_qname_by_dir: dict[str, str] = {}
     for key in dep_keys:
         n = graph._dep_graph.nodes.get(key, {})
-        if n.get("node_type") in ("library", "class"):
+        if n.get("node_type") in (NodeType.LIBRARY, NodeType.CLASS):
             p = graph._dependency_file_path(key)
             if p is not None and n.get("qname"):
                 class_qname_by_dir[str(p.parent)] = n["qname"]
@@ -2168,9 +2169,9 @@ def _build_dependency_manifest(
 
         nt = node.get("node_type")
         hint: DependencyKind | None = None
-        if nt == "typedef":
+        if nt == NodeType.TYPEDEF:
             hint = DependencyKind.TYPEDEF
-        elif nt in ("library", "class"):
+        elif nt in (NodeType.LIBRARY, NodeType.CLASS):
             hint = DependencyKind.CLASS
         elif qname in subvi_qname_by_subpath.values() or (
             resolved is not None and resolved.suffix.lower() == ".vi"

@@ -38,6 +38,7 @@ from .models import (
     WindowProps,
     bool_str,
 )
+from .node_kinds import EdgeRel
 from .op_walk import (
     _const_value_str,
     _render_ports,
@@ -497,7 +498,7 @@ def _describe_class_context(
         {
             t.split(":")[-1]
             for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-            if e.get("rel") == "owns" and t.endswith(".vi")
+            if e.get("rel") == EdgeRel.OWNS and t.endswith(".vi")
         }
     )
 

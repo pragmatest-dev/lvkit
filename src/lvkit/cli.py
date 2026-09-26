@@ -2114,19 +2114,20 @@ def _visualize_deps(
     )
     net.set_options(_GRAPH_OPTIONS)
 
+    from .graph.node_kinds import NodeType, node_type_of  # local: light startup
+
     dep = graph._dep_graph
-    stubs = graph._stubs
 
     for node_id in dep.nodes:
         attrs = dep.nodes[node_id]
-        node_type = attrs.get("node_type", "vi")
-        is_stub = node_id in stubs
+        node_type = node_type_of(attrs)
+        is_stub = graph.is_stub(node_id)
 
         colors = {
-            "vi": "#4CAF50",
-            "library": "#FF9800",
-            "class": "#2196F3",
-            "typedef": "#9C27B0",
+            NodeType.VI: "#4CAF50",
+            NodeType.LIBRARY: "#FF9800",
+            NodeType.CLASS: "#2196F3",
+            NodeType.TYPEDEF: "#9C27B0",
         }
         color = "#999" if is_stub else colors.get(node_type, "#666")
 

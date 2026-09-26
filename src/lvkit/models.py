@@ -109,6 +109,25 @@ class LVType:
             return "Any"
         return "Any"
 
+    def item_for(self, raw: ScalarValue) -> str | None:
+        """The enum/ring item a recorded default names: ``raw`` is an ordinal
+        (an int, or its decimal text). None when it isn't one, or no item of
+        this type has that value."""
+        if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+            return None
+        try:
+            return self.member_name(int(raw))
+        except ValueError:
+            return None
+
+    def member_name(self, ordinal: int) -> str | None:
+        """The enum/ring item whose value is ``ordinal``, or None when this type
+        has no such item (or no items loaded)."""
+        for name, item in (self.values or {}).items():
+            if item.value == ordinal:
+                return name
+        return None
+
     def type_descriptor(self, *, expand_named: bool = True) -> str:
         """Render a LabVIEW-faithful type label from this type's structure.
 

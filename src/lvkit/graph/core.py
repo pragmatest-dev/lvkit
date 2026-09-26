@@ -40,6 +40,7 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+from .node_kinds import NodeType
 
 # Map operation kind (the coarse op-kind string from _graph_node_to_op_kind)
 # to its human-readable display label. Distinct key space from
@@ -138,6 +139,7 @@ from .construction import ConstructionMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
+from .typedef import TypedefMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
@@ -146,6 +148,7 @@ class InMemoryVIGraph(
     QueryMixin,
     OperationsMixin,
     AnalysisMixin,
+    TypedefMixin,
 ):
     """In-memory VI graph using a single unified NetworkX MultiDiGraph.
 
@@ -420,7 +423,7 @@ class InMemoryVIGraph(
             if (
                 cand is not None
                 and cand not in self._stubs
-                and self._dep_graph.nodes[cand].get("node_type") == "class"
+                and self._dep_graph.nodes[cand].get("node_type") == NodeType.CLASS
             ):
                 return cand
         return None

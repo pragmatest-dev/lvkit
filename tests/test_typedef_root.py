@@ -7,27 +7,32 @@ Backed by the sample corpus (``needs_samples``): real controls of each root kind
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
+from lvkit.graph.node_kinds import EdgeRel, NodeType
 from lvkit.models import LVTypeKind
 
-_SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
-_ENUM_CTL = _SAMPLES / "DCAF-DAQModule/source/editor node/Permissions Enum.ctl"
+from .conftest import SAMPLES_ROOT
+
+_ENUM_CTL = SAMPLES_ROOT / "DCAF-DAQModule/source/editor node/Permissions Enum.ctl"
 _CLUSTER_CTL = (
-    _SAMPLES / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/API_Test Settings.ctl"
+    SAMPLES_ROOT
+    / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/API_Test Settings.ctl"
 )
 _REFNUM_CTL = (
-    _SAMPLES / "JKI-VI-Tester/source/Classes/TestCase/private/testMethod.ctl"
+    SAMPLES_ROOT / "JKI-VI-Tester/source/Classes/TestCase/private/testMethod.ctl"
 )
-_PQ_DIR = _SAMPLES / "actor-framework/Core/ActorFramework/Message Priority Queue"
+_PQ_DIR = SAMPLES_ROOT / "actor-framework/Core/ActorFramework/Message Priority Queue"
 _PQ_CLASS = _PQ_DIR / "Message Priority Queue.lvclass"
 
 
-def _typedef_node(path: Path) -> dict:
+def _typedef_node(path: Path) -> Mapping[str, Any]:
     g = InMemoryVIGraph()
     key = g.load_typedef(path)
     return g._dep_graph.nodes[key]
@@ -67,12 +72,12 @@ def test_class_private_data_control_becomes_a_typedef_node():
     edges = [
         (target, data)
         for _, target, data in g._dep_graph.out_edges(cls_key, data=True)
-        if data.get("rel") == "private_data"
+        if data.get("rel") == EdgeRel.PRIVATE_DATA
     ]
     assert len(edges) == 1
     ctl_key = edges[0][0]
     assert Path(ctl_key).name == "DVR Contents.ctl"
-    assert g._dep_graph.nodes[ctl_key]["node_type"] == "typedef"
+    assert g._dep_graph.nodes[ctl_key]["node_type"] == NodeType.TYPEDEF
     assert not g.is_stub(ctl_key)
     # the class's own fields are that control's fields
     nodes = g._dep_graph.nodes
@@ -83,4 +88,4 @@ def test_absent_control_is_a_stub(tmp_path: Path):
     g = InMemoryVIGraph()
     key = g.load_typedef(tmp_path / "Missing.ctl")
     assert g.is_stub(key)
-    assert g._dep_graph.nodes[key]["node_type"] == "typedef"
+    assert g._dep_graph.nodes[key]["node_type"] == NodeType.TYPEDEF

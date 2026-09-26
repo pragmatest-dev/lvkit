@@ -136,14 +136,7 @@ def _prepare_vi_documentation_data(
     for inp in inputs_dc:
         default_val = inp.default_value
         if default_val is not None and inp.lv_type and inp.lv_type.values:
-            try:
-                int_value = int(default_val)
-                for name, enum_val in inp.lv_type.values.items():
-                    if enum_val.value == int_value:
-                        default_val = name
-                        break
-            except (ValueError, TypeError, AttributeError):
-                pass
+            default_val = inp.lv_type.item_for(default_val) or default_val
 
         controls.append(
             {

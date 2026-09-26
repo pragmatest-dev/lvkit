@@ -48,6 +48,7 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -1108,7 +1109,7 @@ class QueryMixin:
         return sorted(
             d.get("qname", n)
             for n, d in self._dep_graph.nodes(data=True)
-            if d.get("node_type") == "class" and n not in self._stubs
+            if d.get("node_type") == NodeType.CLASS and n not in self._stubs
         )
 
     def get_owning_class(self, vi_name: str) -> str | None:
@@ -1121,39 +1122,39 @@ class QueryMixin:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
 
-    def _owning_class_key(self, vi_key: str) -> str | None:
-        """PATH key of the class that owns this method VI, via its "owns" edge,
-        or None. Returns the KEY (path) for edge/attr lookups — distinct from
-        :meth:`get_owning_class`, which returns the display qname."""
-        if vi_key not in self._dep_graph:
+    def _owner_key(self, key: str, owner_type: NodeType) -> str | None:
+        """PATH key of the ``owner_type`` node that owns ``key`` via an "owns"
+        edge, or None. The one owner walk behind ``get_owning_class`` /
+        ``get_owning_library`` / a typedef's display name."""
+        if key not in self._dep_graph:
             return None
-        for pred in self._dep_graph.predecessors(vi_key):
-            if self._dep_graph.nodes[pred].get("node_type") != "class":
+        for pred in self._dep_graph.predecessors(key):
+            if self._dep_graph.nodes[pred].get("node_type") != owner_type:
                 continue
-            if (self._dep_graph.get_edge_data(pred, vi_key) or {}).get("rel") == "owns":
+            edge = self._dep_graph.get_edge_data(pred, key) or {}
+            if edge.get("rel") in OWNERSHIP_RELS:
                 return pred
         return None
+
+    def _owning_class_key(self, vi_key: str) -> str | None:
+        """PATH key of the class that owns this method VI, or None. Returns the
+        KEY (path) for edge/attr lookups — distinct from :meth:`get_owning_class`,
+        which returns the display qname."""
+        return self._owner_key(vi_key, NodeType.CLASS)
 
     def get_owning_library(self, vi_name: str) -> str | None:
         """Get the ``.lvlib`` that owns this VI directly, via its "owns" edge.
 
-        Exact mirror of ``get_owning_class`` but for ``node_type == "library"``
-        predecessors — ``load_lvlib`` records a library node + an "owns" edge
-        to each ``Type="VI"`` member the same way ``load_lvclass`` does for
-        methods (see ``loading.py``). Returns None if ``vi_name`` isn't a
-        library member VI (or the library was never loaded).
+        Exact mirror of ``get_owning_class`` but for library owners —
+        ``load_lvlib`` records a library node + an "owns" edge to each
+        ``Type="VI"`` member the same way ``load_lvclass`` does for methods (see
+        ``loading.py``). Returns None if ``vi_name`` isn't a library member VI
+        (or the library was never loaded).
         """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._dep_graph:
+        key = self._owner_key(self.resolve_vi_name(vi_name), NodeType.LIBRARY)
+        if key is None:
             return None
-        for pred in self._dep_graph.predecessors(vi_name):
-            pdata = self._dep_graph.nodes[pred]
-            if pdata.get("node_type") != "library":
-                continue
-            edata = self._dep_graph.get_edge_data(pred, vi_name) or {}
-            if edata.get("rel") == "owns":
-                return pdata.get("qname", pred)  # display qname, keyed by path
-        return None
+        return self._dep_graph.nodes[key].get("qname", key)  # display qname
 
     def get_class_hierarchy(self, classname: str) -> ClassHierarchyInfo | None:
         """Get hierarchy info for one loaded class: parent, children,
@@ -1167,7 +1168,7 @@ class QueryMixin:
         if (
             node_key is None
             or node_key in self._stubs
-            or self._dep_graph.nodes[node_key].get("node_type") != "class"
+            or self._dep_graph.nodes[node_key].get("node_type") != NodeType.CLASS
         ):
             return None
         data = self._dep_graph.nodes[node_key]
@@ -1193,7 +1194,7 @@ class QueryMixin:
         child_classes = sorted(
             ndata.get("qname", node)
             for node, ndata in self._dep_graph.nodes(data=True)
-            if ndata.get("node_type") == "class"
+            if ndata.get("node_type") == NodeType.CLASS
             and node not in self._stubs
             and ndata.get("parent_class") == own_bare
         )
@@ -1207,7 +1208,7 @@ class QueryMixin:
             for succ in self._dep_graph.successors(node_key)
             if self.vi_display_name(succ) in vis
             and (self._dep_graph.get_edge_data(node_key, succ) or {}).get("rel")
-            == "owns"
+            == EdgeRel.OWNS
         )
 
         own_fields: list[ClusterField] = data.get("fields") or []
@@ -1237,7 +1238,7 @@ class QueryMixin:
         key = self._dep_key_for_ref(classname)
         if key is None or key in self._stubs:
             return None
-        if self._dep_graph.nodes[key].get("node_type") != "class":
+        if self._dep_graph.nodes[key].get("node_type") != NodeType.CLASS:
             return None
         return key
 

@@ -37,6 +37,7 @@ from .netlist_models import (
     NetlistTerminalBinding,
     NetRef,
 )
+from .typedef import TypedefField, TypedefInfo, TypedefRef
 
 
 def _netref_to_dict(ref: NetRef) -> dict[str, Any]:
@@ -438,4 +439,45 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
         result["dependencies"] = [
             _dependency_to_dict(dep) for dep in module.dependencies
         ]
+    return result
+
+
+def _typedef_ref_to_dict(ref: TypedefRef) -> dict[str, Any]:
+    return {"kind": ref.node_type.value, "qualified": ref.qualified, "path": ref.path}
+
+
+def _typedef_field_to_dict(f: TypedefField, verbose: bool) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "name": f.name,
+        "type": f.lv_type.type_descriptor() if f.lv_type is not None else None,
+        "default": f.default,
+    }
+    if f.fields:
+        out["fields"] = [_typedef_field_to_dict(n, verbose) for n in f.fields]
+    if verbose and f.lv_type is not None:
+        out["lv_type"] = _lv_type_to_dict(f.lv_type)
+    return out
+
+
+def typedef_to_dict(info: TypedefInfo, *, verbose: bool = False) -> dict[str, Any]:
+    """A ``.ctl`` typedef as JSON -- the one shape ``describe --format json`` and
+    the MCP ``read_ctl`` tool both return. ``verbose`` adds every type's full
+    structure (:func:`_lv_type_to_dict`) beside its descriptor string. It never
+    carries ``used_by``, and carries ``owned_by`` only when there is an owner: a
+    standalone control load has no users or owners, and an empty list would read
+    as "nothing uses / owns this". ``uses`` is always present -- the control's own
+    references are complete in any load, so ``[]`` really means it uses nothing."""
+    result: dict[str, Any] = {
+        "typedef": info.name,
+        "path": info.key,
+        "kind": info.root_type.kind.value,
+        "type": info.root_type.type_descriptor(),
+        "default": info.default,
+        "fields": [_typedef_field_to_dict(f, verbose) for f in info.fields],
+        "uses": [_typedef_ref_to_dict(r) for r in info.uses],
+    }
+    if info.owned_by:
+        result["owned_by"] = [_typedef_ref_to_dict(r) for r in info.owned_by]
+    if verbose:
+        result["root_type"] = _lv_type_to_dict(info.root_type)
     return result
