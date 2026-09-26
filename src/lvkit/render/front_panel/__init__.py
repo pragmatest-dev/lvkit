@@ -33,14 +33,14 @@ def render_front_panel_svg(
     ``ParsedFrontPanel`` on the graph.
 
     Emits the SAME base ``<style>`` (``_BASE_CSS``) the block-diagram
-    renderer emits -- reusing ``ArrayConstantGlyph``'s ``lv-disabled-mask``
+    renderer emits -- the array element column's ``lv-disabled-mask``
     wash (an empty array's "unset" rows) only draws right when
     ``.lv-disabled-mask{opacity:.5}`` is actually present; without it the
     mask is a fully OPAQUE rect, hiding the real content it's meant to dim.
     The other rules (``.lv-clickable`` cursor, the frame/menu classes) are
     harmless no-ops here -- nothing in a front-panel SVG has those classes
     except the array index spinner's own click targets, which stay inert
-    (no controller JS) exactly per ``ArrayConstantGlyph``'s own documented
+    (no controller JS) exactly per the array glyphs' documented
     static-fallback contract."""
     boxes = build_boxes(front_panel)
     bounds = content_bounds(boxes)

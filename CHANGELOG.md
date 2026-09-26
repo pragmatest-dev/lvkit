@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Front panels render as LabVIEW draws them** — a `.ctl` or a VI's own front panel becomes an SVG with nested clusters at their real layout and each control's real saved value, in its own number format (#101).
+- **Array controls draw from their own parts** — the frame, index selector (shown only when "Show Index" is on), scrollbar, real saved elements, and disabled default rows for an empty array (#101).
 
 ## [0.8.3] - 2026-09-09
 - **A property/invoke node bound to a control renders distinctly** — an invoke node tied to a control (like a property node) now shows the target control's name as its header, with no reference terminals; wire-driven nodes are unchanged (#51).

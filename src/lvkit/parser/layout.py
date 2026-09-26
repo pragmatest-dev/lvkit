@@ -30,7 +30,7 @@ from pathlib import Path
 
 from ..extractor import extract_vi_xml
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
-from .utils import extract_label_strict
+from .utils import extract_caption, extract_label_strict
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -140,7 +140,12 @@ class ClusterFieldGeom:
     and their real placement within THIS field's box, straight from the
     heap's ``<ddo class="stdClust">`` (a DIRECT child of the refnum ddo, a
     sibling of its own ``partsList`` — never a part of it, and never the
-    genuinely-nested-cluster-FIELD case ``nested`` already covers)."""
+    genuinely-nested-cluster-FIELD case ``nested`` already covers).
+
+    ``label_text`` is the text to draw at ``label_rect`` when it is NOT the
+    field's own name -- the caption, for a field whose label is hidden and
+    whose caption is visible (the two are alternatives: a developer shows one
+    or the other). ``None`` draws the field's name."""
 
     name: str
     value_rect: Rect
@@ -148,6 +153,7 @@ class ClusterFieldGeom:
     nested: ClusterGeom | None = None
     refnum_expanded: bool = False
     refnum_payload: RefnumPayload | None = None
+    label_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -276,6 +282,26 @@ class Layout:
     # this fixed real size — arrays are homogeneous, so one shape serves every
     # row). Absent for a non-cluster element or one that can't be resolved.
     array_element_cluster: dict[str, ClusterGeom] = field(default_factory=dict)
+    # An array CONSTANT's raw uid -> its own real elements-viewport /
+    # vertical-scrollbar-track rects (``partID`` 28 / 39 of its OWN
+    # ``partsList`` -- verified on the real corpus: 39's bounds are flush
+    # against 28's right edge and share its exact top/bottom, the file's own
+    # scrollbar-track part for that viewport, not a guess) plus this
+    # control's own native (unscaled heap) size -- the SAME uniform-scale
+    # contract ``ClusterGeom`` documents. Populated for EVERY array
+    # constant (scalar or cluster element alike), unlike
+    # ``array_element_cluster`` above which only fires for a cluster
+    # element -- ``ArrayConstantGlyph`` uses this for its real viewport
+    # placement + scrollbar chrome regardless of element type.
+    array_viewport: dict[str, Rect] = field(default_factory=dict)
+    array_scrollbar: dict[str, Rect] = field(default_factory=dict)
+    array_native_size: dict[str, tuple[float, float]] = field(default_factory=dict)
+    # An array CONSTANT's raw uid -> whether its index-display part is
+    # hidden (a per-control "Show Index" developer toggle, see
+    # ``_array_chrome_rects``) -- absent uids default to hidden (``True``),
+    # matching real LabVIEW's own behavior for an older/simpler shape with
+    # no index-display part at all.
+    array_index_hidden: dict[str, bool] = field(default_factory=dict)
     # Raw uids of TOP-LEVEL (not cluster-field) data-typed ``stdRefNum``
     # constants whose type-display is EXPANDED (see
     # ``_refnum_type_display_expanded``) — the same signal
@@ -405,6 +431,42 @@ def _field_name(field_el: ET.Element) -> str | None:
     return extract_label_strict(field_el)
 
 
+def _part_shown(field_el: ET.Element, part_id: int) -> ET.Element | None:
+    """The field's label-class ``partID`` part when present and not flagged
+    hidden (objFlags bit 0x8), else None."""
+    part = field_el.find(
+        f"partsList/SL__arrayElement[@class='label'][partID='{part_id}']"
+    )
+    if part is None:
+        return None
+    try:
+        flags = int((part.findtext("objFlags") or "0").strip())
+    except ValueError:
+        return part
+    return None if flags & 0x8 else part
+
+
+def _field_label(field_el: ET.Element) -> tuple[Rect | None, str | None]:
+    """Where and what a field's visible caption text is: its LABEL (partID 16)
+    when shown; otherwise its CAPTION (partID 82) when that is shown, at the
+    caption's own rect with the caption's own text; otherwise nothing. The
+    label and the caption are alternatives -- verified on the real corpus,
+    every visible caption sits on a control whose label is hidden -- so at most
+    one is ever drawn."""
+    if _part_shown(field_el, 16) is not None:
+        return _const_label_box(field_el), None
+    caption_part = _part_shown(field_el, 82)
+    caption = extract_caption(field_el)
+    box = _rect(field_el)
+    if caption_part is None or not caption or box is None:
+        return None, None
+    rect = _rect(caption_part)
+    if rect is None:
+        return None, None
+    ox, oy = box[0], box[1]
+    return (ox + rect[0], oy + rect[1], ox + rect[2], oy + rect[3]), caption
+
+
 def _field_label_hidden(field_el: ET.Element) -> bool:
     """True when a cluster field's LABEL (partID 16, objFlags bit 0x8,
     mirroring ``_LayoutBuilder._record_label_hidden``) is hidden, or the
@@ -433,6 +495,64 @@ def _field_label_hidden(field_el: ET.Element) -> bool:
 # established name for the same control shape, kept here for the same
 # reason, unverified in this corpus but not a new guess).
 _ARRAY_DDO_CLASSES = frozenset({"indArr", "stdArray"})
+
+# The elements-viewport / vertical-scrollbar-track partIDs of an array
+# control/constant's own partsList -- verified on the real corpus (both a
+# front-panel indArr control and a block-diagram indArr CONSTANT, e.g.
+# WaveGen.vi's own array constant: identical partsList shape): 39's bounds
+# are flush against 28's right edge and share its exact top/bottom.
+_ARRAY_VIEWPORT_PART_ID = 28
+_ARRAY_SCROLLBAR_PART_ID = 39
+# The index-display ("<=> 0" spinner box) part -- an array's "Show Index" is
+# a per-control DEVELOPER TOGGLE in real LabVIEW, not always on, and so is its
+# scrollbar (part 39). Verified byte-exact against issue #101's real .ctl and
+# its reference screenshot: every array whose index-display / scrollbar part
+# has objFlags bit 0x8 set (the SAME hidden-bit convention
+# `_field_label_hidden` already reads for a cluster field's label part) shows
+# no index box / scrollbar in the real screenshot, and every one without it
+# does.
+_ARRAY_INDEX_PART_ID = 8002
+_HIDDEN_FLAG_BIT = 0x8
+
+
+def _part_hidden(part: ET.Element) -> bool:
+    """A part flagged hidden (objFlags bit 0x8)."""
+    try:
+        flags = int(part.findtext("objFlags") or "0")
+    except ValueError:
+        return False
+    return bool(flags & _HIDDEN_FLAG_BIT)
+
+
+def _array_chrome_rects(
+    ddo: ET.Element,
+) -> tuple[Rect | None, Rect | None, bool]:
+    """``ddo``'s own real elements-viewport / vertical-scrollbar-track rects
+    plus whether its index display is hidden, from its ``partsList`` -- the
+    SAME per-part geometry the front panel already reads
+    (``vi._parse_fp_parts``), for a block-diagram array CONSTANT (an
+    ``indArr``/``stdArray`` ddo has the identical partsList shape either
+    way). The index-hidden result defaults to ``True`` (matches
+    ``front_panel.controls.base.part_hidden``'s own "absent -- hidden"
+    convention) when the part isn't present at all."""
+    parts_list = ddo.find("partsList")
+    if parts_list is None:
+        return None, None, True
+    viewport = scrollbar = None
+    index_hidden = True
+    for part in parts_list:
+        part_id_elem = part.find("partID")
+        if part_id_elem is None or not part_id_elem.text:
+            continue
+        part_id = int(part_id_elem.text)
+        if part_id == _ARRAY_VIEWPORT_PART_ID:
+            viewport = _rect(part)
+        elif part_id == _ARRAY_SCROLLBAR_PART_ID:
+            if not _part_hidden(part):
+                scrollbar = _rect(part)
+        elif part_id == _ARRAY_INDEX_PART_ID:
+            index_hidden = _part_hidden(part)
+    return viewport, scrollbar, index_hidden
 
 
 def _cluster_shape(el: ET.Element | None) -> ET.Element | None:
@@ -609,15 +729,15 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
     if inner_w <= 0 or inner_h <= 0:
         return None
 
-    entries: list[tuple[str, Rect, Rect | None, ET.Element]] = []
+    entries: list[tuple[str, Rect, Rect | None, str | None, ET.Element]] = []
     extent_rects: list[Rect] = []
     for f in zp.findall("SL__arrayElement"):
         name = _field_name(f)
         field_value_box = _const_value_box(f)
         if name is None or field_value_box is None:
             continue
-        label_box = None if _field_label_hidden(f) else _const_label_box(f)
-        entries.append((name, field_value_box, label_box, f))
+        label_box, label_text = _field_label(f)
+        entries.append((name, field_value_box, label_box, label_text, f))
         extent_rects.append(field_value_box)
         if label_box is not None:
             extent_rects.append(label_box)
@@ -643,7 +763,7 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
         )
 
     result = []
-    for name, field_value_box, label_box, f in entries:
+    for name, field_value_box, label_box, label_text, f in entries:
         mapped_value = _map(field_value_box)
         mapped_label = _map(label_box) if label_box is not None else None
         nested_shape = _cluster_shape(f)
@@ -658,6 +778,7 @@ def _cluster_field_geoms(cluster_el: ET.Element) -> ClusterGeom | None:
                 nested,
                 refnum_expanded=_refnum_type_display_expanded(f),
                 refnum_payload=_refnum_payload_layout(f),
+                label_text=label_text,
             )
         )
     return ClusterGeom(
@@ -683,6 +804,12 @@ class _LayoutBuilder:
         # An array constant's raw uid -> its cluster-typed ELEMENT's real
         # geometry (same ClusterGeom, at the element's own natural size).
         self.array_element_cluster: dict[str, ClusterGeom] = {}
+        # An array constant's raw uid -> its own real elements-viewport /
+        # scrollbar-track rects + native size (see Layout.array_viewport).
+        self.array_viewport: dict[str, Rect] = {}
+        self.array_scrollbar: dict[str, Rect] = {}
+        self.array_native_size: dict[str, tuple[float, float]] = {}
+        self.array_index_hidden: dict[str, bool] = {}
         # Raw uids of top-level data-typed stdRefNum constants whose
         # type-display is EXPANDED (see _refnum_type_display_expanded).
         self.refnum_expanded: set[str] = set()
@@ -949,6 +1076,22 @@ class _LayoutBuilder:
                             elem_cg = _cluster_field_geoms(elem_shape)
                             if elem_cg is not None:
                                 self.array_element_cluster[term_uid] = elem_cg
+                        # This array's OWN real viewport/scrollbar geometry —
+                        # every array constant, scalar or cluster element
+                        # alike.
+                        viewport, scrollbar, index_hidden = _array_chrome_rects(ddo)
+                        if viewport is not None:
+                            self.array_viewport[term_uid] = viewport
+                        if scrollbar is not None:
+                            self.array_scrollbar[term_uid] = scrollbar
+                        self.array_index_hidden[term_uid] = index_hidden
+                        native = _rect(ddo)
+                        if native is not None:
+                            nx1, ny1, nx2, ny2 = native
+                            self.array_native_size[term_uid] = (
+                                nx2 - nx1,
+                                ny2 - ny1,
+                            )
                     # A bare (not cluster-field) data-typed refnum constant:
                     # its own expanded/compact type-display state, and (when
                     # expanded with a decodable cluster payload) that
@@ -1366,6 +1509,10 @@ def build_layout_from_root(
         icon_png=icon_png,
         cluster_field_geom=builder.cluster_field_geom,
         array_element_cluster=builder.array_element_cluster,
+        array_viewport=builder.array_viewport,
+        array_scrollbar=builder.array_scrollbar,
+        array_native_size=builder.array_native_size,
+        array_index_hidden=builder.array_index_hidden,
         refnum_expanded=builder.refnum_expanded,
         refnum_payload=builder.refnum_payload,
     )

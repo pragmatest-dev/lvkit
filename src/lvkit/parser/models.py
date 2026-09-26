@@ -501,6 +501,10 @@ class ParsedFPPart:
     part_class: str  # e.g. "stdNum", "stdString", "label", "cosm"
     bounds: tuple[int, int, int, int]  # top, left, bottom, right, control-local
     props: dict[str, str] = field(default_factory=dict)
+    # The part's OWN sub-parts (its nested `partsList`), each relative to THIS
+    # part's top-left -- e.g. an array's index display is itself a numeric
+    # control whose readout and spinner halves are sub-parts.
+    parts: list[ParsedFPPart] = field(default_factory=list)
 
 
 @dataclass
@@ -523,6 +527,13 @@ class ParsedFPControl:
     # matching (see layout._field_name/vi._parse_cluster_fields) -- caption
     # is for DISPLAY ONLY, and only when actually set.
     caption: str | None = None
+    # Which caption text is SHOWN: the label (partID 16) and the caption
+    # (partID 82) are alternatives a developer chooses between -- each has its
+    # own hidden flag (objFlags bit 0x8). Verified on the real corpus: no
+    # control shows both, and every visible caption sits on a control whose
+    # label is hidden. Defaults suit a hand-built control (label shown).
+    label_visible: bool = True
+    caption_visible: bool = False
     enum_values: list[str] = field(default_factory=list)
     ddo_uid: str | None = None  # UID of the inner ddo element (for ctlRefConst lookup)
     children: list[ParsedFPControl] = field(default_factory=list)  # For clusters
@@ -544,6 +555,30 @@ class ParsedFPControl:
     # draws this control (see `ClusterGeom`'s own docstring for the uniform-
     # scale contract).
     cluster_geom: ClusterGeom | None = None
+    # For an `indArr` whose element is a SCALAR/enum (not `stdClust`, which
+    # carries its own value through `children` instead): the display value an
+    # unset/past-end row shows, decoded from a REPRESENTATIVE-ROW default the
+    # heap stores as a `<DefaultData>` sibling of the array's own `<ddo>` --
+    # one raw instance of the ELEMENT type (no array length prefix), distinct
+    # from the array's own combined default (which this control's own
+    # `default_value` already carries, and which is `[]`/empty for an array
+    # saved with zero elements). Verified byte-exact against issue #101's
+    # real `.ctl`: every disabled-row value on its reference screenshot,
+    # numeric and enum-index alike, decodes from here, not from a generic
+    # 0/False/first-enum type default. `None` when the heap carries no such
+    # sibling (e.g. a control whose developer never set a custom element
+    # default -- falls back to the type default, same as before).
+    element_default_value: str | None = None
+    # For an `indArr` saved WITH elements: every element's own decoded value,
+    # in index order -- a display string per scalar/enum element, a dict by
+    # field name per cluster element (`_decode_element`'s structured breakdown,
+    # recursively). Empty for an array saved with zero elements (whose rows
+    # show `element_default_value` instead) and for every non-array control.
+    element_values: list[object] = field(default_factory=list)
+    # A numeric control's own LabVIEW display-format spec (its `numLabel`
+    # part's `<format>`, e.g. `%#_g`, `%.0f`) -- for an `indArr`, its ELEMENT's.
+    # None for every non-numeric control.
+    number_format: str | None = None
 
 
 @dataclass

@@ -1782,6 +1782,10 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         vi_name=vi_name,
         cluster_field_geom=layout.cluster_field_geom,
         array_element_cluster=layout.array_element_cluster,
+        array_viewport=layout.array_viewport,
+        array_scrollbar=layout.array_scrollbar,
+        array_native_size=layout.array_native_size,
+        array_index_hidden=layout.array_index_hidden,
         refnum_expanded=frozenset(layout.refnum_expanded),
         refnum_payload=layout.refnum_payload,
     )

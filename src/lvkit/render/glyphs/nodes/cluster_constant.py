@@ -142,7 +142,7 @@ class ClusterConstantGlyph:
                     backend.text(
                         abs_label[0] + 1.0,
                         (abs_label[1] + abs_label[3]) / 2 + label_size * 0.34,
-                        name,
+                        geom.label_text or name,
                         label_size,
                         anchor="start",
                         fill=theme.text,

@@ -40,7 +40,13 @@ from .front_panel import (
     parse_connector_pane_labels,
 )
 from .image_resources import resource_sections, resources_for_heap
-from .layout import Layout, _cluster_field_geoms, _icon_for_heap, build_layout_from_root
+from .layout import (
+    Layout,
+    _cluster_field_geoms,
+    _icon_for_heap,
+    _part_shown,
+    build_layout_from_root,
+)
 from .metadata import (
     _decode_pth0_components,
     parse_iuse_from_libd,
@@ -548,6 +554,7 @@ def _parse_front_panel(
             default_value,
             unresolved_uids=unresolved_uids,
             field_defaults=field_defaults,
+            type_map=type_map,
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -1371,6 +1378,42 @@ def _recover_or_warn_unresolved_labels(
         )
 
 
+def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
+    """``owner``'s ``partsList`` entries as parts (each with its own bounds,
+    objFlags, and -- recursively -- its own sub-parts). objFlags bit 0x8 =
+    hidden, the SAME convention ``layout._field_label_hidden`` reads for a
+    cluster field's label part, so a view can tell a DEVELOPER-HIDDEN chrome
+    part (e.g. an array's own index display, toggled off per-control) from one
+    that's simply absent from this control's shape."""
+    parts: list[ParsedFPPart] = []
+    parts_list = owner.find("partsList")
+    if parts_list is None:
+        return parts
+    for part in parts_list:
+        bounds_elem = part.find("bounds")
+        if bounds_elem is None or not bounds_elem.text:
+            continue
+        pid_elem = part.find("partID")
+        pid_text = pid_elem.text if pid_elem is not None else None
+        part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
+        flags_elem = part.find("objFlags")
+        props = (
+            {"objFlags": flags_elem.text.strip()}
+            if flags_elem is not None and flags_elem.text
+            else {}
+        )
+        parts.append(
+            ParsedFPPart(
+                part_id,
+                part.get("class", ""),
+                _parse_bounds(bounds_elem.text),
+                props,
+                _parse_fp_parts_list(part),
+            )
+        )
+    return parts
+
+
 def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     """Collect a control's constituent parts with their control-local geometry
     from the ddo's DIRECT children (the FPHb heap records these; we used to keep
@@ -1391,21 +1434,7 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
     whether the control is a top-level scalar or a cluster field (standalone or
     inside an array-of-clusters).
     """
-    parts: list[ParsedFPPart] = []
-    parts_list = ddo.find("partsList")
-    if parts_list is not None:
-        for part in parts_list:
-            bounds_elem = part.find("bounds")
-            if bounds_elem is None or not bounds_elem.text:
-                continue
-            pid_elem = part.find("partID")
-            pid_text = pid_elem.text if pid_elem is not None else None
-            part_id = int(pid_text) if pid_text and pid_text.isdigit() else None
-            parts.append(
-                ParsedFPPart(
-                    part_id, part.get("class", ""), _parse_bounds(bounds_elem.text)
-                )
-            )
+    parts = _parse_fp_parts_list(ddo)
     # The array element type/cell: the direct <ddo> child (its class is the
     # element control type; its bounds one cell's real geometry; its scalar-text
     # children are the element's PROPERTIES -- representation/range/increment for
@@ -1467,6 +1496,7 @@ def _parse_cluster_fields(
     cluster_ddo: ET.Element,
     unresolved_uids: set[str],
     field_defaults: dict[str, object] | None = None,
+    type_map: dict[int, LVType] | None = None,
 ) -> list[ParsedFPControl]:
     """Parse a cluster's DIRECT field controls, in cluster (``ddoList``) order,
     each by its own type -- so a nested cluster field recurses (via ``_parse_ddo``)
@@ -1509,6 +1539,7 @@ def _parse_cluster_fields(
             value if isinstance(value, str) else None,
             unresolved_uids=unresolved_uids,
             field_defaults=value if isinstance(value, (dict, list)) else None,
+            type_map=type_map,
         )
         if child:
             # Force the child's own identity to the SAME strict label used for
@@ -1529,6 +1560,7 @@ def _parse_ddo(
     default_data: str | None = None,
     unresolved_uids: set[str] | None = None,
     field_defaults: object | None = None,
+    type_map: dict[int, LVType] | None = None,
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl.
 
@@ -1539,6 +1571,12 @@ def _parse_ddo(
     ``_parse_cluster_fields`` can give each field its own real value instead
     of ``None``. ``None`` for a scalar leaf, or when the type-aware decode
     path didn't run.
+
+    ``type_map`` is the VI's VCTP type table (``type_mapping.parse_type_map_rich``)
+    -- threaded down so an ``indArr``'s own representative-row ``<DefaultData>``
+    (see the ``indArr`` branch below) can resolve its element's real type and
+    get decoded, the same VCTP table the top-level fPDCO type already resolves
+    against.
     """
     control_type = ddo.get("class", "unknown")
     if unresolved_uids is None:
@@ -1562,9 +1600,16 @@ def _parse_ddo(
                 default_data,
                 unresolved_uids=unresolved_uids,
                 field_defaults=field_defaults,
+                type_map=type_map,
             )
             if inner_control:
                 inner_control.name = name
+                inner_control.caption = extract_caption(ddo)
+                inner_control.label_visible = _part_shown(ddo, 16) is not None
+                inner_control.caption_visible = (
+                    _part_shown(ddo, 82) is not None
+                    and bool(inner_control.caption)
+                )
                 return inner_control
         return None
 
@@ -1605,9 +1650,12 @@ def _parse_ddo(
     # row's layout, not the array's own bounds.
     children = []
     cluster_geom = None
+    element_default_value = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
-        children = _parse_cluster_fields(ddo, unresolved_uids, clust_defaults)
+        children = _parse_cluster_fields(
+            ddo, unresolved_uids, clust_defaults, type_map
+        )
         cluster_geom = _cluster_field_geoms(ddo)
     elif control_type == "indArr":
         element = ddo.find("ddo")
@@ -1616,6 +1664,7 @@ def _parse_ddo(
         # one representative (the first encoded) row's fields, so its own
         # field defaults come from field_defaults[0], the same "one visible
         # row" convention cluster_geom already documents for array geometry.
+        # None for an array saved with zero elements (field_defaults == []).
         elem_defaults = (
             field_defaults[0]
             if isinstance(field_defaults, list) and field_defaults
@@ -1629,6 +1678,40 @@ def _parse_ddo(
         # is what gets checked, not the "typeDef" wrapper's own class.
         if element is not None and element.get("class") == "typeDef":
             element = _wrapped_control(element)
+
+        # When the array's OWN combined default has no first element (it was
+        # saved with zero elements), LabVIEW separately stores a
+        # REPRESENTATIVE-ROW default: a <DefaultData> SIBLING of this indArr's
+        # own <ddo> (i.e. ANOTHER direct child of `ddo` itself, alongside the
+        # `element` var above) -- one raw instance of the ELEMENT type, with
+        # NO array-length prefix (unlike the array's own combined blob decoded
+        # into `field_defaults` above). This is what LabVIEW's front panel
+        # actually shows in an empty array's disabled/unset rows -- verified
+        # byte-exact against issue #101's real .ctl: every disabled-row value
+        # on its reference screenshot (numeric AND enum-index alike, e.g.
+        # Vertical Offset=200.0, Bandwidth-as-enum-index=3) decodes from here,
+        # not from a generic 0/False/first-enum type default. Only consulted
+        # as a fallback -- a real first element from the array's own decode
+        # always wins.
+        if elem_defaults is None and element is not None and type_map:
+            row_default_elem = ddo.find("DefaultData")
+            elem_type_desc = element.find("typeDesc")
+            if (
+                row_default_elem is not None
+                and row_default_elem.text
+                and elem_type_desc is not None
+                and elem_type_desc.text
+            ):
+                elem_lv_type = resolve_type_rich(elem_type_desc.text, type_map)
+                if elem_lv_type is not None:
+                    try:
+                        row_bytes = decode_xml_entities_to_bytes(
+                            strip_surrounding_quotes(row_default_elem.text)
+                        )
+                        elem_defaults = _decode_element(row_bytes, elem_lv_type)[2]
+                    except (ValueError, UnicodeError):
+                        pass
+
         if element is not None:
             element_class = element.get("class")
             if element_class == "stdClust":
@@ -1636,11 +1719,15 @@ def _parse_ddo(
                     elem_defaults if isinstance(elem_defaults, dict) else None
                 )
                 children = _parse_cluster_fields(
-                    element, unresolved_uids, elem_clust_defaults
+                    element, unresolved_uids, elem_clust_defaults, type_map
                 )
                 cluster_geom = _cluster_field_geoms(element)
-            elif element_class in ("stdEnum", "stdRing"):
-                enum_values = _enum_labels_of(element)
+            else:
+                if element_class in ("stdEnum", "stdRing"):
+                    enum_values = _enum_labels_of(element)
+                element_default_value = (
+                    elem_defaults if isinstance(elem_defaults, str) else None
+                )
 
     return ParsedFPControl(
         uid=uid,
@@ -1650,11 +1737,33 @@ def _parse_ddo(
         is_indicator=control_is_indicator,
         default_value=default_data,
         caption=caption,
+        label_visible=_part_shown(ddo, 16) is not None,
+        caption_visible=_part_shown(ddo, 82) is not None and bool(caption),
         children=children,
         parts=_parse_fp_parts(ddo),
         enum_values=enum_values,
         cluster_geom=cluster_geom,
+        element_default_value=element_default_value,
+        element_values=(
+            list(field_defaults)
+            if control_type == "indArr" and isinstance(field_defaults, list)
+            else []
+        ),
+        number_format=_numeric_format(
+            ddo.find("ddo") if control_type == "indArr" else ddo
+        ),
     )
+
+
+def _numeric_format(ddo: ET.Element | None) -> str | None:
+    """A numeric ddo's own display-format spec: the ``<format>`` of its
+    ``numLabel`` part (partsList entry), quotes stripped."""
+    if ddo is None:
+        return None
+    label = ddo.find("partsList/SL__arrayElement[@class='numLabel']/format")
+    if label is None or not label.text:
+        return None
+    return strip_surrounding_quotes(label.text) or None
 
 
 def _decode_default_data(

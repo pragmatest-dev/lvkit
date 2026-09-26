@@ -52,7 +52,7 @@ from ..graph.op_walk import (
 from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
-from ..parser.layout import ClusterGeom, RefnumPayload
+from ..parser.layout import ClusterGeom, Rect, RefnumPayload
 from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
@@ -427,6 +427,14 @@ class GlyphContext:
     vi_name: str
     cluster_field_geom: Mapping[str, ClusterGeom] = field(default_factory=dict)
     array_element_cluster: Mapping[str, ClusterGeom] = field(default_factory=dict)
+    # An array constant's raw uid -> its own real elements-viewport /
+    # vertical-scrollbar-track rects + native size (``layout.Layout``'s
+    # fields of the same name) -- populated for every array constant, scalar
+    # or cluster element alike, unlike ``array_element_cluster`` above.
+    array_viewport: Mapping[str, Rect] = field(default_factory=dict)
+    array_scrollbar: Mapping[str, Rect] = field(default_factory=dict)
+    array_native_size: Mapping[str, tuple[float, float]] = field(default_factory=dict)
+    array_index_hidden: Mapping[str, bool] = field(default_factory=dict)
     refnum_expanded: frozenset[str] = frozenset()
     refnum_payload: Mapping[str, RefnumPayload] = field(default_factory=dict)
 
@@ -1461,6 +1469,10 @@ def _array_value_glyph(
     raw: object,
     struct_uid: str,
     cluster_geom: ClusterGeom | None = None,
+    viewport_local: Rect | None = None,
+    scrollbar_local: Rect | None = None,
+    native_size: tuple[float, float] | None = None,
+    show_index: bool = True,
 ) -> Glyph:
     """Compose an array-typed VALUE's glyph: one element glyph per value
     (from the element type), drawn by :class:`ArrayConstantGlyph` as an
@@ -1493,15 +1505,33 @@ def _array_value_glyph(
         cell_w=cluster_geom.width if cluster_geom is not None else None,
         cell_h=cluster_geom.height if cluster_geom is not None else None,
         default_element=default_element,
+        viewport_local=viewport_local,
+        scrollbar_local=scrollbar_local,
+        native_size=native_size,
+        show_index=show_index,
     )
 
 
 def _array_const_glyph(
-    node: ConstantNode, cluster_geom: ClusterGeom | None = None
+    node: ConstantNode,
+    cluster_geom: ClusterGeom | None = None,
+    viewport_local: Rect | None = None,
+    scrollbar_local: Rect | None = None,
+    native_size: tuple[float, float] | None = None,
+    show_index: bool = True,
 ) -> Glyph:
     """A top-level array CONSTANT's glyph — see ``_array_value_glyph``."""
     raw = node.raw_value if node.value is None else node.value
-    return _array_value_glyph(node.lv_type, raw, node.id, cluster_geom)
+    return _array_value_glyph(
+        node.lv_type,
+        raw,
+        node.id,
+        cluster_geom,
+        viewport_local,
+        scrollbar_local,
+        native_size,
+        show_index,
+    )
 
 
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
@@ -1570,7 +1600,12 @@ class GeneratedGlyphResolver:
             if fam == "array":
                 raw_uid = node.id.removeprefix(f"{ctx.vi_name}::")
                 return _array_const_glyph(
-                    node, ctx.array_element_cluster.get(raw_uid)
+                    node,
+                    ctx.array_element_cluster.get(raw_uid),
+                    ctx.array_viewport.get(raw_uid),
+                    ctx.array_scrollbar.get(raw_uid),
+                    ctx.array_native_size.get(raw_uid),
+                    not ctx.array_index_hidden.get(raw_uid, True),
                 )
             # Prefer the codepage-decoded display form (readable CJK/localized
             # text) over the byte-faithful latin-1 codegen value; display_value

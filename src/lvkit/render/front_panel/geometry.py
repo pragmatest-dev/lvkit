@@ -4,13 +4,10 @@ box.
 A top-level control's own ``ParsedFPControl.bounds`` is already panel-absolute
 (the heap stores it that way), so that's all this module places. A cluster's
 or array's INTERIOR content (its fields/element, at THEIR real relative
-geometry) is no longer placed here -- ``ClusterConstantGlyph``/
-``ArrayConstantGlyph`` (the existing block-diagram glyphs, reused as-is via
-``controls.resolve_glyph``) already solve real per-field/per-element
-placement via their own ``cluster_geom``/``cell_h``/``cell_w`` uniform-scale
-fit, given the bounds this module hands them for the top-level control --
-placing it a SECOND time here would just be this file's own former
-duplicate of that same scale math.
+geometry) is placed by the resolved glyph itself --
+``ClusterConstantGlyph`` and ``ArrayControlGlyph`` (via
+``controls.resolve_glyph``) map their own heap-local geometry onto the box
+they are handed by one uniform scale.
 """
 
 from __future__ import annotations

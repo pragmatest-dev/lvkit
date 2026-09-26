@@ -11,6 +11,10 @@ box). The index is INTERACTIVE in the viewer: the ``lv-array`` carrier + the
 ``lv-array-col`` translatable column are read by the array controller JS (a
 sibling of the case/sequence frame controller), which scrolls the column and
 updates the index readout on ``▲``/``▼``. With no JS the glyph shows index 0.
+
+The index selector, element column and scrollbar are the shared pieces in
+``index_selector``/``array_elements``/``array_scrollbar``; this glyph decides
+where a block-diagram constant puts them.
 """
 
 from __future__ import annotations
@@ -20,13 +24,12 @@ from dataclasses import dataclass
 from ....parser.layout import Rect
 from ...backend import Backend
 from ...style import Theme
-from .base import Glyph, fit_label
+from .array_elements import DEFAULT_CELL_H, draw_array_elements
+from .array_scrollbar import draw_array_scrollbar
+from .base import Glyph
+from .index_selector import draw_index_selector
+from .local_rect import scale_local
 
-# One element row + the index box — LabVIEW's element-cell height. The box is the
-# real developer-sized heap bounds, so the visible-row count falls out as
-# ``floor(viewport_height / _CELL_H)`` — a whole number of elements, as LabVIEW
-# always shows.
-_CELL_H = 18.0
 _INDEX_W = 22.0  # width of the index-control column (left of the elements)
 _INDEX_H = 16.0  # height of one dimension's index box
 _PAD = 2.0
@@ -45,8 +48,8 @@ class ArrayConstantGlyph:
     (arrays are homogeneous: one real shape serves every row) rather than
     stretched into a guessed row height. ``cell_w`` clips the cell's width to
     that real size (left-anchored in the viewport, never stretched to fill
-    it); ``None`` (the default, every non-cluster element) keeps today's
-    fixed ``_CELL_H`` row filling the full viewport width.
+    it); ``None`` (the default, every non-cluster element) keeps a fixed
+    default-height row filling the full viewport width.
 
     ``default_element`` is the element TYPE's own glyph at its type-default
     value (``value=None`` — the same "unset" convention every leaf/cluster
@@ -58,7 +61,14 @@ class ArrayConstantGlyph:
     ~0.5 opacity — the same translucent-grey convention a disabled
     subdiagram frame already uses, see ``composite.py``), not a new style.
     ``None`` (an older caller, or an element type with no default glyph)
-    falls back to the old flat grey rect."""
+    falls back to a flat grey rect.
+
+    ``viewport_local``/``scrollbar_local`` are the heap's own elements-viewport
+    and scrollbar-track rects (``partID`` 28 / 39), relative to this constant's
+    own (0, 0) at ``native_size`` -- mapped onto ``bounds`` by one uniform
+    scale. ``None`` falls back to a synthetic carve-out beside the index
+    column and no scrollbar. ``show_index`` is the heap's per-constant "Show
+    Index" toggle."""
 
     elements: tuple[Glyph, ...]
     element_color: str
@@ -67,153 +77,53 @@ class ArrayConstantGlyph:
     cell_h: float | None = None
     cell_w: float | None = None
     default_element: Glyph | None = None
-    # The container's own fill token -- ``const_fill`` (a block-diagram value
-    # box) by default; a caller in a different visual context (e.g. a
-    # front-panel array CONTROL, which wants the panel's group-box grey
-    # instead) overrides it. Mirrors ``ConstantGlyph.fill_attr``.
-    fill_attr: str = "const_fill"
+    viewport_local: Rect | None = None
+    scrollbar_local: Rect | None = None
+    native_size: tuple[float, float] | None = None
+    show_index: bool = True
 
     def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
         backend.rect(
             x1, y1, x2, y2,
-            fill=getattr(theme, self.fill_attr),
+            fill=theme.const_fill,
             stroke=self.element_color,
             stroke_width=1.0,
         )
-        n_idx = max(1, self.dimensions)
-        idx_right = x1 + _INDEX_W
-        for d in range(n_idx):
-            iy1 = y1 + _PAD + d * (_INDEX_H + 1.0)
-            iy2 = min(iy1 + _INDEX_H, y2 - _PAD)
-            if iy2 - iy1 < 6.0:
-                break
-            self._draw_index_box(
-                backend, (x1 + _PAD, iy1, idx_right - _PAD, iy2), theme
-            )
+        idx_right = x1
+        if self.show_index:
+            idx_right = x1 + _INDEX_W
+            for d in range(max(1, self.dimensions)):
+                iy1 = y1 + _PAD + d * (_INDEX_H + 1.0)
+                iy2 = min(iy1 + _INDEX_H, y2 - _PAD)
+                if iy2 - iy1 < 6.0:
+                    break
+                draw_index_selector(
+                    backend,
+                    (x1 + _PAD, iy1, idx_right - _PAD, iy2),
+                    theme,
+                    self.struct_uid,
+                )
 
-        # Element viewport, to the right of the index column.
-        vx1, vy1, vx2, vy2 = idx_right, y1 + _PAD, x2 - _PAD, y2 - _PAD
+        viewport = scale_local(self.viewport_local, self.native_size, bounds)
+        if viewport is None:
+            viewport = (idx_right, y1 + _PAD, x2 - _PAD, y2 - _PAD)
+        vx1, vy1, vx2, vy2 = viewport
         if vx2 - vx1 < 6.0 or vy2 - vy1 < 6.0:
             return
-        cell_h = self.cell_h if self.cell_h is not None else _CELL_H
-        visible = max(1, int((vy2 - vy1) // cell_h))
-        total = len(self.elements)
-
-        # A FIXED clip viewport (outer group) holding a TRANSLATABLE column
-        # (inner ``lv-array-col``): every element cell at its natural row, plus
-        # up to ``visible - 1`` greyed past-end rows so scrolling near the end
-        # reveals the "unset" cells. The controller JS translates the inner group
-        # by ``-index * cell_h`` so element[index] lands at the viewport top
-        # (the clip must stay on the OUTER group, or it would scroll too). With
-        # no JS it shows rows [0, visible).
-        #
-        # ``max(total, 1)`` (not bare ``total``) so a genuinely EMPTY array
-        # still draws its row 0 — LabVIEW always shows AT LEAST the disabled
-        # default element at index 0, never zero rows.
-        backend.begin_group(clip=(vx1, vy1, vx2, vy2))
-        backend.begin_group(
-            cls="lv-array-col",
-            data={"lv-struct": self.struct_uid},
+        visible = draw_array_elements(
+            backend,
+            viewport,
+            theme,
+            struct_uid=self.struct_uid,
+            elements=self.elements,
+            default_element=self.default_element,
+            cell_h=self.cell_h if self.cell_h is not None else DEFAULT_CELL_H,
+            cell_w=self.cell_w,
         )
-        cell_right = vx2 - 1.0
-        if self.cell_w is not None:
-            cell_right = min(vx2, vx1 + self.cell_w) - 1.0
-        row_count = max(total, 1) + max(0, visible - 1)
-        for i in range(row_count):
-            cy1 = vy1 + i * cell_h
-            cy2 = cy1 + cell_h
-            cell = (vx1 + 1.0, cy1 + 1.0, cell_right, cy2 - 1.0)
-            if i < total:
-                self.elements[i].draw(backend, cell, theme)
-            elif self.default_element is not None:
-                # Past the array end (or the whole array is empty): the
-                # element type's own REAL default-valued glyph, washed with
-                # the disabled mask — real content, dimmed, never a blank
-                # rect (an empty array shows one such row at index 0).
-                self.default_element.draw(backend, cell, theme)
-                backend.begin_group(cls="lv-disabled-mask")
-                backend.rect(*cell, fill=theme.disabled_mask)
-                backend.end_group()
-            else:
-                # No default glyph available: the old flat grey cell.
-                backend.rect(*cell, fill=theme.fp_panel, stroke="none")
-            if i + 1 < row_count:
-                backend.line(
-                    vx1, cy2, vx2, cy2, stroke=theme.struct_border, stroke_width=0.4
-                )
-        backend.end_group()  # lv-array-col (translatable)
-        backend.end_group()  # clip viewport (fixed)
-
-        # The carrier the array controller reads: array length, visible-row
-        # count, and the per-row height it scrolls by.
-        backend.begin_group(
-            cls="lv-array",
-            data={
-                "lv-struct": self.struct_uid,
-                "lv-len": str(total),
-                "lv-visible": str(visible),
-                "lv-cellh": str(cell_h),
-            },
-        )
-        backend.end_group()
-
-    def _draw_index_box(
-        self, backend: Backend, box: Rect, theme: Theme
-    ) -> None:
-        """One dimension's index control: a box with ``▲``/``▼`` decrement /
-        increment click targets on the left and the current index readout on the
-        right (updated live by the controller; ``0`` with no JS)."""
-        ix1, iy1, ix2, iy2 = box
-        backend.rect(
-            ix1, iy1, ix2, iy2,
-            fill=theme.case_bar_fill,
-            stroke=theme.struct_border,
-            stroke_width=0.75,
-        )
-        arrow_w = 8.0
-        mid = (iy1 + iy2) / 2
-        # ▲ (top) = index UP / next (index + 1); ▼ (bottom) = index down / prev.
-        backend.begin_group(
-            cls="lv-selector lv-clickable",
-            data={"lv-action": "next", "lv-struct": self.struct_uid},
-        )
-        backend.rect(ix1, iy1, ix1 + arrow_w, mid, fill="transparent", stroke="none")
-        backend.polygon(
-            [
-                (ix1 + arrow_w / 2, iy1 + 2.5),
-                (ix1 + 1.5, mid - 1.5),
-                (ix1 + arrow_w - 1.5, mid - 1.5),
-            ],
-            fill=theme.case_bar_text,
-        )
-        backend.end_group()
-        backend.begin_group(
-            cls="lv-selector lv-clickable",
-            data={"lv-action": "prev", "lv-struct": self.struct_uid},
-        )
-        backend.rect(ix1, mid, ix1 + arrow_w, iy2, fill="transparent", stroke="none")
-        backend.polygon(
-            [
-                (ix1 + 1.5, mid + 1.5),
-                (ix1 + arrow_w - 1.5, mid + 1.5),
-                (ix1 + arrow_w / 2, iy2 - 2.5),
-            ],
-            fill=theme.case_bar_text,
-        )
-        backend.end_group()
-        # The live index readout (JS sets textContent; 0 by default).
-        size = min(9.0, (iy2 - iy1) * 0.7)
-        label = fit_label("0", (ix2 - (ix1 + arrow_w)) - 2.0, backend, size)
-        backend.begin_group(
-            cls="lv-array-index",
-            data={"lv-struct": self.struct_uid},
-        )
-        backend.text(
-            (ix1 + arrow_w + ix2) / 2,
-            mid + size * 0.34,
-            label,
-            size,
-            fill=theme.case_bar_text,
-        )
-        backend.end_group()
+        scrollbar = scale_local(self.scrollbar_local, self.native_size, bounds)
+        if scrollbar is not None:
+            draw_array_scrollbar(
+                backend, scrollbar, theme, self.struct_uid,
+                len(self.elements), visible,
+            )
