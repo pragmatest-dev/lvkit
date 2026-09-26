@@ -258,3 +258,17 @@ def _first_text(label: ET.Element) -> str | None:
             if cleaned:
                 return cleaned
     return None
+
+
+def heap_color(text: str | None) -> str | None:
+    """A heap ``fgColor``/``bgColor`` (``00RRGGBB`` hex) as ``#RRGGBB``. Only a
+    literal color has a ``00`` high byte; any other value (e.g. ``01000000``,
+    a default) is not a color to draw with, so it is None."""
+    value = (text or "").strip()
+    if len(value) != 8 or not value.startswith("00"):
+        return None
+    try:
+        int(value, 16)
+    except ValueError:
+        return None
+    return "#" + value[2:].upper()

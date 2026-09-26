@@ -90,6 +90,7 @@ from .utils import (
     extract_caption,
     extract_label,
     extract_label_strict,
+    heap_color,
     safe_int,
     strip_surrounding_quotes,
 )
@@ -1409,6 +1410,8 @@ def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:
                 _parse_bounds(bounds_elem.text),
                 props,
                 _parse_fp_parts_list(part),
+                fg_color=heap_color(part.findtext("fgColor")),
+                bg_color=heap_color(part.findtext("bgColor")),
             )
         )
     return parts

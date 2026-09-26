@@ -13,6 +13,9 @@ from ...glyph import Glyph
 # reads for a cluster field's label part.
 HIDDEN_FLAG_BIT = 0x8
 
+# The frame every framed control (a cluster, an array) is drawn inside.
+FRAME_PART_ID = 9
+
 
 class ControlGlyph:
     """Base for a front-panel control glyph whose drawn box is not its whole
@@ -40,6 +43,15 @@ def control_value_bounds(ctrl: ParsedFPControl, glyph: Glyph, bounds: Rect) -> R
         return glyph.value_bounds(bounds)
     ex1, ey1, ex2, ey2 = value_extent(ctrl)
     return (bounds[0] + ex1, bounds[1] + ey1, bounds[0] + ex2, bounds[1] + ey2)
+
+
+def frame_colors(ctrl: ParsedFPControl) -> tuple[str | None, str | None]:
+    """The control's frame (``partID`` 9) literal ``(fill, outline)`` colors;
+    each is None when the heap records no literal color for it."""
+    part = find_part(ctrl, FRAME_PART_ID)
+    if part is None:
+        return None, None
+    return part.bg_color, part.fg_color
 
 
 def part_rect_of(part: ParsedFPPart) -> Rect:

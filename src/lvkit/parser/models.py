@@ -505,6 +505,10 @@ class ParsedFPPart:
     # part's top-left -- e.g. an array's index display is itself a numeric
     # control whose readout and spinner halves are sub-parts.
     parts: list[ParsedFPPart] = field(default_factory=list)
+    # The part's own literal colors (``#RRGGBB``), when the heap records one;
+    # None for a default/system color, which the view themes.
+    fg_color: str | None = None
+    bg_color: str | None = None
 
 
 @dataclass

@@ -23,6 +23,7 @@ from ...glyphs.nodes.index_selector import draw_spinner
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
 from .base import (
+    FRAME_PART_ID,
     ControlGlyph,
     local_part_rect,
     part_rect_of,
@@ -31,7 +32,6 @@ from .base import (
 )
 from .number_format import format_number
 
-_FRAME_PART_ID = 9
 _SPINNER_PART_IDS = (2, 3)
 _READOUT_PART_ID = 10
 _READOUT_BEVEL_PART_ID = 119
@@ -97,7 +97,7 @@ def numeric_control(ctrl: ParsedFPControl) -> NumericControlGlyph:
     value = format_number(ctrl.default_value or "0", ctrl.number_format)
     x1, y1, x2, y2 = value_extent(ctrl)
     origin = (x1, y1)
-    frame = local_part_rect(ctrl, _FRAME_PART_ID, origin)
+    frame = local_part_rect(ctrl, FRAME_PART_ID, origin)
     readout = _readout(ctrl, origin)
     halves = [
         r

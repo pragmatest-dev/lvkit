@@ -34,7 +34,9 @@ from ...glyphs.nodes.index_selector import draw_index_control, draw_index_select
 from ...glyphs.nodes.local_rect import scale_local
 from ...style import Theme
 from .base import (
+    FRAME_PART_ID,
     ControlGlyph,
+    frame_colors,
     local_part_rect,
     part_hidden,
     part_is_hidden,
@@ -43,7 +45,6 @@ from .base import (
     value_extent,
 )
 
-_FRAME_PART_ID = 9
 _VIEWPORT_PART_ID = 28
 _SCROLLBAR_PART_ID = 39
 _INDEX_PART_ID = 8002
@@ -79,6 +80,8 @@ class ArrayControlGlyph(ControlGlyph):
     value_origin: tuple[float, float]
     native_size: tuple[float, float]
     frame_local: Rect | None
+    frame_fill: str | None
+    frame_stroke: str | None
     viewport_local: Rect | None
     scrollbar_local: Rect | None
     indices: tuple[IndexDisplay, ...]
@@ -95,7 +98,10 @@ class ArrayControlGlyph(ControlGlyph):
             x1, y1, x2, y2 = bounds
             viewport = (x1 + _INSET, y1 + _INSET, x2 - _INSET, y2 - _INSET)
         backend.rect(
-            *frame, fill=theme.fp_panel, stroke=theme.struct_border, stroke_width=1.0
+            *frame,
+            fill=self.frame_fill or theme.fp_panel,
+            stroke=self.frame_stroke or theme.struct_border,
+            stroke_width=1.0,
         )
         washed = self._draw_indices(backend, bounds, theme)
         vx1, vy1, vx2, vy2 = viewport
@@ -157,7 +163,7 @@ class ArrayControlGlyph(ControlGlyph):
 
 def _index_frame(index: ParsedFPPart, origin: tuple[float, float]) -> Rect | None:
     """The index display's own frame: its ``partID`` 9 sub-part."""
-    frame = next((p for p in index.parts if p.part_id == _FRAME_PART_ID), None)
+    frame = next((p for p in index.parts if p.part_id == FRAME_PART_ID), None)
     if frame is None:
         return None
     px1, py1, _px2, _py2 = part_rect_of(index)
@@ -201,6 +207,7 @@ def array_control(
     """Build ``ctrl``'s array glyph from its heap parts."""
     ex1, ey1, ex2, ey2 = value_extent(ctrl)
     origin = (ex1, ey1)
+    frame_fill, frame_stroke = frame_colors(ctrl)
     geom = ctrl.cluster_geom
     cell_h = geom.height if geom else None
     if cell_h is None:
@@ -219,7 +226,9 @@ def array_control(
         cell_w=geom.width if geom else None,
         value_origin=origin,
         native_size=(ex2 - ex1, ey2 - ey1),
-        frame_local=local_part_rect(ctrl, _FRAME_PART_ID, origin),
+        frame_local=local_part_rect(ctrl, FRAME_PART_ID, origin),
+        frame_fill=frame_fill,
+        frame_stroke=frame_stroke,
         viewport_local=local_part_rect(ctrl, _VIEWPORT_PART_ID, origin),
         scrollbar_local=(
             None

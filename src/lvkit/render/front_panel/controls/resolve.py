@@ -14,6 +14,7 @@ from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import ClusterConstantGlyph, Glyph
 from ...style import Theme
 from .array import array_control
+from .base import frame_colors
 from .boolean import boolean_control
 from .label import LABEL_SIZE
 from .leaf import leaf_glyph
@@ -21,16 +22,26 @@ from .numeric import numeric_control
 from .values import with_value
 
 
-def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
-    if ctrl.control_type != "stdClust":
-        return None
-    fields = tuple((f.name, resolve_glyph(f, theme)) for f in ctrl.children)
+def _cluster_glyph(
+    ctrl: ParsedFPControl, fields: tuple[tuple[str, Glyph], ...]
+) -> ClusterConstantGlyph:
+    """A cluster drawn in its own frame colors when the heap records them."""
+    fill, outline = frame_colors(ctrl)
     return ClusterConstantGlyph(
         fields=fields,
         cluster_geom=ctrl.cluster_geom,
         fill_attr="fp_panel",
+        fill_color=fill,
+        border_color=outline,
         field_label_size=LABEL_SIZE,
     )
+
+
+def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type != "stdClust":
+        return None
+    fields = tuple((f.name, resolve_glyph(f, theme)) for f in ctrl.children)
+    return _cluster_glyph(ctrl, fields)
 
 
 def _element(
@@ -46,12 +57,7 @@ def _element(
     if ctrl.children:
         row = with_value(ctrl, value) if isinstance(value, dict) else ctrl
         fields = tuple((f.name, resolve_glyph(f, theme)) for f in row.children)
-        return ClusterConstantGlyph(
-            fields=fields,
-            cluster_geom=ctrl.cluster_geom,
-            fill_attr="fp_panel",
-            field_label_size=LABEL_SIZE,
-        )
+        return _cluster_glyph(ctrl, fields)
     element_part: ParsedFPPart | None = next(
         (p for p in ctrl.parts if p.part_id is None), None
     )

@@ -36,6 +36,8 @@ class ClusterConstantGlyph:
     # collapse, never squashed members. (``ConstantNode.collapsed``.)
     collapsed: bool = False
     fill_attr: str = "const_fill"
+    # A literal fill color (``#RRGGBB``) that replaces the theme's ``fill_attr``.
+    fill_color: str | None = None
     # The cluster's own wire color (brown for an all-numeric cluster, pink for a
     # mixed/common one) — the icon border matches the wire. None -> brown.
     border_color: str | None = None
@@ -70,7 +72,7 @@ class ClusterConstantGlyph:
             y1,
             x2,
             y2,
-            fill=getattr(theme, self.fill_attr),
+            fill=self.fill_color or getattr(theme, self.fill_attr),
             stroke=border,
             stroke_width=1.5,
         )
