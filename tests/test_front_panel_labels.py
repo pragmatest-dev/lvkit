@@ -84,3 +84,22 @@ def test_top_level_control_draws_only_the_visible_text() -> None:
     assert ">pin_name<" not in hidden
     shown = _svg(label_visible=False, caption="Pin Name", caption_visible=True)
     assert ">Pin Name<" in shown and ">pin_name<" not in shown
+
+
+
+def test_top_level_label_draws_at_its_own_part_rect() -> None:
+    """The label sits INSIDE the control's box at its recorded part rect, not
+    above the box where it would cover whatever is over the control."""
+    from lvkit.parser.models import ParsedFPPart
+
+    ctrl = ParsedFPControl(
+        uid="1", name="ring", control_type="stdRing", bounds=(288, 72, 327, 200),
+        parts=[ParsedFPPart(16, "label", (0, 11, 15, 128))],
+    )
+    svg = render_front_panel_svg(
+        ParsedFrontPanel(controls=[ctrl], panel_bounds=(0, 0, 400, 600))
+    )
+    tag = svg.split(">ring<")[0].rsplit("<text", 1)[1]
+    assert 'x="84.0"' in tag  # control left 72 + part left 11 + 1
+    baseline = float(tag.split('y="')[1].split('"')[0])
+    assert 288 <= baseline <= 303  # inside the label rect, not at 283

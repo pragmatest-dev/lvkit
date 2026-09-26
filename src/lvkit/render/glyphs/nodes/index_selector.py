@@ -15,8 +15,9 @@ from .base import fit_label
 
 
 def draw_index_selector(
-    backend: Backend, box: Rect, theme: Theme, struct_uid: str
+    backend: Backend, box: Rect, theme: Theme, struct_uid: str | None
 ) -> None:
+    """The legacy one-box selector. Without a ``struct_uid`` it is static."""
     ix1, iy1, ix2, iy2 = box
     backend.rect(
         ix1, iy1, ix2, iy2,
@@ -27,10 +28,11 @@ def draw_index_selector(
     arrow_w = 8.0
     mid = (iy1 + iy2) / 2
     # ▲ (top) = index UP / next (index + 1); ▼ (bottom) = index down / prev.
-    backend.begin_group(
-        cls="lv-selector lv-clickable",
-        data={"lv-action": "next", "lv-struct": struct_uid},
-    )
+    if struct_uid is not None:
+        backend.begin_group(
+            cls="lv-selector lv-clickable",
+            data={"lv-action": "next", "lv-struct": struct_uid},
+        )
     backend.rect(ix1, iy1, ix1 + arrow_w, mid, fill="transparent", stroke="none")
     backend.polygon(
         [
@@ -40,11 +42,12 @@ def draw_index_selector(
         ],
         fill=theme.case_bar_text,
     )
-    backend.end_group()
-    backend.begin_group(
-        cls="lv-selector lv-clickable",
-        data={"lv-action": "prev", "lv-struct": struct_uid},
-    )
+    if struct_uid is not None:
+        backend.end_group()
+        backend.begin_group(
+            cls="lv-selector lv-clickable",
+            data={"lv-action": "prev", "lv-struct": struct_uid},
+        )
     backend.rect(ix1, mid, ix1 + arrow_w, iy2, fill="transparent", stroke="none")
     backend.polygon(
         [
@@ -54,10 +57,12 @@ def draw_index_selector(
         ],
         fill=theme.case_bar_text,
     )
-    backend.end_group()
+    if struct_uid is not None:
+        backend.end_group()
     size = min(9.0, (iy2 - iy1) * 0.7)
     label = fit_label("0", (ix2 - (ix1 + arrow_w)) - 2.0, backend, size)
-    backend.begin_group(cls="lv-array-index", data={"lv-struct": struct_uid})
+    if struct_uid is not None:
+        backend.begin_group(cls="lv-array-index", data={"lv-struct": struct_uid})
     backend.text(
         (ix1 + arrow_w + ix2) / 2,
         mid + size * 0.34,
@@ -65,7 +70,8 @@ def draw_index_selector(
         size,
         fill=theme.case_bar_text,
     )
-    backend.end_group()
+    if struct_uid is not None:
+        backend.end_group()
 
 
 def draw_index_control(
@@ -73,11 +79,13 @@ def draw_index_control(
     spinner: Rect,
     readout: Rect,
     theme: Theme,
-    struct_uid: str,
+    struct_uid: str | None,
 ) -> None:
     """The index as LabVIEW draws it: a compact rounded spinner (an up half and
     a down half) beside a SEPARATE readout box -- not one box holding both.
-    The caller supplies each piece's rect (the index part's own sub-parts)."""
+    The caller supplies each piece's rect (the index part's own sub-parts).
+    With a ``struct_uid`` the spinner and readout are the array controller's
+    live targets; without one the index is static."""
     draw_spinner(backend, spinner, theme, struct_uid)
     rx1, ry1, rx2, ry2 = readout
     backend.rect(
@@ -87,7 +95,8 @@ def draw_index_control(
         stroke_width=0.75,
     )
     size = min(11.0, (ry2 - ry1) * 0.7)
-    backend.begin_group(cls="lv-array-index", data={"lv-struct": struct_uid})
+    if struct_uid is not None:
+        backend.begin_group(cls="lv-array-index", data={"lv-struct": struct_uid})
     backend.text(
         (rx1 + rx2) / 2,
         (ry1 + ry2) / 2 + size * 0.34,
@@ -95,7 +104,8 @@ def draw_index_control(
         size,
         fill=theme.fp_value_text,
     )
-    backend.end_group()
+    if struct_uid is not None:
+        backend.end_group()
 
 
 def draw_spinner(

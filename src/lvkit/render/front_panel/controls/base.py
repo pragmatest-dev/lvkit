@@ -31,6 +31,17 @@ def value_bounds(glyph: Glyph, bounds: Rect) -> Rect:
     return bounds
 
 
+def control_value_bounds(ctrl: ParsedFPControl, glyph: Glyph, bounds: Rect) -> Rect:
+    """The box ``glyph`` draws into for a top-level ``ctrl`` placed at the
+    full heap box ``bounds``. A glyph that narrows itself does; every other
+    glyph gets the control's value extent -- the union of its non-label parts --
+    so it never paints over the label part inside its heap box."""
+    if isinstance(glyph, ControlGlyph):
+        return glyph.value_bounds(bounds)
+    ex1, ey1, ex2, ey2 = value_extent(ctrl)
+    return (bounds[0] + ex1, bounds[1] + ey1, bounds[0] + ex2, bounds[1] + ey2)
+
+
 def part_rect_of(part: ParsedFPPart) -> Rect:
     """A heap part's rect: ``ParsedFPPart.bounds`` is ``(top, left, bottom,
     right)``, ``Rect`` is ``(x1, y1, x2, y2)`` = ``(left, top, right, bottom)``."""
@@ -49,16 +60,19 @@ def part_rect(ctrl: ParsedFPControl, part_id: int) -> Rect | None:
     return part_rect_of(part) if part is not None else None
 
 
-def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
-    """True when the ``partID`` part is flagged hidden, or absent."""
-    part = find_part(ctrl, part_id)
-    if part is None:
-        return True
+def part_is_hidden(part: ParsedFPPart) -> bool:
+    """True when ``part`` is flagged hidden (objFlags bit 0x8)."""
     try:
         flags = int(part.props.get("objFlags", "0"))
     except ValueError:
         return True
     return bool(flags & HIDDEN_FLAG_BIT)
+
+
+def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
+    """True when the ``partID`` part is flagged hidden, or absent."""
+    part = find_part(ctrl, part_id)
+    return True if part is None else part_is_hidden(part)
 
 
 def value_extent(ctrl: ParsedFPControl) -> Rect:

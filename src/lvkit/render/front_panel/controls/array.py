@@ -5,8 +5,11 @@ layout:
 
 - the FRAME (``partID`` 9) surrounds the elements and scrollbar only -- the
   index selector is NOT inside it;
-- the INDEX selector (``partID`` 8002) sits beside the frame, drawn only when
-  the control's "Show Index" is on (the part is not flagged hidden);
+- the INDEX selectors (``partID`` 8002) sit beside the frame, one per array
+  dimension (an N-D array carries N of them, stacked), each drawn only when
+  its part is not flagged hidden -- the control's "Show Index". Each is drawn
+  inside its own frame (the index part's ``partID`` 9 sub-part); the bezel
+  part (``partID`` 30) is larger than the index and is not drawn;
 - the elements VIEWPORT (``partID`` 28) lives inside the frame; the vertical
   SCROLLBAR track (``partID`` 39) is drawn only when that part is not flagged
   hidden -- a per-control toggle, like the index;
@@ -34,6 +37,7 @@ from .base import (
     ControlGlyph,
     local_part_rect,
     part_hidden,
+    part_is_hidden,
     part_rect_of,
     value_box_bounds,
     value_extent,
@@ -43,9 +47,21 @@ _FRAME_PART_ID = 9
 _VIEWPORT_PART_ID = 28
 _SCROLLBAR_PART_ID = 39
 _INDEX_PART_ID = 8002
+_INDEX_FRAME_RADIUS = 3.0
 _READOUT_PART_ID = 10  # the index's own numLabel
 _SPINNER_PART_IDS = (2, 3)  # the index's up / down arrow halves
 _INSET = 2.0
+
+
+@dataclass(frozen=True)
+class IndexDisplay:
+    """One dimension's index: its part ``box`` and, when the heap has them, its
+    ``frame`` and the ``pieces`` (spinner, readout) inside it. Rects are
+    value-box-local."""
+
+    box: Rect
+    frame: Rect | None
+    pieces: tuple[Rect, Rect] | None
 
 
 @dataclass(frozen=True)
@@ -65,9 +81,7 @@ class ArrayControlGlyph(ControlGlyph):
     frame_local: Rect | None
     viewport_local: Rect | None
     scrollbar_local: Rect | None
-    index_local: Rect | None
-    index_pieces: tuple[Rect, Rect] | None
-    show_index: bool
+    indices: tuple[IndexDisplay, ...]
 
     def value_bounds(self, bounds: Rect) -> Rect:
         return value_box_bounds(bounds, self.value_origin, self.native_size)
@@ -83,9 +97,7 @@ class ArrayControlGlyph(ControlGlyph):
         backend.rect(
             *frame, fill=theme.fp_panel, stroke=theme.struct_border, stroke_width=1.0
         )
-        washed: list[Rect] = []
-        if self.show_index:
-            washed += self._draw_index(backend, bounds, theme)
+        washed = self._draw_indices(backend, bounds, theme)
         vx1, vy1, vx2, vy2 = viewport
         if vx2 - vx1 < 6.0 or vy2 - vy1 < 6.0:
             return
@@ -113,31 +125,52 @@ class ArrayControlGlyph(ControlGlyph):
                 backend.rect(*rect, fill=theme.disabled_mask)
                 backend.end_group()
 
-    def _draw_index(self, backend: Backend, bounds: Rect, theme: Theme) -> list[Rect]:
-        """The index control -- spinner + readout from the index part's own
-        sub-parts when the heap has them, else the whole index part as one
-        box. Returns the rects drawn."""
-        if self.index_pieces is not None:
-            spinner = scale_local(self.index_pieces[0], self.native_size, bounds)
-            readout = scale_local(self.index_pieces[1], self.native_size, bounds)
-            if spinner is not None and readout is not None:
-                draw_index_control(backend, spinner, readout, theme, self.struct_uid)
-                return [spinner, readout]
-        box = scale_local(self.index_local, self.native_size, bounds)
-        if box is None:
-            return []
-        draw_index_selector(backend, box, theme, self.struct_uid)
-        return [box]
+    def _draw_indices(
+        self, backend: Backend, bounds: Rect, theme: Theme
+    ) -> list[Rect]:
+        """Every shown dimension's index, each inside its own frame. Only the
+        first dimension is the array controller's live target. Returns the rects
+        drawn (each index's spinner and readout)."""
+        drawn: list[Rect] = []
+        for dimension, index in enumerate(self.indices):
+            uid = self.struct_uid if dimension == 0 else None
+            box = scale_local(index.box, self.native_size, bounds)
+            if box is None:
+                continue
+            frame = scale_local(index.frame, self.native_size, bounds)
+            if frame is not None:
+                backend.rect(
+                    *frame, fill=theme.fp_panel, stroke=theme.struct_border,
+                    stroke_width=1.0, rx=_INDEX_FRAME_RADIUS,
+                )
+            if index.pieces is not None:
+                spinner = scale_local(index.pieces[0], self.native_size, bounds)
+                readout = scale_local(index.pieces[1], self.native_size, bounds)
+                if spinner is not None and readout is not None:
+                    draw_index_control(backend, spinner, readout, theme, uid)
+                    drawn += [spinner, readout]
+                    continue
+            draw_index_selector(backend, box, theme, uid)
+            drawn.append(box)
+        return drawn
+
+
+def _index_frame(index: ParsedFPPart, origin: tuple[float, float]) -> Rect | None:
+    """The index display's own frame: its ``partID`` 9 sub-part."""
+    frame = next((p for p in index.parts if p.part_id == _FRAME_PART_ID), None)
+    if frame is None:
+        return None
+    px1, py1, _px2, _py2 = part_rect_of(index)
+    top, left, bottom, right = frame.bounds
+    ox, oy = origin
+    return (px1 + left - ox, py1 + top - oy, px1 + right - ox, py1 + bottom - oy)
 
 
 def _index_pieces(
-    ctrl: ParsedFPControl, origin: tuple[float, float]
+    index: ParsedFPPart, origin: tuple[float, float]
 ) -> tuple[Rect, Rect] | None:
     """The index display's spinner (its two arrow halves) and readout
     (``numLabel``) rects, from the index part's own sub-parts."""
-    index = next((p for p in ctrl.parts if p.part_id == _INDEX_PART_ID), None)
-    if index is None:
-        return None
     px1, py1, _px2, _py2 = part_rect_of(index)
     ox, oy = origin
 
@@ -193,7 +226,29 @@ def array_control(
             if part_hidden(ctrl, _SCROLLBAR_PART_ID)
             else local_part_rect(ctrl, _SCROLLBAR_PART_ID, origin)
         ),
-        index_local=local_part_rect(ctrl, _INDEX_PART_ID, origin),
-        index_pieces=_index_pieces(ctrl, origin),
-        show_index=not part_hidden(ctrl, _INDEX_PART_ID),
+        indices=_indices(ctrl, origin),
     )
+
+
+def _indices(
+    ctrl: ParsedFPControl, origin: tuple[float, float]
+) -> tuple[IndexDisplay, ...]:
+    """One display per shown ``partID`` 8002 part, in heap order from the
+    top-most (dimension 0) down."""
+    ox, oy = origin
+    shown = sorted(
+        (
+            p
+            for p in ctrl.parts
+            if p.part_id == _INDEX_PART_ID and not part_is_hidden(p)
+        ),
+        key=lambda p: (part_rect_of(p)[1], part_rect_of(p)[0]),
+    )
+    result = []
+    for part in shown:
+        x1, y1, x2, y2 = part_rect_of(part)
+        box = (x1 - ox, y1 - oy, x2 - ox, y2 - oy)
+        result.append(
+            IndexDisplay(box, _index_frame(part, origin), _index_pieces(part, origin))
+        )
+    return tuple(result)

@@ -12,8 +12,14 @@ index selector and scrollbar (``array.py``).
 
 from __future__ import annotations
 
-from .base import ControlGlyph, value_bounds
+from .base import ControlGlyph, control_value_bounds, value_bounds
 from .label import draw_label
 from .resolve import resolve_glyph
 
-__all__ = ["ControlGlyph", "draw_label", "resolve_glyph", "value_bounds"]
+__all__ = [
+    "ControlGlyph",
+    "control_value_bounds",
+    "draw_label",
+    "resolve_glyph",
+    "value_bounds",
+]

@@ -46,6 +46,8 @@ class ClusterConstantGlyph:
     # cluster the heap-geometry pass couldn't decode — the equal-height-row
     # fallback below then applies to every field.
     cluster_geom: ClusterGeom | None = None
+    # Font size of a field's name drawn at its real label rect.
+    field_label_size: float = 7.0
 
     # Below these, a stacked "name: value" row can't fit both a name AND a
     # value cell, so we drop the field-NAME labels and draw the field VALUES
@@ -118,7 +120,7 @@ class ClusterConstantGlyph:
         bx1, by1, bx2, by2 = bounds
         scale = min((bx2 - bx1) / cg.width, (by2 - by1) / cg.height)
         geom_by_name = {f.name: f for f in cg.fields}
-        label_size = 7.0
+        label_size = self.field_label_size
         for name, field_glyph in self.fields:
             geom = geom_by_name[name]
             vx1, vy1, vx2, vy2 = geom.value_rect

@@ -14,6 +14,8 @@ from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import ClusterConstantGlyph, Glyph
 from ...style import Theme
 from .array import array_control
+from .boolean import boolean_control
+from .label import LABEL_SIZE
 from .leaf import leaf_glyph
 from .numeric import numeric_control
 from .values import with_value
@@ -24,7 +26,10 @@ def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
         return None
     fields = tuple((f.name, resolve_glyph(f, theme)) for f in ctrl.children)
     return ClusterConstantGlyph(
-        fields=fields, cluster_geom=ctrl.cluster_geom, fill_attr="fp_panel"
+        fields=fields,
+        cluster_geom=ctrl.cluster_geom,
+        fill_attr="fp_panel",
+        field_label_size=LABEL_SIZE,
     )
 
 
@@ -42,7 +47,10 @@ def _element(
         row = with_value(ctrl, value) if isinstance(value, dict) else ctrl
         fields = tuple((f.name, resolve_glyph(f, theme)) for f in row.children)
         return ClusterConstantGlyph(
-            fields=fields, cluster_geom=ctrl.cluster_geom, fill_attr="fp_panel"
+            fields=fields,
+            cluster_geom=ctrl.cluster_geom,
+            fill_attr="fp_panel",
+            field_label_size=LABEL_SIZE,
         )
     element_part: ParsedFPPart | None = next(
         (p for p in ctrl.parts if p.part_id is None), None
@@ -78,7 +86,13 @@ def _numeric(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return numeric_control(ctrl)
 
 
-_RESOLVERS = (_cluster, _array, _numeric)
+def _boolean(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type != "stdBool":
+        return None
+    return boolean_control(ctrl)
+
+
+_RESOLVERS = (_cluster, _array, _numeric, _boolean)
 
 
 def resolve_glyph(ctrl: ParsedFPControl, theme: Theme) -> Glyph:
