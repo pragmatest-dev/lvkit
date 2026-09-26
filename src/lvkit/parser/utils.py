@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 
+from ..heap_text import decode_default_data
+
 # Precompiled pattern for XML-encoded control characters (&#xNN;)
 _XML_CONTROL_ENTITY_RE = re.compile(r"&#x[0-9a-fA-F]{2};")
 
@@ -62,6 +64,9 @@ def decode_xml_entities_to_bytes(data: str) -> bytes:
     text), which would silently drop every encoded byte before this
     function ever sees it.
     """
+    compressed = decode_default_data(data)
+    if compressed is not None:
+        return compressed
     result = bytearray()
     i = 0
     while i < len(data):

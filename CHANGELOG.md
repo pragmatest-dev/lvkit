@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Front panels render as LabVIEW draws them** — a `.ctl` or a VI's own front panel becomes an SVG with nested clusters at their real layout and each control's real saved value, in its own number format (#101).
+- **VIs with huge saved values extract in seconds, not gigabytes** — a graph's preallocated buffer (a 3 MB VI that became a 1.3 GB XML and ran out of memory) is now stored compressed, losslessly, and its front panel renders.
 - **Array controls draw from their own parts** — the frame, index selector (shown only when "Show Index" is on), scrollbar, real saved elements, and disabled default rows for an empty array (#101).
 
 ## [0.8.3] - 2026-09-09

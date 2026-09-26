@@ -28,6 +28,8 @@ from __future__ import annotations
 import warnings
 from decimal import Decimal
 
+from .heap_text import encode_default_data
+
 # pylabview's LVheap.py uses invalid escape sequences in plain strings (e.g.
 # re.match("^\\(...")), which Python 3.12+ emits as a *compile-time*
 # SyntaxWarning — and a future Python turns into a hard SyntaxError. A runtime
@@ -284,7 +286,8 @@ def install_pylabview_patches() -> None:
     _resilient_tdlist.__wrapped__ = _orig_tdlist  # type: ignore[attr-defined]
     _lv_block.VCTP.exportXMLTypeDescList = _resilient_tdlist
 
-    # (7) HeapNodeString.prepareContentXML — byte-EXACT binary DefaultData.
+    # (7) HeapNodeString.prepareContentXML — byte-EXACT binary DefaultData, with a
+    # large value written compressed (see ``heap_text``).
     # pylabview serializes every string heap value by decoding the raw bytes
     # through a text codec (``self.content.decode(self.vi.textEncoding)``). For a
     # binary ``DefaultData`` value — a constant's FLATTENED bytes: a 4-byte
@@ -313,16 +316,7 @@ def install_pylabview_patches() -> None:
             or isinstance(content, bool)
         ):
             return _orig_prep(self, fname_base)
-        out = []
-        for b in content:
-            # printable ASCII (minus the wrapping quote and XML/CDATA-special
-            # bytes) stays literal; everything else -> exact byte entity, so the
-            # value round-trips byte-for-byte through CDATA + normalize.
-            if 0x20 <= b <= 0x7E and b not in (0x22, 0x26, 0x3C, 0x3E):
-                out.append(chr(b))
-            else:
-                out.append(f"&#x{b:02x};")
-        return '"' + "".join(out) + '"'
+        return encode_default_data(content)
 
     _lv_heap.HeapNodeString.prepareContentXML = _byte_exact_default_data
 
