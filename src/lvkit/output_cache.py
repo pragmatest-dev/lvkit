@@ -342,15 +342,15 @@ def cached_render(
     and is returned as-is (the caller pays no heavy import). The build ALWAYS
     refreshes the slot, so ``return_cached=False`` means "ignore any existing hit
     and rebuild" (the ``--no-cache`` semantics) — never "don't cache". ``build_kw``
-    forwards to :func:`lvkit.render.render_vi_body` on a miss. Returns the body, or
+    forwards to :func:`lvkit.render.body.render_body` on a miss. Returns the body, or
     ``None`` if the render declines (nothing is stored then)."""
     if return_cached:
         hit = lookup_render(input_path, fmt, options, version)
         if hit is not None:
             return hit
-    from lvkit.render import render_vi_body
+    from lvkit.render.body import render_body
 
-    body = render_vi_body(input_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
+    body = render_body(input_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
     if body is not None:
         store_render(input_path, fmt, options, version, body)
     return body

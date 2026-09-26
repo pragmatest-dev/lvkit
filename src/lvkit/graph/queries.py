@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..models import ClusterField, FPTerminal, Terminal
-from ..parser.models import ParsedDependencyRef
+from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .interface_order import ordered_interface
@@ -976,6 +976,16 @@ class QueryMixin:
         ``get_vi_properties``."""
         vi_name = self.resolve_vi_name(vi_name)
         return self._vi_health.get(vi_name, VIHealth())
+
+    def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
+        """The VI's OWN front-panel layout (every control, not just the
+        connector-pane subset), or None when the VI is unknown or its node
+        carries none."""
+        key = self.resolve_vi_name(vi_name)
+        if key not in self._graph:
+            return None
+        node = self._graph.nodes[key].get("node")
+        return node.front_panel if isinstance(node, VINode) else None
 
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.

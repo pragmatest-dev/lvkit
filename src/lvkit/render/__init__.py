@@ -293,7 +293,7 @@ _HOVER_PANEL_JS = """(function() {
 })();"""
 
 
-def _resolve_theme_mode(
+def resolve_theme_mode(
     theme_mode: ThemeMode,
     base: Theme,
 ) -> tuple[Theme, str]:
@@ -388,7 +388,7 @@ def render_vi(
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None
-    theme, extra_css = _resolve_theme_mode(theme_mode, theme)
+    theme, extra_css = resolve_theme_mode(theme_mode, theme)
     extra_attrs = _vi_properties_data_attrs(graph, vi_name)
     svg = _render_scene_svg(
         scene,

@@ -700,14 +700,14 @@ def main() -> int:
     # Render command - faithful block-diagram SVG
     render_parser = subparsers.add_parser(
         "render",
-        help="Render a VI's block diagram to a faithful SVG",
+        help="Render a VI's block diagram or a .ctl's front panel to a faithful SVG",
     )
     render_parser.add_argument(
         "input_path",
         help=(
-            "Path to a .vi file (or _BDHb.xml heap), OR a directory — a "
-            "directory renders every .vi under it into the cache (a fast "
-            "'warm' pass; already-fresh VIs are skipped)."
+            "Path to a .vi file (or _BDHb.xml heap) or a .ctl control, OR a "
+            "directory — a directory renders every .vi and .ctl under it into "
+            "the cache (a fast 'warm' pass; already-fresh files are skipped)."
         ),
     )
     render_parser.add_argument(
@@ -1454,7 +1454,7 @@ def _render_build_kw(
     theme_mode: ThemeMode,
     ref: str | None,
 ) -> dict[str, object]:
-    """The ``render_vi_body`` build kwargs from CLI args (library roots, search
+    """The ``render_body`` build kwargs from CLI args (library roots, search
     paths, load mode, theme, title ref). The actual build/import happens inside
     ``cached_render`` on a miss — a cache hit never reaches it."""
     vilib_root, userlib_root = _parse_library_roots(args)
@@ -1487,8 +1487,9 @@ def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
 
 
 def cmd_render(args: argparse.Namespace) -> int:
-    """Handle the render command — faithful, graph-driven block-diagram SVG, or
-    (``--format html``) a self-contained single-VI viewer page. A cached output
+    """Handle the render command — faithful, graph-driven block-diagram SVG (or,
+    for a ``.ctl``, its front panel), or (``--format html``) a self-contained
+    single-file viewer page. A cached output
     for unchanged inputs is reused verbatim, skipping the build."""
     input_path = Path(args.input_path)
     if not input_path.exists():
@@ -1545,15 +1546,23 @@ def cmd_render(args: argparse.Namespace) -> int:
     return _emit_render(args, input_path, body)
 
 
+# The file kinds ``lvkit render`` draws: a VI's block diagram, a control's front panel.
+_RENDERABLE = (".vi", ".ctl")
+
+
 def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
-    """Render every ``.vi`` under ``root`` into the cache (a 'warm' pass in one
-    process — the ~250 ms import is paid once, not once per VI). Already-fresh
-    slots are skipped. With -o, also export a mirrored HTML/SVG tree there."""
+    """Render every ``.vi`` and ``.ctl`` under ``root`` into the cache (a 'warm'
+    pass in one process — the ~250 ms import is paid once, not once per file).
+    Already-fresh slots are skipped. With -o, also export a mirrored HTML/SVG tree
+    there: ``Foo.vi`` -> ``Foo.svg``, ``Foo.ctl`` -> ``Foo.ctl.svg`` (so a VI and a
+    control sharing a stem don't collide)."""
     from .output_cache import cached_render, lookup_render
 
-    vis = sorted(p for p in root.rglob("*.vi") if p.is_file())
+    vis = sorted(
+        p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _RENDERABLE
+    )
     if not vis:
-        print(f"No .vi files under {root}")
+        print(f"No .vi or .ctl files under {root}")
         return 0
     theme_mode = _theme_mode(args)
     options = _render_options_tag(args, theme_mode, None)  # no per-VI ref in batch
@@ -1590,13 +1599,18 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
                 continue
             rendered += 1
         if outdir is not None:
-            dest = outdir / vi.relative_to(root).with_suffix(f".{ext}")
+            rel = vi.relative_to(root)
+            dest = outdir / (
+                rel.with_name(f"{rel.name}.{ext}")
+                if vi.suffix.lower() == ".ctl"
+                else rel.with_suffix(f".{ext}")
+            )
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(body, encoding="utf-8")
 
     where = f" → {outdir}" if outdir is not None else " → cached"
     tail = f", {failed} failed" if failed else ""
-    print(f"{len(vis)} VIs — {rendered} rendered, {fresh} already fresh{tail}{where}")
+    print(f"{len(vis)} files — {rendered} rendered, {fresh} already fresh{tail}{where}")
     return 1 if failed and rendered == 0 and fresh == 0 else 0
 
 

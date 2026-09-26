@@ -5,20 +5,25 @@ graph), a peer of the existing block-diagram renderer (``render/scene.py`` /
 
 Entry points: ``render_vi_front_panel(graph, vi_name)`` for a VI's own panel,
 ``render_ctl_front_panel(graph, ctl_key)`` for a standalone ``.ctl`` typedef's
-panel. Both read ``ParsedFrontPanel`` straight off the graph node
-(``VINode.front_panel`` / the typedef dep-graph node's ``front_panel``
-attribute) — never re-parsing the heap themselves, matching how every other
-view in this codebase only ever reads the graph.
+panel. Both read ``ParsedFrontPanel`` through the graph
+(``get_vi_front_panel`` / ``get_typedef_front_panel``) — never re-parsing the
+heap themselves, matching how every other view in this codebase only ever
+reads the graph.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ...parser.models import ParsedFrontPanel
-from .. import _BASE_CSS
+from .. import _BASE_CSS, ThemeMode, resolve_theme_mode
 from ..backend import SvgBackend
 from ..style import DEFAULT_THEME, Theme
 from .compose import draw_front_panel
 from .geometry import build_boxes, content_bounds
+
+if TYPE_CHECKING:
+    from ...graph.core import InMemoryVIGraph
 
 
 def render_front_panel_svg(
@@ -26,11 +31,17 @@ def render_front_panel_svg(
     *,
     title: str | None = None,
     theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
 ) -> str:
     """Render one already-parsed ``ParsedFrontPanel`` to a self-contained SVG
     string. The shared entry point both ``render_vi_front_panel`` and
     ``render_ctl_front_panel`` reduce to, once each has found its
     ``ParsedFrontPanel`` on the graph.
+
+    ``theme_mode`` selects light / dark / auto exactly as the block-diagram
+    renderer does (``resolve_theme_mode``): ``"dark"``/``"auto"`` draw with a
+    css-var theme and embed the dark ``--lv-*`` palette. A color the panel itself
+    records (a frame's fill / outline) is drawn as recorded in every mode.
 
     Emits the SAME base ``<style>`` (``_BASE_CSS``) the block-diagram
     renderer emits -- the array element column's ``lv-disabled-mask``
@@ -42,39 +53,53 @@ def render_front_panel_svg(
     except the array index spinner's own click targets, which stay inert
     (no controller JS) exactly per the array glyphs' documented
     static-fallback contract."""
+    theme, extra_css = resolve_theme_mode(theme_mode, theme)
     boxes = build_boxes(front_panel)
     bounds = content_bounds(boxes)
     backend = SvgBackend()
     backend.rect(*bounds, fill=theme.canvas)
     draw_front_panel(boxes, backend, theme)
-    return backend.render(bounds, title=title, style=_BASE_CSS)
+    return backend.render(bounds, title=title, style=_BASE_CSS + extra_css)
 
 
 def render_vi_front_panel(
-    graph: object, vi_name: str, *, theme: Theme = DEFAULT_THEME
+    graph: InMemoryVIGraph,
+    vi_name: str,
+    *,
+    theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render the VI ``vi_name``'s OWN front panel (every control, not just
     the connector-pane subset) to a self-contained SVG string. None when the
     VI's graph node carries no front panel (shouldn't happen for a real VI,
     but mirrors ``render_vi``'s fail-closed contract for missing geometry)."""
-    from ...graph.models import VINode  # local: avoid a render<->graph cycle
-
-    node = graph._graph.nodes[vi_name]["node"]  # type: ignore[attr-defined]
-    if not isinstance(node, VINode) or node.front_panel is None:
+    front_panel = graph.get_vi_front_panel(vi_name)
+    if front_panel is None:
         return None
     return render_front_panel_svg(
-        node.front_panel, title=node.qualified_name, theme=theme
+        front_panel,
+        title=graph.vi_display_name(vi_name),
+        theme=theme,
+        theme_mode=theme_mode,
     )
 
 
 def render_ctl_front_panel(
-    graph: object, ctl_key: str, *, theme: Theme = DEFAULT_THEME
+    graph: InMemoryVIGraph,
+    ctl_key: str,
+    *,
+    theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
 ) -> str | None:
     """Render the standalone ``.ctl`` typedef at graph key ``ctl_key``'s OWN
-    front panel to a self-contained SVG string. None when the typedef's
-    dep-graph node carries no front panel."""
-    node = graph._dep_graph.nodes[ctl_key]  # type: ignore[attr-defined]
-    fp = node.get("front_panel")
-    if fp is None:
+    front panel to a self-contained SVG string. None when the typedef carries no
+    front panel; ValueError when ``ctl_key`` isn't a loaded typedef."""
+    front_panel = graph.get_typedef_front_panel(ctl_key)
+    if front_panel is None:
         return None
-    return render_front_panel_svg(fp, title=node.get("name"), theme=theme)
+    return render_front_panel_svg(
+        front_panel,
+        title=graph.get_typedef(ctl_key).name,
+        theme=theme,
+        theme_mode=theme_mode,
+    )

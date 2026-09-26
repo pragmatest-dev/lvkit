@@ -26,7 +26,35 @@ from .help_tip import HELP_TIP
 from .properties_panel import PROPERTIES_BUTTON, PROPERTIES_PANEL
 from .theme_control import THEME_CONTROL_BUTTON, THEME_CONTROL_SCRIPT
 
-__all__ = ["build_render_viewer"]
+__all__ = ["build_ctl_viewer", "build_render_viewer"]
+
+
+def _viewer_page(
+    svg: str,
+    title: str,
+    *,
+    properties_button: str,
+    properties_panel: str,
+    connector_button: str,
+    connector_script: str,
+    connector_css: str,
+) -> str:
+    template = (files("lvkit.render") / "templates" / "render_viewer.html").read_text(
+        encoding="utf-8"
+    )
+    html = (
+        template.replace("__TITLE__", title)
+        .replace("__THEME_BTN__", THEME_CONTROL_BUTTON)
+        .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
+        .replace("__PROPERTIES_BTN__", properties_button)
+        .replace("__PROPERTIES_PANEL__", properties_panel)
+        .replace("__CONNECTOR_PANE_BTN__", connector_button)
+        .replace("__CONNECTOR_PANE_SCRIPT__", connector_script)
+        .replace("__CONNECTOR_PANE_CSS__", connector_css)
+        .replace("__HELP_TIP__", HELP_TIP)
+        .replace("__SVG__", svg)
+    )
+    return "<!doctype html>\n<meta charset='utf-8'>\n" + html
 
 
 def build_render_viewer(svg: str, *, title: str) -> str:
@@ -38,20 +66,27 @@ def build_render_viewer(svg: str, *, title: str) -> str:
     AND so an extension's charset-anchored CSP injection matches (same prefix
     contract as :func:`lvkit.render.diff_viewer.build_diff_viewer`).
     """
-    template = (files("lvkit.render") / "templates" / "render_viewer.html").read_text(
-        encoding="utf-8"
+    return _viewer_page(
+        svg,
+        title,
+        properties_button=PROPERTIES_BUTTON,
+        properties_panel=PROPERTIES_PANEL,
+        connector_button=CONNECTOR_PANE_BUTTON,
+        connector_script=CONNECTOR_PANE_SCRIPT,
+        connector_css=CONNECTOR_PANE_CSS,
     )
 
-    html = (
-        template.replace("__TITLE__", title)
-        .replace("__THEME_BTN__", THEME_CONTROL_BUTTON)
-        .replace("__THEME_SCRIPT__", THEME_CONTROL_SCRIPT)
-        .replace("__PROPERTIES_BTN__", PROPERTIES_BUTTON)
-        .replace("__PROPERTIES_PANEL__", PROPERTIES_PANEL)
-        .replace("__CONNECTOR_PANE_BTN__", CONNECTOR_PANE_BUTTON)
-        .replace("__CONNECTOR_PANE_SCRIPT__", CONNECTOR_PANE_SCRIPT)
-        .replace("__CONNECTOR_PANE_CSS__", CONNECTOR_PANE_CSS)
-        .replace("__HELP_TIP__", HELP_TIP)
-        .replace("__SVG__", svg)
+
+def build_ctl_viewer(svg: str, *, title: str) -> str:
+    """The same zoom/pan viewer page for a ``.ctl`` control's front panel: title,
+    zoom and the theme toggle, without the VI-only Properties and connector-pane
+    panels (a control has neither)."""
+    return _viewer_page(
+        svg,
+        title,
+        properties_button="",
+        properties_panel="",
+        connector_button="",
+        connector_script="",
+        connector_css="",
     )
-    return "<!doctype html>\n<meta charset='utf-8'>\n" + html
