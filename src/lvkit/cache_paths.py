@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 import shutil
+import threading
 from pathlib import Path
 
 # ── Cache root ──────────────────────────────────────────────────────────────
@@ -515,6 +516,9 @@ def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:
 #        stem), so a deep source tree can't overflow Windows MAX_PATH.
 _LAYOUT_VERSION = "3"
 
+# Serializes ``cleanup_legacy_cache`` across threads (see its docstring).
+_cleanup_lock = threading.Lock()
+
 
 def cleanup_legacy_cache() -> None:
     """Delete the abandoned KIND-FIRST cache trees, once, on first use.
@@ -532,30 +536,40 @@ def cleanup_legacy_cache() -> None:
     dirs under project-first (slugs live below ``projects``/``shared``/``adhoc``),
     so this can't touch live data. Best-effort — a failure just leaves a tree for
     a later run to clean.
-    """
-    root = global_cache_root()
-    for kind in ("extract", "render", "diff", "index"):
-        legacy = root / kind
-        if legacy.is_dir():
-            shutil.rmtree(legacy, ignore_errors=True)
 
-    # Layout migration: the project-first tree gained a per-kind <fp> level and
-    # the slug became <tail>-<hash8> (see classify / _slug). BOTH change every
-    # owned path, so pre-existing entries are unreachable dead weight — a lookup
-    # now computes a different path and simply misses (correctness never depends
-    # on this cleanup; it only reclaims the orphaned disk). On a layout-version
-    # mismatch, drop the derived namespaces ONCE and stamp the new version; the
-    # next run repopulates lazily under the new paths.
-    marker = root / "_layout_version"
-    try:
-        current = marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
-    except OSError:
-        current = ""
-    if current != _LAYOUT_VERSION:
-        for ns in ("projects", "shared", "adhoc"):
-            shutil.rmtree(root / ns, ignore_errors=True)
+    The whole pass holds ``_cleanup_lock``: it runs on every ``_cache_target``
+    call, so concurrent first callers on a fresh cache would otherwise each see the
+    version marker missing and delete the namespaces while another thread is
+    creating a cache directory under them. A caller past this function can never
+    overlap a deletion. (Separate PROCESSES starting on a fresh cache are not
+    serialized; the migration runs once per layout version.)
+    """
+    with _cleanup_lock:
+        root = global_cache_root()
+        for kind in ("extract", "render", "diff", "index"):
+            legacy = root / kind
+            if legacy.is_dir():
+                shutil.rmtree(legacy, ignore_errors=True)
+
+        # Layout migration: the project-first tree gained a per-kind <fp> level and
+        # the slug became <tail>-<hash8> (see classify / _slug). BOTH change every
+        # owned path, so pre-existing entries are unreachable dead weight — a lookup
+        # now computes a different path and simply misses (correctness never depends
+        # on this cleanup; it only reclaims the orphaned disk). On a layout-version
+        # mismatch, drop the derived namespaces ONCE and stamp the new version; the
+        # next run repopulates lazily under the new paths.
+        marker = root / "_layout_version"
         try:
-            root.mkdir(parents=True, exist_ok=True)
-            marker.write_text(_LAYOUT_VERSION, encoding="utf-8")
+            current = (
+                marker.read_text(encoding="utf-8").strip() if marker.exists() else ""
+            )
         except OSError:
-            pass
+            current = ""
+        if current != _LAYOUT_VERSION:
+            for ns in ("projects", "shared", "adhoc"):
+                shutil.rmtree(root / ns, ignore_errors=True)
+            try:
+                root.mkdir(parents=True, exist_ok=True)
+                marker.write_text(_LAYOUT_VERSION, encoding="utf-8")
+            except OSError:
+                pass

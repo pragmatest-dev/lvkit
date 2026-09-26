@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -263,6 +264,26 @@ class TestLegacyCleanup:
         live.write_text("new", encoding="utf-8")
         cache_paths.cleanup_legacy_cache()  # marker matches -> no wipe
         assert live.read_text(encoding="utf-8") == "new"
+
+    def test_concurrent_first_use_never_deletes_a_directory_being_created(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every caller runs the cleanup before creating its cache directory. On
+        a fresh root, concurrent callers must not delete the namespaces while
+        another is creating a directory under them (a ``mkdir(parents=True)``
+        that raced the deletion raised FileNotFoundError)."""
+        for round_ in range(300):
+            root = tmp_path / f"root{round_}"
+            monkeypatch.setenv("LVKIT_CACHE_DIR", str(root))
+
+            def first_use(i: int, root: Path = root) -> None:
+                cache_paths.cleanup_legacy_cache()
+                (root / "projects" / f"p{i}" / "extract" / "x").mkdir(
+                    parents=True, exist_ok=True
+                )
+
+            with ThreadPoolExecutor(max_workers=12) as ex:
+                list(ex.map(first_use, range(12)))  # re-raises any worker error
 
     def test_cleanup_is_safe_with_nothing_to_delete(self) -> None:
         cache_paths.cleanup_legacy_cache()  # no legacy trees -> no error
