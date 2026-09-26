@@ -111,7 +111,7 @@ def collect_unresolved(
     for vi_name in graph.get_conversion_order():
         # Skip VIs we don't generate from their own graph: stubs, and vi.lib
         # VIs that already have a provided implementation (a resolved dep).
-        if graph.is_stub_vi(vi_name) or vilib_resolver.has_implementation(vi_name):
+        if graph.is_stub(vi_name) or vilib_resolver.has_implementation(vi_name):
             continue
         try:
             vi_context = graph.get_vi_context(vi_name)

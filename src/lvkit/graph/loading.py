@@ -693,8 +693,11 @@ class LoadingMixin:
         cls_name = cls.name + ".lvclass"
         cls_qname = ":".join(chain + [cls_name]) if chain else cls_name
 
-        # Add class node to dep_graph with field info.
-        fields = self._class_private_data_fields(cls, lvclass_path)
+        # Add class node to dep_graph with field info. The private data is an
+        # inline cluster when the class carries one; otherwise it is recovered
+        # below, once the node exists (a separate .ctl, then the flattened
+        # property).
+        fields = self._inline_private_data_fields(cls)
         # PATH is the class's identity (finishes #26): key the node by the
         # resolved .lvclass path and index its qname/bare-name so a type
         # reference resolves to this key. The qname stays the DISPLAY name.
@@ -745,6 +748,11 @@ class LoadingMixin:
         )
         self._register_dep_node(cls_key, cls_path_r, cls_name, cls_qname)
         self._stubs.discard(cls_key)
+        if not fields:
+            fields = self._load_private_data_ctl(
+                cls_key, cls, lvclass_path, search_paths
+            ) or self._flattened_private_data_fields(lvclass_path)
+            self._dep_graph.nodes[cls_key]["fields"] = fields
 
         # Field-load the parent chain (no methods) so inherited nMux field
         # indices AND inherited-method calls resolve; dedup on the parent's
@@ -816,62 +824,63 @@ class LoadingMixin:
 
         return cls_key
 
-    def _class_private_data_fields(
-        self, cls: LVClass, lvclass_path: Path
+    def _inline_private_data_fields(self, cls: LVClass) -> list[ClusterField]:
+        """The class's private data as an inline "class private data" cluster
+        found in a method VI's VCTP (structure.py::_parse_private_data_fields),
+        converted by the same helper the render resolver's VI-own-inline-copy
+        fallback uses — see structure.py::private_data_field_to_cluster_field.
+        Empty when the class carries none."""
+        return [private_data_field_to_cluster_field(f) for f in cls.private_data_fields]
+
+    def _load_private_data_ctl(
+        self,
+        cls_key: str,
+        cls: LVClass,
+        lvclass_path: Path,
+        search_paths: list[Path],
     ) -> list[ClusterField]:
-        """The class's private-data fields, tried in fallback order.
+        """A class whose private data is a separate control (.ctl): load it as
+        a typedef node (its file may differ from the class's recorded logical
+        name), edge the class to it with ``rel="private_data"``, and return its
+        cluster fields. Runs AFTER the class node is registered, so a private
+        data type that references its own class dedups on that node instead of
+        recursing. Empty when no control can be pinned down or it has no
+        cluster root."""
+        ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
+        if ctl is None:
+            return []
+        ctl_key = self.load_typedef(ctl, search_paths=search_paths)
+        self._dep_graph.add_edge(cls_key, ctl_key, rel="private_data")
+        return list(self._dep_graph.nodes[ctl_key].get("fields") or [])
 
-        The LVPrivateDataField -> ClusterField conversion (incl. nested
-        sub-field typing) is shared with the render resolver's
-        VI-own-inline-copy fallback — see
-        structure.py::private_data_field_to_cluster_field. Three sources, in
-        order:
-
-        1. An inline "class private data" cluster found in a method VI's VCTP
-           (structure.py::_parse_private_data_fields).
-        2. A separate control (.ctl) typedef this class stores its private
-           data as instead (same .ctl extraction as load_typedef); its file
-           may differ from the class's recorded logical name.
-        3. A source-only .lvclass: neither of the above carries the cluster
-           (e.g. the pre-refactor layout where the private data is embedded
-           ONLY as the flattened NI.LVClass.FlattenedPrivateDataCTL property
-           in the class XML) — recovered straight from that property.
-           Best-effort: a malformed/older embedded control must never break
-           class loading.
-        """
-        fields = [
-            private_data_field_to_cluster_field(f) for f in cls.private_data_fields
-        ]
-        if not fields:
-            ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
-            if ctl is not None:
-                ctl_fields, _, _ = self._ctl_root_fields(ctl)
-                if ctl_fields:
-                    fields = ctl_fields
-        if not fields:
-            try:
-                pd_fields = private_data_from_lvclass_xml(lvclass_path)
-            except Exception:
-                # Intentional hard best-effort boundary, not a narrowable
-                # set: private_data_from_lvclass_xml decodes a possibly
-                # malformed/legacy embedded RSRC container through
-                # pylabview's OWN VI-resource parser (parse_flattened_
-                # private_data -> lv_rsrc.VI(...).parseData()), whose
-                # exception surface on untrusted/old-format binary data
-                # isn't a documented closed set (struct/index/value/key
-                # errors and more have all been observed from that parser
-                # elsewhere) -- this docstring's own contract is "a
-                # malformed/older embedded control must never break class
-                # loading", so any failure here degrades to "no fields
-                # recovered", never propagates.
-                logger.debug(
-                    "flattened private-data recovery failed for %s",
-                    lvclass_path,
-                    exc_info=True,
-                )
-                pd_fields = []
-            fields = [private_data_field_to_cluster_field(f) for f in pd_fields]
-        return fields
+    def _flattened_private_data_fields(self, lvclass_path: Path) -> list[ClusterField]:
+        """A source-only .lvclass: neither an inline cluster nor a .ctl carries
+        the private data (e.g. the pre-refactor layout where it is embedded
+        ONLY as the flattened NI.LVClass.FlattenedPrivateDataCTL property in the
+        class XML) — recovered straight from that property. Best-effort: a
+        malformed/older embedded control must never break class loading."""
+        try:
+            pd_fields = private_data_from_lvclass_xml(lvclass_path)
+        except Exception:
+            # Intentional hard best-effort boundary, not a narrowable
+            # set: private_data_from_lvclass_xml decodes a possibly
+            # malformed/legacy embedded RSRC container through
+            # pylabview's OWN VI-resource parser (parse_flattened_
+            # private_data -> lv_rsrc.VI(...).parseData()), whose
+            # exception surface on untrusted/old-format binary data
+            # isn't a documented closed set (struct/index/value/key
+            # errors and more have all been observed from that parser
+            # elsewhere) -- this docstring's own contract is "a
+            # malformed/older embedded control must never break class
+            # loading", so any failure here degrades to "no fields
+            # recovered", never propagates.
+            logger.debug(
+                "flattened private-data recovery failed for %s",
+                lvclass_path,
+                exc_info=True,
+            )
+            return []
+        return [private_data_field_to_cluster_field(f) for f in pd_fields]
 
     def _resolve_vilib_class_ref(
         self,
@@ -1072,7 +1081,7 @@ class LoadingMixin:
 
         # Absent project members are stubbed by their INTENDED resolved path
         # (mirroring load_lvlib's absent-member branches) so they're still
-        # NAMED — get_dependency_paths / is_stub_vi / progressive staging can
+        # NAMED — get_dependency_paths / is_stub / progressive staging can
         # see them and upgrade by identity when the file appears. UNLIKE
         # load_lvlib's members, there is no ownership edge: a ``.lvproj`` is a
         # build/reference manifest, not itself a dep_graph node — load_lvproj
@@ -1479,16 +1488,18 @@ class LoadingMixin:
 
         return vi_key
 
-    def _ctl_root_fields(
+    def _ctl_root(
         self,
         ctl_path: Path,
-    ) -> tuple[list[ClusterField] | None, dict[int, LVType], ParsedFrontPanel | None]:
-        """The root cluster fields + full type_map + front-panel geometry of a
-        control (.ctl). The single ``.ctl`` extraction, shared by
-        ``load_typedef`` and the class private-data fallback in
-        ``load_lvclass`` (a class whose private data is a ``.ctl`` control,
-        not an inline cluster). Returns ``(None, {}, None)`` when the
-        control's XML can't be produced.
+    ) -> tuple[LVType | None, dict[int, LVType], ParsedFrontPanel | None]:
+        """The root type + full type_map + front-panel geometry of a control
+        (.ctl). The single ``.ctl`` extraction, used by ``load_typedef`` for a
+        standalone typedef AND (through it) for a class whose private data is
+        a ``.ctl`` control rather than an inline cluster. The root is the
+        control's own type -- a cluster (``.fields``), an enum
+        (``.values``), a ring, a scalar, ... -- so a non-cluster control keeps
+        its type. Returns ``(None, {}, None)`` when the control's XML can't
+        be produced.
 
         ``front_panel`` is the control's OWN front-panel layout (real
         per-control bounds + nested cluster field geometry, see
@@ -1519,8 +1530,7 @@ class LoadingMixin:
             return None, {}, None
         if root_type_id is None:
             root_type_id = 1  # cluster control default
-        root = type_map.get(root_type_id)
-        return (root.fields if root is not None else None), type_map, front_panel
+        return type_map.get(root_type_id), type_map, front_panel
 
     def _find_private_data_ctl(
         self,
@@ -1573,10 +1583,14 @@ class LoadingMixin:
             self._register_dep_name(ctl_key, ctl_path.name, qname)
             return ctl_key
 
-        fields, type_map, front_panel = self._ctl_root_fields(ctl_path)
+        root, type_map, front_panel = self._ctl_root(ctl_path)
         if type_map:
             self._dep_graph.add_node(
-                ctl_key, node_type="typedef", fields=fields, front_panel=front_panel
+                ctl_key,
+                node_type="typedef",
+                fields=root.fields if root is not None else None,
+                root_type=root,
+                front_panel=front_panel,
             )
             self._register_dep_node(ctl_key, ctl_path_r, ctl_path.name, qname)
             self._stubs.discard(ctl_key)

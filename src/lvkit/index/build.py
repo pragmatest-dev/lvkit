@@ -556,7 +556,7 @@ def project_vi_facts(
         name=vi_path.name,
         qualified_name=qualified_name,
         library=library,
-        is_stub=graph.is_stub_vi(vi_name),
+        is_stub=graph.is_stub(vi_name),
         content_sha=cache_paths.sha256_file(vi_path),
         terminals=terminals,
         constants=constants,

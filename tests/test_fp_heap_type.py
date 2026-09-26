@@ -376,9 +376,7 @@ def test_ctl_typedef_loads_real_front_panel_geometry():
     """load_typedef attaches the .ctl's OWN front-panel geometry to its graph
     node (front-panel renderer, part 2) -- verified end to end on a real
     corpus .ctl with genuine nested-cluster structure (a "Text color" field
-    that is itself a nested cluster of 4 sub-fields). Before this change,
-    load_typedef/_ctl_root_fields touched the FPHb only once (root TypeID
-    disambiguation) and discarded the rest; front_panel was never attached."""
+    that is itself a nested cluster of 4 sub-fields)."""
     from lvkit.graph.core import InMemoryVIGraph
 
     g = InMemoryVIGraph()

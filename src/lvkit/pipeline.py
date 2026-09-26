@@ -547,7 +547,7 @@ def generate_python(
             print("         -> (included in polymorphic wrapper)")
             continue
 
-        is_stub = graph.is_stub_vi(vi_name)
+        is_stub = graph.is_stub(vi_name)
         has_vilib = vilib_resolver.has_implementation(vi_name)
         has_inline = vilib_resolver.has_inline(vi_name)
 

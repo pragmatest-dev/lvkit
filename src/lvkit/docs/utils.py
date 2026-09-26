@@ -34,7 +34,7 @@ def generate_dependency_description(subvi_name: str, graph: InMemoryVIGraph) -> 
         pass
 
     # For stub VIs, infer from name
-    if graph.is_stub_vi(subvi_name):
+    if graph.is_stub(subvi_name):
         return _infer_from_name(subvi_name)
 
     # For loaded VIs, try to infer from context

@@ -2,7 +2,7 @@
 
 Methods: get_inputs, get_outputs, get_constants, get_wires,
 get_operation_order, get_dataflow_graph (test-only), get_vi_context,
-get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub_vi,
+get_subvi_calls, resolve_vi_name, list_vis, get_vi_source_path, is_stub,
 get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 """
 
@@ -311,9 +311,10 @@ class QueryMixin:
         heap read); the renderer consumes this instead of re-reading the XML."""
         return self._layouts.get(self.resolve_vi_name(vi_name))
 
-    def is_stub_vi(self, vi_name: str) -> bool:
-        """Check if a VI is a stub (missing dependency)."""
-        return vi_name in self._stubs
+    def is_stub(self, key: str) -> bool:
+        """Check if a dep-graph node (a VI, class, typedef, ...) is a stub
+        (a missing dependency)."""
+        return key in self._stubs
 
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
