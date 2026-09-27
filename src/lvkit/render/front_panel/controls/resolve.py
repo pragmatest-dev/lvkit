@@ -16,6 +16,7 @@ from ...style import Theme
 from .array import array_control
 from .base import frame_colors
 from .boolean import boolean_control
+from .graph import GraphControlGlyph
 from .label import LABEL_SIZE
 from .leaf import leaf_glyph
 from .numeric import numeric_control
@@ -63,6 +64,12 @@ def _element(
     )
     if element_part is None:
         return None
+    # A scalar element goes straight to leaf_glyph, bypassing the _RESOLVERS
+    # list above -- so an element control_type only _graph (or a future
+    # resolver) handles, never leaf_glyph, falls back to UnknownControlGlyph
+    # here even though a bare control of that type renders correctly. No
+    # real corpus array-of-stdGraph exists to force this open yet (Phase D
+    # corpus counts: stdGraph 9, all scalar controls).
     return leaf_glyph(
         element_part.part_class,
         value if isinstance(value, str) else ctrl.element_default_value,
@@ -99,7 +106,13 @@ def _boolean(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return boolean_control(ctrl)
 
 
-_RESOLVERS = (_cluster, _array, _numeric, _boolean)
+def _graph(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type != "stdGraph":
+        return None
+    return GraphControlGlyph.from_control(ctrl, theme.struct_border)
+
+
+_RESOLVERS = (_cluster, _array, _numeric, _boolean, _graph)
 
 
 def resolve_glyph(ctrl: ParsedFPControl, theme: Theme) -> Glyph:
