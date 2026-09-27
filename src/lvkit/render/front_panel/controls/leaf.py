@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from ....models import LVType
-from ...glyph import ConstantGlyph, Glyph, PathGlyph, RefnumGlyph, TypeTerminalGlyph
+from ...glyph import (
+    ConstantGlyph,
+    Glyph,
+    PathGlyph,
+    RefnumGlyph,
+    TypeTerminalGlyph,
+    VariantGlyph,
+)
 from ...style import Theme, type_repr, wire_style
 from .boolean import BooleanControlGlyph
 from .enum_control import EnumControlGlyph
@@ -48,6 +55,15 @@ def leaf_glyph(
     only by ``stdRefNum`` today, for its real kind and registered payload."""
     if control_type == "stdRefNum":
         return _refnum_glyph(lv_type, theme)
+    if control_type == "stdLvVariant":
+        # Opaque, type-erased data -- there IS no visible internal structure
+        # to a Variant (verified against the real corpus: the heap's own
+        # inner part draws a built-in watermark icon we cannot reproduce, per
+        # the clean-room rule, so the SAME solid box a block-diagram Variant
+        # draws is the honest front-panel form too), neutral-bordered like
+        # every other front-panel value cell rather than the wire-purple a
+        # diagram uses.
+        return VariantGlyph(fill_attr="fp_value_fill", stroke_attr="struct_border")
     if control_type == "stdString":
         return ConstantGlyph(
             value=default_value or "", color=theme.struct_border,
