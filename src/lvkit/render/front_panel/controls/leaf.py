@@ -121,7 +121,19 @@ def leaf_glyph(
         )
     if control_type == "stdBool":
         return BooleanControlGlyph(on=default_value in ("True", "1"))
-    if control_type in ("stdEnum", "stdRing"):
+    if control_type in ("stdEnum", "stdRing", "stdComboBox"):
+        # A Combo Box draws the SAME value-cell-with-chevron shape (real
+        # corpus heap: a selLabel part + dropdown-arrow decorations) and
+        # shares the ring/enum multiLabel item-list convention when a
+        # developer set one; unlike a ring it can also hold free-typed text
+        # with no fixed list at all, which EnumControlGlyph already falls
+        # back to showing literally when enum_values is empty. Known,
+        # accepted gap: a combo box that has BOTH a fixed list AND a
+        # non-indexable saved value (a user typed custom text into one that
+        # also has a list -- normal LabVIEW usage, unlike a ring) would show
+        # enum_values[0] instead of that text, since EnumControlGlyph's
+        # index lookup can't distinguish the two cases. No real corpus
+        # instance exercises this (every one found has an empty list).
         return EnumControlGlyph(
             default_value=default_value, enum_values=tuple(enum_values)
         )

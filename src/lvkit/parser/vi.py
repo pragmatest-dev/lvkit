@@ -1679,8 +1679,12 @@ def _parse_ddo(
 
     # Enum/ring options: this control's own value set, or -- for an array whose
     # element is an enum -- the element's, so a view renders a dropdown of them.
+    # A Combo Box shares the SAME multiLabel item-list convention (it draws the
+    # identical selLabel+dropdown-arrow shape) when a developer set one, though
+    # unlike a ring it can also hold free-typed text with no fixed list at all
+    # (no real corpus instance found with one).
     enum_values: list[str] = []
-    if control_type in ("stdEnum", "stdRing"):
+    if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
 
     # Cluster fields: a stdClust's own fields, or -- for an array OF clusters
