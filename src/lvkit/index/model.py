@@ -20,6 +20,13 @@ lvkit-code change — see ``store._facts_fingerprint``) is rebuilt. Keying membe
 freshness on the owning ``.lvclass`` hash too is the sound fix (TODO); today the
 staleness window is a class-only edit between member-VI rebuilds.
 
+``typedef_paths`` and ``typedef_versions`` are a second exception: they read the
+``.ctl`` controls this VI depends on, not the VI's own bytes. Unlike the class
+case, this one IS compensated for — each dependency's ``type_id`` is recorded in
+``typedef_versions`` and ``sync_index`` (``build.py``) compares it against the
+controls' CURRENT ``type_id`` at every sync, force-rebuilding the VI when a
+control it (transitively) reads has changed shape.
+
 Sources (see graph/queries.py, models.py):
 - terminals  <- get_inputs/get_outputs (FPTerminal); type_descriptor +
                type_kind from Terminal (models.py).
@@ -27,6 +34,13 @@ Sources (see graph/queries.py, models.py):
 - nodes      <- graph.iter_nodes (block-diagram node spine; the call graph is
                its ``kind='vi'`` slice via ``NodeFact.callee_path``).
 - type_uses  <- type_map classnames/typedef_names.
+- types, type_ids <- every terminal's / constant's ``LVType``
+               (``index.types.TypeCatalog``): a structural id per type, its
+               fields / items / element, and the closure each VI (or ``.ctl``)
+               uses. Excludes a typedef dependency's own type unless a
+               terminal/constant of this VI actually reaches it.
+- typedef_paths, typedef_versions <- this VI's dep-graph edges to loaded
+               typedef nodes (in-repo, under this project's root); see above.
 - class_fact <- dep_graph class node (parent_class) + owns-edge (scope/accessor).
 """
 
@@ -83,6 +97,112 @@ class NodeKind(str, Enum):
 
 
 @dataclass
+class TypeFieldFact:
+    """One cluster field of a ``TypeFact``: its name and the ``type_id`` of its
+    type (``None`` when that type did not resolve)."""
+
+    name: str
+    type_id: str | None
+
+
+@dataclass
+class TypeItemFact:
+    """One enum / ring item of a ``TypeFact``."""
+
+    name: str
+    value: int
+
+
+@dataclass
+class TypeFact:
+    """One LabVIEW type, identified by its STRUCTURE (``type_id``, see
+    ``index.types``): two types with the same kind, name, fields, items and element
+    share an id wherever they occur; a same-named type with a different structure
+    gets a different one. String-only, like the rest of this module -- no
+    ``LVType`` trees. ``descriptor`` is ``LVType.type_descriptor()``; ``name`` is
+    the type's class / typedef name, ``None`` for an anonymous type;
+    ``element_type_id`` is an array's (or a parametrized refnum's) element."""
+
+    type_id: str
+    kind: LVTypeKind
+    descriptor: str
+    name: str | None = None
+    dimensions: int | None = None
+    element_type_id: str | None = None
+    fields: list[TypeFieldFact] = field(default_factory=list)
+    items: list[TypeItemFact] = field(default_factory=list)
+
+
+@dataclass
+class TypedefFieldFact:
+    """One field of a ``.ctl`` control's cluster, flattened depth-first:
+    ``seq`` is its order in the whole tree, ``parent_seq`` its containing
+    field's (``None`` at the top), ``default_text`` the default its front panel
+    records (a saved array as ``[a, b]``), ``type_id`` its type."""
+
+    seq: int
+    parent_seq: int | None
+    depth: int
+    name: str
+    type_id: str | None
+    default_text: str | None
+
+
+class TypedefRel(Enum):
+    """How a ``.ctl`` control relates to a file it names."""
+
+    USES = "uses"
+    OWNED_BY = "owned_by"  # a library, or the class whose private data it is
+
+
+@dataclass
+class TypedefRefFact:
+    """A file a ``.ctl`` control uses or is owned by (``rel``). ``ref_path`` is
+    None for a file that is not on disk; ``ref_kind`` is a ``NodeType`` value
+    (vi | class | library | typedef)."""
+
+    ref_path: str | None
+    ref_name: str
+    ref_kind: str
+    rel: TypedefRel
+
+
+@dataclass
+class TypedefFacts:
+    """The resolved facts of one ``.ctl`` control, keyed by its ``path`` and
+    incremental on ``content_sha`` exactly like a ``VIFacts``. ``is_stub`` marks a
+    control that could not be read (``stub_reason`` says why; kept so it is not
+    retried until it changes). ``type_id`` / ``kind`` are the control's own type;
+    ``types`` holds the control's own type and every type nested in it."""
+
+    path: str
+    name: str
+    library: str | None = None
+    is_stub: bool = False
+    stub_reason: str | None = None
+    content_sha: str = ""
+    type_id: str | None = None
+    kind: LVTypeKind | None = None
+    default_text: str | None = None
+    fields: list[TypedefFieldFact] = field(default_factory=list)
+    refs: list[TypedefRefFact] = field(default_factory=list)
+    types: list[TypeFact] = field(default_factory=list)  # own type + everything nested
+
+
+@dataclass
+class TypedefVersionFact:
+    """One typedef-kind dependency of a VI, as resolved when the VI was last
+    built: its path (in-repo, under the project root) and the control's
+    structural ``type_id`` then (None when it was a stub or had no resolvable
+    type). Not a query surface -- ``sync_index`` compares it against the
+    control's CURRENT ``type_id`` to tell a VI needs rebuilding because a
+    control it reads changed, even though the VI's own file did not."""
+
+    typedef_path: str
+    type_id: str | None
+
+
+@dataclass
 class TerminalFact:
     """One connector-pane terminal (an FP control or indicator).
 
@@ -114,6 +234,9 @@ class TerminalFact:
     # Enum/ring member names in ORDINAL order (by EnumValue.value); empty for
     # non-enum terminals.
     enum_values: list[str] = field(default_factory=list)
+    # The structural id of this terminal's type (``types.type_id``); None when
+    # the type did not resolve.
+    type_id: str | None = None
 
 
 @dataclass
@@ -129,6 +252,7 @@ class ConstantFact:
     type_descriptor: str = ""  # exact faithful type descriptor; "" if unresolved
     type_kind: LVTypeKind | None = None  # type KIND (LVTypeKind), or None
     wired_to: WiredTo = WiredTo.UNWIRED
+    type_id: str | None = None  # structural id of the constant's type, or None
 
 
 @dataclass
@@ -336,6 +460,20 @@ class VIFacts:
     # is backfilled at merge (needs the whole-repo resolver), like impact_score.
     nodes: list[NodeFact] = field(default_factory=list)
     type_uses: list[str] = field(default_factory=list)  # class/typedef keys
+    # The ids of every type this VI uses: its terminals' and constants' types and
+    # every type nested inside them (a cluster's fields, an array's element).
+    type_ids: list[str] = field(default_factory=list)
+    # Paths of the ``.ctl`` controls this VI depends on -- resolved, non-stub,
+    # under this project's root (dep-graph edges to loaded typedef nodes).
+    typedef_paths: list[str] = field(default_factory=list)
+    # Every typedef-kind dependency under this project's root (stubs included),
+    # each with the type_id it resolved to when this VI was built. See
+    # TypedefVersionFact.
+    typedef_versions: list[TypedefVersionFact] = field(default_factory=list)
+    # The ``TypeFact`` bodies a fresh build produced. NOT persisted on the VI: a
+    # type is stored once, shared by every owner (``types`` table). Empty on a VI
+    # loaded from the store, whose ``type_ids`` already name rows that exist.
+    types: list[TypeFact] = field(default_factory=list)
     class_fact: ClassFact | None = None
     impact_score: int = 0  # transitive dependents (filled at merge)
     # Direct in-repo callers of this VI (filled at merge from the inverted call

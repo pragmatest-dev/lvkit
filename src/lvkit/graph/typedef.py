@@ -15,10 +15,10 @@ standalone control load has none.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import networkx as nx
 
@@ -42,6 +42,36 @@ class TypedefField:
     default: ScalarValue
     fields: tuple[TypedefField, ...]
     elements: tuple[ScalarValue, ...] = ()
+
+
+class FieldWalk(NamedTuple):
+    """One field met by :func:`walk_typedef_fields`: its ``seq`` in the whole tree
+    (depth-first order), its containing field's ``parent_seq`` (None at the top),
+    and its ``depth`` below the starting level."""
+
+    field: TypedefField
+    seq: int
+    parent_seq: int | None
+    depth: int
+
+
+def walk_typedef_fields(
+    fields: tuple[TypedefField, ...], depth: int = 0
+) -> Iterator[FieldWalk]:
+    """Every field of ``fields`` and of the clusters nested in them, depth-first."""
+    seq = 0
+
+    def visit(
+        level: tuple[TypedefField, ...], parent: int | None, d: int
+    ) -> Iterator[FieldWalk]:
+        nonlocal seq
+        for f in level:
+            here = seq
+            seq += 1
+            yield FieldWalk(f, here, parent, d)
+            yield from visit(f.fields, here, d + 1)
+
+    yield from visit(fields, None, depth)
 
 
 @dataclass(frozen=True)

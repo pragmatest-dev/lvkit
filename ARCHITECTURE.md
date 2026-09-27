@@ -80,6 +80,26 @@ never the dep-graph node dict:
 One default rule (`default_literal`, `graph/typedef.py`) spells a recorded default for every
 text surface; each supplies its own quoting.
 
+The **index** (`index/`) records types and controls too. `index/types.py` (`TypeCatalog`)
+gives every `LVType` a *structural* `type_id` (kind, name, fields, items, element — same shape,
+same id; a same-named type with another structure differs) and stores each type once
+(`types` / `type_fields` / `type_items`), with each VI's and control's closure of used types
+(`vi_types` / `typedef_types`, nested types included — no recursion needed to ask "who uses
+T"). `index/typedefs.py` builds a control's facts from `graph.get_typedef` and keeps them in
+step on content hash; a control that (transitively) uses a changed one is rebuilt too, since
+its own fields/type_id are resolved through that dependency (`sync_typedefs`'s dependents
+closure). `build.sync_index` is the one cold-or-refresh policy (controls first, then VIs)
+that MCP `_get_index` / `index` and `lvkit index` all call. A VI's recorded
+`vi_typedef_versions` (each control it depends on, with that control's `type_id` as last
+seen) is compared against the controls' CURRENT `type_id` at every sync, so a VI is rebuilt
+whenever a control it (transitively) reads has actually changed shape — not just when this
+one sync call happened to touch it — even though the VI's own file did not change.
+`warm_all_loaded` / `warm_index_for_vi` also index the controls a graph holds, but only those
+under the warmed project root. The tables live in `store.py` (VIs), `store_types.py` (the
+shared catalog) and `store_typedefs.py` (controls); a VI's dependency edges to controls are
+`typedef_uses`. All of it surfaces as views in `index/sql.py` (`type*`, `vi_used_type`,
+`typedef*`).
+
 ## Output cache (`src/lvkit/output_cache.py`)
 
 Caches **rendered output STRINGS** (not graphs), keyed by

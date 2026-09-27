@@ -37,8 +37,11 @@ incrementally refresh it before each read, and ordinary `describe`/`render`/
 
 ```bash
 lvkit index <path>              # build (or, with --refresh, incrementally update)
-lvkit index <path> --refresh    # rebuild only content-changed/added VIs; drop deleted
+lvkit index <path> --refresh    # rebuild only content-changed/added VIs and controls; drop deleted
 ```
+
+`.ctl` controls are indexed with the VIs. A VI that uses a control is rebuilt when
+that control changes, even if the VI file did not.
 
 `<path>` resolves to its enclosing project, and the whole repo is indexed
 (path-keyed, so same-named VIs like `setUp.vi` ×17 never collide). A refresh is
@@ -54,12 +57,49 @@ columns of each):
 | View | One row per | Key columns |
 |------|-------------|-------------|
 | `vi` | indexed VI | `path`, `name`, `qualified_name`, `library`, `is_stub`, `impact_score`, `callers_count` |
-| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `type_descriptor`, `type_kind`, `field_names` |
-| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `type_descriptor`, `type_kind`, `wired_to` |
+| `terminal` | connector-pane terminal | `vi_path`, `name`, `direction`, `is_indicator`, `type_descriptor`, `type_kind`, `field_names`, `type_id` |
+| `constant` | block-diagram constant | `vi_path`, `value`, `label`, `type_descriptor`, `type_kind`, `wired_to`, `type_id` |
 | `node` | block-diagram node | `vi_path`, `kind`, `name`, `prim_id`, `qualified_name`, `callee_path`, `parent_uid`, `frame` |
-| `type_use` | type reference | `vi_path`, `type_key` |
+| `type_use` | class / typedef name a VI references | `vi_path`, `type_key` |
+| `type` | distinct type, by structure | `type_id`, `kind`, `descriptor`, `name`, `dimensions`, `element_type_id` |
+| `type_field` | cluster field | `type_id`, `seq`, `name`, `field_type_id` |
+| `type_item` | enum / ring item | `type_id`, `seq`, `name`, `value` |
+| `vi_used_type` | type a VI uses (its own and everything nested in it) | `vi_path`, `type_id` |
+| `typedef` | indexed `.ctl` control | `path`, `name`, `library`, `type_id`, `kind`, `default_text`, `is_stub`, `stub_reason` |
+| `typedef_field` | field of a control's cluster | `typedef_path`, `seq`, `parent_seq`, `depth`, `name`, `type_id`, `default_text` |
+| `typedef_ref` | file a control uses / is owned by | `typedef_path`, `ref_path`, `ref_name`, `ref_kind`, `rel` |
+| `typedef_use` | control a VI depends on (by path) | `vi_path`, `typedef_path` |
+| `typedef_type` | type a control uses (its own and everything nested in it) | `typedef_path`, `type_id` |
 | `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor`, `accessor_field` |
 | `lvproj` | `.lvproj` member | `lvproj_name`, `member_name`, `member_type`, `resolved_path`, `is_in_repo` |
+
+### Types and controls
+
+Every type — an enum, a cluster, an array, a typedef, inline or named — has a
+**structural id** (`type_id`): the same shape gets the same id in every VI and
+`.ctl`, and a same-*named* type with a different structure gets a different one (a
+name is not identity). `terminal.type_id` and `constant.type_id` join straight to
+`type`. `vi_used_type` and `typedef_type` hold each VI's / control's type **and everything
+nested inside it**, so "who uses this type, directly or nested" is a plain filter,
+no recursion:
+
+```sql
+-- every VI that uses (or nests) an enum containing the item 'Stop'
+SELECT DISTINCT vt.vi_path FROM vi_used_type vt
+JOIN type t USING (type_id) JOIN type_item i USING (type_id)
+WHERE t.kind = 'enum' AND i.name = 'Stop'
+
+-- clusters that have both fields 'mode' and 'gain'
+SELECT t.type_id, t.name FROM type t WHERE t.kind = 'cluster'
+  AND EXISTS (SELECT 1 FROM type_field f WHERE f.type_id = t.type_id AND f.name = 'mode')
+  AND EXISTS (SELECT 1 FROM type_field f WHERE f.type_id = t.type_id AND f.name = 'gain')
+
+-- the VIs that depend on a given .ctl (by path, so same-named controls stay distinct)
+SELECT vi_path FROM typedef_use WHERE typedef_path = '<path to the .ctl>'
+```
+
+`.ctl` files are indexed alongside the VIs (`typedef*` views), incrementally on
+content hash; a control that cannot be read appears with `is_stub = 1` and its `stub_reason`.
 
 Reachability questions ("what calls this?", "what breaks if I change it?") are
 answerable two ways: as SQL over `node`'s `callee_path` column (direct callers

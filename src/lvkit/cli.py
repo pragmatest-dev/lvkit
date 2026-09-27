@@ -264,10 +264,11 @@ def main() -> int:
         "--refresh",
         action="store_true",
         help=(
-            "Incrementally refresh an existing index: rebuild only VIs whose "
-            "content hash changed (or that were added), drop deleted ones, and "
-            "leave the rest untouched. Falls back to a full build if the repo "
-            "has never been indexed."
+            "Incrementally refresh an existing index: rebuild only VIs and .ctl "
+            "controls whose content hash changed (or that were added), plus VIs "
+            "that use a changed control; drop deleted ones and leave the rest "
+            "untouched. Falls back to a full build if the repo has never been "
+            "indexed."
         ),
     )
 
@@ -289,7 +290,9 @@ def main() -> int:
         nargs="?",
         help=(
             "A single read-only SELECT/WITH over the curated views "
-            "(vi, terminal, constant, node, type_use, class_fact, lvproj). "
+            "(vi, terminal, constant, node, type_use, type, type_field, type_item, "
+            "vi_used_type, typedef, typedef_field, typedef_ref, typedef_use, "
+            "typedef_type, class_fact, lvproj). "
             'Omit when using --schema. Example: "SELECT name, COUNT(*) AS n '
             "FROM terminal WHERE type_descriptor='Error' AND direction='output' "
             'GROUP BY name ORDER BY n DESC".'
@@ -945,45 +948,24 @@ def cmd_index(args: argparse.Namespace) -> int:
     """Handle the index command - build/refresh the facts index for a repo."""
     import time
 
-    from .index.build import build_index, build_lvproj_membership, refresh_index
-    from .index.project import resolve_project
-    from .index.store import delete as delete_index
-    from .index.store import load as load_index
-    from .index.store import save, save_lvproj_members
+    from .index.build import sync_index
+    from .index.project import resolve_project_files
 
     start = time.monotonic()
-    project_root, vi_paths = resolve_project(Path(args.input_path))
-
-    stored = load_index(project_root) if getattr(args, "refresh", False) else []
-    if stored:
-        rr, merged = refresh_index(project_root, vi_paths, stored)
-        delete_index(project_root, rr.deleted)
-        save(project_root, merged)
-        save_lvproj_members(project_root, build_lvproj_membership(project_root))
-        print(
-            json.dumps(
-                {
-                    "rebuilt": len(rr.rebuilt),
-                    "deleted": len(rr.deleted),
-                    "total": rr.total,
-                    "ms": round((time.monotonic() - start) * 1000),
-                }
-            )
-        )
-        return 0
-
-    result = build_index(project_root, vi_paths)
-    save(project_root, result.facts)
-    save_lvproj_members(project_root, result.lvproj_members)
-    print(
-        json.dumps(
-            {
-                "vis": len(result.facts),
-                "collisions": result.collisions,
-                "ms": round((time.monotonic() - start) * 1000),
-            }
-        )
+    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.input_path))
+    done = sync_index(project_root, vi_paths, ctl_paths, rebuild=not args.refresh)
+    summary: dict[str, int] = (
+        {
+            "rebuilt": len(done.refresh.rebuilt),
+            "deleted": len(done.refresh.deleted),
+            "total": done.refresh.total,
+        }
+        if done.refresh is not None
+        else {"vis": len(done.facts), "collisions": done.collisions}
     )
+    summary["controls"] = done.controls.controls
+    summary["ms"] = round((time.monotonic() - start) * 1000)
+    print(json.dumps(summary))
     return 0
 
 
@@ -1046,14 +1028,14 @@ def cmd_graph_op(args: argparse.Namespace) -> int:
     columns)."""
     from dataclasses import asdict
 
-    from .index.build import ensure_fresh_index
-    from .index.project import resolve_project
+    from .index.build import sync_index
+    from .index.project import resolve_project_files
     from .index.query import blast_radius, get_callees, get_callers
     from .index.store import load as store_load
 
-    project_root, vi_paths = resolve_project(Path(args.project))
+    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.project))
     if not args.no_refresh:
-        ensure_fresh_index(project_root, vi_paths)
+        sync_index(project_root, vi_paths, ctl_paths)
     facts = store_load(project_root)
     if not facts:
         print(
@@ -1088,9 +1070,9 @@ def cmd_query(args: argparse.Namespace) -> int:
     from dataclasses import asdict
 
     from .index import sql as isql
-    from .index.project import resolve_project
+    from .index.project import resolve_project_files
 
-    project_root, vi_paths = resolve_project(Path(args.input_path))
+    project_root, vi_paths, ctl_paths = resolve_project_files(Path(args.input_path))
 
     if args.schema:
         views = isql.describe_schema()
@@ -1112,9 +1094,9 @@ def cmd_query(args: argparse.Namespace) -> int:
     # `--no-refresh` skips this to query the stored index as-is (fast, but may
     # be stale if a VI changed since the last build).
     if not args.no_refresh:
-        from .index.build import ensure_fresh_index
+        from .index.build import sync_index
 
-        ensure_fresh_index(project_root, vi_paths)
+        sync_index(project_root, vi_paths, ctl_paths)
 
     try:
         res = isql.run_query(project_root, args.sql)

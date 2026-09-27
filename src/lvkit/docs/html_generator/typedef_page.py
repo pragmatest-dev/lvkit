@@ -16,6 +16,7 @@ from lvkit.graph.typedef import (
     TypedefInfo,
     TypedefRef,
     field_default_literal,
+    walk_typedef_fields,
 )
 from lvkit.models import LVType
 
@@ -53,19 +54,13 @@ class TypedefPageMixin:
     def _render_typedef_fields_table(self, fields: tuple[TypedefField, ...]) -> str:
         """The cluster's fields (nested ones indented), each with its type and
         recorded default."""
-        rows: list[str] = []
-
-        def add(items: tuple[TypedefField, ...], depth: int) -> None:
-            for f in items:
-                indent = f' style="padding-left:{1 + 1.5 * depth}em"'
-                rows.append(
-                    f"<tr><td{indent}>{escape(f.name)}</td>"
-                    f"<td><code>{_type_text(f.lv_type)}</code></td>"
-                    f"<td>{_default_text(f)}</td></tr>"
-                )
-                add(f.fields, depth + 1)
-
-        add(fields, 0)
+        rows = [
+            f'<tr><td style="padding-left:{1 + 1.5 * w.depth}em">'
+            f"{escape(w.field.name)}</td>"
+            f"<td><code>{_type_text(w.field.lv_type)}</code></td>"
+            f"<td>{_default_text(w.field)}</td></tr>"
+            for w in walk_typedef_fields(fields)
+        ]
         return (
             "<table><thead><tr><th>Name</th><th>Type</th><th>Default</th></tr>"
             f"</thead><tbody>{''.join(rows)}</tbody></table>"

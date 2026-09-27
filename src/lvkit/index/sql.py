@@ -2,15 +2,17 @@
 
 This is the relational half of the query architecture (design doc
 ``docs/_internal/design/lvkit-query-surface.md`` §3): the ONE ``query`` entry
-point that replaces the read-half of the hand-shaped MCP tools. It answers the
-driving question — *"count the names this project uses for error indicators"* —
-as a single ``GROUP BY`` that returns the 16-row histogram, not the 406 terminal
-rows the old tool dumped.
+point over the whole project's facts, answering a question like *"count the
+names this project uses for error indicators"* as a single ``GROUP BY``
+histogram rather than a row dump.
 
-Callers get **read-only SQL over a small, curated VIEW layer** (``vi``,
-``terminal``, ``constant``, ``node``, ``call``, ``type_use``, ``class_fact``,
-``lvproj``). The physical tables (``store.py``) can churn underneath; the views
-are the public contract.
+Callers get **read-only SQL over a small, curated VIEW layer**: ``vi``,
+``terminal``, ``constant``, ``node``, ``type_use``, ``class_fact``, ``lvproj``,
+the type catalog (``type``, ``type_field``, ``type_item``, ``vi_used_type``)
+and the ``.ctl`` controls (``typedef``, ``typedef_field``, ``typedef_ref``,
+``typedef_use``, ``typedef_type``) — see ``VIEWS`` for the exact, current list.
+The physical tables (``store.py``) can churn underneath; the views are the
+public contract.
 
 Security is enforced **structurally**, not by string-matching the SQL (design
 §3a — Anthropic's own Postgres MCP shipped a read-only-bypass injection because
@@ -212,6 +214,8 @@ VIEWS: dict[str, _View] = {
             "(empty for non-enum terminals) — query for terminals whose enum "
             "carries a given member via e.g. "
             '"WHERE enum_values LIKE \'%"setUp"%\'"',
+            "type_id": "structural id of this terminal's type — join to type / "
+            "type_field / type_item; NULL when the type is unresolved",
         },
     ),
     "constant": _View(
@@ -228,6 +232,52 @@ VIEWS: dict[str, _View] = {
             "type_kind": "kind of the type: primitive | enum | cluster | array | "
             "ring | typedef_ref | class; NULL when genuinely unknown",
             "wired_to": "what the constant wires into, e.g. 'indicator'",
+            "type_id": "structural id of the constant's type — join to type; "
+            "NULL when unresolved",
+        },
+    ),
+    "type": _View(
+        body="FROM types",
+        columns={
+            "type_id": "structural id: the same shape gets the same id in every VI "
+            "and .ctl; a same-NAMED type with a different structure gets a "
+            "different id (a name is not identity)",
+            "kind": "primitive | enum | cluster | array | ring | typedef_ref | class",
+            "descriptor": "the LabVIEW type descriptor (LVType.type_descriptor())",
+            "name": "the class or typedef name (e.g. 'Config.ctl'), NULL for an "
+            "anonymous type",
+            "dimensions": "array dimensions, or NULL",
+            "element_type_id": "an array's (or parametrized refnum's) element "
+            "type_id, or NULL",
+        },
+    ),
+    "type_field": _View(
+        body="FROM type_fields",
+        columns={
+            "type_id": "the cluster this field belongs to",
+            "seq": "field order within the cluster, from 0",
+            "name": "field name",
+            "field_type_id": "the field's own type_id (join to type), or NULL when "
+            "unresolved. Nesting: a type is 'inside' T when reached from T by "
+            "field_type_id / element_type_id links",
+        },
+    ),
+    "type_item": _View(
+        body="FROM type_items",
+        columns={
+            "type_id": "the enum/ring this item belongs to",
+            "seq": "item order (by value)",
+            "name": "item name",
+            "value": "the item's ordinal value",
+        },
+    ),
+    "vi_used_type": _View(
+        body="FROM vi_types",
+        columns={
+            "vi_path": "path of the VI",
+            "type_id": "a type the VI uses: its terminals' and constants' types AND "
+            "every type nested inside them (so 'VIs that use type T, directly or "
+            "nested' is a plain filter on this view, no recursion)",
         },
     ),
     "node": _View(
@@ -277,6 +327,66 @@ VIEWS: dict[str, _View] = {
         columns={
             "vi_path": "path of the VI referencing the type",
             "type_key": "a class or typedef name the VI's terminals reference",
+        },
+    ),
+    "typedef": _View(
+        body="FROM typedefs",
+        columns={
+            "path": "path of the .ctl control file",
+            "name": "its file name",
+            "library": "the .lvlib that owns it, or NULL",
+            "is_stub": "1 if the control could not be read (kept so it is not "
+            "retried until the file changes)",
+            "stub_reason": "why an unreadable control could not be read, else NULL",
+            "type_id": "the control's own type — join to type / type_field / "
+            "type_item",
+            "kind": "the control's own type family: cluster | enum | ring | "
+            "primitive | array | ...",
+            "default_text": "a scalar / enum / ring / array control's own recorded "
+            "default (an enum default is its item name; a saved array is [a, b]); "
+            "NULL for a cluster, whose defaults are on typedef_field",
+        },
+    ),
+    "typedef_field": _View(
+        body="FROM typedef_fields",
+        columns={
+            "typedef_path": "path of the .ctl control the field belongs to",
+            "seq": "the field's order in the whole tree (depth-first), from 0",
+            "parent_seq": "seq of the containing field, NULL at the top level "
+            "(walk nesting with parent_seq)",
+            "depth": "nesting depth, 0 at the top level",
+            "name": "field name",
+            "type_id": "the field's type (join to type), NULL when unresolved",
+            "default_text": "the default the control's front panel records for the "
+            "field (a saved array as [a, b]), or NULL",
+        },
+    ),
+    "typedef_ref": _View(
+        body="FROM typedef_refs",
+        columns={
+            "typedef_path": "path of the .ctl control",
+            "ref_path": "path of the referenced file, NULL when it is not on disk",
+            "ref_name": "the referenced file's qualified name",
+            "ref_kind": "vi | class | library | typedef",
+            "rel": "'uses' (the control references it) or 'owned_by' (a library "
+            "that owns it, or the class whose private data it is)",
+        },
+    ),
+    "typedef_use": _View(
+        body="FROM typedef_uses",
+        columns={
+            "vi_path": "path of the VI",
+            "typedef_path": "path of a .ctl control the VI depends on (a graph "
+            "edge, identified by PATH — not by name, so two same-named controls in "
+            "different folders are distinct). Join to typedef for its facts",
+        },
+    ),
+    "typedef_type": _View(
+        body="FROM typedef_types",
+        columns={
+            "typedef_path": "path of the .ctl control",
+            "type_id": "a type the control uses: its own type AND every type "
+            "nested inside it (so 'controls containing type T' is a plain filter)",
         },
     ),
     "class_fact": _View(

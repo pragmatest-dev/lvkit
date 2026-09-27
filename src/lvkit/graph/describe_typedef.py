@@ -16,6 +16,7 @@ from .typedef import (
     TypedefRef,
     default_literal,
     field_default_literal,
+    walk_typedef_fields,
 )
 
 _INDENT = "  "
@@ -28,12 +29,11 @@ def _default_text(f: TypedefField) -> str:
 
 
 def _field_lines(fields: tuple[TypedefField, ...], depth: int) -> list[str]:
-    lines: list[str] = []
-    for f in fields:
-        pad = _INDENT * depth
-        lines.append(f"{pad}{f.name}: {type_label(f.lv_type)}{_default_text(f)}")
-        lines.extend(_field_lines(f.fields, depth + 1))
-    return lines
+    return [
+        f"{_INDENT * w.depth}{w.field.name}: {type_label(w.field.lv_type)}"
+        f"{_default_text(w.field)}"
+        for w in walk_typedef_fields(fields, depth)
+    ]
 
 
 def _ref_line(ref: TypedefRef, verbose: bool) -> str:

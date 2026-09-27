@@ -43,8 +43,10 @@ index as-is, without re-scanning first — faster, may be stale.
 ## Query: the fact vocabulary
 
 `lvkit query <repo> "<SQL>"` runs exactly one read-only `SELECT`/`WITH`
-against seven curated views: `vi`, `terminal`, `constant`, `node`,
-`type_use`, `class_fact`, `lvproj`. Writes, `PRAGMA`, `ATTACH`, and stacked
+against sixteen curated views: `vi`, `terminal`, `constant`, `node`,
+`type_use`, `class_fact`, `lvproj`, the type catalog (`type`, `type_field`,
+`type_item`, `vi_used_type`) and the `.ctl` controls (`typedef`, `typedef_field`,
+`typedef_ref`, `typedef_use`, `typedef_type`). Writes, `PRAGMA`, `ATTACH`, and stacked
 statements are refused structurally (a read-only DB handle plus a SQLite
 authorizer), not by string-matching the query. Results are capped at 1000
 rows and a 2s wall-clock budget; a truncated result says so.

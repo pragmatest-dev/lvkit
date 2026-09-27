@@ -7,9 +7,7 @@ Two tool groups (understanding only — artifact generation lives in the CLI):
    ``visualize_project``) — answer *project-wide* questions in one call from the
    persisted, path-keyed facts index (``lvkit.index``). The ``query`` tool is
    read-only SQL over a curated view layer — it returns the *answer* (a
-   ``GROUP BY`` histogram), not the source rows, and REPLACES the old
-   per-question read tools (``find_terminals``/``find_constants``/…, retired
-   2026-08-08) AND the former graph-op tools: the call graph is now the ``node``
+   ``GROUP BY`` histogram), not the source rows. The call graph is the ``node``
    view's ``kind='vi'`` slice (``callee_path``), so callers/callees are one-hop
    selects and blast radius a recursive CTE (``vi.callers_count`` /
    ``vi.impact_score`` give the counts). No per-VI round trips. A per-project
@@ -57,8 +55,13 @@ For any question about the project, start here:
 - Structure, classes & inheritance, terminals, constants, type usage,
   `.lvproj` membership — `query` runs read-only SQL over the project's facts
   index (views: `vi`, `class_fact`, `terminal`, `constant`, `node`,
-  `type_use`, `lvproj`; call `query_schema` for columns). "What classes exist
-  and how do they inherit?" is `SELECT owning_class, parent FROM class_fact`.
+  `type_use`, `lvproj`, plus types and `.ctl` controls: `type`, `type_field`,
+  `type_item`, `vi_used_type`, `typedef`, `typedef_field`, `typedef_ref`,
+  `typedef_use`, `typedef_type`; call `query_schema` for columns). Types have a
+  STRUCTURAL id (`type_id`): "which VIs use an enum with item X / a cluster
+  with fields A,B" is a plain join on `vi_used_type` + `type_item` /
+  `type_field` (nested types included). "What classes exist and how do they inherit?" is
+  `SELECT owning_class, parent FROM class_fact`.
   It returns the answer (e.g. a GROUP BY histogram), not a row dump.
 - Find a block-diagram PATTERN across every VI at once — the `node` view is
   grep for VI code: one row per node (a primitive, SubVI call, structure,

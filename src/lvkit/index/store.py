@@ -15,10 +15,14 @@ expects its own DB, not to be silently folded into the outer project's.
 
 WAL mode. Tables: ``vis``, ``terminals``, ``constants``, ``nodes`` (the
 block-diagram node spine; its ``kind='vi'`` rows carry the call graph via
-``callee_path``), ``type_uses``, ``class_facts``, and a
-``meta(vi_path, content_sha)`` freshness row per VI. Upsert by path: ``save()``
-deletes then reinserts every row belonging to each given ``VIFacts.path`` (safe
-for both a full rebuild and a partial refresh).
+``callee_path``), ``type_uses``, ``vi_types``, ``vi_typedef_versions``,
+``class_facts``, and a ``meta(vi_path, content_sha)`` freshness row per VI.
+Upsert by path: ``save()`` deletes then reinserts every row belonging to each
+given ``VIFacts.path`` (safe for both a full rebuild and a partial refresh).
+The shared type catalog (``types``/``type_fields``/``type_items``) lives in
+``store_types.py``; the ``.ctl`` control tables (``typedefs`` and its children)
+in ``store_typedefs.py`` — both included here via schema string concatenation
+and reset by the same ``_ALL_TABLES``/fingerprint machinery.
 
 **The whole DB is a CACHE of derived facts.** Per-VI freshness is keyed on VI
 *bytes* (``meta.content_sha``); the DB as a whole is keyed on a fingerprint of
@@ -46,8 +50,23 @@ from .model import (
     NodeFact,
     NodeKind,
     TerminalFact,
+    TypedefFacts,
+    TypedefVersionFact,
     VIFacts,
     WiredTo,
+)
+from .store_typedefs import (
+    TYPEDEFS_SCHEMA,
+    delete_typedef,
+    read_typedef_dependents,
+    read_typedef_shas,
+    write_typedefs,
+)
+from .store_types import (
+    TYPES_SCHEMA,
+    drop_unused_types,
+    record_types,
+    require_types,
 )
 
 _SCHEMA = """
@@ -126,7 +145,8 @@ CREATE TABLE IF NOT EXISTS terminals (
     fp_dco_uid TEXT,
     type_descriptor TEXT NOT NULL DEFAULT '',
     type_kind TEXT,
-    enum_values TEXT NOT NULL DEFAULT '[]'
+    enum_values TEXT NOT NULL DEFAULT '[]',
+    type_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_terminals_vi ON terminals(vi_path);
 CREATE INDEX IF NOT EXISTS idx_terminals_name ON terminals(name);
@@ -139,7 +159,8 @@ CREATE TABLE IF NOT EXISTS constants (
     label TEXT,
     type_descriptor TEXT NOT NULL DEFAULT '',
     type_kind TEXT,
-    wired_to TEXT NOT NULL
+    wired_to TEXT NOT NULL,
+    type_id TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_constants_vi ON constants(vi_path);
 CREATE INDEX IF NOT EXISTS idx_constants_wired ON constants(wired_to);
@@ -164,6 +185,33 @@ CREATE INDEX IF NOT EXISTS idx_nodes_prim_id ON nodes(prim_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_qualified_name ON nodes(qualified_name);
 CREATE INDEX IF NOT EXISTS idx_nodes_callee_path ON nodes(callee_path);
 CREATE INDEX IF NOT EXISTS idx_nodes_parent_uid ON nodes(parent_uid);
+
+-- The closure of types each VI uses: its terminals' and constants' types and
+-- every type nested inside them.
+CREATE TABLE IF NOT EXISTS vi_types (
+    vi_path TEXT NOT NULL,
+    type_id TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_vi_types_vi ON vi_types(vi_path);
+CREATE INDEX IF NOT EXISTS idx_vi_types_type ON vi_types(type_id);
+
+CREATE TABLE IF NOT EXISTS typedef_uses (
+    vi_path TEXT NOT NULL,
+    typedef_path TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_typedef_uses_vi ON typedef_uses(vi_path);
+CREATE INDEX IF NOT EXISTS idx_typedef_uses_typedef ON typedef_uses(typedef_path);
+
+-- Every typedef-kind dependency of a VI (stubs included), with the control's
+-- type_id as this VI last saw it -- NOT a query surface; sync_index compares it
+-- against the control's CURRENT type_id to force-rebuild a VI whose control
+-- changed although the VI's own file did not.
+CREATE TABLE IF NOT EXISTS vi_typedef_versions (
+    vi_path TEXT NOT NULL,
+    typedef_path TEXT NOT NULL,
+    type_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_vi_typedef_versions_vi ON vi_typedef_versions(vi_path);
 
 CREATE TABLE IF NOT EXISTS type_uses (
     vi_path TEXT NOT NULL,
@@ -207,9 +255,17 @@ CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
     content_sha TEXT NOT NULL
 );
-"""
+""" + TYPES_SCHEMA + TYPEDEFS_SCHEMA
 
-_CHILD_TABLES = ("terminals", "constants", "nodes", "type_uses")
+_CHILD_TABLES = (
+    "terminals",
+    "constants",
+    "nodes",
+    "type_uses",
+    "vi_types",
+    "typedef_uses",
+    "vi_typedef_versions",
+)
 
 # Every table that holds DERIVED facts — a pure cache of what lvkit's parser
 # produces from the VIs. Dropped wholesale when the facts fingerprint changes
@@ -221,6 +277,16 @@ _ALL_TABLES = (
     "constants",
     "nodes",
     "type_uses",
+    "types",
+    "type_fields",
+    "type_items",
+    "vi_types",
+    "typedef_uses",
+    "vi_typedef_versions",
+    "typedefs",
+    "typedef_fields",
+    "typedef_refs",
+    "typedef_types",
     "class_facts",
     "lvproj_members",
     "meta",
@@ -289,10 +355,9 @@ _FLAT_PROPERTY_COLUMNS: tuple[tuple[str, bool], ...] = (
 )
 
 
-# The source fingerprint that invalidates the index now lives in ``cache_paths``
-# (the light, dependency-free module) so EVERY cache — this SQLite index and the
-# render/diff output cache — shares the exact SAME invalidation. Re-exported here
-# under the historical names the index code + guard test reference. See
+# The source fingerprint that invalidates the index is ``cache_paths``'s (the
+# light, dependency-free module), so EVERY cache — this SQLite index and the
+# render/diff output cache — shares the exact SAME invalidation. See
 # ``cache_paths.source_fingerprint`` / ``_FINGERPRINT_SKIP_DIRS``.
 _FINGERPRINT_SKIP_DIRS = cache_paths._FINGERPRINT_SKIP_DIRS
 _facts_fingerprint = cache_paths.source_fingerprint
@@ -342,8 +407,8 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
     Runs at the single point every caller funnels through (``_connect``), before
     the schema is (re)created. Compares the fingerprint stored in this DB against
     the running code's :func:`_facts_fingerprint`. On a match, nothing to do. On
-    a mismatch — or a DB that predates the fingerprint (an older lvkit, or the
-    former hand-bumped ``schema_version`` scheme) — every derived-facts table is
+    a mismatch — or a DB that carries no fingerprint (written by an older lvkit) —
+    every derived-facts table is
     dropped so the next build is a full, cold rebuild from the VIs. This is what
     makes a parser change (identical VI bytes) actually re-derive facts instead
     of silently reusing the stale ones; NO migrate-in-place, because a derived
@@ -550,8 +615,8 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "INSERT INTO terminals(vi_path, ord, name, direction, "
                     "is_indicator, is_public, control_type, "
                     "field_names, fp_dco_uid, type_descriptor, type_kind, "
-                    "enum_values) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "enum_values, type_id) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     [
                         (
                             f.path,
@@ -566,13 +631,15 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                             t.type_descriptor,
                             t.type_kind.value if t.type_kind else None,
                             json.dumps(t.enum_values),
+                            t.type_id,
                         )
                         for i, t in enumerate(f.terminals)
                     ],
                 )
                 conn.executemany(
                     "INSERT INTO constants(vi_path, ord, value, label, "
-                    "type_descriptor, type_kind, wired_to) VALUES (?,?,?,?,?,?,?)",
+                    "type_descriptor, type_kind, wired_to, type_id) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
                     [
                         (
                             f.path,
@@ -582,6 +649,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                             c.type_descriptor,
                             c.type_kind.value if c.type_kind else None,
                             c.wired_to.value,
+                            c.type_id,
                         )
                         for i, c in enumerate(f.constants)
                     ],
@@ -612,6 +680,22 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
                     [(f.path, type_key) for type_key in f.type_uses],
                 )
+                record_types(conn, f.types)
+                vi_type_ids = sorted(set(f.type_ids))
+                require_types(conn, f.path, vi_type_ids)
+                conn.executemany(
+                    "INSERT INTO vi_types(vi_path, type_id) VALUES (?,?)",
+                    [(f.path, type_id) for type_id in vi_type_ids],
+                )
+                conn.executemany(
+                    "INSERT INTO typedef_uses(vi_path, typedef_path) VALUES (?,?)",
+                    [(f.path, p) for p in sorted(set(f.typedef_paths))],
+                )
+                conn.executemany(
+                    "INSERT INTO vi_typedef_versions(vi_path, typedef_path, type_id) "
+                    "VALUES (?,?,?)",
+                    [(f.path, v.typedef_path, v.type_id) for v in f.typedef_versions],
+                )
                 if class_fact is not None:
                     cf = class_fact
                     conn.execute(
@@ -639,6 +723,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
                     "INSERT INTO meta(vi_path, content_sha) VALUES (?,?)",
                     (f.path, f.content_sha),
                 )
+            drop_unused_types(conn)
     finally:
         conn.close()
 
@@ -653,6 +738,54 @@ def delete(project_root: Path, paths: Iterable[str]) -> None:
         with conn:
             for path in paths:
                 _delete_vi(conn, path)
+            drop_unused_types(conn)
+    finally:
+        conn.close()
+
+
+def load_typedef_type_ids(project_root: Path) -> dict[str, str | None]:
+    """``{path: type_id}`` of every indexed ``.ctl`` control's OWN type (``{}``
+    when none were indexed) -- what a VI's recorded :class:`TypedefVersionFact`
+    is compared against to detect a control it reads has changed."""
+    conn = _connect(project_root)
+    try:
+        return dict(conn.execute("SELECT path, type_id FROM typedefs"))
+    finally:
+        conn.close()
+
+
+def load_typedef_dependents(project_root: Path) -> dict[str, set[str]]:
+    """``{control path: paths of the controls that USE it}`` -- see
+    :func:`store_typedefs.read_typedef_dependents`."""
+    conn = _connect(project_root)
+    try:
+        return read_typedef_dependents(conn)
+    finally:
+        conn.close()
+
+
+def load_typedef_shas(project_root: Path) -> dict[str, str]:
+    """``{path: content_sha}`` of every indexed ``.ctl`` control (``{}`` when none
+    were indexed)."""
+    conn = _connect(project_root)
+    try:
+        return read_typedef_shas(conn)
+    finally:
+        conn.close()
+
+
+def apply_typedefs(
+    project_root: Path, changed: Iterable[TypedefFacts], deleted: Iterable[str]
+) -> None:
+    """Replace the ``changed`` controls' rows and drop the ``deleted`` ones, in one
+    transaction with one collection of the types nothing uses any more."""
+    conn = _connect(project_root)
+    try:
+        with conn:
+            for path in deleted:
+                delete_typedef(conn, path)
+            write_typedefs(conn, changed)
+            drop_unused_types(conn)
     finally:
         conn.close()
 
@@ -751,8 +884,8 @@ def load(project_root: Path) -> list[VIFacts]:
         for row in conn.execute(
             "SELECT vi_path, name, direction, is_indicator, is_public, "
             "control_type, field_names, "
-            "fp_dco_uid, type_descriptor, type_kind, enum_values FROM terminals "
-            "ORDER BY vi_path, ord"
+            "fp_dco_uid, type_descriptor, type_kind, enum_values, type_id "
+            "FROM terminals ORDER BY vi_path, ord"
         ):
             (
                 vi_path,
@@ -766,6 +899,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 type_descriptor,
                 type_kind,
                 enum_values_json,
+                terminal_type_id,
             ) = row
             terminals_by_vi.setdefault(vi_path, []).append(
                 TerminalFact(
@@ -779,13 +913,22 @@ def load(project_root: Path) -> list[VIFacts]:
                     type_descriptor=type_descriptor,
                     type_kind=LVTypeKind(type_kind) if type_kind else None,
                     enum_values=json.loads(enum_values_json),
+                    type_id=terminal_type_id,
                 )
             )
 
         constants_by_vi: dict[str, list[ConstantFact]] = {}
-        for vi_path, value, label, type_descriptor, type_kind, wired_to in conn.execute(
-            "SELECT vi_path, value, label, type_descriptor, type_kind, wired_to "
-            "FROM constants ORDER BY vi_path, ord"
+        for (
+            vi_path,
+            value,
+            label,
+            type_descriptor,
+            type_kind,
+            wired_to,
+            constant_type_id,
+        ) in conn.execute(
+            "SELECT vi_path, value, label, type_descriptor, type_kind, wired_to, "
+            "type_id FROM constants ORDER BY vi_path, ord"
         ):
             constants_by_vi.setdefault(vi_path, []).append(
                 ConstantFact(
@@ -794,6 +937,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     type_descriptor=type_descriptor,
                     type_kind=LVTypeKind(type_kind) if type_kind else None,
                     wired_to=WiredTo(wired_to),
+                    type_id=constant_type_id,
                 )
             )
 
@@ -836,6 +980,28 @@ def load(project_root: Path) -> list[VIFacts]:
             "SELECT vi_path, type_key FROM type_uses ORDER BY vi_path"
         ):
             type_uses_by_vi.setdefault(vi_path, []).append(type_key)
+
+        type_ids_by_owner: dict[str, list[str]] = {}
+        for vi_path, type_id in conn.execute(
+            "SELECT vi_path, type_id FROM vi_types ORDER BY vi_path, type_id"
+        ):
+            type_ids_by_owner.setdefault(vi_path, []).append(type_id)
+
+        typedef_paths_by_vi: dict[str, list[str]] = {}
+        for vi_path, typedef_path in conn.execute(
+            "SELECT vi_path, typedef_path FROM typedef_uses "
+            "ORDER BY vi_path, typedef_path"
+        ):
+            typedef_paths_by_vi.setdefault(vi_path, []).append(typedef_path)
+
+        typedef_versions_by_vi: dict[str, list[TypedefVersionFact]] = {}
+        for vi_path, typedef_path, type_id in conn.execute(
+            "SELECT vi_path, typedef_path, type_id FROM vi_typedef_versions "
+            "ORDER BY vi_path, typedef_path"
+        ):
+            typedef_versions_by_vi.setdefault(vi_path, []).append(
+                TypedefVersionFact(typedef_path, type_id)
+            )
 
         class_fact_by_vi: dict[str, ClassFact] = {}
         for row in conn.execute(
@@ -905,6 +1071,9 @@ def load(project_root: Path) -> list[VIFacts]:
                     constants=constants_by_vi.get(path, []),
                     nodes=nodes_by_vi.get(path, []),
                     type_uses=type_uses_by_vi.get(path, []),
+                    type_ids=type_ids_by_owner.get(path, []),
+                    typedef_paths=typedef_paths_by_vi.get(path, []),
+                    typedef_versions=typedef_versions_by_vi.get(path, []),
                     class_fact=class_fact_by_vi.get(path),
                     impact_score=impact_score,
                     callers_count=callers_count,

@@ -26,27 +26,19 @@ from typing import Any
 import lvkit.mcp.server as _facade
 
 from ...index import sql as isql
-from ...index.build import (
-    build_index,
-    build_lvproj_membership,
-    refresh_index,
-)
+from ...index.build import sync_index
 from ...index.model import VIFacts
-from ...index.project import resolve_project
+from ...index.project import resolve_project_files
 from ...index.store import db_path as store_db_path
-from ...index.store import delete as store_delete
-from ...index.store import load as store_load
-from ...index.store import save as store_save
-from ...index.store import save_lvproj_members as store_save_lvproj_members
 from ._compat import Context
 from .app import mcp
 from .resolvers import _configure_resolvers_for_vi
 from .roots import _client_roots
 
-# Per-project-root facts cache: {resolved project_root str -> [VIFacts]}. This
-# replaces the old module-global _graph — different repos get different entries,
-# so parallel agents on different projects never collide, and there is no
-# session-wide `clear` that wipes another caller's state.
+# Per-project-root facts cache: {resolved project_root str -> [VIFacts]}.
+# Different repos get different entries, so parallel agents on different projects
+# never collide, and there is no session-wide `clear` that wipes another caller's
+# state.
 _indexes: dict[str, list[VIFacts]] = {}
 
 
@@ -67,8 +59,12 @@ def _require_vis(root: Path, vi_paths: list[Path]) -> None:
 def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFacts]]:
     """Resolve ``project`` to its root and return ``(root, facts)``.
 
-    Loads the persisted index when present; builds + saves it on first use (or
-    when ``rebuild``). Caches the facts per resolved root for the session.
+    A cache miss for this root (first call, an explicit ``rebuild``, or the DB
+    file gone) runs ``sync_index`` — a cold store gets one whole-repo build, a
+    warm one an incremental refresh — and caches the resulting facts for the
+    session. A cache HIT returns those cached facts as-is: it does not re-sync,
+    so a file edited after the cache was filled is picked up only by the next
+    miss (an explicit ``index`` call, or a session restart).
 
     The in-memory ``_indexes`` cache must never mask an ABSENT on-disk store:
     the ``query`` tool reads the SQLite file (not these facts), so if the cache
@@ -76,30 +72,15 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
     otherwise return facts while ``run_query`` sees no DB. So a hit whose DB file
     is gone falls through to a rebuild+save.
     """
-    root, vi_paths = resolve_project(Path(project))
+    root, vi_paths, ctl_paths = resolve_project_files(Path(project))
     _require_vis(root, vi_paths)
     key = str(root)
     if rebuild or key not in _indexes or not store_db_path(root).exists():
         _configure_resolvers_for_vi(root)
-        stored = [] if rebuild else store_load(root)
-        if not stored:
-            # Cold store: one fast whole-repo build.
-            result = build_index(root, vi_paths)
-            store_save(root, result.facts)
-            store_save_lvproj_members(root, result.lvproj_members)
-            facts = result.facts
-        else:
-            # Warm/partial store — progressively populated by single-VI loads.
-            # Gap-fill: reuse fresh rows, (re)build only missing/changed VIs, and
-            # recompute impact across the merged set (warmed rows carry
-            # impact_score=0 until a pass like this fills the global inverse).
-            rr, facts = refresh_index(root, vi_paths, stored)
-            store_delete(root, rr.deleted)
-            store_save(root, facts)
-            # Membership is a cheap .lvproj-only reparse — refresh it wholesale
-            # so the `lvproj` view reflects added/removed projects.
-            store_save_lvproj_members(root, build_lvproj_membership(root))
-        _indexes[key] = facts
+        # A cold store gets one whole-repo build; a warm/partial one (populated
+        # progressively by single-VI loads) is gap-filled and its impact
+        # recomputed across the merged set.
+        _indexes[key] = sync_index(root, vi_paths, ctl_paths, rebuild=rebuild).facts
     return root, _indexes[key]
 
 
@@ -135,41 +116,39 @@ async def index(
     same-named VIs (``setUp.vi`` ×17) never collide the way a name-keyed graph
     does. Run this once; the other project-scoped tools then answer in sub-ms.
 
-    ``refresh=True`` does an incremental update of an existing index — rebuild
-    only VIs whose content changed (or were added), drop deleted ones — instead
-    of a full rebuild. Returns the VI count (full build) or the rebuilt/deleted
-    counts (refresh), plus the resolved project root.
+    ``refresh=True`` does an incremental update of an existing index instead of
+    a full rebuild: rebuild ``.vi``/``.ctl`` files whose content changed (or were
+    added), drop deleted ones, AND rebuild any VI whose recorded control
+    dependencies no longer match — a ``.ctl`` it reads changed shape, even
+    though the VI's own file did not. Returns the VI count (full build) or the
+    rebuilt/deleted counts (refresh), the number of ``.ctl`` controls indexed
+    (``controls``), plus the resolved project root.
     """
     project = await _facade._resolve_project(project, ctx)
 
     def _work() -> dict[str, Any]:
         start = time.monotonic()
-        root, vi_paths = resolve_project(Path(project))
+        root, vi_paths, ctl_paths = resolve_project_files(Path(project))
         _require_vis(root, vi_paths)
         _configure_resolvers_for_vi(root)
-        stored = store_load(root) if refresh else []
-        if stored:
-            rr, merged = refresh_index(root, vi_paths, stored)
-            store_delete(root, rr.deleted)
-            store_save(root, merged)
-            store_save_lvproj_members(root, build_lvproj_membership(root))
-            _indexes[str(root)] = merged
+        done = sync_index(root, vi_paths, ctl_paths, rebuild=not refresh)
+        _indexes[str(root)] = done.facts
+        ms = round((time.monotonic() - start) * 1000)
+        if done.refresh is not None:
             return {
                 "project_root": str(root),
-                "rebuilt": len(rr.rebuilt),
-                "deleted": len(rr.deleted),
-                "total": rr.total,
-                "ms": round((time.monotonic() - start) * 1000),
+                "rebuilt": len(done.refresh.rebuilt),
+                "deleted": len(done.refresh.deleted),
+                "total": done.refresh.total,
+                "controls": done.controls.controls,
+                "ms": ms,
             }
-        result = build_index(root, vi_paths)
-        store_save(root, result.facts)
-        store_save_lvproj_members(root, result.lvproj_members)
-        _indexes[str(root)] = result.facts
         return {
             "project_root": str(root),
-            "vis": len(result.facts),
-            "collisions": result.collisions,
-            "ms": round((time.monotonic() - start) * 1000),
+            "vis": len(done.facts),
+            "controls": done.controls.controls,
+            "collisions": done.collisions,
+            "ms": ms,
         }
 
     return await asyncio.to_thread(_work)
@@ -193,7 +172,11 @@ async def query(
     ``vi``, ``terminal``, ``constant``, ``node`` (block-diagram nodes — grep for
     VI code: primitives/SubVI-calls/structures with kind + identity +
     containment + resolved ``callee_path``, no wiring), ``type_use``,
-    ``class_fact``, ``lvproj`` (which VIs/classes belong to which ``.lvproj``).
+    ``class_fact``, ``lvproj`` (which VIs/classes belong to which ``.lvproj``),
+    and the type catalog + ``.ctl`` controls: ``type``, ``type_field``,
+    ``type_item``, ``vi_used_type`` (every VI's types, nested ones included),
+    ``typedef``, ``typedef_field``, ``typedef_ref``, ``typedef_use``,
+    ``typedef_type``. A type's ``type_id`` is structural (same shape, same id).
     Example — the names this project uses for error indicators, as a histogram
     rather than 406 raw rows::
 

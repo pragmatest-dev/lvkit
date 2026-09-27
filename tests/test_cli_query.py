@@ -160,7 +160,7 @@ def test_default_refreshes_index(capsys: pytest.CaptureFixture[str]):
     index` step and reflects the current files."""
     if not _TESTCASE_DIR.exists():
         pytest.skip("sample class not available")
-    # no_refresh=False -> ensure_fresh_index builds the cold index on first query
+    # no_refresh=False -> sync_index builds the cold index on first query
     rc = cmd_query(
         _args(
             _TESTCASE_DIR, "SELECT COUNT(*) AS n FROM vi", fmt="json", no_refresh=False

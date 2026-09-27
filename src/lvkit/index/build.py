@@ -19,7 +19,9 @@ path-keys ALL of them:
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,14 +54,20 @@ from .model import (
     NodeFact,
     NodeKind,
     TerminalFact,
+    TypedefVersionFact,
     VIFacts,
     WiredTo,
 )
 from .query import build_call_graph, resolve_node_callee_paths
 from .store import delete as store_delete
 from .store import load as store_load
+from .store import load_typedef_type_ids
 from .store import save as store_save
 from .store import save_lvproj_members as store_save_lvproj_members
+from .typedefs import TypedefSyncResult, sync_typedefs, warm_typedefs
+from .types import TypeCatalog
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,7 +126,7 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
         if resolved not in all_paths:
             continue
         covered.add(resolved)
-        facts[str(resolved)] = project_vi_facts(graph, vi_name, resolved)
+        facts[str(resolved)] = project_vi_facts(graph, vi_name, resolved, project_root)
 
     collision_paths = sorted(all_paths - covered)
     for cp in collision_paths:
@@ -212,7 +220,7 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
             search_paths=[project_root],
             owner_chain=oc,
         )
-    return project_vi_facts(cgraph, vi_name, cp)
+    return project_vi_facts(cgraph, vi_name, cp, project_root)
 
 
 def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
@@ -250,9 +258,29 @@ def warm_index_for_vi(
     try:
         p = vi_path.resolve()
         root = cache_paths._project_root_for(p) or p.parent
-        store_save(root, [project_vi_facts(graph, vi_name, p)])
+        store_save(root, [project_vi_facts(graph, vi_name, p, root)])
     except Exception:
-        pass  # progressive warming is best-effort — never fail the caller
+        return  # progressive warming is best-effort — never fail the caller
+    _warm_typedefs(graph, [root])
+
+
+def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
+    """Index the ``.ctl`` controls the graph has loaded that lie under one of the
+    project ``roots`` just warmed, so a VI's ``typedef_use`` rows have their
+    ``typedef`` rows. A control outside every root belongs to another project's
+    index and is left to it. Best-effort like the VI warming."""
+    roots = list(roots)
+    by_root: dict[Path, list[Path]] = defaultdict(list)
+    for key in graph.list_typedefs():
+        p = Path(key).resolve()
+        for root in roots:
+            if p.is_relative_to(root):
+                by_root[root].append(p)
+    for root, paths in by_root.items():
+        try:
+            warm_typedefs(root, paths)
+        except Exception:
+            logger.debug("index: could not warm controls in %s", root, exc_info=True)
 
 
 def warm_all_loaded(graph: InMemoryVIGraph) -> None:
@@ -274,7 +302,7 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
             try:
                 p = src.resolve()
                 root = cache_paths._project_root_for(p) or p.parent
-                by_root[root].append(project_vi_facts(graph, vi_name, p))
+                by_root[root].append(project_vi_facts(graph, vi_name, p, root))
             except Exception:
                 continue  # one bad VI must not sink the rest
         for root, facts in by_root.items():
@@ -283,7 +311,8 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
             except Exception:
                 pass
     except Exception:
-        pass  # progressive warming is best-effort — never fail the caller
+        return  # progressive warming is best-effort — never fail the caller
+    _warm_typedefs(graph, by_root)
 
 
 def _recompute_impact(facts: dict[str, VIFacts]) -> None:
@@ -325,6 +354,7 @@ def refresh_index(
     project_root: Path,
     vi_paths: list[Path],
     stored: list[VIFacts],
+    force: frozenset[str] = frozenset(),
 ) -> tuple[RefreshResult, list[VIFacts]]:
     """Incrementally refresh ``stored`` against the on-disk repo by content hash.
 
@@ -332,7 +362,9 @@ def refresh_index(
     model already keys incrementality, ``VIFacts.content_sha``): a VI whose
     ``sha256_file`` still equals its stored ``content_sha`` is reused untouched;
     changed/new VIs are rebuilt via :func:`build_one_vi`; VIs whose file is gone
-    are dropped. ``impact_score`` is recomputed across the whole set. Returns the
+    are dropped; the VIs named in ``force`` are rebuilt regardless (they read
+    content the VI file does not hold). ``impact_score`` is recomputed across the
+    whole set. Returns the
     result plus the merged facts for the caller to persist (``store.save`` the
     facts, ``store.delete`` the ``deleted`` paths).
     """
@@ -346,7 +378,11 @@ def refresh_index(
     rebuilt: list[str] = []
     for path, p in current.items():
         existing = facts.get(path)
-        if existing is not None and existing.content_sha == cache_paths.sha256_file(p):
+        if (
+            existing is not None
+            and path not in force
+            and existing.content_sha == cache_paths.sha256_file(p)
+        ):
             continue
         facts[path] = build_one_vi(project_root, p)
         rebuilt.append(path)
@@ -357,28 +393,71 @@ def refresh_index(
     return RefreshResult(rebuilt=rebuilt, deleted=deleted, total=len(merged)), merged
 
 
-def ensure_fresh_index(project_root: Path, vi_paths: list[Path]) -> None:
-    """Make the persisted index reflect the current files, then return.
+@dataclass
+class SyncResult:
+    """What :func:`sync_index` did: the merged VI facts, the incremental
+    ``refresh`` result (None for a full build), the collision count of a full
+    build, and the controls' sync."""
 
-    The gap-fill a read (a `query`) needs so it never serves stale rows: a cold
-    store gets one full build; a warm store gets an incremental refresh
-    (rebuild only content-changed/added VIs, drop deleted ones) keyed by
-    ``VIFacts.content_sha``. Persists to the store. This is the SAME cold-or-
-    refresh policy the MCP server applies before a query — shared here so the
-    CLI `lvkit query` stays fresh too.
+    facts: list[VIFacts]
+    refresh: RefreshResult | None
+    collisions: int
+    controls: TypedefSyncResult
+
+
+def sync_index(
+    project_root: Path,
+    vi_paths: list[Path],
+    ctl_paths: list[Path],
+    *,
+    rebuild: bool = False,
+) -> SyncResult:
+    """Bring the persisted index in step with the files, and persist it -- the
+    ONE cold-or-refresh policy every entry point shares.
+
+    ``.ctl`` controls are synced first (rebuilding one that (transitively) uses
+    a changed control too, since its own fields/type_id can be resolved through
+    that dependency). Then a cold store (or ``rebuild``) gets one full build; a
+    warm store gets an incremental refresh keyed by ``VIFacts.content_sha`` --
+    rebuild content-changed/added VIs, drop deleted ones, AND rebuild any VI
+    whose recorded ``typedef_versions`` no longer match the controls' current
+    type ids (a control it reads changed shape although the VI's own file did
+    not) -- and its ``.lvproj`` membership is recomputed wholesale (a cheap
+    reparse that catches added/removed projects and moved members).
     """
+    controls = sync_typedefs(project_root, ctl_paths, rebuild=rebuild)
     stored = store_load(project_root)
-    if not stored:
-        result = build_index(project_root, vi_paths)
-        store_save(project_root, result.facts)
-        store_save_lvproj_members(project_root, result.lvproj_members)
-        return
-    rr, merged = refresh_index(project_root, vi_paths, stored)
-    store_delete(project_root, rr.deleted)
-    store_save(project_root, merged)
-    # Membership is a cheap .lvproj-only reparse (no VI content), so a refresh
-    # recomputes it wholesale — catches added/removed projects and moved members.
-    store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
+    if stored and not rebuild:
+        # A VI reads the controls it uses (their fields, so their type ids), not
+        # just their bytes -- so compare what each stored VI recorded against the
+        # controls' CURRENT type ids (just synced above), not merely against what
+        # this call's own sync touched: a control's row can have moved on since
+        # (a progressive warm already wrote it, or an earlier interrupted sync).
+        current_type_ids = load_typedef_type_ids(project_root)
+        force = frozenset(
+            f.path
+            for f in stored
+            if any(
+                current_type_ids.get(v.typedef_path) != v.type_id
+                for v in f.typedef_versions
+            )
+        )
+        rr, facts = refresh_index(project_root, vi_paths, stored, force)
+        store_delete(project_root, rr.deleted)
+        store_save(project_root, facts)
+        store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
+        result = SyncResult(facts, rr, 0, controls)
+    else:
+        built = build_index(project_root, vi_paths)
+        facts = built.facts
+        kept = {f.path for f in facts}
+        store_delete(project_root, [f.path for f in stored if f.path not in kept])
+        store_save(project_root, facts)
+        store_save_lvproj_members(project_root, built.lvproj_members)
+        result = SyncResult(facts, None, built.collisions, controls)
+    for f in facts:
+        f.types = []  # the bodies are stored; the in-memory facts keep only ids
+    return result
 
 
 def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
@@ -438,17 +517,37 @@ def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
     return None
 
 
+def _typedef_root_type_id(
+    graph: InMemoryVIGraph, typedef_key: str, catalog: TypeCatalog
+) -> str | None:
+    """The structural ``type_id`` of the typedef at ``typedef_key`` as this
+    graph resolves it, or None for a stub / one with no resolvable root type.
+    ``type_id`` is a pure function of structure (see ``types.py``), so this
+    matches whatever the control's own index build computes for the same
+    bytes -- letting a VI's recorded version be compared against it later."""
+    if graph.is_stub(typedef_key):
+        return None
+    try:
+        root_type = graph.get_typedef(typedef_key).root_type
+    except ValueError:
+        return None
+    return catalog.add(root_type)
+
+
 def project_vi_facts(
     graph: InMemoryVIGraph,
     vi_name: str,
     vi_path: Path,
+    project_root: Path,
 ) -> VIFacts:
     """Project one loaded VI's graph facts into a ``VIFacts`` row.
 
     Every field here is intrinsic to the VI's own bytes (own connector pane,
     own constants, own dep_graph edges, own terminal types) — see
     ``model.py``'s module docstring for why that makes this a pure function
-    of the VI's content hash.
+    of the VI's content hash — EXCEPT ``typedef_paths``/``typedef_versions``,
+    which read the ``.ctl`` controls this VI depends on (``project_root`` scopes
+    them to this project, matching what ``sync_typedefs`` can itself refresh).
     """
     vnode = graph.get_graph_node(vi_name)
     # A directory build loads class methods (and library members) as loose
@@ -475,6 +574,7 @@ def project_vi_facts(
 
     terminals: list[TerminalFact] = []
     type_use_keys: set[str] = set()
+    catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
     all_terminals = [
         *graph.get_inputs(vi_name, public_only=False),
         *graph.get_outputs(vi_name, public_only=False),
@@ -483,7 +583,7 @@ def project_vi_facts(
         field_names: list[str] = []
         enum_values: list[str] = []
         if t.lv_type is not None:
-            fields = graph.get_type_fields(t.lv_type)
+            fields = graph.get_type_fields(t.lv_type, vi_name)
             if fields:
                 field_names = [f.name for f in fields]
             if t.lv_type.classname:
@@ -510,6 +610,7 @@ def project_vi_facts(
                 type_descriptor=t.type_descriptor(),
                 type_kind=t.type_kind,
                 enum_values=enum_values,
+                type_id=catalog.add(t.lv_type),
             )
         )
 
@@ -524,6 +625,7 @@ def project_vi_facts(
             type_descriptor=c.lv_type.type_descriptor() if c.lv_type else "",
             type_kind=c.lv_type.kind if c.lv_type else None,
             wired_to=_constant_wired_to(graph, vi_name, c),
+            type_id=catalog.add(c.lv_type),
         )
         for c in graph.get_constants(vi_name)
     ]
@@ -551,6 +653,28 @@ def project_vi_facts(
 
     class_fact = _build_class_fact(graph, vi_name, owning_class)
 
+    # The typedef-kind dependencies this VI has (its dep-graph edges to loaded
+    # typedef nodes), scoped to controls under THIS project's root -- an
+    # out-of-root one (vi.lib, another repo) belongs to another project's index
+    # and this project's sync can never refresh it.
+    typedef_deps = sorted(
+        dep
+        for dep in graph.get_vi_dependencies(vi_name)
+        if graph.is_typedef(dep) and Path(dep).resolve().is_relative_to(project_root)
+    )
+    typedef_paths = [dep for dep in typedef_deps if not graph.is_stub(dep)]
+    # A dependency's own type_id is recorded for invalidation ONLY (compared
+    # against the control's current type_id at the next sync) -- it must NOT
+    # feed the VI's own `catalog`, or a dependency's root type (and everything
+    # nested under it) would count as a type THIS VI uses even when no
+    # terminal/constant of its own ever reaches it. type_id is a pure function
+    # of structure, so a throwaway catalog computes the identical id.
+    version_catalog = TypeCatalog(lambda t: graph.get_type_fields(t, vi_name))
+    typedef_versions = [
+        TypedefVersionFact(dep, _typedef_root_type_id(graph, dep, version_catalog))
+        for dep in typedef_deps
+    ]
+
     return VIFacts(
         path=str(vi_path),
         name=vi_path.name,
@@ -562,6 +686,10 @@ def project_vi_facts(
         constants=constants,
         nodes=nodes,
         type_uses=sorted(type_use_keys),
+        type_ids=sorted(catalog.types),
+        typedef_paths=typedef_paths,
+        typedef_versions=typedef_versions,
+        types=list(catalog.types.values()),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time
         lv_version=properties.lv_version,

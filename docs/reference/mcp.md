@@ -52,8 +52,8 @@ All take a `project` path (any file/dir inside the repo).
 
 | Tool | Description |
 |------|-------------|
-| `index` | Build/refresh the index for a repo. Returns VI count, collisions handled, and ms. |
-| `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `node`, `type_use`, `class_fact`, `lvproj`. |
+| `index` | Build/refresh the index for a repo (VIs and `.ctl` controls). A full build returns the VI count, `controls`, collisions handled, and ms; `refresh=true` returns `rebuilt`, `deleted`, `total`, `controls` and ms. |
+| `query` | Run one read-only SQL `SELECT`/`WITH` over the index and get back just the answer (a `GROUP BY` histogram, not a row dump). Queries the curated views `vi`, `terminal`, `constant`, `node`, `type_use`, `type`, `type_field`, `type_item`, `vi_used_type`, `typedef`, `typedef_field`, `typedef_ref`, `typedef_use`, `typedef_type`, `class_fact`, `lvproj`. |
 | `query_schema` | List the views and their columns, so a query uses real column names. |
 
 Reads of terminals, constants, symbols, and type-uses go through `query` (e.g.

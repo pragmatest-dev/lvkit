@@ -45,6 +45,7 @@ from .typedef import (
     TypedefRef,
     default_literal,
     field_default_literal,
+    walk_typedef_fields,
 )
 
 
@@ -61,15 +62,15 @@ def _dependency(ref: TypedefRef, control_dir: Path) -> NetlistDependency:
 
 def _field_lines(fields: tuple[TypedefField, ...], depth: int) -> list[str]:
     lines: list[str] = []
-    pad = _LVNET_INDENT * depth
-    for f in fields:
+    for w in walk_typedef_fields(fields, depth):
+        f = w.field
         name = lvnet_name_token(f.name)
-        line = f"{pad}{name}{_LVNET_TYPE_SEP}{lvnet_type_ref(f.lv_type)}"
+        line = f"{_LVNET_INDENT * w.depth}{name}{_LVNET_TYPE_SEP}"
+        line += lvnet_type_ref(f.lv_type)
         literal = field_default_literal(f, lvnet_literal_token, lvnet_name_token)
         if literal is not None:
             line += f" {_LVNET_DEFAULT_KEYWORD} {literal}"
         lines.append(line)
-        lines.extend(_field_lines(f.fields, depth + 1))
     return lines
 
 
