@@ -66,11 +66,11 @@ def test_unsupported_control_type_falls_back_to_labeled_box():
     """A control type outside the renderer's scope never disappears silently --
     it draws as a dashed labeled box naming its real control_type."""
     fp = ParsedFrontPanel(
-        controls=[_control("Tag", "stdTag", (0, 0, 40, 80))],
+        controls=[_control("Graph", "stdGraph", (0, 0, 40, 80))],
         panel_bounds=(0, 0, 100, 100),
     )
     svg = render_front_panel_svg(fp)
-    assert "stdTag" in svg
+    assert "stdGraph" in svg
     assert "stroke-dasharray" in svg
 
 

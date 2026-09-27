@@ -79,6 +79,18 @@ def leaf_glyph(
     only by ``stdRefNum`` today, for its real kind and registered payload."""
     if control_type == "stdRefNum":
         return _refnum_glyph(lv_type, theme)
+    if control_type == "stdTag":
+        # LabVIEW's I/O-name type (a DAQmx physical channel/task name, a VISA
+        # resource name, ...) -- real corpus heap: a selLabel part + dropdown-
+        # arrow decorations, the SAME value-cell-with-chevron shape a ring/enum
+        # draws, not a bare reference icon (RefnumGlyph's own contract is that
+        # a refnum's held data is NEVER shown, but a Tag's saved channel name
+        # IS the point of the control). Reused for that SHAPE, not because a
+        # Tag is an enum: there is no fixed item list, so it always falls back
+        # to its own literal text. Most real corpus "stdTag" heap text is
+        # actually an inert partID=8017 decoration nested inside a stdRefNum's
+        # OWN parts, unrelated to this control_type -- never reaches here.
+        return EnumControlGlyph(default_value, ())
     if control_type == "stdLvVariant":
         # Opaque, type-erased data -- there IS no visible internal structure
         # to a Variant (verified against the real corpus: the heap's own
