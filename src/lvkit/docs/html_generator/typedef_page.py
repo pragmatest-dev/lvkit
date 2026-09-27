@@ -11,7 +11,12 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, NamedTuple
 
 from lvkit.graph.node_kinds import NodeType
-from lvkit.graph.typedef import TypedefField, TypedefInfo, TypedefRef
+from lvkit.graph.typedef import (
+    TypedefField,
+    TypedefInfo,
+    TypedefRef,
+    field_default_literal,
+)
 from lvkit.models import LVType
 
 
@@ -20,9 +25,8 @@ def _type_text(lv_type: LVType | None) -> str:
 
 
 def _default_text(f: TypedefField) -> str:
-    if f.elements:
-        return escape("[" + ", ".join(str(e) for e in f.elements) + "]")
-    return "" if f.default is None else escape(str(f.default))
+    literal = field_default_literal(f)
+    return "" if literal is None else escape(literal)
 
 
 class TypedefPage(NamedTuple):

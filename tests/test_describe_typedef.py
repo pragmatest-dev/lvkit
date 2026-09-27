@@ -63,7 +63,7 @@ def test_an_enum_lists_its_values_and_default() -> None:
     enum = LVType(LVTypeKind.ENUM, values={"Read": EnumValue(0), "Write": EnumValue(1)})
     text = describe_typedef(_info(root_type=enum, default="Write"))
     assert "## Values\n  0: Read\n  1: Write" in text
-    assert '  Default = "Write"' in text
+    assert "  Default = Write" in text  # an enum item is bare, not a string
 
 
 def test_empty_sections_are_left_out_and_refs_are_listed() -> None:
@@ -76,9 +76,7 @@ def test_empty_sections_are_left_out_and_refs_are_listed() -> None:
     assert "Path: /p/Cfg.ctl" in describe_typedef(_info(), verbose=True)
 
 
-def test_lvnet_and_missing_files_are_errors(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="dataflow"):
-        describe_ctl_file(tmp_path / "x.ctl", fmt="lvnet")
+def test_a_missing_file_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         describe_ctl_file(tmp_path / "Nope.ctl")
 
@@ -107,5 +105,5 @@ def test_the_cli_describes_a_control(monkeypatch, capsys):
     monkeypatch.setattr(
         sys, "argv", ["lvkit", "describe", str(_ENUM_CTL), "--format", "lvnet"]
     )
-    assert cli.main() == 1
-    assert "dataflow" in capsys.readouterr().err
+    assert cli.main() == 0
+    assert capsys.readouterr().out.startswith("typedef Permissions Enum.ctl :")

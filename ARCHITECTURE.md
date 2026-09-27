@@ -60,6 +60,26 @@ substrate.
 projection (`build_netlist_from_graph` + `render_lvnet`). Do not try
 `cached_render(fmt="lvnet")`.
 
+### A `.ctl` control is a graph citizen too — the same rule, its own views
+
+`load_ctl_by_path(path)` (`graph/load_ctl.py`) loads ONE control into a fresh graph
+(`load_typedef` registers a path-keyed `typedef` node; a VI/class that uses it, a library
+that owns it and a class whose private data it is get edges to it). Every view reads it
+through the graph's typedef queries (`TypedefMixin`, `graph/typedef.py`: `get_typedef` →
+`TypedefInfo`, `list_typedefs`, `get_typedef_front_panel`, `typedef_name`, `is_typedef`) —
+never the dep-graph node dict:
+
+| View | Entry point | Where |
+|------|-------------|-------|
+| front panel (SVG/HTML) | `render_body` (dispatches on file kind) → `render_ctl_front_panel` | `render/body.py`, `render/ctl.py`, `render/front_panel/` |
+| describe (text/JSON) | `describe_ctl_file` (`typedef_to_dict` for JSON) | `graph/describe_typedef.py`, `graph/netlist_json.py` |
+| lvnet (text, emit only) | `render_lvnet_typedef` (netlist-language.md §2.1) | `graph/lvnet_typedef.py` |
+| docs (HTML page per control) | `generate_documents` + `TypedefPageMixin` | `docs/generate.py`, `docs/html_generator/typedef_page.py` |
+| MCP | `read_ctl` (json / lvnet), `render` accepts a `.ctl` | `mcp/server/vi_tools.py` |
+
+One default rule (`default_literal`, `graph/typedef.py`) spells a recorded default for every
+text surface; each supplies its own quoting.
+
 ## Output cache (`src/lvkit/output_cache.py`)
 
 Caches **rendered output STRINGS** (not graphs), keyed by
@@ -431,7 +451,7 @@ gate: an anonymous cluster now renders `Cluster{ f : <type> }` inline (anon enum
 `Enum{ m = 0 }`), one renderer `_lvnet_type_inline` whose leaf/structural split
 mirrors `_lv_type_comparison_shape`; the inline line parser finds its own
 `=`/`default`/`@index` only at brace DEPTH 0 (`_top_level_word_index` /
-`_find_top_level_sep`); `_iter_named_subtypes` descends every non-error cluster's
+`_find_top_level_sep`); `iter_named_subtypes` descends every non-error cluster's
 fields (error clusters stay the opaque `Error` token); the reconstruct self-check
 (`_maybe_attach_lvtype`) mirrors `_lvnet_type_inline`, not `type_descriptor`.
 Two subtle mirror-bugs the gate caught + fixed: (1) `refnum{` detection must be
@@ -446,7 +466,7 @@ Verified gap: an anonymous cluster's inline terminal label renders field NAMES o
 (`type_descriptor(expand_named=False)` → lowercase `cluster{f1, f2}`), so field
 types (and any named type reachable ONLY through an anonymous-cluster field) are not
 text-recoverable. The over-collection fix (committed 86c9b8f) made this HONEST —
-`_iter_named_subtypes` no longer collects those unrecoverable types into the `types:`
+`iter_named_subtypes` no longer collects those unrecoverable types into the `types:`
 footnote — but it's still a losslessness gap. Closing it is NOT the one-liner it
 looked like: the footnote lossless-def grammar (`Enum{ m0 = 0 }` / `Cluster{ a :
 DBL }`) uses bare ` = ` / ` : ` tokens, and the INLINE terminal-line parser

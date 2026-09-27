@@ -37,7 +37,7 @@ String CONSTANT whose real value contains a raw control character (a CRLF
 on ``Array To Spreadsheet String``'s ``delimiter`` input, and a 3-line
 UI-status literal driving a case output tunnel) rendered UNESCAPED,
 splitting one logical line across two physical lines and breaking this
-line-oriented parser. ``netlist.py``'s new ``_lvnet_literal_token`` (the
+line-oriented parser. ``netlist.py``'s new ``lvnet_literal_token`` (the
 one lvnet string-literal renderer, replacing the old ``_lvnet_scalar_value_
 token``) now escapes a backslash/double-quote/newline/CR/tab (any other C0
 control char as a hex escape), so the literal stays on ONE physical line;
@@ -67,7 +67,7 @@ from lvkit.graph.netlist import (
 )
 from lvkit.graph.render_lvnet import (
     _lvnet_ambiguous_named_types,
-    _lvnet_literal_token,
+    lvnet_literal_token,
     render_lvnet,
 )
 from lvkit.load_mode import LoadMode
@@ -199,7 +199,7 @@ def test_control_char_string_constant_round_trips_on_one_physical_line() -> None
     ``parse_lvnet``/``netlist_signature`` byte-for-byte.
     """
     control_char_value = 'Line one\r\nLine two\twith "quotes" and a \\backslash'
-    escaped = _lvnet_literal_token(control_char_value)
+    escaped = lvnet_literal_token(control_char_value)
 
     const = NetlistConstant(
         uid="const_1",
@@ -239,10 +239,10 @@ def test_control_char_string_constant_round_trips_on_one_physical_line() -> None
 )
 def test_lvnet_string_literal_escape_unescape_round_trip(value: str) -> None:
     """``_unescape_lvnet_string`` is the exact reverse of
-    ``_lvnet_literal_token`` (md §4/§10) -- the "reverse the escapes
+    ``lvnet_literal_token`` (md §4/§10) -- the "reverse the escapes
     symmetrically" requirement -- for every control-char shape it's meant
     to cover, not just the corpus VI's own two literals."""
-    token = _lvnet_literal_token(value)
+    token = lvnet_literal_token(value)
     assert "\n" not in token and "\r" not in token, (
         f"escaped token must stay on one physical line: {token!r}"
     )
@@ -252,7 +252,7 @@ def test_lvnet_string_literal_escape_unescape_round_trip(value: str) -> None:
 def test_scan_quoted_literal_skips_escaped_quote() -> None:
     """A value containing an escaped double-quote must not end the scan
     early at the ``\\"`` -- only a REAL (unescaped) closing quote does."""
-    token = _lvnet_literal_token('say "hi" please')
+    token = lvnet_literal_token('say "hi" please')
     assert token == '"say \\"hi\\" please"'
     end = _scan_quoted_literal(token, 0)
     assert end == len(token)

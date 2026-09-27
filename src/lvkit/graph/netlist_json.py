@@ -154,7 +154,7 @@ def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
 
 def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     """The FULL lossless structured type -- JSON's counterpart to lvnet's
-    verbose-only ``types :`` footnote body (``_lvnet_type_lossless_def``),
+    verbose-only ``types :`` footnote body (``lvnet_type_lossless_def``),
     but shaped as a direct recursive mirror of the ``LVType`` dataclass
     itself (every field, unflattened) rather than lvnet's by-name-
     deduplicated appendix: JSON has none of lvnet's line-length/whitespace
@@ -166,7 +166,7 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     never called for the default (non-verbose) output.
 
     - ``values``: ``{member_name: {"value": ordinal, "description": ...}}``,
-      sorted by ordinal (mirrors ``_lvnet_type_lossless_def``'s enum/ring
+      sorted by ordinal (mirrors ``lvnet_type_lossless_def``'s enum/ring
       ordinal order) -- ``None`` when the type has none loaded (an
       unresolved enum/ring, or any non-enum/ring kind).
     - ``fields``: ``[{"name": ..., "type": <recursive dict or None>}, ...]``
@@ -230,7 +230,7 @@ def _dependency_terminal_to_dict(t: ConnectorPaneTerminal) -> dict[str, Any]:
 
 def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
     """One ``uses :`` manifest entry -- the JSON counterpart of
-    ``_render_lvnet_uses``'s rendered line (+ its verbose-only nested
+    ``render_lvnet_uses``'s rendered line (+ its verbose-only nested
     interface). ``verbose``-only caller (``netlist_to_dict``); ``interface``
     is omitted entirely (never an empty list) when this dependency has none
     loaded -- a ``class``/``typedef`` dependency, or an unresolved ``subVI``
@@ -478,6 +478,8 @@ def typedef_to_dict(info: TypedefInfo, *, verbose: bool = False) -> dict[str, An
         "fields": [_typedef_field_to_dict(f, verbose) for f in info.fields],
         "uses": [_typedef_ref_to_dict(r) for r in info.uses],
     }
+    if info.elements:
+        result["elements"] = list(info.elements)
     if info.owned_by:
         result["owned_by"] = [_typedef_ref_to_dict(r) for r in info.owned_by]
     if verbose:

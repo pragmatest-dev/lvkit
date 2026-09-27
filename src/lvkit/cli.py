@@ -345,7 +345,7 @@ def main() -> int:
     )
     desc_parser.add_argument(
         "input_path",
-        help="Path to a .vi file, or a .ctl control (text or --format json)",
+        help="Path to a .vi file, or a .ctl control",
     )
     desc_parser.add_argument(
         "--search-path",
@@ -368,7 +368,8 @@ def main() -> int:
             "Health, connector-pattern/pane-slot annotations, typed "
             "terminals); with --format lvnet, also inline each direct "
             "SubVI's connector-pane interface and a trailing `types :` "
-            "appendix, making the render type-rehydratable."
+            "appendix, making the render type-rehydratable. For a .ctl, "
+            "adds file paths (text) or the `types :` footnote (lvnet)."
         ),
     )
     desc_parser.add_argument(
@@ -383,7 +384,8 @@ def main() -> int:
             "render type-rehydratable — also the git-textconv form, see "
             "`lvkit setup --git-textconv`); 'json' emits the canonical netlist "
             "IR — the same structured payload the MCP read_vi tool returns — "
-            "for a program to parse."
+            "for a program to parse. For a .ctl: 'lvnet' prints its `typedef` "
+            "document and 'json' its structure (the MCP read_ctl payload)."
         ),
     )
     _add_project_root_arg(desc_parser)

@@ -6,24 +6,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .describe import default_suffix, type_label
+from .describe import type_label
 from .load_ctl import load_ctl_by_path
+from .lvnet_typedef import render_lvnet_typedef
 from .netlist_json import typedef_to_dict
-from .typedef import TypedefField, TypedefInfo, TypedefRef
+from .typedef import (
+    TypedefField,
+    TypedefInfo,
+    TypedefRef,
+    default_literal,
+    field_default_literal,
+)
 
 _INDENT = "  "
 
 
 def _default_text(f: TypedefField) -> str:
-    """`` = <default>`` for a field's recorded default, or its saved elements as
-    ``= [a, b, ...]``. A string is quoted; a number or an enum item is not (its
-    recorded default is display text, but it is not a string value)."""
-    if f.elements:
-        return " = [" + ", ".join(str(e) for e in f.elements) + "]"
-    if f.default is None:
-        return ""
-    is_string = f.lv_type is not None and f.lv_type.underlying_type == "String"
-    return default_suffix(f.default) if is_string else f" = {f.default}"
+    """`` = <default>`` for a field's recorded default, or ``''`` when it has none."""
+    literal = field_default_literal(f)
+    return "" if literal is None else f" = {literal}"
 
 
 def _field_lines(fields: tuple[TypedefField, ...], depth: int) -> list[str]:
@@ -56,8 +57,9 @@ def describe_typedef(info: TypedefInfo, *, verbose: bool = False) -> str:
         lines.append(f"{_INDENT}Cluster ({len(info.fields)} fields)")
     else:
         lines.append(f"{_INDENT}Type: {type_label(root)}")
-    if info.default is not None:
-        lines.append(f"{_INDENT}Default{default_suffix(info.default)}")
+    root_default = default_literal(info.default, info.root_type, info.elements)
+    if root_default is not None:
+        lines.append(f"{_INDENT}Default = {root_default}")
     lines.append("")
     if root.values:
         lines.append("## Values")
@@ -88,14 +90,14 @@ def describe_ctl_file(
     search_paths: list[Path] | None = None,
 ) -> str | dict[str, Any]:
     """Load the ``.ctl`` at ``path`` and describe it: the text page for
-    ``fmt="text"``, the JSON shape (:func:`typedef_to_dict`) for ``"json"``. The
-    one entry the CLI and the MCP ``read_ctl`` tool share. ``ValueError`` for
-    ``lvnet`` (a dataflow netlist -- a control has no dataflow) or an unreadable
-    control; ``FileNotFoundError`` for a missing file."""
-    if fmt == "lvnet":
-        raise ValueError("--format lvnet describes a VI's dataflow; a .ctl has none")
+    ``fmt="text"``, the JSON shape (:func:`typedef_to_dict`) for ``"json"``, the
+    lvnet ``typedef`` document for ``"lvnet"``. The one entry the CLI and the MCP
+    ``read_ctl`` tool share. ``ValueError`` for an unreadable control;
+    ``FileNotFoundError`` for a missing file."""
     graph, key = load_ctl_by_path(path, search_paths=search_paths)
     info = graph.get_typedef(key)
     if fmt == "json":
         return typedef_to_dict(info, verbose=verbose)
+    if fmt == "lvnet":
+        return render_lvnet_typedef(info, verbose=verbose)
     return describe_typedef(info, verbose=verbose)

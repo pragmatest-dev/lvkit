@@ -90,12 +90,12 @@ from .render_lvnet import (
     _lvnet_component,
     _lvnet_default_token,
     _lvnet_default_trailing,
-    _lvnet_literal_token,
     _lvnet_net_separator,
     _lvnet_requirement_trailing,
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
+    lvnet_literal_token,
 )
 
 # lvnet §5's three real dispositions -- ``unknown`` never renders a keyword
@@ -107,7 +107,7 @@ _REQUIREMENT_WORDS = frozenset({"required", "recommended", "optional"})
 _HEADER_RE = re.compile(rf"^vi (.+){_LVNET_BLOCK_OPEN}$")
 # The OPTIONAL ``uses :`` dependency-manifest header (new §2/§7 note) --
 # immediately after the ``vi <name> :`` header, before the boundary block
-# (see ``_parse_uses_block``). Rendered by ``_render_lvnet_uses`` -- reuses
+# (see ``_parse_uses_block``). Rendered by ``render_lvnet_uses`` -- reuses
 # ``netlist._USES_HEADER_LINE`` directly, never a second hand-spelled copy.
 # One dependency entry: 4-space indent, then the kind keyword, then at least
 # one space, then the qualified identity (+ optional ``; ./path`` nav).
@@ -165,7 +165,7 @@ _INPLACE_SCOPE_HEADER = f"{_LVNET_INPLACE_SCOPE_KEYWORD}{_LVNET_BLOCK_OPEN}"
 # The OPTIONAL bottom-appendix ``types :`` footnote section header (§10,
 # verbose-only) -- immediately after the final boundary-output-drive block,
 # at the very end of the document (see ``_parse_types_block``). Rendered by
-# ``netlist._render_lvnet_types`` -- reuses ``netlist._TYPES_HEADER_LINE``
+# ``render_lvnet._render_lvnet_types`` -- reuses ``lvnet_grammar._TYPES_HEADER_LINE``
 # directly, never a second hand-spelled copy.
 
 
@@ -215,7 +215,7 @@ _LVNET_STRING_UNESCAPES: dict[str, str] = {
 def _scan_quoted_literal(text: str, start: int) -> int:
     """Scan an lvnet double-quoted string literal beginning at
     ``text[start] == '"'`` (render_lvnet's own §4/§10 escaping --
-    ``netlist._lvnet_literal_token``), honoring backslash escapes, and
+    ``render_lvnet.lvnet_literal_token``), honoring backslash escapes, and
     return the index ONE PAST its closing (real, unescaped) quote.
 
     An escaped ``\\"`` is part of the literal's own text, never mistaken for
@@ -224,7 +224,7 @@ def _scan_quoted_literal(text: str, start: int) -> int:
     ``"5 = 5 is true"``) can never fool a caller's word-based clause
     splitter, and this scan won't stop early on an escaped quote either.
     Raises ``LvnetParseError`` if the quote is never closed on this line --
-    a genuine grammar violation, since ``_lvnet_literal_token`` escapes
+    a genuine grammar violation, since ``lvnet_literal_token`` escapes
     every control char to a same-line backslash sequence (lvnet never emits
     a literal spanning physical lines).
     """
@@ -246,7 +246,7 @@ def _scan_quoted_literal(text: str, start: int) -> int:
 
 
 def _unescape_lvnet_string(token: str) -> str:
-    """Reverse ``netlist._lvnet_literal_token``'s string escaping: a
+    """Reverse ``render_lvnet.lvnet_literal_token``'s string escaping: a
     double-quoted token (``'"foo\\\\nbar"'``) -> its real value (a genuine
     embedded newline). ``token`` must be exactly the ``"..."`` substring,
     quotes included -- callers isolate it first via ``_scan_quoted_literal``
@@ -709,7 +709,7 @@ class ParsedDependency:
     (§7a, verbose-only) the ordered inline connector-pane interface a
     ``subVI`` entry may carry right under its own line -- ``()`` for a
     ``class``/``typedef`` entry, an unresolved ``subVI`` dependency, or
-    terse mode (``_render_lvnet_uses`` never emits the block there)."""
+    terse mode (``render_lvnet_uses`` never emits the block there)."""
 
     kind: str
     qualified: str
@@ -1657,7 +1657,7 @@ def _parse_types_block(cursor: _Cursor) -> dict[str, ParsedTypeDef]:
     itself contains `` = ``, matching every other name/value split in this
     module), and the trailing `` ; ./path`` nav clause (if present) is
     stripped from the stored def text -- ``;`` never appears inside the
-    lossless grammar itself (``_lvnet_type_lossless_def`` never emits one),
+    lossless grammar itself (``lvnet_type_lossless_def`` never emits one),
     so this split can never clip real structure.
     """
     if cursor.peek() != _TYPES_HEADER_LINE:
@@ -1755,7 +1755,7 @@ def _split_top_level_commas(text: str) -> list[str]:
     fields (§10) without breaking on a comma inside a NESTED structural type
     (a cluster field whose own type is another ``Cluster{...}``/array) NOR on a
     comma inside a QUOTED member/field NAME (a real LabVIEW name like
-    ``"big-endian, network order"`` -- ``_lvnet_name_token`` quotes+escapes
+    ``"big-endian, network order"`` -- ``lvnet_name_token`` quotes+escapes
     such names, honoring ``\\``-escapes)."""
     parts: list[str] = []
     depth = 0
@@ -1821,7 +1821,7 @@ def _find_first_top_level(text: str, sep: str) -> int:
 
 def _unquote_name_token(raw: str) -> str:
     """A §10 member/ordinal or field NAME as parsed -> its real value: a
-    quoted token is unescaped (``_lvnet_name_token``'s inverse), a bare token
+    quoted token is unescaped (``lvnet_name_token``'s inverse), a bare token
     passes through. Mirrors the module side, which compares by the raw name."""
     raw = raw.strip()
     if raw.startswith('"'):
@@ -1891,7 +1891,7 @@ def _parsed_type_ref_shape(
     producing the IDENTICAL tuple shape, so the two sides compare directly.
     See that function's docstring for the full ``full``/``seen``/
     ``ambiguous`` contract -- mirrored here exactly (``ambiguous`` --
-    ``netlist._lvnet_ambiguous_named_types``, computed from the MODULE and
+    ``render_lvnet._lvnet_ambiguous_named_types``, computed from the MODULE and
     passed down by the caller when both sides are being compared against
     each other -- treats a name known to resolve to more than one distinct
     structure elsewhere in the module as unnamed, falling back to a bare
@@ -1975,10 +1975,10 @@ def _module_default_token(default: ScalarValue) -> str | None:
     (``ConnectorPaneTerminal.default``, a raw ``ScalarValue``) -- ``None``
     when the pane genuinely has no default recorded, else the exact literal
     text ``render_lvnet`` now emits for it (Gap #1, closed: see
-    ``_lvnet_literal_token`` in ``netlist.py``)."""
+    ``lvnet_literal_token`` in ``netlist.py``)."""
     if default is None:
         return None
-    return _lvnet_literal_token(default)
+    return lvnet_literal_token(default)
 
 
 def boundary_signature(
@@ -2004,7 +2004,7 @@ def boundary_signature(
     ``ParsedLvnet.types`` footnote dict, needed ONLY to resolve the
     ``ParsedLvnet`` branch's by-name references -- unused (module side
     resolves directly from the real ``LVType`` objects it already holds).
-    ``ambiguous`` -- see ``netlist._lvnet_ambiguous_named_types`` -- names
+    ``ambiguous`` -- see ``render_lvnet._lvnet_ambiguous_named_types`` -- names
     excluded from the strengthened resolution on BOTH branches.
     """
     if isinstance(module_or_parsed, ParsedLvnet):
@@ -2381,7 +2381,7 @@ def _parsed_item_signature(
     ambiguous: frozenset[str],
 ) -> tuple:
     """``types_dict`` (``ParsedLvnet.types``, the §10 footnote defs) and
-    ``ambiguous`` (``netlist._lvnet_ambiguous_named_types``) are threaded
+    ``ambiguous`` (``render_lvnet._lvnet_ambiguous_named_types``) are threaded
     through every recursive call so a node's own terminal types
     (``ParsedNode.terminals``) can resolve a by-name reference to its full
     structure -- see ``_parsed_type_ref_shape``. Constants/feedback/tunnel
@@ -2484,7 +2484,7 @@ def netlist_signature(
     (``_parsed_type_ref_shape``, fed ``parsed.types``) -- so a passing
     round-trip now proves TYPE REHYDRATION, not just by-name equality.
 
-    ``ambiguous_named_types`` (``netlist._lvnet_ambiguous_named_types``) is
+    ``ambiguous_named_types`` (``render_lvnet._lvnet_ambiguous_named_types``) is
     the set of names EXCLUDED from that strengthened resolution -- a name
     that genuinely resolves to more than one distinct structure at
     different occurrences in the module (a Variant-typed field, observed

@@ -21,7 +21,6 @@ import would be a fragile, import-order-dependent circular import).
 
 from __future__ import annotations
 
-import os
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -44,9 +43,6 @@ from ..models import (
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
 from .interface_order import ordered_interface, requirement_state
-from .lvnet_grammar import (
-    _LVNET_TYPEDEF_NAV_PREFIX,
-)
 from .models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -106,7 +102,8 @@ from .operations import frame_key
 from .queries import ClassContext, collect_class_context
 from .render_lvnet import (
     _lvnet_const_value_str,
-    _lvnet_literal_token,
+    lvnet_literal_token,
+    project_relative_display,
 )
 
 if TYPE_CHECKING:
@@ -1411,7 +1408,7 @@ def _build_constant_gn(
     lvnet_value = (
         _lvnet_const_value_str(const)
         if const is not None
-        else _lvnet_literal_token(node.value)
+        else lvnet_literal_token(node.value)
     )
     occurrence = build_ctx.constant_occurrence_by_uid.get(node.id)
     return NetlistConstant(
@@ -2010,21 +2007,6 @@ def _build_components_gn(
     return components
 
 
-def _project_relative_display(resolved: Path | None, base: Path) -> str | None:
-    """A ``./``-prefixed, forward-slash project-relative display path for the
-    lvnet §6 ``; ./path`` annotation. Best-effort, never fabricated: ``None``
-    when ``resolved`` is ``None`` or ``os.path.relpath`` itself fails (e.g. a
-    cross-drive path on Windows).
-    """
-    if resolved is None:
-        return None
-    try:
-        rel = os.path.relpath(resolved.resolve(), base.resolve())
-    except (OSError, ValueError):
-        return None
-    return _LVNET_TYPEDEF_NAV_PREFIX + rel.replace(os.sep, "/")
-
-
 def _dependency_interface(
     graph: InMemoryVIGraph, kind: DependencyKind, qname: str
 ) -> list[ConnectorPaneTerminal]:
@@ -2182,7 +2164,7 @@ def _build_dependency_manifest(
             NetlistDependency(
                 kind=kind,
                 qualified=qname,
-                path=_project_relative_display(resolved, rel_base),
+                path=project_relative_display(resolved, rel_base),
                 interface=_dependency_interface(graph, kind, qname),
             )
         )

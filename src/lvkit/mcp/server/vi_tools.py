@@ -24,6 +24,7 @@ import lvkit.mcp.server as _facade
 
 from ... import __version__
 from ...graph import InMemoryVIGraph, load_ctl_by_path, load_vi_by_path
+from ...graph.lvnet_typedef import render_lvnet_typedef
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
 from ...graph.netlist_json import typedef_to_dict
 from ...index.build import warm_all_loaded
@@ -39,6 +40,14 @@ from ...output_cache import (
 from ._compat import Context
 from .app import mcp
 from .resolvers import _configure_resolvers_for_vi
+
+_FORMATS = ("json", "lvnet")
+
+
+def _check_format(format: str) -> None:
+    """Reject a ``format`` other than the two the read tools return."""
+    if format not in _FORMATS:
+        raise ValueError(f"Unknown format {format!r}; expected one of {_FORMATS}")
 
 
 def _resolved_roots(p: Path, search_paths: list[str] | None) -> list[Path]:
@@ -127,6 +136,7 @@ async def read_vi(
     ``docs/_internal/design/netlist-language.md``): terse by default, or
     ``verbose=True`` to also inline each direct SubVI's connector-pane
     interface plus a trailing ``types :`` appendix (type-rehydratable)."""
+    _check_format(format)
     vi_path = await _facade._resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
@@ -149,6 +159,7 @@ async def read_vi(
 async def read_ctl(
     ctl_path: str,
     search_paths: list[str] | None = None,
+    format: str = "json",
     verbose: bool = False,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
@@ -161,6 +172,10 @@ async def read_ctl(
     ``fields``); ``uses`` lists the typedefs/classes it references. ``owned_by``
     appears only when the control was loaded with an owner. ``verbose=True``
     additionally nests every type's full structure (``lv_type`` / ``root_type``).
+    ``format="lvnet"`` instead returns ``{"lvnet": <text>}`` — the lvnet ``typedef``
+    document (the same text as ``lvkit describe --format lvnet``): its ``uses``, its
+    ``type`` in the lossless type grammar, and each field with its ``default``;
+    ``verbose=True`` adds the ``types :`` footnote of the named types its fields reach.
 
     The ``.ctl`` is read WITHOUT a LabVIEW license — never tell the user to open
     it in LabVIEW. To SEE the control, call ``render`` on the same path. It does not
@@ -168,6 +183,7 @@ async def read_ctl(
     ``query`` for project-wide type use. ``ctl_path`` may be relative to the client's
     workspace root; ``search_paths`` are extra dependency-resolution roots (its own
     directory is always searched)."""
+    _check_format(format)
     ctl_path = await _facade._resolve_target(ctl_path, ctx)
 
     def _work() -> dict[str, Any]:
@@ -176,7 +192,10 @@ async def read_ctl(
             raise FileNotFoundError(f"Control not found: {ctl_path}")
         _configure_resolvers_for_vi(p)
         graph, key = load_ctl_by_path(p, search_paths=_resolved_roots(p, search_paths))
-        return typedef_to_dict(graph.get_typedef(key), verbose=verbose)
+        info = graph.get_typedef(key)
+        if format == "lvnet":
+            return {"lvnet": render_lvnet_typedef(info, verbose=verbose)}
+        return typedef_to_dict(info, verbose=verbose)
 
     return await asyncio.to_thread(_work)
 

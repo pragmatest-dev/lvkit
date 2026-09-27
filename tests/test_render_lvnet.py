@@ -179,7 +179,7 @@ vi loadTestsFromTestCase.vi :
 # 9. NEW vs §16's text (§16 predates the `uses :` manifest entirely): a
 #    `uses :` dependency-manifest block now renders right after the `vi ...
 #    :` header (provisional placement, own function -- see
-#    `_render_lvnet_uses`/`_build_dependency_manifest`) -- one line per
+#    `render_lvnet_uses`/`_build_dependency_manifest`) -- one line per
 #    external file this VI directly depends on, sorted by qualified identity.
 #    This real VI has SIX: its three own SubVI calls (`listAllTestMethods.vi`/
 #    `TestCase_Init.vi`/`TestSuite_Init.vi`, each `TestCase.lvclass`- or

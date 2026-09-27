@@ -57,7 +57,7 @@ _LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
 # before it comes from ``_lvnet_capped_pad``'s column padding, same
 # reasoning as the column-aligned one-offs above) -- kept as its own named
 # constant rather than a one-off because, unlike those, BOTH render
-# (``_render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
+# (``render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
 # as a literal, so it is a genuine cross-file drift risk.
 _LVNET_DEP_PATH_SEP = "; "
 _LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
@@ -73,6 +73,9 @@ _LVNET_DEFAULT_PAREN_PREFIX = f"({_LVNET_DEFAULT_KEYWORD} "
 # full line (2-space indent), matched verbatim by lvnet_parse.py.
 _TYPES_HEADER_LINE = f"{_LVNET_INDENT}types :"
 _USES_HEADER_LINE = f"{_LVNET_INDENT}uses :"
+_TYPEDEF_KEYWORD = "typedef"  # the `.ctl` module header keyword (§2.1)
+_TYPE_KEYWORD = "type"  # a typedef module's `type : <def>` line (§2.1)
+_FIELDS_HEADER_LINE = f"{_LVNET_INDENT}fields{_LVNET_BLOCK_OPEN}"
 # Phase 2 (lvnet redesign): the LV-mirroring section layout -- a VI's own
 # connector pane (`front-panel :`, OPTIONAL -- omitted when the pane is
 # empty and the pattern is unknown) and its diagram body (`block-diagram :`,

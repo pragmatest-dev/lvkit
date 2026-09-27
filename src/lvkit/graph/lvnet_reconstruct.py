@@ -270,15 +270,15 @@ def _index_handles(
 
 # ============================================================
 # Net / literal token parsing (the reverse of _render_lvnet_source /
-# _lvnet_literal_token)
+# lvnet_literal_token)
 # ============================================================
 
 
 def _parse_lvnet_literal(token: str) -> ScalarValue:
-    """The reverse of ``netlist._lvnet_literal_token``: a rendered literal
+    """The reverse of ``render_lvnet.lvnet_literal_token``: a rendered literal
     VALUE token (a boundary control's own ``default <value>`` text) back to
     a raw ``ScalarValue``. Raises on anything that isn't one of the four
-    shapes ``_lvnet_literal_token`` ever emits (quoted string / ``True`` /
+    shapes ``lvnet_literal_token`` ever emits (quoted string / ``True`` /
     ``False`` / a bare number) -- never guesses."""
     token = token.strip()
     if token.startswith('"'):
@@ -393,7 +393,7 @@ def _require_netref(source: NetRef | DefaultValue, where: str) -> NetRef:
 
 
 # ============================================================
-# Types (the reverse of _lvnet_type_lossless_def / _lvnet_type_ref)
+# Types (the reverse of lvnet_type_lossless_def / lvnet_type_ref)
 # ============================================================
 
 
@@ -436,9 +436,9 @@ def _reconstruct_named_type(
     NAME (memoized, cycle-safe -- the in-progress placeholder is stashed in
     ``memo`` before recursing into its own fields/members). Every real
     footnote entry's def text always starts with ``Enum{``/``Ring{``/
-    ``Cluster{`` -- ``_lvnet_named_stem`` (the module side) only ever
+    ``Cluster{`` -- ``lvnet_named_stem`` (the module side) only ever
     contributes a footnote name for those three ``LVType`` kinds, and each
-    one's OWN ``_lvnet_type_lossless_def`` dispatch is keyed on that same
+    one's OWN ``lvnet_type_lossless_def`` dispatch is keyed on that same
     kind -- so any other shape here is a genuine reconstruction gap, raised
     rather than guessed at.
     """
@@ -471,8 +471,8 @@ def _reconstruct_named_type(
 def _reconstruct_type_ref(
     text: str, types_dict: dict[str, ParsedTypeDef], memo: dict[str, LVType]
 ) -> LVType:
-    """The reverse of ``netlist._lvnet_type_ref``/``_lvnet_type_lossless_
-    def``: one type-reference TEXT (an inline terminal label, or a nested
+    """The reverse of ``render_lvnet.lvnet_type_ref``/``lvnet_type_lossless_def``:
+    one type-reference TEXT (an inline terminal label, or a nested
     footnote field/element type) -> a real ``LVType``. Recognizes, in
     order: an array wrapper (``[...]``); a refnum wrapper (``<ref_type>
     refnum{...}`` / ``<ref_type> refnum`` / bare ``refnum``); the
@@ -487,7 +487,7 @@ def _reconstruct_type_ref(
     TOP-LEVEL render path) has no branch for, so it reliably FAILS
     ``_maybe_attach_lvtype``'s self-check and is never attached to a real
     terminal (falls back to the terminal's own already-correct raw text)
-    -- while ``_lvnet_type_lossless_def`` (the NESTED/footnote render path)
+    -- while ``lvnet_type_lossless_def`` (the NESTED/footnote render path)
     DOES have a ``CLASS`` branch (returns ``classname`` verbatim), so a
     leaf reached while building a NAMED type's own footnote fields still
     reproduces its exact text.

@@ -15,7 +15,7 @@ standalone control load has none.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -71,6 +71,70 @@ class TypedefInfo:
     uses: tuple[TypedefRef, ...]
     owned_by: tuple[TypedefRef, ...]
     used_by: tuple[TypedefRef, ...]
+    elements: tuple[ScalarValue, ...] = ()
+
+
+def _plain_quote(text: str) -> str:
+    return f'"{text}"'
+
+
+def _is_number(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def _value_literal(
+    value: str,
+    lv_type: LVType | None,
+    quote: Callable[[str], str],
+    word: Callable[[str], str],
+) -> str:
+    """One recorded value as text: a ``String`` value through ``quote``; a number
+    bare; anything else (an enum / ring item name, a path) through ``word``."""
+    if lv_type is not None and lv_type.underlying_type == "String":
+        return quote(value)
+    return value if _is_number(value) else word(value)
+
+
+def default_literal(
+    default: ScalarValue,
+    lv_type: LVType | None,
+    elements: tuple[ScalarValue, ...] = (),
+    quote: Callable[[str], str] = _plain_quote,
+    word: Callable[[str], str] = str,
+) -> str | None:
+    """A recorded default as text: saved ``elements`` as ``[a, b]`` (each by the
+    element type's rule); a ``String`` value through ``quote``; a number bare; any
+    other value -- an enum / ring item name -- through ``word``. None when there is
+    none. The one rule every surface shares; each supplies its own ``quote`` /
+    ``word`` (lvnet escapes both; ``describe`` and the docs page do not) and its own
+    prefix. NOTE it renders an enum item BARE where a VI terminal's default quotes
+    any string: a control's default is an item of its own type, not a string value.
+    """
+    if elements:
+        element_type = lv_type.element_type if lv_type is not None else None
+        return (
+            "["
+            + ", ".join(
+                _value_literal(str(e), element_type, quote, word) for e in elements
+            )
+            + "]"
+        )
+    if default is None:
+        return None
+    return _value_literal(str(default), lv_type, quote, word)
+
+
+def field_default_literal(
+    f: TypedefField,
+    quote: Callable[[str], str] = _plain_quote,
+    word: Callable[[str], str] = str,
+) -> str | None:
+    """A field's recorded default as text (see :func:`default_literal`)."""
+    return default_literal(f.default, f.lv_type, f.elements, quote, word)
 
 
 def _panel_item(ctrl: ParsedFPControl, raw: ScalarValue) -> str | None:
@@ -244,6 +308,7 @@ class TypedefMixin:
             name=self.typedef_name(key),
             root_type=root,
             default=_default_of(root_ctrl, root),
+            elements=_elements_of(root_ctrl, root),
             fields=_typedef_fields(
                 node.get("fields"), root_ctrl.children if root_ctrl else []
             ),

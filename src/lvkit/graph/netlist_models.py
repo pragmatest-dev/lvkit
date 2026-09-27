@@ -19,6 +19,7 @@ from ..models import (
 )
 from .interface_order import WiringRequirement
 from .models import VIHealth, VIProperties
+from .node_kinds import NodeType
 from .op_walk import ComponentPort
 from .queries import ClassContext
 
@@ -627,6 +628,26 @@ class DependencyKind(str, Enum):
     TYPEDEF = "typedef"
     CLASS = "class"
 
+    @classmethod
+    def for_node_type(cls, node_type: NodeType) -> DependencyKind:
+        """The manifest kind of a dependency-graph node a file can depend on: a
+        VI, a class or a typedef. ValueError for any other node type -- notably a
+        library, which a control never uses (``netlist_build`` classes a ``.lvlib``
+        beside a VI as ``class`` when it disambiguates an extension-less name)."""
+        try:
+            return _DEPENDENCY_KIND_OF_NODE_TYPE[node_type]
+        except KeyError:
+            raise ValueError(
+                f"a {node_type.value} is not a dependency kind"
+            ) from None
+
+
+_DEPENDENCY_KIND_OF_NODE_TYPE = {
+    NodeType.VI: DependencyKind.SUBVI,
+    NodeType.CLASS: DependencyKind.CLASS,
+    NodeType.TYPEDEF: DependencyKind.TYPEDEF,
+}
+
 
 @dataclass(frozen=True)
 class NetlistDependency:
@@ -651,7 +672,7 @@ class NetlistDependency:
     (``InMemoryVIGraph.get_inputs``/``get_outputs`` -> ``interface_order.
     ordered_interface`` -> ``_pane_terminal``) -- never a second, re-parsed
     VI (see ``_dependency_interface``). Rendered ONLY in verbose mode,
-    indented under this entry's own ``uses :`` line (``_render_lvnet_uses``/
+    indented under this entry's own ``uses :`` line (``render_lvnet_uses``/
     ``_render_lvnet_dependency_interface``). Empty for a ``class``/``typedef``
     dependency (a connector pane is a VI-only concept) or an unresolved
     ``subVI`` dependency (not reachable in the loaded graph) -- NEVER

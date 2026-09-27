@@ -124,6 +124,41 @@ vi <VIName.vi> :
 - **Indentation is structural** — 2 spaces per scope level; blocks open with a
   `… :` header and nest by indent (enables editor folding for free).
 
+### 2.1 The typedef module (`.ctl`)
+
+(A control is not a `vi`: this section is its module, in place of the `vi <Name> :`
+skeleton above. The JSON form of a control is `typedef_to_dict` — §12.)
+
+A `.ctl` control has no block diagram, so its document is a `typedef` module,
+not a `vi` one — emitted by `lvkit describe --format lvnet <file.ctl>` and the
+MCP `read_ctl(format="lvnet")` (`graph/lvnet_typedef.py`):
+
+```
+typedef <Name.ctl> :
+  uses :                                 # §7a manifest of the typedefs/classes it references, OPTIONAL
+    <kind> <qualified-identity>   [; ./path]   # path relative to the control's own directory
+  type : <lossless-def>                  # the root type in the §10.1 grammar, ALWAYS present
+  default <value>                        # a scalar / enum / ring control's own default, OPTIONAL
+  fields :                               # a cluster's fields, OPTIONAL
+    <name> : <type-ref> [default <value>]
+      <nested field> : …                 # a nested cluster / array-of-cluster indents its own fields
+  types :                                # verbose-only §10.1 footnote of the NAMED types the fields reach
+    <Name> = <lossless-def>   [; ./path]
+```
+
+A field's `<type-ref>` is the §10 reference form (a named type by name, an
+anonymous composite in the lossless grammar); its `default` is the value the
+control's front panel records — a `String` value as an escaped quoted literal
+(`lvnet_literal_token`, the same escaping a VI's defaults use), a number bare, an
+enum/ring item name (or other word) as a name token (`lvnet_name_token`: bare when it is
+a safe identifier, quoted and escaped otherwise), a saved array as `[a, b]` (each element
+by the same rule). Unlike a VI terminal — whose default quotes any string — an enum
+item is not quoted as a string: a control's default is an item of its own type. The
+`uses :` paths are relative to the control's own directory; `types :` entries carry the
+type's own `typedef_path` as recorded (already project-relative). Sections are left out when empty, so a
+control loaded alone never shows an empty `uses :`. **Emit only:** no parser or
+round-trip gate exists for this module yet.
+
 ## 3. The terminal line (core grammar)
 
 A terminal line composes up to four parts:
@@ -622,7 +657,7 @@ structurally, a nested error cluster as `Error`) — not the old names-only
 ordinals inline (`Enum{ m0 = 0, m1 = 1 }`). So a named type reachable ONLY
 through an anonymous cluster's field (e.g. that `Type` field's `lveventtype`)
 IS now recoverable from the text and is correctly collected into the footnote
-(`_iter_named_subtypes` descends every non-error cluster's fields — named or
+(`iter_named_subtypes` descends every non-error cluster's fields — named or
 anonymous — and skips only an error cluster, which stays the opaque `Error`
 token). `_lvnet_type_inline` is the single renderer for this; its leaf-vs-
 structural split mirrors `_lv_type_comparison_shape`'s exactly, so the
@@ -686,6 +721,11 @@ work — see §17 item 2 and the deferred terse-mode axis; today the presence or
 absence of the verbose carriers is the signal.
 
 ## 12. JSON form
+
+(A `.ctl` control's JSON form is not the netlist below: `typedef_to_dict`
+(`graph/netlist_json.py`) — `{typedef, path, kind, type, default, fields, uses,
+owned_by?}` — returned by `describe --format json` and the MCP `read_ctl`; §2.1
+is its lvnet text.)
 
 The same model, serialized. Top level: `vi`, `connector_pane.terminals[]`
 (`name`/`type`/`direction`/`index`/`required`/`default`), `body[]`, `outputs[]`
