@@ -70,6 +70,7 @@ def _element(
         theme,
         show_spinner=False,
         number_format=ctrl.number_format,
+        lv_type=ctrl.element_lv_type,
     )
 
 
@@ -112,4 +113,5 @@ def resolve_glyph(ctrl: ParsedFPControl, theme: Theme) -> Glyph:
         ctrl.enum_values,
         theme,
         number_format=ctrl.number_format,
+        lv_type=ctrl.lv_type,
     )

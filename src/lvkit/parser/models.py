@@ -520,7 +520,15 @@ class ParsedFPControl:
     control_type: str  # stdString, stdNumeric, stdBool, stdPath, stdEnum, etc.
     bounds: tuple[int, int, int, int]  # top, left, bottom, right
     is_indicator: bool = False  # True if output, False if input
-    type_desc: str | None = None
+    # This control's own resolved LabVIEW type, from the VI's VCTP type map
+    # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
+    # connector-pane terminal's type comes from. Real per-control identity
+    # (a refnum's `ref_type`, an lvVariant's `Any`, ...) that `control_type`/
+    # `parts` alone don't carry; resolved whenever the heap's own `typeDesc`
+    # exists, whether or not this control has a serializable default (a
+    # refnum's own type resolves even though a refnum has no default value).
+    # None for an unresolved control or a VI whose VCTP was unreadable.
+    lv_type: LVType | None = None
     default_value: str | None = None
     # A developer-set CAPTION (partID 82, see extract_caption) -- a display-
     # only alias, distinct from `name` (the LABEL, partID 16). Most controls
@@ -573,6 +581,11 @@ class ParsedFPControl:
     # sibling (e.g. a control whose developer never set a custom element
     # default -- falls back to the type default, same as before).
     element_default_value: str | None = None
+    # For an `indArr`: the ELEMENT's own resolved type (see `lv_type` above) --
+    # an array of refnums/variants/etc. needs its element's type, not the
+    # array's own (an ARRAY-kind `LVType`, unhelpful for drawing one element).
+    # None for every non-array control.
+    element_lv_type: LVType | None = None
     # For an `indArr` saved WITH elements: every element's own decoded value,
     # in index order -- a display string per scalar/enum element, a dict by
     # field name per cluster element (`_decode_element`'s structured breakdown,

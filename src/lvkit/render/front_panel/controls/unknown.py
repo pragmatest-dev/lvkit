@@ -12,7 +12,7 @@ from ...style import Theme
 
 @dataclass(frozen=True)
 class UnknownControlGlyph:
-    """A control type outside week-1 scope (listbox, tab control, refnum,
+    """A control type outside the renderer's scope (listbox, tab control,
     waveform graph, ...) -- a labeled dashed fallback box, matching this
     project's existing convention for an unresolved primitive: visible,
     never silently dropped."""

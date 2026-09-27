@@ -520,6 +520,27 @@ def _parse_front_panel(
         if ddo is None:
             continue
 
+        # This control's own resolved type -- unconditional on a <DefaultData>
+        # existing (a refnum's own type resolves even though it has no
+        # serializable default), unlike the decode below which only runs when
+        # there IS one. The heap places <typeDesc> in one of two spots
+        # (verified against real corpus bytes): a SIBLING of <ddo> within this
+        # <fPDCO> for a control with no nested payload (e.g. an unbound VI
+        # refnum), or -- when the ddo nests its own inner ddo (a refnum's
+        # REGISTERED payload, e.g. a Queue of String) -- a CHILD of the outer
+        # ddo itself, after that nested payload. Try the ddo's own child
+        # first (the more specific of the two). ``.find("typeDesc")`` (a bare
+        # tag) matches DIRECT children ONLY, never descendants -- load-bearing
+        # for a payload that itself nests another ddo (a Queue of Queues):
+        # a recursive `.//typeDesc` search would find the INNER payload's
+        # typeDesc instead of this control's own. Do not "simplify" this.
+        lv_type = None
+        type_desc_elem = ddo.find("typeDesc")
+        if type_desc_elem is None:
+            type_desc_elem = fpdco.find("typeDesc")
+        if type_desc_elem is not None and type_desc_elem.text and type_map:
+            lv_type = resolve_type_rich(type_desc_elem.text, type_map)
+
         # Extract default data
         default_value = None
         field_defaults = None
@@ -532,12 +553,6 @@ def _parse_front_panel(
             # them, corrupting the value (task #78).
             raw_data = strip_surrounding_quotes(default_elem.text)
             control_type = ddo.get("class", "unknown")
-
-            # Resolve type for array/cluster decoding
-            lv_type = None
-            type_desc_elem = fpdco.find("typeDesc")
-            if type_desc_elem is not None and type_desc_elem.text and type_map:
-                lv_type = resolve_type_rich(type_desc_elem.text, type_map)
 
             # field_defaults is this control's own STRUCTURED per-field
             # breakdown (a dict by field name, recursively, for a cluster;
@@ -556,6 +571,7 @@ def _parse_front_panel(
             unresolved_uids=unresolved_uids,
             field_defaults=field_defaults,
             type_map=type_map,
+            own_lv_type=lv_type,
         )
         if control:
             control.ddo_uid = ddo.get("uid")
@@ -1524,6 +1540,10 @@ def _parse_cluster_fields(
     label and caption can (verified on the real corpus: "Record Length" 's
     label and caption differ). The LABEL is always the identity; a caption,
     when a developer has set one, is display-only and never part of a match.
+
+    Each field also gets its own resolved type (``ParsedFPControl.lv_type``,
+    see there) from its own ``<typeDesc>`` child -- ``_parse_ddo`` never
+    resolves this itself, only a caller that already has ``type_map`` does.
     """
     direct = _direct_fields(cluster_ddo)
 
@@ -1535,6 +1555,18 @@ def _parse_cluster_fields(
             if field_defaults and field_name
             else None
         )
+        # A field's own type -- there is no wrapping fPDCO here (unlike a
+        # top-level control), so the ONLY spot is the field ddo's own
+        # <typeDesc> child (the same "carries its own child when it nests a
+        # payload" heap convention the top-level/array-element lookups use;
+        # note() is intentionally non-recursive -- see the top-level lookup's
+        # comment for why that matters).
+        field_type_desc = field_elem.find("typeDesc")
+        field_lv_type = (
+            resolve_type_rich(field_type_desc.text, type_map)
+            if field_type_desc is not None and field_type_desc.text and type_map
+            else None
+        )
         child = _parse_ddo(
             field_elem,
             field_elem.get("uid", ""),
@@ -1543,6 +1575,7 @@ def _parse_cluster_fields(
             unresolved_uids=unresolved_uids,
             field_defaults=value if isinstance(value, (dict, list)) else None,
             type_map=type_map,
+            own_lv_type=field_lv_type,
         )
         if child:
             # Force the child's own identity to the SAME strict label used for
@@ -1564,8 +1597,15 @@ def _parse_ddo(
     unresolved_uids: set[str] | None = None,
     field_defaults: object | None = None,
     type_map: dict[int, LVType] | None = None,
+    own_lv_type: LVType | None = None,
 ) -> ParsedFPControl | None:
     """Parse a data display object (ddo) into a ParsedFPControl.
+
+    ``own_lv_type`` is this control's own resolved type (the caller's
+    ``fPDCO/typeDesc`` already resolved against the VCTP ``type_map``) --
+    carried straight onto the result as ``ParsedFPControl.lv_type``; a control
+    with no serializable default (a refnum has none) still gets one, since
+    resolving it never depended on ``<DefaultData>`` existing.
 
     ``field_defaults`` is THIS ddo's own structured default value when it's a
     container (a ``dict`` by field name for a ``stdClust``, a ``list`` of
@@ -1604,6 +1644,7 @@ def _parse_ddo(
                 unresolved_uids=unresolved_uids,
                 field_defaults=field_defaults,
                 type_map=type_map,
+                own_lv_type=own_lv_type,
             )
             if inner_control:
                 inner_control.name = name
@@ -1654,6 +1695,7 @@ def _parse_ddo(
     children = []
     cluster_geom = None
     element_default_value = None
+    element_lv_type: LVType | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
         children = _parse_cluster_fields(
@@ -1681,6 +1723,25 @@ def _parse_ddo(
         # is what gets checked, not the "typeDef" wrapper's own class.
         if element is not None and element.get("class") == "typeDef":
             element = _wrapped_control(element)
+
+        # The element's own resolved type (its RefnumKind, an lvVariant's
+        # `Any`, ...) -- real per-element identity a render view needs but
+        # `parts`/`control_type` alone don't carry. Unconditional: unlike the
+        # default-value fallback below, this doesn't need a <DefaultData> to
+        # exist (a refnum element never has one). The element ddo carries its
+        # OWN <typeDesc> child when it nests a payload (same two-spot heap
+        # convention as the top-level lookup above); with no payload, the
+        # ARRAY's own already-resolved type (`own_lv_type`) carries the
+        # element type directly (VCTP decodes an array's element type as part
+        # of the array descriptor). Non-recursive ``find()`` here too -- see
+        # the top-level lookup's comment; a payload nested inside the element
+        # must not leak through as the element's own type.
+        if element is not None and type_map:
+            elem_own_type_desc = element.find("typeDesc")
+            if elem_own_type_desc is not None and elem_own_type_desc.text:
+                element_lv_type = resolve_type_rich(elem_own_type_desc.text, type_map)
+            elif own_lv_type is not None:
+                element_lv_type = own_lv_type.element_type
 
         # When the array's OWN combined default has no first element (it was
         # saved with zero elements), LabVIEW separately stores a
@@ -1738,6 +1799,7 @@ def _parse_ddo(
         control_type=control_type,
         bounds=bounds,
         is_indicator=control_is_indicator,
+        lv_type=own_lv_type,
         default_value=default_data,
         caption=caption,
         label_visible=_part_shown(ddo, 16) is not None,
@@ -1747,6 +1809,7 @@ def _parse_ddo(
         enum_values=enum_values,
         cluster_geom=cluster_geom,
         element_default_value=element_default_value,
+        element_lv_type=element_lv_type,
         element_values=(
             list(field_defaults)
             if control_type == "indArr" and isinstance(field_defaults, list)
