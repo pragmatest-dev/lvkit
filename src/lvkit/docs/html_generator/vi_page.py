@@ -2,14 +2,15 @@
 
 Methods: _render_diagram, _render_vi_page, _render_controls_table,
 _render_indicators_table, _render_dependencies_section,
-_render_callers_section, _render_polymorphic_section, _render_access_badge,
-_render_method_overrides_section.
+_render_type_definitions_section, _render_callers_section,
+_render_polymorphic_section, _render_access_badge, _render_method_overrides_section.
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from html import escape
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import MethodAccessInfo, MethodOverrideInfo
@@ -22,6 +23,7 @@ class ViPageMixin:
     doc_title: str
     doc_type: str
     all_vis: set[str]
+    typedef_pages: dict[str, str]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -70,6 +72,7 @@ class ViPageMixin:
         indicators = vi_data.get("indicators", [])
         dependencies = vi_data.get("dependencies", {})
         callers = vi_data.get("callers", [])
+        type_definitions = vi_data.get("type_definitions", {})
         is_poly = vi_data.get("is_polymorphic", False)
         variant_params = vi_data.get("variant_params", [])
         icon_path = vi_data.get("icon_path")
@@ -98,6 +101,13 @@ class ViPageMixin:
             dependencies, relative_link
         )
         callers_html = self._render_callers_section(callers, relative_link)
+        def typedef_link(key: str) -> str | None:
+            page = self.typedef_pages.get(key)
+            return "../" + page if page is not None else None
+
+        type_definitions_html = self._render_type_definitions_section(
+            type_definitions, typedef_link
+        )
         diagram_svg = vi_data.get("diagram_svg")
         if diagram_svg:
             dataflow_html = self._render_diagram(
@@ -196,6 +206,8 @@ class ViPageMixin:
             <h2>Dependencies (Calls)</h2>
             {dependencies_html}
         </section>
+
+        {type_definitions_html}
 
         <section id="callers">
             <h2>Used By</h2>
@@ -324,6 +336,37 @@ class ViPageMixin:
             {"".join(items)}
         </ul>
         """
+
+    def _render_type_definitions_section(
+        self,
+        type_definitions: dict[str, str],
+        link_fn: Callable[[str], str | None],
+    ) -> str:
+        """The type definitions (``.ctl``) this VI uses, each linked to its page
+        when one exists. Empty string (no section) when it uses none.
+
+        Args:
+            type_definitions: Dict mapping a typedef's PATH key to its display
+                name.
+            link_fn: Function giving a typedef's page link from its path key, or
+                None when it has no page (a stub).
+        """
+        if not type_definitions:
+            return ""
+        items = []
+        for key, display_name in sorted(
+            type_definitions.items(), key=lambda kv: (kv[1], kv[0])
+        ):
+            name = f"<code>{escape(display_name)}</code>"
+            href = link_fn(key)
+            if href is not None:
+                items.append(f'<li><a href="{escape(href)}">{name}</a></li>')
+            else:
+                items.append(f"<li>{name}</li>")
+        return (
+            '<section id="type-definitions"><h2>Type Definitions</h2>'
+            f'<ul class="dependency-list">{"".join(items)}</ul></section>'
+        )
 
     def _render_callers_section(
         self, callers: list[str], link_fn: Callable[[str], str]

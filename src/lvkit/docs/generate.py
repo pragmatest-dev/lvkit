@@ -17,6 +17,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.render import render_vi_with_subvis
+from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
 from lvkit.structure import parse_lvclass, parse_lvlib
 
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 def _collect_library_vis(library_path: Path) -> list[Path]:
-    """Collect all VI paths from a .lvlib library."""
+    """Collect the file paths of a .lvlib's VI members -- its controls (.ctl) are
+    listed as VI members too; ``_split_controls`` separates them."""
     library = parse_lvlib(library_path)
     base_path = library_path.parent
 
@@ -85,12 +87,21 @@ def _collect_directory_vis(dir_path: Path) -> list[Path]:
     if not dir_path.is_dir():
         raise ValueError(f"Not a directory: {dir_path}")
 
-    vi_paths: list[Path] = []
-    for vi_file in dir_path.rglob("*.vi"):
-        if vi_file.is_file():
-            vi_paths.append(vi_file.resolve())
+    return sorted(p.resolve() for p in dir_path.rglob("*.vi") if p.is_file())
 
-    return vi_paths
+
+def _collect_directory_ctls(dir_path: Path) -> list[Path]:
+    """Collect all ``.ctl`` controls recursively from a directory."""
+    if not dir_path.is_dir():
+        raise ValueError(f"Not a directory: {dir_path}")
+    return sorted(p.resolve() for p in dir_path.rglob("*.ctl") if p.is_file())
+
+
+def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
+    """``paths`` split into ``(VIs, .ctl controls)``. A library lists its
+    controls beside its VIs, but a control loads as a typedef, not a VI."""
+    controls = [p for p in paths if p.suffix.lower() == ".ctl"]
+    return [p for p in paths if p.suffix.lower() != ".ctl"], controls
 
 
 def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
@@ -164,6 +175,12 @@ def _prepare_vi_documentation_data(
     }
 
     qualified_deps = set(graph.get_vi_dependencies(vi_name))
+    # Type definitions (.ctl) are not SubVI calls: they are listed apart, linked
+    # to their own page.
+    type_definitions = {
+        dep: graph.typedef_name(dep) for dep in qualified_deps if graph.is_typedef(dep)
+    }
+    qualified_deps -= type_definitions.keys()
 
     def _extract_subvi_names(nodes):
         names = []
@@ -245,6 +262,7 @@ def _prepare_vi_documentation_data(
         "indicators": indicators,
         "graph": graph_data,
         "dependencies": dependencies,
+        "type_definitions": type_definitions,
         "callers": callers,
         "is_polymorphic": is_poly,
         "poly_variants": poly_variants,
@@ -284,14 +302,20 @@ def generate_documents(
     # Determine input type and collect VI paths
     print("[TIMING] Starting VI discovery...")
     t0 = time.time()
+    ctl_paths: list[Path] = []
     if library_path_obj.suffix == ".vi":
         doc_type = "vi"
         doc_title = library_path_obj.stem
         vi_paths = [library_path_obj]
+    elif library_path_obj.suffix == ".ctl":
+        doc_type = "typedef"
+        doc_title = library_path_obj.stem
+        vi_paths = []
+        ctl_paths = [library_path_obj.resolve()]
     elif library_path_obj.suffix == ".lvlib":
         doc_type = "library"
         doc_title = library_path_obj.stem
-        vi_paths = _collect_library_vis(library_path_obj)
+        vi_paths, ctl_paths = _split_controls(_collect_library_vis(library_path_obj))
     elif library_path_obj.suffix == ".lvclass":
         doc_type = "class"
         doc_title = library_path_obj.stem
@@ -300,15 +324,19 @@ def generate_documents(
         doc_type = "directory"
         doc_title = library_path_obj.name
         vi_paths = _collect_directory_vis(library_path_obj)
+        ctl_paths = _collect_directory_ctls(library_path_obj)
     else:
         raise ValueError(
             f"Unsupported input type: {library_path}. "
-            "Expected .lvlib, .lvclass, .vi, or directory"
+            "Expected .lvlib, .lvclass, .vi, .ctl, or directory"
         )
-    print(f"[TIMING] VI discovery: {time.time() - t0:.2f}s - Found {len(vi_paths)} VIs")
+    print(
+        f"[TIMING] VI discovery: {time.time() - t0:.2f}s - Found {len(vi_paths)} VIs"
+        f" and {len(ctl_paths)} controls"
+    )
 
-    if not vi_paths:
-        return f"No VIs found in {library_path}"
+    if not vi_paths and not ctl_paths:
+        return f"No VIs or controls found in {library_path}"
 
     # Load all VIs into graph
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
@@ -319,7 +347,7 @@ def generate_documents(
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis: list[str] = []
-    failed_vis: list[str] = []
+    failed_files: list[str] = []
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
@@ -346,7 +374,7 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            failed_vis.append(f"{vi_path.name}: {str(e)}")
+            failed_files.append(f"{vi_path.name}: {str(e)}")
             print(
                 f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
                 flush=True,
@@ -358,8 +386,25 @@ def generate_documents(
         f"Loaded {len(loaded_vis)} VIs, expanded to {total_loaded} total"
     )
 
-    if not loaded_vis:
-        return "Failed to load any VIs. Errors:\n" + "\n".join(failed_vis)
+    # Type-definition controls load into the SAME graph as typedef nodes (a
+    # class's private-data control and every control a VI uses are already there).
+    loaded_ctls: list[str] = []
+    for ctl_path in ctl_paths:
+        try:
+            key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
+        except Exception as e:
+            failed_files.append(f"{ctl_path.name}: {e}")
+            continue
+        if graph.is_stub(key):
+            failed_files.append(f"{ctl_path.name}: could not be read as a control")
+        else:
+            loaded_ctls.append(ctl_path.name)
+
+    if not loaded_vis and not loaded_ctls:
+        return "Failed to load any VIs or controls. Errors:\n" + "\n".join(
+            failed_files
+        )
+    typedef_keys = graph.list_typedefs()
 
     # Every command that parses a VI warms the index — docs parses the whole
     # set into `graph`, so upsert each loaded VI's facts (best-effort).
@@ -383,6 +428,8 @@ def generate_documents(
     # Create HTML generator
     generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
     generator.icon_map = icon_map
+    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
+    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
 
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
@@ -409,7 +456,7 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            failed_vis.append(f"{vi_name}: {str(e)}")
+            failed_files.append(f"{vi_name}: {str(e)}")
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"
@@ -435,6 +482,16 @@ def generate_documents(
         f" - Generated {len(class_names)} class pages"
     )
 
+    # Type-definition pages (their Used By links to the VI / class pages above).
+    for info in typedef_infos:
+        try:
+            svg = render_ctl_front_panel(graph, info.key)
+        except Exception:
+            logger.exception("front panel render failed for %s", info.name)
+            svg = None
+        generator.generate_typedef_page(info, svg)
+    print(f"[TIMING] Generated {len(typedef_infos)} type definition pages")
+
     # Generate index page - filter out poly variants (only show wrappers)
     print("[TIMING] Generating index page...")
     t0 = time.time()
@@ -455,13 +512,15 @@ def generate_documents(
         f"Generated documentation for {doc_title} ({doc_type})",
         f"Output directory: {output_dir_obj.resolve()}",
         f"Total VIs documented: {generated_count}",
-        f"Index page: {output_dir_obj / 'index.html'}",
     ]
+    if typedef_infos:
+        summary_parts.append(f"Type definitions documented: {len(typedef_infos)}")
+    summary_parts.append(f"Index page: {output_dir_obj / 'index.html'}")
 
-    if failed_vis:
-        summary_parts.append(f"\nWarnings ({len(failed_vis)} VIs skipped):")
-        summary_parts.extend(f"  - {err}" for err in failed_vis[:10])
-        if len(failed_vis) > 10:
-            summary_parts.append(f"  ... and {len(failed_vis) - 10} more")
+    if failed_files:
+        summary_parts.append(f"\nWarnings ({len(failed_files)} files skipped):")
+        summary_parts.extend(f"  - {err}" for err in failed_files[:10])
+        if len(failed_files) > 10:
+            summary_parts.append(f"  ... and {len(failed_files) - 10} more")
 
     return "\n".join(summary_parts)

@@ -1,10 +1,13 @@
 """Naming/filename mixin for HTMLDocGenerator.
 
 Methods: _extract_library_group, _extract_display_name,
-_vi_name_to_filename, _class_name_to_filename.
+_vi_name_to_filename, _class_name_to_filename, _typedef_filenames.
 """
 
 from __future__ import annotations
+
+import hashlib
+import re
 
 
 class NamingMixin:
@@ -85,6 +88,26 @@ class NamingMixin:
             safe_name = safe_name.replace("__", "_")
 
         return f"{safe_lib}/{safe_name}.html"
+
+    def _typedef_filenames(self, entries: list[tuple[str, str]]) -> dict[str, str]:
+        """``typedef/<name>.html`` for each ``(path key, display name)``. The path
+        key is the identity: two controls that share a display name (a file name
+        repeats across directories) each get a short hash of their path, so no
+        two pages collide."""
+        base_of = {
+            key: re.sub(r"[^A-Za-z0-9_.-]+", "_", name.removesuffix(".ctl")).strip("_")
+            or "typedef"
+            for key, name in entries
+        }
+        counts: dict[str, int] = {}
+        for base in base_of.values():
+            counts[base] = counts.get(base, 0) + 1
+        filenames = {}
+        for key, base in base_of.items():
+            if counts[base] > 1:
+                base = f"{base}-{hashlib.sha1(key.encode()).hexdigest()[:8]}"
+            filenames[key] = f"typedef/{base}.html"
+        return filenames
 
     def _class_name_to_filename(self, classname: str) -> str:
         """Convert a class qualified name to its landing-page path.

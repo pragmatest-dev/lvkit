@@ -437,11 +437,11 @@ def main() -> int:
     # Docs command - generate HTML documentation
     docs_parser = subparsers.add_parser(
         "docs",
-        help="Generate HTML documentation for VI files",
+        help="Generate HTML documentation for VIs and .ctl type definitions",
     )
     docs_parser.add_argument(
         "input_path",
-        help="Path to .vi, .lvlib, .lvclass, or directory",
+        help="Path to .vi, .ctl, .lvlib, .lvclass, or directory",
     )
     docs_parser.add_argument(
         "output_dir",

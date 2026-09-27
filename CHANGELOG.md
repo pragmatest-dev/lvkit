@@ -11,6 +11,7 @@ lvkit follows semantic versioning.
 - **`lvkit render` draws a `.ctl` control's front panel** — as an SVG or an interactive viewer page, and a directory run renders its controls too (#101).
 - **`lvkit describe` reads a `.ctl`** — its type, enum items, and every field with its recorded default (arrays and nested clusters included), as text or `--format json` (#101).
 - **Agents can read and see a `.ctl`** — a new MCP `read_ctl` tool returns its type and field defaults, and `render` draws its front panel (#101).
+- **`lvkit docs` documents `.ctl` type definitions** — a page per control (front panel, fields with defaults, what it uses and what uses it), linked from the index and from every VI that uses it (#101).
 - **First use of a fresh cache no longer fails under concurrent extraction** — parallel first callers could delete a cache directory another was creating.
 
 ## [0.8.3] - 2026-09-09

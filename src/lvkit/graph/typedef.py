@@ -173,18 +173,17 @@ class TypedefMixin:
     def _typedef_node(self, key: str) -> Mapping[str, Any]:
         """The dep-graph node data of the loaded (non-stub) typedef ``key``;
         ValueError when ``key`` isn't one."""
-        if (
-            key not in self._dep_graph
-            or self._dep_graph.nodes[key].get("node_type") != NodeType.TYPEDEF
-            or self.is_stub(key)
-        ):
+        if not self.is_typedef(key) or self.is_stub(key):
             raise ValueError(f"Not a loaded typedef: {key}")
         return self._dep_graph.nodes[key]
 
-    def _typedef_display_name(self, key: str) -> str:
-        """The control's file name, qualified by the library that owns it (the
-        name is the same whichever way it was loaded). A class's private-data
-        control is named by its file alone; its class is in ``owned_by``."""
+    def typedef_name(self, key: str) -> str:
+        """The name of the typedef at path ``key`` -- loaded or a stub: its file
+        name, qualified by the library that owns it (the same whichever way it was
+        loaded). A class's private-data control is named by its file alone; its
+        class is in ``owned_by``. ValueError when ``key`` isn't a typedef."""
+        if not self.is_typedef(key):
+            raise ValueError(f"Not a typedef: {key}")
         leaf = Path(key).name
         library = self._owner_key(key, NodeType.LIBRARY)
         if library is None:
@@ -199,15 +198,22 @@ class TypedefMixin:
             None if self.is_stub(other) else other,
         )
 
+    def is_typedef(self, key: str) -> bool:
+        """True when ``key`` is a typedef node, loaded or a stub."""
+        return (
+            key in self._dep_graph
+            and self._dep_graph.nodes[key].get("node_type") == NodeType.TYPEDEF
+        )
+
     def list_typedefs(self) -> list[str]:
         """The path keys of every loaded (non-stub) typedef, ordered by display
         name then path."""
         keys = [
             n
-            for n, d in self._dep_graph.nodes(data=True)
-            if d.get("node_type") == NodeType.TYPEDEF and not self.is_stub(n)
+            for n in self._dep_graph.nodes
+            if self.is_typedef(n) and not self.is_stub(n)
         ]
-        return sorted(keys, key=lambda k: (self._typedef_display_name(k), k))
+        return sorted(keys, key=lambda k: (self.typedef_name(k), k))
 
     def get_typedef(self, key: str) -> TypedefInfo:
         """The loaded typedef at path ``key``. Raises ValueError when it isn't a
@@ -235,7 +241,7 @@ class TypedefMixin:
         ]
         return TypedefInfo(
             key=key,
-            name=self._typedef_display_name(key),
+            name=self.typedef_name(key),
             root_type=root,
             default=_default_of(root_ctrl, root),
             fields=_typedef_fields(
