@@ -114,4 +114,6 @@ def resolve_glyph(ctrl: ParsedFPControl, theme: Theme) -> Glyph:
         theme,
         number_format=ctrl.number_format,
         lv_type=ctrl.lv_type,
+        slide_min=ctrl.slide_min,
+        slide_max=ctrl.slide_max,
     )

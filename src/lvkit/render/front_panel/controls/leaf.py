@@ -19,6 +19,7 @@ from .enum_control import EnumControlGlyph
 from .number_format import format_number
 from .numeric import NumericControlGlyph
 from .picture import PictureControlGlyph
+from .slide import SlideControlGlyph
 from .unknown import UnknownControlGlyph
 
 
@@ -68,6 +69,8 @@ def leaf_glyph(
     show_spinner: bool = True,
     number_format: str | None = None,
     lv_type: LVType | None = None,
+    slide_min: float | None = None,
+    slide_max: float | None = None,
 ) -> Glyph:
     """Front-panel value cells use a neutral ``struct_border`` outline (a real
     LabVIEW control's border is never type-colored -- wire colors are a
@@ -77,7 +80,8 @@ def leaf_glyph(
     array's own disabled default-element row (see
     ``NumericControlGlyph.show_spinner``). ``lv_type`` is this control's own
     resolved type (``ParsedFPControl.lv_type``/``element_lv_type``) -- used
-    only by ``stdRefNum`` today, for its real kind and registered payload."""
+    only by ``stdRefNum`` today, for its real kind and registered payload.
+    ``slide_min``/``slide_max`` are ``stdSlide``'s own recorded range."""
     if control_type == "stdRefNum":
         return _refnum_glyph(lv_type, theme)
     if control_type == "stdTag":
@@ -94,6 +98,15 @@ def leaf_glyph(
         return EnumControlGlyph(default_value, ())
     if control_type == "stdPict":
         return PictureControlGlyph(theme.struct_border)
+    if control_type == "stdSlide":
+        value = default_value if isinstance(default_value, str) else None
+        try:
+            numeric_value = float(value) if value is not None else None
+        except ValueError:
+            numeric_value = None
+        return SlideControlGlyph.from_value(
+            theme.struct_border, numeric_value, slide_min, slide_max
+        )
     if control_type == "stdLvVariant":
         # Opaque, type-erased data -- there IS no visible internal structure
         # to a Variant (verified against the real corpus: the heap's own

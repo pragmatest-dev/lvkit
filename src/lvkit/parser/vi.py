@@ -1687,6 +1687,12 @@ def _parse_ddo(
     if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
 
+    # A Slide's own recorded range, straight off its ddo (no VCTP needed).
+    slide_min = slide_max = None
+    if control_type == "stdSlide":
+        slide_min = _std_num_bound(ddo.find("StdNumMin"))
+        slide_max = _std_num_bound(ddo.find("StdNumMax"))
+
     # Cluster fields: a stdClust's own fields, or -- for an array OF clusters
     # (indArr whose element ddo is a stdClust) -- the element cluster's fields,
     # so a view can render one typed column per field. Same extraction either way.
@@ -1822,6 +1828,8 @@ def _parse_ddo(
         number_format=_numeric_format(
             ddo.find("ddo") if control_type == "indArr" else ddo
         ),
+        slide_min=slide_min,
+        slide_max=slide_max,
     )
 
 
@@ -1834,6 +1842,45 @@ def _numeric_format(ddo: ET.Element | None) -> str | None:
     if label is None or not label.text:
         return None
     return strip_surrounding_quotes(label.text) or None
+
+
+def _std_num_bound(elem: ET.Element | None) -> float | None:
+    """A ``<StdNumMin>``/``<StdNumMax>`` element's value. Two real heap shapes
+    (verified against corpus bytes): a plain decimal, decorated with a
+    parenthesised hex echo the parser ignores (``100 (0x4059...)`` --
+    including LabVIEW's own ``-inf``/``inf`` "no bound set" sentinel,
+    ``-inf (0xFFF0...)``); or a RAW bit pattern with no decimal echo at all,
+    flagged by ``Format="hex"`` (e.g. a signed 32-bit min recorded as
+    ``80000000`` = INT32_MIN) -- see ``_hex_std_num_bound``. Reading only
+    ``.text`` and running it through ``float()`` unconditionally (an earlier
+    version of this function did) is unsound: ``float("80000000")`` succeeds
+    and silently returns the wrong number, since every character in a hex
+    bit pattern can also be a valid decimal digit."""
+    if elem is None or not elem.text:
+        return None
+    if elem.get("Format") == "hex":
+        return _hex_std_num_bound(elem.text.strip())
+    try:
+        return float(elem.text.split(None, 1)[0])
+    except ValueError:
+        return None
+
+
+def _hex_std_num_bound(hex_text: str) -> float | None:
+    """A ``Format="hex"`` bit pattern, decoded by byte width -- the only two
+    widths seen on real corpus controls: 4 bytes (a signed 32-bit integer,
+    e.g. ``80000000`` = INT32_MIN) or 8 bytes (an IEEE-754 double, e.g. the
+    ``-inf``/``inf`` sentinel's own bit pattern). Any other width is
+    unrecognized and returns None rather than guess."""
+    try:
+        raw = bytes.fromhex(hex_text)
+    except ValueError:
+        return None
+    if len(raw) == 4:
+        return float(int.from_bytes(raw, "big", signed=True))
+    if len(raw) == 8:
+        return struct.unpack(">d", raw)[0]
+    return None
 
 
 def _decode_default_data(

@@ -596,6 +596,17 @@ class ParsedFPControl:
     # part's `<format>`, e.g. `%#_g`, `%.0f`) -- for an `indArr`, its ELEMENT's.
     # None for every non-numeric control.
     number_format: str | None = None
+    # For `control_type == "stdSlide"`: its own recorded `StdNumMin`/
+    # `StdNumMax` range, decoded straight from the heap's `<StdNumMin>`/
+    # `<StdNumMax>` element (a leading decimal, LabVIEW's own `-inf`/`inf`
+    # "no bound set" sentinel, or a raw bit pattern -- see `vi._std_num_bound`).
+    # None for every non-slide control. Unlike `lv_type`/`element_lv_type`,
+    # there is no `element_slide_min`/`element_slide_max`: no real corpus
+    # array-of-stdSlide was found, so an indArr's own element range is not
+    # extracted (a future one would render with no thumb, the same as any
+    # other unresolvable range, never a wrong one).
+    slide_min: float | None = None
+    slide_max: float | None = None
 
 
 @dataclass
