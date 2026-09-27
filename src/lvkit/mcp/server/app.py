@@ -98,6 +98,9 @@ For any question about the project, start here:
   into context or hand-draw one from `read_vi`. NEVER suggest
   opening/screenshotting LabVIEW — these tools ARE how you see it, no license
   needed.
+- One `.ctl` control / typedef — `read_ctl` returns its type, enum items, and every
+  field with its recorded default (nested clusters and arrays included); `render` on
+  the same path draws its front panel. Same rules: interpret, relay the path.
 - Convert a VI to Python — UNDERSTAND it with `read_vi`/`query`, then write
   idiomatic Python yourself. (lvkit's deterministic AST generator lives in the
   `lvkit generate` CLI — use it as a reference/oracle, not the primary path.)

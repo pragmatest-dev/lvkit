@@ -77,13 +77,14 @@ The same SQL is available on the CLI as [`lvkit query`](query.md).
 
 ### Deep single-VI — load one VI live, on demand
 
-Each takes a `vi_path` (a real `.vi`) and loads it live (XML already cached) — no
-`load`/`clear` session state.
+Each takes the path of a real `.vi` — or, for `read_ctl` and `render`, a `.ctl`
+control — and loads it live (XML already cached) — no `load`/`clear` session state.
 
 | Tool | Description |
 |------|-------------|
 | `describe` | Human-readable purpose, signature, SubVI calls, control flow. |
 | `read_vi` | The VI as the canonical **netlist IR** — `{vi, inputs, outputs, components, body}`, faithful type labels, a `kind`-tagged instance/scope body. The structured counterpart to `describe`'s prose. |
+| `read_ctl` | A `.ctl` typedef / custom control as `{typedef, path, kind, type, default, fields, uses}` — the control's own type, enum items, and every field with its recorded default (nested clusters, arrays and saved values included). `render` on the same path draws its front panel. |
 
 ### Resolution gaps — triage before converting
 

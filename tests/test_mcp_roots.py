@@ -223,6 +223,7 @@ def test_mcp_registers_the_expected_tool_set():
         "query",
         "query_schema",
         "read_vi",
+        "read_ctl",
         "render",
         "diff",
         "unresolved",

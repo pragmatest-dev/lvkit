@@ -47,7 +47,8 @@ Two tool groups (understanding only — artifact generation lives in the CLI):
    working across several repos in one session.
 
 2. **Deep single-VI** (``describe`` for prose, ``read_vi`` for the structured
-   netlist) — full dataflow detail for ONE VI, loaded live on demand (XML
+   netlist, ``read_ctl`` for a ``.ctl`` control's structure) — full detail for ONE
+   VI or control, loaded live on demand (XML
    already cached). The Serena split: bulk/navigation off the index, depth on
    demand. An AI CONVERTS a VI by understanding it here and writing idiomatic
    Python itself — lvkit's deterministic AST generator is a CLI/oracle tool, not
@@ -202,7 +203,14 @@ from .index_tools import (  # noqa: E402
     query_schema,
 )
 from .resolvers import _configure_resolvers_for_vi  # noqa: E402
-from .vi_tools import _load_one, diff, read_vi, render, unresolved  # noqa: E402
+from .vi_tools import (  # noqa: E402
+    _load_one,
+    diff,
+    read_ctl,
+    read_vi,
+    render,
+    unresolved,
+)
 
 # ===== Entry points =====
 
@@ -304,6 +312,7 @@ __all__ = [
     # deep single-VI tools
     "_load_one",
     "read_vi",
+    "read_ctl",
     "render",
     "diff",
     "unresolved",

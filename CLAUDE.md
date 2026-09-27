@@ -94,7 +94,7 @@ The conversion pipeline:
 - `src/lvkit/codegen/builder.py` — `build_module()` entry point for AST generation
 - `src/lvkit/pipeline.py` — orchestrates multi-VI generation
 - `src/lvkit/cli.py` — command-line interface
-- `src/lvkit/mcp/` — MCP server (16 tools)
+- `src/lvkit/mcp/` — MCP server (9 tools)
 
 ### Standard Test Command
 

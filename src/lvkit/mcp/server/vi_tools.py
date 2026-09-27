@@ -1,5 +1,5 @@
-"""Deep single-VI tools (loaded on demand): ``read_vi``, ``render``, ``diff``,
-``unresolved``.
+"""Deep single-VI tools (loaded on demand): ``read_vi``, ``read_ctl``,
+``render``, ``diff``, ``unresolved``.
 
 .. note::
    ``_resolve_target`` lives in the package facade
@@ -23,8 +23,9 @@ from typing import Any
 import lvkit.mcp.server as _facade
 
 from ... import __version__
-from ...graph import InMemoryVIGraph, load_vi_by_path
+from ...graph import InMemoryVIGraph, load_ctl_by_path, load_vi_by_path
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
+from ...graph.netlist_json import typedef_to_dict
 from ...index.build import warm_all_loaded
 from ...load_mode import LoadMode
 from ...output_cache import (
@@ -38,6 +39,12 @@ from ...output_cache import (
 from ._compat import Context
 from .app import mcp
 from .resolvers import _configure_resolvers_for_vi
+
+
+def _resolved_roots(p: Path, search_paths: list[str] | None) -> list[Path]:
+    """The dependency-resolution roots for the file at ``p``: its own directory
+    (always searched) followed by the caller's ``search_paths``."""
+    return [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
 
 
 def _load_one(
@@ -57,7 +64,7 @@ def _load_one(
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
-    roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+    roots = _resolved_roots(p, search_paths)
     # Path IS a VI's identity: load_vi_by_path returns load_vi's OWN key for
     # the exact file requested, never re-derived from p.name (which would
     # collide across two same-named VIs -- routine under LabVIEW dynamic
@@ -139,16 +146,54 @@ async def read_vi(
 
 
 @mcp.tool()
+async def read_ctl(
+    ctl_path: str,
+    search_paths: list[str] | None = None,
+    verbose: bool = False,
+    ctx: Context | None = None,
+) -> dict[str, Any]:
+    """READ one ``.ctl`` typedef / custom control in full — its structure as
+    ``{typedef, path, kind, type, default, fields, uses, owned_by?}``. The
+    ``read_vi`` of a control: ``kind`` is the control's own type family (``cluster``,
+    ``enum``, ``ring``, ``primitive``, ``array``, …); a cluster's ``fields`` nest
+    (name, LabVIEW ``type``, the recorded ``default`` — an enum/ring default is the
+    item NAME — and an array's saved ``elements`` or an array-of-clusters' element
+    ``fields``); ``uses`` lists the typedefs/classes it references. ``owned_by``
+    appears only when the control was loaded with an owner. ``verbose=True``
+    additionally nests every type's full structure (``lv_type`` / ``root_type``).
+
+    The ``.ctl`` is read WITHOUT a LabVIEW license — never tell the user to open
+    it in LabVIEW. To SEE the control, call ``render`` on the same path. It does not
+    report which VIs use the control (a lone control has no callers loaded); ask
+    ``query`` for project-wide type use. ``ctl_path`` may be relative to the client's
+    workspace root; ``search_paths`` are extra dependency-resolution roots (its own
+    directory is always searched)."""
+    ctl_path = await _facade._resolve_target(ctl_path, ctx)
+
+    def _work() -> dict[str, Any]:
+        p = Path(ctl_path).resolve()
+        if not p.exists():
+            raise FileNotFoundError(f"Control not found: {ctl_path}")
+        _configure_resolvers_for_vi(p)
+        graph, key = load_ctl_by_path(p, search_paths=_resolved_roots(p, search_paths))
+        return typedef_to_dict(graph.get_typedef(key), verbose=verbose)
+
+    return await asyncio.to_thread(_work)
+
+
+@mcp.tool()
 async def render(
     vi_path: str,
     search_paths: list[str] | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
-    """Render one VI's **block diagram** to a self-contained interactive
-    **HTML viewer** and return its path — the faithful visual (node positions,
-    wires, structures, constants) as it appears in LabVIEW, reconstructed from
-    the ``.vi`` binary, in a zoom/pan page with a light/dark toggle. This is the
-    tool for "show me / draw / what does this VI look like".
+    """Render one VI's **block diagram** — or a ``.ctl`` control's **front
+    panel** — to a self-contained interactive **HTML viewer** and return its path:
+    the faithful visual (node positions, wires, structures, constants; or a
+    control's nested clusters, arrays and saved values) as it appears in LabVIEW,
+    reconstructed from the ``.vi`` / ``.ctl`` binary, in a zoom/pan page with a
+    light/dark toggle. This is the tool for "show me / draw / what does this look
+    like".
 
     Returns ``{render_path, bytes}``: ``render_path`` is a local ``.html`` file
     to open in a browser (same shape as ``diff``'s output). The markup is written
@@ -168,9 +213,9 @@ async def render(
     def _work() -> dict[str, Any]:
         p = Path(vi_path).resolve()
         if not p.exists():
-            raise FileNotFoundError(f"VI not found: {vi_path}")
+            raise FileNotFoundError(f"File not found: {vi_path}")
         _configure_resolvers_for_vi(p)
-        roots = [p.parent, *(Path(s).resolve() for s in (search_paths or []))]
+        roots = _resolved_roots(p, search_paths)
         opts = render_options_tag("html", "auto", None)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
@@ -183,7 +228,7 @@ async def render(
             theme_mode="auto",
         )
         if html is None:
-            raise RuntimeError(f"Could not render {p.name} (unresolvable diagram).")
+            raise RuntimeError(f"Could not render {p.name} (nothing to draw).")
         return {"render_path": str(render_slot(p, "html")), "bytes": len(html)}
 
     return await asyncio.to_thread(_work)
