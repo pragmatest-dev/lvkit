@@ -1870,7 +1870,7 @@ def _decode_default_data(
         return _decode_path_default(raw_bytes), None
     if control_type == "stdString" and len(raw_bytes) >= 4:
         return _decode_string_default(raw_bytes), None
-    if control_type in ("stdNumeric", "stdNum"):
+    if control_type in ("stdNumeric", "stdNum", "stdColorNum"):
         return _decode_numeric_default(raw_bytes), None
     if control_type == "stdBool" and len(raw_bytes) == 1:
         return ("True" if raw_bytes[0] else "False"), None

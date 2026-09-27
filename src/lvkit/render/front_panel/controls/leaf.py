@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ....models import LVType
+from ....parser.utils import heap_color
 from ...glyph import (
     ConstantGlyph,
     Glyph,
@@ -13,10 +14,33 @@ from ...glyph import (
 )
 from ...style import Theme, type_repr, wire_style
 from .boolean import BooleanControlGlyph
+from .color import ColorControlGlyph
 from .enum_control import EnumControlGlyph
 from .number_format import format_number
 from .numeric import NumericControlGlyph
 from .unknown import UnknownControlGlyph
+
+
+def _color_from_default(default_value: str | None) -> str | None:
+    """A Color Box's saved ``NumUInt32`` value (a decimal string, from the
+    normal numeric decode -- ``stdColorNum`` needs no type-specific parsing,
+    with or without a resolvable VCTP) as ``#RRGGBB``, via the SAME
+    ``00RRGGBB`` byte packing ``parser.utils.heap_color`` already reads.
+    ``None`` when the control has no saved default, or the value doesn't fit
+    that packing (a value above 0xFFFFFF)."""
+    if default_value is None:
+        return None
+    try:
+        value = int(default_value)
+    except ValueError:
+        return None
+    # The lower bound is load-bearing, not symmetry: the unresolved-VCTP
+    # fallback decode (_decode_numeric_default) reads this SIGNED, so a value
+    # whose top byte has the high bit set would come back negative -- this
+    # correctly rejects it as "not a color" rather than mis-packing it.
+    if not 0 <= value <= 0xFFFFFF:
+        return None
+    return heap_color(f"{value:08X}")
 
 
 def _refnum_glyph(lv_type: LVType | None, theme: Theme) -> RefnumGlyph:
@@ -64,6 +88,10 @@ def leaf_glyph(
         # every other front-panel value cell rather than the wire-purple a
         # diagram uses.
         return VariantGlyph(fill_attr="fp_value_fill", stroke_attr="struct_border")
+    if control_type == "stdColorNum":
+        return ColorControlGlyph(
+            color=_color_from_default(default_value), border_color=theme.struct_border
+        )
     if control_type == "stdString":
         return ConstantGlyph(
             value=default_value or "", color=theme.struct_border,
