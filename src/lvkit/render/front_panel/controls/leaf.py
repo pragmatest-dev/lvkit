@@ -18,6 +18,7 @@ from .color import ColorControlGlyph
 from .enum_control import EnumControlGlyph
 from .number_format import format_number
 from .numeric import NumericControlGlyph
+from .picture import PictureControlGlyph
 from .unknown import UnknownControlGlyph
 
 
@@ -91,6 +92,8 @@ def leaf_glyph(
         # actually an inert partID=8017 decoration nested inside a stdRefNum's
         # OWN parts, unrelated to this control_type -- never reaches here.
         return EnumControlGlyph(default_value, ())
+    if control_type == "stdPict":
+        return PictureControlGlyph(theme.struct_border)
     if control_type == "stdLvVariant":
         # Opaque, type-erased data -- there IS no visible internal structure
         # to a Variant (verified against the real corpus: the heap's own
