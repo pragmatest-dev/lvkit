@@ -110,7 +110,7 @@ def test_index_and_vi_page_link_to_typedef_pages(tmp_path: Path) -> None:
     assert "type definitions: 1" in index
     def link(key: str) -> str | None:
         page = gen.typedef_pages.get(key)
-        return "../" + page if page else None
+        return "../" + page.filename if page else None
 
     section = gen._render_type_definitions_section(
         {"/p/Cfg.ctl": "Cfg.ctl", "/p/Gone.ctl": "Gone.ctl"}, link
@@ -199,3 +199,30 @@ def test_a_library_lists_its_controls_apart_from_its_vis():
     assert all(p.suffix.lower() == ".vi" for p in vis)
     assert all(p.suffix.lower() == ".ctl" and p.is_file() for p in controls)
     assert len(set(controls)) == len(controls)  # each listed control appears once
+
+
+def test_a_class_page_links_its_private_data_control(tmp_path: Path) -> None:
+    from lvkit.graph.models import ClassHierarchyInfo
+
+    gen = _generator(tmp_path)
+    gen.register_typedefs([("/p/Data.ctl", "Data.ctl")])
+    hierarchy = ClassHierarchyInfo("C.lvclass", None, [], [], [])
+    linked = gen._render_class_page(hierarchy, {}, "/p/Data.ctl")
+    assert '<strong>Private data:</strong> <a href="../typedef/Data.html">' in linked
+    assert "Private data" not in gen._render_class_page(hierarchy, {}, None)
+    assert "Private data" not in gen._render_class_page(hierarchy, {}, "/p/Other.ctl")
+
+
+def test_a_missing_front_panel_leaves_a_note_only_when_given_one(tmp_path) -> None:
+    gen = _generator(tmp_path)
+    gen.register_typedefs([("/p/Cfg.ctl", "Cfg.ctl")])
+    noted = gen._render_typedef_page(_info(), None, "Front panel unavailable: x")
+    assert "Front panel unavailable: x" in noted and 'id="front-panel"' in noted
+    assert 'id="front-panel"' not in gen._render_typedef_page(_info(), None)
+
+
+def test_the_index_lists_typedefs_in_registration_order(tmp_path: Path) -> None:
+    gen = _generator(tmp_path)
+    gen.register_typedefs([("/a/A.ctl", "A.ctl"), ("/b/B.ctl", "B.ctl")])
+    index = gen._render_index_page([])
+    assert index.index(">A.ctl<") < index.index(">B.ctl<")

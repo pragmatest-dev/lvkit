@@ -7,9 +7,12 @@ _render_class_methods_list, _render_class_page.
 from __future__ import annotations
 
 from collections.abc import Callable
+from html import escape
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import ClassFieldEntry, ClassHierarchyInfo, MethodAccessInfo
+
+from .typedef_page import TypedefPage
 
 
 class ClassPageMixin:
@@ -17,6 +20,7 @@ class ClassPageMixin:
 
     # These attributes are defined on HTMLDocGenerator in core.py
     doc_title: str
+    typedef_pages: dict[str, TypedefPage]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -111,10 +115,22 @@ class ClassPageMixin:
 
         return f'<ul class="method-list">{"".join(items)}</ul>'
 
+    def _render_private_data_link(self, private_data_key: str | None) -> str:
+        """A link to the page of the class's private-data control, when it has one
+        (the control is documented, so it has a page); else nothing."""
+        page = self.typedef_pages.get(private_data_key or "")
+        if page is None:
+            return ""
+        return (
+            f'<p><strong>Private data:</strong> <a href="../{page.filename}">'
+            f"<code>{escape(page.name)}</code></a></p>"
+        )
+
     def _render_class_page(
         self,
         hierarchy: ClassHierarchyInfo,
         method_access: dict[str, MethodAccessInfo],
+        private_data_key: str | None = None,
     ) -> str:
         """Render the landing page HTML for one loaded class."""
         classname = hierarchy.classname
@@ -127,7 +143,9 @@ class ClassPageMixin:
             return "../" + self._class_name_to_filename(target_classname)
 
         hierarchy_html = self._render_class_hierarchy_section(hierarchy, class_link)
-        properties_html = self._render_class_properties_table(hierarchy.fields)
+        properties_html = self._render_private_data_link(
+            private_data_key
+        ) + self._render_class_properties_table(hierarchy.fields)
         methods_html = self._render_class_methods_list(
             hierarchy.methods, method_access, method_link
         )

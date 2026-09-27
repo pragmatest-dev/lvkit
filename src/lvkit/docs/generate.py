@@ -16,6 +16,8 @@ from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
+from lvkit.graph.node_kinds import NodeType
+from lvkit.graph.typedef import TypedefInfo
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -88,6 +90,24 @@ def _collect_directory_vis(dir_path: Path) -> list[Path]:
         raise ValueError(f"Not a directory: {dir_path}")
 
     return sorted(p.resolve() for p in dir_path.rglob("*.vi") if p.is_file())
+
+
+def _generate_typedef_pages(
+    graph: InMemoryVIGraph,
+    generator: HTMLDocGenerator,
+    typedef_infos: list[TypedefInfo],
+) -> None:
+    """Write one page per typedef, its front panel drawn inline. A panel that
+    can't be rendered leaves a note on the page (and is logged) rather than a
+    silently missing section."""
+    for info in typedef_infos:
+        note = None
+        try:
+            svg = render_ctl_front_panel(graph, info.key)
+        except Exception:
+            logger.exception("front panel render failed for %s", info.name)
+            svg, note = None, "Front panel unavailable: it could not be rendered."
+        generator.generate_typedef_page(info, svg, note)
 
 
 def _collect_directory_ctls(dir_path: Path) -> list[Path]:
@@ -467,6 +487,13 @@ def generate_documents(
     print("[TIMING] Generating class landing pages...")
     t0 = time.time()
     class_names = graph.list_classes()
+    # A class owns its private-data control: class qualified name -> its path key.
+    private_data = {
+        ref.qualified: info.key
+        for info in typedef_infos
+        for ref in info.owned_by
+        if ref.node_type == NodeType.CLASS
+    }
     for classname in class_names:
         hierarchy = graph.get_class_hierarchy(classname)
         if hierarchy is None:
@@ -476,20 +503,16 @@ def generate_documents(
             access = graph.get_method_access(method_vi)
             if access is not None:
                 method_access[method_vi] = access
-        generator.generate_class_page(hierarchy, method_access)
+        generator.generate_class_page(
+            hierarchy, method_access, private_data.get(classname)
+        )
     print(
         f"[TIMING] Class page generation: {time.time() - t0:.2f}s"
         f" - Generated {len(class_names)} class pages"
     )
 
     # Type-definition pages (their Used By links to the VI / class pages above).
-    for info in typedef_infos:
-        try:
-            svg = render_ctl_front_panel(graph, info.key)
-        except Exception:
-            logger.exception("front panel render failed for %s", info.name)
-            svg = None
-        generator.generate_typedef_page(info, svg)
+    _generate_typedef_pages(graph, generator, typedef_infos)
     print(f"[TIMING] Generated {len(typedef_infos)} type definition pages")
 
     # Generate index page - filter out poly variants (only show wrappers)

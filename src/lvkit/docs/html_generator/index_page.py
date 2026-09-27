@@ -8,6 +8,8 @@ from __future__ import annotations
 from html import escape
 from typing import TYPE_CHECKING
 
+from .typedef_page import TypedefPage
+
 
 class IndexPageMixin:
     """Mixin providing the top-level index/table-of-contents page."""
@@ -17,8 +19,7 @@ class IndexPageMixin:
     doc_type: str
     icon_map: dict[str, str]
     class_pages: dict[str, str]
-    typedef_pages: dict[str, str]
-    typedef_names: dict[str, str]
+    typedef_pages: dict[str, TypedefPage]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -85,11 +86,8 @@ class IndexPageMixin:
         toc_summary = f"Total VIs: {len(all_vis)} across {lib_count} {lib_word}"
         if self.typedef_pages:
             typedef_links = "".join(
-                f'<li><a href="{escape(self.typedef_pages[key])}">'
-                f"{escape(self.typedef_names[key])}</a></li>"
-                for key in sorted(
-                    self.typedef_pages, key=lambda k: (self.typedef_names[k], k)
-                )
+                f'<li><a href="{escape(page.filename)}">{escape(page.name)}</a></li>'
+                for page in self.typedef_pages.values()
             )
             count = len(self.typedef_pages)
             plural = "s" if count != 1 else ""

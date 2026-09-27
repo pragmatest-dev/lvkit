@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefField, TypedefInfo, TypedefRef
@@ -25,6 +25,14 @@ def _default_text(f: TypedefField) -> str:
     return "" if f.default is None else escape(str(f.default))
 
 
+class TypedefPage(NamedTuple):
+    """One typedef's page: its path relative to the output directory and its
+    display name."""
+
+    filename: str
+    name: str
+
+
 class TypedefPageMixin:
     """Mixin providing type-definition (``.ctl``) page rendering methods."""
 
@@ -32,7 +40,7 @@ class TypedefPageMixin:
     doc_title: str
     all_vis: set[str]
     class_pages: dict[str, str]
-    typedef_pages: dict[str, str]
+    typedef_pages: dict[str, TypedefPage]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -72,9 +80,13 @@ class TypedefPageMixin:
         )
 
     def _typedef_ref_href(self, ref: TypedefRef) -> str | None:
-        """The page (relative to a typedef page) a reference has, or None."""
+        """The page (relative to a typedef page) a reference has, or None.
+
+        The pages are keyed by different identities: typedef and VI pages by the
+        file's PATH key, class pages by the class's qualified name (as
+        ``generate_class_page`` records them)."""
         if ref.node_type == NodeType.TYPEDEF and ref.path in self.typedef_pages:
-            return PurePosixPath(self.typedef_pages[ref.path]).name
+            return PurePosixPath(self.typedef_pages[ref.path].filename).name
         if ref.node_type == NodeType.CLASS and ref.qualified in self.class_pages:
             return "../" + self.class_pages[ref.qualified]
         if ref.node_type == NodeType.VI and ref.path in self.all_vis:
@@ -93,9 +105,14 @@ class TypedefPageMixin:
         return f'<ul class="dependency-list">{"".join(items)}</ul>'
 
     def _render_typedef_page(
-        self, info: TypedefInfo, front_panel_svg: str | None
+        self,
+        info: TypedefInfo,
+        front_panel_svg: str | None,
+        front_panel_note: str | None = None,
     ) -> str:
-        """Render the page HTML for one loaded ``.ctl`` typedef."""
+        """Render the page HTML for one loaded ``.ctl`` typedef. Without a front
+        panel, ``front_panel_note`` (why it is missing) takes its place; with
+        neither, the section is left out."""
         root = info.root_type
         name = escape(info.name)
         sections: list[str] = []
@@ -104,6 +121,12 @@ class TypedefPageMixin:
                 '<section id="front-panel"><h2>Front Panel</h2>'
                 f'<div class="diagram-container" style="overflow:auto">'
                 f"{front_panel_svg}</div></section>"
+            )
+        elif front_panel_note:
+            sections.append(
+                '<section id="front-panel"><h2>Front Panel</h2>'
+                f'<div class="diagram-note">{escape(front_panel_note)}</div>'
+                "</section>"
             )
         type_line = f"<p><strong>Type:</strong> <code>{_type_text(root)}</code>"
         if info.default is not None:

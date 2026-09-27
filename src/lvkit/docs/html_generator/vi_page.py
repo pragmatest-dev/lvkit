@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import MethodAccessInfo, MethodOverrideInfo
 
+from .typedef_page import TypedefPage
+
 
 class ViPageMixin:
     """Mixin providing VI page rendering methods."""
@@ -23,7 +25,7 @@ class ViPageMixin:
     doc_title: str
     doc_type: str
     all_vis: set[str]
-    typedef_pages: dict[str, str]
+    typedef_pages: dict[str, TypedefPage]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -103,7 +105,7 @@ class ViPageMixin:
         callers_html = self._render_callers_section(callers, relative_link)
         def typedef_link(key: str) -> str | None:
             page = self.typedef_pages.get(key)
-            return "../" + page if page is not None else None
+            return "../" + page.filename if page is not None else None
 
         type_definitions_html = self._render_type_definitions_section(
             type_definitions, typedef_link
