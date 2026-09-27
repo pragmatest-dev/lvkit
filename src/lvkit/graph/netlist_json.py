@@ -452,6 +452,8 @@ def _typedef_field_to_dict(f: TypedefField, verbose: bool) -> dict[str, Any]:
         "type": f.lv_type.type_descriptor() if f.lv_type is not None else None,
         "default": f.default,
     }
+    if f.elements:
+        out["elements"] = list(f.elements)
     if f.fields:
         out["fields"] = [_typedef_field_to_dict(n, verbose) for n in f.fields]
     if verbose and f.lv_type is not None:

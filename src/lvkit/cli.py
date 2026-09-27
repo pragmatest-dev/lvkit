@@ -341,11 +341,11 @@ def main() -> int:
     # Describe command - human-readable VI description
     desc_parser = subparsers.add_parser(
         "describe",
-        help="Describe a VI's purpose, signature, and structure",
+        help="Describe a VI's purpose, signature and structure, or a .ctl's type",
     )
     desc_parser.add_argument(
         "input_path",
-        help="Path to .vi file",
+        help="Path to a .vi file, or a .ctl control (text or --format json)",
     )
     desc_parser.add_argument(
         "--search-path",
@@ -1138,6 +1138,24 @@ def cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+def _describe_ctl(args: argparse.Namespace, input_path: Path) -> int:
+    """``describe`` on a ``.ctl`` control: the text page, or ``--format json``."""
+    from .graph.describe_typedef import describe_ctl_file
+
+    try:
+        out = describe_ctl_file(
+            input_path,
+            fmt=getattr(args, "format", "text"),
+            verbose=args.verbose,
+            search_paths=_auto_search_paths(args.search_paths, input_path) or None,
+        )
+    except (ValueError, FileNotFoundError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    print(out if isinstance(out, str) else json.dumps(out, indent=2))
+    return 0
+
+
 def cmd_describe(args: argparse.Namespace) -> int:
     """Handle the describe command - human-readable VI description."""
     from .graph.describe import describe_vi
@@ -1146,6 +1164,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
     if not input_path.exists():
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
+    if input_path.suffix.lower() == ".ctl":
+        return _describe_ctl(args, input_path)
 
     _configure_resolvers(args)
 

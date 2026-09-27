@@ -9,7 +9,7 @@ verbose connector-pane lines and the netlist ``connector_pane`` facet.
 
 from __future__ import annotations
 
-from lvkit.graph.describe import _default_suffix, _pane_terminal_line
+from lvkit.graph.describe import _pane_terminal_line, default_suffix
 from lvkit.graph.diff import _pane_terminal_detail
 from lvkit.graph.interface_order import (
     is_required,
@@ -139,10 +139,10 @@ def test_ordering_is_deterministic():
 
 
 def test_default_suffix():
-    assert _default_suffix(None) == ""
-    assert _default_suffix(",") == ' = ","'
-    assert _default_suffix(0) == " = 0"
-    assert _default_suffix(True) == " = True"
+    assert default_suffix(None) == ""
+    assert default_suffix(",") == ' = ","'
+    assert default_suffix(0) == " = 0"
+    assert default_suffix(True) == " = True"
 
 
 def test_pane_terminal_line_annotates_only_exceptions():

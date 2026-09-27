@@ -204,7 +204,7 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def _default_suffix(default: ScalarValue) -> str:
+def default_suffix(default: ScalarValue) -> str:
     """`` = <value>`` for a terminal's default, or ``''`` when it has none.
 
     Only a genuinely-set default annotates (``default`` is ``None`` when the
@@ -225,7 +225,7 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     line = f"{t.name}: {_terminal_type_label(t)}"
     if is_required(t, direction):
         line += " (required)"
-    line += _default_suffix(t.default_value)
+    line += default_suffix(t.default_value)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"
     return line
@@ -270,7 +270,7 @@ def _get_subvi_description(
     return None
 
 
-def _type_label(t: LVType | None) -> str:
+def type_label(t: LVType | None) -> str:
     """Compact, FAITHFUL LVType label for class fields (never a Python
     annotation — see ``LVType.type_descriptor()``). ``unknown`` (not ``Any``) when the
     field's type didn't resolve."""
@@ -512,7 +512,7 @@ def _describe_class_context(
     if fields:
         lines.append("  fields:")
         for f in fields:
-            lines.append(f"    {f.name}: {_type_label(f.type)}")
+            lines.append(f"    {f.name}: {type_label(f.type)}")
     if siblings:
         lines.append(f"  methods: {', '.join(siblings)}")
     # This method's own item properties -- terse, only when non-default.

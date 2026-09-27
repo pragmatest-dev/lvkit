@@ -217,3 +217,67 @@ def test_a_control_loaded_standalone_and_through_its_library():
     for k in keys:
         assert not g._dep_graph.has_edge(k, k)
         assert k not in [r.path for r in g.get_typedef(k).uses]
+
+
+# --- defaults, arrays and ring items --------------------------------------------
+
+
+def _typedef_with_panel(fields, root_type, controls, key="/p/Cfg.ctl"):
+    g = InMemoryVIGraph()
+    root = ParsedFPControl(
+        uid="1", name="Cfg", control_type="stdClust", bounds=(0, 0, 40, 40),
+        children=controls,
+    )
+    g._dep_graph.add_node(
+        key, node_type=NodeType.TYPEDEF, fields=fields, root_type=root_type,
+        front_panel=ParsedFrontPanel(controls=[root], panel_bounds=(0, 0, 100, 100)),
+    )
+    return g.get_typedef(key)
+
+
+def _num(name: str, default: str | None = None, **kw) -> ParsedFPControl:
+    return ParsedFPControl(
+        uid=name, name=name, control_type="stdNum", bounds=(0, 0, 10, 10),
+        default_value=default, **kw,
+    )
+
+
+def test_a_cluster_root_has_no_default_of_its_own() -> None:
+    fields = [ClusterField("Gain", _I32)]
+    root = LVType(LVTypeKind.CLUSTER, fields=fields)
+    info = _typedef_with_panel(fields, root, [_num("Gain", "5")])
+    assert info.default is None and info.fields[0].default == "5"
+
+
+def test_an_array_field_carries_its_saved_elements() -> None:
+    arr = LVType(LVTypeKind.ARRAY, element_type=_I32, dimensions=1)
+    fields = [ClusterField("Steps", arr)]
+    ctrl = _num("Steps", element_values=["1", "2", "3"])
+    ctrl.control_type = "indArr"
+    cluster = LVType(LVTypeKind.CLUSTER, fields=fields)
+    info = _typedef_with_panel(fields, cluster, [ctrl])
+    assert info.fields[0].elements == ("1", "2", "3")
+    assert typedef_to_dict(info)["fields"][0]["elements"] == ["1", "2", "3"]
+
+
+def test_an_array_of_clusters_exposes_its_element_fields() -> None:
+    inner = [ClusterField("Gain", _I32)]
+    element = LVType(LVTypeKind.CLUSTER, fields=inner)
+    arr = LVType(LVTypeKind.ARRAY, element_type=element, dimensions=1)
+    fields = [ClusterField("Rows", arr)]
+    rows = _num("Rows", children=[_num("Gain", "7")])
+    rows.control_type = "indArr"
+    cluster = LVType(LVTypeKind.CLUSTER, fields=fields)
+    info = _typedef_with_panel(fields, cluster, [rows])
+    assert [(f.name, f.default) for f in info.fields[0].fields] == [("Gain", "7")]
+    assert not info.fields[0].elements  # its rows' values ride on the fields
+
+
+def test_a_ring_shows_the_items_its_panel_records() -> None:
+    """A ring whose type-map type is a plain integer: the panel knows the items."""
+    fields = [ClusterField("Range", _I32)]
+    ring = _num("Range", "1", enum_values=["1V", "5V", "10V"])
+    ring.control_type = "stdRing"
+    cluster = LVType(LVTypeKind.CLUSTER, fields=fields)
+    info = _typedef_with_panel(fields, cluster, [ring])
+    assert info.fields[0].default == "5V"

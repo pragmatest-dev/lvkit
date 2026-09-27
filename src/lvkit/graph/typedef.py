@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from ..models import ClusterField, LVType, ScalarValue
+from ..models import ClusterField, LVType, LVTypeKind, ScalarValue
 from ..parser.models import ParsedFPControl, ParsedFrontPanel
 from .node_kinds import OWNERSHIP_RELS, NodeType, node_type_of
 
@@ -32,12 +32,16 @@ logger = logging.getLogger(__name__)
 class TypedefField:
     """One cluster field of a typedef: its LabVIEW type, the default the
     control's front panel records for it (an enum/ring default is the item
-    NAME), and -- for a nested cluster -- its own fields."""
+    NAME), and -- for a nested cluster, or an array of clusters -- the element's
+    own ``fields``. An array field's saved values are ``elements`` (empty when
+    it has none, or when its elements are clusters, whose values ride on
+    ``fields``)."""
 
     name: str
     lv_type: LVType | None
     default: ScalarValue
     fields: tuple[TypedefField, ...]
+    elements: tuple[ScalarValue, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -69,21 +73,60 @@ class TypedefInfo:
     used_by: tuple[TypedefRef, ...]
 
 
+def _panel_item(ctrl: ParsedFPControl, raw: ScalarValue) -> str | None:
+    """The item a control's own recorded items (``enum_values``, in dropdown
+    order) name for the ordinal ``raw``: for a ring/enum whose items only the front
+    panel knows (its type-map type is a plain integer)."""
+    try:
+        index = int(str(raw))
+    except ValueError:
+        return None
+    return ctrl.enum_values[index] if 0 <= index < len(ctrl.enum_values) else None
+
+
 def _default_of(ctrl: ParsedFPControl | None, lv_type: LVType | None) -> ScalarValue:
     """``ctrl``'s recorded default, with an enum/ring ordinal shown as its item
     name. An ordinal that is no item of the type is kept as recorded and
     logged -- the control's data is inconsistent, but the read still works."""
     if ctrl is None or ctrl.default_value is None:
         return None
-    if lv_type is None or not lv_type.values:
-        return ctrl.default_value
-    item = lv_type.item_for(ctrl.default_value)
-    if item is None:
-        logger.warning(
-            "typedef default %r is not an item of %s", ctrl.default_value, ctrl.name
-        )
-        return ctrl.default_value
-    return item
+    if lv_type is not None and lv_type.kind == LVTypeKind.CLUSTER:
+        return None  # a cluster's defaults are its fields'
+    if lv_type is not None and lv_type.values:
+        item = lv_type.item_for(ctrl.default_value)
+        if item is None:
+            logger.warning(
+                "typedef default %r is not an item of %s",
+                ctrl.default_value,
+                ctrl.name,
+            )
+            return ctrl.default_value
+        return item
+    return _panel_item(ctrl, ctrl.default_value) or ctrl.default_value
+
+
+def _element_type(lv_type: LVType | None) -> LVType | None:
+    """An array's element type; the type itself for anything else."""
+    if lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
+        return lv_type.element_type
+    return lv_type
+
+
+def _elements_of(
+    ctrl: ParsedFPControl | None, lv_type: LVType | None
+) -> tuple[ScalarValue, ...]:
+    """An array control's saved element values, an enum/ring element shown as its
+    item name. Empty when there are none or the elements are clusters."""
+    if ctrl is None or lv_type is None or lv_type.kind != LVTypeKind.ARRAY:
+        return ()
+    if not all(isinstance(v, str) for v in ctrl.element_values):
+        return ()
+    element = lv_type.element_type
+    return tuple(
+        (element.item_for(v) if element is not None and element.values else None) or v
+        for v in ctrl.element_values
+        if isinstance(v, str)
+    )
 
 
 def _typedef_fields(
@@ -95,11 +138,20 @@ def _typedef_fields(
     result = []
     for f in fields or []:
         ctrl = by_name.get(f.name)
+        inner = _element_type(f.type)
         nested = _typedef_fields(
-            f.type.fields if f.type is not None else None,
+            inner.fields if inner is not None else None,
             ctrl.children if ctrl is not None else [],
         )
-        result.append(TypedefField(f.name, f.type, _default_of(ctrl, f.type), nested))
+        result.append(
+            TypedefField(
+                f.name,
+                f.type,
+                _default_of(ctrl, f.type),
+                nested,
+                _elements_of(ctrl, f.type),
+            )
+        )
     return tuple(result)
 
 
