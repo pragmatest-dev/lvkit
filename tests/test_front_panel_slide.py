@@ -17,6 +17,7 @@ import pytest
 from lvkit.parser.models import ParsedFrontPanel
 from lvkit.parser.vi import _std_num_bound, parse_vi
 from lvkit.render.front_panel import render_front_panel_svg
+from lvkit.render.front_panel.controls.base import control_value_bounds, find_part
 from lvkit.render.front_panel.controls.resolve import resolve_glyph
 from lvkit.render.front_panel.controls.slide import SlideControlGlyph
 from lvkit.render.front_panel.controls.unknown import UnknownControlGlyph
@@ -29,6 +30,10 @@ _GTR_MAIN_UI_VI = (
     SAMPLES_ROOT
     / "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner"
     / "Graphical Test Runner - Main UI - .vi"
+)
+
+_MASTER_ACQUISITION_VI = (
+    SAMPLES_ROOT / "LabVIEW-DAQ/Fiber Photometry/MasterAquisitionFile_FP.vi"
 )
 
 
@@ -169,3 +174,25 @@ def test_a_real_corpus_slide_control_renders_not_unknown() -> None:
     assert not isinstance(glyph, UnknownControlGlyph)
     svg = render_front_panel_svg(parsed.front_panel, title=_GTR_MAIN_UI_VI.name)
     assert "<svg" in svg
+
+
+@pytest.mark.needs_samples
+@pytest.mark.skipif(not _MASTER_ACQUISITION_VI.exists(), reason="sample absent")
+def test_a_real_corpus_slide_control_does_not_paint_over_its_own_label() -> None:
+    """Real bug found by inspection: this VI's "Time Elapsed (Min)" slide has
+    a HIDDEN digital-display sub-part (a disabled "show digital display"
+    option, objFlags bit 0x8) recorded at a local top ABOVE the label's own
+    bottom -- before value_extent() excluded hidden parts, this pulled the
+    drawn glyph's own box up to overlap the label's rect, painting over the
+    control's name."""
+    parsed = parse_vi(_MASTER_ACQUISITION_VI)
+    slide = next(
+        c for c in parsed.front_panel.controls if c.name == "Time Elapsed (Min)"
+    )
+    label = find_part(slide, 16)
+    assert label is not None
+    label_bottom = float(label.bounds[2])  # (top, left, bottom, right)
+
+    glyph = resolve_glyph(slide, DEFAULT_THEME)
+    value_box = control_value_bounds(slide, glyph, (0.0, 0.0, 0.0, 0.0))
+    assert value_box[1] >= label_bottom

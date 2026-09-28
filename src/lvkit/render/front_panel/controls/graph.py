@@ -21,20 +21,24 @@ class GraphControlGlyph:
     control's own heap box, so it maps onto however large this glyph is
     actually drawn.
 
-    A real graph's OTHER sibling parts this does not draw -- two ``scale``
-    parts (axis tick chrome), a ``treeControl`` and a ``stdClust`` (their
-    specific purpose, e.g. a legend / a cursor palette, is a plausible
-    reading of the part class name and typical LabVIEW graph UI, NOT verified
-    against NI's own docs -- unlike ``partID`` 9/28 above, whose role IS
-    confirmed by their consistent, measured position on real controls), and
-    toolbar buttons -- regularly occupy a comparable or LARGER area than the
-    plot itself (measured on real corpus data: one sample's plot area is
-    31.6% of the control while its largest other sibling alone is 62.9%).
-    Plot data (traces, axis scale values) is not decoded here either --
-    LabVIEW's own scale/plot-data heap format for a graph is a much larger
-    undertaking than a control's shape, out of scope for this pass -- so this
-    never fakes a trace or invents axis numbers, only the plot area's own
-    real boundary, drawn over the rest of the control as plain panel fill."""
+    A real graph's OTHER sibling parts this does not draw -- a ``treeControl``
+    and a ``stdClust`` (their specific purpose, e.g. a legend / a cursor
+    palette, is a plausible reading of the part class name and typical
+    LabVIEW graph UI, NOT verified against NI's own docs -- unlike ``partID``
+    9/28 above, whose role IS confirmed by their consistent, measured
+    position on real controls) -- are recorded HIDDEN on every real corpus
+    graph found (``objFlags`` bit 0x8; confirmed via ``part_is_hidden``), so
+    they occupy no visible area at all in real LabVIEW, whatever raw rect
+    the heap happens to record for them (some run well outside the
+    control's own box -- harmless for drawing, since they are excluded, but
+    this is why ``value_extent`` must skip hidden parts too, see base.py).
+    Two ``scale`` parts (axis tick chrome) ARE visible on a real graph but
+    are also not drawn here, nor is any plot data (traces, axis scale
+    values) -- LabVIEW's own scale/plot-data heap format for a graph is a
+    much larger undertaking than a control's shape, out of scope for this
+    pass -- so this never fakes a trace or invents axis numbers, only the
+    plot area's own real boundary, drawn over the rest of the control as
+    plain panel fill."""
 
     border_color: str
     inset: tuple[float, float, float, float] | None  # left, top, right, bottom

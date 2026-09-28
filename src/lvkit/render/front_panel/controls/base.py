@@ -89,15 +89,24 @@ def part_hidden(ctrl: ParsedFPControl, part_id: int) -> bool:
 
 def value_extent(ctrl: ParsedFPControl) -> Rect:
     """The control-local box a cluster places this control into: the union of
-    its non-label parts, clamped to the heap box -- ``layout._const_value_box``
-    applied to the parsed parts. It excludes the caption strip (drawn
-    separately) so a top-level control and a nested field share one box."""
+    its non-label, non-hidden parts, clamped to the heap box --
+    ``layout._const_value_box`` applied to the parsed parts. It excludes the
+    caption strip (drawn separately) so a top-level control and a nested
+    field share one box. Hidden parts (a slide's disabled digital display, a
+    graph's disabled legend/cursor-palette/tree chrome) are real corpus data,
+    not artwork -- they occupy no visible area and are routinely recorded at
+    coordinates far outside the control's own box (negative, or past its far
+    edge), which corrupts this union's min/max if they are not excluded --
+    confirmed on real corpus controls where an excluded hidden part was
+    exactly what was silently painting over the label above it."""
     top, left, bottom, right = ctrl.bounds
     width, height = float(right - left), float(bottom - top)
     rects = [
         part_rect_of(p)
         for p in ctrl.parts
-        if p.part_id is not None and p.part_class != "label"
+        if p.part_id is not None
+        and p.part_class != "label"
+        and not part_is_hidden(p)
     ]
     if not rects:
         return (0.0, 0.0, width, height)

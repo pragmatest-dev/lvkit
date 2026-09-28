@@ -87,6 +87,30 @@ def test_top_level_control_draws_only_the_visible_text() -> None:
 
 
 
+def test_value_extent_ignores_hidden_parts() -> None:
+    """A hidden part (objFlags bit 0x8) never pulls the value box open --
+    real corpus bug: a stdGraph's hidden treeControl/stdClust chrome parts,
+    and a stdSlide's hidden digital-display readout, are recorded at
+    coordinates OUTSIDE the control's own box (some negative), which used to
+    corrupt this union down to (0, 0, ...) -- exactly overlapping the label's
+    own rect and painting over it. Excluding hidden parts fixes both."""
+    from lvkit.parser.models import ParsedFPPart
+    from lvkit.render.front_panel.controls.base import value_extent
+
+    ctrl = ParsedFPControl(
+        uid="1", name="Graph", control_type="stdGraph", bounds=(0, 0, 237, 168),
+        parts=[
+            ParsedFPPart(16, "label", (0, 8, 17, 54)),
+            ParsedFPPart(8023, "indArr", (-10, 7, 19, 168),
+                         props={"objFlags": "8"}),
+            ParsedFPPart(9, "cosm", (19, 0, 237, 168)),
+        ],
+    )
+    left, top, right, bottom = value_extent(ctrl)
+    assert top == 19.0  # the visible frame's own top, not the hidden part's -10
+    assert (left, right, bottom) == (0.0, 168.0, 237.0)
+
+
 def test_top_level_label_draws_at_its_own_part_rect() -> None:
     """The label sits INSIDE the control's box at its recorded part rect, not
     above the box where it would cover whatever is over the control."""
