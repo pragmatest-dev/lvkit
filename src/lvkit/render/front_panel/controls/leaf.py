@@ -16,6 +16,7 @@ from ...style import Theme, type_repr, wire_style
 from .boolean import BooleanControlGlyph
 from .color import ColorControlGlyph
 from .enum_control import EnumControlGlyph
+from .measure_data import MeasureDataGlyph
 from .number_format import format_number
 from .numeric import NumericControlGlyph
 from .picture import PictureControlGlyph
@@ -80,10 +81,16 @@ def leaf_glyph(
     array's own disabled default-element row (see
     ``NumericControlGlyph.show_spinner``). ``lv_type`` is this control's own
     resolved type (``ParsedFPControl.lv_type``/``element_lv_type``) -- used
-    only by ``stdRefNum`` today, for its real kind and registered payload.
+    by ``stdRefNum`` (its real kind and registered payload) and
+    ``stdMeasureData`` (its real ``measure_flavor``).
     ``slide_min``/``slide_max`` are ``stdSlide``'s own recorded range."""
     if control_type == "stdRefNum":
         return _refnum_glyph(lv_type, theme)
+    if control_type == "stdMeasureData":
+        return MeasureDataGlyph(
+            border_color=theme.struct_border,
+            flavor=lv_type.measure_flavor if lv_type is not None else None,
+        )
     if control_type == "stdTag":
         # LabVIEW's I/O-name type (a DAQmx physical channel/task name, a VISA
         # resource name, ...) -- real corpus heap: a selLabel part + dropdown-
