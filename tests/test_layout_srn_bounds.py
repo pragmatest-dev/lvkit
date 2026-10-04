@@ -161,3 +161,60 @@ def test_non_srn_own_bounds_still_recorded():
     )
     layout = build_layout_from_root(root)
     assert "d1" in layout.node_bounds
+
+
+def test_feedback_node_master_right_pointing_hotpoint_mirrors():
+    """Regression: the master's own leftFeedback termHotPoint is recorded for
+    the LEFT-pointing arrow variant regardless of which way THIS instance
+    renders (verified: both real pairs in FPGA_v1.vi carry the identical
+    (-4, 0) hot point even though one instance's termBMPs renders right) --
+    the right-pointing code (211) must mirror the x offset, or the wire
+    visually enters behind the arrowhead instead of at its tip."""
+    common = """
+              <bounds>(133, 230, 157, 262)</bounds>
+              <termList>
+                <SL__arrayElement class="term" uid="t1">
+                  <dco class="leftFeedback" uid="dco1">
+                    <termBounds>(133, 230, 145, 246)</termBounds>
+                    <termHotPoint>(-4, 0)</termHotPoint>
+                    <termBMPs>{bmps}</termBMPs>
+                    </dco>
+                  </SL__arrayElement>
+                </termList>
+    """
+    left_root = ET.fromstring(
+        f"""
+        <root>
+          <zPlaneList>
+            <SL__arrayElement class="hiddenFBNode" uid="fb1">
+              {common.format(bmps=209)}
+              </SL__arrayElement>
+            </zPlaneList>
+        </root>
+        """
+    )
+    right_root = ET.fromstring(
+        f"""
+        <root>
+          <zPlaneList>
+            <SL__arrayElement class="hiddenFBNode" uid="fb1">
+              {common.format(bmps=211)}
+              </SL__arrayElement>
+            </zPlaneList>
+        </root>
+        """
+    )
+    left_layout = build_layout_from_root(left_root)
+    right_layout = build_layout_from_root(right_root)
+    left_cx, _ = left_layout.terminal_centers["t1"]
+    right_cx, _ = right_layout.terminal_centers["t1"]
+    # termBounds raw text is (top, left, bottom, right) -- _rect() reorders
+    # it to (x1, y1, x2, y2) = (230, 133, 246, 145); the center x is from
+    # the (left, right) pair (230, 246), not the raw tuple's own order.
+    box_cx = (230 + 246) / 2
+    # Left-pointing (209): heap hot point (-4) applied verbatim -- left of
+    # the box's own center.
+    assert left_cx == box_cx - 4
+    # Right-pointing (211): mirrored -- right of the box's own center, not
+    # left (the un-mirrored, wrong reading).
+    assert right_cx == box_cx + 4

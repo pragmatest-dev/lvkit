@@ -32,6 +32,7 @@ from .glyph import (
     ConstantGlyph,
     ErrorClusterGlyph,
     EventDataGlyph,
+    FeedbackNodeGlyph,
     FormulaNodeGlyph,
     IconImageGlyph,
     InlineSvgGlyph,
@@ -270,6 +271,16 @@ def _draw_panel_icon_glyph(
 # (task #75) before this exemption. ``EventDataGlyph`` (the Event Data/Filter
 # Node's own white named-rows glyph, replacing the tan ``BundleByNameGlyph``
 # it used to borrow) inherits the exact same exemption for the same reason.
+#
+# ``FeedbackNodeGlyph`` needs it for a related but distinct reason: master
+# and slave share IDENTICAL heap bounds (one combined visual box), but each
+# side's OWN terminal only covers HALF that box when there's no initializer
+# cell (the master's sole output terminal spans only its own half; the
+# slave's own terminal -- on a SEPARATE RenderNode, so never unioned in at
+# all -- covers the other half). Sizing from the terminal span alone drew a
+# box exactly half as wide as the real one, with the slave's half left
+# blank. The node's own heap ``bounds`` (shared by both sides) is always the
+# full, correct box.
 _OWN_ASPECT_GLYPHS = (
     IconImageGlyph,
     InlineSvgGlyph,
@@ -278,6 +289,7 @@ _OWN_ASPECT_GLYPHS = (
     BundleGlyph,
     UnbundleGlyph,
     EventDataGlyph,
+    FeedbackNodeGlyph,
 )
 
 # Floor for the recovered icon footprint: a unary primitive (one input, one

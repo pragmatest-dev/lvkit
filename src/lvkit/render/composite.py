@@ -60,6 +60,15 @@ def _raw(qualified: str | None) -> str | None:
     return qualified.rsplit("::", 1)[-1] if qualified else None
 
 
+
+
+def _index(frame: object) -> int:
+    """A ``SequenceFrame``'s own position (heap order) -- frame colors must
+    be sorted by this, not dict/list insertion order, to line up with
+    ``rs.dividers``' left-to-right positions."""
+    return getattr(frame, "index", 0)
+
+
 def _is_interactive_structure(node: object) -> bool:
     """Which structure kinds get selector chrome + ``lv-frame``/``lv-selector``
     groups: a case, any disable-family structure, an event structure, and a
@@ -308,13 +317,21 @@ class StructureObject(RenderObject):
         disable_kind = (
             rs.node.kind if isinstance(rs.node, DisableStructureNode) else None
         )
+        frame_colors = None
+        if isinstance(rs.node, SequenceNode) and rs.node.is_flat:
+            # Every frame shows at once, side by side -- each compartment
+            # needs its OWN saved color, in frame order (matching rs.dividers'
+            # left-to-right order), not the single shared bg_color every
+            # other (one-frame-visible) structure kind uses.
+            frame_colors = [f.bg_color for f in sorted(rs.node.frames, key=_index)]
         return structure_body_glyph(
             rs.node.node_type,
             border_color=border_color,
             disable_kind=disable_kind,
             case_insensitive=bool(getattr(rs.node, "case_insensitive", False)),
             dividers=rs.dividers,
-            bg_color=getattr(rs.node, "bg_color", None),
+            bg_color=rs.node.bg_color,
+            frame_colors=frame_colors,
         )
 
     def draw(self, backend: Backend, theme: Theme) -> None:
@@ -357,13 +374,34 @@ class StructureObject(RenderObject):
         # frame group redraws them for its own value on top.
         for bt in rs.border_terminals:
             _draw_border_terminal(bt, backend, theme, default)
-        for value, content in self.frames:
+        # ``self.frames`` and ``rs.node.frames`` are built from the SAME
+        # ``node.frames`` list, in the same order (scene.py's frame_values) --
+        # zip them positionally to get each frame's OWN saved bg_color.
+        # Frames are NOT guaranteed the same color (confirmed against a real
+        # screenshot: a flat sequence's middle frame has its own distinct
+        # color) -- only a flat sequence shows every frame at once, so an
+        # interactive (one-frame-visible) structure re-fills the SAME clip
+        # rect per frame, toggled by the identical lv-frame show/hide CSS
+        # its content already uses, rather than one static shared fill.
+        node_frames = getattr(rs.node, "frames", [])
+        for i, (value, content) in enumerate(self.frames):
             path = rs.frame_path + ((rs.raw_uid, value),)
             visible = _is_default_visible(path, scene.default_frame)
             backend.begin_group(
                 cls="lv-frame" if visible else "lv-frame lv-frame-hidden",
                 data={"path": encode_frame_path(path)},
             )
+            frame_bg = node_frames[i].bg_color if i < len(node_frames) else None
+            if frame_bg is not None:
+                x1, y1, x2, y2 = clip
+                backend.rect(x1, y1, x2, y2, fill=frame_bg, stroke=None)
+                # The selector chrome sits INSIDE this same interior (there is
+                # no excluded header band -- see SelectableStructureGlyph's own
+                # docstring), so the opaque fill just painted over it. Redraw
+                # it on top for THIS frame, same pattern as border terminals
+                # a few lines up ("base state, then each frame redraws its
+                # own on top").
+                glyph.draw_selector(backend, rs.bounds, theme, state)
             # Clip the frame's inner content to the glyph interior (a nested
             # structure whose box exceeds this one doesn't spill out); border
             # terminals stay UNCLIPPED so an edge-seated glyph isn't shaved.

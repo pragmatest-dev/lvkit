@@ -15,6 +15,7 @@ from .concatenate import ConcatenateTerminalGlyph
 from .conditional import ConditionalTerminalGlyph
 from .event_dyn import EventDynTerminalGlyph
 from .event_timeout import EventTimeoutTerminalGlyph
+from .feedback_init import FeedbackInitTerminalGlyph
 from .generic import GenericTerminalGlyph
 from .loop_count import LoopCountTerminalGlyph
 from .selector import SelectorTerminalGlyph
@@ -50,4 +51,6 @@ def border_terminal_glyph(
         return ConcatenateTerminalGlyph(color)
     if kind == "tunnel":
         return TunnelTerminalGlyph(color, unwired_frames)
+    if kind == "feedback_init":
+        return FeedbackInitTerminalGlyph(color)
     return GenericTerminalGlyph()

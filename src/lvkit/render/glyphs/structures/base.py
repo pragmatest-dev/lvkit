@@ -38,6 +38,14 @@ ERROR_BORDER_W = 1.6
 # (flat + stacked sequence).
 RAIL_INSET = 4.0
 RAIL_W = 1.0
+# LabVIEW's bold structure-chrome WIDTH -- shared by every kind of "important
+# border" (a While Loop's own border, a flat sequence's real inter-frame
+# divider band, its own rail band thickness, a case structure's hashed
+# border band), all verified the same width against the real reference
+# image. The WIDTH is the one shared thing; each kind still draws its OWN
+# fill/pattern style at that width (solid grey, light-grey + thin outline,
+# dithered checker, perforated holes) -- never a shared drawing routine.
+THICK_FRAME_BORDER_W = 5.2
 
 
 class StructureBodyGlyph(ABC):
@@ -90,8 +98,21 @@ class StructureBodyGlyph(ABC):
         occluding silhouette is smaller than its bounds (a For-loop's stepped
         cards leave transparent notches) overrides this to fill that silhouette
         instead, so a sibling behind the notch shows through."""
-        x1, y1, x2, y2 = bounds
-        backend.rect(x1, y1, x2, y2, fill=self.bg_color or theme.canvas, stroke=None)
+        self.fill_rect(backend, bounds, self.bg_color, theme)
+
+    @staticmethod
+    def fill_rect(
+        backend: Backend, rect: Rect, color: str | None, theme: Theme
+    ) -> None:
+        """The one shared "paint a background rect" op -- ``color`` when the
+        structure/frame has its own saved one, else ``theme.canvas``. Used by
+        every structure body fill: this class's own default ``draw_body``,
+        ``FlatSequenceGlyph``'s per-compartment fill (every frame visible at
+        once), and composite.py's per-frame interactive redraw (one frame
+        visible at a time, toggled) -- never a one-off inline ``backend.rect``
+        at each of those call sites."""
+        x1, y1, x2, y2 = rect
+        backend.rect(x1, y1, x2, y2, fill=color or theme.canvas, stroke=None)
 
     def interior(self, bounds: Rect) -> Rect:
         """The rect the structure clips its CONTENTS to. Default: the whole
@@ -128,3 +149,37 @@ class StructureBodyGlyph(ABC):
         x1, y1, x2, y2 = bounds
         for ry in (y1 + RAIL_INSET, y2 - RAIL_INSET):
             backend.line(x1, ry, x2, ry, stroke=stroke, stroke_width=RAIL_W)
+
+
+# Dithered-checker tile size -- small enough that the two alternating colours
+# read as one averaged grey from a normal viewing distance, per the real
+# reference image, without actually being a solid fill.
+_DITHER_TILE = 1.0
+
+
+def draw_dither_band(
+    backend: Backend, bounds: Rect, width: float, dark: str, light: str
+) -> None:
+    """A real frame BORDER band (perimeter strip, ``width`` wide) filled with
+    a dense two-colour checkerboard dither -- a case structure's own border,
+    per the real reference image. A pure drawing primitive (like
+    ``StructureBodyGlyph.fill_rect``): which colours/width to use is each
+    glyph's own decision, not shared drawing logic."""
+    x1, y1, x2, y2 = bounds
+    for strip in (
+        (x1, y1, x2, y1 + width),  # top
+        (x1, y2 - width, x2, y2),  # bottom
+        (x1, y1 + width, x1 + width, y2 - width),  # left (between top/bottom)
+        (x2 - width, y1 + width, x2, y2 - width),  # right (between top/bottom)
+    ):
+        sx1, sy1, sx2, sy2 = strip
+        if sx2 <= sx1 or sy2 <= sy1:
+            continue
+        nx = max(1, round((sx2 - sx1) / _DITHER_TILE))
+        ny = max(1, round((sy2 - sy1) / _DITHER_TILE))
+        tw, th = (sx2 - sx1) / nx, (sy2 - sy1) / ny
+        for j in range(ny):
+            for i in range(nx):
+                tx1, ty1 = sx1 + i * tw, sy1 + j * th
+                fill = dark if (i + j) % 2 == 0 else light
+                backend.rect(tx1, ty1, tx1 + tw, ty1 + th, fill=fill, stroke="none")

@@ -189,6 +189,30 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                                 new_tunnels, dco_class, dco, wired_uids
                             )
                             tunnels.extend(new_tunnels)
+                        # A Feedback Node's initializer terminal, "moved one
+                        # loop out" (LabVIEW's own menu item) from the node's
+                        # icon onto THIS loop's border -- linked to its
+                        # Feedback Node's write/slave side via <rsrDCO>, the
+                        # same cross-reference field a shift register's own
+                        # lSR->rSR link uses (see parser.node_types.
+                        # FeedbackNode). It's still just a wireable INPUT
+                        # terminal on the loop border -- a Tunnel like any
+                        # other -- EXCEPT there's no real inner-face uid to
+                        # pair it with: the actual consumer is the Feedback
+                        # Node's own slave terminal (already modeled, and
+                        # registering ITS uid again here would collide with
+                        # its own term_lookup entry). A synthetic inner uid
+                        # (never referenced by any real wire) gets this
+                        # terminal a normal TunnelTerminal/type/color through
+                        # the existing machinery with no collision risk.
+                        elif dco_class == "initFeedback" and term_uid:
+                            tunnels.append(
+                                Tunnel(
+                                    outer_terminal_uid=term_uid,
+                                    inner_terminal_uid=f"{term_uid}$initFeedbackInner",
+                                    tunnel_type="initFeedback",
+                                )
+                            )
                         # A while-loop serializes the RIGHT shift register
                         # NESTED inside the LEFT one (``<rsrDCO class="rSR">``),
                         # not as its own term the way a for-loop does. Extract

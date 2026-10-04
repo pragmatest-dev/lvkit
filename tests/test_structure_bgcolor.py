@@ -205,3 +205,109 @@ def test_flat_sequence_frame_bg_color_from_nested_diag():
     seqs = extract_flat_sequences(root)
     assert len(seqs) == 1
     assert seqs[0].frames[0].bg_color == "#D0D0FF"
+
+
+def test_structure_node_bg_color_is_on_the_common_base():
+    """``bg_color`` lives on ``StructureNode`` itself -- every structure kind
+    (loop, case, disable, sequence, event, IPES) inherits it and renders it
+    through the SAME ``StructureBodyGlyph.bg_color`` path with no per-kind
+    special-casing (a prior version set it only on the loop glyph branches
+    in the factory, leaving every other kind always white)."""
+    from lvkit.graph.models import CaseStructureNode, InPlaceNode, LoopNode
+
+    assert CaseStructureNode(id="n1", vi_path="v", bg_color="#AABBCC").bg_color == (
+        "#AABBCC"
+    )
+    assert LoopNode(id="n2", vi_path="v", bg_color="#001122").bg_color == "#001122"
+    assert InPlaceNode(id="n3", vi_path="v").bg_color is None
+
+
+def test_first_frame_bg_color_is_the_shared_build_time_helper():
+    """Every multi-frame structure's build handler (case/disable/sequence/
+    event) stamps ``StructureNode.bg_color`` with its FIRST frame's color via
+    this ONE shared helper -- not four separate, independently-written
+    per-handler computations."""
+    from lvkit.graph.builders.structures import _first_frame_bg_color
+    from lvkit.models import CaseFrame
+
+    frames = [
+        CaseFrame(selector_value="True", bg_color="#AABBCC"),
+        CaseFrame(selector_value="False", bg_color="#001122"),
+    ]
+    assert _first_frame_bg_color(frames) == "#AABBCC"
+    assert _first_frame_bg_color([]) is None
+
+
+def test_flat_sequence_glyph_draws_one_color_per_compartment():
+    """A flat sequence shows every frame SIDE BY SIDE at once -- each
+    compartment needs its OWN saved color, not one shared fill for the
+    whole structure (verified against a real corpus VI: its first frame
+    carries a real, different bgColor than the rest, and LabVIEW's own
+    screenshot shows them as visibly distinct cream/white compartments)."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyphs.structures.flat_sequence import FlatSequenceGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = FlatSequenceGlyph(dividers=[10.0], frame_colors=["#FFFECF", None])
+    backend = SvgBackend()
+    glyph.draw_body(backend, (0.0, 0.0, 20.0, 10.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 20.0, 10.0))
+    assert "#FFFECF" in svg
+    assert DEFAULT_THEME.canvas in svg
+
+
+def test_flat_sequence_glyph_without_frame_colors_uses_default_fill():
+    """No frame_colors given (every other structure kind, or a flat sequence
+    whose parser pass found nothing) -- falls back to the single-rect
+    default body, unchanged from before this feature."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyphs.structures.flat_sequence import FlatSequenceGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = FlatSequenceGlyph(dividers=[10.0])
+    backend = SvgBackend()
+    glyph.draw_body(backend, (0.0, 0.0, 20.0, 10.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 20.0, 10.0))
+    assert svg.count("<rect") == 1
+    assert DEFAULT_THEME.canvas in svg
+
+
+def test_flat_sequence_divider_band_starts_at_divider_x_not_centered_on_it():
+    """A divider's recorded x is the NEXT frame's own left edge -- heap-
+    verified on a real corpus VI: two adjacent ``sequenceFrame`` elements'
+    own ``<bounds>`` overlap by exactly one ``THICK_FRAME_BORDER_W``, and the
+    divider x is the START of that overlap (the left edge of the frame that
+    follows it), not its midpoint. So the border band must span
+    ``[dx, dx + THICK_FRAME_BORDER_W]`` -- NOT centered on ``dx`` -- or it
+    eats into the following frame's own content area."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyphs.structures.base import THICK_FRAME_BORDER_W
+    from lvkit.render.glyphs.structures.flat_sequence import FlatSequenceGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = FlatSequenceGlyph(dividers=[10.0])
+    backend = SvgBackend()
+    glyph.draw_outline(backend, (0.0, 0.0, 40.0, 20.0), DEFAULT_THEME)
+    svg = backend.render((0.0, 0.0, 40.0, 20.0))
+    assert 'x="10.0" ' in svg
+    assert f'width="{THICK_FRAME_BORDER_W}"' in svg
+
+
+def test_flat_sequence_divider_band_does_not_exceed_rail_band():
+    """A divider/edge band must end flush at the rail band's own outer
+    edge -- not the raw node bounds -- or it pokes a bare nub above/below
+    the rail (the real film-strip rail is inset ``RAIL_INSET`` from the
+    node's edge)."""
+    from lvkit.render.backend import SvgBackend
+    from lvkit.render.glyphs.structures.base import RAIL_INSET, THICK_FRAME_BORDER_W
+    from lvkit.render.glyphs.structures.flat_sequence import FlatSequenceGlyph
+    from lvkit.render.style import DEFAULT_THEME
+
+    glyph = FlatSequenceGlyph(dividers=[10.0])
+    backend = SvgBackend()
+    y1, y2 = 0.0, 20.0
+    glyph.draw_outline(backend, (0.0, y1, 40.0, y2), DEFAULT_THEME)
+    svg = backend.render((0.0, y1, 40.0, y2))
+    half = THICK_FRAME_BORDER_W / 2
+    top = y1 + RAIL_INSET - half
+    assert f'y="{top}"' in svg, svg

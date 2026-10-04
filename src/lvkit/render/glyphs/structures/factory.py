@@ -32,41 +32,51 @@ def structure_body_glyph(
     case_insensitive: bool = False,
     dividers: list[float] | None = None,
     bg_color: str | None = None,
+    frame_colors: list[str | None] | None = None,
 ) -> StructureBodyGlyph:
     """Return the glyph for ``node_type``, configured with the injected fields.
     ``disable_kind`` (set only for a disable-family ``commentNode``) picks the
     per-subtype class — the subtype, not a dash flag, chooses the appearance.
-    ``bg_color`` is the structure's own saved background fill (currently
-    wired for loops only -- a case/sequence/event frame's own ``bg_color``
-    is parsed and carried on its ``Frame`` object, but not yet threaded into
-    the PER-FRAME glyph draw here)."""
+    ``bg_color`` is the structure's own saved background fill -- for a loop,
+    its single diagram's; for a one-frame-visible-at-a-time structure (case/
+    disable/stacked-sequence/event), its default frame's (see composite.
+    _structure_bg_color). ``frame_colors`` is the flat-sequence-only variant:
+    every frame shows at once, side by side, so each compartment needs its
+    OWN color instead of one shared fill.
+
+    ``bg_color`` is applied to EVERY returned glyph in the one ``return``
+    below, via the common ``StructureBodyGlyph.bg_color`` attribute every
+    kind inherits -- never per-branch (a prior version set it only on the
+    loop branches, leaving case/disable/stacked-sequence/event always
+    white regardless of their own real saved color)."""
+    glyph: StructureBodyGlyph
     if node_type == "forLoop":
         glyph = ForLoopGlyph()
-        glyph.bg_color = bg_color
-        return glyph
-    if node_type == "whileLoop":
+    elif node_type == "whileLoop":
         glyph = WhileLoopGlyph()
-        glyph.bg_color = bg_color
-        return glyph
     # Disable-family structures serialize as commentNode; the kind picks the
     # class (Type Specialization = solid box + icon; the rest = dotted box).
-    if disable_kind is not None:
-        if disable_kind is DisableStructureKind.TYPE_SPEC:
-            return TypeSpecGlyph(border_color=border_color)
-        return DisableGlyph(border_color=border_color)
+    elif disable_kind is not None:
+        glyph = (
+            TypeSpecGlyph(border_color=border_color)
+            if disable_kind is DisableStructureKind.TYPE_SPEC
+            else DisableGlyph(border_color=border_color)
+        )
     # ``select`` (the Select primitive) and a plain ``commentNode`` (a boxed
     # comment) render as a plain bordered box — the same static chrome as a case.
-    if node_type in ("caseStruct", "select", "commentNode"):
-        return CaseGlyph(
-            border_color=border_color,
-            case_insensitive=case_insensitive,
+    elif node_type in ("caseStruct", "select", "commentNode"):
+        glyph = CaseGlyph(border_color=border_color, case_insensitive=case_insensitive)
+    elif node_type in ("seq", "sequence"):
+        glyph = StackedSequenceGlyph(border_color=border_color)
+    elif node_type == "flatSequence":
+        glyph = FlatSequenceGlyph(
+            dividers=dividers, border_color=border_color, frame_colors=frame_colors
         )
-    if node_type in ("seq", "sequence"):
-        return StackedSequenceGlyph(border_color=border_color)
-    if node_type == "flatSequence":
-        return FlatSequenceGlyph(dividers=dividers, border_color=border_color)
-    if node_type == "eventStruct":
-        return EventGlyph()
-    if node_type == "decomposeRecomposeStructure":
-        return InPlaceGlyph()
-    return GenericStructureGlyph()
+    elif node_type == "eventStruct":
+        glyph = EventGlyph()
+    elif node_type == "decomposeRecomposeStructure":
+        glyph = InPlaceGlyph()
+    else:
+        glyph = GenericStructureGlyph()
+    glyph.bg_color = bg_color
+    return glyph

@@ -35,6 +35,14 @@ from .context import GraphBuildContext
 logger = logging.getLogger(__name__)
 
 
+def _first_frame_bg_color(frames: list) -> str | None:
+    """The one representative ``bg_color`` for a multi-frame structure
+    (case/disable/sequence/event) -- its FIRST frame's, since the common
+    ``StructureNode.bg_color`` the body draws from is a single value, drawn
+    once, before any frame's own content (see that field's own docstring)."""
+    return frames[0].bg_color if frames else None
+
+
 class StructureBuildHandler(ABC):
     """Builds one kind of structure graph node from a parsed node + context."""
 
@@ -157,6 +165,7 @@ class CaseBuildHandler(StructureBuildHandler):
             selector_terminal=selector_term,
             displayed_frame=(case_struct.displayed_frame if case_struct else None),
             case_insensitive=(case_struct.case_insensitive if case_struct else False),
+            bg_color=_first_frame_bg_color(case_frames),
         )
 
 
@@ -200,6 +209,7 @@ class EventBuildHandler(StructureBuildHandler):
             frames=event_frames,
             displayed_frame=displayed_frame,
             filter_node_uids=filter_node_uids,
+            bg_color=_first_frame_bg_color(event_frames),
         )
 
 
@@ -230,6 +240,7 @@ class SequenceBuildHandler(StructureBuildHandler):
             frames=seq_frames,
             displayed_frame=(flat_seq.displayed_frame if flat_seq else None),
             is_flat=(flat_seq.is_flat if flat_seq else True),
+            bg_color=_first_frame_bg_color(seq_frames),
         )
 
 
@@ -333,6 +344,7 @@ class DisableBuildHandler(StructureBuildHandler):
             active_frame=active_frame,
             displayed_frame=displayed_frame,
             kind=kind,
+            bg_color=_first_frame_bg_color(disable_frames),
         )
 
 

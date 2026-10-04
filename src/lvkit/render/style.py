@@ -67,8 +67,16 @@ class Theme:
     subvi_fill: str = "#eef0e6"
     subvi_stroke: str = "#7a7d63"
     subvi_text: str = "#1a1a1a"  # wrapped subVI name text on subvi_fill
-    case_bar_fill: str = "#e9e6d2"
+    # White, per the real reference image -- stands out against ANY structure
+    # body color (never tinted to match it, even when bg_color is set).
+    case_bar_fill: str = "#ffffff"
     case_bar_text: str = "#4a4636"
+    # A flat sequence's own film-strip grey -- the inter-frame divider band
+    # and the rail band's own fill, per the real reference image (a
+    # light-grey band, thin black outline for the divider; the SAME grey
+    # with a row of punched holes -- filled with ``canvas`` -- for the
+    # top/bottom rails).
+    film_rail_fill: str = "#c8c8c8"
     case_no_error_border: str = "#2e9e3f"  # green — error-cluster "No Error" frame
     case_error_border: str = "#d32f2f"  # red — error-cluster "Error" frame
     # Event Structure border — a distinct warm amber/gold (LabVIEW's own

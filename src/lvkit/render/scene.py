@@ -760,6 +760,7 @@ _TUNNEL_GLYPH_KIND = {
     "caseSel": "selector",
     "eventTimeOut": "eventTimeout",
     "eventDynDCO": "eventDyn",
+    "initFeedback": "feedback_init",
 }
 
 # Border terminals a loop is GUARANTEED to have, purely as a function of
@@ -841,7 +842,15 @@ def _structure_borders(
         color = (
             wire_style(t.lv_type).color
             if glyph_kind
-            in ("autoindex", "concatenate", "tunnel", "sr_down", "sr_up", "selector")
+            in (
+                "autoindex",
+                "concatenate",
+                "tunnel",
+                "sr_down",
+                "sr_up",
+                "selector",
+                "feedback_init",
+            )
             else None
         )
         # OUTPUT data tunnel: the frame VALUES whose per-frame inner terminal is

@@ -122,10 +122,21 @@ class FeedbackNodeGlyph:
     def _draw_default_marker(
         backend: Backend, x1: float, y1: float, x2: float, y2: float, color: str
     ) -> None:
-        """A small 4-point sparkle/asterisk in the default-value cell -- a
-        clean-room cue that the initializer is unwired (type default),
-        never NI's own icon artwork."""
+        """An 8-point asterisk/sparkle ("✳") in the default-value cell --
+        matching NI's own docs reference image for this marker -- a
+        clean-room REDRAWING of that shape, never NI's own icon artwork.
+        4 spokes alone reads as a plus sign, not an asterisk."""
         cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
         r = min(x2 - x1, y2 - y1) * 0.3
-        for dx, dy in ((r, 0.0), (-r, 0.0), (0.0, r), (0.0, -r)):
+        rd = r * 0.70710678  # diagonal spoke length (r / sqrt(2))
+        for dx, dy in (
+            (r, 0.0),
+            (-r, 0.0),
+            (0.0, r),
+            (0.0, -r),
+            (rd, rd),
+            (rd, -rd),
+            (-rd, rd),
+            (-rd, -rd),
+        ):
             backend.line(cx, cy, cx + dx, cy + dy, stroke=color, stroke_width=1.0)

@@ -1113,6 +1113,29 @@ class _LayoutBuilder:
             if hp is not None and hp.text:
                 try:
                     hx, hy = (int(v) for v in hp.text.strip("()").split(","))
+                    # A Feedback Node master's own leftFeedback termHotPoint is
+                    # recorded for the LEFT-pointing arrow variant regardless
+                    # of which way this instance actually renders (verified on
+                    # two real pairs in FPGA_v1.vi: both carry the SAME (-4, 0)
+                    # hot point even though one's termBMPs renders right) --
+                    # the render's arrow direction decision
+                    # (render.nodes._feedback_node_glyph, keyed on this SAME
+                    # termBMPs) and this wire-attach offset must agree, or the
+                    # wire visually enters behind the arrowhead instead of at
+                    # its tip. Mirror the x offset for the right-pointing code
+                    # (211) only -- left (209) and every other terminal kind
+                    # keep the heap's own recorded offset verbatim. (The
+                    # slave's rightFeedback hot point was ALSO tried mirrored
+                    # on its own 212 code, but that made its wire gap WORSE
+                    # -confirmed empirically- so it is deliberately left
+                    # alone; its small, constant gap from the box edge is
+                    # left as a known, minor, separate discrepancy.)
+                    if (
+                        dco0 is not None
+                        and dco0.get("class") == "leftFeedback"
+                        and (dco0.findtext("termBMPs") or "") == "211"
+                    ):
+                        hx = -hx
                     cx, cy = cx + hx, cy + hy
                 except ValueError:
                     pass

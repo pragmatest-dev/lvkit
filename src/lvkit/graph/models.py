@@ -216,6 +216,22 @@ class StructureNode(GraphNode):
     """
 
     kind: Literal["structure"] = "structure"
+    # This structure's own saved background fill (LabVIEW's "Background
+    # Color"), on the COMMON base so every structure kind renders it the
+    # same way with no per-kind special-casing. A loop has ONE diagram, so
+    # this is that diagram's own color directly (ParsedLoopStructure.
+    # bg_color). A multi-frame structure (case/disable/stacked-sequence/
+    # event) has no single diagram of its own -- each FRAME is its own
+    # ``<diag>`` (``Frame.bg_color``) -- so the build handler stamps this
+    # with its FIRST frame's color as the one representative value (the
+    # body draws ONCE, before any frame's content; real-corpus evidence
+    # shows a structure's own color is uniform across its frames in
+    # practice, never genuinely per-frame-varying). A flat sequence ALSO
+    # exposes true per-compartment colors separately (every frame shows at
+    # once, side by side) -- see RenderStructure/composite.py's
+    # ``frame_colors`` plumbing for that -- this field is its own
+    # single-color fallback/representative, same as every other kind.
+    bg_color: str | None = None
 
 
 class CaseStructureNode(StructureNode):
@@ -247,8 +263,6 @@ class LoopNode(StructureNode):
     # ParsedLoopStructure.parallel / .parallel_static_workers.
     parallel: bool = False
     parallel_static_workers: int | None = None
-    # This loop's own saved background fill -- see ParsedLoopStructure.bg_color.
-    bg_color: str | None = None
     # Border-terminal KINDS ("i"/"N"/"cond") hidden via LabVIEW's "Visible
     # Items" (objFlags bit 0x800000 on the inner sRN term). The renderer omits
     # a hidden terminal's glyph; a future viewer toggle can reveal them. Empty

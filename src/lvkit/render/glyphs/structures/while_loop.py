@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from ...backend import Backend
 from ...style import Theme
-from .base import Rect, StructureBodyGlyph
+from .base import THICK_FRAME_BORDER_W, Rect, StructureBodyGlyph
 
-# As wide as the For loop's whole 3-card stack (2*_O offset + line) ≈ 5.2px, and
-# a matching corner radius — both read from the reference.
-WHILE_BORDER_W = 5.2
+# A matching corner radius -- read from the reference.
 WHILE_RADIUS = 5.75
 
 
@@ -17,7 +15,7 @@ class WhileLoopGlyph(StructureBodyGlyph):
     (vs the For loop's thin near-black stacked cards), plus the bottom-right
     loop-back arrowhead that marks it as a While loop."""
 
-    border_width = WHILE_BORDER_W
+    border_width = THICK_FRAME_BORDER_W
     radius = WHILE_RADIUS
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:

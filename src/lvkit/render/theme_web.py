@@ -48,6 +48,7 @@ DARK_PALETTE: dict[str, str] = {
     "subvi_text": "#e9e9e0",
     "case_bar_fill": "#2c2a22",
     "case_bar_text": "#d8d4c0",
+    "film_rail_fill": "#4a4a4a",
     "case_no_error_border": "#46c85a",
     "case_error_border": "#ff5b5b",
     "event_border": "#e0b84a",
