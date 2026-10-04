@@ -314,6 +314,7 @@ class StructureObject(RenderObject):
             disable_kind=disable_kind,
             case_insensitive=bool(getattr(rs.node, "case_insensitive", False)),
             dividers=rs.dividers,
+            bg_color=getattr(rs.node, "bg_color", None),
         )
 
     def draw(self, backend: Backend, theme: Theme) -> None:

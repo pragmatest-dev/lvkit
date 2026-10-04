@@ -166,6 +166,10 @@ class ParsedLoopStructure:
     # Empty when every terminal is shown (the common case). The renderer omits
     # a hidden terminal's glyph; see loop.py::_hidden_border_terminals.
     hidden_border_terminals: frozenset[str] = field(default_factory=frozenset)
+    # This loop's own saved background fill, decoded from its inner diagram's
+    # DIRECT-CHILD ``<bgColor>`` (``parser.utils.heap_color``). None when
+    # absent/unparseable (falls back to the theme default fill).
+    bg_color: str | None = None
 
 
 from ..models import CaseFrame, SequenceFrame  # noqa: E402

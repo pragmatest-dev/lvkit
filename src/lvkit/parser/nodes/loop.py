@@ -15,7 +15,7 @@ from ..constants import (
 )
 from ..flags import is_inverted_terminal
 from ..models import ParsedLoopStructure
-from ..utils import safe_int, safe_text
+from ..utils import heap_color, safe_int, safe_text
 from .base import extract_tunnel_mapping, frame_inner_node_uids
 
 # objFlags bit on a loop border terminal's inner ``sRN`` ``<term>`` marking that
@@ -167,6 +167,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
             tunnels: list[Tunnel] = []
             inner_diagram_uid: str | None = None
             inner_node_uids: list[str] = []
+            bg_color: str | None = None
 
             # Find boundary terminals in the loop's termList
             term_list_elem = loop_elem.find("termList")
@@ -219,6 +220,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                 inner_diag = diag_list.find("SL__arrayElement[@class='diag']")
                 if inner_diag is not None:
                     inner_diagram_uid = inner_diag.get("uid")
+                    bg_color = heap_color(inner_diag.findtext("bgColor"))
 
                     # Operations inside the inner diagram (direct only, not
                     # recursing into nested case/loop nodeLists) -- same
@@ -290,6 +292,7 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                     parallel=parallel,
                     parallel_static_workers=parallel_static_workers,
                     hidden_border_terminals=_hidden_border_terminals(loop_elem),
+                    bg_color=bg_color,
                 )
             )
 

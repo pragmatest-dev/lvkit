@@ -58,7 +58,7 @@ from pathlib import Path
 from lvkit.models import EventFrame, Tunnel
 
 from ..models import ParsedEventStructure
-from ..utils import clean_labview_string, extract_label
+from ..utils import clean_labview_string, extract_label, heap_color
 from .base import (
     extract_tunnel_mapping,
     frame_inner_node_uids,
@@ -170,6 +170,7 @@ def _extract_one_event_structure(
                 index=idx,
                 event_label=labels[idx],
                 inner_node_uids=inner_node_uids,
+                bg_color=heap_color(diag_elem.findtext("bgColor")),
             )
         )
 

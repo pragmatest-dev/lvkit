@@ -247,6 +247,8 @@ class LoopNode(StructureNode):
     # ParsedLoopStructure.parallel / .parallel_static_workers.
     parallel: bool = False
     parallel_static_workers: int | None = None
+    # This loop's own saved background fill -- see ParsedLoopStructure.bg_color.
+    bg_color: str | None = None
     # Border-terminal KINDS ("i"/"N"/"cond") hidden via LabVIEW's "Visible
     # Items" (objFlags bit 0x800000 on the inner sRN term). The renderer omits
     # a hidden terminal's glyph; a future viewer toggle can reveal them. Empty

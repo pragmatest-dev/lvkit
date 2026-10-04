@@ -22,7 +22,10 @@ class WhileLoopGlyph(StructureBodyGlyph):
 
     def draw_body(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
-        backend.rect(x1, y1, x2, y2, rx=self.radius, fill=theme.canvas, stroke=None)
+        backend.rect(
+            x1, y1, x2, y2, rx=self.radius, fill=self.bg_color or theme.canvas,
+            stroke=None,
+        )
 
     def draw_outline(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
         x1, y1, x2, y2 = bounds
@@ -40,7 +43,8 @@ class WhileLoopGlyph(StructureBodyGlyph):
         a = w * 1.75  # arrow leg, scaled with the border
         ax, ay = x2, y2
         backend.polygon([(ax, ay - a), (ax, ay), (ax - a, ay - a)], fill=c, stroke=None)
-        gap = w * 0.5  # erase a short border segment above the arrow, back to canvas
+        gap = w * 0.5  # erase a short border segment above the arrow, back to the fill
         backend.rect(
-            x2 - w, ay - a - gap, x2 + w, ay - a, fill=theme.canvas, stroke=None
+            x2 - w, ay - a - gap, x2 + w, ay - a,
+            fill=self.bg_color or theme.canvas, stroke=None,
         )

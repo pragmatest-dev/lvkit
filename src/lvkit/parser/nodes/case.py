@@ -10,6 +10,7 @@ from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS
 from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
+from ..utils import heap_color
 from .base import (
     extract_tunnel_mapping,
     frame_inner_node_uids,
@@ -542,6 +543,7 @@ def _extract_frame(
         selector_value=selector_value,
         inner_node_uids=inner_node_uids,
         is_default=is_default,
+        bg_color=heap_color(diag_elem.findtext("bgColor")),
     )
 
 

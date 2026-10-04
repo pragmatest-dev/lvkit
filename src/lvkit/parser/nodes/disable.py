@@ -63,6 +63,7 @@ from lvkit.text_encoding import decode_labview_text
 
 from ..constants import STRUCTURE_NODE_CLASSES, TERMINAL_CLASS
 from ..models import ParsedDisableStructure
+from ..utils import heap_color
 from .base import frame_inner_node_uids, parse_displayed_frame
 
 COMMENT_NODE_CLASS = "commentNode"
@@ -249,6 +250,7 @@ def _extract_one_disable_structure(
             selector_value=labels[idx],
             inner_node_uids=frame_inner_node_uids(diag_elem),
             is_default=idx == active,
+            bg_color=heap_color(diag_elem.findtext("bgColor")),
         )
         for idx, diag_elem in enumerate(diag_elems)
     ]

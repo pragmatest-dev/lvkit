@@ -13,6 +13,7 @@ lvkit follows semantic versioning.
 - **The MCP `render`/`diff` tools' `vi_name`/`name` is the real qualified name, not a collision-prone bare filename** — persisted in the render/diff output cache at build time (free: the graph was already loaded to build the output) and read back on every call, including a cache hit, with no extra graph load (#114).
 - **Feedback Nodes render as a real arrow icon, not an orphaned box** — a type-colored, wire-type-filled arrow (pointing the way its heap data actually flows), with a stacked default-value marker only when its initializer terminal exists and is genuinely unwired (#107).
 - **Fix: a Feedback Node nested inside a structure could render far from its own wires, outside its structure's visible area** — its master terminal's heap geometry is already diagram-relative (like a shift-register border terminal's), and adding the node's own offset on top double-counted it (#107).
+- **A While/For Loop's own saved background color renders** — a user-set "Background Color" fill on a loop now draws instead of always falling back to the default canvas color (#107).
 
 ## [0.8.6] - 2026-09-28
 - **`lvkit document` is the new name for `lvkit docs`** — matches every other subcommand's verb naming (`describe`, `generate`, `render`); `docs` still works as an alias.

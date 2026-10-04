@@ -8,6 +8,7 @@ from lvkit.models import SequenceFrame, Tunnel
 
 from ..constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from ..models import ParsedFlatSequenceStructure
+from ..utils import heap_color
 from .base import (
     extract_tunnel_mapping,
     frame_inner_node_uids,
@@ -93,6 +94,7 @@ def _extract_one_sequence(
                 index=i,
                 uid=frame_uid,
                 inner_node_uids=inner_node_uids,
+                bg_color=_frame_bg_color(frame_elem),
             )
         )
 
@@ -130,6 +132,20 @@ def _extract_tunnels_from_termlist(
             dco_class = dco.get("class", "")
             if dco_class in TUNNEL_DCO_CLASSES:
                 tunnels.extend(extract_tunnel_mapping(dco, dco_class))
+
+
+def _frame_bg_color(frame_elem: ET.Element) -> str | None:
+    """A frame's own saved background fill. For a flatSequence frame
+    (``sequenceFrame``), the ``<bgColor>`` lives on its NESTED ``<diag>``
+    (same ``diagramList`` lookup as ``_extract_inner_node_uids``); for a
+    stacked sequence, the frame element IS that diagram directly."""
+    diag_list = frame_elem.find("diagramList")
+    if diag_list is not None:
+        diag_elem = diag_list.find("SL__arrayElement[@class='diag']")
+        if diag_elem is not None:
+            return heap_color(diag_elem.findtext("bgColor"))
+        return None
+    return heap_color(frame_elem.findtext("bgColor"))
 
 
 def _extract_inner_node_uids(frame_elem: ET.Element) -> list[str]:

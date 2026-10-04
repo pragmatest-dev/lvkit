@@ -45,7 +45,7 @@ class ForLoopGlyph(StructureBodyGlyph):
                 (x1 + o, fy2),
                 (x1, fy2),
             ],
-            fill=theme.canvas,
+            fill=self.bg_color or theme.canvas,
         )
 
     def interior(self, bounds: Rect) -> Rect:

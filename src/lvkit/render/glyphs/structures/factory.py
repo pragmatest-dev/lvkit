@@ -31,14 +31,23 @@ def structure_body_glyph(
     disable_kind: DisableStructureKind | None = None,
     case_insensitive: bool = False,
     dividers: list[float] | None = None,
+    bg_color: str | None = None,
 ) -> StructureBodyGlyph:
     """Return the glyph for ``node_type``, configured with the injected fields.
     ``disable_kind`` (set only for a disable-family ``commentNode``) picks the
-    per-subtype class — the subtype, not a dash flag, chooses the appearance."""
+    per-subtype class — the subtype, not a dash flag, chooses the appearance.
+    ``bg_color`` is the structure's own saved background fill (currently
+    wired for loops only -- a case/sequence/event frame's own ``bg_color``
+    is parsed and carried on its ``Frame`` object, but not yet threaded into
+    the PER-FRAME glyph draw here)."""
     if node_type == "forLoop":
-        return ForLoopGlyph()
+        glyph = ForLoopGlyph()
+        glyph.bg_color = bg_color
+        return glyph
     if node_type == "whileLoop":
-        return WhileLoopGlyph()
+        glyph = WhileLoopGlyph()
+        glyph.bg_color = bg_color
+        return glyph
     # Disable-family structures serialize as commentNode; the kind picks the
     # class (Type Specialization = solid box + icon; the rest = dotted box).
     if disable_kind is not None:

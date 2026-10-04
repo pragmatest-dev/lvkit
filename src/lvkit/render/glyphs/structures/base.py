@@ -62,6 +62,11 @@ class StructureBodyGlyph(ABC):
     # A scene-injected border colour (error-cluster case/sequence); None uses the
     # theme's default structure border. Set by subclasses that accept it.
     border_color: str | None = None
+    # The structure's own saved background fill (LabVIEW's "Background Color"
+    # on a loop/frame -- parser.models.ParsedLoopStructure.bg_color / the
+    # shared models.Frame.bg_color), scene-injected by the composite. None
+    # uses the theme's default canvas fill.
+    bg_color: str | None = None
 
     def _apply_error_border(self, border_color: str | None) -> None:
         """Store a scene-injected border colour and bold the border to match —
@@ -86,7 +91,7 @@ class StructureBodyGlyph(ABC):
         cards leave transparent notches) overrides this to fill that silhouette
         instead, so a sibling behind the notch shows through."""
         x1, y1, x2, y2 = bounds
-        backend.rect(x1, y1, x2, y2, fill=theme.canvas, stroke=None)
+        backend.rect(x1, y1, x2, y2, fill=self.bg_color or theme.canvas, stroke=None)
 
     def interior(self, bounds: Rect) -> Rect:
         """The rect the structure clips its CONTENTS to. Default: the whole

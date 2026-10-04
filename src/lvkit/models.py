@@ -682,6 +682,12 @@ class Frame(BaseModel):
 
     uid: str | None = None
     inner_node_uids: list[str] = []
+    # This frame's own saved background fill ("right-click > Background
+    # Color" in the editor), decoded from its own ``<diag>``'s DIRECT-CHILD
+    # ``<bgColor>`` (``parser.utils.heap_color``) — never a descendant's,
+    # which could belong to a nested comment/attachment box instead. None
+    # when absent/unparseable (falls back to the theme default fill).
+    bg_color: str | None = None
 
 
 class CaseFrame(Frame):
