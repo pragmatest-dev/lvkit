@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).
+- **A `.ctl`'s Timestamp (`absTime`) control renders** — with a distinct display for a genuinely never-assigned value vs. a real saved one that happens to equal the epoch (#101).
 - **FPGA I/O Node/Property Node rows show their real name** — `Antenna Status`, `Satellites Available`, `Longitude (°)`, etc. — instead of rendering blank; these XNode classes never set a terminal's own name tag at all, so the real names are decoded from the node's own `<StateData>` instead (#107).
 - **FPGA Interface nodes (Open/Close FPGA VI Reference, Read/Write Control, Invoke Method) render with a real header, invoked-method row, and named parameters** — instead of a generic "xNode" box — decoded from the node's own `<displayName>`/`<StateData>`, matching LabVIEW's own drawer look (#107).
 - **FPGA Interface node terminals show their real name** — `FPGA Timekeeper locked`, `offset from time reference`, `Start capture`, etc. — instead of rendering blank; an XNode's terminal carries no ordinary label, only a hex-encoded name in its own `<englishName>` tag (#107).

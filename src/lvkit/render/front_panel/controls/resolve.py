@@ -20,6 +20,7 @@ from .graph import GraphControlGlyph
 from .label import LABEL_SIZE
 from .leaf import leaf_glyph
 from .numeric import numeric_control
+from .timestamp import timestamp_control
 from .values import with_value
 
 
@@ -112,7 +113,13 @@ def _graph(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return GraphControlGlyph.from_control(ctrl, theme.struct_border)
 
 
-_RESOLVERS = (_cluster, _array, _numeric, _boolean, _graph)
+def _timestamp(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
+    if ctrl.control_type != "absTime":
+        return None
+    return timestamp_control(ctrl)
+
+
+_RESOLVERS = (_cluster, _array, _numeric, _boolean, _graph, _timestamp)
 
 
 def resolve_glyph(ctrl: ParsedFPControl, theme: Theme) -> Glyph:

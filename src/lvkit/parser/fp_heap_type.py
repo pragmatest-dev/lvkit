@@ -79,6 +79,14 @@ def _direct_fields(clust: ET.Element) -> list[ET.Element]:
     in this cluster's own ``paneHierarchy/zPlaneList``. Matching by uid — rather
     than walking descendants — is what keeps a nested cluster's OWN fields from
     leaking up into its parent.
+
+    Every uid in ``ddoList`` is a real field regardless of its heap ``class``
+    — unlike :func:`_wrapped_control`/:func:`_array_element` (which scan an
+    unordered subtree and need ``_KNOWN_CLASSES`` to tell a real control from
+    other XML children), this is a closed, already-ordered list of field uids,
+    so no class filter is needed to identify one. A caller that cannot model a
+    field's class on its own (:func:`reconstruct_control_lvtype`) handles that
+    per field, by returning ``None`` for that field's type.
     """
     ddo_list = clust.find("ddoList")
     if ddo_list is None:
@@ -88,11 +96,7 @@ def _direct_fields(clust: ET.Element) -> list[ET.Element]:
     zplane = clust.find("paneHierarchy/zPlaneList")
     if zplane is None:
         return []
-    by_uid = {
-        e.get("uid"): e
-        for e in zplane.findall("SL__arrayElement")
-        if e.get("class") in _KNOWN_CLASSES or e.get("class") == "typeDef"
-    }
+    by_uid = {e.get("uid"): e for e in zplane.findall("SL__arrayElement")}
     return [by_uid[uid] for uid in order if uid in by_uid]
 
 
