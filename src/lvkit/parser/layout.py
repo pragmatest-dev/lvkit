@@ -1414,7 +1414,24 @@ class _LayoutBuilder:
         # diagram-level objects — each already carries diagram-relative bounds,
         # so map them from the diagram origin, not the sRN's translated corner
         # (otherwise a control inside a loop lands far to the upper-left).
-        term_ox, term_oy = (ox, oy) if elem.get("class") == "sRN" else (ax1, ay1)
+        #
+        # A Feedback Node MASTER (``hiddenFBNode``) has the exact same quirk:
+        # its own ``leftFeedback``/``initFeedback`` dco ``<termBounds>`` are
+        # ALREADY diagram-relative (verified on FPGA_v1.vi's two real pairs —
+        # e.g. node 1430's own ``<bounds>`` is ``(133, 230, 157, 262)`` and its
+        # leftFeedback term's ``<termBounds>`` is ``(133, 230, 145, 246)``, the
+        # SAME frame, not a 0-based offset within the node's own box like an
+        # ordinary primitive's termBounds). Adding the node's own absolute
+        # corner (``ax1``/``ay1``, which itself already incorporates that same
+        # local offset) on top double-counts it, landing the terminal (and the
+        # glyph's terminal-span-derived box, ``draw._glyph_bounds``) hundreds
+        # of units away — outside its own structure's clip region and
+        # invisible (#107). The SLAVE's own ``rightFeedback`` termBounds do
+        # NOT have this quirk (they're genuinely node-relative, like any
+        # other primitive's), so only the master needs the exemption.
+        term_ox, term_oy = (
+            (ox, oy) if elem.get("class") in ("sRN", "hiddenFBNode") else (ax1, ay1)
+        )
         self._map_terms(elem, term_ox, term_oy)
         if uid:
             self._border_dcos(elem, ax1, ay1, uid)

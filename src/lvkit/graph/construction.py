@@ -782,9 +782,9 @@ class ConstructionMixin:
             # Feedback Node (hiddenFBNode master / slaveFBInputNode write side):
             # stash the master<->slave link + z^-N delay as node attributes so
             # queries/codegen can read feedback identity straight off the
-            # graph (feedback_is_master / feedback_partner / feedback_delay).
-            # The graph node itself stays a GraphPrimitiveNode. See parser
-            # FeedbackNode.
+            # graph (feedback_is_master / feedback_partner / feedback_delay /
+            # feedback_output_bmps). The graph node itself stays a
+            # GraphPrimitiveNode. See parser FeedbackNode.
             if isinstance(node, FeedbackNode):
                 g.add_node(
                     q_node_uid,
@@ -796,6 +796,7 @@ class ConstructionMixin:
                         else None
                     ),
                     feedback_delay=node.delay_depth,
+                    feedback_output_bmps=node.output_bmps,
                 )
                 vi_node_uids.add(q_node_uid)
                 continue

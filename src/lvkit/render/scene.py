@@ -1203,6 +1203,7 @@ def _endpoint_containers(
     graph: InMemoryVIGraph,
     by_id: dict[str, AnyGraphNode],
     vi_name: str,
+    fp_containment: dict[str, list[str]] | None = None,
 ) -> list[str]:
     """Raw uids of the structures whose frame this endpoint lives IN, ordered
     innermost (leaf) → outermost (root).
@@ -1225,11 +1226,60 @@ def _endpoint_containers(
       uses for this exact terminal kind, just reordered to this function's
       innermost->outermost contract (``_fp_terminal_frame_path`` returns
       root->leaf).
-    """
+
+    ``fp_containment`` is a wire-connectivity CONTAINMENT inference (see
+    ``build_scene``), used only when ``_fp_terminal_frame_path`` returns
+    ``None`` (a terminal never placed via an sRN — e.g. a plain VI-level
+    indicator wired to from inside a structure, never "placed on" the
+    diagram at all). It is DELIBERATELY not the same thing as ``fp_frame``
+    (the SELECTABLE-frame visibility inference used for the terminal's own
+    glyph placement): that one only walks INTERACTIVE structures (case/
+    event/disable/stacked-sequence), since a non-interactive structure (a
+    loop, a plain flat sequence) has no "which frame is active" question to
+    answer — but it DOES still occlude paint order, so general CONTAINMENT
+    (every ancestor structure, interactive or not — the same
+    ``_containment_of`` a normal node endpoint already gets) is the correct
+    signal here, not frame-visibility. Verified: FPGA_v1.vi's "GPS status"
+    indicator is wired to from a node inside a flat-sequence inside a while
+    loop; the existing ``fp_frame`` heuristic finds nothing for it (neither
+    structure is "interactive"), while ``fp_containment`` correctly inherits
+    the wire's source's own containment (the flat-sequence, then the loop)."""
     term = graph.get_terminal(end.terminal_id)
     if isinstance(term, FPTerminal):
+        # ``_fp_terminal_frame_path`` answers a DIFFERENT question --  "which
+        # SELECTABLE frame is this glyph visible in" (for show/hide toggling)
+        # -- it climbs through EVERY ancestor but only ever RECORDS an
+        # interactive one (case/disable/event/stacked-sequence), so when the
+        # terminal's own IMMEDIATE parent isn't interactive (a loop, or an
+        # UNSTACKED flat sequence whose frames all show at once), that
+        # parent is SKIPPED from its result even if FURTHER ancestors above
+        # it are interactive and still get recorded -- a non-empty result is
+        # therefore NOT proof the immediate parent is already included
+        # (verified bug: FPGA_v1.vi's "FPGA TimeStamp(ns)" indicator is
+        # parented to an unstacked flat sequence, 1185, nested inside two
+        # further case structures -- ``_fp_terminal_frame_path`` returns
+        # those two outer cases but never 1185 itself, so the wire feeding
+        # this indicator shared nothing with its source's own containment,
+        # which DOES start with 1185, and got occluded). So: always start
+        # from the terminal's own real immediate parent (whatever its type),
+        # then add any further INTERACTIVE ancestors ``_fp_terminal_frame_path``
+        # finds, for completeness -- this subsumes both the GPS-status case
+        # (parent non-interactive, no further interactive ancestors either)
+        # and GTR's "Slide" terminal (parent itself interactive, already the
+        # sole entry either way).
+        containers: list[str] = []
+        if term.parent is not None:
+            parent = by_id.get(term.parent)
+            if isinstance(parent, StructureNode):
+                containers.append(_strip_prefix(parent.id, vi_name))
         struct_path = _fp_terminal_frame_path(term, by_id, vi_name)
-        return [uid for uid, _ in reversed(struct_path)] if struct_path else []
+        if struct_path:
+            containers.extend(
+                uid for uid, _ in reversed(struct_path) if uid not in containers
+            )
+        if not containers and fp_containment is not None:
+            return fp_containment.get(end.terminal_id, [])
+        return containers
     node = by_id.get(end.node_id)
     if node is None:
         return []
@@ -1253,6 +1303,7 @@ def _wire_exempt_structures(
     graph: InMemoryVIGraph,
     by_id: dict[str, AnyGraphNode],
     vi_name: str,
+    fp_containment: dict[str, list[str]] | None = None,
 ) -> frozenset[str]:
     """Raw uids of the structures a wire may legitimately overlap (NOT treated
     as obstacles for it) — every structure EITHER endpoint lives inside (the
@@ -1264,8 +1315,10 @@ def _wire_exempt_structures(
     wire on the OUTER face, reachable by hugging the exterior) instead of
     cutting across the whole box.
     """
-    return frozenset(_endpoint_containers(w.source, graph, by_id, vi_name)) | frozenset(
-        _endpoint_containers(w.dest, graph, by_id, vi_name)
+    return frozenset(
+        _endpoint_containers(w.source, graph, by_id, vi_name, fp_containment)
+    ) | frozenset(
+        _endpoint_containers(w.dest, graph, by_id, vi_name, fp_containment)
     )
 
 
@@ -1274,6 +1327,7 @@ def _innermost_common_container(
     graph: InMemoryVIGraph,
     by_id: dict[str, AnyGraphNode],
     vi_name: str,
+    fp_containment: dict[str, list[str]] | None = None,
 ) -> str | None:
     """Raw uid of the INNERMOST structure that contains BOTH endpoints, or
     None if the wire is not fully contained (e.g. external -> outer tunnel).
@@ -1283,8 +1337,8 @@ def _innermost_common_container(
     obstacle. ``_endpoint_containers`` is ordered leaf→root, so the first
     container common to both endpoints is the deepest (nesting handled).
     """
-    src = _containment_of(w.source, graph, by_id, vi_name)
-    dst = set(_containment_of(w.dest, graph, by_id, vi_name))
+    src = _containment_of(w.source, graph, by_id, vi_name, fp_containment)
+    dst = set(_containment_of(w.dest, graph, by_id, vi_name, fp_containment))
     for uid in src:
         if uid in dst:
             return uid
@@ -1296,6 +1350,7 @@ def _containment_of(
     graph: InMemoryVIGraph,
     by_id: dict[str, AnyGraphNode],
     vi_name: str,
+    fp_containment: dict[str, list[str]] | None = None,
 ) -> list[str]:
     """Structures this endpoint lives inside, innermost→outermost — the general
     containment rule for a WIRE endpoint: its node's ancestor structures PLUS,
@@ -1307,7 +1362,7 @@ def _containment_of(
     face matters). For CONTAINMENT the intersection with the OTHER endpoint does
     the filtering: an external wire's outside endpoint has no structure here, so
     the intersection is empty → root."""
-    containers = _endpoint_containers(end, graph, by_id, vi_name)
+    containers = _endpoint_containers(end, graph, by_id, vi_name, fp_containment)
     node = by_id.get(end.node_id)
     if isinstance(node, StructureNode):
         own = _strip_prefix(node.id, vi_name)
@@ -1324,6 +1379,7 @@ def _build_wire_nets(
     render_structures: list[RenderStructure],
     scene_bounds: Rect,
     by_id: dict[str, AnyGraphNode],
+    fp_containment: dict[str, list[str]] | None = None,
 ) -> list[RenderWireNet]:
     # Exclude ONLY the true internal pass-throughs: a tunnel/shift-register's
     # own outer<->inner pairing (paired_id). Do NOT exclude every same-structure
@@ -1459,8 +1515,10 @@ def _build_wire_nets(
                     w.dest.terminal_id,
                 )
                 continue
-            exempt = _wire_exempt_structures(w, graph, by_id, vi_name)
-            confine_uid = _innermost_common_container(w, graph, by_id, vi_name)
+            exempt = _wire_exempt_structures(w, graph, by_id, vi_name, fp_containment)
+            confine_uid = _innermost_common_container(
+                w, graph, by_id, vi_name, fp_containment
+            )
             confine = struct_body_by_uid.get(confine_uid) if confine_uid else None
             router, obstacles = _router_for(path, exempt, confine)
             dest_term = graph.get_terminal(w.dest.terminal_id)
@@ -1588,7 +1646,7 @@ def _build_wire_nets(
                 coercion_dots=coercion_dots,
                 frame_path=path,
                 container_uid=_innermost_common_container(
-                    group[0], graph, by_id, vi_name
+                    group[0], graph, by_id, vi_name, fp_containment
                 ),
             )
         )
@@ -1861,6 +1919,8 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
             )
 
     fp_terminals: list[RenderFPTerminal] = []
+    fp_frame: dict[str, FramePath] = {}
+    fp_containment: dict[str, list[str]] = {}
     vi_node = graph.get_graph_node(vi_name)
     if vi_node is not None:
         # Frame membership for FP terminals: PREFER the structural
@@ -1873,8 +1933,16 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         # indicator/control placed INSIDE a frame often wires to a node in
         # that same frame, so inherit that node's (deepest) frame path too,
         # so it hides with the frame instead of rendering in every frame.
+        #
+        # ``fp_containment`` is a SEPARATE inference from the same wire walk,
+        # for a different question: not "which SELECTABLE frame is this
+        # visible in" (fp_frame, which only walks INTERACTIVE structures --
+        # case/event/disable/stacked-sequence), but "which structure BOXES
+        # does this occlude/get-occluded-by" (every ancestor, interactive or
+        # not — a loop or a plain flat sequence included). Used only by
+        # ``_endpoint_containers``'s paint-order/routing containment, never
+        # for frame visibility.
         fp_ids = {t.id for t in vi_node.terminals if isinstance(t, FPTerminal)}
-        fp_frame: dict[str, FramePath] = {}
         for w in graph.get_wires(vi_name, include_internal=True):
             for end, other in ((w.source, w.dest), (w.dest, w.source)):
                 if end.terminal_id not in fp_ids:
@@ -1885,6 +1953,11 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                 cand = _frame_path(node, by_id, vi_name)
                 if len(cand) > len(fp_frame.get(end.terminal_id, ())):
                     fp_frame[end.terminal_id] = cand
+                containment_cand = _containment_of(other, graph, by_id, vi_name)
+                if len(containment_cand) > len(
+                    fp_containment.get(end.terminal_id, [])
+                ):
+                    fp_containment[end.terminal_id] = containment_cand
 
         for t in vi_node.terminals:
             if not isinstance(t, FPTerminal):
@@ -1936,6 +2009,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
         structures,
         scene_bounds,
         by_id,
+        fp_containment,
     )
     coercion_dots = _arith_coercion_dots(render_nodes)
 

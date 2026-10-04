@@ -933,6 +933,18 @@ class QueryMixin:
             return None
         return is_master, data.get("feedback_partner"), data.get("feedback_delay")
 
+    def get_feedback_output_bmps(self, node_id: str) -> int | None:
+        """The Feedback Node MASTER's own output (``leftFeedback`` dco)
+        ``<termBMPs>`` code -- the raw bitmap-selector id LabVIEW uses to pick
+        which arrow variant to draw. ``None`` for a non-Feedback-Node, a
+        slave, or a master whose heap didn't carry one. See
+        ``parser.node_types.FeedbackNode.output_bmps`` for what values mean
+        (only 209/211 are verified)."""
+        if node_id not in self._graph:
+            return None
+        bmps = self._graph.nodes[node_id].get("feedback_output_bmps")
+        return bmps if isinstance(bmps, int) else None
+
     def is_feedback_master(self, node_id: str) -> bool:
         """True if ``node_id`` is a Feedback Node graph node -- EITHER side
         (master or slave) of the pair, i.e. it carries a

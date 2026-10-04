@@ -54,6 +54,7 @@ from .glyphs.nodes.convert import ConvertGlyph
 from .glyphs.nodes.error_cluster import ErrorClusterGlyph
 from .glyphs.nodes.event_data import EventDataGlyph
 from .glyphs.nodes.event_reg_node import EventRegNodeGlyph
+from .glyphs.nodes.feedback_node import FeedbackNodeGlyph, InitCell
 from .glyphs.nodes.formula_node import FormulaNodeGlyph
 from .glyphs.nodes.icon_image import IconImageGlyph
 from .glyphs.nodes.in_place_element import InPlaceElementGlyph
@@ -93,6 +94,8 @@ __all__ = [
     "ErrorClusterGlyph",
     "EventDataGlyph",
     "EventRegNodeGlyph",
+    "FeedbackNodeGlyph",
+    "InitCell",
     "FormulaNodeGlyph",
     "Glyph",
     "IconImageGlyph",

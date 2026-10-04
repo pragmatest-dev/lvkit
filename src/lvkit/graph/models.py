@@ -166,6 +166,18 @@ class PrimitiveNode(GraphNode):
     # "FPGA I/O Property Node"), even though LabVIEW's own drawer shows real
     # row names. See render/nodes.py:_xnode_glyph.
     xnode_row_names: list[str] = []
+    # XNode only (#107): the bound resource/module identifier (e.g. "Mod4"),
+    # decoded from <StateData> (parser.node_types.XNodeNode.resource_name)
+    # -- LabVIEW's own real header text for "FPGA I/O Property Node". ""
+    # draws a BLANK header band (an "FPGA I/O Node" reading raw channels),
+    # never the generic class name. See render/nodes.py:_xnode_glyph.
+    xnode_resource_name: str = ""
+    # XNode only (#107): each real terminal's own (y1, y2) vertical span, as
+    # a fraction of the node's own height, in termList order (parser.
+    # node_types.XNodeNode.terminal_y_fracs) -- real row heights are NOT
+    # uniform, so the drawer glyph positions each row at its own real
+    # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
+    xnode_terminal_y_fracs: list[tuple[float, float]] = []
     # Property node only: qualified terminal ids from the parser's dcoList,
     # ``properties[i]`` correlates to the terminal whose id is
     # ``property_value_terminal_ids[i]`` -- LabVIEW's real dcoList/permDCOList

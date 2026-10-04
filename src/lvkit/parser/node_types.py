@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..models import LVType
+from .layout import _rect
 from .models import ParsedNode
 from .nodes.base import extract_label
 from .utils import clean_labview_string, decode_hex_ascii, extract_caption
@@ -172,10 +173,19 @@ class FeedbackNode(ParsedNode):
     master has exactly one output = read, one input = init); the master/slave
     link and delay are both fully present in the block-diagram heap, so the
     cross-iteration recurrence is determinable from the file alone.
+
+    ``output_bmps`` is the master's own ``leftFeedback`` dco's
+    ``<termBMPs>`` bitmap-selector code -- LabVIEW's own per-terminal glyph
+    variant id. Verified against two real corpus instances in FPGA_v1.vi
+    cross-checked pixel-for-pixel against the issue's reference screenshot:
+    209 draws a LEFT-pointing arrow, 211 a RIGHT-pointing one. Any other
+    value is unverified (``None`` from the glyph's point of view -- see
+    ``render.nodes._feedback_arrow_points_left``).
     """
 
     is_master: bool = True
     partner_uid: str | None = None  # the linked slave (master) / master (slave)
+    output_bmps: int | None = None  # master only; see docstring above
     delay_depth: int | None = None  # z^-N depth from feedbackNodeDelay; master only
 
 
@@ -389,11 +399,19 @@ class FeedbackMasterHandler(NodeTypeHandler):
                 delay_depth = int(delay_text, 16)
             except ValueError:
                 delay_depth = None
+        output_bmps = None
+        bmps_text = elem.findtext(".//dco[@class='leftFeedback']/termBMPs")
+        if bmps_text:
+            try:
+                output_bmps = int(bmps_text)
+            except ValueError:
+                output_bmps = None
         return FeedbackNode(
             **common,
             is_master=True,
             partner_uid=partner_uid,
             delay_depth=delay_depth,
+            output_bmps=output_bmps,
         )
 
 
@@ -786,6 +804,20 @@ class XNodeNode(ParsedNode):
     class_name: str = ""
     method_name: str = ""
     state_row_names: list[str] = field(default_factory=list)
+    # The bound resource/module identifier (e.g. "Mod4"), LabVIEW's own real
+    # header text for "FPGA I/O Property Node" -- see
+    # ``_xnode_state_resource_name``. "" draws a BLANK header band (an "FPGA
+    # I/O Node" reading raw channels), never the generic class name.
+    resource_name: str = ""
+    # Each real terminal's own (y1, y2) vertical span, as a fraction of the
+    # node's own height, in termList order -- from the heap's own
+    # termBounds (see ``_xnode_terminal_y_fracs``). Real row heights are NOT
+    # uniform (verified: FIFO Write's Element/Timeout/Timed Out? rows are
+    # 15/15/14 units, with a much taller 35-unit gap before them for the
+    # header) -- equal-dividing the drawer box, as the glyph used to,
+    # visibly misaligns every row against its own real wire. (0.0, 0.0) for
+    # a terminal whose termBounds couldn't be read.
+    terminal_y_fracs: list[tuple[float, float]] = field(default_factory=list)
 
 
 class PropertyNodeHandler(NodeTypeHandler):
@@ -917,35 +949,206 @@ def _xnode_state_method_name(state_data_hex: str | None) -> str:
     return _xnode_state_string(raw, 0) or ""
 
 
-def _xnode_state_row_names(state_data_hex: str | None) -> list[str]:
-    """Every per-row PARAMETER/PROPERTY name in an XNode's ``<StateData>``
-    blob, in termList order (see ``XNodeNode``'s own docstring for the
-    verification against 3 real instances across both "Invoke Method" and
-    "FPGA I/O Property Node"). Each real row name is recorded TWICE in close
-    succession -- once bare, once (for "FPGA I/O Property Node") repeated
-    with a unit suffix appended (e.g. "Longitude" then "Longitude (°)") --
-    so two ADJACENT extracted strings where the second equals or extends the
-    first is the row-name signal; anything else (a resource GUID, a class
-    name, an enum item list, a lone occurrence) is incidental metadata and
-    skipped. The richer (longer) of each pair is kept. Returns [] when the
-    blob is absent/undecodable -- never a partial/garbled list."""
+_RESOURCE_GUID_SUFFIX_RE = re.compile(r"\.\{[0-9A-Fa-f-]+\}$")
+
+# A reference terminal's own generic descriptor -- a FIXED LabVIEW-internal
+# label for ANY reference-typed xNode terminal, never instance data (verified
+# real corpus: FPGA_v1.vi's "FIFO Write" node records "ref in"/"ref out"
+# beside its FIFO In/FIFO Out reference pair).
+_GENERIC_REF_LABELS = frozenset({"ref in", "ref out"})
+# The literal protocol name that always introduces a container-interface
+# descriptor triplet -- see _xnode_state_filtered_strings.
+_CONTAINER_INTERFACE_MARKER = "ContainerInterface"
+
+
+def _strip_xnode_resource_guid(name: str) -> str:
+    """Strips a resource identifier's trailing ``.{GUID}`` (e.g.
+    ``"Mod4.{305F45FE-...}"`` -> ``"Mod4"``, ``"Mod1/AI0.{A117026A-...}"`` ->
+    ``"Mod1/AI0"``) -- LabVIEW's own drawer never shows the GUID, only the
+    resource path (verified against the real corpus: FPGA_v1.vi's "Antenna
+    Status" node's header reads "Mod4", its "FPGA I/O Node" reads
+    "Mod1/AI0"/"Mod1/AI2", never with a GUID suffix)."""
+    return _RESOURCE_GUID_SUFFIX_RE.sub("", name)
+
+
+def _xnode_state_filtered_strings(raw: bytes) -> list[str]:
+    """``_xnode_state_strings`` with known non-label metadata stripped --
+    verified against FPGA_v1.vi's real "FIFO Write" node (cross-checked
+    against raph's own screenshot of this exact VI):
+
+    * A CONTAINER-INTERFACE descriptor TRIPLET: the literal protocol name
+      ``"ContainerInterface"``, the XML ``<Interface>...</Interface>``
+      descriptor that always immediately follows it, and the general
+      container-TYPE name right after that (e.g. ``"FPGA FIFO"``) -- one
+      such triplet is recorded per reference terminal (ref in, then ref
+      out), describing what kind of container the reference points to, never
+      a row's own display label. None of the three ever appears in LabVIEW's
+      own drawer.
+    * The generic reference-protocol labels ``"ref in"``/``"ref out"`` (see
+      ``_GENERIC_REF_LABELS``).
+    """
+    strings = _xnode_state_strings(raw)
+    out: list[str] = []
+    i = 0
+    while i < len(strings):
+        s = strings[i]
+        if (
+            s == _CONTAINER_INTERFACE_MARKER
+            and i + 1 < len(strings)
+            and strings[i + 1].startswith("<")
+        ):
+            i += 3 if i + 2 < len(strings) else 2  # marker, xml, [type name]
+            continue
+        if s in _GENERIC_REF_LABELS:
+            i += 1
+            continue
+        out.append(s)
+        i += 1
+    return out
+
+
+def _xnode_state_filtered_strings_from_hex(state_data_hex: str | None) -> list[str]:
     if not state_data_hex:
         return []
     try:
         raw = bytes.fromhex(state_data_hex.strip())
     except ValueError:
         return []
-    strings = _xnode_state_strings(raw)
+    return _xnode_state_filtered_strings(raw)
+
+
+def _xnode_state_header(strings: list[str]) -> str:
+    """The leading string, when it is NOT an ordinary paired row.
+
+    Verified across three real instances: a resource header with no echo
+    occurs exactly ONCE total (FPGA_v1.vi's "Antenna Status" node:
+    ``"Mod4.{GUID}"``); an instance-name header CAN echo again inside each
+    reference terminal's own (now-stripped) metadata, so it occurs MORE than
+    twice total (FPGA_v1.vi's "FIFO Write" node: ``"Raw data to RT"`` occurs
+    3 times -- once leading, once inside each of the two reference blocks);
+    an ORDINARY paired row occurs exactly TWICE total and leads only because
+    it happens to be termList-first (FPGA_v1.vi's "FPGA I/O Node" reading raw
+    channels: ``"Mod1/AI0"`` occurs exactly twice, and real LabVIEW draws a
+    BLANK header for this node -- never a header). So: count != 2 -> header;
+    count == 2 -> an ordinary row, "" (no header). A row's own pair can be a
+    PREFIX extension rather than an exact duplicate (e.g. "Longitude" /
+    "Longitude (°)"), so matches are counted by the SAME predicate the row
+    pairing below uses, not exact equality alone."""
+    if not strings:
+        return ""
+    first = strings[0]
+    matches = sum(1 for s in strings if s == first or s.startswith(first))
+    return first if matches != 2 else ""
+
+
+def _xnode_state_row_names(state_data_hex: str | None) -> list[str]:
+    """Every per-row PARAMETER/PROPERTY name in an XNode's ``<StateData>``
+    blob, in termList order (see ``XNodeNode``'s own docstring for the
+    verification against real instances across "Invoke Method", "FPGA I/O
+    Property Node", "FPGA I/O Node" AND "FIFO Write"). Each real row name is
+    recorded TWICE -- once bare, once (for "FPGA I/O Property Node") repeated
+    with a unit suffix appended (e.g. "Longitude" then "Longitude (°)") --
+    so two extracted strings where the second equals or extends the first is
+    the row-name signal. The two copies are NOT always adjacent: an "FPGA
+    I/O Node" reading raw channels (verified real instance: "Mod1/AI0"/
+    "Mod1/AI2") records ALL first copies, then ALL second copies, so the
+    pairing scans the REST of the list for each string's own match rather
+    than only the next entry. The leading HEADER string (see
+    ``_xnode_state_header``) is excluded first, whatever its own occurrence
+    count, so it never gets mistaken for a row. A string with no match
+    anywhere (an enum item list, a lone occurrence) is incidental metadata
+    and skipped. The richer (second-occurrence) copy is kept, GUID-suffix
+    stripped, in FIRST-occurrence order. Returns [] when the blob is
+    absent/undecodable -- never a partial/garbled list."""
+    strings = _xnode_state_filtered_strings_from_hex(state_data_hex)
+    header = _xnode_state_header(strings)
+    if header:
+        strings = [s for s in strings if s != header]
+    used = [False] * len(strings)
     names: list[str] = []
-    i = 0
-    while i < len(strings) - 1:
-        a, b = strings[i], strings[i + 1]
-        if b == a or b.startswith(a):
-            names.append(b)
-            i += 2
-        else:
-            i += 1
+    for i, a in enumerate(strings):
+        if used[i]:
+            continue
+        for j in range(i + 1, len(strings)):
+            if used[j]:
+                continue
+            b = strings[j]
+            if b == a or b.startswith(a):
+                used[i] = used[j] = True
+                names.append(_strip_xnode_resource_guid(b))
+                break
     return names
+
+
+def _xnode_state_resource_name(state_data_hex: str | None) -> str:
+    """The XNode's own bound resource/instance identifier (e.g. ``"Mod4"``,
+    ``"Raw data to RT"``) -- LabVIEW's own real header text. See
+    ``_xnode_state_header`` for the occurrence-count rule. "" when the
+    leading string is an ordinary paired row instead (an "FPGA I/O Node"
+    reading raw channels has no separate resource header; its row names ARE
+    the channel paths, e.g. "Mod1/AI0"/"Mod1/AI2" -- real LabVIEW draws
+    these with a BLANK header band, never the generic class name)."""
+    strings = _xnode_state_filtered_strings_from_hex(state_data_hex)
+    header = _xnode_state_header(strings)
+    return _strip_xnode_resource_guid(header) if header else ""
+
+
+def _xnode_class_method_name(class_name: str, state_data_hex: str | None) -> str:
+    """A non-"Invoke Method" XNode's own operation sub-type (e.g. "FIFO
+    Write"/"FIFO Read" -> "Write"/"Read", verified against FPGA_v1.vi's real
+    "FIFO Write" node, cross-checked against raph's own screenshot of it) --
+    the class name's own LAST WORD, drawn as its own row directly under the
+    header, same convention as "Invoke Method"'s method row. Only when that
+    exact word ALSO appears in the (filtered) ``<StateData>`` -- confirms a
+    real recorded row rather than guessing from the class name's own English
+    wording alone (e.g. "Open FPGA VI Reference" has no such row: "Reference"
+    never appears in its StateData, so this correctly returns "")."""
+    words = class_name.split()
+    if len(words) < 2:
+        return ""
+    candidate = words[-1]
+    strings = _xnode_state_filtered_strings_from_hex(state_data_hex)
+    return candidate if candidate in strings else ""
+
+
+def _xnode_terminal_y_fracs(elem: ET.Element) -> list[tuple[float, float]]:
+    """Each real terminal's own ``(y1, y2)`` vertical span, as a fraction of
+    the node's own VISUAL height, in ``termList`` order -- the same order
+    ``node.terminals`` is built in.
+
+    The scaling height is the UNION of every terminal's own ``termBounds``
+    extent (min top to max bottom) -- NOT the xNode element's own
+    ``<bounds>`` tag, which can record a TALLER box than what's actually
+    drawn (verified bug: FPGA_v1.vi's "FPGA I/O Node" reading "Mod1/AI0"/
+    "Mod1/AI2", whose own ``<bounds>`` is 55 units tall but whose real
+    terminals only span 18-52 = 34 units -- using the raw 55 put every row
+    well below where the real wire attaches, which ``layout._map_terms``
+    computes from this SAME union-of-terminals convention and therefore
+    disagreed with). A terminal's ``termBounds`` is already relative to the
+    node's own (0, 0) origin (a heap-format fact), so each fraction is
+    ``(ty - union_top) / union_height``. ``(0.0, 0.0)`` for a terminal whose
+    termBounds can't be read (falls back to equal division at the glyph)."""
+    term_list = elem.find("termList")
+    if term_list is None:
+        return []
+    terms = term_list.findall("SL__arrayElement")
+    term_bounds = [_rect(term, ".//termBounds") for term in terms]
+    real_tops = [tb[1] for tb in term_bounds if tb is not None]
+    real_bottoms = [tb[3] for tb in term_bounds if tb is not None]
+    if not real_tops:
+        return []
+    top, height = min(real_tops), max(real_bottoms) - min(real_tops)
+    if height <= 0:
+        return []
+    fracs: list[tuple[float, float]] = []
+    for tb in term_bounds:
+        if tb is None:
+            fracs.append((0.0, 0.0))
+            continue
+        _, ty1, _, ty2 = tb
+        ty1, ty2 = ty1 - top, ty2 - top
+        fracs.append((ty1 / height, ty2 / height))
+    return fracs
 
 
 class XNodeHandler(NodeTypeHandler):
@@ -959,22 +1162,34 @@ class XNodeHandler(NodeTypeHandler):
         common = self._extract_common(elem)
         class_name = decode_hex_ascii(elem.findtext("displayName")) or ""
         state_data = elem.findtext("StateData")
-        method_name = (
-            _xnode_state_method_name(state_data)
-            if class_name == "Invoke Method"
-            else ""
-        )
+        if class_name == "Invoke Method":
+            method_name = _xnode_state_method_name(state_data)
+        else:
+            method_name = _xnode_class_method_name(class_name, state_data)
         # The method name (when present) is ALSO recorded as a row-name pair
         # elsewhere in the same blob -- exclude it, it's the header/method
         # row (drawn separately), never one of the node's own param rows.
         row_names = [
             n for n in _xnode_state_row_names(state_data) if n != method_name
         ]
+        resource_name = _xnode_state_resource_name(state_data)
+        # An "Invoke Method" node's leading StateData string IS its method
+        # name (unpaired, read above) -- it is ALSO, by construction, the one
+        # ``_xnode_state_resource_name`` would read as a header (same string,
+        # same position). Verified against every real "Invoke Method"
+        # instance in RT_v1.vi (e.g. "Raw data to RT.Configure",
+        # "Raw data to RT.Stop", "Run"): without this check the identical
+        # text drew TWICE -- once as the header, once as the method row --
+        # splitting the box's real header gap in half for nothing.
+        if resource_name == method_name:
+            resource_name = ""
         return XNodeNode(
             **common,
             class_name=class_name,
             method_name=method_name,
             state_row_names=row_names,
+            resource_name=resource_name,
+            terminal_y_fracs=_xnode_terminal_y_fracs(elem),
         )
 
 

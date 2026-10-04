@@ -48,6 +48,14 @@ class Theme:
     prim_fill: str = "#fff6d8"
     prim_stroke: str = "#b07d10"
     prim_text: str = "#1a1a1a"  # label text on prim_fill (Arith/Bundle/…)
+    # An FPGA Interface XNode's own distinct chrome (#107 follow-up) — LabVIEW
+    # draws these in magenta/purple on a WHITE body, never the tan prim_fill
+    # (verified against raph's real screenshot: FPGA_v1.vi's "Antenna Status"/
+    # "Raw data to RT" nodes, header fill #efb8ff, border/divider #9f008e, row
+    # background white).
+    xnode_fill: str = "#ffffff"  # row background (never prim_fill's tan)
+    xnode_header_fill: str = "#efb8ff"  # header band fill
+    xnode_stroke: str = "#9f008e"  # border + row dividers
     term_fill: str = "#fff3e2"
     const_fill: str = "#ffffff"  # numeric/string constant box background
     const_text: str = "#1a1a1a"  # label text on const_fill

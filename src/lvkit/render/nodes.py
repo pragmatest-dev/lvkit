@@ -57,6 +57,7 @@ from ..parser.node_types import get_display_name
 from ..primitive_resolver import NodeIcon
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
+from .backend import Backend
 from .glyph import (
     ArithGlyph,
     ArrayBuildGlyph,
@@ -81,9 +82,11 @@ from .glyph import (
     ErrorClusterGlyph,
     EventDataGlyph,
     EventRegNodeGlyph,
+    FeedbackNodeGlyph,
     FormulaNodeGlyph,
     Glyph,
     IconImageGlyph,
+    InitCell,
     InlineSvgGlyph,
     InPlaceElementGlyph,
     InvokeNodeGlyph,
@@ -99,7 +102,14 @@ from .glyph import (
     XNodeGlyph,
 )
 from .icons import resolve_icon_png
-from .style import lv_type_label, numeric_repr, type_family, type_repr, wire_style
+from .style import (
+    Theme,
+    lv_type_label,
+    numeric_repr,
+    type_family,
+    type_repr,
+    wire_style,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -943,6 +953,53 @@ def _event_reg_node_glyph(node: PrimitiveNode) -> EventRegNodeGlyph | None:
     return EventRegNodeGlyph(row_count=len(row_ids), class_name=class_name)
 
 
+@dataclass(frozen=True)
+class _NoGlyph:
+    """Draws nothing. The Feedback Node's write side (``slaveFBInputNode``)
+    has real heap bounds but no visual of its own -- see its dispatch site
+    in ``OriginalGlyphResolver.resolve``."""
+
+    def draw(self, backend: Backend, bounds: Rect, theme: Theme) -> None:
+        return None
+
+
+_NO_GLYPH = _NoGlyph()
+
+
+def _feedback_node_glyph(node: PrimitiveNode, ctx: GlyphContext) -> FeedbackNodeGlyph:
+    """A Feedback Node's read/master side (``hiddenFBNode`` -- see
+    ``parser.node_types.FeedbackNode``'s docstring for the master/slave
+    split). Color follows the retained value's own wire type (its OUTPUT
+    terminal's ``lv_type``, the only terminal every instance has).
+
+    ``init_cell`` is a TRI-state, not a bool: the master's SECOND terminal
+    (the initializer) may not exist at all (e.g. FPGA_v1.vi's "T"-latched
+    Feedback Node -- a single bare-arrow cell, no second row), or exist
+    unwired (-> "default", the common case; NI docs: defaults to the type's
+    own default value), or exist wired (-> "wired"). Collapsing "doesn't
+    exist" and "exists but unwired" into one bool was the prior bug -- both
+    produced the same two-cell render, so the no-initializer case grew a
+    phantom default-marker cell it should never have had.
+
+    ``arrow_left`` follows the master's own ``leftFeedback`` dco
+    ``<termBMPs>`` code (``get_feedback_output_bmps`` -- see
+    ``parser.node_types.FeedbackNode.output_bmps``), verified against two
+    real instances in FPGA_v1.vi cross-checked against Raph's screenshots:
+    209 -> left, 211 -> right. An unverified/missing code defaults to left
+    (the more common corpus direction), same honest-placeholder spirit as
+    before, now scoped to only the genuinely-undecoded codes."""
+    out_term = next((t for t in node.terminals if t.direction == "output"), None)
+    in_term = next((t for t in node.terminals if t.direction == "input"), None)
+    init_cell: InitCell = None
+    if in_term is not None:
+        init_cell = "wired" if ctx.graph.incoming_edges(in_term.id) else "default"
+    lv_type = out_term.lv_type if out_term else None
+    color = wire_style(lv_type).color if lv_type is not None else None
+    bmps = ctx.graph.get_feedback_output_bmps(node.id)
+    arrow_left = bmps != 211
+    return FeedbackNodeGlyph(color=color, arrow_left=arrow_left, init_cell=init_cell)
+
+
 def _is_xnode_passthrough(term: Terminal) -> bool:
     """The reference (Refnum-typed) and error (``is_error_cluster``) pair
     every XNode carries -- identified by TYPE, never by terminal name text,
@@ -956,12 +1013,19 @@ def _is_xnode_passthrough(term: Terminal) -> bool:
 
 
 def _xnode_glyph(node: PrimitiveNode) -> XNodeGlyph:
-    """An FPGA Interface XNode glyph (#107): header = the node's own real
-    class (``object_name``, decoded from ``<displayName>`` -- "Invoke
-    Method", "Read/Write Control", "Open FPGA VI Reference", "Close FPGA VI
-    Reference"); for "Invoke Method", an extra row for the specific invoked
-    method (``method_name``, decoded from ``<StateData>``); then one row per
-    remaining terminal, excluding the reference/error pass-through pair (see
+    """An FPGA Interface XNode glyph (#107): header = the node's own bound
+    resource/module identifier (``xnode_resource_name``, e.g. "Mod4",
+    decoded from ``<StateData>`` -- see ``XNodeNode.resource_name``'s
+    docstring); BLANK when there is none (verified against raph's real
+    screenshot: an "FPGA I/O Node" reading raw channels, e.g. "Mod1/AI0"/
+    "Mod1/AI2", draws an empty header band, never its generic class name).
+    For "Invoke Method"/"FIFO Write"/"FIFO Read", an extra row for the
+    specific invoked method/operation (``method_name``, decoded from
+    ``<StateData>``) -- or, for a class whose own method string pairs
+    normally rather than sitting unpaired (e.g. "FPGA I/O Method Node"'s
+    "Wait for PPS"), one inferred from a terminal-count mismatch (see the
+    ``needs_fallback`` check below); then one row per remaining terminal,
+    excluding the reference/error pass-through pair (see
     ``_is_xnode_passthrough``). Terminal order follows the heap's own
     termList order (``node.terminals`` is already index-sorted) -- never
     re-sorted by name.
@@ -972,17 +1036,60 @@ def _xnode_glyph(node: PrimitiveNode) -> XNodeGlyph:
     Node"), so an empty one falls back to the next unused entry in
     ``xnode_row_names`` (decoded from ``<StateData>`` -- see XNodeNode's own
     docstring), consumed in order. Still "" (never a placeholder guess) if
-    both sources are exhausted."""
+    both sources are exhausted.
+
+    Each row also carries its own real ``(y1, y2)`` vertical span
+    (``xnode_terminal_y_fracs``, by terminal index -- the SAME termList
+    order, so the two line up positionally) rather than an equal division of
+    the box: real LabVIEW row heights are not uniform, and equal-dividing
+    visibly misaligns a row against its own real wire (verified: FIFO
+    Write's Element/Timeout/Timed Out? rows are 15/15/14 units with a 35-unit
+    header gap, not an even quarter each).
+
+    Each row's text draws in its own terminal's wire-color (``wire_style`` --
+    the same convention every other glyph's type coloring uses), not a flat
+    neutral: verified against raph's real screenshot ("Antenna Status" in
+    Enum's blue, "UTC Offset Valid" in Boolean's green)."""
     class_name = (node.object_name or "").strip() or "xNode"
+    resource_name = (node.xnode_resource_name or "").strip()
     method = (node.method_name or "").strip()
-    fallback_names = iter(node.xnode_row_names)
+    fallback_pool = list(node.xnode_row_names)
+    # An implicit method name that PAIRS normally in <StateData> (so it does
+    # reach xnode_row_names, unlike "Invoke Method"'s/"FIFO Write"'s own
+    # unpaired method strings) looks IDENTICAL to a real terminal's fallback
+    # name there -- the only way to tell them apart is a COUNT mismatch:
+    # real terminals needing a fallback (no own name) outnumbered by one.
+    # Verified against raph's real screenshot: "FPGA I/O Method Node"'s
+    # "Wait for PPS"/"Wait for Data Update" draw as their own no-arrow,
+    # neutral-text row directly under the header -- same slot as Invoke
+    # Method's own method row -- never consumed as "Timeout"'s fallback name
+    # (which doubled the header's real gap in half for nothing).
+    if not method:
+        needs_fallback = sum(
+            1
+            for t in node.terminals
+            if not _is_xnode_passthrough(t) and not (t.display_name or t.name)
+        )
+        if len(fallback_pool) == needs_fallback + 1:
+            method = fallback_pool.pop(0)
+    fallback_names = iter(fallback_pool)
+    y_fracs = node.xnode_terminal_y_fracs
     rows = []
-    for t in node.terminals:
+    row_colors: list[str] = []
+    for i, t in enumerate(node.terminals):
         if _is_xnode_passthrough(t):
             continue
         label = t.display_name or t.name or next(fallback_names, "")
-        rows.append((label, t.direction == "input", t.direction == "output"))
-    return XNodeGlyph(class_name=class_name, method=method, rows=tuple(rows))
+        y_frac = y_fracs[i] if i < len(y_fracs) else (0.0, 0.0)
+        rows.append((label, t.direction == "input", t.direction == "output", y_frac))
+        row_colors.append(wire_style(t.lv_type).color)
+    return XNodeGlyph(
+        class_name=class_name,
+        resource_name=resource_name,
+        method=method,
+        rows=tuple(rows),
+        row_colors=tuple(row_colors),
+    )
 
 
 def _row_terminal_present(term: Terminal | None) -> bool:
@@ -1115,6 +1222,17 @@ class OriginalGlyphResolver:
             return _event_reg_node_glyph(node)
         if node.node_type == "xNode":
             return _xnode_glyph(node)
+        if node.node_type == "hiddenFBNode":
+            return _feedback_node_glyph(node, ctx)
+        if node.node_type == "slaveFBInputNode":
+            # The Feedback Node's write side (parser.node_types.FeedbackNode):
+            # its own <bounds> are IDENTICAL to its master's (hiddenFBNode) --
+            # verified on both pairs in FPGA_v1.vi -- so it would otherwise
+            # get its own FallbackBoxResolver box stacked exactly on top of
+            # the master's real icon. It draws nothing of its own; the write
+            # wire still routes correctly, because it targets this node's
+            # own (shared) bounds, which the master's glyph already covers.
+            return _NO_GLYPH
         symbol = _COMPARE_SYMBOL.get(node.name or "")
         if symbol is not None:
             return ArithGlyph(symbol)

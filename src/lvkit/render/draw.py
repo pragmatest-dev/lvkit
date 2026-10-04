@@ -735,6 +735,16 @@ def _term_side_and_frac(
         fx = min(1.0, max(0.0, (tcx - x1) / bw))
         fy = min(1.0, max(0.0, (tcy - y1) / bh))
         if min(gl, gr) <= min(gt, gb):  # horizontal wins ties
+            if gl == gr:
+                # A terminal box flush to BOTH edges at once (an XNode
+                # drawer row's termBounds spans the node's full width, e.g.
+                # every "FPGA I/O Property Node" row) can't be told apart by
+                # geometry -- fall back to the terminal's own real direction
+                # rather than always defaulting to "left" (verified bug:
+                # every such OUTPUT row, e.g. Longitude/Latitude, was
+                # misclassified as an input and drawn on the wrong side).
+                side = "right" if rt.terminal.direction == "output" else "left"
+                return side, fy
             return ("left" if gl <= gr else "right"), fy
         return ("top" if gt <= gb else "bottom"), fx
     side = "right" if rt.terminal.direction == "output" else "left"
