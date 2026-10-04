@@ -575,3 +575,26 @@ def test_extraction_fingerprint_frozen_fallback_without_embed(monkeypatch):
     assert frozen == "extraction-unavailable"
     assert frozen != normal
     cache_paths.extraction_fingerprint.cache_clear()
+
+
+def test_vers_language_from_root_reads_the_real_element():
+    """A real corpus VI's degree sign was corrupted because nothing read the
+    VI's own recorded 'vers' Language -- confirm the extraction path's own
+    lookup finds it at its real, verified location (vers/Section/Version)."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(
+        '<RSRC><vers><Section><Version Major="25" Minor="3" Language="33"/>'
+        "</Section></vers></RSRC>"
+    )
+    assert extractor._vers_language_from_root(root) == 33
+
+
+def test_vers_language_from_root_absent_or_non_numeric_is_none():
+    import xml.etree.ElementTree as ET
+
+    assert extractor._vers_language_from_root(ET.fromstring("<RSRC/>")) is None
+    root = ET.fromstring(
+        '<RSRC><vers><Section><Version Language="bogus"/></Section></vers></RSRC>'
+    )
+    assert extractor._vers_language_from_root(root) is None

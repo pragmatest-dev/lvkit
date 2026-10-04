@@ -180,6 +180,21 @@ def _make_read_po(**overrides: object) -> argparse.Namespace:
     return argparse.Namespace(**opts)
 
 
+def _vers_language_from_root(root: Any) -> int | None:
+    """The VI's own ``vers`` resource ``Language`` value (see
+    ``text_encoding.vers_language_encoding``), read from the in-memory
+    pylabview export tree BEFORE normalization -- a decimal digit is pure
+    ASCII either way, so reading it pre-normalization is safe. ``None`` when
+    absent/non-numeric."""
+    elem = root.find(".//vers/Section/Version")
+    if elem is None:
+        return None
+    raw_language = elem.get("Language")
+    if raw_language is None or not raw_language.isdigit():
+        return None
+    return int(raw_language)
+
+
 def _extract_in_process(vi_path: Path, output_dir: Path, artifact_stem: str) -> None:
     """Extract a VI to XML in-process, matching ``readRSRC -i <vi> -x``.
 
@@ -218,12 +233,16 @@ def _extract_in_process(vi_path: Path, output_dir: Path, artifact_stem: str) -> 
     tree = _lv_xml.ElementTree(root)
     with open(xml_path, "wb") as xml_fh:
         tree.write(xml_fh, encoding="utf-8", xml_declaration=True)
+    # Computed ONCE (from the VI's own recorded Language -- real data, not a
+    # guess) and passed to every one of this VI's XML files so they all
+    # normalize under the same encoding.
+    target_encoding = labview_text_encoding(_vers_language_from_root(root))
     for path in output_dir.iterdir():
         belongs_to_vi = path.name == f"{artifact_stem}.xml" or path.name.startswith(
             f"{artifact_stem}_"
         )
         if path.suffix == ".xml" and belongs_to_vi:
-            normalize_extracted_xml(path)
+            normalize_extracted_xml(path, target_encoding)
 
 
 def extract_vi_xml(

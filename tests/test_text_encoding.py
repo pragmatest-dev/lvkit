@@ -15,6 +15,7 @@ from lvkit.text_encoding import (
     decode_labview_text,
     labview_text_encoding,
     normalize_extracted_xml,
+    vers_language_encoding,
 )
 
 
@@ -67,6 +68,64 @@ def test_windows_uses_active_ansi_code_page(
         lambda: "cp936",
     )
     assert labview_text_encoding() == "cp936"
+
+
+def test_vers_language_encoding_maps_documented_values():
+    """pylabview wiki's Blocks.md ("vers" section) -- the only values ever
+    actually seen. 0 is deliberately unmapped: LabVIEW 20+ always writes 0
+    regardless of the real authoring locale (the wiki notes non-zero was only
+    seen in LV 8.0.0f5-19.0.0f5), so 0 is ambiguous, not a real "English"
+    signal."""
+    assert vers_language_encoding(33) == "cp936"  # Chinese
+    assert vers_language_encoding(14) == "cp932"  # Japanese
+    assert vers_language_encoding(23) == "cp949"  # Korean
+    assert vers_language_encoding(1) == "cp1252"  # French
+    assert vers_language_encoding(3) == "cp1252"  # German
+    assert vers_language_encoding(0) is None
+    assert vers_language_encoding(99) is None
+
+
+def test_labview_text_encoding_prefers_vers_language_over_platform_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A VI's own recorded Language beats the reading machine's platform
+    guess -- it names the ACTUAL save-time locale instead of assuming this
+    machine's own locale matches it (true even on Windows: GetACP() is the
+    reader's own regional setting, not the VI's)."""
+    monkeypatch.delenv("LVKIT_TEXT_ENCODING", raising=False)
+    monkeypatch.setattr("lvkit.text_encoding.sys.platform", "win32")
+    monkeypatch.setattr(
+        "lvkit.text_encoding._windows_ansi_encoding", lambda: "cp1252"
+    )
+    assert labview_text_encoding(vers_language=33) == "cp936"
+    # An unrecognized/zero Language falls through to the platform default.
+    assert labview_text_encoding(vers_language=0) == "cp1252"
+
+
+def test_labview_text_encoding_env_override_beats_vers_language(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The explicit LVKIT_TEXT_ENCODING override is the reader's own, more
+    specific instruction -- it wins even over a real recorded Language."""
+    monkeypatch.setenv("LVKIT_TEXT_ENCODING", "gbk")
+    assert labview_text_encoding(vers_language=14) == "gbk"
+
+
+def test_non_windows_non_mac_defaults_to_cp1252_not_reader_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A real corpus VI's legacy front-panel caption recorded a degree sign
+    as a raw Windows-1252 byte (0xB0) -- this reading machine's own OS locale
+    (UTF-8 on Linux) has nothing to do with the VI's save-time encoding, and
+    decoding that byte as UTF-8 corrupted it to U+FFFD. LabVIEW's own most
+    common legacy Windows default (cp1252) recovers it; the reader's locale
+    is pure coincidence."""
+    monkeypatch.setattr("lvkit.text_encoding.sys.platform", "linux")
+    monkeypatch.delenv("LVKIT_TEXT_ENCODING", raising=False)
+    assert labview_text_encoding() == "cp1252"
+    assert bytes([0xB0]).decode("mac_roman").encode("mac_roman").decode(
+        labview_text_encoding()
+    ) == "°"
 
 
 def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(

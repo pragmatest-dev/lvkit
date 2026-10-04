@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import locale
 import os
 import re
 import sys
@@ -30,17 +29,63 @@ def _windows_ansi_encoding() -> str:
         return "mbcs"
 
 
-def labview_text_encoding() -> str:
-    """Return the native text encoding used by LabVIEW on this platform."""
+# A VI's own 'vers' resource Language field (2-byte enum, Mac Script.h-
+# derived codes LabVIEW inherited) -- publicly documented values (the
+# pylabview wiki's Blocks.md, "vers" section). Only the values actually seen
+# are listed there; 0 ("English") is excluded on purpose -- the wiki notes a
+# non-zero code has only been seen in LabVIEW 8.0.0f5 through 19.0.0f5, so a
+# modern (20+) VI always writes 0 regardless of its real authoring locale,
+# making 0 ambiguous rather than a real "English" signal. 1/3 (French/German)
+# still fall under the Western-European single-byte codepage, same as English.
+_VERS_LANGUAGE_CODEPAGE: dict[int, str] = {
+    1: "cp1252",  # French
+    3: "cp1252",  # German
+    14: "cp932",  # Japanese
+    23: "cp949",  # Korean
+    33: "cp936",  # Chinese
+}
+
+
+def vers_language_encoding(language: int) -> str | None:
+    """The codepage a VI's own ``vers`` resource ``Language`` value implies,
+    or ``None`` when it is 0/unset/unrecognized (see
+    :data:`_VERS_LANGUAGE_CODEPAGE`) -- the caller then falls back to the
+    platform default."""
+    return _VERS_LANGUAGE_CODEPAGE.get(language)
+
+
+def labview_text_encoding(vers_language: int | None = None) -> str:
+    """Return the native text encoding used by LabVIEW on this platform.
+
+    ``vers_language`` is the VI's OWN ``vers`` resource ``Language`` value,
+    when the caller has it (real, VI-recorded data, not a guess) -- checked
+    before the platform default (but after the explicit env override, which
+    is the reader's own, more specific instruction) since it names the actual
+    save-time locale rather than assuming this reading machine's own locale
+    matches it.
+    """
     # Override for a VI saved in a different locale than the reader's machine.
     override = os.environ.get("LVKIT_TEXT_ENCODING")
     if override:
         return override
+    if vers_language:
+        detected = vers_language_encoding(vers_language)
+        if detected:
+            return detected
     if sys.platform == "win32":
         return _windows_ansi_encoding()
     if sys.platform == "darwin":
         return _PYLABVIEW_ENCODING
-    return locale.getpreferredencoding(False) or "utf-8"
+    # Neither Windows' own active codepage (the author's real locale) nor
+    # pylabview's Mac Roman convention apply here, so there is no signal tying
+    # this READING machine's own OS locale to the VI's actual save-time
+    # encoding -- locale.getpreferredencoding() is pure coincidence (it broke
+    # a real corpus VI's degree sign: saved under Windows-1252, read on a
+    # UTF-8-locale Linux box). cp1252 is LabVIEW's own most common legacy
+    # Windows default, matching the byte-preserving precedent in
+    # parser/vi.py's string decode. A VI saved under a different single-byte
+    # codepage still needs LVKIT_TEXT_ENCODING, same as today.
+    return "cp1252"
 
 
 def decode_labview_text(data: bytes, encoding: str | None = None) -> str:
