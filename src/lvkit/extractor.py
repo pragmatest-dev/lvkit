@@ -430,12 +430,15 @@ def _open_llb_vi(llb_path: Path) -> Any:
         keep_names=True,
         raw_connectors=False,
     )
-    with open(llb_path, "rb") as fh:
-        vi = lvrsrc.VI(
-            po,
-            rsrc_fh=fh,
-            text_encoding=labview_text_encoding(),
-        )
+    # Later member sections read from this stream lazily. Keep an in-memory
+    # snapshot owned by the VI, without retaining an open filesystem handle.
+    archive_stream = io.BytesIO(llb_path.read_bytes())
+    archive_stream.name = str(llb_path)
+    vi = lvrsrc.VI(
+        po,
+        rsrc_fh=archive_stream,
+        text_encoding=labview_text_encoding(),
+    )
     return vi
 
 
