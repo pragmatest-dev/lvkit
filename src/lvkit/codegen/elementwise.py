@@ -99,6 +99,7 @@ class _ArrayifyBase(ast.NodeTransformer):
     BinOp/UnaryOp/Compare is shared so it lives in exactly one place."""
 
     used: bool = False
+    preserve_list_concat: bool = True
 
     def _should(self, *operands: ast.expr) -> bool:
         raise NotImplementedError
@@ -107,17 +108,18 @@ class _ArrayifyBase(ast.NodeTransformer):
         self.generic_visit(node)
         fn = _BINOP.get(type(node.op))
         if fn and self._should(node.left, node.right):
-            # `+` is LIST CONCATENATION, not element-wise add, when it builds a
-            # list: a LIST LITERAL operand (`acc + [new]` — Build Array append) or
-            # BOTH operands list-shaped (`arr[:i] + repl + arr[i:]` — Replace Array
-            # Subset). Leave those alone so arrayify doesn't turn a concat into
-            # `_lv.add` (which zips and truncates). Element-wise add / broadcast
-            # (`arr + arr`, `5.0 + arr[:3]`) has no list-literal and is not
-            # both-list-shaped, so it still rewrites.
-            if isinstance(node.op, ast.Add) and (
-                isinstance(node.left, ast.List)
-                or isinstance(node.right, ast.List)
-                or (_is_list_shaped(node.left) and _is_list_shaped(node.right))
+            # The module pass also sees Build Array and Replace Array Subset
+            # expressions, whose list-shaped additions concatenate elements.
+            # A typed numeric template instead uses Add element-wise, including
+            # when either operand is a literal array.
+            if (
+                self.preserve_list_concat
+                and isinstance(node.op, ast.Add)
+                and (
+                    isinstance(node.left, ast.List)
+                    or isinstance(node.right, ast.List)
+                    or (_is_list_shaped(node.left) and _is_list_shaped(node.right))
+                )
             ):
                 return node
             self.used = True
@@ -161,6 +163,8 @@ class _ArrayifyBase(ast.NodeTransformer):
 class _Arrayify(_ArrayifyBase):
     """Rewrite every numeric operator — used per-node when the whole template
     expression is already known to be array-valued."""
+
+    preserve_list_concat = False
 
     def _should(self, *operands: ast.expr) -> bool:
         return True
