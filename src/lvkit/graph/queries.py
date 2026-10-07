@@ -390,8 +390,8 @@ class QueryMixin:
         is ABSENT and stubbed. Every dep node is PATH-keyed (finishes #26): its
         key IS the resolved (or intended-local) path, so a loaded dep returns
         its ``_source_paths`` file and a local absent stub returns ``Path(key)``
-        directly. Only a pseudo-root ref (``<vilib>``/``<userlib>``/
-        ``<instrlib>`` with no configured root) stays qname-keyed — for those
+        directly. Only a symbolic-root ref (``<vilib>``, ``<resource>``, … with no
+        configured root) stays qname-keyed — for those
         the recorded ``LinkSavePathRef`` tokens are resolved against a caller by
         pure path math (no root -> None, never in the workspace)."""
         loaded = self._source_paths.get(node_key)

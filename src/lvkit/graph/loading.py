@@ -1715,7 +1715,7 @@ class LoadingMixin:
         file is ABSENT — used to key a STUB by identity so it upgrades
         progressively (inv. 3) and the web loop learns the path to fetch. Pure
         path math (``resolve_against``), no file need exist. Returns None for a
-        pseudo-root ref (``<vilib>``/``<userlib>``/``<instrlib>`` with no
+        symbolic-root ref (``<vilib>``, ``<resource>``, … with no
         configured root): those have no local path and must never be staged into
         ``/proj``. Applies the same member-beside-container redirect (G1) as
         ``_resolve_dependency_path`` so a member ``.ctl``/``.vi`` sits beside its

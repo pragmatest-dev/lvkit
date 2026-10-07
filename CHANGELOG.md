@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a VI calling LabVIEW install files (`<resource>`, `<extravilib>`) no longer fails with "Ambiguous VI reference"** — those paths were joined onto each caller's own folder, so one dependency got a different identity per caller; every unconfigured symbolic root is now handled like `<vilib>`.
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

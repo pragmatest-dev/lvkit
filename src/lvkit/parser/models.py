@@ -381,6 +381,13 @@ class ParsedDefaultValue:
     structure: str  # "Cluster", "Array", "scalar", etc.
 
 
+def is_symbolic_root(token: str) -> bool:
+    """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
+    LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
+    calling file."""
+    return len(token) > 2 and token.startswith("<") and token.endswith(">")
+
+
 @dataclass
 class ParsedDependencyRef:
     """A dependency recorded by LabVIEW in a LinkSavePathRef element.
@@ -401,11 +408,7 @@ class ParsedDependencyRef:
 
         Use ``resolve_against()`` for actual path resolution.
         """
-        if self.path_tokens and self.path_tokens[0] in (
-            "<vilib>",
-            "<userlib>",
-            "<instrlib>",
-        ):
+        if self.path_tokens and is_symbolic_root(self.path_tokens[0]):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
 
@@ -421,10 +424,11 @@ class ParsedDependencyRef:
         Convention: start at the caller file itself, then each leading
         empty string pops one level (1 empty -> caller's containing
         directory, 2 empties -> its parent, etc.). Non-empty tokens are
-        appended as path components. If the first token is <vilib> /
-        <userlib> / <instrlib>, the corresponding root is used as the base
-        instead (returns None when that root is not configured — such a dep
-        lives outside the project and must never be treated as local).
+        appended as path components. If the first token is a symbolic root
+        (``<vilib>``, ``<userlib>``, ``<instrlib>``, ``<resource>``, …), the
+        configured root for it is the base instead; a symbolic root with no
+        configured root returns None — such a dep lives outside the project and
+        must never be treated as local or joined onto the caller's path.
         """
         tokens = self.path_tokens
         if not tokens:
@@ -445,6 +449,8 @@ class ParsedDependencyRef:
                 return None
             base = instrlib_root
             rest = tokens[1:]
+        elif is_symbolic_root(tokens[0]):
+            return None
         else:
             # Each leading empty = one '..' starting from the caller file
             empties = 0
