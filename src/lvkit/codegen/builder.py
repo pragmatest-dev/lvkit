@@ -843,6 +843,8 @@ def _param_default_expr(inp: Terminal) -> ast.expr:
         return default_value_expr(inp.lv_type)
     underlying = inp.lv_type.underlying_type if inp.lv_type else None
     try:
+        if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+            return ast.Constant(value=int(dv))
         if underlying and underlying.startswith(("NumInt", "NumUInt")):
             return ast.Constant(value=int(dv))
         if underlying in ("NumFloat32", "NumFloat64"):
