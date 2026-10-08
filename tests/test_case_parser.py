@@ -29,7 +29,7 @@ def _build_case_xml(
         selector_uid: UID for the selector terminal
         select_ranges: list of (start, diagramIdx) for SelectRangeArray32
         string_array: hex-encoded strings for SelectStringArray
-        default_diag: diagram index of the default case (None = no default)
+        default_diag: stored default diagram index (None omits the field)
         num_diags: number of diagram frames to create
         range_types: parallel list of (startRangeType, endRangeType) for each
             entry in ``select_ranges``. Omitted/None entries default to
@@ -369,11 +369,7 @@ class TestSymbolicRangeTypes:
         assert f1.selector_ranges == []
 
     def test_literal_enum_case_unchanged(self):
-        """Fully-literal ranges (type 0/0) resolve to their literal values. An
-        INTEGER selector has an infinite domain, so the case always has a default
-        frame: with no explicit SelectDefaultCase, the last frame is the default
-        (see _apply_last_frame_default) — it still carries its own value ("1,
-        Default"), which codegen emits as the ``case _`` catch-all."""
+        """Literal values survive the omitted zero default-diagram field."""
         root = _build_case_xml(
             "cs1",
             "sel1",
@@ -385,8 +381,8 @@ class TestSymbolicRangeTypes:
 
         assert cs.frames[0].selector_value == "0"
         assert cs.frames[1].selector_value == "1"
-        assert cs.frames[0].is_default is False
-        assert cs.frames[1].is_default is True
+        assert cs.frames[0].is_default is True
+        assert cs.frames[1].is_default is False
 
 
 # ---------------------------------------------------------------------------
@@ -478,6 +474,7 @@ class TestApplySelectorTables:
             select_ranges=[],
             num_diags=4,
             sel_type_id=42,
+            default_diag=3,
         )
         tables = [
             _ds_selector_table_obj(
@@ -503,6 +500,7 @@ class TestApplySelectorTables:
             select_ranges=[],
             num_diags=3,
             sel_type_id=50,
+            default_diag=2,
         )
         tables = [_ds_selector_table_obj(35, 2, [(2, 3, 0), (5, 7, 1)])]
         ti = _make_terminal_info("sel1", "NumInt32")

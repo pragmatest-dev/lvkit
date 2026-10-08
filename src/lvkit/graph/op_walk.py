@@ -448,6 +448,27 @@ def _terminal_display_name(term: Terminal) -> str | None:
     return term.display_name or term.name
 
 
+def _selector_values_label(frame: CaseFrame, lv_type: LVType | None) -> str | None:
+    """A frame's explicit selector values: enum item name(s), integer
+    value(s)/range(s), or quoted strings; None when it has none."""
+    if (
+        lv_type
+        and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
+        and lv_type.values
+        and frame.selector_ranges
+    ):
+        int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
+        return _format_ranges(
+            frame.selector_ranges,
+            lambda i: int_to_name.get(i, str(i)),
+        )
+    if frame.selector_ranges:  # integer selector
+        return _format_ranges(frame.selector_ranges, str)
+    if frame.selector_strings:  # string selector — one frame, several strings
+        return ", ".join(f'"{s}"' for s in frame.selector_strings)
+    return None
+
+
 def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
     """The faithful case-selector text for one frame, by selector type:
     ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
@@ -466,23 +487,12 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         if codes:
             return f"Error {_format_ranges(codes, str)}"
         return "Error"
+    values = _selector_values_label(frame, lv_type)
     if frame.is_default or sv == "Default":
-        return "Default"
-    if (
-        lv_type
-        and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
-        and lv_type.values
-        and frame.selector_ranges
-    ):
-        int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
-        return _format_ranges(
-            frame.selector_ranges,
-            lambda i: int_to_name.get(i, str(i)),
-        )
-    if frame.selector_ranges:  # integer selector
-        return _format_ranges(frame.selector_ranges, str)
-    if frame.selector_strings:  # string selector — one frame, several strings
-        return ", ".join(f'"{s}"' for s in frame.selector_strings)
+        # A default frame can also carry explicit values ("0, Default").
+        return f"{values}, Default" if values else "Default"
+    if values:
+        return values
     if lv_type and lv_type.underlying_type == "String":
         return f'"{sv}"'
     return sv  # boolean True/False, or an already-display token

@@ -100,6 +100,18 @@ def test_selector_label_boolean_and_default():
     )
 
 
+def test_selector_label_default_frame_keeps_its_values():
+    from lvkit.models import LVType
+
+    int_t = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    frame = _frame("0", [(0, 0)], is_default=True)
+    assert _selector_label(frame, int_t, False) == "0, Default"
+    enum_frame = _frame("3", [(3, 3)], is_default=True)
+    assert _selector_label(enum_frame, _enum_type(["A", "B", "C", "D"]), False) == (
+        "D, Default"
+    )
+
+
 def test_selector_label_enum_names_ranges_and_list():
     names = ["Digital Input", "Digital Output", "Voltage Input", "PWM"]
     t = _enum_type(names)
