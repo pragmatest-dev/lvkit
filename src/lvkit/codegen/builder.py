@@ -790,10 +790,9 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         if inp.is_error_cluster:
             continue
 
-        # Array inputs default to None (see build_array_input_normalization), so
-        # their annotation is honestly `<type> | None`.
+        # Arrays and anonymous clusters use a conservative None default.
         type_hint = inp.python_type()
-        if _is_array_input(inp):
+        if _is_array_input(inp) or _is_anonymous_cluster(inp):
             type_hint = f"{type_hint} | None"
         args.append(
             ast.arg(
@@ -854,6 +853,16 @@ def _param_default_expr(inp: Terminal) -> ast.expr:
     except (ValueError, TypeError):
         pass
     return default_value_expr(inp.lv_type)
+
+
+def _is_anonymous_cluster(term: Terminal) -> bool:
+    lv_type = term.lv_type
+    return (
+        lv_type is not None
+        and lv_type.kind == LVTypeKind.CLUSTER
+        and not lv_type.typedef_name
+        and not lv_type.classname
+    )
 
 
 def build_result_class_name(vi_name: str) -> str:

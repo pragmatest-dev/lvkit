@@ -1244,11 +1244,11 @@ class TestLVTypeToPython:
         assert cluster.to_python() == "ErrorCluster"
 
     def test_cluster_without_typedef_name(self):
-        """Test cluster without typedef name uses generic dict."""
+        """An anonymous cluster is generated as a positional tuple."""
         from lvkit.models import LVType
 
         cluster = LVType(kind=LVTypeKind.CLUSTER)
-        assert cluster.to_python() == "dict[str, Any]"
+        assert cluster.to_python() == "tuple"
 
     def test_enum_with_typedef_name(self):
         """Test enum with typedef name uses class name."""

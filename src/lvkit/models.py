@@ -96,6 +96,9 @@ class LVType:
             if self.typedef_name:
                 name = _sanitize_type_name(self.typedef_name)
                 return name or "dict[str, Any]"
+            if not self.classname:
+                # An anonymous cluster is generated as a positional tuple.
+                return "tuple"
             return "dict[str, Any]"
         elif self.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
             if self.typedef_name:
