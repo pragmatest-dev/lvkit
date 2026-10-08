@@ -23,9 +23,14 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.primitive_resolver import ResolvedPrimitive
+
+if TYPE_CHECKING:
+    from ...context import CodeGenContext
+    from ...fragment import CodeFragment
 
 # op tag -> produces a python_code template (dict[label -> expr] or str).
 OpTemplate = Callable[[PrimitiveNode, ResolvedPrimitive], "str | dict[str, str]"]
@@ -48,6 +53,31 @@ def register_op(op: str) -> Callable[[OpTemplate], OpTemplate]:
 def get_op_template(op: str) -> OpTemplate | None:
     """The registered handler for ``op``, or None if no backend covers it yet."""
     return _OP_PYTHON.get(op)
+
+
+# op tag -> emits a whole CodeFragment for shapes a single template can't
+# express (e.g. per-row statements of an expanded node). Returns None to defer
+# to the op's template handler.
+OpFragment = Callable[[PrimitiveNode, "CodeGenContext"], "CodeFragment | None"]
+
+_OP_FRAGMENTS: dict[str, OpFragment] = {}
+
+
+def register_op_fragment(op: str) -> Callable[[OpFragment], OpFragment]:
+    """Register a statement-emitting handler for a neutral op tag."""
+
+    def deco(fn: OpFragment) -> OpFragment:
+        if op in _OP_FRAGMENTS:
+            raise ValueError(f"duplicate Python op fragment handler for {op!r}")
+        _OP_FRAGMENTS[op] = fn
+        return fn
+
+    return deco
+
+
+def get_op_fragment(op: str) -> OpFragment | None:
+    """The registered fragment handler for ``op``, or None."""
+    return _OP_FRAGMENTS.get(op)
 
 
 # Auto-discover sibling handler modules so each ``@register_op`` runs on import
