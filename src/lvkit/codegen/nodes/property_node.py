@@ -1,106 +1,107 @@
-"""Code generator for Property Nodes (propNode).
-
-Property nodes read/write attributes on LabVIEW objects (VI Server refs,
-class instances, hardware sessions). Generates Python attribute access.
-"""
+"""Generate ordered attribute accesses for explicit Property Nodes."""
 
 from __future__ import annotations
 
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.op_walk import correlate_property_terminals
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from .base import resolve_ref_input
+from .base import CodeGenError
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate code for a property node.
+    """Use saved dcoList identities and order, separately from fixed ports.
 
-    Produces attribute access:
-      Read:  value = ref.property_name
-      Write: ref.property_name = value
+    The caller supplies an object implementing the named Python attributes.
+    Implicit control bindings require a separate runtime model and are rejected
+    instead of fabricating reference values. Error-cluster terminals are skipped:
+    errors surface as Python exceptions.
     """
     properties = node.properties or []
-    ref_var = resolve_ref_input(node, ctx)
+    value_ids = node.property_value_terminal_ids
+    if len(value_ids) != len(properties):
+        raise CodeGenError("Property value terminal identities are unresolved", node)
+    if len(set(value_ids)) != len(value_ids):
+        raise CodeGenError("Property value terminal identities are duplicated", node)
+    if len({term.id for term in node.terminals}) != len(node.terminals):
+        raise CodeGenError("Property node terminal identities are duplicated", node)
+    if node.bound_control_uid:
+        raise CodeGenError("Implicit property reference requires a binding model", node)
+    fixed = [term for term in node.terminals if term.id not in value_ids]
+    ref_inputs = [
+        term for term in fixed if term.direction == "input" and term.index == 0
+    ]
+    if len(ref_inputs) != 1:
+        raise CodeGenError("Property object reference is unresolved", node)
+    ref_var = ctx.resolve(ref_inputs[0].id)
+    if ref_var is None:
+        raise CodeGenError("Property object reference is unresolved", node)
 
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
-
-    input_terms = [t for t in node.terminals if t.direction == "input"]
-    output_terms = [t for t in node.terminals if t.direction == "output"]
-
-    input_by_index = {t.index: t for t in input_terms}
-    output_by_index = {t.index: t for t in output_terms}
-
-    seen_outputs: set[str] = set()
-    seen_inputs: set[str] = set()
-
-    for prop in properties:
-        prop_name = prop.name
-        attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
-
-        # Generate reads
-        for idx, term in output_by_index.items():
-            if term.id in seen_outputs:
-                continue
-            if not ctx.is_wired(term.id):
-                continue
-            seen_outputs.add(term.id)
-            var_name = to_var_name(f"{ref_var}_{attr_name}")
-            ref_expr = parse_expr(ref_var)
-            stmt = ast.Assign(
-                targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                value=ast.Attribute(
-                    value=ref_expr,
-                    attr=attr_name,
-                    ctx=ast.Load(),
-                ),
+    attr_names: dict[str, str] = {}
+    for prop, term in correlate_property_terminals(
+        properties, node.terminals, value_ids
+    ):
+        if term is None:
+            raise CodeGenError("Property value terminal is missing", node)
+        if not prop.name:
+            raise CodeGenError("Property name is unresolved", node)
+        attr_name = to_var_name(prop.name)
+        if attr_name in attr_names and attr_names[attr_name] != prop.name:
+            raise CodeGenError("Normalized property names collide", node)
+        attr_names[attr_name] = prop.name
+        ref_expr = parse_expr(ref_var)
+        if term.direction == "output":
+            # Reads execute even when their result is unwired. Repeated accesses
+            # to the same property need distinct snapshots, not one shared name.
+            var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
+            statements.append(
+                ast.Assign(
+                    targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                    value=ast.Attribute(value=ref_expr, attr=attr_name, ctx=ast.Load()),
+                )
             )
-            statements.append(stmt)
             bindings[term.id] = var_name
-            break
-
-        # Generate writes
-        for idx, term in input_by_index.items():
-            if idx == 0:
-                continue
-            if term.id in seen_inputs:
-                continue
+        elif term.direction == "input":
             if not ctx.is_wired(term.id):
-                continue
-            seen_inputs.add(term.id)
+                raise CodeGenError(
+                    "Unwired property write default is unqualified", node
+                )
             value = ctx.resolve(term.id)
             if value is None:
-                continue
-            ref_expr = parse_expr(ref_var)
-            stmt = ast.Assign(
-                targets=[
-                    ast.Attribute(
-                        value=ref_expr,
-                        attr=attr_name,
-                        ctx=ast.Store(),
-                    )
-                ],
-                value=parse_expr(value),
+                raise CodeGenError("Property write value is unresolved", node)
+            statements.append(
+                ast.Assign(
+                    targets=[
+                        ast.Attribute(value=ref_expr, attr=attr_name, ctx=ast.Store())
+                    ],
+                    value=parse_expr(value),
+                )
             )
-            statements.append(stmt)
-            break
+        else:
+            raise CodeGenError("Property value direction is unresolved", node)
 
-    # Bind remaining wired outputs
-    for term in output_terms:
-        if term.id not in bindings and ctx.is_wired(term.id):
-            var_name = to_var_name(term.name or f"{ref_var}_prop_{term.index}")
-            statements.append(build_assign(var_name, parse_expr(ref_var)))
-            bindings[term.id] = var_name
-
+    for term in fixed:
+        # Error clusters become Python exceptions, so their wires carry nothing.
+        if term.is_error_cluster:
+            continue
+        if term.direction != "output" or not ctx.is_wired(term.id):
+            continue
+        if (
+            term.index == 1
+            and term.lv_type
+            and term.lv_type.underlying_type == "Refnum"
+        ):
+            bindings[term.id] = ref_var
+        else:
+            raise CodeGenError("Property flow-through output is unresolved", node)
     if not statements:
-        comment = (
-            f"# Property Node: {node.object_name or 'unknown'}"
-            f" - {', '.join(p.name for p in properties)}"
+        statements.append(
+            ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
-        statements.append(ast.Expr(value=ast.Constant(value=comment)))
-
     return CodeFragment(statements=statements, bindings=bindings)

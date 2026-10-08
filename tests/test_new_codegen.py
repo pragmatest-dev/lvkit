@@ -260,12 +260,12 @@ class TestNMuxRoles:
 # ── Property node dedup ────────────────────────────────────────────
 
 
-class TestPropertyDedup:
-    """Property node generates one read per output terminal, not per property."""
+class TestPropertyReads:
+    """Each saved property row executes exactly once."""
 
-    def test_no_triple_reads(self):
-        """3 properties + 1 wired output = 1 read, not 3."""
-        graph = make_graph_with_terminals("ref_in", "out_1")
+    def test_three_rows_with_one_wired_result(self):
+        """Unwired read results do not remove their property accesses."""
+        graph = make_graph_with_terminals("ref_in", "out_1", "out_2", "out_3")
         ctx = CodeGenContext(graph=graph)
         ctx.bind("ref_in", "my_ref")
 
@@ -287,18 +287,23 @@ class TestPropertyDedup:
             node_type="propNode",
             terminals=[
                 Terminal(id="ref_in", index=0, direction="input"),
-                Terminal(id="out_1", index=1, direction="output"),
+                Terminal(id="out_1", index=4, direction="output"),
+                Terminal(id="out_2", index=5, direction="output"),
+                Terminal(id="out_3", index=6, direction="output"),
             ],
             properties=[
                 PropertyDef(name="controls"),
                 PropertyDef(name="indicator"),
                 PropertyDef(name="value"),
             ],
+            property_value_terminal_ids=["out_1", "out_2", "out_3"],
         )
         fragment = property_node.generate(op, ctx)
-        # Should only have 1 assignment, not 3
         assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
-        assert len(assigns) == 1
+        assert len(assigns) == 3
+        assert [
+            s.value.attr for s in assigns if isinstance(s.value, ast.Attribute)
+        ] == ["controls", "indicator", "value"]
 
 
 # ── Passthrough elimination ────────────────────────────────────────
