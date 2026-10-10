@@ -216,10 +216,15 @@ def ln(x):
     return -_math.inf if x == 0 else _math.nan
 
 
-def log10(x):
+def _log10_scalar(x):
     if x > 0:
         return _math.log10(x)
     return -_math.inf if x == 0 else _math.nan
+
+
+def log10(x):
+    """Real base-10 logarithm, applied element-wise to nested lists."""
+    return _unop(x, _log10_scalar)
 
 
 def log2(x):
