@@ -6,6 +6,8 @@ guessing instead of using the actual lv_type data on terminals and constants.
 
 from __future__ import annotations
 
+import math
+
 from lvkit.codegen.context import CodeGenContext, _format_constant
 from lvkit.codegen.nodes import primitive
 from lvkit.graph.models import Constant
@@ -31,7 +33,7 @@ class TestTypeDrivenConstantDecoding:
         # Should be a valid float, not the raw hex string
         assert result != "'7FFFFFFFFFFFFFFF'"
         assert result != "7FFFFFFFFFFFFFFF"
-        float(result)  # must not raise
+        assert math.isnan(eval(result, {"__builtins__": {"float": float}}))
 
     def test_hex_int32_decoded_as_integer(self):
         """Hex string with NumInt32 type must decode as integer."""
