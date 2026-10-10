@@ -19,8 +19,9 @@ from lvkit.models import (
     _is_error_cluster,
 )
 
-from ..ast_utils import parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
+from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
 
 
@@ -98,9 +99,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         for t in sorted(list_out, key=lambda t: t.index):
             if agg_var:
                 if anon:
-                    # Anonymous cluster = tuple; extract by position.
-                    idx = t.nmux_field_index if t.nmux_field_index is not None else 0
-                    bindings[t.id] = f"{agg_var}[{idx}]"
+                    path = _position_path(t, class_fields)
+                    bindings[t.id] = (
+                        f"({agg_var})" + "".join(f"[{index}]" for index in path)
+                    )
                 else:
                     bindings[t.id] = _field_expr(t, agg_var, class_fields)
 
@@ -116,6 +118,48 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             return CodeFragment.empty()
 
         if agg_var:
+            if anon:
+                updates: list[ast.expr] = []
+                for t in sorted(list_in, key=lambda t: t.index):
+                    value = ctx.resolve(t.id)
+                    if value is None:
+                        raise TypeResolutionNeeded(
+                            type_name="bundle value", context=t.id
+                        )
+                    path = _position_path(t, class_fields)
+                    updates.append(
+                        ast.Tuple(
+                            elts=[parse_expr(repr(path)), parse_expr(value)],
+                            ctx=ast.Load(),
+                        )
+                    )
+                cluster_var = ctx.make_output_var(
+                    "cluster", node.id, agg_out[0].id if agg_out else None
+                )
+                statements.append(
+                    build_assign(
+                        cluster_var,
+                        ast.Call(
+                            func=ast.Attribute(
+                                value=ast.Name(id="_lv", ctx=ast.Load()),
+                                attr="replace_fields",
+                                ctx=ast.Load(),
+                            ),
+                            args=[
+                                parse_expr(agg_var),
+                                ast.Tuple(elts=updates, ctx=ast.Load()),
+                            ],
+                            keywords=[],
+                        ),
+                    )
+                )
+                for t in agg_out:
+                    bindings[t.id] = cluster_var
+                return CodeFragment(
+                    statements=statements,
+                    bindings=bindings,
+                    imports={LV_IMPORT},
+                )
             # Assign fields on the aggregate cluster. Bundle By Name mutates the
             # object in place, so the aggregate must be a single materialized
             # VARIABLE — when it resolves to an EXPRESSION (a cluster constant
@@ -173,6 +217,40 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 bindings[t.id] = ast.unparse(tup)
 
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _position_path(
+    term: Terminal, fields: list[ClusterField] | None
+) -> tuple[int, ...]:
+    """Map a depth-first nMux field index, including parents, to tuple positions.
+
+    Descendants of named types are not positional; keep their indices in the
+    traversal but reject a selected path through that representation boundary.
+    """
+    paths: list[tuple[int, ...] | None] = []
+
+    def visit(
+        current: list[ClusterField], prefix: tuple[int, ...], positional: bool
+    ) -> None:
+        for index, field in enumerate(current):
+            path = prefix + (index,)
+            paths.append(path if positional else None)
+            if field.type and field.type.fields:
+                visit(
+                    field.type.fields,
+                    path,
+                    positional and _is_anonymous_cluster(field.type),
+                )
+
+    visit(fields or [], (), True)
+    index = term.nmux_field_index
+    if index is not None and 0 <= index < len(paths):
+        path = paths[index]
+        if path is not None:
+            return path
+    raise TypeResolutionNeeded(
+        type_name=f"positional field[{index}]", context=term.id
+    )
 
 
 def _bundles_status(
