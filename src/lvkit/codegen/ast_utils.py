@@ -275,6 +275,14 @@ def to_var_name(name: str) -> str:
     return result
 
 
+def result_field_name(name: str) -> str:
+    """A VI output's field name on its NamedTuple result. NamedTuple rejects a
+    leading underscore, so such labels get an ``output`` prefix. The result
+    class and every caller reading the field share this one definition."""
+    name = to_var_name(name or "output")
+    return "output" + name if name.startswith("_") else name
+
+
 # Builtin names a generated variable must not shadow.
 _PY_BUILTINS = frozenset(dir(builtins))
 

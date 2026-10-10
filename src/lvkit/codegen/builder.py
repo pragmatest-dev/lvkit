@@ -16,6 +16,7 @@ from .ast_utils import (
     build_assign,
     default_value_expr,
     parse_expr,
+    result_field_name,
     to_function_name,
     to_var_name,
 )
@@ -588,7 +589,7 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
 
         out_id = out.id
         out_name = out.name or "output"
-        var_name = to_var_name(out_name)
+        var_name = result_field_name(out_name)
 
         # Try to resolve from context. resolve() returns an EXPRESSION string
         # (often compound, e.g. "low_000 + product" from an inlined output), so
@@ -706,9 +707,12 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
         if out.is_error_cluster:
             continue
 
-        name = to_var_name(out.name or "output")
+        name = result_field_name(out.name or "output")
         type_hint = out.python_type()
         fields.append((name, type_hint))
+
+    if len({name for name, _ in fields}) != len(fields):
+        raise ValueError("Output labels collide after Python field normalization")
 
     # If all outputs were error clusters, no result class needed
     if not fields:

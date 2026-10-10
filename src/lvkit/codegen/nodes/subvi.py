@@ -18,7 +18,13 @@ from lvkit.vilib_resolver import (
     get_resolver,
 )
 
-from ..ast_utils import parse_expr, to_function_name, to_module_name, to_var_name
+from ..ast_utils import (
+    parse_expr,
+    result_field_name,
+    to_function_name,
+    to_module_name,
+    to_var_name,
+)
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
@@ -540,9 +546,9 @@ def _build_output_bindings(
 
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:
-            field = to_var_name(vilib_outputs[term_index])
+            field = result_field_name(vilib_outputs[term_index])
         elif term_name:
-            field = to_var_name(term_name)
+            field = result_field_name(term_name)
         else:
             _raise_terminal_resolution(subvi_name, "output", term, ctx, vilib_vi)
 
@@ -641,7 +647,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
             # Class-typed output → passthrough to receiver variable
             bindings[term.id] = receiver_var
         else:
-            field = to_var_name(term.name or f"out_{term.index}")
+            field = result_field_name(term.name or f"out_{term.index}")
             has_non_class_output = True
             bindings[term.id] = f"{result_var}.{field}"
 
@@ -731,7 +737,7 @@ def _generate_call_by_ref(
         if term.is_error_cluster:
             continue
         has_output = True
-        field = to_var_name(term.name or f"out_{term.index}")
+        field = result_field_name(term.name or f"out_{term.index}")
         bindings[term.id] = f"{result_var}.{field}"
 
     stmt: ast.stmt
@@ -765,7 +771,7 @@ def _generate_static_fallback(
         if term.direction == "output":
             if term.is_error_cluster:
                 continue
-            field = to_var_name(term.name or f"out_{term.index}")
+            field = result_field_name(term.name or f"out_{term.index}")
             bindings[term.id] = f"{result_var}.{field}"
 
     if ctx.import_resolver:
