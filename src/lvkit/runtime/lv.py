@@ -2,9 +2,8 @@
 
 LabVIEW numeric functions (Add, Subtract, Sign, comparisons, …) operate
 element-wise on arrays, broadcasting a scalar against an array. Generated
-code routes a numeric primitive through these helpers only when one of its
-operands is an array; pure-scalar uses keep the plain operator and never
-touch this module.
+code uses these helpers for array-valued operands and for
+representation-specific scalar behavior, such as floating-point division at signed zero.
 
 Arrays are Python lists (lvkit's array representation); these helpers do not
 change that. Nested arrays broadcast recursively, matching LabVIEW's
@@ -51,6 +50,21 @@ def mul(a, b):
 
 def truediv(a, b):
     return _binop(a, b, _op.truediv)
+
+
+def _float_divide_scalar(a: float, b: float) -> float:
+    a, b = float(a), float(b)
+    if b == 0.0:
+        if a == 0.0 or _math.isnan(a):
+            return _math.nan
+        sign = _math.copysign(1.0, a) * _math.copysign(1.0, b)
+        return _math.copysign(_math.inf, sign)
+    return a / b
+
+
+def float_divide(a, b):
+    """Floating-point division with IEEE results at signed zero; broadcasts lists."""
+    return _binop(a, b, _float_divide_scalar)
 
 
 def floordiv(a, b):

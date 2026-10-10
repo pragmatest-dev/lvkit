@@ -141,9 +141,7 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "quotient": "in_2 / in_1"
-      },
+      "op": "DIVIDE",
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",

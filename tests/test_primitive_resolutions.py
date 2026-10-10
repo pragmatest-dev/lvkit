@@ -94,7 +94,7 @@ def test_key_python_code_semantics():
     assert "in_1 + in_2" in str(res.resolve(prim_id=1050).python_code)
     assert "in_2 - in_1" in str(res.resolve(prim_id=1051).python_code)
     assert "in_1 * in_2" in str(res.resolve(prim_id=1052).python_code)
-    assert "in_2 / in_1" in str(res.resolve(prim_id=1053).python_code)
+    assert res.resolve(prim_id=1053).op == "DIVIDE"
 
 
 def test_paren_if_compound_preserves_operand_precedence():
