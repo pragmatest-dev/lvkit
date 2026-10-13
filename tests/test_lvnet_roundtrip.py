@@ -74,6 +74,7 @@ from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
+_AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 
 # A VI whose rendered lvnet text is expected to round-trip CLEANLY end to
 # end -- node declarations/terminals/nets, case/for-loop/while-loop/shift-
@@ -119,6 +120,11 @@ _ROUND_TRIP_CASES = [
         / "Graphical Test Runner - Main UI - .vi",
         _JKI_SOURCE_ROOT,
         id="Graphical_Test_Runner_Main_UI_event_structure",
+    ),
+    pytest.param(
+        _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
+        _AF_ROOT,
+        id="Force_Icon_Editor_to_Unload_conditional_tunnel",
     ),
 ]
 

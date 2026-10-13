@@ -1149,19 +1149,20 @@ def _render_lvnet_loop_scope(
                 lines.append(f"{kv_indent}each{_LVNET_DRIVER_OP}{recur_str}")
         elif isinstance(merge, EtaMerge):
             mode_word = _lvnet_tunnel_mode_word(merge.mode)
-            # The Conditional modifier's exact appended form is only HINTED
-            # at in §8 ("[+ conditional]"), never pinned by a worked
-            # example -- this is the most literal reading of that hint
-            # (not the OLD renderer's own "+cond" abbreviation, which is a
-            # DIFFERENT, non-lvnet convention). Flagged in the report.
-            if merge.conditional:
-                mode_word += "+conditional"
             value_str = _render_lvnet_source(merge.value, handles)
             net = _lvnet_net_separator(merge.net)
-            lines.append(
-                f"{body_indent}tunnel {net}{_LVNET_TYPE_SEP}{mode_word}"
-                f"{_LVNET_DRIVER_OP}{value_str}"
-            )
+            header = f"{body_indent}tunnel {net}{_LVNET_TYPE_SEP}{mode_word}"
+            if not merge.conditional:
+                lines.append(f"{header}{_LVNET_DRIVER_OP}{value_str}")
+                continue
+            # A Conditional tunnel is a block (§8): its value, then the wire
+            # on its condition terminal (omitted when that is unwired).
+            lines.append(f"{header}+conditional{_LVNET_BLOCK_OPEN}")
+            kv_indent = body_indent + _LVNET_INDENT
+            lines.append(f"{kv_indent}value{_LVNET_DRIVER_OP}{value_str}")
+            if merge.condition is not None:
+                condition_str = _render_lvnet_source(merge.condition, handles)
+                lines.append(f"{kv_indent}condition{_LVNET_DRIVER_OP}{condition_str}")
 
 
 def _render_lvnet_case_scope(

@@ -790,7 +790,20 @@ def _reconstruct_tunnel(
     if mode is None:
         raise LvnetReconstructError(f"unrecognized tunnel mode word: {t.mode!r}")
     value = _parse_source_token(t.source, registry)
-    return EtaMerge(net=t.net, mode=mode, conditional=conditional, value=value)
+    condition = (
+        _require_netref(
+            _parse_source_token(t.condition, registry), f"{t.net} condition"
+        )
+        if t.condition is not None
+        else None
+    )
+    return EtaMerge(
+        net=t.net,
+        mode=mode,
+        conditional=conditional,
+        value=value,
+        condition=condition,
+    )
 
 
 def _structure_uid_from_net(net: str) -> str | None:
