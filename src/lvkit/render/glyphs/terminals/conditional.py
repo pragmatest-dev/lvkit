@@ -17,7 +17,7 @@ class ConditionalTerminalGlyph(BorderTerminalGlyph):
     def __init__(self, cond_continue: bool) -> None:
         self.cond_continue = cond_continue
 
-    def _draw(
+    def draw(
         self, backend: Backend, bounds: Rect, theme: Theme, frame_value: str | None
     ) -> None:
         x1, y1, x2, y2 = bounds

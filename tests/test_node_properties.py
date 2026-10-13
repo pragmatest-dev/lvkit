@@ -18,6 +18,7 @@ exercised directly against a hand-built ``dco`` element, same pattern as
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -30,7 +31,10 @@ from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.models import Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
 from lvkit.parser.nodes.loop import extract_loops
-from lvkit.render.scene import _structure_borders
+from lvkit.render.backend import SvgBackend
+from lvkit.render.draw import _draw_border_terminal
+from lvkit.render.scene import RenderBorderTerminal, _structure_borders
+from lvkit.render.style import DEFAULT_THEME
 
 # ---------------------------------------------------------------------------
 # Corpus VI paths (all under .lvkit/cache/samples/, verified against the
@@ -527,8 +531,8 @@ def test_render_draws_each_condition_terminal_under_its_tunnel(
     vi_path: Path, loop_uid: str, expected: dict[str, str]
 ) -> None:
     """A Conditional tunnel's condition terminal is drawn (as a ``?`` glyph)
-    at its own saved bounds, directly under its tunnel -- the same spot
-    LabVIEW draws it."""
+    at its own saved bounds, directly under its tunnel and touching it -- the
+    same spot LabVIEW draws it."""
     _skip_if_missing(vi_path)
     g = InMemoryVIGraph()
     g.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
@@ -537,14 +541,37 @@ def test_render_draws_each_condition_terminal_under_its_tunnel(
     assert layout is not None
     op = _find_op(g, vi_name, g.top_level_nodes(vi_name), loop_uid)
     assert isinstance(op, LoopNode)
-    borders = _structure_borders(op, layout, vi_name)
-    drawn = {
-        b.terminal.id.rsplit("::", 1)[-1]: b.bounds
-        for b in borders
-        if b.glyph_kind == "tunnel_condition" and b.terminal is not None
+    borders = {
+        b.terminal.id.rsplit("::", 1)[-1]: b
+        for b in _structure_borders(op, layout, vi_name)
+        if b.terminal is not None
     }
-    assert set(drawn) == set(expected.values())
+    conditions = {
+        uid for uid, b in borders.items() if b.glyph_kind == "tunnel_condition"
+    }
+    assert conditions == set(expected.values())
     for tunnel_uid, condition_uid in expected.items():
         tx1, _, tx2, ty2 = layout.node_bounds[tunnel_uid]
-        cx1, cy1, cx2, _ = drawn[condition_uid]
+        cx1, cy1, cx2, _ = borders[condition_uid].bounds
         assert (cx1, cx2, cy1) == (tx1, tx2, ty2)  # same column, just below
+        # The drawn outlines fill those bounds, so the two boxes touch.
+        _, _, _, drawn_ty2 = _drawn_box(borders[tunnel_uid])
+        drawn_cx1, drawn_cy1, drawn_cx2, _ = _drawn_box(borders[condition_uid])
+        assert drawn_cy1 == pytest.approx(drawn_ty2, abs=0.1)
+        assert (drawn_cx1, drawn_cx2) == pytest.approx((tx1, tx2), abs=0.1)
+
+
+def _drawn_box(border: RenderBorderTerminal) -> tuple[float, float, float, float]:
+    """Outer edges of the first box a border glyph draws, stroke included."""
+    backend = SvgBackend()
+    _draw_border_terminal(border, backend, DEFAULT_THEME)
+    svg = backend.render(border.bounds)
+    rect = re.search(
+        r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"'
+        r'[^>]*stroke-width="([\d.]+)"',
+        svg,
+    )
+    assert rect is not None
+    x, y, w, h, stroke = (float(v) for v in rect.groups())
+    half = stroke / 2
+    return x - half, y - half, x + w + half, y + h + half

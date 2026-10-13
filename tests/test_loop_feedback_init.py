@@ -88,7 +88,7 @@ def test_feedback_init_terminal_glyph_draws_diamond_on_light_box():
 
     glyph = border_terminal_glyph("feedback_init", color="#4a9c3e")
     backend = SvgBackend()
-    glyph.draw(backend, (0.0, 0.0, 16.0, 16.0), DEFAULT_THEME)
+    glyph.draw(backend, (0.0, 0.0, 16.0, 16.0), DEFAULT_THEME, None)
     svg = backend.render((0.0, 0.0, 16.0, 16.0))
     assert "<polygon" in svg
     assert f'fill="{DEFAULT_THEME.loop_term_fill}"' in svg

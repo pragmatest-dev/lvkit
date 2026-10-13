@@ -7,6 +7,7 @@ lvkit follows semantic versioning.
 - **`diff` reports a structure's tunnel changes** — a tunnel turned shift register, indexing toggled, Conditional set, or a tunnel added/removed is now its own change, named by what it carries ("shift register (error in): tunnel → shift register") and highlighted on the tunnel itself in the viewer, even when the data flow is unchanged (#133).
 - **`describe --format json` speaks LabVIEW, and shows what drives a Conditional tunnel** — loop and case outputs are `tunnel`/`shift_register` with `initial_value`/`next_value` and a lower-case `mode`, each loop tunnel lists its `direction`, and a Conditional output names the wire on its condition terminal (lvnet shows it as a `value`/`condition` block); `diff` folds a new or rewired condition into that tunnel's own row.
 - **Fix: a Conditional tunnel's condition terminal was never drawn** — the wire into it ended on the loop border; it now renders as a `?` terminal under its tunnel, where LabVIEW puts it.
+- **Fix: structure border terminals draw at their saved size** — tunnels, shift registers, N, i and case selectors were drawn shrunk inside their saved bounds, leaving gaps between pieces that touch in LabVIEW (a tunnel and its `?`, the elements of a stacked shift register).
 - **Fix: a loop output tunnel with indexing off could read as "pass-through"** — it is now always a last value tunnel, in `describe`, lvnet, and `diff`.
 
 ## [0.8.7] - 2026-10-04

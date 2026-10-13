@@ -13,7 +13,7 @@ class EventDynTerminalGlyph(BorderTerminalGlyph):
     RIGHT — the registration refnum threads left-to-right through the structure,
     so the glyph follows flow direction on both edges rather than mirroring."""
 
-    def _draw(
+    def draw(
         self, backend: Backend, bounds: Rect, theme: Theme, frame_value: str | None
     ) -> None:
         x1, y1, x2, y2 = bounds

@@ -18,7 +18,7 @@ class TunnelConditionTerminalGlyph(BorderTerminalGlyph):
     def __init__(self, color: str | None) -> None:
         self.color = color
 
-    def _draw(
+    def draw(
         self, backend: Backend, bounds: Rect, theme: Theme, frame_value: str | None
     ) -> None:
         x1, y1, x2, y2 = bounds

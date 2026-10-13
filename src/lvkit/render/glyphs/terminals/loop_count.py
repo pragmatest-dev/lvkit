@@ -15,7 +15,7 @@ class LoopCountTerminalGlyph(BorderTerminalGlyph):
     def __init__(self, letter: str) -> None:
         self.letter = letter
 
-    def _draw(
+    def draw(
         self, backend: Backend, bounds: Rect, theme: Theme, frame_value: str | None
     ) -> None:
         x1, y1, x2, y2 = bounds

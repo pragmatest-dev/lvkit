@@ -13,7 +13,7 @@ class EventTimeoutTerminalGlyph(BorderTerminalGlyph):
     timeout value), so it gets the pale loop-term fill with a bespoke hourglass
     in the wire-integer color."""
 
-    def _draw(
+    def draw(
         self, backend: Backend, bounds: Rect, theme: Theme, frame_value: str | None
     ) -> None:
         x1, y1, x2, y2 = bounds
