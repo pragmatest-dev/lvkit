@@ -19,5 +19,6 @@ after version those tunnels are replaced by a shift register (and a string
 constant is added inside the loop). `lvkit diff` reported only the added
 constant: the wire diff follows wires through tunnels, so the data flow looked
 unchanged, and nothing compared a structure's own tunnels. Fixed by comparing
-each matched structure's border terminals across versions — the loop is now
-reported as modified with "tunnel → shift register".
+each matched structure's border terminals across versions — each tunnel is now
+its own change, "shift register (error in)" / "shift register (error out)",
+detail "tunnel → shift register", highlighted on the tunnel itself.

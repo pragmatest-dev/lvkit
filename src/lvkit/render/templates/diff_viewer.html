@@ -275,6 +275,10 @@
   .hl.terminal.added{fill:var(--add);stroke:var(--add);stroke-width:2}
   .hl.terminal.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
   .hl.terminal.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
+  /* A tunnel / shift register on a structure border — same filled highlight. */
+  .hl.tunnel.added{fill:var(--add);stroke:var(--add);stroke-width:2}
+  .hl.tunnel.removed{fill:var(--del);stroke:var(--del);stroke-width:2}
+  .hl.tunnel.modified{fill:var(--mod);stroke:var(--mod);stroke-width:2}
   .hl.structure{fill:none;stroke-width:3;stroke-dasharray:7 4}
   .hl.structure.added{stroke:var(--add)}.hl.structure.removed{stroke:var(--del)}
   .hl.structure.modified{stroke:var(--mod)}
@@ -339,7 +343,7 @@
   /* Selection reads via the RING + others dimming, never a heavier fill: keep the
      selected fill LIGHTER than the calm .24 overlay so the node/text stays legible
      underneath, and use a single soft glow instead of a stacked halo. */
-  .hl.node.sel,.hl.structure.sel,.hl.constant.sel,.hl.terminal.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
+  .hl.node.sel,.hl.structure.sel,.hl.constant.sel,.hl.terminal.sel,.hl.tunnel.sel{stroke-width:4;stroke-dasharray:none;stroke-opacity:1;
           fill-opacity:.2;paint-order:stroke;animation:selpulse 1.25s ease-in-out infinite}
   .hl.wire.sel{stroke:#fff;stroke-width:2.5;fill-opacity:1;animation:selpulse 1.25s ease-in-out infinite}
   .hl.added.sel{filter:drop-shadow(0 0 4px var(--add))}
@@ -666,7 +670,7 @@ const trunc=(s,n)=>{s=String(s); return s.length>n ? s.slice(0,n-1)+'…' : s;};
 // ``_TERMINAL_GLYPH``) -- a signature change IS a connector-pane terminal,
 // the same kind of thing a control/indicator change is.
 const KIND_GLYPH={node:'◻', wire:'↔', structure:'⬚', constant:'○', frame:'⬚', value:'⬚',
-  terminal:'▭', property:'▤', health:'▤', signature:'▭'};
+  terminal:'▭', property:'▤', health:'▤', signature:'▭', tunnel:'▪'};
 const CHANGE_TAG={added:'+', removed:'−', modified:'~'};
 // The change spelled out in words, after the element — redundant with the +/−/~
 // tag by design (the user asked for the explicit text form), coloured to match.
@@ -690,13 +694,15 @@ function changeRowHtml(i){
   // property/health/signature's own old->new transition).
   const KIND_WORD={node:'node', wire:'wire', structure:'structure'};
   // A structure's label is already its LabVIEW name ("For loop", "Case
-  // structure"), so it leads the row and a modified one's detail is the subtext.
+  // structure"), so it leads the row.
   const LABEL_IS_TYPE={constant:1, property:1, health:1, signature:1, structure:1};
   const type = c.element || (LABEL_IS_TYPE[c.kind] ? c.label : (KIND_WORD[c.kind]||c.kind));
-  // A modified node carries WHAT changed in detail (a field added): show it
-  // after the name.
-  const named = c.detail ? c.label+': '+c.detail : c.label;
-  const sub = c.element ? (c.detail||c.label) : (LABEL_IS_TYPE[c.kind] ? c.detail : named);
+  // A modified node carries WHAT changed in detail (a field added), and a tunnel
+  // its old->new kind: show it after the name (a tunnel's name is what it
+  // carries, e.g. "error in: tunnel → shift register").
+  const named = c.detail ? (c.label ? c.label+': '+c.detail : c.detail) : c.label;
+  const sub = c.kind==='tunnel' ? named
+    : c.element ? (c.detail||c.label) : (LABEL_IS_TYPE[c.kind] ? c.detail : named);
   const detail = sub
     ? '<div class="detail" title="'+esc(sub)+'">'+esc(trunc(sub, 32))+'</div>' : '';
   const prim = kindPrefix(c.kind)+esc(type)+
@@ -751,7 +757,7 @@ CHANGES.forEach((c,i)=>{ if(c.uid!=null && !(c.uid in UID_TO_CHANGE_I)) UID_TO_C
 // the row text (via _constant_leaf_text/_terminal_leaf_text/
 // _metadata_leaf_text), so their TREE_GLYPH is empty — no double glyph.
 const TREE_GLYPH={node:'◻ ', wire:'↔ ', scope:'⬚ ', frame:'', constant:'', terminal:'',
-  property:'', health:'', signature:''};
+  property:'', health:'', signature:'', tunnel:''};
 // A row is a FOLDER (has descendants, gets a disclosure chevron + .tchildren
 // container) iff its kind is scope/frame -- the netlist tree is already
 // pruned server-side so every scope/frame row leads to a change somewhere
