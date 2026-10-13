@@ -21,6 +21,7 @@ from .loop_count import LoopCountTerminalGlyph
 from .selector import SelectorTerminalGlyph
 from .shift_register import ShiftRegisterTerminalGlyph
 from .tunnel import TunnelTerminalGlyph
+from .tunnel_condition import TunnelConditionTerminalGlyph
 
 __all__ = ["border_terminal_glyph"]
 
@@ -53,4 +54,6 @@ def border_terminal_glyph(
         return TunnelTerminalGlyph(color, unwired_frames)
     if kind == "feedback_init":
         return FeedbackInitTerminalGlyph(color)
+    if kind == "tunnel_condition":
+        return TunnelConditionTerminalGlyph(color)
     return GenericTerminalGlyph()

@@ -30,6 +30,7 @@ from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.models import Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
 from lvkit.parser.nodes.loop import extract_loops
+from lvkit.render.scene import _structure_borders
 
 # ---------------------------------------------------------------------------
 # Corpus VI paths (all under .lvkit/cache/samples/, verified against the
@@ -513,3 +514,37 @@ def _find_scope(items: list[dict], uid: str) -> dict | None:
         if scope["uid"] == uid:
             return scope
     return None
+
+
+@pytest.mark.parametrize(
+    ("vi_path", "loop_uid", "expected"),
+    [
+        (FORCE_UNLOAD_VI, "848", {"1882": "1940"}),
+        (CONFIG_VI, "167", {"179": "194", "185": "198"}),
+    ],
+)
+def test_render_draws_each_condition_terminal_under_its_tunnel(
+    vi_path: Path, loop_uid: str, expected: dict[str, str]
+) -> None:
+    """A Conditional tunnel's condition terminal is drawn (as a ``?`` glyph)
+    at its own saved bounds, directly under its tunnel -- the same spot
+    LabVIEW draws it."""
+    _skip_if_missing(vi_path)
+    g = InMemoryVIGraph()
+    g.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
+    vi_name = g.resolve_vi_name(vi_path.name)
+    layout = g.get_layout(vi_name)
+    assert layout is not None
+    op = _find_op(g, vi_name, g.top_level_nodes(vi_name), loop_uid)
+    assert isinstance(op, LoopNode)
+    borders = _structure_borders(op, layout, vi_name)
+    drawn = {
+        b.terminal.id.rsplit("::", 1)[-1]: b.bounds
+        for b in borders
+        if b.glyph_kind == "tunnel_condition" and b.terminal is not None
+    }
+    assert set(drawn) == set(expected.values())
+    for tunnel_uid, condition_uid in expected.items():
+        tx1, _, tx2, ty2 = layout.node_bounds[tunnel_uid]
+        cx1, cy1, cx2, _ = drawn[condition_uid]
+        assert (cx1, cx2, cy1) == (tx1, tx2, ty2)  # same column, just below
