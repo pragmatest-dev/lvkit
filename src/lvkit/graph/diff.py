@@ -1551,17 +1551,17 @@ def _outer_tunnels(op: AnyGraphNode) -> list[TunnelTerminal]:
     )
 
 
-def _outside_wiring(
+def _terminal_wiring(
     wires: list[Wire],
     vi_self: str,
     term_id: str,
     to_head: Mapping[str, str],
 ) -> list[tuple[str, str, str]]:
-    """Every wire on a tunnel's OUTER terminal as ``(role, neighbour-UID,
-    neighbour-terminal-UID)`` — what the tunnel carries in from / out to the
-    surrounding diagram. ``to_head`` translates a base-side neighbour UID to
-    its head-side counterpart (exact/fuzzy match), so the same wiring yields
-    the same tuples in both versions."""
+    """Every wire on one terminal as ``(role, neighbour-UID,
+    neighbour-terminal-UID)`` — on a tunnel's OUTER terminal, what it carries
+    in from / out to the surrounding diagram. ``to_head`` translates a
+    base-side neighbour UID to its head-side counterpart (exact/fuzzy match),
+    so the same wiring yields the same tuples in both versions."""
 
     def nid(node_id: str) -> str:
         uid = "__self__" if node_id == vi_self else _uid_of(node_id)
@@ -1597,6 +1597,37 @@ def _carried_name(
     return min(names) if names else None
 
 
+def _condition_source(
+    graph: InMemoryVIGraph,
+    wires: list[Wire],
+    vi_self: str,
+    t: TunnelTerminal,
+    to_head: Mapping[str, str],
+) -> tuple[tuple[str, ...], str | None] | None:
+    """What drives a Conditional tunnel's condition terminal: the node(s)
+    wired to it (cross-version comparable via ``to_head``) and the name of the
+    terminal feeding it (``not_x``). None when the tunnel isn't Conditional."""
+    if t.condition_terminal is None:
+        return None
+    wiring = _terminal_wiring(wires, vi_self, t.condition_terminal, to_head)
+    nodes = tuple(n for _, n, _ in wiring)
+    return nodes, _carried_name(graph, wires, t.condition_terminal)
+
+
+def _condition_detail(
+    before: tuple[tuple[str, ...], str | None] | None,
+    after: tuple[tuple[str, ...], str | None] | None,
+) -> str | None:
+    """``condition ← <source>`` (plus ``(was <old>)``) when the wire driving
+    a Conditional tunnel's condition is new or changed; None otherwise."""
+    if after is None or before == after:
+        return None
+    detail = f"condition ← {after[1] or 'unwired'}"
+    if before is not None:
+        detail += f" (was {before[1] or 'unwired'})"
+    return detail
+
+
 def _struct_tunnel_changes(
     graph_a: InMemoryVIGraph,
     graph_b: InMemoryVIGraph,
@@ -1615,7 +1646,9 @@ def _struct_tunnel_changes(
     removed — as its OWN ``kind="tunnel"`` change, highlighted on the tunnel
     itself: ``element`` is its kind in LabVIEW's words (``shift register``),
     ``label`` what it carries (``error in``), and a modified one's ``detail``
-    the kind transition (``tunnel → shift register``).
+    the kind transition (``tunnel → shift register``). A Conditional tunnel's
+    condition wire belongs to the tunnel too: a new or rewired condition adds
+    ``condition ← <source>`` to that tunnel's own ``detail``.
 
     The wire diff can't see these: it follows wires THROUGH tunnels, so the
     data flow on either side is unchanged. Tunnels are correlated across
@@ -1627,9 +1660,9 @@ def _struct_tunnel_changes(
     # Keyed by the terminal OBJECT, not its id: two revisions of the same file
     # share terminal ids, but each side's terminals are distinct objects.
     wiring: dict[int, list[tuple[str, str, str]]] = {
-        id(t): _outside_wiring(wires_a, va, t.id, to_head) for t in tunnels_a
+        id(t): _terminal_wiring(wires_a, va, t.id, to_head) for t in tunnels_a
     }
-    wiring |= {id(t): _outside_wiring(wires_b, vb, t.id, {}) for t in tunnels_b}
+    wiring |= {id(t): _terminal_wiring(wires_b, vb, t.id, {}) for t in tunnels_b}
 
     def by_wiring(t: TunnelTerminal) -> object | None:
         w = wiring[id(t)]
@@ -1673,7 +1706,14 @@ def _struct_tunnel_changes(
 
     for ta, tb in pairs:
         before, after = _tunnel_kind_name(ta), _tunnel_kind_name(tb)
-        if before != after:
+        parts = [f"{before} → {after}"] if before != after else []
+        condition = _condition_detail(
+            _condition_source(graph_a, wires_a, va, ta, to_head),
+            _condition_source(graph_b, wires_b, vb, tb, {}),
+        )
+        if condition is not None:
+            parts.append(condition)
+        if parts:
             changes.append(
                 change(
                     tb,
@@ -1682,10 +1722,16 @@ def _struct_tunnel_changes(
                     struct_b,
                     layout_b,
                     bounds_before=_node_bounds(layout_a, _uid_of(ta.id)),
-                    detail=f"{before} → {after}",
+                    detail=", ".join(parts),
                 )
             )
-    changes += [change(t, "added", entry_b, struct_b, layout_b) for t in added]
+    for t in added:
+        condition = _condition_detail(
+            None, _condition_source(graph_b, wires_b, vb, t, {})
+        )
+        changes.append(
+            change(t, "added", entry_b, struct_b, layout_b, detail=condition)
+        )
     changes += [change(t, "removed", entry_a, struct_a, layout_a) for t in removed]
     return changes
 
@@ -2608,8 +2654,9 @@ _TUNNEL_GLYPH = "▪"
 def _tunnel_leaf_text(c: ElementChange, *, detailed: bool) -> str:
     """One tunnel change leaf's netlist text: the tunnel glyph + its kind in
     LabVIEW's words (``c.element``) + what it carries (``c.label``), plus --
-    for a modified tunnel -- the ``old -> new`` kind transition (ASCII
-    arrows), in both text tiers: the transition IS the change."""
+    for a modified tunnel -- the ``old -> new`` kind transition and/or its
+    new ``condition = <source>`` (ASCII arrows), in both text tiers: that IS
+    the change."""
     head = f"{_TUNNEL_GLYPH} {c.element}" + (f" ({c.label})" if c.label else "")
     return f"{head}: {_ascii_arrows(c.detail)}" if c.detail else head
 

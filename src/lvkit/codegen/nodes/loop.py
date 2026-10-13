@@ -178,10 +178,10 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             # A For-loop lpTun OUTPUT tunnel (outer terminal direction is
             # "output"). Its mode decides the shape:
             # - INDEXING (default): auto-indexed into an array (accumulate).
-            # - PASSTHROUGH (indexing disabled): the LAST-iteration value, a
+            # - LAST_VALUE (indexing disabled): the LAST-iteration value, a
             #   scalar; assigned each pass, seeded to the type default so a
             #   0-iteration loop yields the default.
-            if tunnel.mode == TunnelMode.PASSTHROUGH:
+            if tunnel.mode == TunnelMode.LAST_VALUE:
                 # Disambiguate the generic fallback name ("value") so two
                 # last-value tunnels in one VI don't collapse to one var and
                 # clobber each other (mirrors the shift-register handling).

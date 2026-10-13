@@ -61,12 +61,12 @@ from .lvnet_grammar import (
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
-    _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
+    _lvnet_tunnel_mode_word,
 )
 from .netlist import (
     ConnectorPaneTerminal,
@@ -2236,7 +2236,7 @@ def _module_loop_scope_signature(
             )
             shift_regs.append((net, init_str, each_str))
         elif isinstance(merge, EtaMerge):
-            mode_word = _LVNET_TUNNEL_MODE_WORD.get(merge.index_mode, merge.index_mode)
+            mode_word = _lvnet_tunnel_mode_word(merge.mode)
             if merge.conditional:
                 mode_word += "+conditional"
             value_str = _render_lvnet_source(merge.value, handles)

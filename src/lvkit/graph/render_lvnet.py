@@ -55,13 +55,13 @@ from .lvnet_grammar import (
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
     _LVNET_TERMINAL_SEP,
-    _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
+    _lvnet_tunnel_mode_word,
 )
 from .models import Constant
 from .netlist_models import (
@@ -1148,7 +1148,7 @@ def _render_lvnet_loop_scope(
                 recur_str = _render_lvnet_source(merge.recur, handles)
                 lines.append(f"{kv_indent}each{_LVNET_DRIVER_OP}{recur_str}")
         elif isinstance(merge, EtaMerge):
-            mode_word = _LVNET_TUNNEL_MODE_WORD.get(merge.index_mode, merge.index_mode)
+            mode_word = _lvnet_tunnel_mode_word(merge.mode)
             # The Conditional modifier's exact appended form is only HINTED
             # at in §8 ("[+ conditional]"), never pinned by a worked
             # example -- this is the most literal reading of that hint

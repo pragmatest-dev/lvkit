@@ -16,6 +16,7 @@ from ..models import (
     DisableStructureKind,
     LVType,
     ScalarValue,
+    TunnelMode,
 )
 from .interface_order import WiringRequirement
 from .models import VIHealth, VIProperties
@@ -302,13 +303,14 @@ class NetlistTunnelInfo:
     """One loop tunnel's structural facts -- JSON-only (``netlist_to_dict``
     / the MCP ``get_context`` tool), never rendered as text (tunnels are
     otherwise dissolved into wire resolution, not surfaced as their own
-    items -- see ``_build_loop_scope_gn``). Mirrors
-    ``models.Tunnel``'s new fields directly; ``mode`` is the enum's string
-    VALUE (JSON-serializable), not the raw ``TunnelMode``.
+    items -- see ``_build_loop_scope_gn``). Mirrors ``models.Tunnel``'s fields
+    directly, plus ``direction`` from its outer ``TunnelTerminal``.
     """
 
     tunnel_type: str
-    mode: str | None
+    direction: str  # "input" | "output", as seen from outside the loop
+    mode: TunnelMode | None
+    conditional: bool
     sr_initialized: bool | None
     sr_stack_depth: int | None
 
@@ -401,20 +403,21 @@ class EtaMerge:
     never a single hop-through to one iteration's producer (netlist.py's
     loop finding: which values actually reach a downstream consumer depends
     on the tunnel's aggregation mode, so a loop output tunnel is a genuine
-    merge across iterations, not a plain wire). ``index_mode`` is the BASE
-    ``TunnelMode`` (see ``_eta_index_mode``) -- ``"array"`` for auto-indexing,
-    ``"last"`` for last-value, ``"concat"``/``"passthrough"`` for the rarer
-    modes -- and ``conditional`` is the orthogonal Conditional modifier
-    (aggregate/keep a value only on iterations where a per-iteration boolean
-    holds). ``value`` is the inner PER-ITERATION producer feeding this tunnel
-    -- the type ``DefaultValue`` on the rare unwired/broken-wire case, never
-    omitted.
+    merge across iterations, not a plain wire). ``mode`` is the tunnel's BASE
+    ``TunnelMode`` (indexing / last value / concatenating) and ``conditional``
+    the orthogonal Conditional modifier (aggregate/keep a value only on
+    iterations where a per-iteration boolean holds); ``condition`` is the net
+    wired to that boolean condition terminal (None when not Conditional, or
+    when the condition terminal is unwired). ``value`` is the inner
+    PER-ITERATION producer feeding this tunnel -- the type ``DefaultValue`` on
+    the rare unwired/broken-wire case, never omitted.
     """
 
     net: str
-    index_mode: str  # base TunnelMode, lowercased ("array"/"last"/...)
-    conditional: bool  # LabVIEW's Conditional modifier, orthogonal to index_mode
+    mode: TunnelMode | None
+    conditional: bool  # LabVIEW's Conditional modifier, orthogonal to mode
     value: NetRef | DefaultValue
+    condition: NetRef | None = None
 
 
 @dataclass

@@ -611,10 +611,12 @@ class TunnelTerminal(Terminal):
     frame: str | int | None = None
     # Carried straight from the parsed Tunnel (construction.py) so
     # graph/operations.py::_tunnels_from_terminals can round-trip them onto
-    # the rebuilt Tunnel -- see Tunnel.mode/sr_initialized/sr_stack_depth for
-    # what each means and which tunnel_type populates it.
+    # the rebuilt Tunnel -- see Tunnel.mode/conditional/condition_terminal_uid/
+    # sr_initialized/sr_stack_depth for what each means and which tunnel_type
+    # populates it (condition_terminal is the qualified condition_terminal_uid).
     mode: TunnelMode | None = None
     conditional: bool = False
+    condition_terminal: str | None = None
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
 
@@ -635,6 +637,11 @@ class Tunnel(BaseModel):
     # TunnelMode); read from the lpTun dco's ``<IsConditional>True``. False for
     # non-conditional and for input tunnels (indexing has no conditional).
     conditional: bool = False
+    # A Conditional tunnel's condition terminal -- the Boolean input inside the
+    # loop that decides, per iteration, whether this tunnel takes the value.
+    # The file links them through the lpTun's ``<LpTunConditionDCO>``; this is
+    # the inner face of that condition dco. None when not Conditional.
+    condition_terminal_uid: str | None = None
     # Shift-register STRUCTURE, not bits -- populated ONLY on the matching
     # tunnel_type, None on every other one:
     # - sr_initialized: True when this lSR tunnel's outer terminal carries an

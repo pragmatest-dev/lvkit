@@ -5,6 +5,8 @@ lvkit follows semantic versioning.
 ## [Unreleased]
 - **Fix: a VI calling LabVIEW install files (`<resource>`, `<extravilib>`) no longer fails with "Ambiguous VI reference"** — those paths were joined onto each caller's own folder, so one dependency got a different identity per caller; every unconfigured symbolic root is now handled like `<vilib>`.
 - **`diff` reports a structure's tunnel changes** — a tunnel turned shift register, indexing toggled, Conditional set, or a tunnel added/removed is now its own change, named by what it carries ("shift register (error in): tunnel → shift register") and highlighted on the tunnel itself in the viewer, even when the data flow is unchanged (#133).
+- **`describe --format json` speaks LabVIEW, and shows what drives a Conditional tunnel** — loop and case outputs are `tunnel`/`shift_register` with `initial_value`/`next_value` and a lower-case `mode`, each loop tunnel lists its `direction`, and a Conditional output names the wire on its condition terminal; `diff` folds a new or rewired condition into that tunnel's own row.
+- **Fix: a loop output tunnel with indexing off could read as "pass-through"** — it is now always a last value tunnel, in `describe`, lvnet, and `diff`.
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

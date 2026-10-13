@@ -29,6 +29,7 @@ from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.models import Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
+from lvkit.parser.nodes.loop import extract_loops
 
 # ---------------------------------------------------------------------------
 # Corpus VI paths (all under .lvkit/cache/samples/, verified against the
@@ -43,6 +44,9 @@ CREATE_TEST_CONFIG_VI = Path(
     ".lvkit/cache/samples/DCAF-DAQModule/source/testing/Create Test Configuration.vi"
 )
 CONFIG_VI = Path(".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi")
+FORCE_UNLOAD_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Tooling/Force Icon Editor to Unload.vi"
+)
 FILTER_MPA_VI = Path(
     ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/"
     "utils/Filter - Moving Point Average.vi"
@@ -150,22 +154,96 @@ class TestTunnelMode:
         (conditionally index each iteration's element)."""
         _skip_if_missing(CONFIG_VI)
         op = _loop_op(CONFIG_VI, "167")
+        loop_terms = {t.id for t in op.terminals}
         for outer_uid in ("179", "185"):
             tunnel = _tunnel_by_outer(op, outer_uid)
             assert tunnel.tunnel_type == "lpTun"
             assert tunnel.mode == TunnelMode.INDEXING
             assert tunnel.conditional is True
+            # Linked to its own condition terminal, a Boolean input on the loop.
+            assert tunnel.condition_terminal_uid in loop_terms
+
+    def test_conditional_output_without_indexing_is_last_value(self) -> None:
+        """Force Icon Editor to Unload.vi forLoop 848 -- lpTun dco 1876 (outer
+        terminal 1882) is a Conditional OUTPUT tunnel with no indexing record
+        (no ``innerLpTunDCO``), so the parser alone reads PASSTHROUGH; its
+        outer side is the same String as the inner, so it is a last-value
+        tunnel. Its ``<LpTunConditionDCO uid="1938">`` is a border dco whose
+        termList is [1940, 1941]: 1940, wired from the Not node inside the
+        loop, is the condition terminal."""
+        _skip_if_missing(FORCE_UNLOAD_VI)
+        op = _loop_op(FORCE_UNLOAD_VI, "848")
+        tunnel = _tunnel_by_outer(op, "1882")
+        assert tunnel.mode == TunnelMode.LAST_VALUE
+        assert tunnel.conditional is True
+        assert tunnel.condition_terminal_uid is not None
+        assert tunnel.condition_terminal_uid.endswith("::1940")
+
+    def test_get_context_json_shows_condition(self) -> None:
+        """The loop's output tunnel entry names the net wired to its
+        condition terminal."""
+        _skip_if_missing(FORCE_UNLOAD_VI)
+        g, vi_name = _load(FORCE_UNLOAD_VI)
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
+        scope = _find_scope(d["body"], "848")
+        assert scope is not None
+        conditional = [o for o in scope["outputs"] if o["conditional"]]
+        assert len(conditional) == 1
+        assert conditional[0]["kind"] == "tunnel"
+        assert conditional[0]["mode"] == "last_value"
+        assert conditional[0]["condition"]["node"] == "Not"
+        assert conditional[0]["condition"]["terminal"] == "not_x"
 
     def test_get_context_json_shows_tunnel_mode(self) -> None:
         """netlist_to_dict (the MCP get_context tool's JSON shape) carries
-        the tunnel mode through as the enum's string value."""
+        the tunnel mode through as a lower-case token."""
         _skip_if_missing(BUILD_VI)
         g, vi_name = _load(BUILD_VI)
         d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         scope = _find_scope(d["body"], "287")
         assert scope is not None
-        modes = {t["tunnel_type"]: t["mode"] for t in scope["tunnels"]}
-        assert modes["lpTun"] == "INDEXING"
+        modes = {t["kind"]: t["mode"] for t in scope["tunnels"]}
+        assert modes["tunnel"] == "indexing"
+
+
+def test_conditional_tunnel_links_its_condition_terminal() -> None:
+    """A Conditional lpTun names its condition dco in ``<LpTunConditionDCO>``;
+    that dco is another border term of the same loop with termList
+    [inner, outer] -- the inner face is the condition terminal. Same shape as
+    every conditional tunnel in the sample corpus (77 of 77)."""
+    root = ET.fromstring(
+        """
+        <root>
+          <SL__arrayElement class="forLoop" uid="10">
+            <termList elements="2">
+              <SL__arrayElement class="term" uid="12">
+                <dco class="lpTun" uid="11">
+                  <termList elements="2">
+                    <SL__arrayElement uid="13" />
+                    <SL__arrayElement uid="12" />
+                    </termList>
+                  <IsConditional>True</IsConditional>
+                  <LpTunConditionDCO uid="20" />
+                  </dco>
+                </SL__arrayElement>
+              <SL__arrayElement class="term" uid="22">
+                <dco class="lpTunConditionDCO" uid="20">
+                  <termList elements="2">
+                    <SL__arrayElement uid="21" />
+                    <SL__arrayElement uid="22" />
+                    </termList>
+                  <lpTunDCO uid="11" />
+                  </dco>
+                </SL__arrayElement>
+              </termList>
+            </SL__arrayElement>
+        </root>
+        """
+    )
+    (loop,) = extract_loops(root)
+    (tunnel,) = loop.tunnels
+    assert tunnel.conditional is True
+    assert tunnel.condition_terminal_uid == "21"
 
 
 class TestLpTunModeSynthetic:
@@ -358,7 +436,7 @@ class TestShiftRegister:
             t
             for scope in _iter_scopes(d["body"])
             for t in scope.get("tunnels", [])
-            if t["tunnel_type"] == "rSR"
+            if t["kind"] == "shift_register" and t["direction"] == "output"
         ]
         assert any(t["sr_stack_depth"] == 20 for t in rsr_entries)
 
