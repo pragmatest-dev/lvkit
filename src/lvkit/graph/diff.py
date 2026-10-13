@@ -14,7 +14,15 @@ from ..models import (
     Frame,
     SequenceFrame,
     Terminal,
+    TunnelMode,
+    TunnelTerminal,
     _is_error_cluster,
+)
+from ..parser.constants import (
+    TUNNEL_CLASS_LEFT_SR,
+    TUNNEL_CLASS_LMAX,
+    TUNNEL_CLASS_LOOP_TUNNEL,
+    TUNNEL_CLASS_RIGHT_SR,
 )
 from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
@@ -1459,36 +1467,171 @@ def _struct_frame_changes(
     return changes
 
 
+def _matched_structure_pairs(
+    a: dict[str, _ElemInfo],
+    b: dict[str, _ElemInfo],
+    exact: dict[str, str],
+    fuzzy: dict[str, str],
+) -> list[tuple[_ElemInfo, _ElemInfo]]:
+    """Every (base entry, head entry) pair of the SAME logical structure
+    (any kind: case, loop, sequence, event, disable, In Place Element) across
+    versions — same UID kept by LabVIEW, or matched by ``_match_elements``'s
+    exact/fuzzy dataflow identity (a re-keyed structure). A mismatched type at
+    a shared uid (LabVIEW recycling a uid for a different kind of node) is
+    skipped — same guard as the constant modified-check's type guard."""
+    cand = [(u, u) for u in sorted(a.keys() & b.keys(), key=_uid_sort)]
+    h2b = {**exact, **fuzzy}
+    cand += [(u, h2b[u]) for u in sorted(h2b, key=_uid_sort)]
+    pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
+    for base_uid, head_uid in cand:
+        ea, eb = a.get(base_uid), b.get(head_uid)
+        if ea is None or eb is None or ea.kind != "structure":
+            continue
+        if type(ea.op) is not type(eb.op):
+            continue
+        pairs.append((ea, eb))
+    return pairs
+
+
 def _matched_struct_pairs(
     a: dict[str, _ElemInfo],
     b: dict[str, _ElemInfo],
     exact: dict[str, str],
     fuzzy: dict[str, str],
 ) -> list[tuple[_ElemInfo, _ElemInfo]]:
-    """Every (base entry, head entry) pair of the SAME logical Case/Sequence
-    structure across versions — same UID kept by LabVIEW, or matched by
-    ``_match_elements``'s exact/fuzzy dataflow identity (a re-keyed
-    structure) — so their FRAME SETS can be diffed. A mismatched type at a
-    shared uid (LabVIEW recycling a uid for a different kind of node) is
-    skipped — same guard as the constant modified-check's type guard."""
-    pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
-    for base_uid in sorted(a.keys() & b.keys(), key=_uid_sort):
-        ea, eb = a[base_uid], b[base_uid]
-        if type(ea.op) is not type(eb.op):
-            continue
-        if _frames_of(ea.op) is not None:
-            pairs.append((ea, eb))
-    h2b = {**exact, **fuzzy}
-    for base_uid in sorted(h2b, key=_uid_sort):
-        head_uid = h2b[base_uid]
-        ea, eb = a.get(base_uid), b.get(head_uid)
-        if ea is None or eb is None:
-            continue
-        if type(ea.op) is not type(eb.op):
-            continue
-        if _frames_of(ea.op) is not None:
-            pairs.append((ea, eb))
-    return pairs
+    """The frame-bearing (Case/Sequence/Event/Disable) subset of
+    ``_matched_structure_pairs``, whose FRAME SETS can be diffed."""
+    return [
+        (ea, eb)
+        for ea, eb in _matched_structure_pairs(a, b, exact, fuzzy)
+        if _frames_of(ea.op) is not None
+    ]
+
+
+_LOOP_TUNNEL_MODE_NAMES = {
+    TunnelMode.INDEXING: "indexing tunnel",
+    TunnelMode.LAST_VALUE: "last value tunnel",
+    TunnelMode.CONCATENATING: "concatenating tunnel",
+}
+
+
+def _tunnel_kind_name(t: TunnelTerminal) -> str:
+    """A structure border terminal's kind in LabVIEW's own words — what its
+    right-click menu calls it (shift register, indexing / last value /
+    concatenating tunnel, Conditional), not the heap class."""
+    if t.tunnel_type in (TUNNEL_CLASS_LEFT_SR, TUNNEL_CLASS_RIGHT_SR):
+        depth = t.sr_stack_depth or 1
+        name = "shift register" if depth == 1 else f"{depth}-deep shift register"
+    elif t.tunnel_type == TUNNEL_CLASS_LMAX:
+        name = "count terminal"
+    elif t.tunnel_type == TUNNEL_CLASS_LOOP_TUNNEL and t.mode is not None:
+        name = _LOOP_TUNNEL_MODE_NAMES.get(t.mode, "tunnel")
+    else:
+        name = "tunnel"
+    return f"conditional {name}" if t.conditional else name
+
+
+def _outer_tunnels(op: AnyGraphNode) -> list[TunnelTerminal]:
+    """A structure's border terminals as seen from OUTSIDE it — one per
+    tunnel / shift-register side / count terminal."""
+    return [
+        t
+        for t in op.terminals
+        if isinstance(t, TunnelTerminal) and t.boundary == "outer"
+    ]
+
+
+def _outside_wiring(
+    wires: list[Wire],
+    vi_self: str,
+    term_id: str,
+    to_head: Mapping[str, str],
+) -> list[tuple[str, str, str]]:
+    """Every wire on a tunnel's OUTER terminal as ``(role, neighbour-UID,
+    neighbour-terminal-UID)`` — what the tunnel carries in from / out to the
+    surrounding diagram. ``to_head`` translates a base-side neighbour UID to
+    its head-side counterpart (exact/fuzzy match), so the same wiring yields
+    the same tuples in both versions."""
+
+    def nid(node_id: str) -> str:
+        uid = "__self__" if node_id == vi_self else _uid_of(node_id)
+        return to_head.get(uid, uid)
+
+    out: list[tuple[str, str, str]] = []
+    for w in wires:
+        if w.source.terminal_id == term_id:
+            out.append(("out", nid(w.dest.node_id), _uid_of(w.dest.terminal_id)))
+        if w.dest.terminal_id == term_id:
+            out.append(("in", nid(w.source.node_id), _uid_of(w.source.terminal_id)))
+    return sorted(out)
+
+
+def _struct_tunnel_change(
+    entry_a: _ElemInfo,
+    entry_b: _ElemInfo,
+    wires_a: list[Wire],
+    wires_b: list[Wire],
+    va: str,
+    vb: str,
+    to_head: Mapping[str, str],
+    layout_a: Layout | None,
+    layout_b: Layout | None,
+) -> ElementChange | None:
+    """A matched structure whose border terminals changed — a tunnel replaced
+    by a shift register, indexing toggled, Conditional set, a tunnel added or
+    removed — as ONE structure ``modified`` whose detail names each change in
+    LabVIEW's words (``tunnel → shift register``, ``+indexing tunnel``).
+
+    The wire diff can't see these: it follows wires THROUGH tunnels, so the
+    data flow on either side is unchanged. Tunnels are correlated across
+    versions by kept terminal UID, then by the outside wiring they carry
+    (neighbour node + terminal, then neighbour node alone); whatever is left
+    on one side only was added or removed."""
+    tunnels_a = _outer_tunnels(entry_a.op)
+    tunnels_b = _outer_tunnels(entry_b.op)
+    # Keyed by the terminal OBJECT, not its id: two revisions of the same file
+    # share terminal ids, but each side's terminals are distinct objects.
+    wiring: dict[int, list[tuple[str, str, str]]] = {
+        id(t): _outside_wiring(wires_a, va, t.id, to_head) for t in tunnels_a
+    }
+    wiring |= {id(t): _outside_wiring(wires_b, vb, t.id, {}) for t in tunnels_b}
+
+    def by_wiring(t: TunnelTerminal) -> object | None:
+        w = wiring[id(t)]
+        return (t.direction, tuple(w)) if w else None
+
+    def by_neighbour(t: TunnelTerminal) -> object | None:
+        w = wiring[id(t)]
+        return (t.direction, tuple((r, n) for r, n, _ in w)) if w else None
+
+    pairs, removed, added = _correlate_by_keys(
+        tunnels_a,
+        tunnels_b,
+        [lambda t: _uid_of(t.id), by_wiring, by_neighbour],
+    )
+    parts: list[str] = []
+    for ta, tb in pairs:
+        before, after = _tunnel_kind_name(ta), _tunnel_kind_name(tb)
+        if before != after:
+            parts.append(f"{before} → {after}")
+    parts += [f"+{_tunnel_kind_name(t)}" for t in added]
+    parts += [f"-{_tunnel_kind_name(t)}" for t in removed]
+    if not parts:
+        return None
+    op_b = entry_b.op
+    uid_b, uid_a = _uid_of(op_b.id), _uid_of(entry_a.op.id)
+    return ElementChange(
+        uid_b,
+        op_b.id,
+        "structure",
+        "modified",
+        _struct_label(op_b),
+        _node_bounds(layout_b, uid_b),
+        bounds_before=_node_bounds(layout_a, uid_a),
+        detail=", ".join(sorted(set(parts), key=parts.index)),
+        container_uid=entry_b.container_uid,
+        frame_path=entry_b.frame_path,
+    )
 
 
 # ── Constant diff (task: constants as first-class change elements) ─────
@@ -2145,6 +2288,23 @@ def diff_uid(
             )
         )
 
+    # Border-terminal changes on every matched structure (loops included): a
+    # tunnel turned shift register, indexing toggled, a tunnel added/removed.
+    for entry_a, entry_b in _matched_structure_pairs(a, b, exact, fuzzy):
+        tunnel_change = _struct_tunnel_change(
+            entry_a,
+            entry_b,
+            wires_a,
+            wires_b,
+            va,
+            vb,
+            {**exact, **fuzzy},
+            layout_a,
+            layout_b,
+        )
+        if tunnel_change is not None:
+            cmap.changes.append(tunnel_change)
+
     # VI-level (container-less) AUTHORED changes: the VI's own connector pane
     # and its Properties facet, as ordinary ``ElementChange`` leaves (``kind``
     # "connector_pane"/"property") -- exactly like a constant or a node, not a
@@ -2685,11 +2845,7 @@ def _netlist_diff(
                             kind=gkind,
                         )
                     )
-        struct_by_uid = {
-            c.uid: c
-            for c in here
-            if c.kind == "structure" and c.change in ("added", "removed")
-        }
+        struct_by_uid = {c.uid: c for c in here if c.kind == "structure"}
         # A structure's OWN header must render even with NO descendant at
         # all -- an empty/childless added case, or (always) a Loop/flat
         # Sequence: neither is ``_is_interactive_struct``, so its children
@@ -2742,11 +2898,18 @@ def _netlist_diff(
                 uid = payload
                 assert isinstance(uid, str)
                 struct_c = struct_by_uid.get(uid)
+                # A modified structure (a changed tunnel/shift register) says
+                # what changed on its own header line.
+                detail = (
+                    f" {_ascii_arrows(struct_c.detail)}"
+                    if struct_c is not None and struct_c.detail
+                    else ""
+                )
                 rows.append(
                     NetlistDiffRow(
                         change=struct_c.change if struct_c is not None else None,
                         depth=content_depth,
-                        text=struct_content(uid),
+                        text=f"{struct_content(uid)}{detail}",
                         uid=uid,
                         kind="scope",
                     )

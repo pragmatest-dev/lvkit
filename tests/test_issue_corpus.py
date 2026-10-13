@@ -656,3 +656,31 @@ def test_issue39_overlapping_nodes_occlude_by_zorder():
     assert order.index(front) > order.index(back), (
         "frontmost (lower z_order) node must draw last so it occludes the back one"
     )
+
+
+def test_issue133_diff_reports_tunnel_replaced_by_shift_register():
+    """Replacing a For Loop's pass-through tunnels with a shift register is a
+    real edit even though the data flow (error in -> error out) is unchanged:
+    the loop is reported as modified, in LabVIEW's words, in the change map
+    (viewer/JSON) and the text diff."""
+    from lvkit.graph.diff import diff_uid, format_diff
+
+    ga, va = _load("133/Run_before.vi")
+    gb, vb = _load("133/Run_after.vi")
+    cmap = diff_uid(ga, gb, va, vb)
+
+    loops = [c for c in cmap.changes if c.kind == "structure"]
+    assert [(c.change, c.label, c.detail) for c in loops] == [
+        ("modified", "For loop", "tunnel → shift register")
+    ]
+    assert loops[0].bounds is not None and loops[0].bounds_before is not None
+    assert "tunnel -> shift register" in format_diff(ga, gb, va, vb)
+
+
+def test_issue133_unchanged_tunnels_report_nothing():
+    """A VI diffed against itself has no tunnel changes (no false positive)."""
+    from lvkit.graph.diff import diff_uid
+
+    ga, va = _load("133/Run_after.vi")
+    gb, vb = _load("133/Run_after.vi")
+    assert not [c for c in diff_uid(ga, gb, va, vb).changes if c.kind == "structure"]
