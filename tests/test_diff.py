@@ -1429,6 +1429,7 @@ class TestQualifiedSubVINames:
 _FORCE_UNLOAD_VI = Path(
     ".lvkit/cache/samples/actor-framework/Tooling/Force Icon Editor to Unload.vi"
 )
+_CONFIG_VI = Path(".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi")
 
 
 def _without_conditional(graph: InMemoryVIGraph, vi: str) -> None:
@@ -1475,6 +1476,22 @@ def test_setting_conditional_is_one_tunnel_change_naming_its_condition():
         "▪ conditional last value tunnel: "
         "last value tunnel -> conditional last value tunnel, condition = not_x"
     ) in text
+
+
+def test_condition_wired_from_a_constant_is_named_by_the_constant():
+    """Config.vi wires one Boolean constant into both tunnels' condition
+    terminals; the change names that constant, never ``unwired``."""
+    ga, va = _load(_CONFIG_VI, layout=True)
+    gb, vb = _load(_CONFIG_VI, layout=True)
+    _without_conditional(ga, va)
+
+    changes = diff_uid(ga, gb, va, vb).changes
+    assert [(c.change, c.detail) for c in changes] == [
+        (
+            "modified",
+            "indexing tunnel → conditional indexing tunnel, condition ← True",
+        )
+    ] * 2
 
 
 def test_unchanged_conditional_tunnel_reports_nothing():

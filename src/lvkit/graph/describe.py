@@ -45,6 +45,14 @@ from .op_walk import (
     _subvi_ports,
 )
 from .queries import collect_class_context
+from .tunnel_names import (
+    carried_name,
+    condition_name,
+    condition_source,
+    constant_names,
+    outer_tunnels,
+    tunnel_kind_name,
+)
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -824,6 +832,33 @@ def _describe_op_list(
                     )
                 for c in (c for c in constants if c.parent == node.id):
                     lines.append(f"{prefix}  {_describe_constant_line(c)}")
+                if isinstance(node, LoopNode):
+                    lines += _describe_loop_tunnels(graph, vi_name, node, prefix)
+
+
+def _describe_loop_tunnels(
+    graph: InMemoryVIGraph, vi_name: str, node: LoopNode, prefix: str
+) -> list[str]:
+    """A loop's tunnels, shift registers and count terminal, inputs first:
+    each in LabVIEW's words, with what it carries and, on a Conditional
+    tunnel, what drives its condition."""
+    tunnels = outer_tunnels(node)
+    if not tunnels:
+        return []
+    wires = graph.get_wires(vi_name)
+    constants = constant_names(graph, vi_name)
+    lines = [f"{prefix}  Tunnels:"]
+    for t in tunnels:
+        line = f"{prefix}    {'in ' if t.direction == 'input' else 'out'} "
+        line += tunnel_kind_name(t)
+        if carried := carried_name(graph, wires, t.id):
+            line += f" ({carried})"
+        if t.condition_terminal is not None:
+            wire = condition_source(wires, t)
+            source = condition_name(graph, wire, constants) if wire else "unwired"
+            line += f", condition ← {source}"
+        lines.append(line)
+    return lines
 
 
 def _describe_single_op(

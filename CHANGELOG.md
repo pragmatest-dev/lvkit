@@ -9,6 +9,7 @@ lvkit follows semantic versioning.
 - **Fix: a Conditional tunnel's condition terminal was never drawn** — the wire into it ended on the loop border; it now renders as a `?` terminal under its tunnel, where LabVIEW puts it.
 - **Fix: structure border terminals draw at their saved size** — tunnels, shift registers, N, i and case selectors were drawn shrunk inside their saved bounds, leaving gaps between pieces that touch in LabVIEW (a tunnel and its `?`, the elements of a stacked shift register).
 - **Fix: a loop output tunnel with indexing off could read as "pass-through"** — it is now always a last value tunnel, in `describe`, lvnet, and `diff`.
+- **`describe` lists each loop's tunnels** — every tunnel, shift register, and count terminal in LabVIEW's words, with what it carries and, on a Conditional tunnel, what drives its condition.
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

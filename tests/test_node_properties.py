@@ -25,6 +25,7 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.describe import describe_vi
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
@@ -198,6 +199,22 @@ class TestTunnelMode:
         assert conditional[0]["mode"] == "last_value"
         assert conditional[0]["condition"]["node"] == "Not"
         assert conditional[0]["condition"]["terminal"] == "not_x"
+
+    def test_describe_text_lists_the_loop_tunnels(self) -> None:
+        """Plain-text describe lists a loop's tunnels in LabVIEW's words, each
+        with what it carries and a Conditional one's condition -- on Config.vi
+        a Boolean constant wired to both condition terminals."""
+        _skip_if_missing(CONFIG_VI)
+        g, vi_name = _load(CONFIG_VI)
+        text = describe_vi(g, vi_name)
+        assert (
+            "  Tunnels:\n"
+            "    in  count terminal\n"
+            "    in  indexing tunnel (DevNames)\n"
+            "    out conditional indexing tunnel (Real Device Product Types),"
+            " condition ← True\n"
+            "    out conditional indexing tunnel (BusType), condition ← True"
+        ) in text
 
     def test_get_context_json_shows_tunnel_mode(self) -> None:
         """netlist_to_dict (the MCP get_context tool's JSON shape) carries

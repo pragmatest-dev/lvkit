@@ -14,15 +14,8 @@ from ..models import (
     Frame,
     SequenceFrame,
     Terminal,
-    TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
-)
-from ..parser.constants import (
-    TUNNEL_CLASS_LEFT_SR,
-    TUNNEL_CLASS_LMAX,
-    TUNNEL_CLASS_LOOP_TUNNEL,
-    TUNNEL_CLASS_RIGHT_SR,
 )
 from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
@@ -60,6 +53,14 @@ from .op_walk import (
     _terminal_display_name,
 )
 from .operations import frame_key
+from .tunnel_names import (
+    carried_name,
+    condition_name,
+    condition_source,
+    constant_names,
+    outer_tunnels,
+    tunnel_kind_name,
+)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -1514,43 +1515,6 @@ def _matched_struct_pairs(
     ]
 
 
-_LOOP_TUNNEL_MODE_NAMES = {
-    TunnelMode.INDEXING: "indexing tunnel",
-    TunnelMode.LAST_VALUE: "last value tunnel",
-    TunnelMode.CONCATENATING: "concatenating tunnel",
-}
-
-
-def _tunnel_kind_name(t: TunnelTerminal) -> str:
-    """A structure border terminal's kind in LabVIEW's own words — what its
-    right-click menu calls it (shift register, indexing / last value /
-    concatenating tunnel, Conditional), not the heap class."""
-    if t.tunnel_type in (TUNNEL_CLASS_LEFT_SR, TUNNEL_CLASS_RIGHT_SR):
-        depth = t.sr_stack_depth or 1
-        name = "shift register" if depth == 1 else f"{depth}-deep shift register"
-    elif t.tunnel_type == TUNNEL_CLASS_LMAX:
-        name = "count terminal"
-    elif t.tunnel_type == TUNNEL_CLASS_LOOP_TUNNEL and t.mode is not None:
-        name = _LOOP_TUNNEL_MODE_NAMES.get(t.mode, "tunnel")
-    else:
-        name = "tunnel"
-    return f"conditional {name}" if t.conditional else name
-
-
-def _outer_tunnels(op: AnyGraphNode) -> list[TunnelTerminal]:
-    """A structure's border terminals as seen from OUTSIDE it — one per
-    tunnel / shift-register side / count terminal — inputs first (the way a
-    diagram reads, left to right), then by uid for a deterministic order."""
-    return sorted(
-        (
-            t
-            for t in op.terminals
-            if isinstance(t, TunnelTerminal) and t.boundary == "outer"
-        ),
-        key=lambda t: (t.direction != "input", _uid_sort(_uid_of(t.id))),
-    )
-
-
 def _terminal_wiring(
     wires: list[Wire],
     vi_self: str,
@@ -1576,55 +1540,42 @@ def _terminal_wiring(
     return sorted(out)
 
 
-def _carried_name(
-    graph: InMemoryVIGraph, wires: list[Wire], term_id: str
-) -> str | None:
-    """What a tunnel carries, by the name of the terminal at the other end of
-    its outside wire (``error in`` feeding an input tunnel, ``error out`` fed
-    by an output one) — how a LabVIEW user tells two tunnels apart. None when
-    no named terminal is wired to it."""
-    names = []
-    for w in wires:
-        if w.source.terminal_id == term_id:
-            other = graph.get_terminal(w.dest.terminal_id)
-        elif w.dest.terminal_id == term_id:
-            other = graph.get_terminal(w.source.terminal_id)
-        else:
-            continue
-        name = _terminal_display_name(other) if other is not None else None
-        if name:
-            names.append(name)
-    return min(names) if names else None
-
-
-def _condition_source(
+def _condition_key(
     graph: InMemoryVIGraph,
     wires: list[Wire],
     vi_self: str,
     t: TunnelTerminal,
     to_head: Mapping[str, str],
-) -> tuple[tuple[str, ...], str | None] | None:
-    """What drives a Conditional tunnel's condition terminal: the node(s)
-    wired to it (cross-version comparable via ``to_head``) and the name of the
-    terminal feeding it (``not_x``). None when the tunnel isn't Conditional."""
+    constants: Mapping[str, str],
+) -> tuple[object, str] | None:
+    """What drives a Conditional tunnel's condition terminal, comparable across
+    versions: a key and the name to show (``not_x``, ``True``). The key is the
+    feeding node (via ``to_head``) and name; a constant, which LabVIEW re-keys
+    on save, is keyed by its value alone. None when the tunnel isn't
+    Conditional."""
     if t.condition_terminal is None:
         return None
+    wire = condition_source(wires, t)
+    if wire is None:
+        return None, "unwired"
+    name = condition_name(graph, wire, constants)
+    if wire.source.node_id in constants:
+        return ("constant", name), name
     wiring = _terminal_wiring(wires, vi_self, t.condition_terminal, to_head)
-    nodes = tuple(n for _, n, _ in wiring)
-    return nodes, _carried_name(graph, wires, t.condition_terminal)
+    return (tuple(n for _, n, _ in wiring), name), name
 
 
 def _condition_detail(
-    before: tuple[tuple[str, ...], str | None] | None,
-    after: tuple[tuple[str, ...], str | None] | None,
+    before: tuple[object, str] | None,
+    after: tuple[object, str] | None,
 ) -> str | None:
     """``condition ← <source>`` (plus ``(was <old>)``) when the wire driving
     a Conditional tunnel's condition is new or changed; None otherwise."""
-    if after is None or before == after:
+    if after is None or (before is not None and before[0] == after[0]):
         return None
-    detail = f"condition ← {after[1] or 'unwired'}"
+    detail = f"condition ← {after[1]}"
     if before is not None:
-        detail += f" (was {before[1] or 'unwired'})"
+        detail += f" (was {before[1]})"
     return detail
 
 
@@ -1655,8 +1606,8 @@ def _struct_tunnel_changes(
     versions by kept terminal UID, then by the outside wiring they carry
     (neighbour node + terminal, then neighbour node alone); whatever is left
     on one side only was added or removed."""
-    tunnels_a = _outer_tunnels(entry_a.op)
-    tunnels_b = _outer_tunnels(entry_b.op)
+    tunnels_a = outer_tunnels(entry_a.op)
+    tunnels_b = outer_tunnels(entry_b.op)
     # Keyed by the terminal OBJECT, not its id: two revisions of the same file
     # share terminal ids, but each side's terminals are distinct objects.
     wiring: dict[int, list[tuple[str, str, str]]] = {
@@ -1678,6 +1629,7 @@ def _struct_tunnel_changes(
         [lambda t: _uid_of(t.id), by_wiring, by_neighbour],
     )
     struct_a, struct_b = _uid_of(entry_a.op.id), _uid_of(entry_b.op.id)
+    consts_a, consts_b = constant_names(graph_a, va), constant_names(graph_b, vb)
     changes: list[ElementChange] = []
 
     def change(
@@ -1695,9 +1647,9 @@ def _struct_tunnel_changes(
             t.id,
             "tunnel",
             kind,
-            _carried_name(graph, wires, t.id) or "",
+            carried_name(graph, wires, t.id) or "",
             _node_bounds(layout, uid),
-            element=_tunnel_kind_name(t),
+            element=tunnel_kind_name(t),
             container_uid=entry.container_uid,
             frame_path=entry.frame_path,
             structure_uid=struct_uid,
@@ -1705,11 +1657,11 @@ def _struct_tunnel_changes(
         )
 
     for ta, tb in pairs:
-        before, after = _tunnel_kind_name(ta), _tunnel_kind_name(tb)
+        before, after = tunnel_kind_name(ta), tunnel_kind_name(tb)
         parts = [f"{before} → {after}"] if before != after else []
         condition = _condition_detail(
-            _condition_source(graph_a, wires_a, va, ta, to_head),
-            _condition_source(graph_b, wires_b, vb, tb, {}),
+            _condition_key(graph_a, wires_a, va, ta, to_head, consts_a),
+            _condition_key(graph_b, wires_b, vb, tb, {}, consts_b),
         )
         if condition is not None:
             parts.append(condition)
@@ -1727,7 +1679,7 @@ def _struct_tunnel_changes(
             )
     for t in added:
         condition = _condition_detail(
-            None, _condition_source(graph_b, wires_b, vb, t, {})
+            None, _condition_key(graph_b, wires_b, vb, t, {}, consts_b)
         )
         changes.append(
             change(t, "added", entry_b, struct_b, layout_b, detail=condition)
@@ -3055,7 +3007,7 @@ def _netlist_diff(
                         uid=tc.uid,
                         kind="tunnel",
                     )
-                    # Already in border order (inputs first) — see _outer_tunnels.
+                    # Already in border order (inputs first) — see outer_tunnels.
                     for tc in tunnels_by_struct.get(uid, [])
                 )
                 rows.extend(render_struct_children(uid, path, content_depth + 1))
