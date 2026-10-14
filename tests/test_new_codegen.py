@@ -10,7 +10,7 @@ from lvkit.codegen.builder import topological_sort_tiered
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import case, invoke_node, nmux, property_node
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import CaseStructureNode, PrimitiveNode, WireEnd
+from lvkit.graph.models import CaseStructureNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
     CaseFrame,
     ClusterField,
@@ -299,6 +299,55 @@ class TestPropertyDedup:
         # Should only have 1 assignment, not 3
         assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
         assert len(assigns) == 1
+
+    def test_each_property_uses_its_own_terminal(self):
+        """Write ActiveDev, then read DevIsSimulated / ProductType / BusType
+        with only the last two wired (DCAF Config.vi's DAQmx Device node):
+        each wired terminal gets ITS property, not the next one in line."""
+        ctx = CodeGenContext.from_wires(
+            [
+                Wire.from_terminals(
+                    from_terminal_id="ref_src", to_terminal_id="ref_in"
+                ),
+                Wire.from_terminals(from_terminal_id="name_src", to_terminal_id="dev"),
+                Wire.from_terminals(from_terminal_id="prod", to_terminal_id="sink_1"),
+                Wire.from_terminals(from_terminal_id="bus", to_terminal_id="sink_2"),
+            ]
+        )
+        ctx.bind("ref_src", "device")
+        ctx.bind("name_src", "device_name")
+        op = PrimitiveNode(
+            id="prop_1",
+            vi_path="test.vi",
+            name="Property Node",
+            node_type="propNode",
+            terminals=[
+                Terminal(id="ref_in", index=0, direction="input"),
+                Terminal(id="dev", index=4, direction="input"),
+                Terminal(id="sim", index=5, direction="output"),
+                Terminal(id="prod", index=6, direction="output"),
+                Terminal(id="bus", index=7, direction="output"),
+            ],
+            properties=[
+                PropertyDef(name="ActiveDev"),
+                PropertyDef(name="DevIsSimulated"),
+                PropertyDef(name="ProductType"),
+                PropertyDef(name="BusType"),
+            ],
+            property_value_terminal_ids=["dev", "sim", "prod", "bus"],
+        )
+        fragment = property_node.generate(op, ctx)
+        module = ast.Module(body=fragment.statements, type_ignores=[])
+        code = ast.unparse(ast.fix_missing_locations(module)).splitlines()
+        assert code == [
+            "device.activedev = device_name",
+            "device_producttype = device.producttype",
+            "device_bustype = device.bustype",
+        ]
+        assert fragment.bindings == {
+            "prod": "device_producttype",
+            "bus": "device_bustype",
+        }
 
 
 # ── Passthrough elimination ────────────────────────────────────────

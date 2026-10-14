@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.op_walk import correlate_property_terminals
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -29,65 +30,38 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
 
-    input_terms = [t for t in node.terminals if t.direction == "input"]
     output_terms = [t for t in node.terminals if t.direction == "output"]
 
-    input_by_index = {t.index: t for t in input_terms}
-    output_by_index = {t.index: t for t in output_terms}
-
-    seen_outputs: set[str] = set()
-    seen_inputs: set[str] = set()
-
-    for prop in properties:
-        prop_name = prop.name
-        attr_name = to_var_name(prop_name) if prop_name else "unknown_prop"
-
-        # Generate reads
-        for idx, term in output_by_index.items():
-            if term.id in seen_outputs:
-                continue
-            if not ctx.is_wired(term.id):
-                continue
-            seen_outputs.add(term.id)
+    # Each property with its OWN value terminal, top to bottom: an output
+    # terminal reads the property, an input terminal writes it.
+    for prop, term in correlate_property_terminals(
+        properties, node.terminals, node.property_value_terminal_ids
+    ):
+        if term is None or not ctx.is_wired(term.id):
+            continue
+        attr_name = to_var_name(prop.name) if prop.name else "unknown_prop"
+        ref_expr = parse_expr(ref_var)
+        if term.direction == "output":
             var_name = to_var_name(f"{ref_var}_{attr_name}")
-            ref_expr = parse_expr(ref_var)
-            stmt = ast.Assign(
-                targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                value=ast.Attribute(
-                    value=ref_expr,
-                    attr=attr_name,
-                    ctx=ast.Load(),
-                ),
+            statements.append(
+                ast.Assign(
+                    targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                    value=ast.Attribute(value=ref_expr, attr=attr_name, ctx=ast.Load()),
+                )
             )
-            statements.append(stmt)
             bindings[term.id] = var_name
-            break
-
-        # Generate writes
-        for idx, term in input_by_index.items():
-            if idx == 0:
-                continue
-            if term.id in seen_inputs:
-                continue
-            if not ctx.is_wired(term.id):
-                continue
-            seen_inputs.add(term.id)
-            value = ctx.resolve(term.id)
-            if value is None:
-                continue
-            ref_expr = parse_expr(ref_var)
-            stmt = ast.Assign(
+            continue
+        value = ctx.resolve(term.id)
+        if value is None:
+            continue
+        statements.append(
+            ast.Assign(
                 targets=[
-                    ast.Attribute(
-                        value=ref_expr,
-                        attr=attr_name,
-                        ctx=ast.Store(),
-                    )
+                    ast.Attribute(value=ref_expr, attr=attr_name, ctx=ast.Store())
                 ],
                 value=parse_expr(value),
             )
-            statements.append(stmt)
-            break
+        )
 
     # Bind remaining wired outputs
     for term in output_terms:
