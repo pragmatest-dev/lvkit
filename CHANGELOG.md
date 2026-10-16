@@ -5,6 +5,7 @@ lvkit follows semantic versioning.
 ## [Unreleased]
 - **Fix: a VI calling LabVIEW install files (`<resource>`, `<extravilib>`) no longer fails with "Ambiguous VI reference"** — those paths were joined onto each caller's own folder, so one dependency got a different identity per caller; every unconfigured symbolic root is now handled like `<vilib>`.
 - **`diff` reports a structure's tunnel changes** — a tunnel turned shift register, indexing toggled, Conditional set, or a tunnel added/removed is now its own change, named by what it carries ("shift register (error in): tunnel → shift register") and highlighted on the tunnel itself in the viewer, even when the data flow is unchanged (#133).
+- **Fix: Bundle/Unbundle By Name, In Place Element cluster nodes and Event Data Nodes named the wrong field after a nested sub-cluster** — in render, describe, diff and generated Python; a drawer's field index counts each sub-cluster as its own slot, as the label stored on every drawer's own type confirms (#134).
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

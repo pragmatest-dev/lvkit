@@ -258,19 +258,7 @@ def _bundles_status(
     class_fields: list[ClusterField] | None,
 ) -> bool:
     """Check if any LIST input maps to the 'status' field."""
-    if not class_fields:
-        return False
-    for t in list_in:
-        if t.nmux_field_index is not None:
-            if t.nmux_field_index < len(class_fields):
-                if (
-                    to_var_name(
-                        class_fields[t.nmux_field_index].name,
-                    )
-                    == "status"
-                ):
-                    return True
-    return False
+    return any(_field_name(t, class_fields) == "status" for t in list_in)
 
 
 def _generate_error_bundle(
@@ -317,11 +305,10 @@ def _field_name(
     term: Terminal,
     class_fields: list[ClusterField] | None,
 ) -> str | None:
-    """Get Python field name for a LIST terminal using nmux_field_index."""
+    """Get Python field name for a LIST terminal using nmux_field_index, which
+    counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
-    if term.nmux_field_index < len(class_fields):
-        return to_var_name(class_fields[term.nmux_field_index].name)
     flat = _flatten_fields(class_fields)
     if term.nmux_field_index < len(flat):
         path, _field = flat[term.nmux_field_index]
@@ -336,9 +323,6 @@ def _field_expr(
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""
     if term.nmux_field_index is not None and class_fields:
-        if term.nmux_field_index < len(class_fields):
-            fname = to_var_name(class_fields[term.nmux_field_index].name)
-            return f"{agg_var}.{fname}"
         flat = _flatten_fields(class_fields)
         if term.nmux_field_index < len(flat):
             path, _field = flat[term.nmux_field_index]

@@ -158,8 +158,9 @@ def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
     assert fields is not None
     assert [f.name for f in fields] == _MC_FIELDS_BEFORE
 
-    # The class-object unbundle now stamps a real leaf name (idx 0 ->
-    # 'pin_map_id', nested inside 'pin map context') instead of '[0]'.
+    # The class-object unbundle stamps real field names instead of '[0]': idx 0
+    # is the whole 'pin map context' sub-cluster (its drawer's own type is that
+    # cluster) and idx 3 is 'gRPC server call'.
     stamped = {
         t.display_name
         for nid in g._graph.nodes
@@ -168,7 +169,7 @@ def test_source_only_lvclass_flattened_private_data(tmp_path: Path) -> None:
         for t in n.terminals
         if getattr(t, "nmux_role", None) == "list" and t.display_name
     }
-    assert "pin_map_id" in stamped
+    assert {"pin map context", "gRPC server call"} <= stamped
 
 
 def test_flattened_private_data_parser_direct(tmp_path: Path) -> None:
@@ -213,7 +214,7 @@ def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
         for t in n.terminals
         if getattr(t, "nmux_role", None) == "list" and t.display_name
     }
-    assert "pin_map_id" in stamped
+    assert {"pin map context", "gRPC server call"} <= stamped
 
 
 @pytest.mark.parametrize("mode", [LoadMode.MINIMAL, LoadMode.FULL])
