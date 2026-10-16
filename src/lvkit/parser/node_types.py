@@ -118,11 +118,12 @@ class CtlRefConstNode(ParsedNode):
 class GRefNode(ParsedNode):
     """Local Variable reference (class="gRef").
 
-    Reads (or writes) the value of an FP control/indicator by connector-pane
-    slot index rather than by direct wire. param_idx set: the output
-    terminal is aliased to that connector-pane slot's FP terminal WireEnd
-    in the graph (no new graph node — same pattern as ctlRefConst).
-    param_idx None: unresolvable (e.g. a global VI's local var) — deferred.
+    Reads (or writes) the value of an FP control/indicator by its dcoIndex
+    (its position in the FP heap's ``<ddoList>``, see
+    ``ParsedFrontPanel.dco_order``) rather than by direct wire. A gRefDCO
+    without a ``<paramIdx>`` element means index 0 (the heap omits default
+    values). param_idx None: the gRef carried no gRefDCO at all —
+    unresolvable, deferred.
     """
 
     param_idx: int | None = None
@@ -1475,7 +1476,8 @@ class GRefHandler(NodeTypeHandler):
     """Handler for Local Variable references (class="gRef").
 
     The single termList entry's <dco class="gRefDCO"> carries <paramIdx>,
-    the connector-pane slot index of the referenced FP control.
+    the dcoIndex of the referenced FP control (its position in the FP heap's
+    <ddoList>). The heap omits the element when the index is 0.
     """
 
     xml_class = "gRef"
@@ -1491,8 +1493,13 @@ class GRefHandler(NodeTypeHandler):
                 dco_elem = term_elem.find("dco")
                 if dco_elem is not None:
                     idx_elem = dco_elem.find("paramIdx")
-                    if idx_elem is not None and idx_elem.text:
-                        param_idx = int(idx_elem.text)
+                    # Absent <paramIdx> = the default 0 (omitted by the heap),
+                    # same convention as parser/vi.py's paramIdx reading.
+                    param_idx = (
+                        int(idx_elem.text)
+                        if idx_elem is not None and idx_elem.text
+                        else 0
+                    )
         return GRefNode(**common, param_idx=param_idx)
 
 

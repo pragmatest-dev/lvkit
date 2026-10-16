@@ -578,9 +578,21 @@ def _parse_front_panel(
             control.ddo_uid = ddo.get("uid")
             controls.append(control)
 
+    # The heap root's <ddoList> names every fPDCO in DCO-table order -- the
+    # dcoIndex a local variable's paramIdx refers to. The fPDCO walk above
+    # follows z-order instead, which only matches for a panel whose controls
+    # were never reordered (verified against a LabVIEW 25 VI where 29 of 30
+    # positions differed).
+    dco_order = [
+        uid
+        for elem in root.findall("root/ddoList/SL__arrayElement")
+        if (uid := elem.get("uid"))
+    ]
+
     return ParsedFrontPanel(
         controls=controls,
         panel_bounds=panel_bounds,
+        dco_order=dco_order,
     )
 
 

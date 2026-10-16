@@ -633,6 +633,21 @@ class ParsedFrontPanel:
     controls: list[ParsedFPControl]
     panel_bounds: tuple[int, int, int, int]
     title: str | None = None
+    # fPDCO uids in LabVIEW's DCO-table order (``dcoIndex``), read from the
+    # FP heap root's ``<ddoList>``. A local variable's ``paramIdx`` indexes
+    # THIS order -- not ``controls``, which follows the heap's z-order walk
+    # and differs once controls were added, moved forward/back or nested.
+    # Empty when the heap carried no ``<ddoList>``.
+    dco_order: list[str] = field(default_factory=list)
+
+    def control_uid_at_param_idx(self, param_idx: int) -> str | None:
+        """The fPDCO uid a local variable's ``paramIdx`` refers to, or None
+        when out of range. Falls back to ``controls`` order only for a heap
+        without a ``<ddoList>``."""
+        order = self.dco_order or [ctrl.uid for ctrl in self.controls]
+        if 0 <= param_idx < len(order):
+            return order[param_idx]
+        return None
 
 
 @dataclass

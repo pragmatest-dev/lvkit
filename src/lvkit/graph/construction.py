@@ -371,9 +371,9 @@ class ConstructionMixin:
 
         # fp_dco_uid -> FP terminal WireEnd, for gRef (Local Variable) aliasing
         # below. A local variable references its control by paramIdx, which is
-        # the control's position in the VI's FULL front-panel control list
-        # (NOT the connector-pane slot — non-conpane controls have no slot yet
-        # are still referenceable). We resolve paramIdx via fp.controls order.
+        # the control's dcoIndex: its position in the FP heap's <ddoList>
+        # (fp.dco_order), covering every control (NOT the connector-pane slot
+        # — non-conpane controls have no slot yet are still referenceable).
         fp_dco_wire_ends: dict[str, WireEnd] = {}
 
         # Build FP terminals list for the VINode
@@ -427,13 +427,13 @@ class ConstructionMixin:
             )
             fp_dco_wire_ends[fp_term.fp_dco_uid] = term_lookup[fp_term.uid]
 
-        # paramIdx -> FP terminal WireEnd, indexed by the control's position in
-        # the front-panel control list (the order a local variable's paramIdx
-        # refers to — verified type-consistent, unlike the conpane slot).
+        # paramIdx -> FP terminal WireEnd, indexed by the control's dcoIndex
+        # (see ParsedFrontPanel.control_uid_at_param_idx).
         param_wire_ends: dict[int, WireEnd] = {}
         if fp:
-            for i, ctrl in enumerate(fp.controls):
-                we = fp_dco_wire_ends.get(ctrl.uid)
+            for i in range(len(fp.dco_order or fp.controls)):
+                uid = fp.control_uid_at_param_idx(i)
+                we = fp_dco_wire_ends.get(uid) if uid else None
                 if we is not None:
                     param_wire_ends[i] = we
 

@@ -152,12 +152,11 @@ class GRefHandler(RefBuildHandler):
             else None
         )
         control_name: str | None = None
-        if (
-            fp is not None
-            and node.param_idx is not None
-            and 0 <= node.param_idx < len(fp.controls)
-        ):
-            control_name = fp.controls[node.param_idx].name
+        if fp is not None and node.param_idx is not None:
+            uid = fp.control_uid_at_param_idx(node.param_idx)
+            control_name = next(
+                (ctrl.name for ctrl in fp.controls if ctrl.uid == uid), None
+            )
 
         if fp_wire_end is None:
             logger.debug(
