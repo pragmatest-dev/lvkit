@@ -12,6 +12,7 @@ lvkit follows semantic versioning.
 - **`describe` lists each loop's tunnels** — every tunnel, shift register, and count terminal in LabVIEW's words, with what it carries and, on a Conditional tunnel, what drives its condition.
 - **Fix: generated Python ignored a Conditional tunnel's condition** — a loop output now takes a value only on iterations where its condition is True; a condition with no value in Python (an error cluster's status) stops generation with a clear error instead of producing wrong code.
 - **Fix: a While Loop's indexing output tunnel produced one value, not an array** — While Loop outputs now build their array like a For Loop's, and a loop nested inside another no longer resets the outer loop's array.
+- **Fix: Bundle/Unbundle By Name, In Place Element cluster nodes and Event Data Nodes named the wrong field after a nested sub-cluster** — in render, describe, diff and generated Python; a drawer's field index counts each sub-cluster as its own slot, as the label stored on every drawer's own type confirms (#134).
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

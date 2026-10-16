@@ -4640,15 +4640,12 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
     assert index_group[:4] == ["AI Index", "AO Index", "DI Index", "DO Index"]
 
 
-def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
-    """In LEAF-only mode (IPES ``decomposeClusterNode`` / event data),
-    ``_resolve_nmux_field_name`` flattens a NESTED private-data cluster
-    LEAF-first — an intermediate sub-cluster (``DAQ Tasks``, ``Channel
-    Indeces``) is never itself an addressable flat slot. Reproduces the exact
-    corpus shape/indices (task: DAQmx Module Runtime decompose, indices 7/1/9/3
-    -> DI Index/AO Task/PWM Freq Index/DO Task) without needing the sample VI on
-    disk. Bundle-By-Name (``nMux``) counts sub-clusters too — see the full-mode
-    assertions below and ``test_resolve_nmux_field_name_full_mode_...``."""
+def test_resolve_nmux_field_name_counts_subclusters_as_slots():
+    """``_resolve_nmux_field_name`` flattens a NESTED private-data cluster
+    depth-first with each sub-cluster (``DAQ Tasks``, ``Channel Indeces``) as
+    its own slot. Reproduces the DAQmx Module Runtime decompose drawers
+    (indices 7/1/9/3) without needing the sample VI on disk: the label stored
+    on each drawer's own type is AI Index/AI Task/DI Index/DI Task (#134)."""
     from lvkit.graph.op_walk import _resolve_nmux_field_name
     from lvkit.models import ClusterField
 
@@ -4690,53 +4687,17 @@ def test_resolve_nmux_field_name_flattens_nested_clusters_leaf_first():
     )
     fields = [daq_tasks, channel_indeces]
 
-    assert _resolve_nmux_field_name(7, fields, leaf_only=True) == "DI Index"
-    assert _resolve_nmux_field_name(1, fields, leaf_only=True) == "AO Task"
-    assert _resolve_nmux_field_name(9, fields, leaf_only=True) == "PWM Freq Index"
-    assert _resolve_nmux_field_name(3, fields, leaf_only=True) == "DO Task"
-    # Out of range (beyond every leaf) -> no name, caller falls back further.
-    assert _resolve_nmux_field_name(99, fields, leaf_only=True) is None
+    assert _resolve_nmux_field_name(7, fields) == "AI Index"
+    assert _resolve_nmux_field_name(1, fields) == "AI Task"
+    assert _resolve_nmux_field_name(9, fields) == "DI Index"
+    assert _resolve_nmux_field_name(3, fields) == "DI Task"
+    # A whole sub-cluster is addressable.
+    assert _resolve_nmux_field_name(0, fields) == "DAQ Tasks"
+    assert _resolve_nmux_field_name(6, fields) == "Channel Indeces"
+    # Out of range -> no name, caller falls back further.
+    assert _resolve_nmux_field_name(99, fields) is None
     # No field index at all -> no name.
-    assert _resolve_nmux_field_name(None, fields, leaf_only=True) is None
-
-
-def test_resolve_nmux_field_name_full_mode_addresses_whole_subclusters():
-    """In FULL mode (Bundle/Unbundle By Name ``nMux``) the flat ``<i>`` index
-    counts EVERY node depth-first, so a whole sub-cluster is its own addressable
-    slot — the same shape a LEAF-only flatten cannot reach. Mirrors the DCAF
-    ``Create Test Configuration`` Bundle node: index 0 is the first sub-cluster
-    itself, and its own leaf is index 1 (leaf-only would put that leaf at 0)."""
-    from lvkit.graph.op_walk import _nmux_index_leaf_only, _resolve_nmux_field_name
-    from lvkit.models import ClusterField, Terminal
-
-    inner = LVType(
-        kind=LVTypeKind.CLUSTER,
-        fields=[ClusterField(name="leaf", type=None)],
-    )
-    fields = [ClusterField(name="Sub", type=inner)]
-    # FULL: slot 0 = the sub-cluster, slot 1 = its leaf.
-    assert _resolve_nmux_field_name(0, fields, leaf_only=False) == "Sub"
-    assert _resolve_nmux_field_name(1, fields, leaf_only=False) == "leaf"
-    # LEAF-only: the sub-cluster is NOT a slot — only its leaf, at 0.
-    assert _resolve_nmux_field_name(0, fields, leaf_only=True) == "leaf"
-    assert _resolve_nmux_field_name(1, fields, leaf_only=True) is None
-
-    # The discriminator: full-mode is ONLY an ``nMux`` over a plain (non-class)
-    # cluster/typedef. Class private data (``classname``) stays leaf even under
-    # ``nMux``; IPES decompose / event data are always leaf.
-    def agg(classname: str | None) -> Terminal:
-        return Terminal(
-            id="a",
-            index=0,
-            direction="input",
-            nmux_role="agg",
-            lv_type=LVType(kind=LVTypeKind.CLUSTER, classname=classname),
-        )
-
-    assert _nmux_index_leaf_only("nMux", agg(None)) is False
-    assert _nmux_index_leaf_only("nMux", agg("Foo.lvclass")) is True
-    assert _nmux_index_leaf_only("decomposeClusterNode", agg(None)) is True
-    assert _nmux_index_leaf_only("eventDataNode", agg(None)) is True
+    assert _resolve_nmux_field_name(None, fields) is None
 
 
 def test_nested_bundle_field_tooltip_shows_dotted_path():
@@ -4752,13 +4713,10 @@ def test_nested_bundle_field_tooltip_shows_dotted_path():
         kind=LVTypeKind.CLUSTER, fields=[ClusterField(name="leaf", type=None)]
     )
     fields = [ClusterField(name="Sub", type=inner)]
-    # Full mode: the nested leaf keeps its dotted path; the sub-cluster itself
-    # (a top-level slot) has none.
-    assert _resolve_nmux_field_path(1, fields, leaf_only=False) == "Sub.leaf"
-    assert _resolve_nmux_field_path(0, fields, leaf_only=False) is None
-    # Leaf-only mode (decompose/event): the sub-cluster is not a slot, but its
-    # leaf at 0 still carries its full nested path for the tooltip.
-    assert _resolve_nmux_field_path(0, fields, leaf_only=True) == "Sub.leaf"
+    # The nested leaf keeps its dotted path; the sub-cluster itself (a
+    # top-level slot) has none.
+    assert _resolve_nmux_field_path(1, fields) == "Sub.leaf"
+    assert _resolve_nmux_field_path(0, fields) is None
 
     t = Terminal(
         id="f",
@@ -4791,13 +4749,13 @@ def test_resolve_nmux_field_name_falls_through_multiple_sources():
         ClusterField(name="second", type=None),
     ]
     # index 0 resolves from the first (own) source.
-    assert _resolve_nmux_field_name(0, own, dep, leaf_only=True) == "onlyInOwn"
+    assert _resolve_nmux_field_name(0, own, dep) == "onlyInOwn"
     # index 1 is out of range for own, falls through to dep.
-    assert _resolve_nmux_field_name(1, own, dep, leaf_only=True) == "second"
+    assert _resolve_nmux_field_name(1, own, dep) == "second"
     # Empty own source -> straight to dep.
-    assert _resolve_nmux_field_name(1, [], dep, leaf_only=True) == "second"
+    assert _resolve_nmux_field_name(1, [], dep) == "second"
     # Neither source covers it.
-    assert _resolve_nmux_field_name(5, own, dep, leaf_only=True) is None
+    assert _resolve_nmux_field_name(5, own, dep) is None
 
 
 def test_bundle_by_name_resolves_nested_class_private_data_field_names():
@@ -4826,7 +4784,7 @@ def test_bundle_by_name_resolves_nested_class_private_data_field_names():
     for node in decompose_nodes:
         glyph = _bundle_by_name_glyph(node, graph)
         assert isinstance(glyph, BundleByNameGlyph)
-        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+        assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
         assert not any(n.startswith("[") for n in glyph.names)
 
 
@@ -4869,12 +4827,7 @@ def test_bundle_by_name_resolves_class_private_data_with_no_class_on_disk():
         for node in decompose_nodes:
             glyph = _bundle_by_name_glyph(node, graph)
             assert isinstance(glyph, BundleByNameGlyph)
-            assert glyph.names == (
-                "DI Index",
-                "AO Task",
-                "PWM Freq Index",
-                "DO Task",
-            )
+            assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
 
 
 def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
@@ -4885,9 +4838,10 @@ def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
     ``_parse_private_data_fields``'s directory scan — which, for this
     corpus class, is a STALE snapshot missing "PWM DC Index" and calling
     the other field "PWM Index" instead of "PWM Freq Index".
-    ``_bundle_by_name_glyph`` must still render ``input.vi``'s OWN, correct
-    field name for its real field index — proof the own-VI-copy fallback is
-    tried FIRST, not merely as a last resort when dep_graph is unavailable."""
+    ``input.vi``'s OWN copy must be tried FIRST, not merely as a last resort
+    when dep_graph is unavailable: slot 11 (that PWM field) resolves to the
+    own copy's name through the node's field sources."""
+    from lvkit.graph.op_walk import _nmux_field_sources, _resolve_nmux_field_name
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import _bundle_by_name_glyph
 
@@ -4917,17 +4871,20 @@ def test_bundle_by_name_prefers_own_vi_copy_over_stale_dep_graph_snapshot():
     for node in decompose_nodes:
         glyph = _bundle_by_name_glyph(node, graph)
         assert isinstance(glyph, BundleByNameGlyph)
+        assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
         # input.vi's OWN copy wins over the stale dep_graph snapshot.
-        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+        agg = next(t for t in node.terminals if t.nmux_role == "agg")
+        own, dep = _nmux_field_sources(vi_name, agg, graph)
+        assert _resolve_nmux_field_name(11, dep) == "PWM Index"
+        assert _resolve_nmux_field_name(11, own, dep) == "PWM Freq Index"
 
 
 def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
     """The resolved field name must reach the field TERMINAL's
     ``display_name`` (not just the glyph row) so the hover connector-panel
     (``render/draw.py``'s ``_terminal_label``/``_pane_label``) shows the
-    FULL, untruncated name — "PWM Freq Index", not the glyph's
-    width-truncated "PWM Freq I…". Single source of truth: both surfaces
-    must agree exactly."""
+    FULL, untruncated name, never the glyph's width-truncated form. Single
+    source of truth: both surfaces must agree exactly."""
     from lvkit.render.draw import _terminal_label
     from lvkit.render.glyph import BundleByNameGlyph
     from lvkit.render.nodes import _bundle_by_name_glyph
@@ -4950,17 +4907,17 @@ def test_bundle_by_name_attaches_resolved_names_to_terminals_for_the_panel():
     for node in decompose_nodes:
         glyph = _bundle_by_name_glyph(node, graph)
         assert isinstance(glyph, BundleByNameGlyph)
-        assert glyph.names == ("DI Index", "AO Task", "PWM Freq Index", "DO Task")
+        assert glyph.names == ("AI Index", "AI Task", "DI Index", "DI Task")
 
         field_terms = sorted(
             (t for t in node.terminals if t.nmux_role == "list"),
             key=lambda t: t.index,
         )
         assert [_terminal_label(t) for t in field_terms] == [
+            "AI Index",
+            "AI Task",
             "DI Index",
-            "AO Task",
-            "PWM Freq Index",
-            "DO Task",
+            "DI Task",
         ]
         # The panel label is the FULL name, never the glyph's ellipsis-cut
         # form, and never the generic index-based fallback.
@@ -5003,7 +4960,7 @@ def test_resolve_bundle_by_name_labels_only_attaches_real_names():
     )
     field_terms = [resolved, named_by_terminal, unresolved]
 
-    names = _resolve_bundle_by_name_labels(field_terms, fields, leaf_only=False)
+    names = _resolve_bundle_by_name_labels(field_terms, fields)
     assert names == ("widgetCount", "caller side name", "[5]")
     assert resolved.display_name == "widgetCount"
     assert named_by_terminal.display_name is None
