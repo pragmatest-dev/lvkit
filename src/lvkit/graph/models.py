@@ -311,8 +311,8 @@ class DisableStructureNode(StructureNode):
     value. Kept as its own type (NOT a CaseStructureNode subclass) so it
     does not fall into case-structure codegen, which assumes a real runtime
     selector -- render treats it like a case (see render/scene.py,
-    render/draw.py); codegen has no dedicated generator for it yet (falls
-    through to the existing "unknown node type" comment fallback).
+    render/draw.py); codegen generates its enabled subdiagram
+    (``codegen/nodes/disable.py``).
     """
 
     model_config = {"arbitrary_types_allowed": True}

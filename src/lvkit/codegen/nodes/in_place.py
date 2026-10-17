@@ -1,25 +1,35 @@
 """Code generator for In Place Element Structure (decompose/recompose).
 
-An IPES takes one piece of data in, decomposes it at the input boundary
-(creating field access expressions), lets inner operations modify those
-fields, then recomposes at the output boundary (writing fields back).
-Same data, no copies — works for clusters, arrays, classes, and DVRs.
+An In Place Element Structure edits one piece of data where it is: a READ tile on
+its border takes an element out of the data, the body works on the element, and
+a WRITE tile on the opposite border puts it back. Same data, no copies -- the
+data is a cluster or class (Unbundle/Bundle Elements), an array (Array
+Index/Replace Elements) or a data value reference (DVR Read/Write).
+
+A tile's terminals and the structure's own input and output ports that carry the
+same data share a data-flow id (``dco_uid``): that link, not the order of the
+ports, says which value enters which tile.
 
 generate() is structured as three explicit passes:
-  Input boundary  — bind input tunnels + decompose field bindings
-  Body            — generate_body(inner_nodes) for regular inner ops
-  Output boundary — recompose write-backs + bind output tunnels + data output fallback
+  Input boundary  — bind input tunnels, bind tile inputs to the structure's
+                    ports, then take each element out of its data
+  Body            — generate_body(regular nodes)
+  Output boundary — write the elements back + bind output tunnels + bind the
+                    structure's data output ports
 """
 
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 
 from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
 from lvkit.models import (
     ClusterField,
+    InPlaceBorderSide,
     Terminal,
     Tunnel,
+    inplace_border_side,
 )
 
 from ..ast_utils import parse_expr
@@ -27,41 +37,58 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .nmux import _field_expr, _field_name
 
+_CLUSTER = "decomposeClusterNode"
+_ARRAY = "decomposeArrayNode"
+_DVR = "decomposeDataValRefNode"
+_BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR)
 
-def _classify_ipes(
-    children: list[AnyGraphNode],
-    ctx: CodeGenContext,
-) -> tuple[list[PrimitiveNode], list[PrimitiveNode], list[AnyGraphNode]]:
-    """Split IPES inner graph nodes into decompose, recompose, and regular.
 
-    decompose = poser prim with list OUTPUT terminals only (unbundles field
-    values at the input boundary); recompose = poser prim with list INPUT
-    terminals only (rebundles at the output boundary); everything else is
-    regular body. ``poser_uid`` lives as a graph attribute, read via
-    ``ctx.poser_uid``.
-    """
-    decompose: list[PrimitiveNode] = []
-    recompose: list[PrimitiveNode] = []
+@dataclass
+class _Tile:
+    """One tile of the structure's border."""
+
+    op: PrimitiveNode
+    side: InPlaceBorderSide
+    kind: str
+    # The tile's other half is the one of the same kind with the same pairing id
+    # (the heap's ``poser``); the data value reference tiles carry none, so their
+    # two halves pair as the only two of their kind.
+    pair: tuple[str, str | None]
+
+
+@dataclass
+class _Element:
+    """The data an In Place Element Structure edits: the variable that holds it
+    and, for an array, the variable that indexes the element."""
+
+    whole: str
+    index: str | None = None
+
+
+def _split_children(
+    children: list[AnyGraphNode], ctx: CodeGenContext
+) -> tuple[list[_Tile], list[AnyGraphNode]]:
+    """Split the structure's inner graph nodes into border tiles and regular body
+    nodes. A cluster tile is a node with a pairing id and field terminals in one
+    direction only; an array or data value reference tile is told by its node
+    type."""
+    tiles: list[_Tile] = []
     regular: list[AnyGraphNode] = []
-
     for op in children:
-        if not isinstance(op, PrimitiveNode) or not ctx.poser_uid(op):
-            regular.append(op)
-            continue
-        has_list_out = any(
-            t.nmux_role == "list" and t.direction == "output" for t in op.terminals
-        )
-        has_list_in = any(
-            t.nmux_role == "list" and t.direction == "input" for t in op.terminals
-        )
-        if has_list_out and not has_list_in:
-            decompose.append(op)
-        elif has_list_in and not has_list_out:
-            recompose.append(op)
+        node_type = None
+        side = None
+        if isinstance(op, PrimitiveNode):
+            if op.node_type in (_ARRAY, _DVR):
+                node_type = op.node_type
+            elif ctx.poser_uid(op):
+                node_type = _CLUSTER
+            if node_type is not None:
+                side = inplace_border_side(node_type, op.terminals)
+        if isinstance(op, PrimitiveNode) and node_type is not None and side is not None:
+            tiles.append(_Tile(op, side, node_type, (node_type, ctx.poser_uid(op))))
         else:
             regular.append(op)
-
-    return decompose, recompose, regular
+    return tiles, regular
 
 
 def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
@@ -71,24 +98,16 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports: set[str] = set()
 
     tunnels = ctx.tunnels(node)
-    decompose_ops, recompose_ops, inner_nodes = _classify_ipes(
-        ctx.child_nodes(node), ctx
-    )
+    tiles, inner_nodes = _split_children(ctx.child_nodes(node), ctx)
 
     # --- Input boundary ---
     _bind_input_tunnels(node, tunnels, ctx)
-
-    # Find the ONE data variable flowing through this IPES.
-    # Same data in and out — no copies.
-    tunnel_outer_uids = {t.outer_terminal_uid for t in tunnels}
-    data_var = _find_data_var(node, tunnel_outer_uids, ctx)
-
-    # Decompose: bind field output terminals to data.field expressions.
-    _bind_decompose_fields(decompose_ops, data_var, ctx)
-
-    # Pre-bind recompose agg outputs to the data variable so BFS
-    # from parent structures can find the (same) data through recompose.
-    _prebind_recompose_agg(recompose_ops, data_var, ctx)
+    _bind_tile_inputs(node, tiles, ctx)
+    tunnel_uids = {
+        uid for t in tunnels for uid in (t.outer_terminal_uid, t.inner_terminal_uid)
+    }
+    data_var = _find_data_var(node, tunnel_uids, ctx)
+    elements = _take_elements_out(tiles, data_var, ctx)
 
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(inner_nodes)
@@ -98,16 +117,13 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports.update(ctx.imports)
 
     # --- Output boundary ---
-    # Recompose (special output boundary): emit data.field = modified_value.
-    all_stmts.extend(_emit_recompose_writebacks(recompose_ops, data_var, ctx))
+    all_stmts.extend(_write_elements_back(tiles, elements, ctx))
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, tunnels, ctx, all_bindings)
 
-    # Cluster output terminals (decomposeClusterDCO) have no graph edges —
-    # LabVIEW's implicit connection. Bind them to the data variable so
-    # parent structures can resolve the modified data via BFS.
-    _bind_data_outputs(node, tunnels, data_var, all_bindings)
+    # The data comes back out of the structure on its output ports.
+    _bind_data_outputs(node, tiles, data_var, tunnel_uids, all_bindings, ctx)
 
     return CodeFragment(
         statements=all_stmts,
@@ -135,39 +151,94 @@ def _bind_input_tunnels(
             ctx.bind(tunnel.inner_terminal_uid, outer_var)
 
 
-def _bind_decompose_fields(
-    decompose_ops: list[PrimitiveNode],
-    data_var: str | None,
-    ctx: CodeGenContext,
+def _bind_tile_inputs(
+    node: InPlaceNode, tiles: list[_Tile], ctx: CodeGenContext
 ) -> None:
-    """Bind decompose field output terminals to data.field expressions."""
-    if data_var is None:
-        return
-    for op in decompose_ops:
-        agg_in = _agg_terminal(op, "input")
-        if agg_in is None:
+    """Give each tile input the value of the structure input port that carries the
+    same data (same ``dco_uid``). A tile input the diagram wires itself keeps
+    that wire."""
+    ports = [t for t in node.terminals if t.direction == "input"]
+    for tile in tiles:
+        for term in tile.op.terminals:
+            if term.direction != "input" or term.dco_uid is None:
+                continue
+            if ctx.resolve(term.id) is not None:
+                continue
+            for port in ports:
+                if port.dco_uid == term.dco_uid:
+                    value = ctx.resolve(port.id)
+                    if value is not None:
+                        ctx.bind(term.id, value)
+                    break
+
+
+def _take_elements_out(
+    tiles: list[_Tile], data_var: str | None, ctx: CodeGenContext
+) -> dict[tuple[str, str | None], _Element]:
+    """Bind what each READ tile hands the body, and what each WRITE tile hands
+    back out, to expressions over the edited data. Returns the edited data of
+    each tile pair. ``data_var`` is the structure's one data variable, for a
+    cluster tile whose input carries no data-flow id."""
+    elements: dict[tuple[str, str | None], _Element] = {}
+    for tile in tiles:
+        if tile.side != InPlaceBorderSide.READ:
             continue
-        class_fields = _get_class_fields(agg_in, ctx)
+        element = _take_element_out(tile, data_var, ctx)
+        if element is not None:
+            elements[tile.pair] = element
+    for tile in tiles:
+        element = _element_of(tile, elements)
+        if tile.side == InPlaceBorderSide.WRITE and element is not None:
+            for out in _carried_outputs(tile):
+                ctx.bind(out.id, element.whole)
+    return elements
+
+
+def _element_of(
+    tile: _Tile, elements: dict[tuple[str, str | None], _Element]
+) -> _Element | None:
+    """The data a tile edits: that of its pair, else the only one of its kind."""
+    if tile.pair in elements:
+        return elements[tile.pair]
+    of_kind = [e for (kind, _pair), e in elements.items() if kind == tile.kind]
+    return of_kind[0] if len(of_kind) == 1 else None
+
+
+def _take_element_out(
+    tile: _Tile, data_var: str | None, ctx: CodeGenContext
+) -> _Element | None:
+    op = tile.op
+    if tile.kind == _CLUSTER:
+        agg = _role_terminal(op, "agg", "input")
+        whole = (ctx.resolve(agg.id) if agg is not None else None) or data_var
+        if agg is None or whole is None:
+            return None
+        class_fields = _get_class_fields(agg, ctx)
         for t in _field_terminals(op, "output"):
-            ctx.bind(t.id, _field_expr(t, data_var, class_fields))
-
-
-def _prebind_recompose_agg(
-    recompose_ops: list[PrimitiveNode],
-    data_var: str | None,
-    ctx: CodeGenContext,
-) -> None:
-    """Pre-bind recompose agg output terminals to the data variable.
-
-    Same data, no copies: the recompose agg output IS the same data
-    as the decompose agg input.
-    """
-    if data_var is None:
-        return
-    for op in recompose_ops:
-        agg_out = _agg_terminal(op, "output")
-        if agg_out:
-            ctx.bind(agg_out.id, data_var)
+            ctx.bind(t.id, _field_expr(t, whole, class_fields))
+        return _Element(whole)
+    if tile.kind == _ARRAY:
+        array_in = _role_terminal(op, None, "input")
+        index_in = _role_terminal(op, "list", "input")
+        element_out = _role_terminal(op, "agg", "output")
+        if array_in is None or index_in is None or element_out is None:
+            return None
+        whole = ctx.resolve(array_in.id)
+        index = ctx.resolve(index_in.id)
+        if whole is None or index is None:
+            return None
+        ctx.bind(element_out.id, f"{whole}[{index}]")
+        return _Element(whole, index)
+    dvr_in = next(
+        (t for t in op.terminals if t.direction == "input"),
+        None,
+    )
+    value_out = next(iter(_data_terminals(op, "output")), None)
+    whole = ctx.resolve(dvr_in.id) if dvr_in is not None else None
+    if whole is None or value_out is None:
+        return None
+    ctx.bind(value_out.id, f"{whole}[0]")
+    return _Element(whole)
 
 
 # ---------------------------------------------------------------------------
@@ -175,40 +246,73 @@ def _prebind_recompose_agg(
 # ---------------------------------------------------------------------------
 
 
-def _emit_recompose_writebacks(
-    recompose_ops: list[PrimitiveNode],
-    data_var: str | None,
+def _write_elements_back(
+    tiles: list[_Tile],
+    elements: dict[tuple[str, str | None], _Element],
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
-    """Emit data.field = modified_value for each recompose field."""
-    if data_var is None:
-        return []
+    """Emit the assignment that puts each element the body produced back into the
+    data it was taken from."""
     stmts: list[ast.stmt] = []
-    for op in recompose_ops:
-        agg_out = _agg_terminal(op, "output")
-        class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
-        for t in _field_terminals(op, "input"):
-            val = ctx.resolve(t.id)
-            if val is None:
-                continue
-            fname = _field_name(t, class_fields)
-            if fname is None:
-                continue
-            stmts.append(
-                ast.Assign(
-                    targets=[
-                        ast.Attribute(
-                            value=parse_expr(data_var),
-                            attr=fname,
-                            ctx=ast.Store(),
-                        ),
-                    ],
-                    value=parse_expr(val),
-                    lineno=0,
-                    col_offset=0,
-                )
+    for tile in tiles:
+        element = _element_of(tile, elements)
+        if tile.side != InPlaceBorderSide.WRITE or element is None:
+            continue
+        op = tile.op
+        if tile.kind == _CLUSTER:
+            stmts.extend(_write_fields_back(op, element, ctx))
+            continue
+        if tile.kind == _ARRAY:
+            source = _role_terminal(op, "agg", "input")
+            target = f"{element.whole}[{element.index}]"
+        else:
+            source = next(
+                (t for t in op.terminals if t.direction == "input"),
+                None,
             )
+            target = f"{element.whole}[0]"
+        value = ctx.resolve(source.id) if source is not None else None
+        if value is not None:
+            stmts.append(_assign(parse_expr(target), value))
     return stmts
+
+
+def _write_fields_back(
+    op: PrimitiveNode, element: _Element, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """Emit data.field = modified_value for each field the WRITE tile takes."""
+    agg_out = _role_terminal(op, "agg", "output")
+    class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
+    stmts: list[ast.stmt] = []
+    for t in _field_terminals(op, "input"):
+        val = ctx.resolve(t.id)
+        if val is None:
+            continue
+        fname = _field_name(t, class_fields)
+        if fname is None:
+            continue
+        stmts.append(
+            _assign(
+                ast.Attribute(
+                    value=parse_expr(element.whole),
+                    attr=fname,
+                    ctx=ast.Store(),
+                ),
+                val,
+            )
+        )
+    return stmts
+
+
+def _assign(target: ast.expr, value: str) -> ast.stmt:
+    if isinstance(target, ast.Subscript | ast.Attribute):
+        target.ctx = ast.Store()
+    return ast.Assign(
+        targets=[target],
+        value=parse_expr(value),
+        lineno=0,
+        col_offset=0,
+    )
 
 
 def _bind_output_tunnels(
@@ -230,26 +334,41 @@ def _bind_output_tunnels(
 
 def _bind_data_outputs(
     node: InPlaceNode,
-    tunnels: list[Tunnel],
+    tiles: list[_Tile],
     data_var: str | None,
+    tunnel_uids: set[str],
     bindings: dict[str, str],
+    ctx: CodeGenContext,
 ) -> None:
-    """Bind IPES output terminals to the data variable.
+    """Bind each output port that carries data to the value of the tile output
+    that carries the same data (same ``dco_uid``). A port with no data-flow id is
+    bound to the structure's one data variable.
 
-    The decomposeClusterDCO output terminals have no graph edges (implicit
-    LabVIEW connection), so BFS cannot find the data without explicit binding.
+    These ports have no graph edges (the connection to the tile is implicit), so
+    a search from a consumer cannot find the data without this binding.
     """
-    if data_var is None:
-        return
-    tunnel_inner_uids = {t.inner_terminal_uid for t in tunnels}
-    tunnel_outer_uids = {t.outer_terminal_uid for t in tunnels}
-    for t in node.terminals:
-        if (
-            t.direction == "output"
-            and t.id not in tunnel_inner_uids
-            and t.id not in tunnel_outer_uids
-        ):
-            bindings[t.id] = data_var
+    for port in node.terminals:
+        if port.direction != "output" or port.id in tunnel_uids:
+            continue
+        if port.dco_uid is None:
+            if data_var is not None:
+                bindings[port.id] = data_var
+            continue
+        for tile in tiles:
+            source = next(
+                (
+                    t
+                    for t in tile.op.terminals
+                    if t.direction == "output" and t.dco_uid == port.dco_uid
+                ),
+                None,
+            )
+            if source is None:
+                continue
+            value = ctx.resolve(source.id)
+            if value is not None:
+                bindings[port.id] = value
+            break
 
 
 # ---------------------------------------------------------------------------
@@ -258,30 +377,53 @@ def _bind_data_outputs(
 
 
 def _find_data_var(
-    node: InPlaceNode,
-    tunnel_outer_uids: set[str],
-    ctx: CodeGenContext,
+    node: InPlaceNode, tunnel_uids: set[str], ctx: CodeGenContext
 ) -> str | None:
-    """Find the data variable from non-tunnel IPES input terminals.
-
-    The data flows into the IPES via decomposeClusterDCO terminals, stored
-    as plain input terminals on the node (not in node.tunnels).
-    If no wired input exists, returns None and the IPES is a no-op.
-    """
+    """The variable of the structure's one data input: the first input port that
+    is not a tunnel and carries a value. None when there is none."""
     for t in node.terminals:
-        if t.direction == "input" and t.id not in tunnel_outer_uids:
+        if t.direction == "input" and t.id not in tunnel_uids:
             var = ctx.resolve(t.id)
             if var:
                 return var
     return None
 
 
-def _agg_terminal(op: PrimitiveNode, direction: str) -> Terminal | None:
-    """Find the aggregate terminal for the given direction."""
+def _role_terminal(
+    op: PrimitiveNode, role: str | None, direction: str
+) -> Terminal | None:
+    """The tile's terminal of an aggregate/field role in a direction."""
     for t in op.terminals:
-        if t.nmux_role == "agg" and t.direction == direction:
+        if t.nmux_role == role and t.direction == direction:
             return t
     return None
+
+
+def _carried_outputs(tile: _Tile) -> list[Terminal]:
+    """The outputs of a WRITE tile that hand the edited data back out: the
+    aggregate of a cluster tile, the array of an array tile, the reference of a
+    data value reference tile."""
+    if tile.kind == _CLUSTER:
+        return [
+            t
+            for t in tile.op.terminals
+            if t.nmux_role == "agg" and t.direction == "output"
+        ]
+    if tile.kind == _ARRAY:
+        return [
+            t
+            for t in tile.op.terminals
+            if t.nmux_role is None and t.direction == "output"
+        ]
+    return _data_terminals(tile.op, "output")
+
+
+def _data_terminals(op: PrimitiveNode, direction: str) -> list[Terminal]:
+    """A data value reference tile's terminals in ``direction`` that carry data,
+    not an error."""
+    return [
+        t for t in op.terminals if t.direction == direction and not t.is_error_cluster
+    ]
 
 
 def _field_terminals(op: PrimitiveNode, direction: str) -> list[Terminal]:

@@ -9,11 +9,12 @@ from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVTypeKind, Terminal, TypeFilter
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
+    build_type_checking_block,
     param_default_expr,
     parameter_names,
     parse_expr,
@@ -84,15 +85,18 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node)
+        return build_global_module(vi_node, import_resolver)
 
     # Initialize context with inputs and constants
-    ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
-    ctx.import_resolver = import_resolver
+    ctx = CodeGenContext.from_vi_context(
+        vi_context, graph=graph, import_resolver=import_resolver
+    )
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name
     ctx.soft_unresolved = soft_unresolved
     ctx.unresolved_sink = unresolved_sink
+    for term in annotated_terminals(vi_context):
+        ctx.import_types(term.lv_type, at_run_time=False)
 
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
@@ -442,19 +446,28 @@ def _generate_parallel_tier(
 
 
 class _AssignedNameVisitor(ast.NodeVisitor):
-    """Collects Name targets of Assign/AnnAssign anywhere in a statement
-    tree, including inside nested blocks (while/for/if/with/try) -- e.g. a
-    shift-register update assigned inside a while loop's body. Does NOT
+    """Collects Name targets of Assign/AnnAssign (each name of an unpacking
+    target too) anywhere in a statement tree, including inside nested blocks
+    (while/for/if/with/try) -- e.g. a shift-register update assigned inside a
+    while loop's body. Does NOT
     descend into nested function/lambda defs, which introduce their own
     scope (a name assigned there is not a name of the enclosing branch)."""
 
     def __init__(self) -> None:
         self.names: set[str] = set()
 
+    def _add_target(self, target: ast.expr) -> None:
+        if isinstance(target, ast.Name):
+            self.names.add(target.id)
+        elif isinstance(target, ast.Tuple | ast.List):
+            for element in target.elts:
+                self._add_target(element)
+        elif isinstance(target, ast.Starred):
+            self._add_target(target.value)
+
     def visit_Assign(self, node: ast.Assign) -> None:
         for target in node.targets:
-            if isinstance(target, ast.Name):
-                self.names.add(target.id)
+            self._add_target(target)
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -646,7 +659,8 @@ def build_module_ast(
     module_body.extend(build_imports(vi_context, ctx, use_error_handling))
 
     # Result class
-    result_class = build_result_class(vi_context)
+    importable = ctx.type_importable()
+    result_class = build_result_class(vi_context, importable)
     if result_class:
         module_body.append(result_class)
 
@@ -661,7 +675,7 @@ def build_module_ast(
         module_body.append(ctx.module_globals[name])
 
     # Function definition
-    func_def = build_function_def(vi_context, vi_name, body)
+    func_def = build_function_def(vi_context, vi_name, body, importable)
     module_body.append(func_def)
 
     return ast.Module(body=module_body, type_ignores=[])
@@ -702,17 +716,45 @@ def build_imports(
         except SyntaxError:
             warnings.warn(f"Skipping unparseable import: {imp!r}", stacklevel=2)
 
+    imports.extend(build_type_checking_block(ctx.annotation_imports))
     return imports
 
 
-def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
+
+def annotated_terminals(vi_context: VIContext) -> list[Terminal]:
+    """The terminals whose types the module annotates: the parameters and the
+    result fields. An error cluster is an exception, so it is neither."""
+    return [
+        term
+        for term in (
+            *vi_context.inputs,
+            *vi_context.off_pane_inputs,
+            *vi_context.outputs,
+            *vi_context.off_pane_outputs,
+        )
+        if not term.is_error_cluster
+    ]
+
+
+def has_result_fields(vi_context: VIContext) -> bool:
+    """True when the VI returns a value: some indicator is not an error cluster
+    (an error is an exception, so it has no result field)."""
+    return any(
+        not out.is_error_cluster
+        for out in (*vi_context.outputs, *vi_context.off_pane_outputs)
+    )
+
+
+def build_result_class(
+    vi_context: VIContext, importable: TypeFilter | None = None
+) -> ast.ClassDef | None:
     """Build NamedTuple result class.
 
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
-    if not outputs:
+    if not has_result_fields(vi_context):
         return None
+    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
 
     class_name = build_result_class_name(vi_context.name)
 
@@ -725,7 +767,7 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
             continue
 
         name = field_names[out.id]
-        type_hint = out.python_type()
+        type_hint = out.python_type(importable)
         fields.append((name, type_hint))
 
     if len({name for name, _ in fields}) != len(fields):
@@ -758,7 +800,10 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
 
 
 def build_function_def(
-    vi_context: VIContext, vi_name: str, body: list[ast.stmt]
+    vi_context: VIContext,
+    vi_name: str,
+    body: list[ast.stmt],
+    importable: TypeFilter | None = None,
 ) -> ast.FunctionDef:
     """Build function definition."""
     # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
@@ -769,13 +814,13 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs, vi_context.off_pane_inputs)
+    args = build_args(
+        vi_context.inputs, vi_context.off_pane_inputs, importable=importable
+    )
 
     # Build return annotation
     returns = None
-    if vi_context.outputs or any(
-        not out.is_error_cluster for out in vi_context.off_pane_outputs
-    ):
+    if has_result_fields(vi_context):
         result_class = build_result_class_name(vi_context.name)
         returns = ast.Name(id=result_class, ctx=ast.Load())
 
@@ -796,6 +841,7 @@ def build_args(
     inputs: list[Terminal],
     off_pane_inputs: list[Terminal] | None = None,
     names: dict[str, str] | None = None,
+    importable: TypeFilter | None = None,
 ) -> ast.arguments:
     """Build function arguments from inputs.
 
@@ -829,7 +875,7 @@ def build_args(
             continue
 
         # Arrays and anonymous clusters use a conservative None default.
-        type_hint = inp.python_type()
+        type_hint = inp.python_type(importable)
         if _is_array_input(inp) or _is_anonymous_cluster(inp):
             type_hint = f"{type_hint} | None"
         args.append(
@@ -845,7 +891,7 @@ def build_args(
     for ctl in off_pane_inputs or []:
         if ctl.is_error_cluster:
             continue
-        type_hint = ctl.python_type()
+        type_hint = ctl.python_type(importable)
         if _is_array_input(ctl) or _is_anonymous_cluster(ctl):
             type_hint = f"{type_hint} | None"
         kwonly_args.append(

@@ -127,6 +127,7 @@ class QueryMixin:
         ) -> str | None: ...
         def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
+        def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None: ...
 
     # === Dependency Graph Queries ===
 
@@ -386,6 +387,53 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
+
+    def type_key(self, ref: str, caller_vi_key: str) -> str | None:
+        """The dependency key (file path) of the loaded class or typedef that
+        the type name ``ref`` denotes in ``caller_vi_key``, found among that
+        VI's own dependencies. ``None`` when no single loaded dependency of the
+        caller carries the name."""
+        key = self._dependency_key(ref, caller_vi_key)
+        if key is None or key in self._stubs:
+            return None
+        if self._dep_graph.nodes[key].get("node_type") not in (
+            NodeType.CLASS,
+            NodeType.TYPEDEF,
+        ):
+            return None
+        return key
+
+    def is_class(self, key: str) -> bool:
+        """True when ``key`` is a class node, loaded or a stub."""
+        return (
+            key in self._dep_graph
+            and self._dep_graph.nodes[key].get("node_type") == NodeType.CLASS
+        )
+
+    def class_own_fields(self, key: str) -> list[ClusterField]:
+        """The private-data fields the class at ``key`` declares itself, in
+        declaration order: not those it inherits."""
+        return list(self._dep_graph.nodes[key].get("fields") or [])
+
+    def class_private_data_key(self, key: str) -> str | None:
+        """The dependency key of the control that is the private data of the
+        class at ``key``; ``None`` when the class has none loaded."""
+        for succ in self._dep_graph.successors(key):
+            edge = self._dep_graph.get_edge_data(key, succ) or {}
+            if edge.get("rel") == EdgeRel.PRIVATE_DATA:
+                return succ
+        return None
+
+    def class_parent_key(self, key: str) -> str | None:
+        """The dependency key of the loaded parent of the class at ``key``;
+        ``None`` for a root class or a parent that is not loaded."""
+        return self._parent_class_key(key)
+
+    def class_parent_name(self, key: str) -> str | None:
+        """The name the class at ``key`` records for its parent, loaded or not;
+        ``None`` for a class that descends directly from LabVIEW Object."""
+        parent = self._dep_graph.nodes[key].get("parent_class")
+        return parent if parent and parent != "LabVIEW Object" else None
 
     def global_vi_key(self, node: GlobalVariableNode) -> str | None:
         """The dependency key (the Global VI's file path) a global variable node

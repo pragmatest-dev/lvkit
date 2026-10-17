@@ -141,7 +141,7 @@
         {
           "name": "location (both)",
           "description": "Functions © National Instruments 651 location determines if this function removes white space from the beginning, end, or both ends of string. The default is both. 0 Both—Removes white space from both ends of the input string. 1 Start of string—Removes white space from the start of the input string. 2 End of string—Removes white space from the end of the input string.",
-          "default_value": "both",
+          "default_value": "0",
           "enum_values": [
             [
               1,
@@ -178,7 +178,7 @@
           "type": "String"
         }
       ],
-      "python_code": "in_0.strip()",
+      "python_code": "{trimmed_string} = {string}.lstrip(' \\t\\r\\n') if {location_both} == 1 else {string}.rstrip(' \\t\\r\\n') if {location_both} == 2 else {string}.strip(' \\t\\r\\n')",
       "inline": true
     },
     {

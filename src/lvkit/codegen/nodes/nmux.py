@@ -19,7 +19,7 @@ from lvkit.models import (
     _is_error_cluster,
 )
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, default_value_expr, parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
@@ -97,7 +97,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     elif list_out and not list_in:
         # LIST out only = unbundle (extract fields from cluster)
         for t in sorted(list_out, key=lambda t: t.index):
-            if agg_var:
+            if agg_lv_type is not None and _is_error_cluster(agg_lv_type):
+                default = _error_field_default(t, class_fields)
+                if default is not None:
+                    bindings[t.id] = default
+            elif agg_var:
                 if anon:
                     path = _position_path(t, class_fields)
                     bindings[t.id] = (
@@ -217,6 +221,22 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 bindings[t.id] = ast.unparse(tup)
 
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _error_field_default(
+    term: Terminal, class_fields: list[ClusterField] | None
+) -> str | None:
+    """The value of the field an Unbundle takes out of an error cluster. An
+    error is an exception, so the cluster that reaches the Unbundle is the no
+    error one: every field holds its type's default (status False, code 0,
+    source empty). None when the field is not found."""
+    if term.nmux_field_index is None or not class_fields:
+        return None
+    flat = _flatten_fields(class_fields)
+    if term.nmux_field_index >= len(flat):
+        return None
+    _path, field = flat[term.nmux_field_index]
+    return ast.unparse(default_value_expr(field.type))
 
 
 def _position_path(

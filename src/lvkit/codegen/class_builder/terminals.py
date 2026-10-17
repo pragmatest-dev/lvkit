@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.models import Terminal
+from lvkit.models import Terminal, TypeFilter
 from lvkit.type_defaults import _is_class_refnum
 
 from ..ast_utils import parse_expr
@@ -41,7 +41,9 @@ class _TerminalClassifierMixin:
         """
         return out.is_error_cluster
 
-    def _build_return_annotation(self, outputs: list[Terminal]) -> ast.expr:
+    def _build_return_annotation(
+        self, outputs: list[Terminal], importable: TypeFilter | None = None
+    ) -> ast.expr:
         """Build return type annotation from outputs using lv_type."""
         if not outputs:
             return ast.Constant(value=None)
@@ -50,7 +52,7 @@ class _TerminalClassifierMixin:
             out = outputs[0]
             lv_type = getattr(out, "lv_type", None)
             if lv_type:
-                return parse_expr(lv_type.to_python())
+                return parse_expr(lv_type.to_python(importable))
             return ast.Name(id="Any", ctx=ast.Load())
 
         # Multiple outputs - tuple
@@ -58,7 +60,7 @@ class _TerminalClassifierMixin:
         for out in outputs:
             lv_type = getattr(out, "lv_type", None)
             if lv_type:
-                elts.append(parse_expr(lv_type.to_python()))
+                elts.append(parse_expr(lv_type.to_python(importable)))
             else:
                 elts.append(ast.Name(id="Any", ctx=ast.Load()))
 

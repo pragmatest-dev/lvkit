@@ -579,3 +579,214 @@ class TestIPESFallbackData:
         frag = in_place.generate(node, ctx)
 
         assert "cluster_out" not in frag.bindings
+
+
+# ---------------------------------------------------------------------------
+# Data-flow ids: which port feeds which border tile
+# ---------------------------------------------------------------------------
+
+
+def _tile(id, node_type, poser, terminals):
+    return PrimitiveNode(
+        id=id,
+        vi_path="test.vi",
+        name=id,
+        node_type=node_type,
+        terminals=terminals,
+    ), poser
+
+
+def _term(id, direction, index=0, *, dco=None, role=None, lv_type=None, field=None):
+    return Terminal(
+        id=id,
+        index=index,
+        direction=direction,
+        dco_uid=dco,
+        nmux_role=role,
+        nmux_field_index=field,
+        lv_type=lv_type,
+    )
+
+
+def _ipes_with_tiles(ctx, ports, tiles):
+    node = _mk_ipes(ctx, id="ipes", name="IPES", terminals=ports)
+    children = [t for t, _poser in tiles]
+    for c, _poser in tiles:
+        c.parent = "ipes"
+    register_nodes(ctx.graph, [node, *children])
+    for c, poser in tiles:
+        ctx.graph._graph.nodes[c.id]["poser_uid"] = poser
+    return node
+
+
+class TestIPESBorderDataFlowIds:
+    """A border tile takes its data from the structure port that carries the same
+    data-flow id, not from whichever port comes first."""
+
+    def test_two_clusters_in_one_structure_each_use_their_own_port(self):
+        ctx = make_ctx(
+            "in_b",
+            "in_a",
+            "out_a",
+            "out_b",
+            "agg_a",
+            "x",
+            "agg_b",
+            "y",
+            "wx",
+            "wy",
+            "wagg_a",
+            "wagg_b",
+        )
+        ctx.bind("in_a", "obj_a")
+        ctx.bind("in_b", "obj_b")
+        ctx.bind("wx", "new_x")
+        ctx.bind("wy", "new_y")
+        cluster = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="x"), ClusterField(name="y")],
+        )
+        tiles = [
+            _tile(
+                "unbundle_a",
+                "decomposeClusterNode",
+                "pa",
+                [
+                    _term("agg_a", "input", dco="A", role="agg", lv_type=cluster),
+                    _term("x", "output", 1, role="list", field=0),
+                ],
+            ),
+            _tile(
+                "unbundle_b",
+                "decomposeClusterNode",
+                "pb",
+                [
+                    _term("agg_b", "input", dco="B", role="agg", lv_type=cluster),
+                    _term("y", "output", 1, role="list", field=1),
+                ],
+            ),
+            _tile(
+                "bundle_a",
+                "decomposeClusterNode",
+                "pa",
+                [
+                    _term("wx", "input", role="list", field=0),
+                    _term("wagg_a", "output", 1, dco="A2", role="agg", lv_type=cluster),
+                ],
+            ),
+            _tile(
+                "bundle_b",
+                "decomposeClusterNode",
+                "pb",
+                [
+                    _term("wy", "input", role="list", field=1),
+                    _term("wagg_b", "output", 1, dco="B2", role="agg", lv_type=cluster),
+                ],
+            ),
+        ]
+        ports = [
+            _term("in_b", "input", 0, dco="B"),
+            _term("in_a", "input", 1, dco="A"),
+            _term("out_a", "output", 2, dco="A2"),
+            _term("out_b", "output", 3, dco="B2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+
+        frag = in_place.generate(node, ctx)
+
+        code = "\n".join(
+            ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
+        )
+        assert ctx.resolve("x") == "obj_a.x"
+        assert ctx.resolve("y") == "obj_b.y"
+        assert "obj_a.x = new_x" in code
+        assert "obj_b.y = new_y" in code
+        assert frag.bindings["out_a"] == "obj_a"
+        assert frag.bindings["out_b"] == "obj_b"
+
+    def test_array_element_is_indexed_and_written_back_in_place(self):
+        ctx = make_ctx(
+            "arr", "idx", "arr_out", "t_arr", "elem", "t_idx", "new", "w_arr"
+        )
+        ctx.bind("arr", "items")
+        ctx.bind("idx", "i")
+        ctx.bind("new", "replacement")
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        tiles = [
+            _tile(
+                "index",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("t_arr", "input", dco="ARR", lv_type=array),
+                    _term("elem", "output", 1, role="agg"),
+                    _term("t_idx", "input", 2, dco="IDX", role="list", field=0),
+                ],
+            ),
+            _tile(
+                "replace",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("w_arr", "output", dco="ARR2", lv_type=array),
+                    _term("new", "input", 1, role="agg"),
+                ],
+            ),
+        ]
+        ports = [
+            _term("arr", "input", 0, dco="ARR"),
+            _term("idx", "input", 1, dco="IDX"),
+            _term("arr_out", "output", 2, dco="ARR2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+
+        frag = in_place.generate(node, ctx)
+
+        code = "\n".join(
+            ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
+        )
+        assert ctx.resolve("elem") == "items[i]"
+        assert "items[i] = replacement" in code
+        assert frag.bindings["arr_out"] == "items"
+
+    def test_data_value_reference_is_read_and_written_through_its_cell(self):
+        ctx = make_ctx("dvr", "dvr_out", "r_in", "r_data", "w_data", "w_out")
+        ctx.bind("dvr", "ref")
+        ctx.bind("w_data", "updated")
+        reference = LVType(
+            kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
+        )
+        tiles = [
+            _tile(
+                "read",
+                "decomposeDataValRefNode",
+                None,
+                [
+                    _term("r_in", "input", dco="DVR", lv_type=reference),
+                    _term("r_data", "output", 1),
+                ],
+            ),
+            _tile(
+                "write",
+                "decomposeDataValRefNode",
+                None,
+                [
+                    _term("w_data", "input"),
+                    _term("w_out", "output", 1, dco="DVR2", lv_type=reference),
+                ],
+            ),
+        ]
+        ports = [
+            _term("dvr", "input", 0, dco="DVR"),
+            _term("dvr_out", "output", 1, dco="DVR2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+
+        frag = in_place.generate(node, ctx)
+
+        code = "\n".join(
+            ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
+        )
+        assert ctx.resolve("r_data") == "ref[0]"
+        assert "ref[0] = updated" in code
+        assert frag.bindings["dvr_out"] == "ref"

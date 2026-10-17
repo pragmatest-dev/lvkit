@@ -10,7 +10,7 @@ from lvkit.graph.models import VIContext
 from lvkit.structure import LVClass, LVMethod
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import to_var_name
+from ..ast_utils import build_type_checking_block, to_var_name
 from ._shared import _EMPTY_VI_CONTEXT
 from .config import ClassConfig
 from .init_builder import _InitBuilderMixin
@@ -69,6 +69,7 @@ class ClassBuilder(
         self._import_resolver = import_resolver
         self._graph = graph
         self._collected_imports: set[str] = set()
+        self._collected_annotation_imports: set[str] = set()
         parent = parent_class_name or lvclass.parent_class
 
         module_body: list[ast.stmt] = []
@@ -135,6 +136,8 @@ class ClassBuilder(
                 imports.extend(tree.body)
             except SyntaxError:
                 pass
+
+        imports.extend(build_type_checking_block(self._collected_annotation_imports))
 
         return imports
 

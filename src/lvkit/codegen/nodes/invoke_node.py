@@ -10,7 +10,7 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 
-from ..ast_utils import to_var_name
+from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .base import resolve_ref_input
@@ -43,12 +43,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         value = ctx.resolve(term.id)
         if value is None:
             continue
-        args.append(ast.Name(id=value, ctx=ast.Load()))
+        args.append(parse_expr(value))
 
     # Build method call: ref.method(args...)
     call = ast.Call(
         func=ast.Attribute(
-            value=ast.Name(id=ref_var, ctx=ast.Load()),
+            value=parse_expr(ref_var),
             attr=method_attr,
             ctx=ast.Load(),
         ),

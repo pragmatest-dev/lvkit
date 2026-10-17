@@ -5,10 +5,12 @@ from __future__ import annotations
 import ast
 from typing import TYPE_CHECKING
 
+from lvkit.models import TypeFilter
 from lvkit.structure import LVMethod
 
 from ..ast_utils import parameter_names, to_function_name
-from ..builder import CodeGenContext, build_args, generate_body
+from ..builder import CodeGenContext, annotated_terminals, build_args, generate_body
+from ..context import importable_types
 from ._shared import _EMPTY_VI_CONTEXT
 
 if TYPE_CHECKING:
@@ -31,11 +33,14 @@ class _MethodBuilderMixin:
         _import_resolver: Callable[[str], str] | None
         _graph: InMemoryVIGraph | None
         _collected_imports: set[str]
+        _collected_annotation_imports: set[str]
 
         def _is_self_input(self, inp: Terminal, class_name: str) -> bool: ...
         def _is_self_output(self, out: Terminal, class_name: str) -> bool: ...
         def _is_error_output(self, out: Terminal) -> bool: ...
-        def _build_return_annotation(self, outputs: list[Terminal]) -> ast.expr: ...
+        def _build_return_annotation(
+            self, outputs: list[Terminal], importable: TypeFilter | None = None
+        ) -> ast.expr: ...
 
     def _build_static_method(
         self,
@@ -45,6 +50,7 @@ class _MethodBuilderMixin:
         """Build a static method."""
         func_name = to_function_name(method.name)
         vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
+        importable = importable_types(self._import_resolver)
 
         # Extract inputs/outputs from VI context
         inputs = vi_context.inputs
@@ -60,15 +66,20 @@ class _MethodBuilderMixin:
             filtered_inputs,
             vi_context.off_pane_inputs,
             parameter_names([*inputs, *vi_context.off_pane_inputs]),
+            importable,
         )
 
         # Generate method body from the method VI's top-level graph nodes.
-        ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
+        ctx = CodeGenContext.from_vi_context(
+            vi_context, graph=self._graph, import_resolver=self._import_resolver
+        )
         ctx.vi_name = vi_context.name
-        ctx.import_resolver = self._import_resolver
+        for term in annotated_terminals(vi_context):
+            ctx.import_types(term.lv_type, at_run_time=False)
         operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
+        self._collected_annotation_imports.update(ctx.annotation_imports)
 
         # Ensure non-empty body
         if not body:
@@ -82,7 +93,7 @@ class _MethodBuilderMixin:
             and not self._is_self_output(out, class_name)
         ]
 
-        returns = self._build_return_annotation(filtered_outputs)
+        returns = self._build_return_annotation(filtered_outputs, importable)
 
         return ast.FunctionDef(
             name=func_name,
@@ -107,6 +118,7 @@ class _MethodBuilderMixin:
         """
         func_name = prefix + to_function_name(method.name)
         vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
+        importable = importable_types(self._import_resolver)
 
         # Extract inputs/outputs from VI context
         inputs = vi_context.inputs
@@ -129,18 +141,23 @@ class _MethodBuilderMixin:
             filtered_inputs,
             vi_context.off_pane_inputs,
             parameter_names([*inputs, *vi_context.off_pane_inputs]),
+            importable,
         )
 
         # Prepend self
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
 
         # Generate method body from the method VI's top-level graph nodes.
-        ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
+        ctx = CodeGenContext.from_vi_context(
+            vi_context, graph=self._graph, import_resolver=self._import_resolver
+        )
         ctx.vi_name = vi_context.name
-        ctx.import_resolver = self._import_resolver
+        for term in annotated_terminals(vi_context):
+            ctx.import_types(term.lv_type, at_run_time=False)
         operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
         body = generate_body(operations, ctx)
         self._collected_imports.update(ctx.imports)
+        self._collected_annotation_imports.update(ctx.annotation_imports)
 
         # Get instance variable name from context bindings (not from input name!)
         instance_var_name = None
@@ -163,7 +180,7 @@ class _MethodBuilderMixin:
             and not self._is_self_output(out, class_name)
         ]
 
-        returns = self._build_return_annotation(filtered_outputs)
+        returns = self._build_return_annotation(filtered_outputs, importable)
 
         return ast.FunctionDef(
             name=func_name,

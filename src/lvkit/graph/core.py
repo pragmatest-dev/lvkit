@@ -353,6 +353,22 @@ class InMemoryVIGraph(
 
         return lv_type
 
+    def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None:
+        """PATH key of the one dependency of ``caller_vi_key`` that the NAME
+        ``ref`` denotes: the dependency whose ``qname`` is ``ref`` or, failing
+        that, whose bare ``name`` is ``ref``'s leaf. ``None`` unless exactly one
+        dependency matches."""
+        if not self._dep_graph.has_node(caller_vi_key):
+            return None
+        nodes = self._dep_graph.nodes
+        succs = list(self._dep_graph.successors(caller_vi_key))
+        by_qname = [s for s in succs if nodes[s].get("qname") == ref]
+        if len(by_qname) == 1:
+            return by_qname[0]
+        leaf = ref.rsplit(":", 1)[-1]
+        by_name = [s for s in succs if nodes[s].get("name") == leaf]
+        return by_name[0] if len(by_name) == 1 else None
+
     def _dep_key_for_ref(
         self,
         ref: str,
@@ -372,18 +388,12 @@ class InMemoryVIGraph(
         to exactly ONE node counts — NEVER a bare-name guess across the graph.
         Returns None rather than guess when nothing pins it to one node.
         """
+        if caller_vi_key is not None:
+            scoped = self._dependency_key(ref, caller_vi_key)
+            if scoped is not None:
+                return scoped
         if self._dep_graph.has_node(ref):
             return ref
-        if caller_vi_key is not None and self._dep_graph.has_node(caller_vi_key):
-            succs = list(self._dep_graph.successors(caller_vi_key))
-            nodes = self._dep_graph.nodes
-            by_qname = [s for s in succs if nodes[s].get("qname") == ref]
-            if len(by_qname) == 1:
-                return by_qname[0]
-            leaf = ref.rsplit(":", 1)[-1]
-            by_name = [s for s in succs if self._dep_graph.nodes[s].get("name") == leaf]
-            if len(by_name) == 1:
-                return by_name[0]
         # No caller context: the alias recorded from a caller's exact reference,
         # then a qname that maps to exactly ONE node. No bare-name fallback.
         aliased = self._qualified_aliases.get(ref)
@@ -525,6 +535,14 @@ class InMemoryVIGraph(
             if t.id == terminal_id:
                 t.var_name = var_name
                 return
+
+    def terminal_vi(self, terminal_id: str) -> str | None:
+        """The VI (its key) whose diagram or interface the terminal belongs to."""
+        node_id = self._term_to_node.get(terminal_id)
+        if not node_id or not self._graph.has_node(node_id):
+            return None
+        gnode = self._graph.nodes[node_id].get("node")
+        return gnode.vi_path if gnode else None
 
     def clear_var_names(self, vi_name: str) -> None:
         """Clear the Python ``var_name`` scratch state on every terminal of a

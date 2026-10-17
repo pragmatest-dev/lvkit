@@ -15,16 +15,24 @@ node on such a control generates nothing for the same reason.
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
 
-from .ast_utils import param_default_expr, parameter_names, parse_expr
+from .ast_utils import (
+    build_type_checking_block,
+    param_default_expr,
+    parameter_names,
+    parse_expr,
+)
 from .context import (
     _SIMPLENAMESPACE_IMPORT,
     _format_constant,
     _needs_simplenamespace,
+    importable_types,
 )
+from .import_resolver import ImportResolver
 
 
 def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
@@ -48,12 +56,17 @@ def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
     return param_default_expr(control), False
 
 
-def build_global_module(vi_node: VINode) -> str:
+def build_global_module(
+    vi_node: VINode, import_resolver: Callable[[str], str] | None = None
+) -> str:
     """Module source for a Global VI: one annotated module-level name per
     front-panel control, in the VI's own control order, bound to the control's
     saved default. The names are the ones a global variable node reads
-    (``parameter_names`` over the same control list)."""
+    (``parameter_names`` over the same control list). A control of a class or
+    typedef type is annotated with that class, imported under ``TYPE_CHECKING``."""
     controls = vi_node.terminals
+    importable = importable_types(import_resolver)
+    annotation_imports: set[str] = set()
     names = parameter_names(controls)
     body: list[ast.stmt] = [
         ast.ImportFrom(
@@ -69,16 +82,23 @@ def build_global_module(vi_node: VINode) -> str:
             continue
         value, namespace = _saved_default(control)
         needs_namespace = needs_namespace or namespace
+        if isinstance(import_resolver, ImportResolver) and control.lv_type:
+            for named in control.lv_type.named_types():
+                type_ref = named.type_ref()
+                statement = import_resolver.type_import(type_ref) if type_ref else None
+                if statement is not None:
+                    annotation_imports.add(statement)
         assignments.append(
             ast.AnnAssign(
                 target=ast.Name(id=names[control.id], ctx=ast.Store()),
-                annotation=parse_expr(control.python_type()),
+                annotation=parse_expr(control.python_type(importable)),
                 value=value,
                 simple=1,
             )
         )
     if needs_namespace:
         body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
+    body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])
     ast.fix_missing_locations(module)
     return ast.unparse(module)

@@ -15,6 +15,7 @@ from lvkit.graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     ConstantNode,
+    DisableStructureNode,
     EventStructureNode,
     FormulaNode,
     GlobalVariableNode,
@@ -34,6 +35,7 @@ from . import (
     case,
     compound,
     constant,
+    disable,
     event,
     first_call,
     formula,
@@ -60,15 +62,16 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     right module. A ``PrimitiveNode`` fans out to property/invoke/primitive
     by its own fields (``.properties``/``.method_name``/plain primitive).
     """
-    # Structures first (StructureNode subtypes). DisableStructureNode is left
-    # to the unknown fallback (no dedicated generator yet) — it is NOT a
-    # CaseStructureNode subclass, so the case branch won't swallow it.
+    # Structures first (StructureNode subtypes). DisableStructureNode is NOT a
+    # CaseStructureNode subclass: it has no runtime selector.
     if isinstance(node, InPlaceNode):
         return in_place.generate(node, ctx)
     if isinstance(node, CaseStructureNode):
         return case.generate(node, ctx)
     if isinstance(node, LoopNode):
         return loop.generate(node, ctx)
+    if isinstance(node, DisableStructureNode):
+        return disable.generate(node, ctx)
     if isinstance(node, SequenceNode):
         return sequence.generate(node, ctx)
     if isinstance(node, EventStructureNode):

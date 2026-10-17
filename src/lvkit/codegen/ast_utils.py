@@ -420,3 +420,16 @@ def param_default_expr(inp: Terminal) -> ast.expr:
     except (ValueError, TypeError, SyntaxError):
         pass
     return default_value_expr(inp.lv_type)
+
+
+def build_type_checking_block(statements: set[str]) -> list[ast.stmt]:
+    """``if TYPE_CHECKING:`` block importing the types the annotations name; empty
+    when there are none."""
+    if not statements:
+        return []
+    names = ast.parse("from typing import TYPE_CHECKING").body
+    guarded = [stmt for imp in sorted(statements) for stmt in ast.parse(imp).body]
+    block = ast.If(
+        test=ast.Name(id="TYPE_CHECKING", ctx=ast.Load()), body=guarded, orelse=[]
+    )
+    return [*names, block]
