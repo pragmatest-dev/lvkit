@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from ..models import DisableStructureKind, ScalarValue
 from .lvnet_grammar import (
@@ -48,6 +48,8 @@ from .lvnet_grammar import (
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
     _LVNET_BLOCK_OPEN,
+    _LVNET_CAPTION_HIDDEN_KEYWORD,
+    _LVNET_CAPTION_KEYWORD,
     _LVNET_CLUSTER_OPEN,
     _LVNET_DEFAULT_KEYWORD,
     _LVNET_DEP_PATH_SEP,
@@ -341,9 +343,9 @@ class ParsedBoundaryTerminal:
     (``ConnectorPaneTerminal.index``), or ``None`` when the row carried none
     -- an OFF-PANE front-panel control/indicator (a control/indicator that
     exists on the front panel but isn't wired onto the connector pane, see
-    ``render_lvnet._lvnet_pane_index_suffix``/``netlist_build.
-    _off_pane_terminals``). ``_parse_front_panel_block`` doesn't otherwise
-    distinguish an on-pane row from an off-pane one -- both are just
+    ``render_lvnet._lvnet_pane_index_suffix``).
+    ``_parse_front_panel_block`` doesn't otherwise distinguish an on-pane
+    row from an off-pane one -- both are just
     ``in``/``out`` lines at the same indent -- so this ``index`` field IS
     the on-pane/off-pane discriminator downstream (``boundary_signature``/
     ``reconstruct_module``).
@@ -355,6 +357,10 @@ class ParsedBoundaryTerminal:
     requirement: str | None
     default: str | None
     index: int | None = None
+    # The front-panel caption (unescaped text; None when the row has no
+    # ``caption`` clause) and whether it is shown (no ``hidden`` marker).
+    caption: str | None = None
+    caption_visible: bool = False
 
 
 def _top_level_word_index(words: list[str], target: str) -> int:
@@ -396,20 +402,72 @@ def _find_top_level_sep(text: str, token: str) -> int:
     return -1
 
 
+class _BoundaryTail(NamedTuple):
+    """The pieces of a BOUNDARY terminal line's post-``:`` tail."""
+
+    type: str
+    requirement: str | None
+    default: str | None
+    caption: str | None
+    caption_visible: bool
+    index: int | None
+
+
+def _split_trailing_caption(raw: str, line_no: int) -> tuple[str, str | None, bool]:
+    """Peel a trailing ``caption [hidden] "<text>"`` clause off ``raw`` (the
+    tail with ``@<index>`` already removed): ``(rest, caption, visible)``.
+
+    The clause ends with an escaped string literal, so its opening quote is
+    found scanning BACKWARD for the first ``"`` preceded by an even number of
+    backslashes (``lvnet_literal_token`` escapes every ``"`` and ``\\`` in the
+    text). A trailing quoted literal that is not preceded by the ``caption``
+    keyword (a ``default "..."`` value) is left untouched."""
+    stripped = raw.rstrip()
+    if not stripped.endswith('"') or len(stripped) < 2:
+        return raw, None, False
+    i = len(stripped) - 2
+    while i >= 0:
+        if stripped[i] == '"':
+            backslashes = 0
+            j = i - 1
+            while j >= 0 and stripped[j] == "\\":
+                backslashes += 1
+                j -= 1
+            if backslashes % 2 == 0:
+                break
+        i -= 1
+    if i < 0:
+        return raw, None, False
+    before = stripped[:i]
+    hidden_marker = f" {_LVNET_CAPTION_KEYWORD} {_LVNET_CAPTION_HIDDEN_KEYWORD} "
+    plain_marker = f" {_LVNET_CAPTION_KEYWORD} "
+    if before.endswith(hidden_marker):
+        rest, visible = before[: -len(hidden_marker)], False
+    elif before.endswith(plain_marker):
+        rest, visible = before[: -len(plain_marker)], True
+    else:
+        return raw, None, False
+    token = stripped[i:]
+    _validate_if_quoted(token, line_no)
+    return rest, _unescape_lvnet_string(token), visible
+
+
 def _split_type_requirement_default(
     tail: str, line_no: int, line: str
-) -> tuple[str, str | None, str | None, int | None]:
+) -> _BoundaryTail:
     """Split a BOUNDARY terminal line's post-``:`` tail into ``(type,
-    requirement, default, index)`` per §3's ``<Type> [<requirement>]
-    [default <value>] [@<index>]`` order -- no ``= <driver>`` clause is ever
-    expected here (§2: the pane is a contract, not a wire).
+    requirement, default, caption, index)`` per §3's ``<Type> [<requirement>]
+    [default <value>] [caption [hidden] "<text>"] [@<index>]`` order -- no
+    ``= <driver>`` clause is ever expected here (§2: the pane is a contract,
+    not a wire).
 
     The ``default`` VALUE is taken as a RAW substring (never
     ``" ".join(split())``) so a multi-space UI status literal survives
     verbatim; the TYPE (and the requirement keyword) carry only single spaces
     and are normalized to collapse ``_render_term_group``'s column-alignment
     padding. Columns are peeled right-to-left in ``render_lvnet``'s own append
-    order: ``@<index>`` (outermost) first, then the ``default`` clause at brace
+    order: ``@<index>`` (outermost) first, then the ``caption`` clause, then the
+    ``default`` clause at brace
     DEPTH ZERO -- a ``<Type>`` never contains the bare word ``default`` (it is
     LVType descriptor syntax, never LabVIEW vocabulary), and a quoted VALUE's
     own ``default``/``@N`` text is shielded by its surrounding quotes.
@@ -435,6 +493,8 @@ def _split_type_requirement_default(
             f"line {line_no}: empty type after stripping '@index': {line!r}"
         )
 
+    raw, caption, caption_visible = _split_trailing_caption(raw, line_no)
+
     default: str | None = None
     def_pos = _find_top_level_sep(raw, f" {_LVNET_DEFAULT_KEYWORD}")
     if def_pos != -1:
@@ -456,7 +516,9 @@ def _split_type_requirement_default(
             f"line {line_no}: empty type after stripping requirement/default "
             f"keywords: {line!r}"
         )
-    return " ".join(words), requirement, default, index
+    return _BoundaryTail(
+        " ".join(words), requirement, default, caption, caption_visible, index
+    )
 
 
 def _split_node_terminal_tail(
@@ -1574,16 +1636,16 @@ def _parse_boundary_terminal_line(
     tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     if not name:
         raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
-    type_str, requirement, default, index = _split_type_requirement_default(
-        tail, line_no, line
-    )
+    split = _split_type_requirement_default(tail, line_no, line)
     return ParsedBoundaryTerminal(
         name=name,
-        type=type_str,
+        type=split.type,
         direction=direction,
-        requirement=requirement,
-        default=default,
-        index=index,
+        requirement=split.requirement,
+        default=split.default,
+        index=split.index,
+        caption=split.caption,
+        caption_visible=split.caption_visible,
     )
 
 
@@ -2000,14 +2062,20 @@ def _module_default_token(default: ScalarValue) -> str | None:
     return lvnet_literal_token(default)
 
 
+BoundarySignatureEntry = tuple[
+    str, TypeShape, str, str | None, str | None, int | None, str | None, bool
+]
+
+
 def boundary_signature(
     module_or_parsed: NetlistModule | ParsedLvnet,
     parsed_types: dict[str, ParsedTypeDef] | None = None,
     ambiguous: frozenset[str] = frozenset(),
-) -> tuple[tuple[str, TypeShape, str, str | None, str | None, int | None], ...]:
+) -> tuple[BoundarySignatureEntry, ...]:
     """The canonical, comparable boundary projection: an ordered tuple of
     ``(name, type_shape, direction, wiring_requirement_or_None,
-    default_token_or_None, pane_index_or_None)`` per terminal (inputs then
+    default_token_or_None, pane_index_or_None, caption_or_None,
+    caption_visible)`` per terminal (inputs then
     outputs) -- computed IDENTICALLY (same helper calls, same field
     sources) from a real ``NetlistModule`` and from a ``ParsedLvnet``.
 
@@ -2036,6 +2104,8 @@ def boundary_signature(
                 t.requirement,
                 t.default,
                 t.index,
+                t.caption,
+                t.caption_visible,
             )
             for t in module_or_parsed.boundary
         )
@@ -2047,16 +2117,14 @@ def boundary_signature(
     input_panes: list[ConnectorPaneTerminal] = pane_terminals[:n_in]
     output_panes: list[ConnectorPaneTerminal] = pane_terminals[n_in : n_in + n_out]
     # Everything after the on-pane inputs/outputs is an OFF-PANE front-panel
-    # control/indicator (``ConnectorPaneTerminal.index is None`` --
-    # ``netlist_build._off_pane_terminals``) -- it has no ``module.inputs``/
-    # ``.outputs`` counterpart at all (never drives/reads the VI's own
-    # boundary), so its ``(name, type_shape, direction, requirement,
-    # default, index)`` tuple is built straight from the pane terminal
-    # itself, matching the PARSED branch above (which reads every boundary
-    # line, on- or off-pane, uniformly from ``ParsedLvnet.boundary``).
+    # control/indicator (``ConnectorPaneTerminal.index is None``) -- it has no
+    # ``module.inputs``/``.outputs`` counterpart, so its tuple is built straight
+    # from the pane terminal itself, matching the PARSED branch above (which
+    # reads every boundary line, on- or off-pane, uniformly from
+    # ``ParsedLvnet.boundary``).
     off_panes = pane_terminals[n_in + n_out :]
 
-    entries: list[tuple[str, TypeShape, str, str | None, str | None, int | None]] = (
+    entries: list[BoundarySignatureEntry] = (
         [
             (
                 inp.name,
@@ -2067,6 +2135,8 @@ def boundary_signature(
                 _lvnet_requirement_trailing(pane),
                 _module_default_token(pane.default),
                 pane.index,
+                pane.caption,
+                pane.caption_visible,
             )
             for inp, pane in zip(module.inputs, input_panes, strict=True)
         ]
@@ -2080,6 +2150,8 @@ def boundary_signature(
                 _lvnet_requirement_trailing(pane),
                 _module_default_token(pane.default),
                 pane.index,
+                pane.caption,
+                pane.caption_visible,
             )
             for o, pane in zip(module.outputs, output_panes, strict=True)
         ]
@@ -2093,6 +2165,8 @@ def boundary_signature(
                 _lvnet_requirement_trailing(pane),
                 _module_default_token(pane.default),
                 pane.index,
+                pane.caption,
+                pane.caption_visible,
             )
             for pane in off_panes
         ]
@@ -2581,6 +2655,6 @@ def netlist_signature(
             o.name,
             _render_lvnet_source(o.source, handles) if o.source is not None else "?",
         )
-        for o in module.outputs
+        for o in (*module.outputs, *module.off_pane_outputs)
     )
     return (uses, module.connector_pane.pattern_id, boundary, body, drives)

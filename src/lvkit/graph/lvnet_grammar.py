@@ -64,6 +64,10 @@ _LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
 _LVNET_RING_OPEN = "Ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
+# The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
+# ``caption hidden "<text>"`` when the caption is set but not shown.
+_LVNET_CAPTION_KEYWORD = "caption"
+_LVNET_CAPTION_HIDDEN_KEYWORD = "hidden"
 # The drive-position `(default <Type>)` form's own prefix (§4) -- derived
 # from ``_LVNET_DEFAULT_KEYWORD`` rather than re-spelled, so the two can
 # never drift apart.

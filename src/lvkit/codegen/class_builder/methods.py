@@ -56,7 +56,7 @@ class _MethodBuilderMixin:
         ]
 
         # Use existing build_args() - handles types and error filtering
-        args_obj = build_args(filtered_inputs)
+        args_obj = build_args(filtered_inputs, vi_context.off_pane_inputs)
 
         # Generate method body from the method VI's top-level graph nodes.
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
@@ -121,7 +121,7 @@ class _MethodBuilderMixin:
         ]
 
         # Use existing build_args() for proper types and error filtering
-        args_obj = build_args(filtered_inputs)
+        args_obj = build_args(filtered_inputs, vi_context.off_pane_inputs)
 
         # Prepend self
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))

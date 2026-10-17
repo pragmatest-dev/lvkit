@@ -530,6 +530,12 @@ def _assert_graph_identity(
                     f"connector_pane.terminals[{i}] ({ta.name!r}) index "
                     f"mismatch: {ta.index!r} vs {tb.index!r}"
                 )
+            if (ta.caption, ta.caption_visible) != (tb.caption, tb.caption_visible):
+                errors.append(
+                    f"connector_pane.terminals[{i}] ({ta.name!r}) caption "
+                    f"mismatch: {(ta.caption, ta.caption_visible)!r} vs "
+                    f"{(tb.caption, tb.caption_visible)!r}"
+                )
 
     _compare_items(orig.body, recon.body, "body", errors, ctx)
 
@@ -542,6 +548,23 @@ def _assert_graph_identity(
         for i, (oa, ob) in enumerate(zip(orig.outputs, recon.outputs)):
             _compare_net(
                 oa.source, ob.source, f"outputs[{i}]({oa.name!r})", errors, ctx
+            )
+
+    if len(orig.off_pane_outputs) != len(recon.off_pane_outputs):
+        errors.append(
+            f"module.off_pane_outputs count mismatch: "
+            f"{len(orig.off_pane_outputs)} vs {len(recon.off_pane_outputs)}"
+        )
+    else:
+        for i, (oa, ob) in enumerate(
+            zip(orig.off_pane_outputs, recon.off_pane_outputs)
+        ):
+            if oa.name != ob.name:
+                errors.append(
+                    f"off_pane_outputs[{i}] name mismatch: {oa.name!r} vs {ob.name!r}"
+                )
+            _compare_net(
+                oa.source, ob.source, f"off_pane_outputs[{i}]({oa.name!r})", errors, ctx
             )
 
     assert not errors, (

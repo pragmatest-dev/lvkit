@@ -469,12 +469,12 @@ class CodeGenContext:
         ctx = cls(
             graph=graph,
             vi_name=vi_name,
-            vi_inputs=list(graph.get_inputs(vi_name)),
+            vi_inputs=list(graph.get_inputs(vi_name, public_only=False)),
         )
 
         _bind_inputs_and_constants(
             ctx,
-            graph.get_inputs(vi_name),
+            graph.get_inputs(vi_name, public_only=False),
             graph.get_constants(vi_name),
         )
         return ctx
@@ -548,12 +548,13 @@ class CodeGenContext:
         if graph is None:
             graph = cls._build_graph_from_vi_context(vi_context)
 
+        parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
         ctx = cls(
             graph=graph,
-            vi_inputs=vi_context.inputs,
+            vi_inputs=parameters,
         )
 
-        _bind_inputs_and_constants(ctx, vi_context.inputs, vi_context.constants)
+        _bind_inputs_and_constants(ctx, parameters, vi_context.constants)
         return ctx
 
     @classmethod
@@ -567,7 +568,7 @@ class CodeGenContext:
         bind/resolve work. Does NOT add wire edges to avoid the codegen
         discovering auto-created graph structure.
         """
-        inputs = vi_context.inputs
+        inputs = [*vi_context.inputs, *vi_context.off_pane_inputs]
         constants = vi_context.constants
 
         tids: list[str] = []

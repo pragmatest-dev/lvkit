@@ -72,6 +72,8 @@ class ViPageMixin:
         vi_name = vi_data["vi_name"]
         controls = vi_data.get("controls", [])
         indicators = vi_data.get("indicators", [])
+        off_pane_controls = vi_data.get("off_pane_controls", [])
+        off_pane_indicators = vi_data.get("off_pane_indicators", [])
         dependencies = vi_data.get("dependencies", {})
         callers = vi_data.get("callers", [])
         type_definitions = vi_data.get("type_definitions", {})
@@ -99,6 +101,9 @@ class ViPageMixin:
         # Build sections with relative links
         controls_html = self._render_controls_table(controls)
         indicators_html = self._render_indicators_table(indicators)
+        front_panel_html = self._render_off_pane_front_panel(
+            off_pane_controls, off_pane_indicators
+        )
         dependencies_html = self._render_dependencies_section(
             dependencies, relative_link
         )
@@ -199,6 +204,8 @@ class ViPageMixin:
             {indicators_html}
         </section>
 
+        {front_panel_html}
+
         <section id="dataflow">
             <h2>Block Diagram (Dataflow)</h2>
             {dataflow_html}
@@ -261,6 +268,24 @@ class ViPageMixin:
             </tbody>
         </table>
         """
+
+    def _render_off_pane_front_panel(
+        self, controls: list[dict[str, Any]], indicators: list[dict[str, Any]]
+    ) -> str:
+        """Front-panel controls and indicators that are not on the connector
+        pane; empty when there are none."""
+        if not controls and not indicators:
+            return ""
+        parts = ['<section id="front-panel">']
+        parts.append("<h2>Front Panel (not on the connector pane)</h2>")
+        if controls:
+            parts.append("<h3>Controls</h3>")
+            parts.append(self._render_controls_table(controls))
+        if indicators:
+            parts.append("<h3>Indicators</h3>")
+            parts.append(self._render_indicators_table(indicators))
+        parts.append("</section>")
+        return "\n".join(parts)
 
     def _render_indicators_table(self, indicators: list[dict[str, Any]]) -> str:
         """Render outputs table."""

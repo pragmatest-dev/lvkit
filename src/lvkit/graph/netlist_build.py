@@ -248,20 +248,24 @@ def _build_class_context(
     return collect_class_context(graph, ctx)
 
 
+def _fp_caption(t: Terminal) -> tuple[str | None, bool]:
+    """A front-panel terminal's ``(caption, caption_visible)``; a terminal that is
+    not a front-panel control has none."""
+    if isinstance(t, FPTerminal):
+        return t.caption, t.caption_visible
+    return None, False
+
+
 def _pane_terminal(
     t: Terminal, direction: str, *, off_pane: bool = False
 ) -> ConnectorPaneTerminal:
     """One interface terminal -> its ``ConnectorPaneTerminal`` contract record.
 
-    ``off_pane`` forces ``index=None`` regardless of ``t.index`` -- an
-    off-pane ``FPTerminal`` (a front-panel control/indicator not on the
-    connector pane, ``is_public=False``) is stamped ``index=0`` at
-    construction time (``construction.py``: ``slot_index if slot_index is
-    not None else 0``) as a harmless placeholder, never a real pane slot,
-    so passing it through unchanged would render a fabricated ``@0``. lvnet
-    §2's off-pane row already renders correctly with no ``@`` at all once
-    ``index`` is genuinely ``None`` (``render_lvnet._lvnet_pane_index_suffix``).
+    ``off_pane`` forces ``index=None`` for a front-panel control/indicator that
+    is not on the connector pane (``is_public=False``); lvnet §2's off-pane row
+    renders with no ``@`` at all (``render_lvnet._lvnet_pane_index_suffix``).
     """
+    caption, caption_visible = _fp_caption(t)
     return ConnectorPaneTerminal(
         name=t.name or direction,
         # FAITHFUL label (family-word fallback when unresolved) -- same as
@@ -272,32 +276,9 @@ def _pane_terminal(
         wiring_requirement=requirement_state(t, direction),
         default=t.default_value,
         lv_type=t.lv_type,
+        caption=caption,
+        caption_visible=caption_visible,
     )
-
-
-def _off_pane_terminals(
-    graph: InMemoryVIGraph, vi_name: str, direction: str
-) -> list[Terminal]:
-    """Every front-panel control/indicator NOT on this VI's connector pane
-    (``FPTerminal.is_public is False``) -- the off-pane front-panel objects
-    ``get_inputs``/``get_outputs``' default ``public_only=True`` filters out
-    of ``VIContext.inputs``/``.outputs`` (and so, previously, out of the
-    ``front-panel :`` section entirely: see the module's off-pane-controls
-    finding). Queried with ``public_only=False`` (the full front-panel
-    control/indicator list) and filtered down to just the off-pane subset
-    here, rather than adding a THIRD ``get_*`` variant to ``queries.py`` --
-    ``is_public`` is the one fact this needs that ``ordered_interface``'s
-    already-public-filtered getters don't expose.
-
-    A non-``FPTerminal`` (never occurs for a VI's own boundary, but
-    defensively) is treated as on-pane -- ``FPTerminal.is_public`` is the
-    ONLY source of this fact, so anything without it can't be off-pane.
-    """
-    if direction == "input":
-        terms = graph.get_inputs(vi_name, public_only=False)
-    else:
-        terms = graph.get_outputs(vi_name, public_only=False)
-    return [t for t in terms if isinstance(t, FPTerminal) and not t.is_public]
 
 
 # ============================================================
@@ -844,7 +825,7 @@ def _resolve_source_gn(
                 producer_uid=_uid_of(owner.id),
             )
 
-        for t in ctx.inputs:
+        for t in (*ctx.inputs, *ctx.off_pane_inputs):
             if t.id == src.terminal_id:
                 bare = t.name or str(t.index)
                 return NetRef(node=None, terminal=bare, occurrence=None, bare=bare)
@@ -2174,6 +2155,25 @@ def _build_dependency_manifest(
     return sorted(manifest, key=lambda d: d.qualified)
 
 
+def _boundary_output(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    t: Terminal,
+    build_ctx: _GraphBuildCtx,
+) -> BoundaryOutput:
+    """A front-panel indicator and the net driving it (``source`` is None
+    when nothing drives it)."""
+    return BoundaryOutput(
+        name=t.name or "output",
+        type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
+        lv_type=t.lv_type,
+        source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
+        caption=_fp_caption(t)[0],
+        caption_visible=_fp_caption(t)[1],
+    )
+
+
 def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistModule:
     """Walk a VI's ``GraphNode`` graph directly into a ``NetlistModule`` IR:
     same IR, same net names, same byte-for-byte text/JSON output.
@@ -2206,23 +2206,23 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             name=t.name or "input",
             type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
             lv_type=t.lv_type,
+            caption=_fp_caption(t)[0],
+            caption_visible=_fp_caption(t)[1],
         )
         for t in ctx.inputs
     ]
-    outputs = [
-        BoundaryOutput(
-            name=t.name or "output",
-            type_descriptor=t.lv_type.type_descriptor() if t.lv_type else "Any",
-            lv_type=t.lv_type,
-            source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
-        )
-        for t in ctx.outputs
+    outputs = [_boundary_output(graph, ctx, vi_name, t, build_ctx) for t in ctx.outputs]
+    off_pane_outputs = [
+        out
+        for t in ctx.off_pane_outputs
+        if (out := _boundary_output(graph, ctx, vi_name, t, build_ctx)).source
+        is not None
     ]
 
     # On-pane terminals first (unchanged order/identity -- `@<index>` rows),
     # THEN every off-pane front-panel control/indicator (`is_public=False`,
-    # no connector-pane slot -- `_off_pane_terminals`), inputs before
-    # outputs in both groups. `boundary_signature`/`reconstruct_module`
+    # no connector-pane slot -- `VIContext.off_pane_inputs`/`off_pane_outputs`),
+    # inputs before outputs in both groups. `boundary_signature`/`reconstruct_module`
     # (lvnet_parse.py/lvnet_reconstruct.py) both key "is this on-pane?" off
     # `ConnectorPaneTerminal.index is None`, so ordering here only affects
     # display, never round-trip identity.
@@ -2230,14 +2230,8 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         pattern_id=ctx.connector_pattern_id,
         terminals=[_pane_terminal(t, "input") for t in ctx.inputs]
         + [_pane_terminal(t, "output") for t in ctx.outputs]
-        + [
-            _pane_terminal(t, "input", off_pane=True)
-            for t in _off_pane_terminals(graph, vi_name, "input")
-        ]
-        + [
-            _pane_terminal(t, "output", off_pane=True)
-            for t in _off_pane_terminals(graph, vi_name, "output")
-        ],
+        + [_pane_terminal(t, "input", off_pane=True) for t in ctx.off_pane_inputs]
+        + [_pane_terminal(t, "output", off_pane=True) for t in ctx.off_pane_outputs],
     )
 
     vi_def_node = graph.get_graph_node(vi_name)
@@ -2257,6 +2251,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         vi_name=vi_name,
         inputs=inputs,
         outputs=outputs,
+        off_pane_outputs=off_pane_outputs,
         body=body,
         components=components,
         properties=ctx.properties,

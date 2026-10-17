@@ -446,10 +446,14 @@ class ConstructionMixin:
         vi_terminals: list[Terminal] = []
         for fp_term in bd.fp_terminals:
             slot_index = conpane_slots.get(fp_term.fp_dco_uid)
-            is_public = slot_index is not None or not conpane_slots
+            # A parsed connector pane decides which controls are on it; with
+            # no pane record at all, every front-panel terminal is public.
+            is_public = slot_index is not None or conpane is None
             direction = "output" if fp_term.is_indicator else "input"
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
-            wiring_rule = wiring_rules.get(slot_index, 0) if slot_index else 0
+            wiring_rule = (
+                wiring_rules.get(slot_index, 0) if slot_index is not None else 0
+            )
 
             # Resolve type
             lv_type = None
@@ -467,13 +471,15 @@ class ConstructionMixin:
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
                 id=q_term_uid,
-                index=slot_index if slot_index is not None else 0,
+                index=slot_index,
                 direction=direction,
                 name=ctrl.name if ctrl else fp_term.name,
                 lv_type=lv_type,
                 wiring_rule=wiring_rule,
                 is_indicator=fp_term.is_indicator,
                 is_public=is_public,
+                caption=ctrl.caption if ctrl else None,
+                caption_visible=ctrl.caption_visible if ctrl else False,
                 fp_dco_uid=fp_term.fp_dco_uid,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=ctrl.default_value if ctrl else None,

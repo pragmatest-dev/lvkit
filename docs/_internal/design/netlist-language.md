@@ -78,7 +78,7 @@ vi <VIName.vi> :
     <kind> <qualified-identity>   [; ./path]
   front-panel :                          # OPTIONAL -- omitted when there is nothing to show at all
     pattern : <conId>                    # ConnectorPane.pattern_id, OMITTED when unknown
-    in   <name> : <Type> [<requirement>] [default <value>] @<index>   # on-pane boundary terminal (§3)
+    in   <name> : <Type> [<requirement>] [default <value>] [caption [hidden] "<text>"] @<index>   # on-pane boundary terminal (§3)
     out  <name> : <Type>                                   @<index>
     in   <name> : <Type>                                              # OFF-pane terminal -- no `@<index>`
   block-diagram :                        # ALWAYS present
@@ -114,11 +114,23 @@ vi <VIName.vi> :
   off-pane terminals (a top-level/main VI with an empty connector pane and
   no front-panel objects). A boundary input whose default is notable
   renders it into the name: `in error in (no error) : Error`.
+  A row's trailing clauses, in order, are `[<requirement>]` and
+  `default <value>` (verbose), then the front-panel caption (verbose), then
+  the `@<index>` column. The caption clause is `caption "<text>"` for a
+  caption that is shown and `caption hidden "<text>"` for one that is set but
+  not shown; it is written for every control/indicator that has a caption
+  (on-pane and off-pane alike), and omitted when none is set. `<text>` uses
+  the string-literal escaping (§4), so a multi-line caption, or one that
+  contains `"` or `\`, stays on one physical line. The label (`<name>`)
+  remains the control's identity; the caption is display text only.
 - **`block-diagram :`** (always present) — the body, in graph order
   (`_node_order_key`), followed by the boundary-output-drive lines at its
   own end: `<out name> = <source-net>` (`error out = case_139::out0`). So a
   boundary output is declared once (in `front-panel :`) and driven once (at
   the end of `block-diagram :`) — follow its net name to connect the two.
+  An off-pane indicator that something drives gets a drive line too (after the
+  on-pane outputs'); an off-pane indicator nothing drives has none. An
+  off-pane control's net is named by its label, like an on-pane one.
 - **`types :`** (§10.1, verbose-only) — the bottom lossless-types footnote,
   omitted entirely when the VI has no named types.
 - **Indentation is structural** — 2 spaces per scope level; blocks open with a

@@ -105,7 +105,11 @@ def build_module(
     # would be shared across calls), so map None -> [] up front, matching
     # LabVIEW's "unwired array input == empty array". `x or []` also folds an
     # already-empty list to [] harmlessly.
-    body.extend(build_array_input_normalization(vi_context.inputs))
+    body.extend(
+        build_array_input_normalization(
+            [*vi_context.inputs, *vi_context.off_pane_inputs]
+        )
+    )
 
     # Add held error initialization if needed
     if use_error_handling:
@@ -575,7 +579,7 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
     Returns NamedTuple with output values resolved from context.
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = vi_context.outputs
+    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
     if not outputs:
         return None
 
@@ -695,7 +699,7 @@ def build_result_class(vi_context: VIContext) -> ast.ClassDef | None:
 
     Skips error cluster outputs - Python uses exceptions instead.
     """
-    outputs = vi_context.outputs
+    outputs = [*vi_context.outputs, *vi_context.off_pane_outputs]
     if not outputs:
         return None
 
@@ -752,11 +756,13 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(vi_context.inputs)
+    args = build_args(vi_context.inputs, vi_context.off_pane_inputs)
 
     # Build return annotation
     returns = None
-    if vi_context.outputs:
+    if vi_context.outputs or any(
+        not out.is_error_cluster for out in vi_context.off_pane_outputs
+    ):
         result_class = build_result_class_name(vi_context.name)
         returns = ast.Name(id=result_class, ctx=ast.Load())
 
@@ -773,8 +779,15 @@ def build_function_def(
     )
 
 
-def build_args(inputs: list[Terminal]) -> ast.arguments:
+def build_args(
+    inputs: list[Terminal], off_pane_inputs: list[Terminal] | None = None
+) -> ast.arguments:
     """Build function arguments from inputs.
+
+    ``off_pane_inputs`` (front-panel controls that are not on the connector
+    pane) become keyword-only parameters after the connector-pane ones, each
+    defaulting to the control's saved default -- the value such a control holds
+    when LabVIEW calls the VI as a subVI.
 
     Skips error cluster inputs - Python uses exceptions instead.
 
@@ -806,12 +819,28 @@ def build_args(inputs: list[Terminal]) -> ast.arguments:
         )
         defaults.append(_param_default_expr(inp))
 
+    kwonly_args = []
+    kw_defaults: list[ast.expr | None] = []
+    for ctl in off_pane_inputs or []:
+        if ctl.is_error_cluster:
+            continue
+        type_hint = ctl.python_type()
+        if _is_array_input(ctl) or _is_anonymous_cluster(ctl):
+            type_hint = f"{type_hint} | None"
+        kwonly_args.append(
+            ast.arg(
+                arg=to_var_name(ctl.name or "input"),
+                annotation=parse_expr(type_hint),
+            )
+        )
+        kw_defaults.append(_param_default_expr(ctl))
+
     return ast.arguments(
         posonlyargs=[],
         args=args,
         vararg=None,
-        kwonlyargs=[],
-        kw_defaults=[],
+        kwonlyargs=kwonly_args,
+        kw_defaults=kw_defaults,
         kwarg=None,
         defaults=defaults,
     )

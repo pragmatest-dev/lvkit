@@ -107,8 +107,9 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
 
     assert d["vi"] == "m.vi"
     assert d["inputs"] == [
-        {"name": "x", "type": "I32"},
-        {"name": "err in", "type": "Error"},  # error-cluster type descriptor
+        {"name": "x", "type": "I32", "caption": None, "caption_visible": False},
+        # error-cluster type descriptor
+        {"name": "err in", "type": "Error", "caption": None, "caption_visible": False},
     ]
     assert d["outputs"] == [
         {
@@ -120,6 +121,8 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
                 "occurrence": None,
                 "bare": "n2",
             },
+            "caption": None,
+            "caption_visible": False,
         }
     ]
     assert d["components"][0]["name"] == "Increment"
@@ -903,7 +906,9 @@ def test_non_verbose_output_omits_all_new_verbose_fields():
     # Non-verbose stays exactly the pre-existing shape (Element 6 must not
     # regress the byte/JSON-identical parity guard -- see
     # tests/test_netlist_from_graph_parity.py).
-    assert d["inputs"] == [{"name": "cfg", "type": "Config"}]
+    assert d["inputs"] == [
+        {"name": "cfg", "type": "Config", "caption": None, "caption_visible": False}
+    ]
     assert d["outputs"][0]["type"] == "Mode"
     assert d["connector_pane"]["terminals"][0] == {
         "name": "cfg",
@@ -912,6 +917,8 @@ def test_non_verbose_output_omits_all_new_verbose_fields():
         "index": 0,
         "required": True,
         "default": None,
+        "caption": None,
+        "caption_visible": False,
     }
 
 

@@ -602,7 +602,7 @@ class TerminalRef(BaseModel):
 
     id: str
     parent_id: str
-    index: int
+    index: int | None
     type: str
     name: str | None = None
     direction: str
@@ -937,6 +937,11 @@ class VIContext(BaseModel):
     qualified_name: str | None = None
     inputs: list[Terminal] = []
     outputs: list[Terminal] = []
+    # Front-panel controls / indicators NOT wired to the connector pane: they
+    # take no part in how a caller wires the VI, but the VI still reads / drives
+    # them. In interface order, like ``inputs`` / ``outputs``.
+    off_pane_inputs: list[Terminal] = []
+    off_pane_outputs: list[Terminal] = []
     constants: list[Constant] = []
     labels: list[Label] = []
     has_parallel_branches: bool = False

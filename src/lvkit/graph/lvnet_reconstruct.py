@@ -1074,6 +1074,7 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
 
     inputs: list[NetlistBoundaryInput] = []
     outputs: list[BoundaryOutput] = []
+    off_pane_outputs: list[BoundaryOutput] = []
     pane_terminals: list[ConnectorPaneTerminal] = []
     for t in parsed.boundary:
         lv_type = _maybe_attach_lvtype(t.type, types_dict, memo)
@@ -1101,37 +1102,44 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 wiring_requirement=requirement,
                 default=default_scalar,
                 lv_type=lv_type,
+                caption=t.caption,
+                caption_visible=t.caption_visible,
             )
         )
         # A boundary line with NO ``@<index>`` is an OFF-PANE front-panel
-        # control/indicator (``netlist_build._off_pane_terminals`` --
-        # ``ConnectorPaneTerminal.index is None``): it has no
-        # ``module.inputs``/``.outputs`` counterpart at all -- it never
-        # drives/reads the VI's own boundary wiring, only declares itself in
-        # ``connector_pane.terminals`` -- so it contributes to
-        # ``pane_terminals`` above only, never to ``inputs``/``outputs``
-        # (which would wrongly demand an output-drive line for it below).
+        # control/indicator (``ConnectorPaneTerminal.index is None``): it is a
+        # ``connector_pane.terminals`` entry only. An off-pane indicator that
+        # something drives also has an output-drive line, matched below.
         if t.index is None:
             continue
         if t.direction == "in":
             inputs.append(
                 NetlistBoundaryInput(
-                    name=t.name, type_descriptor=t.type, lv_type=lv_type
+                    name=t.name,
+                    type_descriptor=t.type,
+                    lv_type=lv_type,
+                    caption=t.caption,
+                    caption_visible=t.caption_visible,
                 )
             )
         else:
             outputs.append(
                 BoundaryOutput(
-                    name=t.name, type_descriptor=t.type, source=None, lv_type=lv_type
+                    name=t.name,
+                    type_descriptor=t.type,
+                    source=None,
+                    lv_type=lv_type,
+                    caption=t.caption,
+                    caption_visible=t.caption_visible,
                 )
             )
 
-    if len(outputs) != len(parsed.output_drives):
+    if len(outputs) > len(parsed.output_drives):
         raise LvnetReconstructError(
-            f"boundary output count ({len(outputs)}) does not match the "
+            f"boundary output count ({len(outputs)}) exceeds the "
             f"number of output-drive lines ({len(parsed.output_drives)})"
         )
-    for out_bo, drive in zip(outputs, parsed.output_drives, strict=True):
+    for out_bo, drive in zip(outputs, parsed.output_drives, strict=False):
         if drive.net != out_bo.name:
             raise LvnetReconstructError(
                 f"output-drive name {drive.net!r} does not match boundary "
@@ -1145,12 +1153,39 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 f"output drive {drive.net!r}",
             )
 
+    # Drive lines past the on-pane outputs belong to wired off-pane
+    # indicators, in the order their rows appear.
+    unmatched_off_pane = [
+        t for t in parsed.boundary if t.index is None and t.direction == "out"
+    ]
+    for drive in parsed.output_drives[len(outputs) :]:
+        match = next((t for t in unmatched_off_pane if t.name == drive.net), None)
+        if match is None:
+            raise LvnetReconstructError(
+                f"output-drive {drive.net!r} matches no off-pane indicator"
+            )
+        unmatched_off_pane.remove(match)
+        off_pane_outputs.append(
+            BoundaryOutput(
+                name=match.name,
+                type_descriptor=match.type,
+                source=_require_netref(
+                    _parse_source_token(drive.source, registry),
+                    f"output drive {drive.net!r}",
+                ),
+                lv_type=_maybe_attach_lvtype(match.type, types_dict, memo),
+                caption=match.caption,
+                caption_visible=match.caption_visible,
+            )
+        )
+
     dependencies = [_reconstruct_dependency(d, types_dict, memo) for d in parsed.uses]
 
     return NetlistModule(
         vi_name=parsed.vi_name,
         inputs=inputs,
         outputs=outputs,
+        off_pane_outputs=off_pane_outputs,
         body=body,
         connector_pane=ConnectorPane(
             pattern_id=parsed.pattern_id, terminals=pane_terminals

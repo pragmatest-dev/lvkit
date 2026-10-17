@@ -53,6 +53,7 @@ from .op_walk import (
     _terminal_display_name,
 )
 from .operations import frame_key
+from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
     condition_name,
@@ -1969,14 +1970,14 @@ def _terminal_changes(
     wires_a: list[Wire],
     wires_b: list[Wire],
 ) -> list[ElementChange]:
-    """FP control/indicator add / remove / retype / rename as
+    """FP control/indicator add / remove / retype / rename / caption change as
     ``kind="terminal"`` ``ElementChange``s.
 
     Controls/indicators live on the VINode as ``FPTerminal``s (not operations),
     so the node/constant passes never see them — a whole added or removed
     control is otherwise invisible, only its wire shows. Correlate the SAME
     control across versions by its FRONT-PANEL DCO uid (``fp_dco_uid`` — the FP
-    object's identity, which survives a caption RENAME and, empirically, stays
+    object's identity, which survives a label RENAME and, empirically, stays
     stable across versions while the BD terminal uid can churn), then by
     ``name`` for any whose DCO uid churned/absent. A matched pair with a changed
     faithful type label is a RETYPE and with a changed ``name`` a RENAME — both
@@ -1992,6 +1993,14 @@ def _terminal_changes(
 
     def word(t: FPTerminal) -> str:
         return "indicator" if t.is_indicator else "control"
+
+    def caption_text(t: FPTerminal) -> str:
+        """A control's caption as the diff shows it: the quoted text (``hidden``
+        when it is set but not shown), or ``(none)``."""
+        if t.caption is None:
+            return "(none)"
+        quoted = lvnet_literal_token(t.caption)
+        return quoted if t.caption_visible else f"hidden {quoted}"
 
     def added(tb: FPTerminal) -> ElementChange:
         return ElementChange(
@@ -2018,18 +2027,23 @@ def _terminal_changes(
         )
 
     def modified(ta: FPTerminal, tb: FPTerminal) -> ElementChange | None:
-        """A retype and/or rename, or None when the pair is unchanged."""
+        """A retype, rename and/or caption change, or None when the pair is
+        unchanged."""
         type_a = ta.lv_type.type_descriptor() if ta.lv_type else "Any"
         type_b = tb.lv_type.type_descriptor() if tb.lv_type else "Any"
         name_a, name_b = ta.name, tb.name
+        parts: list[str] = []
         if type_a != type_b and name_a != name_b:
-            detail = _transition(f"{name_a} : {type_a}", f"{name_b} : {type_b}")
+            parts.append(_transition(f"{name_a} : {type_a}", f"{name_b} : {type_b}"))
         elif type_a != type_b:
-            detail = _transition(type_a, type_b)
+            parts.append(_transition(type_a, type_b))
         elif name_a != name_b:
-            detail = _transition(name_a, name_b)
-        else:
+            parts.append(_transition(name_a, name_b))
+        if (ta.caption, ta.caption_visible) != (tb.caption, tb.caption_visible):
+            parts.append(f"caption {_transition(caption_text(ta), caption_text(tb))}")
+        if not parts:
             return None
+        detail = "; ".join(parts)
         return ElementChange(
             _uid_of(tb.id),
             tb.id,

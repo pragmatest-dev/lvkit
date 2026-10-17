@@ -563,6 +563,10 @@ class BoundaryOutput:
     source: NetRef | None
     # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+    # The control's front-panel caption and whether it is shown (the same two
+    # facts ``ConnectorPaneTerminal`` carries for this terminal).
+    caption: str | None = None
+    caption_visible: bool = False
 
 
 @dataclass(frozen=True)
@@ -578,6 +582,10 @@ class NetlistBoundaryInput:
     type_descriptor: str  # FAITHFUL LabVIEW type label, not a Python annotation
     # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+    # The control's front-panel caption and whether it is shown (the same two
+    # facts ``ConnectorPaneTerminal`` carries for this terminal).
+    caption: str | None = None
+    caption_visible: bool = False
 
 
 @dataclass
@@ -601,6 +609,10 @@ class ConnectorPaneTerminal:
     default: ScalarValue  # terminal default value, None when it has none
     # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+    # The front-panel caption (None when unset) and whether it is shown. The
+    # label (``name``) stays the identity; the caption is display text.
+    caption: str | None = None
+    caption_visible: bool = False
 
     @property
     def is_required(self) -> bool:
@@ -698,6 +710,10 @@ class NetlistModule:
     inputs: list[NetlistBoundaryInput]
     # Each boundary indicator plus the net driving it (see BoundaryOutput).
     outputs: list[BoundaryOutput]
+    # The WIRED front-panel indicators that are not on the connector pane, each
+    # with the net driving it. An off-pane indicator nothing drives is only a
+    # ``connector_pane`` entry.
+    off_pane_outputs: list[BoundaryOutput] = field(default_factory=list)
     body: list[NetlistItem] = field(default_factory=list)
     # Every distinct component (subVI or primitive/nMux/cpdArith) actually
     # used in the VI, declared once -- see ``_build_components_gn``. Sorted by

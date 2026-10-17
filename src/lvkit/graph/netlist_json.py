@@ -408,6 +408,8 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "index": p.index,
                     "required": p.is_required,
                     "default": p.default,
+                    "caption": p.caption,
+                    "caption_visible": p.caption_visible,
                     **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
                         {"lv_type": _lv_type_to_dict(p.lv_type)}
@@ -422,6 +424,8 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
             {
                 "name": inp.name,
                 "type": inp.type_descriptor,
+                "caption": inp.caption,
+                "caption_visible": inp.caption_visible,
                 **(
                     {"lv_type": _lv_type_to_dict(inp.lv_type)}
                     if verbose and inp.lv_type is not None
@@ -435,13 +439,15 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "name": o.name,
                 "type": o.type_descriptor,
                 "source": _netref_to_dict(o.source) if o.source else None,
+                "caption": o.caption,
+                "caption_visible": o.caption_visible,
                 **(
                     {"lv_type": _lv_type_to_dict(o.lv_type)}
                     if verbose and o.lv_type is not None
                     else {}
                 ),
             }
-            for o in module.outputs
+            for o in (*module.outputs, *module.off_pane_outputs)
         ],
         "components": [_component_to_dict(c) for c in module.components],
         # ``_item_to_dict`` returns ``None`` for a Phase A ``NetlistConstant``

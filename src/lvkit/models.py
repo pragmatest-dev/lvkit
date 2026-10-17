@@ -521,12 +521,22 @@ def inplace_border_name(node_type: str, terminals: list[Terminal]) -> str | None
 
 
 class FPTerminal(Terminal):
-    """A connector pane terminal on a VINode."""
+    """A front-panel control or indicator on a VINode.
+
+    ``is_public`` says whether it is wired to the connector pane. An off-pane
+    one (``is_public=False``) has ``index=None``: it occupies no connector-pane
+    slot.
+    """
 
     kind: Literal["fp"] = "fp"
+    index: int | None
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     is_indicator: bool = False
     is_public: bool = True
+    # The front-panel caption (a control's second, user-visible text next to
+    # its label) and whether it is shown. The label stays the identity.
+    caption: str | None = None
+    caption_visible: bool = False
     control_type: str | None = None
     # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
     # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike

@@ -47,7 +47,8 @@ from lvkit.parser.layout import Layout
 #       has "DAQmx Write.vi" and a "While Loop" structure.
 #   VI_B: JKI-EasyXML's "test TCX read (installed 71).vi" (BSD-3-Clause) —
 #       has a "Flat Sequence" structure and adds "Tree"/"tag index"/
-#       "child name"/"text" inputs VI_A doesn't have.
+#       "child name"/"text" front-panel controls VI_A doesn't have (its
+#       connector pane is unwired).
 # Every test here diffs real VIs from the local-only corpus.
 pytestmark = pytest.mark.needs_samples
 
@@ -108,15 +109,15 @@ class TestFormatDiffConcise:
         # Connector-pane changes ARE ordinary kind="connector_pane" leaves in
         # the UID-keyed ChangeMap now (see format_diff's docstring), but stay
         # a --verbose-only depth add for TEXT: format_diff filters kind==
-        # "connector_pane" rows out of the concise tier. VI_B has a 'Tree'
-        # input VI_A doesn't, so this VI pair always has connector-pane
-        # changes to omit.
+        # "connector_pane" rows out of the concise tier. VI_A has an 'Action'
+        # connector-pane input; VI_B's connector pane is unwired, so this VI
+        # pair always has connector-pane changes to omit.
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
-        assert "▭ input Tree" not in concise
-        assert "▭ input Tree" in verbose
+        assert "▭ input Action" not in concise
+        assert "▭ input Action" in verbose
 
     def test_concise_omits_unchanged_node_tally(self):
         ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
@@ -268,13 +269,14 @@ class TestFormatDiffVerbose:
         # Connector-pane changes are ordinary kind="connector_pane" leaves,
         # rendered (verbose-only) under a "Connector pane:" group folder at the
         # tree ROOT, leading every node/structure change, with the terminal
-        # glyph (▭). VI_B has a 'Tree' input VI_A lacks -> an add (+).
+        # glyph (▭). VI_A has an 'Action' connector-pane input; VI_B's pane is
+        # unwired -> a removal (-).
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         result = format_diff(ga, gb, na, nb, verbose=True)
         assert "Connector pane:" in result
         assert any(
-            line.startswith("+") and "▭ input Tree" in line
+            line.startswith("-") and "▭ input Action" in line
             for line in result.splitlines()
         )
 
@@ -306,7 +308,8 @@ class TestFormatDiffVerbose:
         ga, na = _load(VI_A)
         gb, nb = _load(VI_B)
         result = format_diff(ga, gb, na, nb, verbose=True)
-        assert "▭ input Tree" in result
+        assert "▭ input Action" in result
+        assert "▭ control Tree" in result
         assert "DAQmx Write.vi" in result
 
     def test_verbose_tree_matches_concise_tree(self):

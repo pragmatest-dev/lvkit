@@ -11,6 +11,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
+    FPTerminal,
     LVType,
     ScalarValue,
     Terminal,
@@ -45,6 +46,7 @@ from .op_walk import (
     _subvi_ports,
 )
 from .queries import collect_class_context
+from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
     condition_name,
@@ -126,6 +128,8 @@ def describe_vi(
     else:
         lines.append("  (none)")
     lines.append("")
+
+    lines.extend(_describe_off_pane_front_panel(ctx, verbose))
 
     # Class context: when this VI is a .lvclass method
     lines.extend(_describe_class_context(graph, ctx))
@@ -224,6 +228,40 @@ def default_suffix(default: ScalarValue) -> str:
     return f' = "{default}"' if isinstance(default, str) else f" = {default}"
 
 
+def _shown_caption(t: Terminal) -> str | None:
+    """A front-panel control's caption when it is set, shown, and says
+    something other than its label; else ``None``."""
+    if (
+        isinstance(t, FPTerminal)
+        and t.caption is not None
+        and t.caption_visible
+        and t.caption != t.name
+    ):
+        return t.caption
+    return None
+
+
+def _describe_off_pane_front_panel(ctx: VIContext, verbose: bool) -> list[str]:
+    """``## Front Panel (not on the connector pane)``: the controls and
+    indicators the VI has on its front panel that no connector-pane terminal is
+    wired to. Same ``name: type [= default]`` line as Inputs/Outputs. Empty
+    when every front-panel object is on the connector pane."""
+    if not ctx.off_pane_inputs and not ctx.off_pane_outputs:
+        return []
+    lines = ["## Front Panel (not on the connector pane)"]
+    for heading, terminals, direction in (
+        ("Controls", ctx.off_pane_inputs, "input"),
+        ("Indicators", ctx.off_pane_outputs, "output"),
+    ):
+        if not terminals:
+            continue
+        lines.append(f"  {heading}")
+        for t in terminals:
+            lines.append("    " + _pane_terminal_line(t, direction, verbose))
+    lines.append("")
+    return lines
+
+
 def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     """One connector-pane terminal as ``name: type [(required)] [= default]``.
 
@@ -231,6 +269,9 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     set default. Verbose appends the ``[idx N]`` connector-pane slot.
     """
     line = f"{t.name}: {_terminal_type_label(t)}"
+    caption = _shown_caption(t)
+    if caption is not None:
+        line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
     line += default_suffix(t.default_value)
@@ -557,7 +598,7 @@ def _resolve_selector(
     src = sources[0]
     hit = owner_by_terminal.get(src.terminal_id)
     if hit is None:
-        for t in ctx.inputs:
+        for t in (*ctx.inputs, *ctx.off_pane_inputs):
             if t.id == src.terminal_id:
                 return t.name
         return None

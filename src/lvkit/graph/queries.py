@@ -664,6 +664,22 @@ class QueryMixin:
             results.append(t)
         return ordered_interface(results, "output", gnode.connector_pattern_id)
 
+    def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]:
+        """Front-panel controls not wired to the connector pane."""
+        return [
+            t
+            for t in self.get_inputs(vi_name, public_only=False)
+            if isinstance(t, FPTerminal) and not t.is_public
+        ]
+
+    def get_off_pane_outputs(self, vi_name: str) -> list[Terminal]:
+        """Front-panel indicators not wired to the connector pane."""
+        return [
+            t
+            for t in self.get_outputs(vi_name, public_only=False)
+            if isinstance(t, FPTerminal) and not t.is_public
+        ]
+
     def get_constants(self, vi_name: str) -> list[Constant]:
         """Get all constants in a VI."""
         vi_name = self.resolve_vi_name(vi_name)
@@ -1047,6 +1063,8 @@ class QueryMixin:
 
         inputs = list(self.get_inputs(vi_name))
         outputs = list(self.get_outputs(vi_name))
+        off_pane_inputs = self.get_off_pane_inputs(vi_name)
+        off_pane_outputs = self.get_off_pane_outputs(vi_name)
         constants = list(self.get_constants(vi_name))
         labels = list(self.get_labels(vi_name))
         data_flow = list(self.get_wires(vi_name))
@@ -1069,6 +1087,8 @@ class QueryMixin:
             qualified_name=vi_meta.qualified_name,
             inputs=inputs,
             outputs=outputs,
+            off_pane_inputs=off_pane_inputs,
+            off_pane_outputs=off_pane_outputs,
             constants=constants,
             labels=labels,
             terminals=terminals,

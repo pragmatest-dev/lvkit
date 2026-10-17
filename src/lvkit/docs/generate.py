@@ -163,28 +163,34 @@ def _prepare_vi_documentation_data(
     constants_dc = graph.get_constants(vi_name)
     dataflow_dc = graph.get_wires(vi_name)
 
-    controls = []
-    for inp in inputs_dc:
-        default_val = inp.default_value
-        if default_val is not None and inp.lv_type and inp.lv_type.values:
-            default_val = inp.lv_type.item_for(default_val) or default_val
+    def control_rows(terminals: list) -> list[dict]:
+        rows = []
+        for inp in terminals:
+            default_val = inp.default_value
+            if default_val is not None and inp.lv_type and inp.lv_type.values:
+                default_val = inp.lv_type.item_for(default_val) or default_val
+            rows.append(
+                {
+                    "name": inp.name or f"input_{inp.index}",
+                    "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
+                    "default_value": default_val,
+                }
+            )
+        return rows
 
-        controls.append(
-            {
-                "name": inp.name or f"input_{inp.index}",
-                "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
-                "default_value": default_val,
-            }
-        )
-
-    indicators = []
-    for out in outputs_dc:
-        indicators.append(
+    def indicator_rows(terminals: list) -> list[dict]:
+        return [
             {
                 "name": out.name or f"output_{out.index}",
                 "type": out.lv_type.type_descriptor() if out.lv_type else "Any",
             }
-        )
+            for out in terminals
+        ]
+
+    controls = control_rows(inputs_dc)
+    indicators = indicator_rows(outputs_dc)
+    off_pane_controls = control_rows(graph.get_off_pane_inputs(vi_name))
+    off_pane_indicators = indicator_rows(graph.get_off_pane_outputs(vi_name))
 
     graph_data = {
         "inputs": inputs_dc,
@@ -280,6 +286,8 @@ def _prepare_vi_documentation_data(
         "vi_name": vi_name,
         "controls": controls,
         "indicators": indicators,
+        "off_pane_controls": off_pane_controls,
+        "off_pane_indicators": off_pane_indicators,
         "graph": graph_data,
         "dependencies": dependencies,
         "type_definitions": type_definitions,

@@ -222,6 +222,8 @@ class OperationsMixin:
                         wiring_rule=t.wiring_rule,
                         is_indicator=t.is_indicator,
                         is_public=t.is_public,
+                        caption=t.caption,
+                        caption_visible=t.caption_visible,
                         control_type=t.control_type,
                         default_value=t.default_value,
                         enum_values=t.enum_values,

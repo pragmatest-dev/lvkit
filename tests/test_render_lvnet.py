@@ -252,9 +252,9 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
 # terminal here resolves REAL `wiring_rule` values off the graph: the four
 # non-error terminals are all authored `Recommended` (rule=2, or rule=1 on
 # an OUTPUT, which `requirement_state` folds to Recommended -- see
-# `interface_order.requirement_rank`'s docstring); `TestLoader in`/`error
-# out` are unresolved (rule=0/INVALID) so they render NO keyword at all,
-# same as terse (§5: never claim a resolved state that was never authored).
+# `interface_order.requirement_rank`'s docstring), and so is `error out`
+# (slot 0, rule=1); `TestLoader in` is unresolved (rule=0/INVALID) so it
+# renders NO keyword at all, same as terse (§5: never claim a resolved state that was never authored).
 # The `uses :` manifest's OWN reference-list lines are IDENTICAL in both
 # modes (a plain reference list present in both terse and verbose, per the
 # design doc) -- unchanged from `_GOLDEN_LVNET`. NEW this pass (§7a's later,
@@ -300,15 +300,15 @@ vi loadTestsFromTestCase.vi :
     in   error in (no error) : Error              recommended @8
     out  TestLoader out      : TestLoader.lvclass recommended @3
     out  TestSuite           : TestSuite.lvclass  recommended @2
-    out  error out           : Error              @0"""
+    out  error out           : Error              recommended @0"""
 
 
 @pytest.mark.needs_samples
 def test_golden_verbose_boundary_shows_recommended_and_omits_unknown() -> None:
     """`verbose=True` on the SAME real golden VI: its boundary lines gain the
     §5 bare requirement keyword (plus, Phase 2, the unconditional `@<index>`
-    pane-slot column); the two UNKNOWN (unresolved) terminals render with no
-    requirement keyword, same as terse -- but they still carry their own
+    pane-slot column); the one UNKNOWN (unresolved) terminal renders with no
+    requirement keyword, same as terse -- but it still carries its own
     `@<index>`, since that column is unconditional. This is the actual, run
     render (not hand-typed) -- see the fixture's own comment for the real
     `wiring_rule` values behind each line."""
