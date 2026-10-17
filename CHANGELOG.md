@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a Compound Arithmetic node set to Add with no other option read as an unknown mode** — it drew as "?" and generated Python failed on it; it now reads as Add (#116).
 
 ## [0.8.8] - 2026-10-17
 - **Fix: a reentrant VI could show as non-reentrant** — LabVIEW records reentrant execution with either of two flags; both are read now, so a VI saved that way shows its real shared or preallocated clone setting (#132).

@@ -514,10 +514,12 @@ class CpdArithHandler(NodeTypeHandler):
 
     # LabVIEW stores the Compound Arithmetic OPERATION in the node's objFlags,
     # NOT in any dcoFiller. Bits 16-18 hold the mode enum; bit 19 is a separate
-    # always-set marker. Corpus-verified across every cpdArith in the sample set
-    # (objFlags only ever 0x8/0xA/0xB/0xC 0000) and cross-checked against known
-    # dataflow -- this disproves the earlier "dcoFiller low byte" theory, which
-    # collapsed the 72 boolean-AND "...Changed" detectors into add (-> OR):
+    # flag, usually but not always set (the sample set has 0x30000 Or nodes
+    # beside 0x8/0xA/0xB/0xC 0000), masked out here. Cross-checked against
+    # known dataflow: a dcoFiller reading would turn the 72 boolean-AND
+    # "...Changed" detectors into add (-> OR). The heap stores only non-zero
+    # objFlags (no sample VI holds a literal 0), so a node without objFlags is
+    # mode 0, Add, with no other flag set:
     #   0 = add       (Trim Whitespace len sum; Reshape index math; MD5 F/G/I)
     #   1 = multiply  (no corpus instance; occupies LabVIEW's enum slot)
     #   2 = and       (every "X Changed" / "X Array Changed" detector; Trigger)
@@ -549,14 +551,11 @@ class CpdArithHandler(NodeTypeHandler):
     def _extract_operation(self, elem: ET.Element) -> str:
         """Operation from objFlags bits 16-18 (the Compound Arithmetic mode enum).
 
-        The parser never fails on an unknown code or a missing objFlags -- it
-        returns the ``UNSUPPORTED`` sentinel so rendering degrades gracefully;
-        codegen is the layer that fails loudly.
+        A missing objFlags is 0 (Add). The parser never fails on an unknown
+        code -- it returns the ``UNSUPPORTED`` sentinel so rendering degrades
+        gracefully; codegen is the layer that fails loudly.
         """
-        raw = elem.findtext("objFlags")
-        if not raw:
-            return self.UNSUPPORTED
-        code = (int(raw) >> self._OP_SHIFT) & self._OP_MASK
+        code = (safe_int(elem.find("objFlags")) >> self._OP_SHIFT) & self._OP_MASK
         return self.OPERATIONS.get(code, self.UNSUPPORTED)
 
 

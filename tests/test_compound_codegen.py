@@ -558,7 +558,7 @@ class TestCompoundArithInvert:
         assert "not" not in code
 
     def test_unsupported_operation_fails_loud(self):
-        """An unrecognised dcoFiller code (parser sentinel 'unsupported')
+        """An unrecognised objFlags mode code (parser sentinel 'unsupported')
         raises at codegen rather than silently defaulting to OR."""
         import pytest
 

@@ -1049,8 +1049,8 @@ class TestCpdArithOperation:
     """The Compound Arithmetic operation lives in objFlags bits 16-18, NOT in
     dcoFiller (which is per-terminal invert/type data). Corpus-verified:
     0x80000=add, 0x90000=multiply, 0xA0000=and, 0xB0000=or, 0xC0000=xor.
-    Unknown codes / a missing objFlags map to the 'unsupported' sentinel
-    (the parser never raises; codegen is the layer that fails loud)."""
+    A missing objFlags is 0 (Add). Unknown codes map to the 'unsupported'
+    sentinel (the parser never raises; codegen is the layer that fails loud)."""
 
     def _op(self, objflags):
         import xml.etree.ElementTree as ET
@@ -1074,13 +1074,21 @@ class TestCpdArithOperation:
 
     def test_dcofiller_does_not_select_op(self):
         # dcoFiller 256 co-occurs with add/and/or/xor -- objFlags is the source
-        # of truth. Bit 19 (0x80000) is an always-set marker, masked out by &7.
-        assert self._op(str(0xA0000)) == "and"  # not "add", despite old bug
+        # of truth. Bit 19 (0x80000) is a separate flag, masked out by &7.
+        assert self._op(str(0xA0000)) == "and"
 
-    def test_unknown_or_missing_is_unsupported_sentinel_not_raise(self):
+    def test_bit_19_clear_decodes_the_same_mode(self):
+        # Sample VIs hold 0x30000 Or nodes: bit 19 clear, mode 3.
+        assert self._op(str(0x30000)) == "or"
+
+    def test_missing_objflags_is_add(self):
+        # The heap stores only non-zero objFlags, so an Add node with no other
+        # flag set has no objFlags element at all (issue #116).
+        assert self._op(None) == "add"
+
+    def test_unknown_code_is_unsupported_sentinel_not_raise(self):
         # The parser must degrade gracefully, never raise; codegen fails loud.
         assert self._op(str(0xF0000)) == "unsupported"  # code 7
-        assert self._op(None) == "unsupported"  # objFlags absent
 
 
 class TestTunnelMapping:

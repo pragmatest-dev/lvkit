@@ -224,8 +224,15 @@ The record layout is in the `parser/link_table.py` module docstring.
 
 The LabVIEW **Compound Arithmetic operation** lives in the cpdArith node's
 `objFlags`, bits **16-18** = `(objFlags >> 16) & 0x7`. Enum (matches LV's mode
-order): **0=add, 1=multiply, 2=and, 3=or, 4=xor**. Bit 19 is a separate
-always-set marker (so raw objFlags = 0x8/0x9/0xA/0xB/0xC 0000).
+order): **0=add, 1=multiply, 2=and, 3=or, 4=xor**. Bit 19 is a separate flag,
+usually but not always set: across 923 cpdArith nodes in 671 cached sample VIs
+the values are 0xA0000 (603), 0xB0000 (252), 0x80000 (59), 0x30000 (4),
+0xC0000 (3), 0xB1000 (2).
+
+**A missing `objFlags` means 0 = Add with no other flag set.** The heap stores
+only non-zero `objFlags`: no cached sample `_BDHb.xml` holds a literal
+`<objFlags>0</objFlags>`, across many thousands of elements. Treating "absent"
+as "unknown mode" was #116.
 
 `dcoFiller` is **per-terminal invert/type data and does NOT select the op** —
 the earlier "operation = dcoFiller low byte (0=add,1=or,2=and), 0x100=flag"
