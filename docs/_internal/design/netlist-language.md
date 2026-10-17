@@ -365,8 +365,7 @@ not the generic handle+terminal-block form the others use). `in-place-element`
 is a **structure**, not a node — it now renders as a scope (§8), so it is no
 longer pending here. Still pending only their *special content* (handle +
 terminals still render): `formula-node` (the `script` body — needs the `script`
-field plumbed) and `global-variable` (a separate Global-VI construct, not yet
-modeled at all — see §17). Those emit their handle + typed terminals with a
+field plumbed). It emits its handle + typed terminals with a
 `# TODO(lvnet): …` on the one undesigned part — never an invented form.
 
 | Node | keyword | rendering |
@@ -377,7 +376,9 @@ modeled at all — see §17). Those emit their handle + typed terminals with a
 | Invoke Node | `invoke-node <handle> : <ObjectClass>.<Method>` | the method IS the node's identity, so it sits in the component; parameters render **by index** (`in  0 : <Type> = <net>`, `out 1 : <Type>`) because LabVIEW stores no param names in the VI (only the VI-server signature does). |
 | Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its own `fbK` net — a small sequential id, one per feedback node in the VI, unlike every other node's `_<uid>` handle suffix (a feedback node has no separate "declared name" for a base to attach a uid to; the net name doubles as the handle); `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
 | Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_<uid>`, e.g. `constant GUID_142 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_142`). |
-| Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. `global-variable` (a separate Global-VI construct) is not yet modeled — OPEN, §17. |
+| Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. |
+| Global Variable | `global-variable` | a TAP on one control of a Global VI, shaped like a local variable but naming its target: a **read** is a SOURCE, `global-variable <handle> : read <Global VI>::<control>`; a **write** is a SINK, `global-variable <handle> : write <Global VI>::<control> = <source>`. The handle base is the control name (`Debug_18698`). `<Global VI>` is the qualified name the calling VI's block-diagram link table records for the VI, `<control>` the control of it that the node's connector cluster names at the node's control index; both halves follow the §4 name-safety rule, and the Global VI half is also quoted when it contains `::`. The Global VI additionally appears under `uses :` as a `global` entry. The node has no wire to any control of the calling VI. |
+| Shared Variable | `shared-variable` | a node reading or writing a network-published Shared Variable: `shared-variable <handle> : <variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`; a terminal whose ID is not a confirmed one shows its number). The variable name is a §4 name token; the library is not part of the node. |
 | Control / Indicator (internal) | `control` / `indicator` | a front-panel control/indicator **not** on the connector pane → a body node. `control` = source, `indicator` = sink. |
 | Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
 | Free label / comment | `comment` | non-executing text. |
@@ -404,7 +405,8 @@ uses :
 ```
 
 - **`<kind>`** — derived from the identity's file extension, never guessed
-  independently: `.vi` → `subVI`, `.ctl` → `typedef`, `.lvclass` → `class`.
+  independently: `.vi` → `subVI`, `.ctl` → `typedef`, `.lvclass` → `class`; a Global VI that a
+  `global-variable` node refers to is `global` (also a `.vi`).
 - **`<qualified-identity>`** — the SAME fully-qualified identity a `subVI`/
   `class`/`typedef` component spells at its own declaration elsewhere in the
   file (§7/§9) — e.g. `TestCase.lvclass:listAllTestMethods.vi`,
@@ -958,8 +960,9 @@ in   GUID : String = GUID_142
 6. **Concrete line syntax** — DESIGNED for property-node / invoke-node /
    feedback-node / local-variable (§7) and in-place-element (now a scope, §8).
    Still open: formula-node script rendering (needs the `script` field plumbed).
-7. **Not-yet-modeled constructs** — `timed-loop`, `global-variable`, Shared
-   Variable, Call By Reference, MathScript (proposed keywords, unverified).
+7. **Not-yet-modeled constructs** — `timed-loop`, Call By Reference,
+   MathScript (proposed keywords, unverified). `global-variable` and
+   `shared-variable` are designed (§7).
 8. **lvnet text diff gutter** (`+`/`-`/`~`) — the diff was designed as a tree.
 9. **`; unconnected` / `; unread`** dangling annotations — decided in principle,
    not sample-confirmed in the final form.

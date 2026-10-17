@@ -222,6 +222,8 @@ class NetlistInstanceKind(str, Enum):
     PROPERTY_NODE = "property-node"
     INVOKE_NODE = "invoke-node"
     LOCAL_VARIABLE = "local-variable"
+    GLOBAL_VARIABLE = "global-variable"
+    SHARED_VARIABLE = "shared-variable"
     IN_PLACE_ELEMENT = "in-place-element"
     FORMULA_NODE = "formula-node"
 
@@ -274,6 +276,13 @@ class NetlistInstance:
     # Accessed properties (Property Node only) -- empty for every other
     # instance. See ``NetlistPropertyAccess``.
     properties: list[NetlistPropertyAccess] = field(default_factory=list)
+    # A global variable's Global VI, by its qualified name as the calling VI
+    # records it (``name`` is the control read or written) -- ``None`` for every
+    # other instance kind.
+    global_vi: str | None = None
+    # ``"read"`` / ``"write"`` for a global or Shared Variable node (which end of
+    # the variable it taps) -- ``None`` for every other instance kind.
+    access: str | None = None
 
 
 @dataclass
@@ -640,12 +649,15 @@ class DependencyKind(str, Enum):
     """The lvnet §7 `uses :` dependency-manifest kind -- DERIVED from a
     dependency's qualified identity file extension (``.vi`` -> subVI,
     ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed
-    input. See ``_dependency_kind_for``/``_build_dependency_manifest``.
+    input; except ``global``, a Global VI that a global variable node refers
+    to (also a ``.vi`` file). See ``_dependency_kind_for``/
+    ``_build_dependency_manifest``.
     """
 
     SUBVI = "subVI"
     TYPEDEF = "typedef"
     CLASS = "class"
+    GLOBAL = "global"
 
     @classmethod
     def for_node_type(cls, node_type: NodeType) -> DependencyKind:

@@ -12,6 +12,16 @@ from ..context import CodeGenContext
 from ..fragment import CodeFragment
 
 
+def _is_runtime_value(expr: str) -> bool:
+    """Whether the resolved expression is a variable, attribute or call -- a value
+    known only at run time -- rather than a literal written on the diagram."""
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return False
+    return not isinstance(tree.body, ast.Constant)
+
+
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a printf (Format String) node."""
     inputs = sorted(
@@ -34,7 +44,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         input_values.append(val)
 
     # First input is format string, rest are arguments.
-    if len(input_values) >= 2:
+    if len(input_values) >= 2 and _is_runtime_value(input_values[0]):
+        # A format string that is a wired value is applied at run time; Python's
+        # ``%`` takes the same ``%s``/``%d``/``%f``/... directives.
+        args_tuple = ", ".join(input_values[1:])
+        expr_str = f"{input_values[0]} % ({args_tuple},)"
+    elif len(input_values) >= 2:
         fmt_str = input_values[0].strip("'\"")
         args = input_values[1:]
         arg_idx = 0

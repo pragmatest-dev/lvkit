@@ -184,6 +184,27 @@ Residual: one private class control renders `UDClassInst refnum` (class name not
 in CONP, which is interface-only). Remaining `control_N` are all LV9+ globals
 (empty CONP), a separate pre-existing label-resolution gap.
 
+## A global variable node is a `gRef` with a `connectorTM`; its Global VI is named by the `IUVI` link-table record
+
+A **global variable** node and a **local variable** node are both `gRef` nodes. A
+global variable's `gRef` carries a `<connectorTM>` TypeID that names a cluster
+type: the cluster of the Global VI's controls, as the calling VI last saw them.
+The node's `paramIdx` indexes that cluster's fields (and the Global VI's own
+control order, `ddoList`/`dcoIndex`). A local variable's `gRef` has TypeID 0 in
+`<connectorTM>` (no connector type), so TypeID(0) means local.
+
+The node does not name the Global VI itself. The calling VI's block-diagram link
+table (`LIbd`) does: one `IUVI` record per referenced VI, carrying the VI's
+qualified name and path and a list of the heap uid of EVERY node that uses it,
+subVI calls and global variable nodes alike. Look the node's uid up in those
+lists to find its Global VI.
+
+Evidence: across the corpus's 159 global variable nodes (the `gRef` nodes with a
+`connectorTM`), 159 have their uid in some `IUVI` node-uid list and resolve to a
+qualified name; none is left unresolved. `tests/test_global_variable.py::
+test_every_global_variable_node_in_the_corpus_resolves_its_global_vi` asserts it.
+The record layout is in the `parser/link_table.py` module docstring.
+
 ## "Compound Arithmetic (cpdArith) operation is in objFlags bits 16-18, NOT dcoFiller — corpus-verified decode that fixed"
 <!-- was memory: reference_cpdarith_objflags -->
 

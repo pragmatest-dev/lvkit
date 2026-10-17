@@ -75,6 +75,7 @@ from lvkit.load_mode import LoadMode
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
+_ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
 
 # A VI whose rendered lvnet text is expected to round-trip CLEANLY end to
 # end -- node declarations/terminals/nets, case/for-loop/while-loop/shift-
@@ -130,6 +131,21 @@ _ROUND_TRIP_CASES = [
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
         _AF_ROOT,
         id="Force_Icon_Editor_to_Unload_conditional_tunnel",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
+        _ICON_EDITOR_ROOT,
+        id="lv_icon_global_variables",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Global Variables"
+        / "Data.vi",
+        _ICON_EDITOR_ROOT,
+        id="Data_global_vi",
     ),
 ]
 

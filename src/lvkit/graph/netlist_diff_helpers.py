@@ -87,6 +87,10 @@ def _instance_name_display(instance: NetlistInstance) -> str:
     job). Split out of ``instance_line`` since the header assembly (occurrence
     + operation suffix + object/method suffix) is a self-contained concern.
 
+    A global variable's Global VI and access (``[Data.vi read]``) take the same
+    slot, naming where the control named by ``name`` lives; a Shared Variable's
+    access (``[write]``) does too.
+
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
     the same bracket-suffix treatment as ``operation`` -- the two never
     co-occur (a property node is never a primitive node), so one visual slot
@@ -110,6 +114,10 @@ def _instance_name_display(instance: NetlistInstance) -> str:
         obj_suffix = f" [{obj}]"
     elif instance.object_name:
         obj_suffix = f" [{instance.object_name}]"
+    elif instance.global_vi:
+        obj_suffix = f" [{instance.global_vi} {instance.access}]"
+    elif instance.access:
+        obj_suffix = f" [{instance.access}]"
     else:
         obj_suffix = ""
     return f"{instance.name}{tag}{op_suffix}{obj_suffix}"

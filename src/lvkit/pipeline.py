@@ -13,13 +13,13 @@ import sys
 import textwrap
 import traceback
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from lvkit.codegen import ClassBuilder, ClassConfig, build_module
 from lvkit.codegen.ast_utils import to_function_name, to_module_name
+from lvkit.codegen.import_resolver import ImportResolver, ModuleImport
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.project_store import find_project_store
@@ -155,7 +155,7 @@ def create_import_resolver(
     graph: InMemoryVIGraph | None = None,
     vilib_resolver: VILibResolver | None = None,
     caller_library: str | None = None,
-) -> Callable[[str], str]:
+) -> ImportResolver:
     """Create an import resolver for a VI.
 
     Args:
@@ -167,12 +167,13 @@ def create_import_resolver(
         caller_library: Library subdirectory of the calling VI (e.g., "testcaselvclass")
 
     Returns:
-        Callable that takes a SubVI name and returns the correct import statement
+        An ``ImportResolver``: called with a SubVI name it returns the import
+        statement for that SubVI's function; ``module`` gives the import of a
+        Global VI's module.
     """
 
-    def resolver(subvi_name: str) -> str:
-        func_name = to_function_name(subvi_name)
-
+    def locate(subvi_name: str) -> tuple[str, str, str]:
+        """``(relative package prefix, dependency library, module)`` of a VI."""
         # Resolve to qualified name for library lookup
         qualified = subvi_name
         if graph:
@@ -194,19 +195,27 @@ def create_import_resolver(
                 vilib_resolver=vilib_resolver,
             )
 
-        dep_module = dep_path.stem
         dep_library = to_library_name(
             qualified,
             graph=graph,
             vilib_resolver=vilib_resolver,
         )
-
-        # Build relative import: go up from caller, down to dependency
+        # Relative import: go up from caller, down to dependency
         up = ".." if caller_library else "."
-        down = f"{dep_library}.{dep_module}" if dep_library else dep_module
-        return f"from {up}{down} import {func_name}"
+        return up, dep_library or "", dep_path.stem
 
-    return resolver
+    def function_import(subvi_name: str) -> str:
+        up, dep_library, dep_module = locate(subvi_name)
+        down = f"{dep_library}.{dep_module}" if dep_library else dep_module
+        return f"from {up}{down} import {to_function_name(subvi_name)}"
+
+    def module_import(global_vi_name: str) -> ModuleImport:
+        up, dep_library, dep_module = locate(global_vi_name)
+        alias = f"{dep_module}_global"
+        package = f"{up}{dep_library}" if dep_library else up
+        return ModuleImport(f"from {package} import {dep_module} as {alias}", alias)
+
+    return ImportResolver(function_import, module_import)
 
 
 # ---------------------------------------------------------------------------

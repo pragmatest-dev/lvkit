@@ -36,6 +36,7 @@ from ..graph.models import (
     ConstantNode,
     DisableStructureNode,
     EventStructureNode,
+    GlobalVariableNode,
     InPlaceNode,
     LocalVariableNode,
     LoopNode,
@@ -642,7 +643,7 @@ def project_vi_facts(
                 gn.name or (get_display_name(gn.node_type) if gn.node_type else None)
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
-            qualified_name=gn.qualified_name if isinstance(gn, VINode) else None,
+            qualified_name=_node_callee_key(gn),
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             parent_uid=gn.parent,
@@ -765,6 +766,16 @@ def _constant_wired_to(
     return WiredTo.OTHER
 
 
+def _node_callee_key(node: AnyGraphNode) -> str | None:
+    """The qualified name of the VI a node refers to: the callee of a SubVI
+    call, the Global VI of a global variable; None for every other node."""
+    if isinstance(node, VINode):
+        return node.qualified_name
+    if isinstance(node, GlobalVariableNode):
+        return node.global_vi.qualified_name
+    return None
+
+
 def _node_kind(node: AnyGraphNode) -> NodeKind:
     """Map a concrete graph node to its NodeKind by CLASS (not node_type
     string).
@@ -786,6 +797,8 @@ def _node_kind(node: AnyGraphNode) -> NodeKind:
         return NodeKind.CONSTANT
     if isinstance(node, LocalVariableNode):
         return NodeKind.LOCAL_VARIABLE
+    if isinstance(node, GlobalVariableNode):
+        return NodeKind.GLOBAL_VARIABLE
     if isinstance(node, DisableStructureNode):
         return NodeKind.DISABLED
     if isinstance(node, EventStructureNode):

@@ -1,0 +1,97 @@
+.lvkit/cache/samples/DCAF-DAQModule/source/module/configuration/to string.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/lv_icon.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionReservationInfo_ReserveSessions_SessionReservedBooleanTrue.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Initialize Sessions/test_EmptyInstrumentTypeId_InitializeSessions_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Measurements/Helpers/Validate Enum Strings.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Message.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Reserve Sessions/test_CallReserveSessionsWithArrayWithEmptyElement_ErrorReturned.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Initialize Sessions/test_SessionAlreadyInitialized_InitializeSessions_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForNonExistentPin_ReturnsError.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for New Time Delayed Message.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Classes/Target Store/Store Actors.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Get Session Info - 1Sess .vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Generator/Measurement V2 Client Generator Runtime/Update Measurement from Metadata.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActorInterface/CreateNewWizard_Init.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/Classes Initialization.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/Graphics/LoadTemplates.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionReservationInfo_ReserveSessions_SessionAnnotationsPopulated.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Initialize Sessions Impl.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionsUnregistered_ReserveSessions_IndicatesSessionsDoNotExist.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Stopped Time-Delayed Message.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Generator/Measurement V2 Client Generator Runtime/Get Default Value.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Generator/Measurement V2 Client Generator Runtime/Get Measurement Metadata.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Stopped Actor.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Measurements/Measure Call Context/Reserve Sessions - 1Pin.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActorInterface/CreateNewWizard_Invoke.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Pin Map/test_ExistingClientConnection_StopPinMapService_UpdatePinMapFromXMLWorksWithoutError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionsReserved_ReserveSessions_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Sessions/Instrument/ISession Factory/Helpers/Merge Driver Call by Reference Error.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageRescripter/Support/Reference Method Dialog.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteRes_CallGetConnFromPinForOneDcPowerPinAllSites_ReturnsMulitpleConnError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionManagerWrapper_StopSessionManagementService_WrapperMethodsWorkWithoutError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Reserve Sessions/test_CallReserveSessionsWithEmptyPin_ErrorReturned.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Helpers/Check Number of Sessions.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Add No Connections Error.vi
+.lvkit/cache/samples/actor-framework/Providers/ActorMessageMaker/Item_OnPopupMenu.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Class/Icon Library/Initialization/Glyphs Initialization.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Measurement Plugin Service/test_InvalidEnumInResults_ValidateMetadata_Error.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Generate Custom Trace.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Support/Select an Actor.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/Provider_OnPopupMenu.vi
+.lvkit/cache/samples/ni-labview-icon-editor/vi.lib/LabVIEW Icon API/Set Text Icon/Set Icon.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActorInterface/Support/Add Interface Dialog.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_Maker Classes/Abstract Message Scripter/Add to Project.vi
+.lvkit/cache/samples/actor-framework/Providers/ActorMessageMaker/Item_OnCommand.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Skipped Time-Delayed Message.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Measurements/Measure Call Context/Reserve Sessions - NPin.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Initialize Sessions/test_MultipleSessionsReserved_InitializeSession_ReturnsErrorForTooManySessions.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Support/Add Actor Library to Project.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Generator/Measurement V2 Client Generator Runtime/Generate Client.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsWithNoMatchingConnections_ReturnsError.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Dropped Message.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/CreateNewWizard_Init.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_support/Set Send Icon.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionsRegistered_ReserveSessions_IndicatesSessionsExist.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Support/CreateNewWizard_Invoke Core.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Measurement Plugin Service/test_Invalid2DArrayInConfig_ValidateMetadata_Error.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForValidPinWithWrongInstrId_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Discovery V1/Wait For Key File.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Discovery V1/gRPC Client Cache FGV Impl.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/AFPP Shared/Update Target Tag - PPL Path.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForNonExistentSite_ReturnsError.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Classes/Target Store/Retrieve Actors.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionsUnreserved_AnyActionOtherThanReserve_ReturnsError.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_Maker Classes/Coupled Message Scripter/Add to Project.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Initialize Sessions/test_InstrumentTypeIdNotInReservation_InitializeSessions_ReturnsErrorFor0Sessions.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Merge Invalid DVR Error.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Class/FakedArray/Misc/Process Template Graphics.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/Icon Editor/Reset layer template selection.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Add Bad Input Error.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Session Management/Session Reservation/test_SessionsReserved_UnreserveSessions_SessionsCanBeReservedAgain.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_support/Get Target Method Icon.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Reserve Sessions/test_CallReserveSessionsWithZeroElementArray_ErrorReturned.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_Maker Classes/Abstract Icon Prototyper/Prototype.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for Received Message.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForValidPinNotInSite_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Measurement Plugin Service/test_InvalidEnumInConfig_ValidateMetadata_Error.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/Support/Create Concrete Message for Method.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Measurements/Helpers/Validate Metadata.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForNonExistentInstr_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Measurements/Helpers/Check For Latched Booleans.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Support/Add Actor.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageRescripter/Item_OnPopupMenu.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Discovery V1/Start Discovery Service.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Generator/Measurement V2 Client Generator Runtime/Update Control from Metadata.vi
+.lvkit/cache/samples/ni-labview-icon-editor/vi.lib/LabVIEW Icon API/Set Text Icon/Generate Non Text Layer(s).vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/_Message Maker/_support/Find Item in PPL.vi
+.lvkit/cache/samples/actor-framework/Providers/ActorMessageMaker/Support/Abstract Message Name Dialog.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Sessions/test_ThreeSess_CallGetSession_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_ThreeSessThreePinTwoInstrTwoSiteReservation_CallGetConnectionsFromPinsForPinNameWithWrongCase_ReturnsError.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Tests/Tests.Runtime/Measurement Server/Get Connections/test_OneSessTwoPinOneSystemPinOneInstrOneSiteReservation_CallGetConnectionsFromPinsWithSystemPinType_ReturnsError.vi
+.lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/Glyphs/Populate Graphics.vi
+.lvkit/cache/samples/actor-framework/Core/ActorFramework/tracing/Trace Generation/Generate Trace for New Actor.vi
+.lvkit/cache/samples/actor-framework/Providers/MessageMakerProvider/Item_OnPopupMenu.vi
+.lvkit/cache/samples/actor-framework/Providers/AddActor/Classes/Target Store/Retrieve Root Actor.vi
+.lvkit/cache/samples/actor-framework/Providers/ActorMessageMaker/Provider_OnPopupMenu.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Discovery V1/Read Discovery Service Key File.vi
+.lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation/Add Missing Pin Error.vi

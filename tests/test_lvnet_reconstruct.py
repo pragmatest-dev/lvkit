@@ -39,6 +39,7 @@ from lvkit.load_mode import LoadMode
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
+_ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
 
 # Same corpus VIs as test_lvnet_roundtrip.py's _ROUND_TRIP_CASES -- this is
 # the SAME text idempotence question asked one level deeper (full model
@@ -86,6 +87,21 @@ _IDEMPOTENCE_CASES = [
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
         _AF_ROOT,
         id="Force_Icon_Editor_to_Unload",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
+        _ICON_EDITOR_ROOT,
+        id="lv_icon_global_variables",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Global Variables"
+        / "Data.vi",
+        _ICON_EDITOR_ROOT,
+        id="Data_global_vi",
     ),
 ]
 

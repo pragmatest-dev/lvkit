@@ -71,7 +71,13 @@ from lvkit.graph.netlist import (
     build_netlist_from_graph,
     render_lvnet,
 )
-from lvkit.graph.netlist_models import DefaultValue, EtaMerge, GammaMerge, MuMerge
+from lvkit.graph.netlist_models import (
+    DefaultValue,
+    EtaMerge,
+    GammaMerge,
+    MuMerge,
+    NetlistInstanceKind,
+)
 from lvkit.graph.render_lvnet import (
     _is_void_type,
     _lvnet_net_separator,
@@ -82,6 +88,7 @@ from lvkit.load_mode import LoadMode
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
+_ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
 
 # The SAME corpus VIs as test_lvnet_reconstruct.py's `_IDEMPOTENCE_CASES` --
 # the same VIs, asked the STRONGER identity question.
@@ -133,6 +140,21 @@ _IDENTITY_CASES = [
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
         _AF_ROOT,
         id="Force_Icon_Editor_to_Unload",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
+        _ICON_EDITOR_ROOT,
+        id="lv_icon_global_variables",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Global Variables"
+        / "Data.vi",
+        _ICON_EDITOR_ROOT,
+        id="Data_global_vi",
     ),
 ]
 
@@ -317,6 +339,18 @@ def _compare_instance(
         )
     if a.kind != b.kind:
         errors.append(f"{path}: instance kind mismatch: {a.kind!r} vs {b.kind!r}")
+    if a.kind in (
+        NetlistInstanceKind.GLOBAL_VARIABLE,
+        NetlistInstanceKind.SHARED_VARIABLE,
+    ):
+        # Which variable (and, for a global, which Global VI) and which end of
+        # it is tapped are the identity of these nodes -- all in the text.
+        for attr in ("name", "global_vi", "access"):
+            if getattr(a, attr) != getattr(b, attr):
+                errors.append(
+                    f"{path}: {attr} mismatch: "
+                    f"{getattr(a, attr)!r} vs {getattr(b, attr)!r}"
+                )
     # A Void-typed binding is a dead pane slot ``render_lvnet`` itself drops
     # (``_is_void_type``/``_is_void_binding``, md §3/§7: "the one consumer
     # that must drop a dead pane slot") -- never rendered, so never present

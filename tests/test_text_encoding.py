@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import struct
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
 from lvkit.models import LVType, LVTypeKind
-from lvkit.parser.metadata import parse_iuse_from_libd
+from lvkit.parser.link_table import LinkTableVersion, decode_iuse_links
 from lvkit.parser.vi import _decode_default_data, _decode_element
 from lvkit.text_encoding import (
     decode_labview_text,
@@ -17,6 +16,8 @@ from lvkit.text_encoding import (
     normalize_extracted_xml,
     vers_language_encoding,
 )
+
+from .test_link_table import build_iuvi_record
 
 
 def _byte_entities(data: bytes) -> str:
@@ -94,9 +95,7 @@ def test_labview_text_encoding_prefers_vers_language_over_platform_default(
     reader's own regional setting, not the VI's)."""
     monkeypatch.delenv("LVKIT_TEXT_ENCODING", raising=False)
     monkeypatch.setattr("lvkit.text_encoding.sys.platform", "win32")
-    monkeypatch.setattr(
-        "lvkit.text_encoding._windows_ansi_encoding", lambda: "cp1252"
-    )
+    monkeypatch.setattr("lvkit.text_encoding._windows_ansi_encoding", lambda: "cp1252")
     assert labview_text_encoding(vers_language=33) == "cp936"
     # An unrecognized/zero Language falls through to the platform default.
     assert labview_text_encoding(vers_language=0) == "cp1252"
@@ -123,9 +122,13 @@ def test_non_windows_non_mac_defaults_to_cp1252_not_reader_locale(
     monkeypatch.setattr("lvkit.text_encoding.sys.platform", "linux")
     monkeypatch.delenv("LVKIT_TEXT_ENCODING", raising=False)
     assert labview_text_encoding() == "cp1252"
-    assert bytes([0xB0]).decode("mac_roman").encode("mac_roman").decode(
-        labview_text_encoding()
-    ) == "°"
+    assert (
+        bytes([0xB0])
+        .decode("mac_roman")
+        .encode("mac_roman")
+        .decode(labview_text_encoding())
+        == "°"
+    )
 
 
 def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(
@@ -169,30 +172,23 @@ def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(
 
 
 def test_libd_names_use_labview_encoding(
-    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
         "lvkit.text_encoding.labview_text_encoding",
         lambda: "gbk",
     )
-    class_name = "流场控制.lvclass".encode("gbk")
-    vi_name = "初始化.vi".encode("gbk")
-    uid = 42
-    data = (
-        b"IUVI\x00\x02"
-        + bytes([len(class_name)])
-        + class_name
-        + bytes([len(vi_name)])
-        + vi_name
-        + b"\x00\x00\x00\x01"
-        + struct.pack(">I", uid)
-        + b"PTH0"
+    data = build_iuvi_record(
+        offset=0,
+        name_parts=["流场控制.lvclass".encode("gbk"), "初始化.vi".encode("gbk")],
+        path_tokens=[b"", "初始化.vi".encode("gbk")],
+        node_uids=[42],
     )
-    path = tmp_path / "sample_LIbd.bin"
-    path.write_bytes(data)
 
-    assert parse_iuse_from_libd(path) == {str(uid): "流场控制.lvclass:初始化.vi"}
+    (link,) = decode_iuse_links(data, LinkTableVersion(20, 0, 0, 4))
+    assert link.name_parts == ("流场控制.lvclass", "初始化.vi")
+    assert link.path_tokens == ("", "初始化.vi")
+    assert link.node_uids == (42,)
 
 
 def test_env_override_beats_platform_default(

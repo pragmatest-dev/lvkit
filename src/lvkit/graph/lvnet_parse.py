@@ -63,6 +63,7 @@ from .lvnet_grammar import (
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
+    _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _OPEN_INSTANCE_TRAILING_TODO,
@@ -648,6 +649,20 @@ class ParsedLocalVariable:
 
 
 @dataclass(frozen=True)
+class ParsedGlobalVariable:
+    """``global-variable <handle> : read <Global VI>::<control>`` (a SOURCE) or
+    ``global-variable <handle> : write <Global VI>::<control> = <source>`` (a
+    SINK) -- §7. A single line: the Global VI and the control of it that is read
+    or written."""
+
+    handle: str
+    is_write: bool
+    global_vi: str
+    control: str
+    source: str | None = None  # write only; None for a read
+
+
+@dataclass(frozen=True)
 class ParsedDrive:
     """A bare ``<net> = <source>`` line -- a case frame's own contribution
     to a case-output tunnel (§8), OR (at the very end of the document,
@@ -748,7 +763,12 @@ class ParsedScope:
 
 
 ParsedBodyItem = (
-    ParsedNode | ParsedScope | ParsedFeedback | ParsedConstant | ParsedLocalVariable
+    ParsedNode
+    | ParsedScope
+    | ParsedFeedback
+    | ParsedConstant
+    | ParsedLocalVariable
+    | ParsedGlobalVariable
 )
 
 
@@ -1003,6 +1023,112 @@ def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
             f"line {line_no}: local-variable write has an empty source: {content!r}"
         )
     return ParsedLocalVariable(handle=handle, is_write=True, source=source)
+
+
+def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
+    """``<Global VI>::<control>`` at the start of ``text`` -> ``(global_vi,
+    control, rest)``: each half bare, or double-quoted (a quoted half ends at its
+    closing quote; a bare Global VI ends at the first ``::``). The control is a
+    quoted token or, bare, runs to the first `` = `` (a bare name never holds one,
+    §4) -- ``rest`` is what follows it."""
+    if text.startswith('"'):
+        end = _scan_quoted_literal(text, 0)
+        global_vi = _unescape_lvnet_string(text[:end])
+        after = text[end:]
+    else:
+        sep = text.find(_LVNET_TERMINAL_SEP)
+        if sep == -1:
+            raise LvnetParseError(
+                f"line {line_no}: global-variable target missing "
+                f"'<Global VI>{_LVNET_TERMINAL_SEP}<control>' (§7): {text!r}"
+            )
+        global_vi = text[:sep]
+        after = text[sep:]
+    if not after.startswith(_LVNET_TERMINAL_SEP):
+        raise LvnetParseError(
+            f"line {line_no}: global-variable target missing "
+            f"'{_LVNET_TERMINAL_SEP}' after the Global VI name (§7): {text!r}"
+        )
+    after = after[len(_LVNET_TERMINAL_SEP) :]
+    if after.startswith('"'):
+        end = _scan_quoted_literal(after, 0)
+        control = _unescape_lvnet_string(after[:end])
+        rest = after[end:]
+    else:
+        sep = after.find(_LVNET_DRIVER_OP)
+        control, rest = (after, "") if sep == -1 else (after[:sep], after[sep:])
+    if not global_vi or not control:
+        raise LvnetParseError(
+            f"line {line_no}: global-variable target has an empty name (§7): {text!r}"
+        )
+    return global_vi, control, rest
+
+
+def split_shared_variable_component(component: str) -> tuple[str, str]:
+    """A ``shared-variable`` header's ``<variable name> : <read|write>`` component
+    -> ``(variable name, access)``. The name is a name token (§4), bare or
+    quoted; ``read``/``write`` is what follows the LAST `` : ``."""
+    name_token, sep, access = component.rpartition(_LVNET_TYPE_SEP)
+    if not sep or access not in ("read", "write"):
+        raise LvnetParseError(
+            f"shared-variable component must be '<variable name> : read' or "
+            f"'<variable name> : write' (§7): {component!r}"
+        )
+    return _unquote_name_token(name_token), access
+
+
+def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:
+    """``global-variable <handle> : read <Global VI>::<control>`` / ``global-
+    variable <handle> : write <Global VI>::<control> = <source>`` (§7)."""
+    rest = content[len("global-variable ") :]
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    if sep_idx == -1:
+        raise LvnetParseError(
+            f"line {line_no}: global-variable declaration missing "
+            f"' : read <Global VI>::<control>' or ' : write <Global VI>::<control> "
+            f"= <source>' (§7): {content!r}"
+        )
+    handle = rest[:sep_idx]
+    tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    if not handle or " " in handle:
+        raise LvnetParseError(
+            f"line {line_no}: global-variable handle must be a single "
+            f"space-free token (§7/§9): {content!r}"
+        )
+    if tail.startswith("read "):
+        global_vi, control, trailing = _split_global_target(tail[5:], line_no)
+        if trailing:
+            raise LvnetParseError(
+                f"line {line_no}: unexpected text after a global-variable read "
+                f"(§7): {content!r}"
+            )
+        return ParsedGlobalVariable(
+            handle=handle, is_write=False, global_vi=global_vi, control=control
+        )
+    if not tail.startswith("write "):
+        raise LvnetParseError(
+            f"line {line_no}: global-variable must be ' : read ...' or "
+            f"' : write ... = <source>' (§7): {content!r}"
+        )
+    global_vi, control, trailing = _split_global_target(tail[6:], line_no)
+    if not trailing.startswith(_LVNET_DRIVER_OP):
+        raise LvnetParseError(
+            f"line {line_no}: global-variable write needs '= <source>' (§7): "
+            f"{content!r}"
+        )
+    source = trailing[len(_LVNET_DRIVER_OP) :]
+    if not source:
+        raise LvnetParseError(
+            f"line {line_no}: global-variable write has an empty source: {content!r}"
+        )
+    _validate_if_quoted(source, line_no)
+    return ParsedGlobalVariable(
+        handle=handle,
+        is_write=True,
+        global_vi=global_vi,
+        control=control,
+        source=source,
+    )
 
 
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
@@ -1409,6 +1535,8 @@ def _parse_one_item_or_drive(
 ) -> ParsedBodyItem | ParsedDrive:
     if content.startswith("local-variable "):
         return _parse_local_variable(content, line_no)
+    if content.startswith("global-variable "):
+        return _parse_global_variable(content, line_no)
     if content.startswith("constant "):
         return _parse_constant_line(content, line_no)
     if content.startswith("feedback-node "):
@@ -2259,6 +2387,27 @@ def _module_instance_signature(
                 source_str = _lvnet_default_token(binding.default)
             return ("local-variable", handle, "write", source_str)
         return ("local-variable", handle, "read")
+    if instance.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
+        # Matches ``_parsed_item_signature``'s ``ParsedGlobalVariable`` branch
+        # exactly -- see ``_render_lvnet_global_variable``.
+        assert instance.global_vi is not None
+        handle = handles.by_uid[instance.uid]
+        if instance.access == "write":
+            binding = instance.inputs[0]
+            if binding.net is not None:
+                source_str = _render_lvnet_source(binding.net, handles)
+            else:
+                assert binding.default is not None
+                source_str = _lvnet_default_token(binding.default)
+            return (
+                "global-variable",
+                handle,
+                "write",
+                instance.global_vi,
+                instance.name,
+                source_str,
+            )
+        return ("global-variable", handle, "read", instance.global_vi, instance.name)
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
@@ -2496,6 +2645,19 @@ def _parsed_item_signature(
         if item.is_write:
             return ("local-variable", item.handle, "write", item.source)
         return ("local-variable", item.handle, "read")
+    if isinstance(item, ParsedGlobalVariable):
+        # Matches ``_module_instance_signature``'s ``NetlistInstanceKind.
+        # GLOBAL_VARIABLE`` branch exactly.
+        if item.is_write:
+            return (
+                "global-variable",
+                item.handle,
+                "write",
+                item.global_vi,
+                item.control,
+                item.source,
+            )
+        return ("global-variable", item.handle, "read", item.global_vi, item.control)
     if isinstance(item, ParsedFeedback):
         return ("feedback", item.net, item.attribute, item.init, item.each)
     if isinstance(item, ParsedScope):

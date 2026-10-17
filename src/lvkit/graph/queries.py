@@ -27,6 +27,7 @@ from .models import (
     ClassHierarchyInfo,
     Constant,
     ConstantNode,
+    GlobalVariableNode,
     Label,
     LabelNode,
     MethodAccessInfo,
@@ -384,6 +385,33 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
+
+    def global_vi_key(self, node: GlobalVariableNode) -> str | None:
+        """The dependency key (the Global VI's file path) a global variable node
+        refers to, found among the calling VI's own dependencies. ``None`` when
+        no single dependency of that VI carries the node's recorded name."""
+        return self._dep_key_for_ref(node.global_vi.qualified_name, node.vi_path)
+
+    def global_vi_control(
+        self, node: GlobalVariableNode
+    ) -> tuple[str, FPTerminal] | None:
+        """The loaded Global VI a global variable node refers to (its dependency
+        key) and that VI's control at the node's control index -- its own
+        front-panel control order, the position the node records. ``None`` when
+        the Global VI is not loaded or has no control at that position."""
+        key = self.global_vi_key(node)
+        if key is None or key not in self._graph:
+            return None
+        vi_node = self._graph.nodes[key].get("node")
+        if not isinstance(vi_node, VINode) or vi_node.front_panel is None:
+            return None
+        uid = vi_node.front_panel.control_uid_at_param_idx(node.param_idx)
+        if uid is None:
+            return None
+        for term in vi_node.terminals:
+            if isinstance(term, FPTerminal) and term.fp_dco_uid == uid:
+                return key, term
+        return None
 
     def _dependency_file_path(self, node_key: str) -> Path | None:
         """On-disk path of one dependency — whether it was found and loaded or

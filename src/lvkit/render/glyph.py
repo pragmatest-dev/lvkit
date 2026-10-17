@@ -56,6 +56,7 @@ from .glyphs.nodes.event_data import EventDataGlyph
 from .glyphs.nodes.event_reg_node import EventRegNodeGlyph
 from .glyphs.nodes.feedback_node import FeedbackNodeGlyph, InitCell
 from .glyphs.nodes.formula_node import FormulaNodeGlyph
+from .glyphs.nodes.global_variable import GlobalVariableGlyph
 from .glyphs.nodes.icon_image import IconImageGlyph
 from .glyphs.nodes.in_place_element import InPlaceElementGlyph
 from .glyphs.nodes.inline_svg import InlineSvgGlyph
@@ -97,6 +98,7 @@ __all__ = [
     "FeedbackNodeGlyph",
     "InitCell",
     "FormulaNodeGlyph",
+    "GlobalVariableGlyph",
     "Glyph",
     "IconImageGlyph",
     "InPlaceElementGlyph",

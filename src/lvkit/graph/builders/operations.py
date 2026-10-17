@@ -19,6 +19,8 @@ from lvkit.parser.node_types import (
     EventRegNode,
     InvokeNode,
     PropertyNode,
+    SharedVariableAccess,
+    SharedVariableTerminal,
     SubVINode,
     XNodeNode,
 )
@@ -28,8 +30,11 @@ from lvkit.parser.node_types import (
 from lvkit.parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
+from lvkit.parser.node_types import (
+    SharedVariableNode as ParserSharedVariableNode,
+)
 
-from ..models import AnyGraphNode, VINode
+from ..models import AnyGraphNode, SharedVariableNode, VINode
 from ..models import FormulaNode as GraphFormulaNode
 from ..models import PrimitiveNode as GraphPrimitiveNode
 from .context import GraphBuildContext
@@ -84,6 +89,47 @@ class FormulaBuildHandler(NodeBuildHandler):
             terminals=node_terminals,
             description=description,
             script=node.script,
+        )
+
+
+class SharedVariableBuildHandler(NodeBuildHandler):
+    """A Shared Variable node: each terminal is placed at its ``terminal_ID`` and
+    named when the ID is a known one (``SharedVariableTerminal``); a terminal
+    with another ID keeps only its number."""
+
+    def build(self, node, node_name, q_node_uid, node_terminals, description, ctx):
+        if not isinstance(node, ParserSharedVariableNode):
+            raise TypeError(
+                f"sharedVariable node {q_node_uid!r} is {type(node).__name__}, "
+                "expected ParserSharedVariableNode (the variable name would be lost)"
+            )
+        for raw_uid, terminal_id in node.terminal_ids.items():
+            terminal = next(
+                (t for t in node_terminals if t.id == ctx.qid(raw_uid)), None
+            )
+            if terminal is None:
+                continue
+            terminal.index = terminal_id
+            try:
+                terminal.name = SharedVariableTerminal(terminal_id).label
+            except ValueError:
+                pass  # an ID that is not confirmed keeps its number
+            terminal.display_name = terminal.name
+            ctx.term_lookup[raw_uid] = ctx.term_lookup[raw_uid].model_copy(
+                update={"index": terminal_id, "name": terminal.name}
+            )
+        node_terminals.sort(key=lambda t: t.index)
+        return SharedVariableNode(
+            id=q_node_uid,
+            vi_path=ctx.vi_name,
+            name=node.variable_name,
+            label=node.label,
+            caption=node.caption,
+            node_type=node.node_type,
+            terminals=node_terminals,
+            description=description,
+            variable_name=node.variable_name,
+            is_write=node.access is SharedVariableAccess.WRITE,
         )
 
 
@@ -190,6 +236,7 @@ _subvi_handler = SubVIBuildHandler()
 
 NODE_BUILD_HANDLERS: dict[str, NodeBuildHandler] = {
     "fBox": FormulaBuildHandler(),
+    "sharedVariable": SharedVariableBuildHandler(),
     **{nt: _subvi_handler for nt in SUBVI_CALL_NODE_TYPES},
 }
 DEFAULT_NODE_BUILD_HANDLER: NodeBuildHandler = PrimitiveBuildHandler()

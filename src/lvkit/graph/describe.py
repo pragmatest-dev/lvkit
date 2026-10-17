@@ -26,6 +26,7 @@ from .models import (
     DisableStructureNode,
     EventStructureNode,
     ExecutionProps,
+    GlobalVariableNode,
     InPlaceNode,
     InstanceProps,
     KindProps,
@@ -33,6 +34,7 @@ from .models import (
     LoopNode,
     PrimitiveNode,
     SequenceNode,
+    SharedVariableNode,
     ToolbarProps,
     VIContext,
     VINode,
@@ -159,8 +161,11 @@ def describe_vi(
     # pane detail above; it never swaps this section out.
     top_nodes = graph.top_level_nodes(vi_name)
     subvi_names = _collect_subvi_names(graph, top_nodes, vi_name)
-    if subvi_names:
+    global_vi_names = _collect_global_vi_names(graph, top_nodes, vi_name)
+    if subvi_names or global_vi_names:
         lines.append("## Dependencies")
+        for name in sorted(global_vi_names):
+            lines.append(f"  {name} (Global VI)")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
             ports = _subvi_ports(graph, name)
@@ -300,6 +305,25 @@ def _collect_subvi_names(
             names.add(node.qualified_name)
         names.update(
             _collect_subvi_names(graph, graph.child_nodes(node.id, vi_name), vi_name)
+        )
+    return names
+
+
+def _collect_global_vi_names(
+    graph: InMemoryVIGraph,
+    nodes: list[AnyGraphNode],
+    vi_name: str,
+) -> set[str]:
+    """The qualified names of the Global VIs the nodes (and everything nested in
+    them) read or write through global variable nodes."""
+    names: set[str] = set()
+    for node in nodes:
+        if isinstance(node, GlobalVariableNode):
+            names.add(node.global_vi.qualified_name)
+        names.update(
+            _collect_global_vi_names(
+                graph, graph.child_nodes(node.id, vi_name), vi_name
+            )
         )
     return names
 
@@ -943,6 +967,15 @@ def _describe_single_op(
             if node.prim_id is not None:
                 return f"{name} [prim {node.prim_id}]"
             return name
+        case GlobalVariableNode():
+            access = "write" if node.is_write else "read"
+            return (
+                f"Global Variable `{node.control_name}` "
+                f"({node.global_vi.qualified_name}) {access}"
+            )
+        case SharedVariableNode():
+            access = "write" if node.is_write else "read"
+            return f"Shared Variable `{node.variable_name}` ({access})"
         case CaseStructureNode():
             return f"Case Structure ({len(node.frames)} frames)"
         case LoopNode():

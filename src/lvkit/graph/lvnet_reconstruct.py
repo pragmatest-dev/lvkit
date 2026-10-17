@@ -112,6 +112,7 @@ from .lvnet_parse import (
     ParsedConstant,
     ParsedDependency,
     ParsedFeedback,
+    ParsedGlobalVariable,
     ParsedLocalVariable,
     ParsedLvnet,
     ParsedNode,
@@ -124,6 +125,7 @@ from .lvnet_parse import (
     _split_top_level_commas,
     _unescape_lvnet_string,
     _unquote_name_token,
+    split_shared_variable_component,
 )
 from .netlist import (
     BoundaryOutput,
@@ -232,6 +234,10 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
     """
     if kind in ("function", "in-place-element", "formula-node"):
         return component
+    if kind == NetlistInstanceKind.SHARED_VARIABLE.value:
+        # The component is ``<variable name> : <read|write>``; the variable name
+        # is the instance's name, exactly (``_lvnet_component`` renders it).
+        return split_shared_variable_component(component)[0]
     base, _ = _handle_base_and_suffix(handle)
     return base
 
@@ -259,6 +265,13 @@ def _index_handles(
             # enough).
             base, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=False)
+        elif isinstance(item, ParsedGlobalVariable):
+            # The handle's base is a despaced form of the control's name, so
+            # the name comes from the line's own ``<Global VI>::<control>``.
+            _, uid = _handle_base_and_suffix(item.handle)
+            registry[item.handle] = _HandleTarget(
+                name=item.control, uid=uid, is_constant=False
+            )
         elif isinstance(item, ParsedConstant):
             base, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=True)
@@ -657,6 +670,58 @@ def _reconstruct_local_variable(
     )
 
 
+def _reconstruct_global_variable(
+    item: ParsedGlobalVariable, registry: dict[str, _HandleTarget]
+) -> NetlistInstance:
+    """The reverse of ``_render_lvnet_global_variable``: a ``read`` becomes a
+    SOURCE (one output, no inputs), a ``write`` a SINK (one input driven by the
+    parsed ``source``, no outputs) -- exactly as ``_reconstruct_local_variable``,
+    plus the Global VI and control the line names. The terminal type is the
+    honest ``"?"`` (not in the text)."""
+    target = registry[item.handle]
+    if item.is_write:
+        assert item.source is not None
+        source = _parse_source_token(item.source, registry)
+        net = source if isinstance(source, NetRef) else None
+        default = source if isinstance(source, DefaultValue) else None
+        binding = NetlistTerminalBinding(
+            terminal=item.control,
+            type="?",
+            net=net,
+            default=default,
+            inverted=False,
+            pane_rank=0,
+            lv_type=None,
+        )
+        return NetlistInstance(
+            uid=target.uid,
+            name=item.control,
+            occurrence=None,
+            inputs=[binding],
+            outputs=[],
+            kind=NetlistInstanceKind.GLOBAL_VARIABLE,
+            global_vi=item.global_vi,
+            access="write",
+        )
+    ref = NetRef(
+        node=item.control,
+        terminal=item.control,
+        occurrence=None,
+        bare=f"{item.handle}{_LVNET_TERMINAL_SEP}{item.control}",
+        producer_uid=target.uid,
+    )
+    return NetlistInstance(
+        uid=target.uid,
+        name=item.control,
+        occurrence=None,
+        inputs=[],
+        outputs=[NetlistOutput(net=ref, type="?", pane_rank=0, lv_type=None)],
+        kind=NetlistInstanceKind.GLOBAL_VARIABLE,
+        global_vi=item.global_vi,
+        access="read",
+    )
+
+
 def _reconstruct_instance(
     item: ParsedNode,
     registry: dict[str, _HandleTarget],
@@ -673,7 +738,10 @@ def _reconstruct_instance(
     qualified_name: str | None = None
     object_name: str | None = None
     method_name: str | None = None
-    if kind_enum is NetlistInstanceKind.SUBVI:
+    access: str | None = None
+    if kind_enum is NetlistInstanceKind.SHARED_VARIABLE:
+        access = split_shared_variable_component(item.component)[1]
+    elif kind_enum is NetlistInstanceKind.SUBVI:
         qualified_name = item.component
     elif kind_enum is NetlistInstanceKind.PROPERTY_NODE:
         object_name = item.component
@@ -739,6 +807,7 @@ def _reconstruct_instance(
         qualified_name=qualified_name,
         object_name=object_name,
         method_name=method_name,
+        access=access,
     )
 
 
@@ -1010,6 +1079,8 @@ def _reconstruct_items(
             )
         elif isinstance(item, ParsedLocalVariable):
             out.append(_reconstruct_local_variable(item, registry))
+        elif isinstance(item, ParsedGlobalVariable):
+            out.append(_reconstruct_global_variable(item, registry))
         elif isinstance(item, ParsedConstant):
             out.append(_reconstruct_constant(item, registry))
         elif isinstance(item, ParsedFeedback):

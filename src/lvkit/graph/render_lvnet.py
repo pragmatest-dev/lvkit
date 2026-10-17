@@ -956,6 +956,11 @@ def _lvnet_component(instance: NetlistInstance) -> str:
         return instance.object_name or "?"
     if instance.kind == NetlistInstanceKind.INVOKE_NODE:
         return f"{instance.object_name or '?'}.{instance.method_name or '?'}"
+    if instance.kind == NetlistInstanceKind.SHARED_VARIABLE:
+        return (
+            f"{lvnet_name_token(instance.name)}{_LVNET_TYPE_SEP}"
+            f"{instance.access or '?'}"
+        )
     return instance.name
 
 
@@ -995,6 +1000,9 @@ def _render_lvnet_instance(
     if instance.kind == NetlistInstanceKind.LOCAL_VARIABLE:
         _render_lvnet_local_variable(instance, indent, lines, handles)
         return
+    if instance.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
+        _render_lvnet_global_variable(instance, indent, lines, handles)
+        return
 
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
@@ -1028,6 +1036,56 @@ def _render_lvnet_instance(
     trailing_todo = _OPEN_INSTANCE_TRAILING_TODO.get(instance.kind)
     if trailing_todo is not None:
         lines.append(f"{indent + _LVNET_INDENT}# TODO(lvnet): {trailing_todo}")
+
+
+def _lvnet_global_part_token(name: str, *, may_hold_separator: bool) -> str:
+    """One half of a ``<Global VI>::<control>`` target: the NAME token
+    (``lvnet_name_token``), quoted also when it opens with a quote (it would read
+    back as a quoted token) or -- for the Global VI half, which ends at the first
+    ``::`` -- when it holds the ``::`` separator itself."""
+    if name.startswith('"') or (may_hold_separator and _LVNET_TERMINAL_SEP in name):
+        return lvnet_literal_token(name)
+    return lvnet_name_token(name)
+
+
+def _lvnet_global_target(global_vi: str, control: str) -> str:
+    """``<Global VI>::<control>`` -- the control of a Global VI a global
+    variable node reads or writes (the name-safety rule of §4 applies to both
+    halves)."""
+    return (
+        f"{_lvnet_global_part_token(global_vi, may_hold_separator=True)}"
+        f"{_LVNET_TERMINAL_SEP}"
+        f"{_lvnet_global_part_token(control, may_hold_separator=False)}"
+    )
+
+
+def _render_lvnet_global_variable(
+    instance: NetlistInstance,
+    indent: str,
+    lines: list[str],
+    handles: _LvnetHandles,
+) -> None:
+    """``global-variable <handle> : read <Global VI>::<control>`` / ``global-
+    variable <handle> : write <Global VI>::<control> = <source>`` (§7) -- the
+    same read/write tap shape as a local variable, naming the control of the
+    Global VI it taps. Like a local variable, a read is a SOURCE
+    (``<handle>::<control>`` references its value) and a write a SINK; the
+    Global VI also appears under ``uses :``.
+    """
+    assert instance.global_vi is not None
+    handle = handles.by_uid[instance.uid]
+    target = _lvnet_global_target(instance.global_vi, instance.name)
+    head = f"{indent}{instance.kind.value} {handle}{_LVNET_TYPE_SEP}"
+    if instance.access == "write":
+        binding = instance.inputs[0]
+        if binding.net is not None:
+            source_str = _render_lvnet_source(binding.net, handles)
+        else:
+            assert binding.default is not None
+            source_str = _lvnet_default_token(binding.default)
+        lines.append(f"{head}write {target}{_LVNET_DRIVER_OP}{source_str}")
+        return
+    lines.append(f"{head}read {target}")
 
 
 def _render_lvnet_local_variable(

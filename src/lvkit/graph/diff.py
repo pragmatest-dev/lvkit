@@ -29,9 +29,11 @@ from .models import (
     Constant,
     DisableStructureNode,
     EventStructureNode,
+    GlobalVariableNode,
     InPlaceNode,
     LoopNode,
     SequenceNode,
+    SharedVariableNode,
     VIProperties,
     Wire,
     WireEnd,
@@ -261,6 +263,29 @@ def _struct_label(op: AnyGraphNode) -> str:
     return get_display_name(op.node_type) if op.node_type else "structure"
 
 
+def _global_variable_identity(op: GlobalVariableNode) -> str:
+    """What a global variable node IS for a diff: the Global VI, the control of
+    it, and whether it reads or writes it."""
+    access = "write" if op.is_write else "read"
+    return f"{op.global_vi.qualified_name}::{op.control_name} {access}"
+
+
+def _shared_variable_identity(op: SharedVariableNode) -> str:
+    """What a Shared Variable node IS for a diff: the variable and whether it
+    reads or writes it."""
+    return f"{op.variable_name} {'write' if op.is_write else 'read'}"
+
+
+def _node_identity_word(op: AnyGraphNode) -> str:
+    """The word that, with the node's name, says which kind of node ``op`` is
+    when matching a node across versions."""
+    if isinstance(op, GlobalVariableNode):
+        return _global_variable_identity(op)
+    if isinstance(op, SharedVariableNode):
+        return _shared_variable_identity(op)
+    return get_display_name(op.node_type) if op.node_type else ""
+
+
 def _elem_label(op: AnyGraphNode, kind: str) -> str:
     """Display label — structures name their kind, a node/SubVI uses its
     ``display_name`` (class-qualified when the op carries an ownership chain, so
@@ -441,8 +466,7 @@ def _match_elements(
         op = entry.op if entry is not None else None
         if op is None:
             return ("?", "?")
-        node_word = get_display_name(op.node_type) if op.node_type else ""
-        return (op.name or "", node_word)
+        return (op.name or "", _node_identity_word(op))
 
     def tok(v: str, base_side: bool) -> tuple:
         if v in common:
@@ -2169,6 +2193,52 @@ def _node_terminal_changes(
     return changes, changed_terms
 
 
+def _variable_node_changes(
+    a: dict[str, _ElemInfo],
+    b: dict[str, _ElemInfo],
+    exact: dict[str, str],
+    fuzzy: dict[str, str],
+    layout_a: Layout | None,
+    layout_b: Layout | None,
+) -> list[ElementChange]:
+    """A MATCHED global variable node that now reads or writes another control,
+    of another Global VI, or in the other direction -- and a matched Shared
+    Variable node that now reads or writes another variable or the other way --
+    reported as ONE node ``modified`` carrying ``<before> -> <after>``."""
+    changes: list[ElementChange] = []
+    for ea, eb in _matched_node_pairs(a, b, exact, fuzzy):
+        if isinstance(ea.op, GlobalVariableNode) and isinstance(
+            eb.op, GlobalVariableNode
+        ):
+            before = _global_variable_identity(ea.op)
+            after = _global_variable_identity(eb.op)
+        elif isinstance(ea.op, SharedVariableNode) and isinstance(
+            eb.op, SharedVariableNode
+        ):
+            before = _shared_variable_identity(ea.op)
+            after = _shared_variable_identity(eb.op)
+        else:
+            continue
+        if before == after:
+            continue
+        uid_h, uid_b = _uid_of(eb.op.id), _uid_of(ea.op.id)
+        changes.append(
+            ElementChange(
+                uid_h,
+                eb.op.id,
+                "node",
+                "modified",
+                _elem_label(eb.op, "node"),
+                _node_bounds(layout_b, uid_h),
+                bounds_before=_node_bounds(layout_a, uid_b),
+                detail=_transition(before, after),
+                container_uid=eb.container_uid,
+                frame_path=eb.frame_path,
+            )
+        )
+    return changes
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph,
     graph_b: InMemoryVIGraph,
@@ -2313,6 +2383,7 @@ def diff_uid(
         layout_b,
     )
     cmap.changes.extend(node_term_changes)
+    cmap.changes.extend(_variable_node_changes(a, b, exact, fuzzy, layout_a, layout_b))
 
     # Sub-node terminal uids the wire diff can't infer from node membership
     # (they hang off a node that IS in ``unchanged`` — an FP terminal off the VI

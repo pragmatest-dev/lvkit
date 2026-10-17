@@ -273,6 +273,7 @@ class LoadingMixin:
             type_map: dict[int, LVType] | None = None,
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
+            iuse_refs: dict[str, ParsedDependencyRef] | None = None,
         ) -> None: ...
         def resolve_dispatch_qnames(self) -> None: ...
         def _dep_key_for_ref(
@@ -1505,6 +1506,7 @@ class LoadingMixin:
                 type_map,
                 iuse_to_qname=metadata.iuse_to_qualified_name,
                 iuse_to_qpath=iuse_to_qpath,
+                iuse_refs=metadata.iuse_refs,
             )
 
         return vi_key

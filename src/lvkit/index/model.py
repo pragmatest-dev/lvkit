@@ -85,6 +85,7 @@ class NodeKind(str, Enum):
     PRIMITIVE = "primitive"  # any primitive, incl. property/invoke nodes
     CONSTANT = "constant"
     LOCAL_VARIABLE = "local_variable"
+    GLOBAL_VARIABLE = "global_variable"  # reads/writes a control of a Global VI
     FORMULA = "formula"
     CASE = "case"
     WHILE = "while"
@@ -270,7 +271,9 @@ class NodeFact:
     call ``qualified_name`` is the callee's qualified name and ``callee_path`` is
     its merge-resolved on-disk path (``None`` at projection time, backfilled at
     merge via ``_resolve_callee``; ``None`` when the callee is external or an
-    ambiguous bare name that the resolver refuses to guess). ``object_name`` /
+    ambiguous bare name that the resolver refuses to guess). A global variable
+    node carries the Global VI the same way (``qualified_name`` /
+    ``callee_path``) and the control it reads or writes as ``name``. ``object_name`` /
     ``method_name`` are the property/invoke target class + invoke method.
     ``parent_uid`` is the containing structure's uid — STRUCTURAL containment
     only (``graph.models.GraphNode.parent``), never a wire/net — and ``frame`` is

@@ -14,12 +14,19 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from lvkit.parser.node_types import CtlRefConstNode, GRefNode, StatVIRefNode
 
-from ..models import ConstantNode, LocalVariableNode, WireEnd
+from ..models import (
+    ConstantNode,
+    GlobalVariableNode,
+    GlobalVIRef,
+    LocalVariableNode,
+    WireEnd,
+)
 from .context import GraphBuildContext
 
 logger = logging.getLogger(__name__)
@@ -141,9 +148,30 @@ class CtlRefConstHandler(RefBuildHandler):
         return True
 
 
-class GRefHandler(RefBuildHandler):
+@dataclass(frozen=True)
+class _VariableTerminal:
+    """The one terminal of a local or global variable node: its heap uid (None
+    when the node has no terminal element), whether it writes the control (an
+    input terminal) and the type its wire carries."""
+
+    term_uid: str | None
+    is_write: bool
+    lv_type: LVType | None
+
+
+def _variable_terminal(node: GRefNode, ctx: GraphBuildContext) -> _VariableTerminal:
+    for term_uid, t_info in ctx.bd.terminal_info.items():
+        if t_info.parent_uid == node.uid:
+            lv_type = (
+                ctx.enrich_type(t_info.parsed_type) if t_info.parsed_type else None
+            )
+            return _VariableTerminal(term_uid, not t_info.is_output, lv_type)
+    return _VariableTerminal(None, False, None)
+
+
+class LocalVariableHandler(RefBuildHandler):
     def handle(self, node, q_node_uid, ctx):
-        if not isinstance(node, GRefNode):
+        if not isinstance(node, GRefNode) or node.is_global_variable:
             return False
         fp = ctx.fp
         fp_wire_end = (
@@ -167,19 +195,10 @@ class GRefHandler(RefBuildHandler):
                 node.param_idx,
             )
 
-        gref_term_uid: str | None = None
-        gref_t_info = None
-        for term_uid, t_info in ctx.bd.terminal_info.items():
-            if t_info.parent_uid == node.uid:
-                gref_term_uid = term_uid
-                gref_t_info = t_info
-                break
-
-        is_write = bool(gref_t_info) and not gref_t_info.is_output
+        var_term = _variable_terminal(node, ctx)
+        gref_term_uid = var_term.term_uid
+        is_write = var_term.is_write
         direction = "input" if is_write else "output"
-        lv_type = None
-        if gref_t_info and gref_t_info.parsed_type:
-            lv_type = ctx.enrich_type(gref_t_info.parsed_type)
 
         q_gref_term_uid = ctx.qid(gref_term_uid) if gref_term_uid else q_node_uid
         gref_terminal = Terminal(
@@ -187,7 +206,7 @@ class GRefHandler(RefBuildHandler):
             index=0,
             direction=direction,
             name=control_name,
-            lv_type=lv_type,
+            lv_type=var_term.lv_type,
         )
         local_var_node = LocalVariableNode(
             id=q_node_uid,
@@ -213,8 +232,7 @@ class GRefHandler(RefBuildHandler):
             )
             ctx.term_lookup[gref_term_uid] = my_wire_end
             # Synthetic (non-drawn) dataflow edge to the referenced control,
-            # direction-matched to read vs write (write not yet consumed by
-            # codegen — see history).
+            # direction-matched to read vs write.
             if fp_wire_end is not None:
                 if is_write:
                     ctx.graph.add_edge(
@@ -231,6 +249,139 @@ class GRefHandler(RefBuildHandler):
                         dest=my_wire_end,
                     )
         return True
+
+
+class GlobalVariableResolutionError(ValueError):
+    """A global variable node whose Global VI or control cannot be read from the
+    calling VI's own records."""
+
+
+def _connector_field(
+    node: GRefNode, ctx: GraphBuildContext
+) -> tuple[int, ClusterField]:
+    """The control index and the field of the node's connector cluster (the
+    Global VI's controls, as this VI last saw them) that ``param_idx`` selects."""
+    where = f"VI {ctx.vi_name}: global variable node {node.uid}"
+    assert node.connector_tm_type_id is not None
+    cluster = ctx.type_map.get(node.connector_tm_type_id)
+    if cluster is None or cluster.kind != LVTypeKind.CLUSTER or not cluster.fields:
+        raise GlobalVariableResolutionError(
+            f"{where}: connector type TypeID({node.connector_tm_type_id}) is not "
+            "a cluster of the Global VI's controls"
+        )
+    if node.param_idx is None or not 0 <= node.param_idx < len(cluster.fields):
+        raise GlobalVariableResolutionError(
+            f"{where}: control index {node.param_idx} is outside the "
+            f"{len(cluster.fields)} controls its connector type lists"
+        )
+    return node.param_idx, cluster.fields[node.param_idx]
+
+
+def _global_vi_ref(node: GRefNode, ctx: GraphBuildContext) -> GlobalVIRef:
+    """The Global VI the calling VI's block-diagram link table names for ``node``."""
+    ref = ctx.iuse_refs.get(node.uid)
+    if ref is None or ref.qualified_name is None:
+        raise GlobalVariableResolutionError(
+            f"VI {ctx.vi_name}: global variable node {node.uid} has no record in "
+            "the block-diagram link table, so its Global VI is unknown"
+        )
+    return GlobalVIRef(
+        qualified_name=ref.qualified_name, path_tokens=tuple(ref.path_tokens)
+    )
+
+
+def _check_global_control(
+    ctx: GraphBuildContext, ref: GlobalVIRef, param_idx: int, control_name: str
+) -> None:
+    """Compare the control the node records with the control the loaded Global VI
+    has at the same position of its front-panel control list, and report a
+    mismatch: the Global VI changed since this VI last saw it."""
+    key = ctx.mixin._dep_key_for_ref(ref.qualified_name, ctx.vi_name)
+    if key is None or key not in ctx.graph:
+        return
+    global_node = ctx.graph.nodes[key].get("node")
+    fp = getattr(global_node, "front_panel", None)
+    if fp is None:
+        return
+    uid = fp.control_uid_at_param_idx(param_idx)
+    if uid is None:
+        logger.warning(
+            "VI %s: global variable %s::%s (control %d) — %s has no control at "
+            "that position; the Global VI changed since this VI was saved",
+            ctx.vi_name,
+            ref.qualified_name,
+            control_name,
+            param_idx,
+            ref.qualified_name,
+        )
+        return
+    actual = next((c.name for c in fp.controls if c.uid == uid), None)
+    if actual != control_name:
+        logger.warning(
+            "VI %s: global variable %s::%s (control %d) — %s has control %r at "
+            "that position; the Global VI changed since this VI was saved",
+            ctx.vi_name,
+            ref.qualified_name,
+            control_name,
+            param_idx,
+            ref.qualified_name,
+            actual,
+        )
+
+
+class GlobalVariableHandler(RefBuildHandler):
+    def handle(self, node, q_node_uid, ctx):
+        if not isinstance(node, GRefNode) or not node.is_global_variable:
+            return False
+        param_idx, field = _connector_field(node, ctx)
+        global_vi = _global_vi_ref(node, ctx)
+        _check_global_control(ctx, global_vi, param_idx, field.name)
+
+        var_term = _variable_terminal(node, ctx)
+        direction = "input" if var_term.is_write else "output"
+        q_term_uid = ctx.qid(var_term.term_uid) if var_term.term_uid else q_node_uid
+        global_node = GlobalVariableNode(
+            id=q_node_uid,
+            vi_path=ctx.vi_name,
+            name=field.name,
+            label=node.label,
+            caption=node.caption,
+            node_type=node.node_type,
+            terminals=[
+                Terminal(
+                    id=q_term_uid,
+                    index=0,
+                    direction=direction,
+                    name=field.name,
+                    lv_type=var_term.lv_type,
+                )
+            ],
+            global_vi=global_vi,
+            control_name=field.name,
+            param_idx=param_idx,
+            lv_type=field.type,
+            is_write=var_term.is_write,
+        )
+        ctx.graph.add_node(q_node_uid, node=global_node)
+        ctx.vi_node_uids.add(q_node_uid)
+        if var_term.term_uid:
+            ctx.term_lookup[var_term.term_uid] = WireEnd(
+                terminal_id=q_term_uid,
+                node_id=q_node_uid,
+                index=0,
+                name=field.name,
+            )
+        return True
+
+
+class GRefHandler(RefBuildHandler):
+    """A ``gRef`` node is a local or a global variable; each handler takes the
+    nodes of its own kind."""
+
+    _HANDLERS = (GlobalVariableHandler(), LocalVariableHandler())
+
+    def handle(self, node, q_node_uid, ctx):
+        return any(h.handle(node, q_node_uid, ctx) for h in self._HANDLERS)
 
 
 class StatVIRefHandler(RefBuildHandler):

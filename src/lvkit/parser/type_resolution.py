@@ -33,6 +33,13 @@ def parse_type_map(xml_path: Path | str) -> dict[int, str]:
     return {k: v.underlying_type or v.kind for k, v in rich_map.items()}
 
 
+def type_id_number(type_ref: str | None) -> int | None:
+    """The N of a ``TypeID(N)`` reference; None when ``type_ref`` is absent or
+    not a ``TypeID(N)`` reference."""
+    match = re.match(r"\s*TypeID\((\d+)\)", type_ref or "")
+    return int(match.group(1)) if match else None
+
+
 def resolve_type(type_ref: str, type_map: dict[int, str]) -> str:
     """Resolve TypeID(N) reference to type name.
 

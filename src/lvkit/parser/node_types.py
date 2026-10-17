@@ -12,13 +12,17 @@ import re
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum, IntEnum
 from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
+from ..text_encoding import decode_labview_text
+from .flags import is_output_terminal
 from .layout import _rect
 from .models import ParsedNode
 from .nodes.base import extract_label
-from .utils import clean_labview_string, decode_hex_ascii, extract_caption
+from .type_resolution import type_id_number
+from .utils import clean_labview_string, decode_hex_ascii, extract_caption, safe_int
 
 # =============================================================================
 # Node Subclasses
@@ -116,7 +120,7 @@ class CtlRefConstNode(ParsedNode):
 
 @dataclass
 class GRefNode(ParsedNode):
-    """Local Variable reference (class="gRef").
+    """Local or global variable reference (class="gRef").
 
     Reads (or writes) the value of an FP control/indicator by its dcoIndex
     (its position in the FP heap's ``<ddoList>``, see
@@ -124,9 +128,71 @@ class GRefNode(ParsedNode):
     without a ``<paramIdx>`` element means index 0 (the heap omits default
     values). param_idx None: the gRef carried no gRefDCO at all —
     unresolvable, deferred.
+
+    ``connector_tm_type_id`` is the TypeID of the node's ``<connectorTM>``: a
+    cluster of the referenced VI's front-panel controls, in that VI's
+    ``<ddoList>`` order, so ``param_idx`` indexes that cluster's fields. It is
+    present only on a global variable node -- the control belongs to a Global
+    VI, not to the VI holding the node -- and None on a local variable node. A
+    ``<connectorTM>`` of ``TypeID(0)`` is the heap's "no type", so it also
+    reads as None.
     """
 
     param_idx: int | None = None
+    connector_tm_type_id: int | None = None
+
+    @property
+    def is_global_variable(self) -> bool:
+        return self.connector_tm_type_id is not None
+
+
+class SharedVariableAccess(str, Enum):
+    """Whether a Shared Variable node reads or writes the variable."""
+
+    READ = "read"
+    WRITE = "write"
+
+
+class SharedVariableTerminal(IntEnum):
+    """The ``terminal_ID`` of a Shared Variable node's terminals that are known:
+    the value (an output on a read node, an input on a write node), error in and
+    error out. NI's public page for the Shared Variable node lists three more
+    terminals -- ``ms timeout (0)`` (read only), ``timed out?`` (read only) and
+    ``timestamp`` (read only) -- whose ``terminal_ID`` values are not confirmed,
+    so a terminal with any other ID keeps only its number."""
+
+    VARIABLE = 0
+    ERROR_IN = 1
+    ERROR_OUT = 2
+
+    @property
+    def label(self) -> str:
+        return _SHARED_VARIABLE_TERMINAL_LABELS[self]
+
+
+_SHARED_VARIABLE_TERMINAL_LABELS: dict[SharedVariableTerminal, str] = {
+    SharedVariableTerminal.VARIABLE: "Variable",
+    SharedVariableTerminal.ERROR_IN: "error in (no error)",
+    SharedVariableTerminal.ERROR_OUT: "error out",
+}
+
+
+@dataclass
+class SharedVariableNode(ParsedNode):
+    """Shared Variable node (class="sharedVariable").
+
+    ``variable_name`` is the variable's name, from the node's ``<name4>`` (hex
+    text, decoded with the VI's LabVIEW text encoding). The node's label text is
+    the project path of the variable, library included; it is not read here.
+    ``access`` is whether the node reads or writes the variable: the value
+    terminal (``terminal_ID`` 0) is an output on a read node and an input on a
+    write node. ``terminal_ids`` maps each terminal's heap uid to its
+    ``terminal_ID`` (absent in the heap for 0, as the heap omits a default).
+    """
+
+    variable_name: str = ""
+    access: SharedVariableAccess = SharedVariableAccess.READ
+    terminal_ids: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -1486,11 +1552,13 @@ class CtlRefConstHandler(NodeTypeHandler):
 
 
 class GRefHandler(NodeTypeHandler):
-    """Handler for Local Variable references (class="gRef").
+    """Handler for local and global variable references (class="gRef").
 
     The single termList entry's <dco class="gRefDCO"> carries <paramIdx>,
     the dcoIndex of the referenced FP control (its position in the FP heap's
-    <ddoList>). The heap omits the element when the index is 0.
+    <ddoList>). The heap omits the element when the index is 0. A global
+    variable node also carries <connectorTM>, the TypeID of the cluster of the
+    Global VI's controls that <paramIdx> indexes.
     """
 
     xml_class = "gRef"
@@ -1513,7 +1581,57 @@ class GRefHandler(NodeTypeHandler):
                         if idx_elem is not None and idx_elem.text
                         else 0
                     )
-        return GRefNode(**common, param_idx=param_idx)
+        connector_tm_type_id = type_id_number(elem.findtext("connectorTM"))
+        return GRefNode(
+            **common,
+            param_idx=param_idx,
+            connector_tm_type_id=connector_tm_type_id or None,
+        )
+
+
+class SharedVariableHandler(NodeTypeHandler):
+    """Handler for Shared Variable nodes (class="sharedVariable")."""
+
+    xml_class = "sharedVariable"
+    display_name = "Shared Variable"
+
+    def parse(self, elem: ET.Element) -> SharedVariableNode:
+        common = self._extract_common(elem)
+        name_hex = (elem.findtext("name4") or "").strip()
+        if not name_hex:
+            raise ValueError(
+                f"sharedVariable {common['uid']}: no <name4>, so the variable "
+                "name is unknown"
+            )
+        variable_name = decode_labview_text(bytes.fromhex(name_hex))
+
+        terminal_ids: dict[str, int] = {}
+        value_is_output: bool | None = None
+        for term in elem.findall("termList/SL__arrayElement"):
+            term_uid = term.get("uid")
+            dco = term.find("dco")
+            if term_uid is None or dco is None:
+                continue
+            id_text = dco.findtext("terminal_ID")
+            terminal_id = int(id_text, 16) if id_text and id_text.strip() else 0
+            terminal_ids[term_uid] = terminal_id
+            if terminal_id == SharedVariableTerminal.VARIABLE:
+                value_is_output = is_output_terminal(safe_int(dco.find("objFlags")))
+        if value_is_output is None:
+            raise ValueError(
+                f"sharedVariable {common['uid']}: no value terminal "
+                "(terminal_ID 0), so it is neither a read nor a write"
+            )
+        return SharedVariableNode(
+            **common,
+            variable_name=variable_name,
+            access=(
+                SharedVariableAccess.READ
+                if value_is_output
+                else SharedVariableAccess.WRITE
+            ),
+            terminal_ids=terminal_ids,
+        )
 
 
 class StatVIRefHandler(NodeTypeHandler):
@@ -1753,6 +1871,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _EventDataNodeHandler(),
     CtlRefConstHandler(),
     GRefHandler(),
+    SharedVariableHandler(),
     StatVIRefHandler(),
     FormulaNodeHandler(),
     DecomposeClusterHandler(),

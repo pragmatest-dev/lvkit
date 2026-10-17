@@ -17,10 +17,12 @@ from lvkit.graph.models import (
     ConstantNode,
     EventStructureNode,
     FormulaNode,
+    GlobalVariableNode,
     InPlaceNode,
     LoopNode,
     PrimitiveNode,
     SequenceNode,
+    SharedVariableNode,
     VINode,
 )
 
@@ -35,6 +37,7 @@ from . import (
     event,
     first_call,
     formula,
+    global_variable,
     in_place,
     invoke_node,
     loop,
@@ -73,6 +76,14 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return subvi.generate(node, ctx)
     if isinstance(node, FormulaNode):
         return formula.generate(node, ctx)
+    if isinstance(node, GlobalVariableNode):
+        return global_variable.generate(node, ctx)
+    if isinstance(node, SharedVariableNode):
+        raise CodeGenError(
+            f"Shared Variable '{node.variable_name}' has no Python equivalent: it is "
+            "a network-published LabVIEW variable",
+            node,
+        )
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
         # graph. Faithful Python codegen isn't implemented yet -- fail loud

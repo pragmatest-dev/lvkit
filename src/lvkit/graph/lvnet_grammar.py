@@ -174,6 +174,7 @@ _LVNET_INSTANCE_KEYWORDS: dict[NetlistInstanceKind, str] = {
     NetlistInstanceKind.PROPERTY_NODE: "property-node",
     NetlistInstanceKind.INVOKE_NODE: "invoke-node",
     NetlistInstanceKind.FORMULA_NODE: "formula-node",
+    NetlistInstanceKind.SHARED_VARIABLE: "shared-variable",
 }
 
 # The lvnet §8 scope header keyword for an In Place Element Structure --

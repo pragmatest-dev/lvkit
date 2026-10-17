@@ -99,9 +99,14 @@ def build_call_graph(vis: Iterable[VIFacts]) -> nx.DiGraph:
     return graph
 
 
+# The node kinds that refer to another VI by qualified name: a SubVI call and a
+# global variable (its Global VI).
+_VI_REFERENCING_KINDS = (NodeKind.VI, NodeKind.GLOBAL_VARIABLE)
+
+
 def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
-    """Fill each ``kind='vi'`` node's ``callee_path`` by resolving its
-    ``qualified_name`` to an in-repo VI path.
+    """Fill each ``kind='vi'`` / ``kind='global_variable'`` node's
+    ``callee_path`` by resolving its ``qualified_name`` to an in-repo VI path.
 
     Uses the SAME path / exact-qualified-name / unambiguous-leaf resolver as
     :func:`build_call_graph` (:func:`_resolve_callee`), so an external callee or
@@ -121,7 +126,7 @@ def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
     by_path = {f.path for f in facts}
     for f in facts:
         for n in f.nodes:
-            if n.kind is NodeKind.VI and n.qualified_name:
+            if n.kind in _VI_REFERENCING_KINDS and n.qualified_name:
                 target = _resolve_callee(
                     n.qualified_name, by_path, by_qualified, by_name
                 )

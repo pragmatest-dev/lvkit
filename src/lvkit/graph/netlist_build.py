@@ -50,10 +50,12 @@ from .models import (
     DisableStructureNode,
     EventStructureNode,
     FormulaNode,
+    GlobalVariableNode,
     InPlaceNode,
     LocalVariableNode,
     LoopNode,
     SequenceNode,
+    SharedVariableNode,
     VIContext,
     VINode,
     WireEnd,
@@ -1014,6 +1016,8 @@ _NETLIST_INSTANCE_KIND_BY_NODE_TYPE: dict[type, NetlistInstanceKind] = {
     InPlaceNode: NetlistInstanceKind.IN_PLACE_ELEMENT,
     FormulaNode: NetlistInstanceKind.FORMULA_NODE,
     LocalVariableNode: NetlistInstanceKind.LOCAL_VARIABLE,
+    GlobalVariableNode: NetlistInstanceKind.GLOBAL_VARIABLE,
+    SharedVariableNode: NetlistInstanceKind.SHARED_VARIABLE,
 }
 
 
@@ -1128,6 +1132,16 @@ def _build_instance_gn(
         method_name=method_name,
         qualified_name=qualified_name,
         properties=properties,
+        global_vi=(
+            node.global_vi.qualified_name
+            if isinstance(node, GlobalVariableNode)
+            else None
+        ),
+        access=(
+            ("write" if node.is_write else "read")
+            if isinstance(node, GlobalVariableNode | SharedVariableNode)
+            else None
+        ),
     )
 
 
@@ -2106,11 +2120,33 @@ def _build_dependency_manifest(
             if p is not None and n.get("qname"):
                 class_qname_by_dir[str(p.parent)] = n["qname"]
 
+    # The Global VIs this VI's global variable nodes refer to, by dependency
+    # key, with the qualified name those nodes spell (the same text their
+    # ``global-variable`` lines carry).
+    global_qname_by_key: dict[str, str] = {}
+    for n in graph.iter_nodes(vi_name):
+        if isinstance(n, GlobalVariableNode):
+            global_key = graph.global_vi_key(n)
+            if global_key is not None:
+                global_qname_by_key[global_key] = n.global_vi.qualified_name
+
     manifest: list[NetlistDependency] = []
     seen: set[str] = set()
     for key in dep_keys:
         node = graph._dep_graph.nodes.get(key, {})
         resolved = graph._dependency_file_path(key)
+        if key in global_qname_by_key:
+            qname = global_qname_by_key[key]
+            if qname not in seen:
+                seen.add(qname)
+                manifest.append(
+                    NetlistDependency(
+                        kind=DependencyKind.GLOBAL,
+                        qualified=qname,
+                        path=project_relative_display(resolved, rel_base),
+                    )
+                )
+            continue
         # qname: the dep node's own (typedefs/classes/loaded VIs carry it);
         # else the caller's subVI node matched by on-disk subpath; else the leaf.
         qname = node.get("qname")

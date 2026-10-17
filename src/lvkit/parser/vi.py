@@ -14,6 +14,7 @@ import re
 import struct
 import warnings
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
@@ -52,9 +53,14 @@ from .layout import (
     _part_shown,
     build_layout_from_root,
 )
+from .link_table import (
+    IUseLink,
+    LinkTableVersion,
+    qualified_link_name,
+    read_iuse_links,
+)
 from .metadata import (
     _decode_pth0_components,
-    parse_iuse_from_libd,
     parse_link_path_refs,
     parse_vipi_from_livi,
 )
@@ -90,7 +96,6 @@ from .nodes import (
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
 from .utils import (
-    clean_labview_string,
     decode_xml_entities_to_bytes,
     extract_caption,
     extract_label,
@@ -312,20 +317,26 @@ def _parse_metadata(
         e.text for e in main_root.findall(".//LIBN/Section/Library") if e.text
     ]
 
-    # Extract SubVI info
+    # Extract SubVI info. A VI whose main XML carries no decoded BDHP/IUVI
+    # elements (pylabview could not decode its LIbd section) keeps its
+    # block-diagram link table only as the raw ``_LIbd.bin`` sidecar -- read
+    # that instead.
+    libd_links: list[IUseLink] = []
+    libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
+    if main_root.find(".//LIbd//BDHP/IUVI") is None and libd_bin.exists():
+        version_elem = main_root.find(".//LVSR/Section/Version")
+        if version_elem is not None:
+            libd_links = read_iuse_links(
+                libd_bin, LinkTableVersion.from_lvsr(version_elem)
+            )
     (
         subvi_qualified_names,
-        iuse_to_qualified_name,
+        iuse_refs,
         dependency_refs,
-    ) = _extract_subvi_info(main_root, qualified_name)
-
-    # Fallback for older VIs (pre-LV9): pylabview cannot parse their LIbd
-    # section, so BDHP/IUVI elements are absent from the XML. Read the raw
-    # _LIbd.bin binary directly to recover the iUse UID → qualified name map.
-    if not iuse_to_qualified_name:
-        libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
-        if libd_bin.exists():
-            iuse_to_qualified_name = parse_iuse_from_libd(libd_bin)
+    ) = _extract_subvi_info(main_root, qualified_name, libd_links)
+    iuse_to_qualified_name = {
+        uid: ref.qualified_name for uid, ref in iuse_refs.items() if ref.qualified_name
+    }
 
     # Recover the FULL subVI callee list from the VI-level _LIvi.bin link table.
     # It records EVERY callee — including the dynamic-dispatch (dynIUse) methods
@@ -362,6 +373,7 @@ def _parse_metadata(
         type_map=type_map or {},
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
+        iuse_refs=iuse_refs,
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
@@ -1182,34 +1194,51 @@ def _resolve_qualified_name(
         Qualified name string, or None if no name found
     """
     strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
-    if not strings:
-        return None
+    return qualified_link_name(
+        strings, int(elem.get("LinkSaveFlag", "0")), caller_library
+    )
 
-    # Strip control characters and XML entities from all strings, then strip
-    # leading/trailing whitespace: a LinkSaveQualName String can carry a
-    # spurious newline the binary left on a member name (a real corpus case:
-    # ``"\nToTable.vi"``), which corrupts the ``class:member`` qualified
-    # identity and, downstream, splits a lvnet ``uses :`` line across two
-    # physical lines.
-    strings = [clean_labview_string(s).strip() for s in strings]
-    strings = [s for s in strings if s]  # Remove any that became empty
-    if not strings:
-        return None
 
-    link_save_flag = elem.get("LinkSaveFlag", "0")
-    # Flag "2" means same-library reference - qualify with caller's library
-    if link_save_flag == "2" and caller_library and len(strings) == 1:
-        return f"{caller_library}:{strings[0]}"
-    return ":".join(strings)
+def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
+    """The link record a decoded ``BDHP`` element (``IUVI``/``PUPV``) holds, in
+    the same shape the raw ``_LIbd.bin`` decoder yields. ``None`` when it has no
+    ``LinkSavePathRef``."""
+    path_ref = elem.find("LinkSavePathRef")
+    if path_ref is None:
+        return None
+    # Preserve empty strings — they are '..' navigation markers.
+    # <String /> (self-closing) has .text = None; map to "".
+    path_tokens = tuple(
+        s.text if s.text is not None else "" for s in path_ref.findall("String")
+    )
+    if not path_tokens:
+        return None
+    return IUseLink(
+        name_parts=tuple(
+            s.text for s in elem.findall("LinkSaveQualName/String") if s.text
+        ),
+        path_tokens=path_tokens,
+        link_flag=int(elem.get("LinkSaveFlag", "0")),
+        node_uids=tuple(
+            int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
+        ),
+    )
 
 
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
-) -> tuple[list[str], dict[str, str], list[ParsedDependencyRef]]:
-    """Extract SubVI qualified names, iUse→qname mapping, and dependency path refs."""
+    libd_links: Sequence[IUseLink] = (),
+) -> tuple[list[str], dict[str, ParsedDependencyRef], list[ParsedDependencyRef]]:
+    """Extract SubVI qualified names, iUse uid -> referenced VI, and dependency
+    path refs.
+
+    ``libd_links`` are the block-diagram link records decoded from the raw
+    ``_LIbd.bin`` sidecar, for a VI whose main XML does not carry the decoded
+    ``LIbd//BDHP/IUVI`` elements; they are read exactly like the decoded ones.
+    """
     subvi_qualified_names: list[str] = []
-    iuse_to_qualified_name: dict[str, str] = {}
+    iuse_refs: dict[str, ParsedDependencyRef] = {}
     dependency_refs: list[ParsedDependencyRef] = []
 
     # Get caller's library for qualifying same-library references
@@ -1244,35 +1273,38 @@ def _extract_subvi_info(
         (".//LIbd//BDHP/{tag}", _BDHP_LINK_TAGS),
     ]
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
+
+    def _add_dependency(qname: str, path_tokens: Sequence[str]) -> None:
+        key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
+        if key in seen_deps:
+            return
+        seen_deps.add(key)
+        dependency_refs.append(
+            ParsedDependencyRef(
+                name=qname.rsplit(":", 1)[-1],
+                path_tokens=list(path_tokens),
+                qualified_name=qname,
+            )
+        )
+
     for xpath_template, tags in scopes:
         for tag in tags:
             for elem in main_root.findall(xpath_template.format(tag=tag)):
                 qname = _resolve_qualified_name(elem, caller_library)
                 if not qname:
                     continue
-                path_ref = elem.find("LinkSavePathRef")
-                if path_ref is None:
+                link = _xml_iuse_link(elem)
+                if link is None:
                     continue
-                # Preserve empty strings — they are '..' navigation markers.
-                # <String /> (self-closing) has .text = None; map to "".
-                path_tokens = [
-                    s.text if s.text is not None else ""
-                    for s in path_ref.findall("String")
-                ]
-                if not path_tokens:
-                    continue
-                key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
-                if key in seen_deps:
-                    continue
-                seen_deps.add(key)
-                name = qname.rsplit(":", 1)[-1]
-                dependency_refs.append(
-                    ParsedDependencyRef(
-                        name=name,
-                        path_tokens=path_tokens,
-                        qualified_name=qname,
-                    )
-                )
+                _add_dependency(qname, link.path_tokens)
+
+    # The sidecar's records name the same dependencies the decoded elements do.
+    for link in libd_links:
+        qname = qualified_link_name(
+            list(link.name_parts), link.link_flag, caller_library
+        )
+        if qname:
+            _add_dependency(qname, link.path_tokens)
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
@@ -1282,18 +1314,30 @@ def _extract_subvi_info(
             if qname:
                 subvi_qualified_names.append(qname)
 
-    # --- iUse UID → qualified name from BDHP section ---
+    # --- iUse uid -> referenced VI from the BDHP section ---
     # PUPV first (polymorphic wrapper), IUVI overwrites (resolved variant).
+    bdhp_links: list[IUseLink] = []
     for tag in ("PUPV", "IUVI"):
         for elem in main_root.findall(f".//LIbd//BDHP/{tag}"):
-            qname = _resolve_qualified_name(elem, caller_library)
-            if qname:
-                for offset_elem in elem.findall("LinkOffsetList/Offset"):
-                    if offset_elem.text:
-                        uid = str(int(offset_elem.text, 16))
-                        iuse_to_qualified_name[uid] = qname
+            link = _xml_iuse_link(elem)
+            if link is not None:
+                bdhp_links.append(link)
+    bdhp_links.extend(libd_links)
+    for link in bdhp_links:
+        qname = qualified_link_name(
+            list(link.name_parts), link.link_flag, caller_library
+        )
+        if not qname:
+            continue
+        ref = ParsedDependencyRef(
+            name=qname.rsplit(":", 1)[-1],
+            path_tokens=list(link.path_tokens),
+            qualified_name=qname,
+        )
+        for uid in link.node_uids:
+            iuse_refs[str(uid)] = ref
 
-    return subvi_qualified_names, iuse_to_qualified_name, dependency_refs
+    return subvi_qualified_names, iuse_refs, dependency_refs
 
 
 # === Front panel parsing helpers ===
@@ -1514,8 +1558,10 @@ def _parse_fp_parts(ddo: ET.Element) -> list[ParsedFPPart]:
             if props:
                 parts.append(
                     ParsedFPPart(
-                        None, ddo.get("class", ""),
-                        _parse_bounds(own_bounds.text), props,
+                        None,
+                        ddo.get("class", ""),
+                        _parse_bounds(own_bounds.text),
+                        props,
                     )
                 )
     return parts
@@ -1574,9 +1620,7 @@ def _parse_cluster_fields(
     for field_elem in direct:
         field_name = extract_label_strict(field_elem)
         value = (
-            field_defaults.get(field_name)
-            if field_defaults and field_name
-            else None
+            field_defaults.get(field_name) if field_defaults and field_name else None
         )
         # A field's own type -- there is no wrapping fPDCO here (unlike a
         # top-level control), so the ONLY spot is the field ddo's own
@@ -1673,10 +1717,9 @@ def _parse_ddo(
                 inner_control.name = name
                 inner_control.caption = extract_caption(ddo)
                 inner_control.label_visible = _part_shown(ddo, 16) is not None
-                inner_control.caption_visible = (
-                    _part_shown(ddo, 82) is not None
-                    and bool(inner_control.caption)
-                )
+                inner_control.caption_visible = _part_shown(
+                    ddo, 82
+                ) is not None and bool(inner_control.caption)
                 return inner_control
         return None
 
@@ -1734,9 +1777,7 @@ def _parse_ddo(
     element_lv_type: LVType | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
-        children = _parse_cluster_fields(
-            ddo, unresolved_uids, clust_defaults, type_map
-        )
+        children = _parse_cluster_fields(ddo, unresolved_uids, clust_defaults, type_map)
         cluster_geom = _cluster_field_geoms(ddo)
     elif control_type == "indArr":
         element = ddo.find("ddo")

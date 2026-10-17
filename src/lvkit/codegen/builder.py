@@ -8,13 +8,13 @@ from collections import deque
 from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import AnyGraphNode, VIContext
+from lvkit.graph.models import AnyGraphNode, VIContext, VINode
 from lvkit.models import LVTypeKind, Terminal
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
-    default_value_expr,
+    param_default_expr,
     parameter_names,
     parse_expr,
     result_field_names,
@@ -33,6 +33,7 @@ from .error_handler import (
     find_error_path_ops,
     needs_error_handling,
 )
+from .global_module import build_global_module
 from .nodes import generate as generate_node
 
 
@@ -78,6 +79,12 @@ def build_module(
         # so this build is idempotent (see InMemoryVIGraph.clear_var_names).
         # No-op on a freshly loaded graph.
         graph.clear_var_names(vi_name)
+
+    # A Global VI is its controls: a module of state, not a function.
+    if graph is not None and vi_context.properties.is_global_vi:
+        vi_node = graph.get_graph_node(vi_name)
+        assert isinstance(vi_node, VINode)
+        return build_global_module(vi_node)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(vi_context, graph=graph)  # InMemoryVIGraph
@@ -826,7 +833,7 @@ def build_args(
                 annotation=parse_expr(type_hint),
             )
         )
-        defaults.append(_param_default_expr(inp))
+        defaults.append(param_default_expr(inp))
 
     kwonly_args = []
     kw_defaults: list[ast.expr | None] = []
@@ -842,7 +849,7 @@ def build_args(
                 annotation=parse_expr(type_hint),
             )
         )
-        kw_defaults.append(_param_default_expr(ctl))
+        kw_defaults.append(param_default_expr(ctl))
 
     return ast.arguments(
         posonlyargs=[],
@@ -876,29 +883,6 @@ def build_array_input_normalization(
         name = names[inp.id]
         stmts.append(build_assign(name, parse_expr(f"{name} or []")))
     return stmts
-
-
-def _param_default_expr(inp: Terminal) -> ast.expr:
-    """Default-value AST for a parameter: the terminal's real connector-pane
-    default when it maps cleanly to the scalar type, else the type default."""
-    dv = inp.default_value
-    if dv is None:
-        return default_value_expr(inp.lv_type)
-    underlying = inp.lv_type.underlying_type if inp.lv_type else None
-    try:
-        if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
-            return ast.Constant(value=int(dv))
-        if underlying and underlying.startswith(("NumInt", "NumUInt")):
-            return ast.Constant(value=int(dv))
-        if underlying in ("NumFloat32", "NumFloat64"):
-            return ast.Constant(value=float(dv))
-        if underlying == "Boolean":
-            return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))
-        if underlying == "String":
-            return ast.Constant(value=str(dv))
-    except (ValueError, TypeError):
-        pass
-    return default_value_expr(inp.lv_type)
 
 
 def _is_anonymous_cluster(term: Terminal) -> bool:

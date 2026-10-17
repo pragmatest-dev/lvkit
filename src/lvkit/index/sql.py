@@ -291,8 +291,9 @@ VIEWS: dict[str, _View] = {
             "uid": "the node's stable graph uid within its VI (the join target "
             "for parent_uid containment walks)",
             "kind": "the specific node kind, a CLOSED set: vi (a SubVI call site) "
-            "| primitive | constant | local_variable | formula | case | while | "
-            "for | sequence | event | disabled | inplace | other",
+            "| primitive | constant | local_variable | global_variable (reads or "
+            "writes a control of a Global VI) | formula | case | while | for | "
+            "sequence | event | disabled | inplace | other",
             "name": "resolved node label (primitive / SubVI / structure name). "
             "HUMAN-CONVENIENCE ONLY — localized and variant-dependent; for "
             "primitives filter on prim_id and for SubVI calls on qualified_name "
@@ -301,9 +302,15 @@ VIEWS: dict[str, _View] = {
             "kind='primitive'; NULL otherwise. THE robust primitive filter — "
             "prefer it over name.",
             "qualified_name": "for kind='vi', the callee SubVI's qualified name "
-            "(the unresolved call key); NULL otherwise. The robust filter for "
+            "(the unresolved call key); for kind='global_variable', the Global "
+            "VI's qualified name; NULL otherwise. The robust filter for "
             "SubVI-based operations (e.g. vi.lib queue/event VIs).",
-            "callee_path": "for kind='vi', the callee SubVI resolved to an "
+            "callee_path": "for kind='global_variable', the Global VI resolved to "
+            "an in-repo VI path by the same rule, so 'VIs that use Global VI X' "
+            "= SELECT DISTINCT vi_path FROM node WHERE kind='global_variable' AND "
+            "callee_path=X (a global variable is a use, not a call: it adds no "
+            "edge to the call graph below, and name is the control read or "
+            "written). For kind='vi', the callee SubVI resolved to an "
             "in-repo VI path (NULL when the callee is external, or an ambiguous "
             "bare leaf the resolver refuses to guess). THIS IS the call graph: "
             "direct callers of X = SELECT DISTINCT vi_path FROM node WHERE "

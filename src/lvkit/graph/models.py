@@ -25,6 +25,7 @@ from ..models import (
     ScalarValue,
     SequenceFrame,
     Terminal,
+    VIKind,
 )
 from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
@@ -419,15 +420,63 @@ class LocalVariableNode(GraphNode):
 
     ``control_terminal_id`` is the referenced control's own FP terminal id
     (qualified), when the local variable's paramIdx resolved to a known
-    front-panel control. It may be None if resolution failed (e.g. a
-    global VI's local var, or an out-of-range index) — the node is still
-    created (name falls back to "Local Variable") so its position/wires
-    are never silently dropped.
+    front-panel control. It may be None if the index is out of range — the
+    node is still created (name falls back to "Local Variable") so its
+    position/wires are never silently dropped.
     """
 
     kind: Literal["local_variable"] = "local_variable"
     control_name: str | None = None
     control_terminal_id: str | None = None
+    is_write: bool = False
+
+
+class GlobalVIRef(BaseModel):
+    """The Global VI a global variable node refers to, as the calling VI's
+    block-diagram link table records it: the qualified name and the path
+    tokens (caller-relative, see ``ParsedDependencyRef.resolve_against``)."""
+
+    model_config = {"frozen": True}
+
+    qualified_name: str
+    path_tokens: tuple[str, ...]
+
+
+class GlobalVariableNode(GraphNode):
+    """A Global Variable (class="gRef" carrying a connector type) — reads or
+    writes one front-panel control of a Global VI.
+
+    The control is not one of the calling VI's own: ``global_vi`` names the VI
+    that owns it, and ``control_name`` / ``lv_type`` come from the field of the
+    node's connector cluster (the Global VI's controls, as this VI last saw
+    them) at ``param_idx``. The calling VI depends on the Global VI, so it is
+    loaded and listed like a subVI; the node has no wire to any control of the
+    calling VI.
+
+    One terminal: direction "output" when reading the control's current value,
+    "input" when writing a new value to it (``is_write``).
+    """
+
+    kind: Literal["global_variable"] = "global_variable"
+    global_vi: GlobalVIRef
+    control_name: str
+    param_idx: int
+    lv_type: LVType | None = None
+    is_write: bool = False
+
+
+class SharedVariableNode(GraphNode):
+    """A Shared Variable node (class="sharedVariable") -- reads or writes a
+    network-published Shared Variable (a variable of a project library).
+
+    ``variable_name`` is the variable's name; the library it belongs to is not
+    part of the node. ``is_write``: the value terminal (``Variable``) is an input
+    on a write node, an output on a read node. The other terminals are the
+    error cluster in and out.
+    """
+
+    kind: Literal["shared_variable"] = "shared_variable"
+    variable_name: str
     is_write: bool = False
 
 
@@ -440,6 +489,8 @@ AnyGraphNode = (
     | InPlaceNode
     | FormulaNode
     | LocalVariableNode
+    | GlobalVariableNode
+    | SharedVariableNode
     | DisableStructureNode
     | EventStructureNode
     | LabelNode
@@ -850,6 +901,11 @@ class VIProperties:
     toolbar: ToolbarProps = field(default_factory=ToolbarProps)
     instance: InstanceProps = field(default_factory=InstanceProps)
     kind: KindProps = field(default_factory=KindProps)
+
+    @property
+    def is_global_vi(self) -> bool:
+        """Whether the VI is a Global VI (stored kind code 4)."""
+        return self.vi_type == VIKind.GLOBAL.label
 
 
 def bool_str(v: bool) -> str:

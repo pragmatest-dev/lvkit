@@ -37,6 +37,7 @@ from .netlist_models import (
     NetlistFeedback,
     NetlistFrame,
     NetlistInstance,
+    NetlistInstanceKind,
     NetlistItem,
     NetlistModule,
     NetlistOutput,
@@ -311,7 +312,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
         # not (see ``NetlistTerminalBinding``) -- this OLD JSON shape only ever
         # showed wired ones, so filter back down to only the wired bindings.
         wired_inputs = [b for b in item.inputs if b.net is not None]
-        return {
+        instance: dict[str, Any] = {
             "kind": "instance",
             "uid": item.uid,
             "name": item.name,
@@ -333,6 +334,18 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
                 _instance_output_to_dict(o, verbose=verbose) for o in item.outputs
             ],
         }
+        if item.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
+            # A global variable names the Global VI and the control of it that
+            # it reads or writes -- it has no ``qualified_name`` of a callee.
+            instance["kind"] = "global_variable"
+            instance["global_vi"] = item.global_vi
+            instance["control"] = item.name
+            instance["access"] = item.access
+        elif item.kind == NetlistInstanceKind.SHARED_VARIABLE:
+            instance["kind"] = "shared_variable"
+            instance["variable"] = item.name
+            instance["access"] = item.access
+        return instance
     if isinstance(item, NetlistFeedback):
         return _feedback_to_dict(item)
     d: dict[str, Any] = {

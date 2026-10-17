@@ -38,6 +38,7 @@ from ..graph.models import (
     ConstantNode,
     EventStructureNode,
     FormulaNode,
+    GlobalVariableNode,
     LabelNode,
     LocalVariableNode,
     PrimitiveNode,
@@ -84,6 +85,7 @@ from .glyph import (
     EventRegNodeGlyph,
     FeedbackNodeGlyph,
     FormulaNodeGlyph,
+    GlobalVariableGlyph,
     Glyph,
     IconImageGlyph,
     InitCell,
@@ -1777,6 +1779,17 @@ class GeneratedGlyphResolver:
             )
         if isinstance(node, FormulaNode):
             return FormulaNodeGlyph(node.script or "")
+        if isinstance(node, GlobalVariableNode):
+            # A Global Variable: the control's NAME in the local-variable box,
+            # marked by a globe, bordered in the control's DATA-TYPE color.
+            lv_type = next(
+                (t.lv_type for t in node.terminals if t.lv_type is not None), None
+            )
+            return GlobalVariableGlyph(
+                node.control_name,
+                is_write=node.is_write,
+                border_color=wire_style(lv_type).color if lv_type is not None else None,
+            )
         if isinstance(node, LocalVariableNode):
             # LabVIEW's Local Variable glyph: the referenced control's NAME in a
             # box marked by a ▶ badge (so it's not mistaken for a constant box),

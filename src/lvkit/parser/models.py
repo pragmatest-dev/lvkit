@@ -683,6 +683,11 @@ class ParsedVIMetadata:
     iuse_to_qualified_name: dict[str, str] = field(
         default_factory=dict,
     )  # iUse UID → qualified name
+    # Heap uid of EVERY node that refers to another VI (a subVI call, a global
+    # variable node) -> the VI it refers to, with its recorded path. Read from
+    # the VI's block-diagram link table; ``iuse_to_qualified_name`` is this map's
+    # qualified names.
+    iuse_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)

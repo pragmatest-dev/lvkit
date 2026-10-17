@@ -11,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from lvkit.models import Terminal
-from lvkit.parser.models import ParsedBlockDiagram
+from lvkit.models import LVType, Terminal
+from lvkit.parser.models import ParsedBlockDiagram, ParsedDependencyRef
 
 
 @dataclass
@@ -29,6 +29,9 @@ class GraphBuildContext:
     event_by_uid: dict[str, Any]
     iuse_to_qname: dict[str, str]  # iUse uid -> qualified callee name
     iuse_to_qpath: dict[str, str]  # iUse uid -> qualified on-disk path
+    # uid of every node referring to another VI -> that VI's recorded name + path
+    iuse_refs: dict[str, ParsedDependencyRef]
+    type_map: dict[int, LVType]  # this VI's TypeID -> LVType table
     # For the early ref handlers (ctlRefConst / gRef / statVIRef):
     fp: Any  # ParsedFrontPanel | None
     ddo_to_fpdco: dict[str, str]  # inner ddo uid -> fPDCO uid

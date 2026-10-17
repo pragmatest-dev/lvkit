@@ -31,7 +31,13 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
-from ..parser.models import ParsedConstant, ParsedType
+from ..parser.front_panel import _lvtype_to_parsed
+from ..parser.models import (
+    ParsedConstant,
+    ParsedDependencyRef,
+    ParsedFPControl,
+    ParsedType,
+)
 from ..parser.node_types import (
     FeedbackNode,
     SelectNode,
@@ -389,6 +395,7 @@ class ConstructionMixin:
         type_map: dict[int, LVType] | None = None,
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
+        iuse_refs: dict[str, ParsedDependencyRef] | None = None,
     ) -> None:
         """Add a VI's nodes and edges to the unified graph.
 
@@ -398,7 +405,9 @@ class ConstructionMixin:
         iuse_to_qpath maps an iUse uid to its fully qualified on-disk path
         (e.g. "<vilib>/Utility/error.llb/Foo.vi"). Used to populate
         VINode.qualified_path so resolution diagnostics can point at the
-        real source file.
+        real source file. iuse_refs maps the uid of every node that refers to
+        another VI (a subVI call, a global variable) to that VI's recorded
+        qualified name and path.
         """
         if type_map is None:
             type_map = {}
@@ -500,6 +509,20 @@ class ConstructionMixin:
                 parent_kind="vi",
             )
             fp_dco_wire_ends[fp_term.fp_dco_uid] = term_lookup[fp_term.uid]
+
+        # Every front-panel control the block diagram has no terminal for is an
+        # interface terminal too, off the connector pane: a Global VI's controls
+        # are exactly these (its block diagram is empty). They follow in the
+        # front panel's own control order (``fp.dco_order``).
+        if fp:
+            bd_dco_uids = {fp_term.fp_dco_uid for fp_term in bd.fp_terminals}
+            for dco_uid in fp.dco_order:
+                ctrl = fp_by_uid.get(dco_uid)
+                if dco_uid in bd_dco_uids or ctrl is None:
+                    continue
+                vi_terminals.append(
+                    self._front_panel_only_terminal(vi_key, ctrl, conpane)
+                )
 
         # paramIdx -> FP terminal WireEnd, indexed by the control's dcoIndex
         # (see ParsedFrontPanel.control_uid_at_param_idx).
@@ -626,6 +649,8 @@ class ConstructionMixin:
             event_by_uid=event_by_uid,
             iuse_to_qname=iuse_to_qname or {},
             iuse_to_qpath=iuse_to_qpath,
+            iuse_refs=iuse_refs or {},
+            type_map=type_map,
             fp=fp,
             ddo_to_fpdco=ddo_to_fpdco,
             param_wire_ends=param_wire_ends,
@@ -1137,6 +1162,39 @@ class ConstructionMixin:
         # Populate terminal ownership from term_lookup
         for _raw_tid, wire_end in term_lookup.items():
             self._term_to_node[wire_end.terminal_id] = wire_end.node_id
+
+    def _front_panel_only_terminal(
+        self,
+        vi_key: str,
+        ctrl: ParsedFPControl,
+        conpane: ParsedConnectorPane | None,
+    ) -> FPTerminal:
+        """The off-pane interface terminal of a front-panel control that has no
+        block-diagram terminal. Its id is the control's own front-panel uid
+        (``fp``-prefixed: that numbering is separate from the block diagram's)."""
+        lv_type: LVType | None = None
+        if ctrl.lv_type is not None and not (
+            ctrl.lv_type.underlying_type or ""
+        ).startswith("TypeID"):
+            lv_type = self._enrich_type(_lvtype_to_parsed(ctrl.lv_type))
+        if lv_type is None:
+            lv_type = control_type_to_lvtype(ctrl.control_type)
+        lv_type = _control_ring_type(lv_type, ctrl)
+        return FPTerminal(
+            id=self._qid(vi_key, f"fp{ctrl.uid}"),
+            index=None,
+            direction="output" if ctrl.is_indicator else "input",
+            name=ctrl.name,
+            lv_type=lv_type,
+            is_indicator=ctrl.is_indicator,
+            is_public=False,
+            caption=ctrl.caption,
+            caption_visible=ctrl.caption_visible,
+            fp_dco_uid=ctrl.uid,
+            control_type=ctrl.control_type,
+            default_value=ctrl.default_value,
+            enum_values=ctrl.enum_values,
+        )
 
     def resolve_dispatch_qnames(self) -> None:
         """FALLBACK class-qualification for dynamic-dispatch calls the caller's

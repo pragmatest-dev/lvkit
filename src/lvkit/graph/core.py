@@ -24,9 +24,11 @@ from .models import (
     ConstantNode,
     DisableStructureNode,
     EventStructureNode,
+    GlobalVariableNode,
     LabelNode,
     LocalVariableNode,
     PolyInfo,
+    SharedVariableNode,
     StructureNode,
     VIHealth,
     VIMetadata,
@@ -55,6 +57,8 @@ _KIND_TO_TAGS: dict[str, str] = {
     "constant": "Constant",
     "formula": "FormulaNode",
     "local_variable": "LocalVariable",
+    "global_variable": "GlobalVariable",
+    "shared_variable": "SharedVariable",
     "disableStruct": "DisableStructure",
     "eventStruct": "EventStructure",
     "flatSequence": "FlatSequence",
@@ -79,6 +83,8 @@ _OPERATION_KINDS = (
     "eventStruct",
     "flatSequence",
     "inPlaceStruct",
+    "global_variable",
+    "shared_variable",
 )
 
 
@@ -128,6 +134,10 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
         return "constant"
     if isinstance(node, LocalVariableNode):
         return "local_variable"
+    if isinstance(node, GlobalVariableNode):
+        return "global_variable"
+    if isinstance(node, SharedVariableNode):
+        return "shared_variable"
     if isinstance(node, LabelNode):
         return "label"
     return "operation"

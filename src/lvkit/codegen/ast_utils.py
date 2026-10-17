@@ -393,3 +393,30 @@ def to_module_name(vi_name: str) -> str:
     if result and not result[0].isalpha() and result[0] != "_":
         result = "var_" + result
     return result or "module"
+
+
+def param_default_expr(inp: Terminal) -> ast.expr:
+    """Default-value AST for a parameter: the terminal's real connector-pane
+    default when it maps cleanly to the scalar type, else the type default."""
+    dv = inp.default_value
+    if dv is None:
+        return default_value_expr(inp.lv_type)
+    underlying = inp.lv_type.underlying_type if inp.lv_type else None
+    try:
+        if inp.lv_type and inp.lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+            return ast.Constant(value=int(dv))
+        if underlying and underlying.startswith(("NumInt", "NumUInt")):
+            return ast.Constant(value=int(dv))
+        if underlying in ("NumFloat32", "NumFloat64"):
+            return ast.Constant(value=float(dv))
+        if underlying == "Boolean":
+            return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))
+        if underlying == "String":
+            # A saved string default is stored as a Python string literal
+            # (``'abc'``), so its value is what that literal evaluates to.
+            value = ast.literal_eval(str(dv))
+            if isinstance(value, str):
+                return ast.Constant(value=value)
+    except (ValueError, TypeError, SyntaxError):
+        pass
+    return default_value_expr(inp.lv_type)

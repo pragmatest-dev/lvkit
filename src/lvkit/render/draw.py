@@ -15,6 +15,7 @@ from ..graph.models import (
     AnyGraphNode,
     ConstantNode,
     FormulaNode,
+    GlobalVariableNode,
     LocalVariableNode,
     PrimitiveNode,
     VINode,
@@ -484,6 +485,10 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
             "Control Reference" if node.node_type == "ctlRefConst" else "Local Variable"
         )
         header = f"{kind}: {name}" if name else kind
+    elif isinstance(node, GlobalVariableNode):
+        header = (
+            f"Global Variable: {node.global_vi.qualified_name}::{node.control_name}"
+        )
     elif isinstance(node, VINode | PrimitiveNode):
         # A VI's fully qualified name (Class.lvclass:vi.vi) disambiguates a bare
         # leaf name; fall back to the plain name when there's no qualifier.

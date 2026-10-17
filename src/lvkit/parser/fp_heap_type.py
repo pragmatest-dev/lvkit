@@ -36,6 +36,7 @@ _SCALAR_CLASSES = {
     "stdBool": "Boolean",
     "stdPath": "Path",
     "stdNum": "Numeric",
+    "stdColorNum": "Numeric",
 }
 _RING_CLASSES = {"stdRing", "stdEnum"}
 _ARRAY_CLASSES = {"indArr", "stdArray"}
