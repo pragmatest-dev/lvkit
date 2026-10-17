@@ -342,6 +342,7 @@ class TestNestedPropertyChain:
                     ]
                 )
             ],
+            property_value_terminal_ids=["val"],
         )
         return op, ctx
 

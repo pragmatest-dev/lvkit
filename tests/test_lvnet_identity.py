@@ -87,6 +87,11 @@ _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 # the same VIs, asked the STRONGER identity question.
 _IDENTITY_CASES = [
     pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "GetControlRef.vi",
+        _JKI_SOURCE_ROOT,
+        id="GetControlRef_nested_property_loop_index",
+    ),
+    pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
         _JKI_SOURCE_ROOT,
         id="loadTestsFromTestCase",

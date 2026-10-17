@@ -437,8 +437,8 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` | single implicit body (index `i`, count `N`) |
-| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`) |
+| For Loop | `for-loop :` | single implicit body (index `i`, count `N`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case |

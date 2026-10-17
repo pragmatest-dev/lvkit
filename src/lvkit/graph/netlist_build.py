@@ -573,6 +573,22 @@ def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return f"loop_{loop_uid}.shift{k}"
 
 
+def _is_loop_iteration_terminal_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True when ``term`` is a loop's iteration terminal ``i`` -- the loop's
+    one output terminal that is not a tunnel, shift register or count
+    terminal (the same terminal codegen binds to the Python loop index)."""
+    return (
+        isinstance(node, LoopNode)
+        and term.direction == "output"
+        and not isinstance(term, TunnelTerminal)
+    )
+
+
+def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
+    """``loop_<uid>.i`` -- a loop's iteration count, read inside its body."""
+    return f"loop_{_uid_of(node.id)}.i"
+
+
 # Frame-only structures (sequence/disabled/event, ``_FRAME_STRUCTURE_TYPES``
 # minus ``CaseStructureNode``) never carry their own ``GammaMerge``/
 # ``EtaMerge`` model (``NetlistScope.outputs`` stays empty for these kinds --
@@ -797,6 +813,9 @@ def _resolve_source_gn(
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read_gn(owner, term):
                 name = _mu_net_name_gn(owner, term)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            if _is_loop_iteration_terminal_gn(owner, term):
+                name = _loop_iteration_net_name_gn(owner)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_frame_output_tunnel_gn(owner, term):
                 name = _frame_net_name_gn(owner, term)
