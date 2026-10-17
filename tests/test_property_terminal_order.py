@@ -19,6 +19,7 @@ from lvkit.models import (
     PropertySegment,
     Terminal,
 )
+from lvkit.runtime import lv
 from tests.helpers import make_graph_with_terminals
 
 REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
@@ -53,7 +54,9 @@ def prop(*names):
     return PropertyDef(segments=[PropertySegment(name=n, code=0) for n in names])
 
 
-def fixture(rows, *, reverse=False, ref_out=False, unwired=()):
+def fixture(
+    rows, *, reverse=False, ref_out=False, unwired=(), ref_value="ref", class_name=None
+):
     fixed = [
         Terminal(id="ref_in", index=0, direction="input", lv_type=REF),
         Terminal(id="ref_out", index=1, direction="output", lv_type=REF),
@@ -73,12 +76,14 @@ def fixture(rows, *, reverse=False, ref_out=False, unwired=()):
         terminals=list(reversed(terminals)) if reverse else terminals,
         properties=[prop(*name.split(".")) for name, _ in rows],
         property_value_terminal_ids=[term.id for term in values],
+        object_name=class_name,
     )
     ids = [term.id for term in terminals]
     graph = make_graph_with_terminals(*ids, *(f"peer_{tid}" for tid in ids))
     ctx = CodeGenContext(graph=graph)
-    ctx.bind("ref_in", "ref")
-    namespace = {"ref": Reference()}
+    if ref_value:
+        ctx.bind("ref_in", ref_value)
+    namespace = {"ref": Reference(), "_lv": lv}
     for i, term in enumerate(values):
         if term.id not in unwired:
             connect(ctx, term.id, term.direction)
@@ -239,3 +244,40 @@ def test_nested_property_writes_then_reads_its_attribute_chain():
     namespace["ref"] = types.SimpleNamespace(label=types.SimpleNamespace(text="old"))
     assert execute(node, ctx, namespace) == {"row_1": 1000}
     assert namespace["ref"].label.text == 1000
+
+
+def test_unwired_reference_is_the_defined_default_object_of_its_class():
+    rows = [("Value", "input"), ("Value", "output")]
+    node, ctx, namespace = fixture(rows, ref_value=None, class_name="Application")
+    ctx.qualified_vi_name = "Lib.lvlib:Caller.vi"
+    fragment = property_node.generate(node, ctx)
+    assert fragment.imports == {"from lvkit.runtime import lv as _lv"}
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec(compile(code, "property-test", "exec"), namespace)
+    reference = namespace["application"]
+    assert reference is lv.default_reference("Application", "Lib.lvlib:Caller.vi")
+    assert reference.class_name == "Application"
+    assert namespace[fragment.bindings["row_1"]] == 1000
+
+
+def test_an_unset_property_of_a_default_reference_names_class_and_property():
+    reference = lv.default_reference("VI", "Caller.vi")
+    with pytest.raises(lv.UnavailableReferenceMember, match="VI.*'path'"):
+        reference.path
+
+
+def test_unwired_reference_without_an_object_class_is_an_error():
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None)
+    with pytest.raises(CodeGenError, match="no object class"):
+        property_node.generate(node, ctx)
+
+
+def test_wired_reference_without_a_value_is_an_error():
+    node, ctx, _ = fixture(
+        [("Value", "output")], ref_value=None, class_name="Application"
+    )
+    connect(ctx, "ref_in", "input")
+    with pytest.raises(CodeGenError, match="Wired object reference has no value"):
+        property_node.generate(node, ctx)

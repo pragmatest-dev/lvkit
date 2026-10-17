@@ -92,6 +92,20 @@ guessed color). See `parser.node_types.PropertyNode`/`InvokeNode`'s class
 docstrings for the full field contract (`bound_control_uid`,
 `bound_control_type`).
 
+## An unwired Property/Invoke Node reference input uses the default object of the node's class
+
+NI's public Property Node and Invoke Node pages state that when the node's class
+is Application or VI the `reference` input need not be wired: the Application
+default is the current application instance and the VI default is the VI
+containing the node
+(`https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/property-node.html`,
+`.../functions/invoke-node.html`). The generated code assigns
+`_lv.default_reference(<class>, owner=<VI>)` for such a node, so every unwired
+node of one class in one VI shares one object. Other classes (the DAQmx System and
+DAQmx Device nodes in `DCAF-DAQModule`'s `Config.vi`) occur unwired in saved VIs
+but the public LabVIEW reference states no default for them; they are represented the same
+way, named by their class. A WIRED reference with no value is a codegen error.
+
 ## `eventRegNode` (Register For Events, task #56) is a growable property-node-style node — its name and row count are BOTH heap-recorded, never hard-coded
 
 `eventRegNode` was previously unhandled (`get_display_name` had no entry,

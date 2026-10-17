@@ -49,11 +49,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if node.bound_control_uid:
         raise CodeGenError("Implicit property reference requires a binding model", node)
     fixed = [term for term in node.terminals if term.id not in value_ids]
-    # A reference with no Python value -- nothing wired or fed by an unmapped
-    # primitive -- is named after the node's object class (#142).
-    ref_var = resolve_ref_input(node, ctx)
+    ref = resolve_ref_input(node, ctx)
+    ref_var = ref.name
 
-    statements: list[ast.stmt] = []
+    statements: list[ast.stmt] = list(ref.statements)
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
     for prop, term in correlate_property_terminals(
@@ -110,8 +109,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             bindings[term.id] = ref_var
         else:
             raise CodeGenError("Property flow-through output is unresolved", node)
-    if not statements:
+    if len(statements) == len(ref.statements):
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports=ref.imports
+    )
