@@ -71,6 +71,7 @@ from .netlist_models import (
     DefaultValue,
     EtaMerge,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
     NetlistDependency,
@@ -468,7 +469,10 @@ def _iter_lv_types_in_items(items: list[NetlistItem]) -> Iterator[LVType]:
 
 
 def iter_named_subtypes(
-    lv_type: LVType, _visited: set[int] | None = None
+    lv_type: LVType,
+    _visited: set[int] | None = None,
+    *,
+    claimed: dict[str, LVType] | None = None,
 ) -> Iterator[tuple[str, LVType]]:
     """Every NAMED type (§10) reachable from ``lv_type`` -- itself (if
     named) plus every named type nested inside it (an array's element, a
@@ -488,6 +492,12 @@ def iter_named_subtypes(
     from infinite recursion; a real cycle already bottoms out at a
     ``Recursive`` PRIMITIVE placeholder in practice (``type_mapping.py``), so
     this is a defensive belt only.
+
+    ``claimed`` (name -> the occurrence the caller keeps for that name) makes the
+    walk follow only what the footnote actually spells: a named type another
+    occurrence already holds is neither yielded nor descended into, since its own
+    def is not what the footnote prints. The caller records each yielded name in
+    ``claimed`` before the walk resumes.
     """
     if _visited is None:
         _visited = set()
@@ -496,15 +506,17 @@ def iter_named_subtypes(
     _visited.add(id(lv_type))
     name = lvnet_named_stem(lv_type)
     if name is not None:
+        if claimed is not None and claimed.get(name, lv_type) is not lv_type:
+            return
         yield name, lv_type
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
-        yield from iter_named_subtypes(lv_type.element_type, _visited)
+        yield from iter_named_subtypes(lv_type.element_type, _visited, claimed=claimed)
     elif (
         lv_type.kind == LVTypeKind.PRIMITIVE
         and lv_type.underlying_type == "Refnum"
         and lv_type.element_type is not None
     ):
-        yield from iter_named_subtypes(lv_type.element_type, _visited)
+        yield from iter_named_subtypes(lv_type.element_type, _visited, claimed=claimed)
     elif (
         lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF)
         and lv_type.fields
@@ -512,7 +524,7 @@ def iter_named_subtypes(
     ):
         for f in lv_type.fields:
             if f.type is not None:
-                yield from iter_named_subtypes(f.type, _visited)
+                yield from iter_named_subtypes(f.type, _visited, claimed=claimed)
 
 
 def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
@@ -533,7 +545,7 @@ def _collect_lvnet_named_types(module: NetlistModule) -> dict[str, LVType]:
         sources.extend(t.lv_type for t in dep.interface if t.lv_type is not None)
     sources.extend(_iter_lv_types_in_items(module.body))
     for lv_type in sources:
-        for name, t in iter_named_subtypes(lv_type):
+        for name, t in iter_named_subtypes(lv_type, claimed=seen):
             seen.setdefault(name, t)
     return dict(sorted(seen.items()))
 
@@ -1386,22 +1398,30 @@ def _render_lvnet_inplace_scope(
 ) -> None:
     """``in-place-element :`` (§8) -- a single implicit body (like a loop, not
     a per-frame family), rendered directly under the header with no ``frame``
-    sub-headers. An IPES carries no output MERGE of its own (``NetlistScope.
-    outputs`` is empty for this kind, like the frame-only families): a
-    downstream reader of one of its output ports resolves straight to the
-    ``inplace_<uid>::out<k>`` structure-scoped net (see
-    ``netlist_build._is_inplace_output_gn``), so the header + body IS the whole
-    rendering -- no border ``tunnel``/``shift-register`` lines, unlike a loop.
-    The ``(id <uid>)`` header suffix (verbose-only) is what lets
-    ``lvnet_reconstruct`` recover ``NetlistScope.uid`` -- an IPES never spells
-    its own uid anywhere else."""
+    sub-headers. A downstream reader of one of its output ports resolves
+    straight to the ``inplace_<uid>::out<k>`` structure-scoped net (see
+    ``netlist_build._is_inplace_output_gn``), and a reader inside the body of
+    a value a border node supplies (an Unbundle Elements element) to
+    ``inplace_<uid>::get<k>``, so neither needs a line of its own. Each value
+    the body wires into a border node's input (a Bundle Elements element) is
+    one ``inplace_<uid>::put<k> = <source>`` drive line at the end of the body
+    (the same drive-line form a case frame uses for its output tunnels). The
+    ``(id <uid>)`` header suffix (verbose-only) is what lets
+    ``lvnet_reconstruct`` recover ``NetlistScope.uid`` when no drive line
+    spells it."""
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(
         f"{indent}{_LVNET_INPLACE_SCOPE_KEYWORD}{id_suffix}{_LVNET_BLOCK_OPEN}"
     )
+    body_indent = indent + _LVNET_INDENT
     _render_lvnet_items(
-        scope.frames[0].body, indent + _LVNET_INDENT, lines, handles, verbose=verbose
+        scope.frames[0].body, body_indent, lines, handles, verbose=verbose
     )
+    for drive in scope.outputs:
+        if isinstance(drive, InPlaceBorderDrive):
+            net = _lvnet_net_separator(drive.net)
+            source_str = _render_lvnet_source(drive.value, handles)
+            lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
 def _render_lvnet_scope(

@@ -25,7 +25,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if not method_name:
         return CodeFragment.empty()
 
-    ref_var = resolve_ref_input(node, ctx)
+    ref = resolve_ref_input(node, ctx)
+    ref_var = ref.name
     method_attr = to_var_name(method_name)
 
     # Gather non-ref input arguments
@@ -60,7 +61,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         t for t in node.terminals if t.direction == "output" and ctx.is_wired(t.id)
     ]
 
-    statements: list[ast.stmt] = []
+    statements: list[ast.stmt] = list(ref.statements)
     bindings: dict[str, str] = {}
 
     if wired_outputs:
@@ -79,4 +80,6 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     else:
         statements.append(ast.Expr(value=call))
 
-    return CodeFragment(statements=statements, bindings=bindings)
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports=ref.imports
+    )

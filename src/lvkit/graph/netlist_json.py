@@ -30,6 +30,7 @@ from .netlist_models import (
     EtaMerge,
     GammaCase,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistComponent,
     NetlistConstant,
@@ -136,11 +137,23 @@ def _eta_to_dict(eta: EtaMerge) -> dict[str, Any]:
     }
 
 
-def _merge_to_dict(merge: GammaMerge | MuMerge | EtaMerge) -> dict[str, Any]:
+def _border_drive_to_dict(drive: InPlaceBorderDrive) -> dict[str, Any]:
+    return {
+        "net": drive.net,
+        "kind": "border_input",
+        "value": _netref_to_dict(drive.value),
+    }
+
+
+def _merge_to_dict(
+    merge: GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive,
+) -> dict[str, Any]:
     if isinstance(merge, GammaMerge):
         return _gamma_to_dict(merge)
     if isinstance(merge, MuMerge):
         return _mu_to_dict(merge)
+    if isinstance(merge, InPlaceBorderDrive):
+        return _border_drive_to_dict(merge)
     return _eta_to_dict(merge)
 
 
@@ -356,7 +369,8 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
         "frames": [_frame_to_dict(f, verbose=verbose) for f in item.frames],
         # Always present (empty for sequence/disabled/event scopes) -- see
         # NetlistScope.outputs docstring: a case scope's GammaMerge, or a
-        # loop scope's MuMerge/EtaMerge, tagged-union by "kind".
+        # loop scope's MuMerge/EtaMerge, or an In Place Element scope's
+        # InPlaceBorderDrive, tagged-union by "kind".
         "outputs": [_merge_to_dict(m) for m in item.outputs],
     }
     # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop

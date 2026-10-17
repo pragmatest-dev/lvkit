@@ -833,9 +833,11 @@ def _emit_placeholder(
     resolved: ResolvedPrimitive,
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Emit a pass + warning for placeholder primitives.
+    """Emit a warning marker for placeholder primitives and bind each wired
+    output to ``_lv.placeholder(...)``.
 
-    Allows generation to proceed while flagging unresolved primitives.
+    Allows generation to proceed while flagging unresolved primitives; readers
+    of the outputs reference a defined variable that raises when used.
     """
     import warnings
 
@@ -862,7 +864,24 @@ def _emit_placeholder(
     marker = ast.Expr(
         value=ast.Constant(value=f"TODO: unresolved primitive {prim_id} ({name})")
     )
-    return CodeFragment(statements=[marker, ast.Pass()])
+    statements: list[ast.stmt] = [marker]
+    bindings: dict[str, str] = {}
+    for term in node.terminals:
+        # Error clusters become Python exceptions, so their wires carry nothing.
+        if term.direction != "output" or term.is_error_cluster:
+            continue
+        if not ctx.is_wired(term.id):
+            continue
+        output = term.name or f"out_{term.index}"
+        var_name = ctx.make_output_var(output, node.id, terminal_id=term.id)
+        call = parse_expr(f"_lv.placeholder({name!r}, output={output!r})")
+        statements.append(build_assign(var_name, call))
+        bindings[term.id] = var_name
+    if len(statements) == 1:
+        statements.append(ast.Pass())
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports={LV_IMPORT}
+    )
 
 
 def _emit_unknown(

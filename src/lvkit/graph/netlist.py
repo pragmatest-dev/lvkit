@@ -104,6 +104,9 @@ from .netlist_models import (
     GammaMerge as GammaMerge,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_models import (
+    InPlaceBorderDrive as InPlaceBorderDrive,  # noqa: F401 -- re-exported for external callers
+)
+from .netlist_models import (
     MuMerge as MuMerge,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_models import (

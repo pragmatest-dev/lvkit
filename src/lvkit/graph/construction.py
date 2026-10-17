@@ -748,6 +748,7 @@ class ConstructionMixin:
                     display_name=t_info.name or known_names.get(t_info.index),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
+                    dco_uid=t_info.dco_uid,
                 )
                 node_terminals.append(terminal)
 

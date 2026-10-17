@@ -40,7 +40,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _uid_of
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, _uid_of
 from .interface_order import ordered_interface, requirement_state
 from .models import (
     AnyGraphNode,
@@ -72,6 +72,7 @@ from .netlist_models import (
     EtaMerge,
     GammaCase,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistBoundaryInput,
     NetlistComponent,
@@ -671,6 +672,70 @@ def _inplace_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return _tunnel_net_name_gn(node, term, _inplace_output_outers_gn, "inplace")
 
 
+def _ipes_border_nodes_gn(
+    graph: InMemoryVIGraph, node: InPlaceNode
+) -> list[AnyGraphNode]:
+    """The border nodes of an In Place Element structure (an Unbundle/Bundle
+    Elements pair, or an Array Index/Replace pair), ordered by border pair
+    (the pairing id shared by the two halves) and then by node uid."""
+    borders = [
+        child
+        for uid in node.children
+        if (child := graph.get_graph_node(uid)) is not None
+        and _is_ipes_border_node_gn(graph, child)
+    ]
+    return sorted(
+        borders,
+        key=lambda n: (
+            _node_order_key(graph.get_poser_uid(n.id) or ""),
+            _node_order_key(n.id),
+        ),
+    )
+
+
+def _ipes_border_terminals_gn(
+    graph: InMemoryVIGraph, node: InPlaceNode, direction: str
+) -> list[Terminal]:
+    """Every terminal of an In Place Element structure's border nodes in
+    ``direction`` -- ``"output"`` for the values the border nodes supply to
+    the body, ``"input"`` for the values the body feeds back into them --
+    ordered by border pair, then node, then terminal index. The position in
+    this list is the ``k`` of the ``inplace_<uid>.get<k>`` /
+    ``inplace_<uid>.put<k>`` net names, so a name depends only on the
+    structure's border layout, never on which terminals are wired."""
+    terminals: list[Terminal] = []
+    for border in _ipes_border_nodes_gn(graph, node):
+        terminals.extend(
+            sorted(
+                (t for t in border.terminals if t.direction == direction),
+                key=lambda t: t.index,
+            )
+        )
+    return terminals
+
+
+def _inplace_border_read_net_gn(
+    graph: InMemoryVIGraph, node_id: str, terminal_id: str
+) -> str | None:
+    """``inplace_<uid>.get<k>`` when ``terminal_id`` is an output of a border
+    node (an Unbundle Elements element, an Array Index element), else
+    ``None`` -- the structure-scoped net a reader inside the body resolves to
+    (same ``<prefix>_<uid>.<name>`` shape as ``_inplace_net_name_gn``)."""
+    border = graph.get_graph_node(node_id)
+    if border is None or border.parent is None:
+        return None
+    if not _is_ipes_border_node_gn(graph, border):
+        return None
+    ipes = graph.get_graph_node(border.parent)
+    if not isinstance(ipes, InPlaceNode):
+        return None
+    outputs = _ipes_border_terminals_gn(graph, ipes, "output")
+    k = next((i for i, t in enumerate(outputs) if t.id == terminal_id), None)
+    if k is None:
+        return None
+    return f"inplace_{_uid_of(ipes.id)}.get{k}"
+
+
 def _is_feedback_output_read_gn(
     graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
 ) -> bool:
@@ -736,7 +801,8 @@ def _owning_node_gn(
     terminals are the VI's boundary controls -- ``ctx.inputs`` is the
     separate boundary-control check the caller falls through to), and
     excluding an IPES decompose/recompose border node (see
-    ``_is_ipes_border_node_gn``).
+    ``_is_ipes_border_node_gn``; its outputs resolve through
+    ``_inplace_border_read_net_gn``).
     """
     if node_id == vi_name:
         return None
@@ -825,6 +891,12 @@ def _resolve_source_gn(
             return replace(
                 _term_ref(node_name, occurrence, term),
                 producer_uid=_uid_of(owner.id),
+            )
+
+        element_net = _inplace_border_read_net_gn(graph, src.node_id, src.terminal_id)
+        if element_net is not None:
+            return NetRef(
+                node=None, terminal=element_net, occurrence=None, bare=element_net
             )
 
         for t in (*ctx.inputs, *ctx.off_pane_inputs):
@@ -1531,7 +1603,7 @@ def _build_case_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     case_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
         *_build_case_outputs_gn(
             graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
@@ -1760,7 +1832,7 @@ def _build_loop_scope_gn(
         for t in tunnels
     ]
     loop_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
         ),
@@ -1780,6 +1852,45 @@ def _build_loop_scope_gn(
     )
 
 
+def _build_inplace_border_drives_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: InPlaceNode,
+    build_ctx: _GraphBuildCtx,
+) -> list[InPlaceBorderDrive]:
+    """One ``InPlaceBorderDrive`` per WIRED input terminal of the structure's
+    border nodes (``inplace_<uid>.put<k>``, ``k`` numbered over every border
+    input in ``_ipes_border_terminals_gn`` order, wired or not, so a name
+    stays stable whichever inputs are wired). A border input with no wire of
+    its own that names the same DCO as one of the structure's input ports (the
+    In Element port carrying the outer cluster/array in, the array index
+    port) is driven by what feeds that port."""
+    uid = _uid_of(node.id)
+    drives: list[InPlaceBorderDrive] = []
+    for k, term in enumerate(_ipes_border_terminals_gn(graph, node, "input")):
+        value = _resolve_source_gn(graph, ctx, vi_name, term.id, build_ctx)
+        if value is None and term.dco_uid is not None:
+            value = next(
+                (
+                    resolved
+                    for port in node.terminals
+                    if port.direction == "input"
+                    and port.dco_uid == term.dco_uid
+                    and (
+                        resolved := _resolve_source_gn(
+                            graph, ctx, vi_name, port.id, build_ctx
+                        )
+                    )
+                    is not None
+                ),
+                None,
+            )
+        if value is not None:
+            drives.append(InPlaceBorderDrive(net=f"inplace_{uid}.put{k}", value=value))
+    return drives
+
+
 def _build_inplace_scope_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -1795,9 +1906,12 @@ def _build_inplace_scope_gn(
     IPES's OUTPUT ports resolves straight to the structure-scoped
     ``inplace_<uid>.out<k>`` net (``_is_inplace_output_gn`` in
     ``_resolve_source_gn``), the same "the net's identity belongs to the
-    STRUCTURE" rule the frame-only families apply to their own output tunnels
-    -- so, exactly like a sequence/disabled/event scope, the scope header +
-    body IS the whole rendering (``render_lvnet._render_lvnet_inplace_scope``).
+    STRUCTURE" rule the frame-only families apply to their own output tunnels.
+    The border nodes (Unbundle/Bundle Elements, Array Index/Replace) are named
+    the same way: a reader inside the body of a value a border node supplies
+    is ``inplace_<uid>.get<k>``, and each value the body wires into a border
+    node's input is one ``InPlaceBorderDrive`` in ``outputs`` (rendered as a
+    drive line at the end of the body, like a case frame's output drives).
     Faithful + round-trippable, NOT execution-worthy: an IPES has no headless
     Python analogue (it is transparent -- mutable references), so this projects
     its structure/containment without inventing decompose/recompose semantics
@@ -1817,11 +1931,13 @@ def _build_inplace_scope_gn(
         body=body,
         passthrough=_has_output_tunnel_gn(node),
     )
+    drives = _build_inplace_border_drives_gn(graph, ctx, vi_name, node, build_ctx)
     return NetlistScope(
         uid=_uid_of(node.id),
         kind="inplace",
         selector=None,
         frames=[frame],
+        outputs=[*drives],
     )
 
 

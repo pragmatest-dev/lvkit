@@ -40,6 +40,8 @@ _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 _ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
+_DCAF_ROOT = Path(".lvkit/cache/samples/DCAF-DAQModule")
+_MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
 
 # Same corpus VIs as test_lvnet_roundtrip.py's _ROUND_TRIP_CASES -- this is
 # the SAME text idempotence question asked one level deeper (full model
@@ -102,6 +104,27 @@ _IDEMPOTENCE_CASES = [
         / "Data.vi",
         _ICON_EDITOR_ROOT,
         id="Data_global_vi",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
+        _DCAF_ROOT,
+        id="DCAF_init_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Runtime"
+        / "Clients"
+        / "Session Management V1"
+        / "Session Reservation"
+        / "Initialize Sessions Impl.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Initialize_Sessions_Impl_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
+        _DCAF_ROOT,
+        id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
 ]
 

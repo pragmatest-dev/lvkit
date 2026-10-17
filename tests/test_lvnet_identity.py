@@ -75,6 +75,7 @@ from lvkit.graph.netlist_models import (
     DefaultValue,
     EtaMerge,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistInstanceKind,
 )
@@ -89,6 +90,8 @@ _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 _ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
+_DCAF_ROOT = Path(".lvkit/cache/samples/DCAF-DAQModule")
+_MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
 
 # The SAME corpus VIs as test_lvnet_reconstruct.py's `_IDEMPOTENCE_CASES` --
 # the same VIs, asked the STRONGER identity question.
@@ -155,6 +158,27 @@ _IDENTITY_CASES = [
         / "Data.vi",
         _ICON_EDITOR_ROOT,
         id="Data_global_vi",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
+        _DCAF_ROOT,
+        id="DCAF_init_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Runtime"
+        / "Clients"
+        / "Session Management V1"
+        / "Session Reservation"
+        / "Initialize Sessions Impl.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Initialize_Sessions_Impl_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
+        _DCAF_ROOT,
+        id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
 ]
 
@@ -472,6 +496,13 @@ def _compare_scope(
             _compare_net(
                 ma.condition, mb.condition, f"{merge_path}.condition", errors, ctx
             )
+        elif isinstance(ma, InPlaceBorderDrive):
+            assert isinstance(mb, InPlaceBorderDrive)
+            if _lvnet_net_separator(ma.net) != _lvnet_net_separator(mb.net):
+                errors.append(
+                    f"{merge_path}: drive net mismatch: {ma.net!r} vs {mb.net!r}"
+                )
+            _compare_net(ma.value, mb.value, f"{merge_path}.value", errors, ctx)
         elif isinstance(ma, GammaMerge):
             assert isinstance(mb, GammaMerge)
             if len(ma.cases) != len(mb.cases):

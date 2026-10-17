@@ -76,6 +76,7 @@ from .netlist import (
     DependencyKind,
     EtaMerge,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
     NetlistFeedback,
@@ -750,6 +751,7 @@ class ParsedScope:
     body: tuple[ParsedBodyItem, ...] = ()  # loop only
     shift_registers: tuple[ParsedShiftRegister, ...] = ()  # loop only
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
+    drives: tuple[ParsedDrive, ...] = ()  # in-place-element only
     # Phase 4: the header's own OPTIONAL trailing ``(id <uid>)`` annotation
     # (``_LVNET_SCOPE_ID_PREFIX``, verbose-only) -- the structure's real BD
     # uid, recovered by ``_split_scope_header_id`` BEFORE this scope's own
@@ -1502,17 +1504,17 @@ def _parse_inplace_scope(
     """``in-place-element :`` (§8) -- a single implicit body (like a loop, via
     ``body``, NOT ``frames``), matching ``_render_lvnet_inplace_scope``
     exactly: no ``frame`` sub-headers and no border ``shift-register``/
-    ``tunnel`` constructs. An IPES carries no output MERGE to drive, so a bare
-    ``net = source`` line inside it is a genuine grammar violation (raised,
-    same as a loop/frame-only family)."""
+    ``tunnel`` constructs. Its bare ``inplace_<uid>::put<k> = <source>`` lines
+    are the values the body wires into its border nodes' inputs
+    (``ParsedScope.drives``)."""
     body_indent = indent + _LVNET_INDENT_WIDTH
     body, drives = _parse_items(cursor, body_indent)
-    if drives:
-        raise LvnetParseError(
-            f"line {line_no}: an in-place-element body must not contain bare "
-            f"'net = source' drive lines (§8): {drives!r}"
-        )
-    return ParsedScope(kind=_LVNET_INPLACE_SCOPE_KEYWORD, body=tuple(body), uid=uid)
+    return ParsedScope(
+        kind=_LVNET_INPLACE_SCOPE_KEYWORD,
+        body=tuple(body),
+        drives=tuple(drives),
+        uid=uid,
+    )
 
 
 def _parse_event_scope(
@@ -2572,13 +2574,19 @@ def _module_event_scope_signature(
 def _module_inplace_scope_signature(
     scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
-    """``in-place-element`` (§8) -- a single implicit body, no border
-    constructs (empty shift-register/tunnel tuples), matching
-    ``_render_lvnet_inplace_scope`` and the parse-side body branch of
-    ``_parsed_item_signature`` (which returns the same 6-tuple shape a loop
-    does)."""
+    """``in-place-element`` (§8) -- a single implicit body plus its
+    border-input drive lines, matching ``_render_lvnet_inplace_scope`` and the
+    parse-side ``in-place-element`` branch of ``_parsed_item_signature``."""
     body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
-    return ("scope", _LVNET_INPLACE_SCOPE_KEYWORD, None, body_sig, (), ())
+    drive_entries = tuple(
+        (
+            _lvnet_net_separator(drive.net),
+            _render_lvnet_source(drive.value, handles),
+        )
+        for drive in scope.outputs
+        if isinstance(drive, InPlaceBorderDrive)
+    )
+    return ("scope", _LVNET_INPLACE_SCOPE_KEYWORD, None, body_sig, drive_entries)
 
 
 def _module_body_signature(
@@ -2693,6 +2701,14 @@ def _parsed_item_signature(
         body_sig = tuple(
             _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
         )
+        if item.kind == _LVNET_INPLACE_SCOPE_KEYWORD:
+            return (
+                "scope",
+                item.kind,
+                None,
+                body_sig,
+                tuple((d.net, d.source) for d in item.drives),
+            )
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
         tunnels = tuple((t.net, t.mode, t.source, t.condition) for t in item.tunnels)
         return ("scope", item.kind, None, body_sig, shift_regs, tunnels)

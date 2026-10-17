@@ -60,6 +60,7 @@ from lvkit.graph.lvnet_parse import (
     netlist_signature,
     parse_lvnet,
 )
+from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import (
     NetlistConstant,
     NetlistModule,
@@ -76,6 +77,8 @@ _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 _ICON_EDITOR_ROOT = Path(".lvkit/cache/samples/ni-labview-icon-editor")
+_DCAF_ROOT = Path(".lvkit/cache/samples/DCAF-DAQModule")
+_MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
 
 # A VI whose rendered lvnet text is expected to round-trip CLEANLY end to
 # end -- node declarations/terminals/nets, case/for-loop/while-loop/shift-
@@ -146,6 +149,27 @@ _ROUND_TRIP_CASES = [
         / "Data.vi",
         _ICON_EDITOR_ROOT,
         id="Data_global_vi",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
+        _DCAF_ROOT,
+        id="DCAF_init_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Runtime"
+        / "Clients"
+        / "Session Management V1"
+        / "Session Reservation"
+        / "Initialize Sessions Impl.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Initialize_Sessions_Impl_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
+        _DCAF_ROOT,
+        id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
 ]
 
@@ -293,3 +317,47 @@ def test_scan_quoted_literal_raises_on_unterminated_quote() -> None:
 def test_unescape_lvnet_string_rejects_malformed_escape() -> None:
     with pytest.raises(LvnetParseError):
         _unescape_lvnet_string('"bad \\q escape"')
+
+
+_AMBIGUOUS_TYPE_CASES = [
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Tests"
+        / "Tests.Runtime"
+        / "Measurement Server"
+        / "Reserve Sessions"
+        / "test_CallReserveSessionsWithEmptyPin_ErrorReturned.vi",
+        id="Data_names_two_structures",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Tests"
+        / "Tests.Runtime"
+        / "Measurement Server"
+        / "Session Management"
+        / "Session Reservation"
+        / "test_SessionReservationInfo_ReserveSessions_SessionReservedBooleanTrue.vi",
+        id="SessionInformation_names_two_structures",
+    ),
+]
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize("vi_path", _AMBIGUOUS_TYPE_CASES)
+def test_ambiguous_named_type_footnote_re_renders_identically(vi_path: Path) -> None:
+    """A type name that stands for two structures gets one ``types :`` entry; the
+    footnote lists only the types that entry spells, so the text re-renders
+    byte-identically from its own parse."""
+    loaded = _load(vi_path, _MEASUREMENT_PLUGIN_ROOT)
+    if loaded is None:
+        pytest.skip("sample absent")
+    graph, key = loaded
+    module = build_netlist_from_graph(graph, key)
+    assert _lvnet_ambiguous_named_types(module)
+    text = render_lvnet(module, display_name=vi_path.name, verbose=True)
+    again = render_lvnet(
+        reconstruct_module(parse_lvnet(text)), display_name=vi_path.name, verbose=True
+    )
+    assert again == text

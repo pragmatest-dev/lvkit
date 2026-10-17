@@ -136,6 +136,7 @@ from .netlist import (
     EtaMerge,
     GammaCase,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistBoundaryInput,
     NetlistConstant,
@@ -948,7 +949,7 @@ def _reconstruct_scope(
             selector = _require_netref(
                 _parse_source_token(item.selector, registry), "case selector"
             )
-        outputs: list[GammaMerge | MuMerge | EtaMerge] = [
+        outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
             GammaMerge(net=net, selector=None, cases=cases_by_net[net])
             for net in net_order
         ]
@@ -1046,19 +1047,38 @@ def _reconstruct_scope(
         )
 
     if item.kind == _LVNET_INPLACE_SCOPE_KEYWORD:
-        # A single implicit body (like a loop), no border merge of its own.
-        # An IPES never spells its own uid into a net name (its output ports
-        # are named ``inplace_<uid>.out<k>`` only where a CONSUMER references
-        # them, not defined inside this scope), so ``item.uid`` -- recovered
-        # from the verbose ``(id <uid>)`` header suffix -- is the ONLY source;
-        # a fresh uid is the honest fallback when the text was terse.
+        # A single implicit body (like a loop) plus one drive per
+        # ``inplace_<uid>::put<k> = <source>`` line. The header's verbose
+        # ``(id <uid>)`` suffix is the preferred uid source; a drive net
+        # spells it too, and a fresh uid is the honest fallback when the text
+        # was terse and drove nothing.
         body = _reconstruct_items(item.body, registry, types_dict, memo, fresh_uid)
         frame = NetlistFrame(label="", value="", is_default=False, body=body)
+        border_drives = [
+            InPlaceBorderDrive(
+                net=d.net,
+                value=_require_netref(
+                    _parse_source_token(d.source, registry), f"{d.net} drive"
+                ),
+            )
+            for d in item.drives
+        ]
+        inplace_uid = item.uid
+        if inplace_uid is None:
+            inplace_uid = next(
+                (
+                    uid
+                    for d in border_drives
+                    if (uid := _structure_uid_from_net(d.net)) is not None
+                ),
+                None,
+            )
         return NetlistScope(
-            uid=item.uid if item.uid is not None else fresh_uid.next("inplace"),
+            uid=inplace_uid if inplace_uid is not None else fresh_uid.next("inplace"),
             kind="inplace",
             selector=None,
             frames=[frame],
+            outputs=[*border_drives],
         )
 
     raise LvnetReconstructError(f"unrecognized scope kind: {item.kind!r}")
