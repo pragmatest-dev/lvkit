@@ -122,6 +122,11 @@ _ROUND_TRIP_CASES = [
         id="Graphical_Test_Runner_Main_UI_event_structure",
     ),
     pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "GetControlRef.vi",
+        _JKI_SOURCE_ROOT,
+        id="GetControlRef_nested_property",
+    ),
+    pytest.param(
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
         _AF_ROOT,
         id="Force_Icon_Editor_to_Unload_conditional_tunnel",

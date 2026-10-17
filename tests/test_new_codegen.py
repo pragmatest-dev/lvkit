@@ -17,6 +17,7 @@ from lvkit.models import (
     LVType,
     LVTypeKind,
     PropertyDef,
+    PropertySegment,
     Terminal,
 )
 from tests.helpers import make_graph_with_edge, make_graph_with_terminals, make_node
@@ -290,15 +291,89 @@ class TestPropertyDedup:
                 Terminal(id="out_1", index=1, direction="output"),
             ],
             properties=[
-                PropertyDef(name="controls"),
-                PropertyDef(name="indicator"),
-                PropertyDef(name="value"),
+                PropertyDef(segments=[PropertySegment(name="controls", code=0)]),
+                PropertyDef(segments=[PropertySegment(name="indicator", code=0)]),
+                PropertyDef(segments=[PropertySegment(name="value", code=0)]),
             ],
         )
         fragment = property_node.generate(op, ctx)
         # Should only have 1 assignment, not 3
         assigns = [s for s in fragment.statements if isinstance(s, ast.Assign)]
         assert len(assigns) == 1
+
+
+class TestNestedPropertyChain:
+    """A nested property (``Label.Text``) is an attribute chain."""
+
+    def _node_and_ctx(self, direction: str):
+        graph = make_graph_with_terminals("ref_in", "val")
+        ctx = CodeGenContext(graph=graph)
+        ctx.bind("ref_in", "ref")
+        ctx.bind("val", "'hello'")
+        assert ctx.graph is not None
+        nid_ref = ctx.graph._term_to_node["ref_in"]
+        nid_val = ctx.graph._term_to_node["val"]
+        src, dst = ("ref_in", "val") if direction == "output" else ("val", "ref_in")
+        nid_src, nid_dst = (nid_ref, nid_val) if src == "ref_in" else (nid_val, nid_ref)
+        ctx.graph._graph.add_edge(
+            nid_src,
+            nid_dst,
+            source=WireEnd(terminal_id=src, node_id=nid_src),
+            dest=WireEnd(terminal_id=dst, node_id=nid_dst),
+        )
+        op = PrimitiveNode(
+            id="prop_1",
+            vi_path="test.vi",
+            name="Property Node",
+            node_type="propNode",
+            terminals=[
+                Terminal(id="ref_in", index=0, direction="input"),
+                Terminal(
+                    id="val",
+                    index=1,
+                    direction="input" if direction == "input" else "output",
+                ),
+            ],
+            properties=[
+                PropertyDef(
+                    segments=[
+                        PropertySegment(name="Label", code=104013829),
+                        PropertySegment(name="Text", code=103995392),
+                    ]
+                )
+            ],
+        )
+        return op, ctx
+
+    def test_read_emits_attribute_chain(self):
+        op, ctx = self._node_and_ctx("output")
+        fragment = property_node.generate(op, ctx)
+        source = ast.unparse(
+            ast.fix_missing_locations(
+                ast.Module(body=fragment.statements, type_ignores=[])
+            )
+        )
+        assert source == "ref_label_text = ref.label.text"
+
+    def test_write_emits_attribute_chain_and_executes(self):
+        op, ctx = self._node_and_ctx("input")
+        fragment = property_node.generate(op, ctx)
+        source = ast.unparse(
+            ast.fix_missing_locations(
+                ast.Module(body=fragment.statements, type_ignores=[])
+            )
+        )
+        assert "ref.label.text = " in source
+
+        class _Label:
+            text = ""
+
+        class _Ref:
+            label = _Label()
+
+        ref = _Ref()
+        exec(source, {"ref": ref})
+        assert ref.label.text == "hello"
 
 
 # ── Passthrough elimination ────────────────────────────────────────

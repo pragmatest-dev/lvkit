@@ -654,10 +654,25 @@ class Tunnel(BaseModel):
     sr_stack_depth: int | None = None
 
 
-class PropertyDef(BaseModel):
-    """A property read/write on a property node."""
+class PropertySegment(BaseModel):
+    """One step of a property row's path: its name and PropItemCode."""
 
     name: str
+    code: int
+
+
+class PropertyDef(BaseModel):
+    """One Property Node row: the path of the property it reads or writes.
+
+    ``segments`` holds one entry per path step, in order -- a plain property
+    (``Value``) has one, a nested one (``Label.Text``) has two. ``name`` is the
+    segment names joined with ``.``."""
+
+    segments: list[PropertySegment]
+
+    @property
+    def name(self) -> str:
+        return ".".join(seg.name for seg in self.segments)
 
 
 # ============================================================

@@ -13,7 +13,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from lvkit.models import PropertyDef, Terminal
+from lvkit.models import Terminal
 from lvkit.parser.node_types import (
     CpdArithNode,
     EventRegNode,
@@ -107,10 +107,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["bound_control_uid"] = node.bound_control_uid
                 prim_kwargs["bound_control_type"] = node.bound_control_type
             if isinstance(node, PropertyNode):
-                prim_kwargs["properties"] = [
-                    PropertyDef(name=p.get("name", "")) if isinstance(p, dict) else p
-                    for p in node.properties
-                ]
+                prim_kwargs["properties"] = node.properties
                 prim_kwargs["property_value_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.dco_terminal_uids
                 ]

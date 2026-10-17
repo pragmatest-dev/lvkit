@@ -878,11 +878,12 @@ def _implicit_binding(node: PrimitiveNode) -> tuple[bool, str, str | None]:
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
-    (parsed from the heap ``propItemInfo`` list), correlated to each property's
-    VALUE terminal by ``op_walk.correlate_property_terminals`` -- the ONE
-    correlation the load-time display-name stamp (``op_walk.
-    stamp_property_value_names``) and the netlist projection also share. The
-    per-row read/write flag is the direction of that correlated terminal.
+    (one entry per heap ``propItem`` row; a nested row reads ``Label.Text``),
+    correlated to each property's VALUE terminal by
+    ``op_walk.correlate_property_terminals`` -- the ONE correlation the
+    load-time display-name stamp (``op_walk.stamp_property_value_names``) and
+    the netlist projection also share. The per-row read/write flag is the
+    direction of that correlated terminal.
     Returns None when the node carries no property names, so the caller falls
     back to the plain "Property Node" box rather than an empty drawer."""
     props = node.properties

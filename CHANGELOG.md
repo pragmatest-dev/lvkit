@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a nested Property Node property (`Label.Text`) shifted every later row's name by one** — it is now one row named `Label.Text` (generated Python reads `ref.label.text`), so each row after it keeps its own name and terminal in render, `describe`, lvnet and codegen.
 - **Fix: a VI calling LabVIEW install files (`<resource>`, `<extravilib>`) no longer fails with "Ambiguous VI reference"** — those paths were joined onto each caller's own folder, so one dependency got a different identity per caller; every unconfigured symbolic root is now handled like `<vilib>`.
 - **`diff` reports a structure's tunnel changes** — a tunnel turned shift register, indexing toggled, Conditional set, or a tunnel added/removed is now its own change, named by what it carries ("shift register (error in): tunnel → shift register") and highlighted on the tunnel itself in the viewer, even when the data flow is unchanged (#133).
 - **`describe --format json` speaks LabVIEW, and shows what drives a Conditional tunnel** — loop and case outputs are `tunnel`/`shift_register` with `initial_value`/`next_value` and a lower-case `mode`, each loop tunnel lists its `direction`, and a Conditional output names the wire on its condition terminal (lvnet shows it as a `value`/`condition` block); `diff` folds a new or rewired condition into that tunnel's own row.

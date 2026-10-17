@@ -5476,7 +5476,7 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
     a property's own value can itself be Refnum-typed (a real corpus case,
     see test_netlist.py's Library:Project coverage), so only the ids the
     parser's dcoList actually names are treated as property values."""
-    from lvkit.models import PropertyDef, Terminal
+    from lvkit.models import PropertyDef, PropertySegment, Terminal
     from lvkit.render.glyph import PropertyNodeGlyph
     from lvkit.render.nodes import _property_node_glyph
 
@@ -5494,7 +5494,10 @@ def test_property_node_glyph_shows_named_rows_with_read_write():
         node_type="propNode",
         name="Property Node",
         object_name="VI",
-        properties=[PropertyDef(name="Value"), PropertyDef(name="Visible")],
+        properties=[
+            PropertyDef(segments=[PropertySegment(name="Value", code=0)]),
+            PropertyDef(segments=[PropertySegment(name="Visible", code=0)]),
+        ],
         terminals=[
             term(0, "input", "Refnum"),  # reference in  (excluded)
             term(1, "output", "Refnum"),  # reference out (excluded)
@@ -5532,7 +5535,7 @@ def test_implicit_property_node_shows_target_name_and_type_color_bar():
     control's wire color. An EXPLICIT node (no ``bound_control_uid``) is
     completely unaffected — same assertions as the sibling explicit test
     above."""
-    from lvkit.models import PropertyDef, Terminal
+    from lvkit.models import PropertyDef, PropertySegment, Terminal
     from lvkit.render.glyph import PropertyNodeGlyph
     from lvkit.render.nodes import _property_node_glyph
     from lvkit.render.style import wire_style
@@ -5553,7 +5556,9 @@ def test_implicit_property_node_shows_target_name_and_type_color_bar():
         name="Abort",
         label="Abort",
         object_name="Bool",
-        properties=[PropertyDef(name="Disabled")],
+        properties=[
+            PropertyDef(segments=[PropertySegment(name="Disabled", code=0)])
+        ],
         terminals=[
             term(0, "input", "Refnum"),  # reference in (unwired, implicit)
             term(1, "output", "Refnum"),  # reference out

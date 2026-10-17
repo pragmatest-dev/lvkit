@@ -985,3 +985,25 @@ flatten matched the full flatten: nMux 349/349, event data 51/51, decompose
 `[pin map context {pin_map_id, sites}, gRPC server call]` — a drawer with
 `<i>`=0 is typed as the whole `pin map context` cluster, `<i>`=3 is `gRPC
 server call`.
+
+## A Property Node row is ONE `propItem`; its `propList` holds one `propItemInfo` per path segment, so a nested property (`Label.Text`) is one row, not two
+
+A `class="propNode"`'s rows are its `class="propItem"` elements, and their
+document order (`elem.iter()`) is the order of the node's `<dcoList>` — the
+i-th row owns the i-th `dcoList` terminal. Across 2,030 Property Nodes in 529
+cached corpus VIs (both layouts below) the two orders agree in 2,030/2,030.
+
+A row's property PATH is its `<propList>`: one `<SL__arrayElement
+class="propItemInfo">` per segment, each with its own `<PropItemName>` and
+`<PropItemCode>`. Of the 2,470 common-layout rows in that survey, 95 have two
+segments and none more. Example:
+JKI `GetControlRef.vi`, node uid 156 — the row with dco 502 is `Label` (code
+104013829) then `Text` (code 103995392), i.e. `Label.Text`; the row with dco
+281 is `Indicator`; `<dcoList>` = [502, 281]. Counting every `propItemInfo`
+as a row shifts each later row's name by one.
+
+Two layouts carry the same `propItem > propList > propItemInfo` shape. Common:
+the `propItem` is the `<dco class="propItem">` inside a `termList` term.
+Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
+the node, the term's `<dco uid=...>` only references it, and its
+`propItemInfo` carries no `PropItemName` (the name is empty).
