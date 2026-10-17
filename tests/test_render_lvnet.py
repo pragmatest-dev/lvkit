@@ -587,7 +587,7 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
 @pytest.mark.needs_samples
 def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
     """``WaveGen.vi`` has exactly 8 local-variable (gRef) nodes -- 4 WRITEs
-    into ``Params`` (each ``local-variable <handle> : write = <source>``), 2
+    into ``Running`` (each ``local-variable <handle> : write = <source>``), 2
     READs consumed elsewhere (a case selector, a Bundle/Unbundle By Name
     input), and 2 dead READs (``local-variable <handle> : read``, never
     referenced by anything). Locks in the fix for the bug where a read was
@@ -612,24 +612,24 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
 
     stripped_lines = [ln.strip() for ln in text.splitlines()]
     for expected in (
-        'local-variable Params_1974 : write = "False"',
-        'local-variable Params_1728 : write = "False"',
-        'local-variable Params_2013 : write = "False"',
-        'local-variable Params_2003 : write = "False"',
-        "local-variable Params_1480 : read",
-        "local-variable Continuous_1109 : read",
-        "local-variable Params_1402 : read",
-        "local-variable Continuous_1066 : read",
+        'local-variable Running_1974 : write = "False"',
+        'local-variable Running_1728 : write = "False"',
+        'local-variable Running_2013 : write = "False"',
+        'local-variable Running_2003 : write = "False"',
+        "local-variable Running_1480 : read",
+        "local-variable Gen_Params_1109 : read",
+        "local-variable Running_1402 : read",
+        "local-variable Gen_Params_1066 : read",
     ):
         assert expected in stripped_lines, f"missing {expected!r}"
 
     # The case selector reads a resolved reference to the LOCAL-VARIABLE
-    # read node's own output, never the raw "Params" control -- the alias
+    # read node's own output, never the raw "Running" control -- the alias
     # bug this closes.
-    assert "case Params_1480::Params :" in stripped_lines
+    assert "case Running_1480::Running :" in stripped_lines
     # The Bundle/Unbundle By Name input likewise resolves through the
-    # Continuous read node, never the bare "Continuous" boundary terminal.
-    assert any(ln.endswith("Continuous_1109::Continuous") for ln in stripped_lines), (
+    # Gen Params read node, never the bare "Gen Params" boundary terminal.
+    assert any(ln.endswith("Gen_Params_1109::Gen Params") for ln in stripped_lines), (
         "Bundle/Unbundle By Name input should resolve through the local-variable read"
     )
 

@@ -3170,8 +3170,8 @@ LOCALVAR_VI = Path(
 def test_gref_local_variable_wires_to_correct_control():
     """gRef (Local Variable) nodes must be POSITIONED graph nodes (their own
     icon, their own heap bounds) that wire to the control their paramIdx
-    names — which indexes the VI's FULL front-panel control list, not the
-    connector-pane slots. A local variable is NOT a passthrough alias to the
+    names — its position in the front panel's ``<ddoList>`` (its dcoIndex),
+    not a connector-pane slot. A local variable is NOT a passthrough alias to the
     referenced control's FP terminal: aliasing produced wires that appeared
     to originate at the (possibly cross-frame, hidden) FP terminal instead of
     the local variable's own diagram position.
@@ -3202,8 +3202,12 @@ def test_gref_local_variable_wires_to_correct_control():
     # These two selectors were unwired before gRef support; now they resolve
     # to a real LocalVariableNode (their OWN diagram position), which in turn
     # references the boolean indicators their local variables name (paramIdx
-    # 3 / 1) — NOT the indicators' own FP terminal directly.
-    for sel_raw, expected_control in (("284", "hasTensPlace"), ("834", "hasOnesPlace")):
+    # 3 / 1 -> isTeen / hasHundredsPlace; each local's saved box width tracks
+    # its control name's length) — NOT the indicators' own FP terminal directly.
+    for sel_raw, expected_control in (
+        ("284", "isTeen"),
+        ("834", "hasHundredsPlace"),
+    ):
         node, term = source(sel_raw)
         assert isinstance(node, LocalVariableNode), (
             f"selector {sel_raw} source is {type(node).__name__}, expected "
