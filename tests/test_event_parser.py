@@ -19,9 +19,11 @@ from pathlib import Path
 import pytest
 
 from lvkit.extractor import resolve_extracted
-from lvkit.parser.nodes.event import extract_event_structures
+from lvkit.parser.nodes.event import _CONFIRMED_EVENT_TYPES, extract_event_structures
 
 _SAMPLES_ROOT = Path(__file__).parent.parent / ".lvkit" / "cache" / "samples"
+# An EventSpec.type code with no entry in the confirmed table.
+_UNCONFIRMED_CODE = 0x400000FF
 _VI_TESTER_ABOUT_DIR = (
     _SAMPLES_ROOT
     / "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner"
@@ -169,15 +171,14 @@ class TestFrameLabels:
     def test_unconfirmed_event_type_shows_unknown_sentinel(self):
         """An event type code not in the clean-room-verified table becomes an
         explicit ``<unknown event 0x...>`` sentinel carrying the raw code --
-        never a guessed name, never a silently blank frame. (VI Tester About's
-        frame 2 is a VI-level filter event, code 0x80000003.)"""
+        never a guessed name, never a silently blank frame."""
         root = _build_event_xml(
             "es1",
             num_frames=3,
-            event_specs=[(2, "0", -2147483645)],
+            event_specs=[(2, "0", _UNCONFIRMED_CODE)],
         )
         es = extract_event_structures(root)[0]
-        assert es.frames[2].event_label == "[2] <unknown event 0x80000003>"
+        assert es.frames[2].event_label == "[2] <unknown event 0x400000FF>"
         # A confirmed code still resolves to its name, not the sentinel; a
         # frame with no spec at all stays a bare [N].
         assert es.frames[0].event_label == "[0]"
@@ -288,10 +289,10 @@ class TestEventSpecReconstruction:
         root = _build_event_xml(
             "es1",
             num_frames=1,
-            event_specs=[(0, "55", -2147483645)],
+            event_specs=[(0, "55", _UNCONFIRMED_CODE)],
         )
         es = extract_event_structures(root, fp_path)[0]
-        assert es.frames[0].event_label == ('[0] "Cancel": <unknown event 0x80000003>')
+        assert es.frames[0].event_label == ('[0] "Cancel": <unknown event 0x400000FF>')
 
     def test_no_control_and_unconfirmed_type_shows_sentinel(self, tmp_path):
         """No control and an unconfirmed type: the frame still names the
@@ -301,10 +302,10 @@ class TestEventSpecReconstruction:
         root = _build_event_xml(
             "es1",
             num_frames=1,
-            event_specs=[(0, "0", -2147483645)],
+            event_specs=[(0, "0", _UNCONFIRMED_CODE)],
         )
         es = extract_event_structures(root, fp_path)[0]
-        assert es.frames[0].event_label == "[0] <unknown event 0x80000003>"
+        assert es.frames[0].event_label == "[0] <unknown event 0x400000FF>"
 
     def test_unresolvable_ddo_uid_omits_control(self, tmp_path):
         """A ddoUID with no matching ddo in the FP heap degrades to omitting
@@ -470,7 +471,7 @@ class TestViTesterAboutFixture:
 
     - frame 0: ddoUID 55 -> "Cancel", type 1073741826 (Value Change)
     - frame 1: ddoUID 1124 -> "Website Button", type 1073741826
-    - frame 2: ddoUID 0 (no control), type -2147483645 (NOT confirmed)
+    - frame 2: ddoUID 0 (no control), type -2147483645 (Panel Close?)
     - frame 3: ddoUID 775 -> "copyrights", type 1073741826 -- matches the
       DISPLAYED frame's own faithful heap text exactly (cross-check)
     """
@@ -487,9 +488,71 @@ class TestViTesterAboutFixture:
 
         assert labels[0] == '[0] "Cancel": Value Change'
         assert labels[1] == '[1] "Website Button": Value Change'
-        # ddoUID 0 (no control) + a VI-level filter-event code we haven't
-        # clean-room-confirmed -> explicit sentinel with the raw code, never a
-        # fabricated name.
-        assert labels[2] == "[2] <unknown event 0x80000003>"
+        # ddoUID 0 (no control) + the VI-level filter event Panel Close?,
+        # confirmed on other corpus VIs' displayed frames (see
+        # test_confirmed_type_matches_displayed_frame).
+        assert labels[2] == "[2] Panel Close?"
         assert labels[3] == '[3] "copyrights": Value Change'
         assert es.displayed_frame == 3
+
+
+# Each confirmed event-type code beyond Value Change/Timeout, with the
+# sample-corpus VI whose DISPLAYED frame carries it: that frame's own heap
+# text names the event, which is the confirmation _CONFIRMED_EVENT_TYPES
+# requires.
+_CONFIRMING_VIS = [
+    (
+        "JKI-VI-Tester/source/User Interfaces/Graphical Test Runner/"
+        "Graphical Test Runner - Main UI - .vi",
+        0x40000005,
+    ),
+    ("ni-labview-icon-editor/resource/plugins/lv_icon.vi", 0x40000008),
+    (
+        "ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/"
+        "Buffer for lossless tracking.vi",
+        0x40000012,
+    ),
+    (
+        "ni-labview-icon-editor/resource/plugins/NIIconEditor/Miscellaneous/"
+        "Icon Editor/Keep IE in Memory.vi",
+        0x4000001A,
+    ),
+    ("configurable-af-example/source/Test Launcher AF Configurable.vi", 0x80000003),
+]
+
+
+def _event_name_of(label: str) -> str:
+    """The event-type part of a frame label: ``[3] "Pane": Mouse Up`` ->
+    ``Mouse Up``, ``[2] Panel Close?`` -> ``Panel Close?``."""
+    text = label.split("] ", 1)[1] if "] " in label else label
+    return text.rsplit(": ", 1)[1] if ": " in text else text
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize(("rel_path", "code"), _CONFIRMING_VIS)
+def test_confirmed_type_matches_displayed_frame(rel_path: str, code: int) -> None:
+    vi_path = _SAMPLES_ROOT / rel_path
+    if not vi_path.exists():
+        pytest.skip(f"{rel_path} not present in sample corpus")
+    bd_xml, _, _ = resolve_extracted(vi_path)
+    signed = code - (1 << 32) if code & 0x80000000 else code
+
+    checked = 0
+    for es in ET.parse(bd_xml).getroot().iter():
+        if es.get("class") != "eventStruct":
+            continue
+        displayed = int(es.findtext("dIdx") or 0)
+        specs = [
+            int(spec.findtext("type") or 0)
+            for spec in es.findall(
+                "EventNodeEvents/SL__arrayElement[@class='EventSpec']"
+            )
+            if int(spec.findtext("diagramIdx") or -1) == displayed
+        ]
+        if signed not in specs:
+            continue
+        label = (es.findtext("selString/textRec/text") or "").strip().strip('"').strip()
+        assert set(specs) == {signed}, (rel_path, label, specs)
+        assert _CONFIRMED_EVENT_TYPES[signed] == _event_name_of(label), label
+        checked += 1
+    assert checked, f"{rel_path}: no displayed frame with code 0x{code:08X}"

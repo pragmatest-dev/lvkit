@@ -78,10 +78,27 @@ _EVENT_DATA_NODE_CLASS = "eventDataNode"
 # reconstructed label against the displayed frame's own faithful heap text
 # (VI Tester About.vi — see module docstring). Add an entry here ONLY once
 # confirmed the same way; an unconfirmed/unmapped code is never guessed at —
-# ``_format_event_label`` just omits the event-type name for it.
+# ``_format_event_label`` just omits the event-type name for it. Each later
+# entry names a sample-corpus VI whose DISPLAYED frame carries that code and
+# names the event in its own heap text (pinned by
+# ``tests/test_event_parser.py::test_confirmed_type_matches_displayed_frame``).
 _CONFIRMED_EVENT_TYPES: dict[int, str] = {
     1073741826: "Value Change",
     1073741825: "Timeout",
+    # 0x40000005 -- JKI-VI-Tester "Graphical Test Runner - Main UI - .vi":
+    # "[12] Menu Selection (User)"
+    1073741829: "Menu Selection (User)",
+    # 0x40000008 -- ni-labview-icon-editor "lv_icon.vi": '[3] "Pane": Mouse Up'
+    1073741832: "Mouse Up",
+    # 0x40000012 -- ni-labview-icon-editor "Buffer for lossless tracking.vi":
+    # "[1] <Preview>, <Terminals>: Mouse Down"
+    1073741842: "Mouse Down",
+    # 0x4000001A -- ni-labview-icon-editor "Keep IE in Memory.vi":
+    # "[0] Application Instance Close"
+    1073741850: "Application Instance Close",
+    # 0x80000003 (a filter event) -- configurable-af-example "Test Launcher AF
+    # Configurable.vi": "[2] Panel Close?" (and 20 more corpus VIs)
+    -2147483645: "Panel Close?",
 }
 
 
