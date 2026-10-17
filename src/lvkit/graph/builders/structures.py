@@ -279,6 +279,7 @@ class InPlaceBuildHandler(StructureBuildHandler):
                     index=t_info.index,
                     lv_type=extra_lv_type,
                     name=t_info.name,
+                    dco_uid=t_info.dco_uid,
                 )
             )
             if t_uid not in ctx.term_lookup:

@@ -1848,11 +1848,30 @@ def _build_inplace_border_drives_gn(
     """One ``InPlaceBorderDrive`` per WIRED input terminal of the structure's
     border nodes (``inplace_<uid>.put<k>``, ``k`` numbered over every border
     input in ``_ipes_border_terminals_gn`` order, wired or not, so a name
-    stays stable whichever inputs are wired)."""
+    stays stable whichever inputs are wired). A border input with no wire of
+    its own that names the same DCO as one of the structure's input ports (the
+    In Element port carrying the outer cluster/array in, the array index
+    port) is driven by what feeds that port."""
     uid = _uid_of(node.id)
     drives: list[InPlaceBorderDrive] = []
     for k, term in enumerate(_ipes_border_terminals_gn(graph, node, "input")):
         value = _resolve_source_gn(graph, ctx, vi_name, term.id, build_ctx)
+        if value is None and term.dco_uid is not None:
+            value = next(
+                (
+                    resolved
+                    for port in node.terminals
+                    if port.direction == "input"
+                    and port.dco_uid == term.dco_uid
+                    and (
+                        resolved := _resolve_source_gn(
+                            graph, ctx, vi_name, port.id, build_ctx
+                        )
+                    )
+                    is not None
+                ),
+                None,
+            )
         if value is not None:
             drives.append(InPlaceBorderDrive(net=f"inplace_{uid}.put{k}", value=value))
     return drives

@@ -1017,6 +1017,7 @@ def _process_element_terminals(
             parsed_type=parsed_type,
             name=term_name,
             inverted=inverted,
+            dco_uid=dco_uid or None,
         )
 
 

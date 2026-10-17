@@ -454,6 +454,11 @@ class Terminal(BaseModel):
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     default_value: ScalarValue = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
+    # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
+    # same DCO are one value: an In Place Element structure's In/Out Element
+    # port and its border node's cluster/array/index terminal have no wire
+    # between them, only this shared DCO.
+    dco_uid: str | None = None
 
     def python_type(self) -> str:
         """Python type string derived from lv_type."""

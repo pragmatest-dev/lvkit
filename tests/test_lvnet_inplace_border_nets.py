@@ -9,6 +9,10 @@ render, parse, reconstruct, and the JSON projection must all carry them.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from lvkit.graph.lvnet_parse import netlist_signature, parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import (
@@ -20,10 +24,13 @@ from lvkit.graph.netlist import (
     NetlistScope,
     NetlistTerminalBinding,
     NetRef,
+    build_netlist_from_graph,
     netlist_to_dict,
 )
 from lvkit.graph.render_lvnet import render_lvnet
-from tests.test_lvnet_identity import _assert_graph_identity
+from tests.test_lvnet_identity import _assert_graph_identity, _load
+
+_DCAF_ROOT = Path(".lvkit/cache/samples/DCAF-DAQModule")
 
 _IPES_UID = "77"
 _READER_UID = "5"
@@ -100,3 +107,21 @@ def test_json_carries_the_drive_as_a_border_input() -> None:
     assert drive["net"] == f"inplace_{_IPES_UID}.put0"
     assert drive["kind"] == "border_input"
     assert drive["value"]["bare"] == "Increment.out"
+
+
+@pytest.mark.needs_samples
+def test_in_element_port_value_drives_the_border_node_input() -> None:
+    """The outer cluster feeding an In Place Element structure's In Element
+    port names the same DCO as the Unbundle By Name border terminal, with no
+    wire between them -- it must appear as the drive of that border input."""
+    vi_path = _DCAF_ROOT / "source" / "module" / "execution" / "init.vi"
+    loaded = _load(vi_path, _DCAF_ROOT)
+    if loaded is None:
+        pytest.skip(f"sample corpus VI not present: {vi_path}")
+    graph, vi_name = loaded
+    text = render_lvnet(
+        build_netlist_from_graph(graph, vi_name),
+        display_name=vi_path.name,
+        verbose=True,
+    )
+    assert "inplace_2331::put0 = " in text

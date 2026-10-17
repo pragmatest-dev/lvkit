@@ -463,7 +463,7 @@ frame** (never hoisted to a bottom-of-block merge).
 | Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
 | Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
 | Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
-| In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value the body wires into a border node's input (a Bundle Elements element input) is a drive line at the end of the body, `inplace_<uid>::putK = <source>` — the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
+| In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value wired into a border node's input — a Bundle Elements element the body supplies, or the cluster/array/index the outside feeds through the structure's In Element port (the port and the border terminal name the same heap DCO) — is a drive line at the end of the body, `inplace_<uid>::putK = <source>`, the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 
 `for-loop`/`while-loop`, **not** bare `for`/`while` — deliberately, so a reader
@@ -554,8 +554,9 @@ in different places.
   structure output), `inplace_<uid>::outK` (In Place Element output port),
   `inplace_<uid>::getK` (a value an In Place Element border node supplies to
   the body — an Unbundle Elements element output) and `inplace_<uid>::putK`
-  (a value the body wires into a border node's input — a Bundle Elements
-  element input; driven by an `inplace_<uid>::putK = <source>` line at the end
+  (a value wired into a border node's input — a Bundle Elements element the
+  body supplies, or the cluster/array/index the outside feeds through the
+  In Element port; driven by an `inplace_<uid>::putK = <source>` line at the end
   of the body), `fbK` (feedback — a whole net, no terminal, its own small
   sequential id rather than a uid, §7). For `getK`/`putK`, `K` counts the
   structure's border-node terminals in that direction (outputs for `getK`,
