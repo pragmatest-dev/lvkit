@@ -71,6 +71,7 @@ from .netlist_models import (
     DefaultValue,
     EtaMerge,
     GammaMerge,
+    InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
     NetlistDependency,
@@ -1328,22 +1329,30 @@ def _render_lvnet_inplace_scope(
 ) -> None:
     """``in-place-element :`` (§8) -- a single implicit body (like a loop, not
     a per-frame family), rendered directly under the header with no ``frame``
-    sub-headers. An IPES carries no output MERGE of its own (``NetlistScope.
-    outputs`` is empty for this kind, like the frame-only families): a
-    downstream reader of one of its output ports resolves straight to the
-    ``inplace_<uid>::out<k>`` structure-scoped net (see
-    ``netlist_build._is_inplace_output_gn``), so the header + body IS the whole
-    rendering -- no border ``tunnel``/``shift-register`` lines, unlike a loop.
-    The ``(id <uid>)`` header suffix (verbose-only) is what lets
-    ``lvnet_reconstruct`` recover ``NetlistScope.uid`` -- an IPES never spells
-    its own uid anywhere else."""
+    sub-headers. A downstream reader of one of its output ports resolves
+    straight to the ``inplace_<uid>::out<k>`` structure-scoped net (see
+    ``netlist_build._is_inplace_output_gn``), and a reader inside the body of
+    a value a border node supplies (an Unbundle Elements element) to
+    ``inplace_<uid>::get<k>``, so neither needs a line of its own. Each value
+    the body wires into a border node's input (a Bundle Elements element) is
+    one ``inplace_<uid>::put<k> = <source>`` drive line at the end of the body
+    (the same drive-line form a case frame uses for its output tunnels). The
+    ``(id <uid>)`` header suffix (verbose-only) is what lets
+    ``lvnet_reconstruct`` recover ``NetlistScope.uid`` when no drive line
+    spells it."""
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(
         f"{indent}{_LVNET_INPLACE_SCOPE_KEYWORD}{id_suffix}{_LVNET_BLOCK_OPEN}"
     )
+    body_indent = indent + _LVNET_INDENT
     _render_lvnet_items(
-        scope.frames[0].body, indent + _LVNET_INDENT, lines, handles, verbose=verbose
+        scope.frames[0].body, body_indent, lines, handles, verbose=verbose
     )
+    for drive in scope.outputs:
+        if isinstance(drive, InPlaceBorderDrive):
+            net = _lvnet_net_separator(drive.net)
+            source_str = _render_lvnet_source(drive.value, handles)
+            lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
 def _render_lvnet_scope(

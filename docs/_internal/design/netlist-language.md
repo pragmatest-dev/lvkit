@@ -463,7 +463,7 @@ frame** (never hoisted to a bottom-of-block merge).
 | Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
 | Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
 | Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
-| In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family); its decompose/recompose **border** ports emit no line of their own — a reader of an output port resolves straight to the `inplace_<uid>::outK` structure-scoped net (§9), exactly as the frame-only families resolve their own output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
+| In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value the body wires into a border node's input (a Bundle Elements element input) is a drive line at the end of the body, `inplace_<uid>::putK = <source>` — the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 
 `for-loop`/`while-loop`, **not** bare `for`/`while` — deliberately, so a reader
@@ -526,6 +526,7 @@ tunnel loop_879::out1 : last-value+conditional :   # a Conditional tunnel is a b
   value = <source>         # the value taken on each iteration
   condition = <source>     # the wire on its condition terminal (omitted when unwired)
 case_139::out0 = <source>      # a case output, driven inside each frame
+inplace_2331::put0 = <source>  # a value the body wires into an In Place Element border node's input
 ```
 
 (`879`/`139` are the loop's/case's own real BD `uid` — see §9.)
@@ -550,8 +551,17 @@ in different places.
   output), `loop_<uid>::shiftK` (shift register), `loop_<uid>::outK` (loop
   output tunnel), `sequence_<uid>::outK` (flat/stacked-sequence output),
   `disabled_<uid>::outK` (disable-family output), `event_<uid>::outK` (event
-  structure output), `fbK` (feedback — a whole net, no terminal, its own small
-  sequential id rather than a uid, §7). Structure prefixes keep their
+  structure output), `inplace_<uid>::outK` (In Place Element output port),
+  `inplace_<uid>::getK` (a value an In Place Element border node supplies to
+  the body — an Unbundle Elements element output) and `inplace_<uid>::putK`
+  (a value the body wires into a border node's input — a Bundle Elements
+  element input; driven by an `inplace_<uid>::putK = <source>` line at the end
+  of the body), `fbK` (feedback — a whole net, no terminal, its own small
+  sequential id rather than a uid, §7). For `getK`/`putK`, `K` counts the
+  structure's border-node terminals in that direction (outputs for `getK`,
+  inputs for `putK`), ordered by border pair, then node uid, then terminal
+  index — a name depends only on the structure's border layout, never on which
+  terminals are wired. Structure prefixes keep their
   reserved `<kind>_<uid>` form — they are not node handles. `::` is the
   **only** instance→terminal separator, so `.` never appears in a net name
   (it survives only inside a component path at a declaration, §7; the
@@ -759,7 +769,8 @@ faithful `type` (plus any per-node annotations). A scope carries `scope_kind`
 (`label`, `value` stable key, `is_default`, `passthrough`, `body[]`), and
 `outputs[]` carrying the merge syntheses with **internal** `kind` tags —
 `"select"` (case output), `"shift"` (shift register), `"collect"` (loop output
-tunnel). **These `select`/`shift`/`collect` names survive only as internal JSON
+tunnel); an In Place Element scope's `outputs[]` carry one `"border_input"`
+entry (`net`, `value`) per wired border-node input. **These `select`/`shift`/`collect` names survive only as internal JSON
 tags** — they are rendered into the LV-native surface (`shift-register` /
 `tunnel` / per-frame `caseN::outK =`) and never appear as words in lvnet text.
 

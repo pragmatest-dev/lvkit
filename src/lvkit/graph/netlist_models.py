@@ -424,14 +424,33 @@ class EtaMerge:
     condition: NetRef | None = None
 
 
+@dataclass(frozen=True)
+class InPlaceBorderDrive:
+    """A value wired INSIDE an In Place Element structure's body into an
+    input of one of its border nodes (a Bundle Elements element, an Array
+    Replace element or an Array Index index): ONE named net
+    (``inplace_<uid>.put<k>``) driven by ``value``. A value the border nodes
+    supply to the body is the structure-scoped net ``inplace_<uid>.get<k>``;
+    a reader of one of the structure's output ports is
+    ``inplace_<uid>.out<k>`` (see ``netlist_build.
+    _inplace_border_read_net_gn`` / ``_build_inplace_border_drives_gn``).
+    """
+
+    net: str
+    value: NetRef
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event / inplace.
 
     ``inplace`` is an In Place Element Structure -- like a loop, a single
-    implicit body (``frames[0]``, no per-frame family, no selector) and no
-    output MERGE of its own (a downstream reader of one of its output ports
-    resolves to the ``inplace_<uid>.out<k>`` structure net directly). See
+    implicit body (``frames[0]``, no per-frame family, no selector). A
+    downstream reader of one of its output ports resolves to the
+    ``inplace_<uid>.out<k>`` structure net directly; a reader inside the body
+    of a value a border node supplies resolves to ``inplace_<uid>.get<k>``;
+    each wired border-node input is one ``InPlaceBorderDrive`` in
+    ``outputs``. See
     ``netlist_build._build_inplace_scope_gn`` / ``render_lvnet.
     _render_lvnet_inplace_scope``."""
 
@@ -465,9 +484,13 @@ class NetlistScope:
     # ``_build_case_outputs_gn``); a loop (kind in ("for", "while")) carries
     # one ``MuMerge`` per shift register and one ``EtaMerge`` per output
     # tunnel (see ``_build_loop_shift_registers_gn``/``_build_loop_outputs_gn``,
-    # shift registers first). Empty for every other scope kind (sequence/
+    # shift registers first); an In Place Element structure (kind ==
+    # "inplace") carries one ``InPlaceBorderDrive`` per wired border-node
+    # input. Empty for every other scope kind (sequence/
     # disabled/event have no such merge).
-    outputs: list[GammaMerge | MuMerge | EtaMerge] = field(default_factory=list)
+    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = field(
+        default_factory=list
+    )
 
 
 @dataclass(frozen=True)

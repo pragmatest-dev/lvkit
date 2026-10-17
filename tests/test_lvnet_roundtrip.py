@@ -75,6 +75,8 @@ from lvkit.load_mode import LoadMode
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
 _AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
+_DCAF_ROOT = Path(".lvkit/cache/samples/DCAF-DAQModule")
+_MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
 
 # A VI whose rendered lvnet text is expected to round-trip CLEANLY end to
 # end -- node declarations/terminals/nets, case/for-loop/while-loop/shift-
@@ -130,6 +132,27 @@ _ROUND_TRIP_CASES = [
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
         _AF_ROOT,
         id="Force_Icon_Editor_to_Unload_conditional_tunnel",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
+        _DCAF_ROOT,
+        id="DCAF_init_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Runtime"
+        / "Clients"
+        / "Session Management V1"
+        / "Session Reservation"
+        / "Initialize Sessions Impl.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Initialize_Sessions_Impl_in_place_element_border_elements",
+    ),
+    pytest.param(
+        _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
+        _DCAF_ROOT,
+        id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
 ]
 
