@@ -53,6 +53,7 @@ same-name collision loss.
 - [mcp](mcp.md) — run the MCP server so an AI agent can query VIs interactively.
 - [install](install.md) — get the MCP server in front of your agent: one-click bundles for Claude Desktop/VS Code/Claude Code, or a hand-written config file.
 - [vscode-extension](vscode-extension.md) — the VS Code extension: view and diff a `.vi` in the editor, with zero-config MCP.
+- [cache](cache.md) — where lvkit keeps unpacked VIs, how to move it with `LVKIT_CACHE_DIR`, and what to exclude under antivirus.
 
 ## Shared options
 

@@ -9,7 +9,6 @@ import os
 import re
 import shutil
 import sys
-import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -33,6 +32,7 @@ install_pylabview_patches()
 # validate a cached artifact without importing this module (which pulls
 # pylabview). Re-exported here so long-standing callers of ``extractor.X`` (e.g.
 # ``graph.core`` -> ``extractor.set_extraction_roots``) keep working unchanged.
+from lvkit import staging  # noqa: E402
 from lvkit.cache_paths import (  # noqa: E402
     MANAGED_ARTIFACT_STEM,
     _slug,
@@ -40,6 +40,8 @@ from lvkit.cache_paths import (  # noqa: E402
     cleanup_legacy_cache,
     global_cache_root,
     meta_fresh,
+    touch_if_stale,
+    write_meta,
 )
 from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
@@ -50,28 +52,16 @@ logger = logging.getLogger(__name__)
 
 # Windows caps a path at MAX_PATH (260, incl. the trailing NUL) unless the app
 # opts into long paths. Two-part defence: (1) extract into a SHALLOW staging dir
-# so the *temp* path never grows with project depth (the failure mode a deep
-# repo hits), and (2) watch the FINAL path with a margin so a genuinely deep
-# project announces itself in the logs BEFORE it can fail a real user — the
-# residual case (a final cache path that is itself > 260) whose structural fix
-# is bounding the per-project slug. Extraction is the deepest cache surface, so
-# if its path is safe the shorter render/diff/index leaves under the same slug
-# are too.
+# (``<cache>/.staging/…``, see :mod:`lvkit.staging`) so the *temp* path never
+# grows with project depth (the failure mode a deep repo hits), and (2) watch the
+# FINAL path with a margin so a genuinely deep project announces itself in the
+# logs BEFORE it can fail a real user — the residual case (a final cache path
+# that is itself > 260) whose structural fix is bounding the per-project slug.
+# Extraction is the deepest cache surface, so if its path is safe the shorter
+# render/diff/index leaves under the same slug are too.
 _WIN_MAX_PATH = 260
 _WIN_PATH_WARN_AT = 240
 _warned_near_max_path = False
-
-
-def _staging_root() -> Path:
-    """SHALLOW per-user staging dir (``<cache>/.staging``) for extraction temp
-    files. On the same filesystem as every cache dir (both under
-    ``global_cache_root()``) so the publish ``os.replace`` stays atomic — but
-    kept OUT of the deep ``projects/<slug>/…`` output dir, so the temp path is
-    independent of how deep the project sits and a deep repo can't push it past
-    MAX_PATH."""
-    d = global_cache_root() / ".staging"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
 
 
 def _warn_if_near_windows_limit(path: Path) -> None:
@@ -108,49 +98,77 @@ def _windows_long_path_hint(path: Path) -> str:
 
 
 def _cache_target(vi_path: Path) -> Path:
-    """The per-VI EXTRACTION cache directory for ``vi_path`` (created).
+    """The per-VI EXTRACTION cache directory for ``vi_path`` (not created: the
+    publish step creates it, or renames a finished one into place).
 
     A one-time cleanup drops the abandoned kind-first cache trees on first use.
     """
     cleanup_legacy_cache()
     target, _, _ = classify(vi_path, "extract")
-    target.mkdir(parents=True, exist_ok=True)
     return target
 
 
 def _write_cache_meta(vi_path: Path, meta_path: Path) -> None:
+    """Write the cache-VALID marker for ``vi_path`` at ``meta_path``. ``meta_path``
+    is inside a private staging directory; it reaches the cache only when the
+    finished extraction is published (meta last, atomically)."""
     _, source, _ = classify(vi_path, "extract")
-    from lvkit.cache_paths import write_meta
-
-    # meta.json is the cache-VALID marker (readers gate on meta_fresh), so write
-    # it to a UNIQUE temp sidecar and atomically rename into place — a concurrent
-    # reader never sees a half-written meta, and racing writers (threads OR
-    # processes) can't corrupt or collide on it. mkstemp guarantees a unique
-    # name even within one process (os.getpid() alone collides across threads).
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{meta_path.name}.", suffix=".tmp", dir=meta_path.parent
-    )
-    os.close(fd)
-    tmp = Path(tmp_name)
     write_meta(
         vi_path,
-        tmp,
+        meta_path,
         source=source,
         tool="pylabview",
         extracted_at=time.time(),
         text_encoding=labview_text_encoding(),
     )
-    os.replace(tmp, meta_path)
+
+
+def _replace_unless_same(src: Path, dst: Path) -> None:
+    """Move ``src`` over ``dst`` atomically, or leave ``dst`` alone when it already
+    holds exactly the same bytes (re-extraction of an unchanged block writes
+    nothing)."""
+    try:
+        if dst.stat().st_size == src.stat().st_size and (
+            dst.read_bytes() == src.read_bytes()
+        ):
+            return
+    except OSError:
+        pass
+    os.replace(src, dst)
+
+
+def _publish(stage: Path, output_dir: Path, meta_name: str) -> None:
+    """Make the finished extraction in ``stage`` visible at ``output_dir``.
+
+    Fresh slot (the common case): ONE directory rename puts every file there at
+    once, meta included. If ``output_dir`` already exists (a re-extraction, a
+    concurrent extractor that won the race, or a platform that refuses the
+    rename), fall back to per-file atomic replaces with the meta LAST, so a reader
+    gating on ``meta_fresh`` never sees a half-published slot.
+    """
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    if not output_dir.exists():
+        try:
+            os.rename(stage, output_dir)
+            return
+        except OSError:
+            pass
+    output_dir.mkdir(exist_ok=True)
+    produced = sorted(p for p in stage.iterdir() if p.is_file())
+    for path in (p for p in produced if p.name != meta_name):
+        _replace_unless_same(path, output_dir / path.name)
+    if (stage / meta_name).exists():
+        os.replace(stage / meta_name, output_dir / meta_name)
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
-    """Write ``data`` to ``path`` atomically — a unique temp file in the same
-    directory then ``os.replace`` — so concurrent extractors of the same
-    archive can't interleave into a half-written member file."""
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    """Write ``data`` to ``path`` atomically — a unique file in this run's staging
+    directory then ``os.replace`` — so concurrent extractors of the same archive
+    can't interleave into a half-written member file."""
+    tmp = staging.temp_path(global_cache_root())
     try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
+        tmp.write_bytes(data)
+        path.parent.mkdir(parents=True, exist_ok=True)
         os.replace(tmp, path)
     except BaseException:
         try:
@@ -284,7 +302,6 @@ def extract_vi_xml(
     managed = output_dir is None
     if managed:
         output_dir = _cache_target(vi_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     artifact_stem = MANAGED_ARTIFACT_STEM if managed else vi_path.stem
     bd_xml = output_dir / f"{artifact_stem}_BDHb.xml"
@@ -309,24 +326,19 @@ def extract_vi_xml(
             extra={"text_encoding": labview_text_encoding()},
         )
     ):
-        _now = time.time()
-        for _p in (bd_xml, meta_path):
-            try:
-                os.utime(_p, (_now, _now))
-            except OSError:
-                pass
+        touch_if_stale(bd_xml, meta_path)
         return (
             bd_xml,
             fp_xml if fp_xml.exists() else None,
             main_xml if main_xml.exists() else None,
         )
 
-    # Cache miss. Extract into a PRIVATE temp dir on the same filesystem, then
-    # atomically publish each artifact into the shared cache dir (meta.json
-    # LAST, as the cache-valid marker). This makes concurrent extractions of the
-    # SAME VI safe — two lvkit processes (parallel agents, a CI matrix, or a
-    # user running several commands) each publish COMPLETE files via atomic
-    # os.replace, and a reader (which gates on bd_xml + meta_fresh) never sees a
+    # Cache miss. Extract into a PRIVATE work dir inside this process's single
+    # staging directory (see :mod:`lvkit.staging`), then publish it into the cache
+    # in one atomic step (meta.json LAST, as the cache-valid marker). This makes
+    # concurrent extractions of the SAME VI safe — two lvkit processes (parallel
+    # agents, a CI matrix, or a user running several commands) each publish a
+    # COMPLETE slot, and a reader (which gates on bd_xml + meta_fresh) never sees a
     # half-written cache. Writing straight into output_dir would let concurrent
     # writers interleave into the same file and corrupt it.
     #
@@ -338,15 +350,13 @@ def extract_vi_xml(
     # so a deep repo is visible in logs before it can fail a user.
     _warn_if_near_windows_limit(bd_xml)
 
-    # Extract into a SHALLOW staging dir (``<cache>/.staging``), NOT nested under
+    # The work dir sits in the SHALLOW ``<cache>/.staging`` tree, NOT nested under
     # the deep ``projects/<slug>/…`` output dir. Two payoffs: the temp path is
     # independent of project depth (a deep repo can't overflow it), and pylabview
     # only ever writes short paths — no MAX_PATH exposure for the extractor at all.
-    # ``.x-`` prefix (no ``vi_stem``): mkdtemp's random suffix is already unique
-    # and the dir is private, so embedding the name only cost length. Same
-    # filesystem as output_dir (both under global_cache_root), so the publish
-    # os.replace stays atomic.
-    tmp_dir = Path(tempfile.mkdtemp(prefix=".x-", dir=_staging_root()))
+    # Same filesystem as output_dir (both under global_cache_root), so the publish
+    # rename stays atomic.
+    tmp_dir = staging.work_dir(global_cache_root())
     try:
         try:
             _extract_in_process(vi_path, tmp_dir, artifact_stem)
@@ -359,12 +369,8 @@ def extract_vi_xml(
         if not (tmp_dir / f"{artifact_stem}_BDHb.xml").exists():
             raise RuntimeError(f"Block diagram XML not found: {artifact_stem}_BDHb.xml")
 
-        # Publish every produced artifact atomically (same filesystem as the
-        # temp dir), then meta.json last so its appearance marks the cache valid.
-        for produced in sorted(tmp_dir.iterdir()):
-            if produced.is_file():
-                os.replace(produced, output_dir / produced.name)
-        _write_cache_meta(vi_path, meta_path)
+        _write_cache_meta(vi_path, tmp_dir / meta_path.name)
+        _publish(tmp_dir, output_dir, meta_path.name)
     except OSError as exc:
         # A publish/mkdir OSError on a genuinely deep FINAL path — augment the
         # bare Errno with the Windows long-path diagnosis so it's actionable.
@@ -373,7 +379,8 @@ def extract_vi_xml(
             f"{_windows_long_path_hint(bd_xml)}"
         ) from exc
     finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if not bd_xml.exists():
         raise RuntimeError(f"Block diagram XML not found: {bd_xml}")

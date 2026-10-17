@@ -7,7 +7,9 @@ plus its block-diagram wire appearance (Wire Appearance page). NOT block-diagram
 
 from __future__ import annotations
 
+import posixpath
 import re
+import sys
 import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -1186,6 +1188,27 @@ def parse_lvproj(lvproj_path: Path | str) -> LVProject:
     )
 
 
+# LabVIEW writes a file that sits on another drive, or outside the project
+# folder, as an absolute URL: a leading slash then the drive (``/C:/Users/x.vi``).
+_LVPROJ_DRIVE_URL = re.compile(r"^/([A-Za-z]):(/.*)?$")
+
+
+def resolve_item_url(
+    proj_dir: Path, url: str, *, windows: bool = sys.platform == "win32"
+) -> Path:
+    """The file a ``.lvproj`` item's ``URL`` names.
+
+    A relative URL is relative to the project folder. An absolute drive URL
+    (``/C:/Users/x.vi``) names ``C:/Users/x.vi`` on Windows; joining it onto the
+    project folder instead would build ``C:/C:/Users/x.vi``. Off Windows a drive
+    path cannot exist, so it stays a rooted path that simply is not found.
+    """
+    match = _LVPROJ_DRIVE_URL.match(url)
+    if match is not None and windows:
+        return Path(f"{match.group(1)}:{match.group(2) or '/'}")
+    return proj_dir / url
+
+
 def get_project_vis(project: LVProject) -> list[tuple[str, Path]]:
     """Extract all VI paths from a parsed project.
 
@@ -1201,7 +1224,7 @@ def get_project_vis(project: LVProject) -> list[tuple[str, Path]]:
     def collect_vis(items: list[LVProjectItem]) -> None:
         for item in items:
             if item.item_type == "VI" and item.url:
-                vi_path = proj_dir / item.url
+                vi_path = resolve_item_url(proj_dir, item.url)
                 vis.append((item.name, vi_path))
             # Recurse into children (folders, classes with nested VIs, etc.)
             collect_vis(item.children)
@@ -1225,7 +1248,7 @@ def get_project_classes(project: LVProject) -> list[tuple[str, Path]]:
     def collect_classes(items: list[LVProjectItem]) -> None:
         for item in items:
             if item.item_type == "LVClass" and item.url:
-                class_path = proj_dir / item.url
+                class_path = resolve_item_url(proj_dir, item.url)
                 classes.append((item.name, class_path))
             collect_classes(item.children)
 
@@ -1248,7 +1271,7 @@ def get_project_libraries(project: LVProject) -> list[tuple[str, Path]]:
     def collect_libs(items: list[LVProjectItem]) -> None:
         for item in items:
             if item.item_type == "Library" and item.url:
-                lib_path = proj_dir / item.url
+                lib_path = resolve_item_url(proj_dir, item.url)
                 libs.append((item.name, lib_path))
             collect_libs(item.children)
 
@@ -1307,7 +1330,7 @@ def get_project_members(project: LVProject) -> list[LVProjectMember]:
                             member_type=kind,
                             name=item.name,
                             url=item.url,
-                            path=proj_dir / item.url,
+                            path=resolve_item_url(proj_dir, item.url),
                             target=target,
                             is_dependency=is_dep,
                         )
@@ -1454,6 +1477,31 @@ def discover_structure_from_lvproj(lvproj_path: Path | str) -> dict[str, Any]:
             structure["standalone_vis"].append(rel_path)
 
     return structure
+
+
+def _structure_path(owner_path: str, member_url: str) -> str:
+    """A member's path relative to the project root, normalized: ``member_url``
+    is relative to the folder of the library/class file at ``owner_path``."""
+    owner_dir = posixpath.dirname(owner_path.replace("\\", "/"))
+    return posixpath.normpath(posixpath.join(owner_dir, member_url.replace("\\", "/")))
+
+
+def structure_vi_paths(structure: dict[str, Any]) -> list[str]:
+    """Every distinct VI a discovered structure holds: standalone VIs, library
+    member VIs and class method VIs, sorted. Library and class VIs count even
+    when the project declares only the library or class file."""
+    paths = {
+        posixpath.normpath(str(p).replace("\\", "/"))
+        for p in structure["standalone_vis"]
+    }
+    for lib in structure["libraries"]:
+        for m in lib["members"]:
+            if m["type"] == "VI":
+                paths.add(_structure_path(lib["path"], m["url"]))
+    for cls in structure["classes"]:
+        for method in cls["methods"]:
+            paths.add(_structure_path(cls["path"], method["vi_path"]))
+    return sorted(paths)
 
 
 def generate_python_structure_plan(structure: dict[str, Any]) -> str:

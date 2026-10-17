@@ -15,7 +15,7 @@ lvkit structure <input> [options]
 
 | Argument | Description |
 |----------|-------------|
-| `input` | A directory, `.lvlib`, or `.lvclass` file. |
+| `input` | A directory, `.lvproj`, `.lvlib`, or `.lvclass` file. |
 
 ## Options
 
@@ -97,9 +97,10 @@ lvkit structure "Result Logger_class"
 
 ```text
 Project Structure: Result Logger_class
-  Libraries: 0
-  Classes: 1
+  Libraries: 0 (0 VIs)
+  Classes: 1 (11 VIs)
   Standalone VIs: 2
+  Total VIs: 13
 
 Classes:
   - Result Logger (11 methods)
@@ -107,7 +108,11 @@ Classes:
 
 `--json` prints the full discovery structure: `libraries` and `classes` lists
 (each entry shaped like the single-library/single-class JSON above) plus a
-`standalone_vis` list of VI paths relative to `input`.
+`standalone_vis` list of VI paths relative to `input`, plus `vi_count` and
+`vis`: every distinct VI the libraries, classes and standalone list hold, so a
+project that declares only libraries and classes still reports its VIs. For a
+`.lvproj`, the project file's own member list is used instead of a folder scan,
+and a file on another drive (`/C:/...` in the project file) is found on Windows.
 
 ## Structure plan
 

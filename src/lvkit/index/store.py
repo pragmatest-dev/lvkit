@@ -33,11 +33,11 @@ version bump to forget. See ``_ensure_facts_version``.
 
 from __future__ import annotations
 
+import hashlib
 import json
-import os
 import sqlite3
-import time
 from collections.abc import Iterable
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -253,7 +253,8 @@ CREATE INDEX IF NOT EXISTS idx_lvproj_members_resolved
 
 CREATE TABLE IF NOT EXISTS meta (
     vi_path TEXT PRIMARY KEY,
-    content_sha TEXT NOT NULL
+    content_sha TEXT NOT NULL,
+    facts_digest TEXT NOT NULL DEFAULT ''
 );
 """ + TYPES_SCHEMA + TYPEDEFS_SCHEMA
 
@@ -363,6 +364,19 @@ _FINGERPRINT_SKIP_DIRS = cache_paths._FINGERPRINT_SKIP_DIRS
 _facts_fingerprint = cache_paths.source_fingerprint
 
 
+def _db_file(project_root: Path) -> Path:
+    """Where ``project_root``'s index DB lives; nothing is created."""
+    slug = cache_paths._slug(project_root.resolve())
+    return (
+        cache_paths.global_cache_root()
+        / "projects"
+        / slug
+        / "index"
+        / cache_paths.kind_fingerprint("index")
+        / "index.db"
+    )
+
+
 def db_path(project_root: Path) -> Path:
     """The SQLite file for ``project_root``'s index (parent dir created).
 
@@ -373,16 +387,9 @@ def db_path(project_root: Path) -> Path:
     backstop (a matching path already implies a matching fingerprint), kept
     because its guard test and any pre-<fp> db still rely on it.
     """
-    slug = cache_paths._slug(project_root.resolve())
-    d = (
-        cache_paths.global_cache_root()
-        / "projects"
-        / slug
-        / "index"
-        / cache_paths.kind_fingerprint("index")
-    )
-    d.mkdir(parents=True, exist_ok=True)
-    return d / "index.db"
+    path = _db_file(project_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _connect(project_root: Path) -> sqlite3.Connection:
@@ -393,11 +400,7 @@ def _connect(project_root: Path) -> sqlite3.Connection:
     conn.executescript(_SCHEMA)
     # Bump the slice's mtime so the access-TTL sweep keeps an index in active use
     # warm and only retires the ones for builds the user has upgraded away from.
-    try:
-        now = time.time()
-        os.utime(path, (now, now))
-    except OSError:
-        pass
+    cache_paths.touch_if_stale(path)
     return conn
 
 
@@ -435,36 +438,48 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _prior_container_facts(
-    conn: sqlite3.Connection,
-    path: str,
-) -> tuple[str | None, str | None, ClassFact | None]:
-    """Read the prior ``content_sha``, ``library``, and ``class_fact`` for
-    ``path`` (all None if the VI has never been saved).
+@dataclass(frozen=True)
+class _Prior:
+    """What the index already holds for one VI path."""
 
-    ``meta.content_sha`` is the freshness authority (written per-save, see
-    ``save()`` below); the ``vis``/``class_facts`` rows for the same path are
-    the container fields a progressive/partial re-save must not clobber with
-    NULLs when the VI's bytes haven't changed.
-    """
+    content_sha: str
+    facts_digest: str
+    is_stub: bool
+    library: str | None
+    impact_score: int
+    callers_count: int
+    class_fact: ClassFact | None
+
+
+def facts_digest(f: VIFacts) -> str:
+    """A stable digest of everything ``save()`` persists for ``f``, EXCEPT the two
+    scores computed across the whole call graph at merge time (``impact_score``,
+    ``callers_count``). Two facts with the same digest write the same rows."""
+    payload = asdict(f)
+    del payload["impact_score"]
+    del payload["callers_count"]
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
+    """The stored row for ``path`` (``None`` if never saved)."""
     row = conn.execute(
-        "SELECT content_sha FROM meta WHERE vi_path = ?", (path,)
+        "SELECT v.content_sha, m.facts_digest, v.is_stub, v.library, "
+        "v.impact_score, v.callers_count "
+        "FROM vis v JOIN meta m ON m.vi_path = v.path WHERE v.path = ?",
+        (path,),
     ).fetchone()
     if row is None:
-        return None, None, None
-    prior_sha = row[0]
-
-    lib_row = conn.execute("SELECT library FROM vis WHERE path = ?", (path,)).fetchone()
-    prior_library = lib_row[0] if lib_row is not None else None
-
+        return None
     cf_row = conn.execute(
         "SELECT owning_class, parent, scope, is_accessor, accessor_field, "
         "private_data, is_static, must_override, must_call_parent, "
-        "class_version, ancestors "
-        "FROM class_facts WHERE vi_path = ?",
+        "class_version, ancestors FROM class_facts WHERE vi_path = ?",
         (path,),
     ).fetchone()
-    prior_class_fact = (
+    class_fact = (
         ClassFact(
             owning_class=cf_row[0],
             parent=cf_row[1],
@@ -481,251 +496,317 @@ def _prior_container_facts(
         if cf_row is not None
         else None
     )
-    return prior_sha, prior_library, prior_class_fact
+    return _Prior(
+        content_sha=row[0],
+        facts_digest=row[1],
+        is_stub=bool(row[2]),
+        library=row[3],
+        impact_score=row[4],
+        callers_count=row[5],
+        class_fact=class_fact,
+    )
+
+
+def _coalesce_class_fact(
+    prior: ClassFact | None, cfc: ClassFact | None
+) -> ClassFact | None:
+    """Merge an incoming ``ClassFact`` onto the stored one for the SAME VI bytes:
+    an incoming NULL is ignorance from a partial load, not truth."""
+    if cfc is None:
+        # No class facts at all from this (partial) load -- preserve the entire
+        # prior row wholesale.
+        return prior
+    if prior is None:
+        return cfc
+    # Coalesce the accessor PAIR atomically: is_accessor and accessor_field are
+    # one fact from the owns edge, so a partial load with no accessor info must
+    # not leave is_accessor=False beside a preserved accessor_field (a
+    # self-contradictory row).
+    if cfc.is_accessor or cfc.accessor_field is not None:
+        is_accessor = cfc.is_accessor
+        accessor_field = cfc.accessor_field
+    else:
+        is_accessor = prior.is_accessor
+        accessor_field = prior.accessor_field
+    # scope/is_static/must_override/must_call_parent all come from the SAME
+    # "owns" edge lookup (get_method_access) -- gate the whole group on scope
+    # (like the accessor pair above) so a partial load with no access info at
+    # all doesn't clobber a previously-resolved method's flags with defaulted
+    # False.
+    if cfc.scope is not None:
+        scope = cfc.scope
+        is_static = cfc.is_static
+        must_override = cfc.must_override
+        must_call_parent = cfc.must_call_parent
+    else:
+        scope = prior.scope
+        is_static = prior.is_static
+        must_override = prior.must_override
+        must_call_parent = prior.must_call_parent
+    return ClassFact(
+        owning_class=(
+            cfc.owning_class if cfc.owning_class is not None else prior.owning_class
+        ),
+        parent=cfc.parent if cfc.parent is not None else prior.parent,
+        scope=scope,
+        is_accessor=is_accessor,
+        accessor_field=accessor_field,
+        private_data=cfc.private_data if cfc.private_data else prior.private_data,
+        is_static=is_static,
+        must_override=must_override,
+        must_call_parent=must_call_parent,
+        class_version=(
+            cfc.class_version if cfc.class_version is not None else prior.class_version
+        ),
+        ancestors=cfc.ancestors if cfc.ancestors else prior.ancestors,
+    )
+
+
+def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
+    """The facts ``save()`` must persist for ``f`` given what ``conn`` already
+    holds, or ``None`` when the stored row is already current.
+
+    Different VI bytes (or no stored row): trust ``f`` fully. The SAME bytes: the
+    stored row is the fuller of the two wherever a partial load (a single-VI
+    load that never loaded the class hierarchy, the controls, or the VI itself)
+    leaves a gap, so ``f`` only ADDS to it -- a fuller load upgrades a partial
+    row, a partial load never downgrades a fuller one:
+
+    * ``library`` / ``class_fact``: an incoming NULL keeps the stored value.
+    * ``typedef_paths`` / ``typedef_versions`` are NOT merged: they record which
+      controls the VI could read at its last save, and ``sync_index`` compares
+      them with the controls' current shape to decide a rebuild, so the latest
+      load's value is the truth.
+    * a stub never replaces a loaded VI.
+    * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
+      stored ones stay.
+
+    The result is compared by :func:`facts_digest`; equal means nothing to write.
+    """
+    prior = _prior(conn, f.path)
+    effective = f
+    if prior is not None and prior.content_sha == f.content_sha:
+        if f.is_stub and not prior.is_stub:
+            return None
+        effective = replace(
+            f,
+            library=f.library if f.library is not None else prior.library,
+            class_fact=_coalesce_class_fact(prior.class_fact, f.class_fact),
+            impact_score=prior.impact_score,
+            callers_count=prior.callers_count,
+        )
+        if prior.facts_digest == facts_digest(effective):
+            return None
+    return effective
+
+
+def _probe(project_root: Path) -> sqlite3.Connection | None:
+    """A read-only, lock-free view of the project's current index DB, or ``None``
+    when there is none to read. ``immutable`` opens the main file alone, so a
+    probe creates no ``-wal``/``-shm`` files and writes nothing; a concurrent
+    writer's uncheckpointed rows are not seen, which at worst costs one redundant
+    save."""
+    path = _db_file(project_root)
+    if not path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
+        row = conn.execute(
+            "SELECT fingerprint FROM index_meta WHERE id = 0"
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    if row is None or row[0] != _facts_fingerprint():
+        conn.close()
+        return None
+    return conn
+
+
+def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
+    """True when every one of ``vis`` is already stored as-is: a save would
+    write nothing, so it need not open the DB for writing at all."""
+    conn = _probe(project_root)
+    if conn is None:
+        return False
+    try:
+        return all(_facts_to_write(conn, f) is None for f in vis)
+    except sqlite3.Error:
+        return False
+    finally:
+        conn.close()
 
 
 def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
-    """Upsert every given ``VIFacts`` row into the project's index DB.
+    """Upsert the given ``VIFacts`` rows into the project's index DB.
 
-    Coalesce-on-save: when a prior row exists for the same path AND the same
-    ``content_sha`` (same VI bytes — an incoming NULL container field is
-    ignorance from a partial/progressive build, not truth), the nullable
-    container fields (``library`` and the whole ``class_fact`` row) fall back
-    to the prior value instead of being clobbered. A changed sha (or no prior
-    row) means today's behavior: trust the incoming facts fully. The
-    terminals/constants/nodes/type_uses child tables are intrinsic to a
-    single-VI load and are never coalesced — always overwritten. (``callee_path``
-    on the node rows is the one exception filled at merge, like impact_score.)
+    A VI whose stored row is already current is not touched (see
+    :func:`_facts_to_write`), and when none needs writing the DB is not opened
+    for writing, so a repeat load of an unchanged project leaves ``index.db``
+    and its WAL files exactly as they were. The terminals/constants/nodes/
+    type_uses child tables are intrinsic to a single-VI load and are always
+    rewritten together with their VI's row. (``callee_path`` on the node rows is
+    the one exception filled at merge, like impact_score.)
     """
+    pending = list(vis)
+    if not pending or _probe_is_current(project_root, pending):
+        return
     conn = _connect(project_root)
     try:
         with conn:
-            for f in vis:
-                prior_sha, prior_library, prior_class_fact = _prior_container_facts(
-                    conn, f.path
-                )
-                same_vi = prior_sha is not None and prior_sha == f.content_sha
-                if not same_vi:
-                    library = f.library
-                    class_fact = f.class_fact
-                else:
-                    library = f.library if f.library is not None else prior_library
-                    if f.class_fact is None:
-                        # No class facts at all from this (partial) load —
-                        # preserve the entire prior row wholesale.
-                        class_fact = prior_class_fact
-                    elif prior_class_fact is None:
-                        class_fact = f.class_fact
-                    else:
-                        cfc = f.class_fact
-                        # Coalesce the accessor PAIR atomically: is_accessor and
-                        # accessor_field are one fact from the owns edge, so a
-                        # partial load with no accessor info must not leave
-                        # is_accessor=False beside a preserved accessor_field (a
-                        # self-contradictory row).
-                        if cfc.is_accessor or cfc.accessor_field is not None:
-                            is_accessor = cfc.is_accessor
-                            accessor_field = cfc.accessor_field
-                        else:
-                            is_accessor = prior_class_fact.is_accessor
-                            accessor_field = prior_class_fact.accessor_field
-                        # scope/is_static/must_override/must_call_parent all
-                        # come from the SAME "owns" edge lookup
-                        # (get_method_access) -- gate the whole group on scope
-                        # (like the accessor pair above) so a partial load
-                        # with no access info at all doesn't clobber a
-                        # previously-resolved method's is_static/must_override
-                        # with defaulted False.
-                        if cfc.scope is not None:
-                            scope = cfc.scope
-                            is_static = cfc.is_static
-                            must_override = cfc.must_override
-                            must_call_parent = cfc.must_call_parent
-                        else:
-                            scope = prior_class_fact.scope
-                            is_static = prior_class_fact.is_static
-                            must_override = prior_class_fact.must_override
-                            must_call_parent = prior_class_fact.must_call_parent
-                        class_fact = ClassFact(
-                            owning_class=(
-                                cfc.owning_class
-                                if cfc.owning_class is not None
-                                else prior_class_fact.owning_class
-                            ),
-                            parent=(
-                                cfc.parent
-                                if cfc.parent is not None
-                                else prior_class_fact.parent
-                            ),
-                            scope=scope,
-                            is_accessor=is_accessor,
-                            accessor_field=accessor_field,
-                            private_data=(
-                                cfc.private_data
-                                if cfc.private_data
-                                else prior_class_fact.private_data
-                            ),
-                            is_static=is_static,
-                            must_override=must_override,
-                            must_call_parent=must_call_parent,
-                            class_version=(
-                                cfc.class_version
-                                if cfc.class_version is not None
-                                else prior_class_fact.class_version
-                            ),
-                            ancestors=(
-                                cfc.ancestors
-                                if cfc.ancestors
-                                else prior_class_fact.ancestors
-                            ),
-                        )
-
-                _delete_vi(conn, f.path)
-                prop_cols = [c for c, _ in _FLAT_PROPERTY_COLUMNS]
-                prop_values = tuple(
-                    int(getattr(f, c)) if is_bool else getattr(f, c)
-                    for c, is_bool in _FLAT_PROPERTY_COLUMNS
-                )
-                base_cols = (
-                    "path",
-                    "name",
-                    "qualified_name",
-                    "library",
-                    "is_stub",
-                    "content_sha",
-                    "impact_score",
-                    "callers_count",
-                )
-                conn.execute(
-                    f"INSERT INTO vis({', '.join(base_cols + tuple(prop_cols))}) "
-                    f"VALUES ({', '.join('?' * (len(base_cols) + len(prop_cols)))})",
-                    (
-                        f.path,
-                        f.name,
-                        f.qualified_name,
-                        library,
-                        int(f.is_stub),
-                        f.content_sha,
-                        f.impact_score,
-                        f.callers_count,
-                        *prop_values,
-                    ),
-                )
-                conn.executemany(
-                    "INSERT INTO terminals(vi_path, ord, name, direction, "
-                    "is_indicator, is_public, control_type, "
-                    "field_names, fp_dco_uid, type_descriptor, type_kind, "
-                    "enum_values, type_id) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    [
-                        (
-                            f.path,
-                            i,
-                            t.name,
-                            t.direction,
-                            int(t.is_indicator),
-                            int(t.is_public),
-                            t.control_type,
-                            json.dumps(t.field_names),
-                            t.fp_dco_uid,
-                            t.type_descriptor,
-                            t.type_kind.value if t.type_kind else None,
-                            json.dumps(t.enum_values),
-                            t.type_id,
-                        )
-                        for i, t in enumerate(f.terminals)
-                    ],
-                )
-                conn.executemany(
-                    "INSERT INTO constants(vi_path, ord, value, label, "
-                    "type_descriptor, type_kind, wired_to, type_id) "
-                    "VALUES (?,?,?,?,?,?,?,?)",
-                    [
-                        (
-                            f.path,
-                            i,
-                            c.value,
-                            c.label,
-                            c.type_descriptor,
-                            c.type_kind.value if c.type_kind else None,
-                            c.wired_to.value,
-                            c.type_id,
-                        )
-                        for i, c in enumerate(f.constants)
-                    ],
-                )
-                conn.executemany(
-                    "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
-                    "qualified_name, callee_path, object_name, method_name, "
-                    "parent_uid, frame) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                    [
-                        (
-                            f.path,
-                            i,
-                            n.uid,
-                            n.kind.value,
-                            n.name,
-                            n.prim_id,
-                            n.qualified_name,
-                            n.callee_path,
-                            n.object_name,
-                            n.method_name,
-                            n.parent_uid,
-                            n.frame,
-                        )
-                        for i, n in enumerate(f.nodes)
-                    ],
-                )
-                conn.executemany(
-                    "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
-                    [(f.path, type_key) for type_key in f.type_uses],
-                )
-                record_types(conn, f.types)
-                vi_type_ids = sorted(set(f.type_ids))
-                require_types(conn, f.path, vi_type_ids)
-                conn.executemany(
-                    "INSERT INTO vi_types(vi_path, type_id) VALUES (?,?)",
-                    [(f.path, type_id) for type_id in vi_type_ids],
-                )
-                conn.executemany(
-                    "INSERT INTO typedef_uses(vi_path, typedef_path) VALUES (?,?)",
-                    [(f.path, p) for p in sorted(set(f.typedef_paths))],
-                )
-                conn.executemany(
-                    "INSERT INTO vi_typedef_versions(vi_path, typedef_path, type_id) "
-                    "VALUES (?,?,?)",
-                    [(f.path, v.typedef_path, v.type_id) for v in f.typedef_versions],
-                )
-                if class_fact is not None:
-                    cf = class_fact
-                    conn.execute(
-                        "INSERT INTO class_facts(vi_path, owning_class, parent, "
-                        "scope, is_accessor, accessor_field, private_data, "
-                        "is_static, must_override, must_call_parent, "
-                        "class_version, ancestors) "
-                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (
-                            f.path,
-                            cf.owning_class,
-                            cf.parent,
-                            cf.scope,
-                            int(cf.is_accessor),
-                            cf.accessor_field,
-                            json.dumps(cf.private_data),
-                            int(cf.is_static),
-                            int(cf.must_override),
-                            int(cf.must_call_parent),
-                            cf.class_version,
-                            json.dumps(cf.ancestors),
-                        ),
-                    )
-                conn.execute(
-                    "INSERT INTO meta(vi_path, content_sha) VALUES (?,?)",
-                    (f.path, f.content_sha),
-                )
+            for incoming in pending:
+                f = _facts_to_write(conn, incoming)
+                if f is not None:
+                    _write_vi(conn, f)
             drop_unused_types(conn)
     finally:
         conn.close()
+
+
+def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
+    """Replace every row belonging to ``f.path`` with ``f``'s."""
+    _delete_vi(conn, f.path)
+    prop_cols = [c for c, _ in _FLAT_PROPERTY_COLUMNS]
+    prop_values = tuple(
+        int(getattr(f, c)) if is_bool else getattr(f, c)
+        for c, is_bool in _FLAT_PROPERTY_COLUMNS
+    )
+    base_cols = (
+        "path",
+        "name",
+        "qualified_name",
+        "library",
+        "is_stub",
+        "content_sha",
+        "impact_score",
+        "callers_count",
+    )
+    conn.execute(
+        f"INSERT INTO vis({', '.join(base_cols + tuple(prop_cols))}) "
+        f"VALUES ({', '.join('?' * (len(base_cols) + len(prop_cols)))})",
+        (
+            f.path,
+            f.name,
+            f.qualified_name,
+            f.library,
+            int(f.is_stub),
+            f.content_sha,
+            f.impact_score,
+            f.callers_count,
+            *prop_values,
+        ),
+    )
+    conn.executemany(
+        "INSERT INTO terminals(vi_path, ord, name, direction, "
+        "is_indicator, is_public, control_type, "
+        "field_names, fp_dco_uid, type_descriptor, type_kind, "
+        "enum_values, type_id) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            (
+                f.path,
+                i,
+                t.name,
+                t.direction,
+                int(t.is_indicator),
+                int(t.is_public),
+                t.control_type,
+                json.dumps(t.field_names),
+                t.fp_dco_uid,
+                t.type_descriptor,
+                t.type_kind.value if t.type_kind else None,
+                json.dumps(t.enum_values),
+                t.type_id,
+            )
+            for i, t in enumerate(f.terminals)
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO constants(vi_path, ord, value, label, "
+        "type_descriptor, type_kind, wired_to, type_id) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        [
+            (
+                f.path,
+                i,
+                c.value,
+                c.label,
+                c.type_descriptor,
+                c.type_kind.value if c.type_kind else None,
+                c.wired_to.value,
+                c.type_id,
+            )
+            for i, c in enumerate(f.constants)
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
+        "qualified_name, callee_path, object_name, method_name, "
+        "parent_uid, frame) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        [
+            (
+                f.path,
+                i,
+                n.uid,
+                n.kind.value,
+                n.name,
+                n.prim_id,
+                n.qualified_name,
+                n.callee_path,
+                n.object_name,
+                n.method_name,
+                n.parent_uid,
+                n.frame,
+            )
+            for i, n in enumerate(f.nodes)
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO type_uses(vi_path, type_key) VALUES (?,?)",
+        [(f.path, type_key) for type_key in f.type_uses],
+    )
+    record_types(conn, f.types)
+    vi_type_ids = sorted(set(f.type_ids))
+    require_types(conn, f.path, vi_type_ids)
+    conn.executemany(
+        "INSERT INTO vi_types(vi_path, type_id) VALUES (?,?)",
+        [(f.path, type_id) for type_id in vi_type_ids],
+    )
+    conn.executemany(
+        "INSERT INTO typedef_uses(vi_path, typedef_path) VALUES (?,?)",
+        [(f.path, p) for p in sorted(set(f.typedef_paths))],
+    )
+    conn.executemany(
+        "INSERT INTO vi_typedef_versions(vi_path, typedef_path, type_id) "
+        "VALUES (?,?,?)",
+        [(f.path, v.typedef_path, v.type_id) for v in f.typedef_versions],
+    )
+    if f.class_fact is not None:
+        cf = f.class_fact
+        conn.execute(
+            "INSERT INTO class_facts(vi_path, owning_class, parent, "
+            "scope, is_accessor, accessor_field, private_data, "
+            "is_static, must_override, must_call_parent, "
+            "class_version, ancestors) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                f.path,
+                cf.owning_class,
+                cf.parent,
+                cf.scope,
+                int(cf.is_accessor),
+                cf.accessor_field,
+                json.dumps(cf.private_data),
+                int(cf.is_static),
+                int(cf.must_override),
+                int(cf.must_call_parent),
+                cf.class_version,
+                json.dumps(cf.ancestors),
+            ),
+        )
+    conn.execute(
+        "INSERT INTO meta(vi_path, content_sha, facts_digest) VALUES (?,?,?)",
+        (f.path, f.content_sha, facts_digest(f)),
+    )
 
 
 def delete(project_root: Path, paths: Iterable[str]) -> None:

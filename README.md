@@ -24,7 +24,9 @@ pip install lvkit
 lvkit setup
 ```
 
-For a global install: `pipx install lvkit` or `uv tool install lvkit`.
+For a global install: `pipx install lvkit` or `uv tool install lvkit`. Every command also runs as `python -m lvkit <command>`.
+
+lvkit caches unpacked VIs in `~/.lvkit/cache` (override with `LVKIT_CACHE_DIR`); on a managed machine, IT can exclude that one folder from antivirus behavior monitoring. See [The lvkit cache](docs/reference/cache.md).
 
 `lvkit setup` creates a `.lvkit/` resolution store and installs AI agent skills:
 

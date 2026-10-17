@@ -44,7 +44,7 @@ import shutil
 import time
 from pathlib import Path
 
-from lvkit import cache_paths
+from lvkit import cache_paths, staging
 from lvkit.text_encoding import labview_text_encoding
 
 # Retirement is decoupled from correctness (a removed file is indistinguishable
@@ -165,16 +165,6 @@ def _diff_paths(
 # ── read / write ────────────────────────────────────────────────────────────
 
 
-def _touch(*paths: Path) -> None:
-    """Bump mtime so an actively-used entry survives the access-time TTL."""
-    now = time.time()
-    for p in paths:
-        try:
-            os.utime(p, (now, now))
-        except OSError:
-            pass
-
-
 def _read_if_fresh(
     vi_path: Path, body_path: Path, meta_path: Path, extra: dict
 ) -> str | None:
@@ -186,7 +176,7 @@ def _read_if_fresh(
         text = body_path.read_text(encoding="utf-8")
     except OSError:
         return None
-    _touch(body_path, meta_path)
+    cache_paths.touch_if_stale(body_path, meta_path)
     return text
 
 
@@ -197,9 +187,14 @@ def _write(
     # Atomic body write (temp + replace) so a concurrent reader/warm never sees a
     # half-written file. The meta is written AFTER the body, so a hit always has
     # a complete body behind it.
-    tmp = body_path.with_suffix(body_path.suffix + ".tmp")
-    tmp.write_text(body, encoding="utf-8")
-    os.replace(tmp, body_path)
+    try:
+        unchanged = body_path.read_text(encoding="utf-8") == body
+    except OSError:
+        unchanged = False
+    if not unchanged:
+        tmp = staging.temp_path(cache_paths.global_cache_root())
+        tmp.write_text(body, encoding="utf-8")
+        os.replace(tmp, body_path)
     cache_paths.write_meta(vi_path, meta_path, **extra)
     _sweep_once()
 

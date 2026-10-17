@@ -39,7 +39,10 @@ import json
 import os
 import shutil
 import threading
+import time
 from pathlib import Path
+
+from lvkit import staging
 
 # ── Cache root ──────────────────────────────────────────────────────────────
 
@@ -186,7 +189,7 @@ def _note_owner(owner: Path) -> None:
             return
         data[slug] = key
         f.parent.mkdir(parents=True, exist_ok=True)
-        tmp = f.with_suffix(".json.tmp")
+        tmp = staging.temp_path(global_cache_root())
         tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
         os.replace(tmp, f)
     except OSError:
@@ -307,6 +310,24 @@ def cache_target(vi_path: Path, kind: str) -> Path:
 
 
 # ── Content hashing + freshness ─────────────────────────────────────────────
+
+
+# A cache hit bumps the entry's mtime so the access-TTL sweep keeps it. TTLs are
+# measured in days, so refreshing at most once per hour is indistinguishable to
+# them — and a command that hits the cache writes nothing at all.
+_TOUCH_GRANULARITY_S = 3600.0
+
+
+def touch_if_stale(*paths: Path) -> None:
+    """Bump each path's mtime to now unless it is already within the last
+    ``_TOUCH_GRANULARITY_S``. Best-effort."""
+    now = time.time()
+    for p in paths:
+        try:
+            if now - p.stat().st_mtime >= _TOUCH_GRANULARITY_S:
+                os.utime(p, (now, now))
+        except OSError:
+            pass
 
 
 def sha256_file(path: Path) -> str:

@@ -116,7 +116,9 @@ def _transcode_xml_token(token: str, target: str) -> str:
 
 
 def normalize_extracted_xml(path: Path, encoding: str | None = None) -> None:
-    """Convert pylabview's lossless Mac Roman byte mapping to native text."""
+    """Convert pylabview's lossless Mac Roman byte mapping to native text, in
+    place. ``path`` is a file in a private staging directory that no other
+    process reads, so it is rewritten directly."""
     target = encoding or labview_text_encoding()
     if target == _PYLABVIEW_ENCODING:
         return
@@ -132,6 +134,4 @@ def normalize_extracted_xml(path: Path, encoding: str | None = None) -> None:
     )
     normalized = normalized.replace('Encoding="mac_roman"', f'Encoding="{target}"')
 
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(normalized, encoding="utf-8")
-    os.replace(tmp, path)
+    path.write_text(normalized, encoding="utf-8")

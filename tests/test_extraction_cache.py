@@ -169,12 +169,16 @@ class TestClassify:
         assert first == second
         assert (_cache() / "shared" / "vilib") in first.parents
 
-    def test_cache_target_creates_dir(self, tmp_path: Path) -> None:
+    def test_cache_target_is_the_classified_slot_and_is_not_created(
+        self, tmp_path: Path
+    ) -> None:
+        # The slot appears only when a finished extraction is published into it.
         proj = tmp_path / "p"
         _mark_project(proj)
         vi = _touch_vi(proj / "x.vi")
         target = extractor._cache_target(vi)
-        assert target.is_dir()
+        assert target == cache_paths.classify(vi, "extract")[0]
+        assert not target.exists()
 
 
 # ── the per-kind <fp> path level + the compact slug ─────────────────────────

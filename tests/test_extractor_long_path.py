@@ -15,21 +15,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lvkit import extractor
+from lvkit import extractor, staging
 
 # ── shallow staging: temp path is independent of project depth ──────────────
 
 
-def test_staging_root_is_shallow_and_outside_the_project_tree(
-    monkeypatch, tmp_path: Path
-):
-    monkeypatch.setattr(extractor, "global_cache_root", lambda: tmp_path / "cache")
-    staging = extractor._staging_root()
-    assert staging == tmp_path / "cache" / ".staging"
-    assert staging.is_dir()  # created on demand
+def test_staging_is_shallow_and_outside_the_project_tree(tmp_path: Path):
+    cache = tmp_path / "cache"
+    work = staging.work_dir(cache)
+    # <cache>/.staging/<run>/<n> — a fixed three levels below the cache root,
+    # whatever the project depth.
+    assert work.is_dir()
+    assert work.parent.parent == cache / ".staging"
     # It must NOT live under a projects/<slug>/… output dir — that's the whole
     # point (depth-independent temp path).
-    assert "projects" not in staging.parts
+    assert "projects" not in work.parts
 
 
 # ── near-MAX_PATH sensor ────────────────────────────────────────────────────

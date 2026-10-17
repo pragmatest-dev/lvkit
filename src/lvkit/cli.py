@@ -818,6 +818,7 @@ def cmd_structure(args: argparse.Namespace) -> int:
         generate_python_structure_plan,
         parse_lvclass,
         parse_lvlib,
+        structure_vi_paths,
     )
 
     input_path = Path(args.input)
@@ -894,12 +895,26 @@ def cmd_structure(args: argparse.Namespace) -> int:
                 plan = generate_python_structure_plan(structure)
                 print(plan)
             elif args.json:
-                print(json.dumps(structure, indent=2))
+                vi_paths = structure_vi_paths(structure)
+                print(
+                    json.dumps(
+                        {**structure, "vi_count": len(vi_paths), "vis": vi_paths},
+                        indent=2,
+                    )
+                )
             else:
                 print(f"Project Structure: {input_path}")
-                print(f"  Libraries: {len(structure['libraries'])}")
-                print(f"  Classes: {len(structure['classes'])}")
+                lib_vis = sum(
+                    1
+                    for lib in structure["libraries"]
+                    for m in lib["members"]
+                    if m["type"] == "VI"
+                )
+                class_vis = sum(len(c["methods"]) for c in structure["classes"])
+                print(f"  Libraries: {len(structure['libraries'])} ({lib_vis} VIs)")
+                print(f"  Classes: {len(structure['classes'])} ({class_vis} VIs)")
                 print(f"  Standalone VIs: {len(structure['standalone_vis'])}")
+                print(f"  Total VIs: {len(structure_vi_paths(structure))}")
                 print()
                 if structure["classes"]:
                     print("Classes:")

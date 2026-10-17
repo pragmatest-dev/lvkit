@@ -4,6 +4,9 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Fix: a Compound Arithmetic node set to Add with no other option read as an unknown mode** — it drew as "?" and generated Python failed on it; it now reads as Add (#116).
+- **Fix: `structure` on a `.lvproj` reported 0 VIs when the project holds only libraries and classes** — it now prints each library's and class's VI count and a total (JSON adds `vi_count` and `vis`), and files on another drive (`/C:/...` in the project) resolve on Windows (#131).
+- **A repeat `describe`/`render` of an unchanged project no longer writes the index** — a row already stored for the same VI bytes is left alone; a fuller load still upgrades it and a partial load never downgrades it (#131).
+- **Far fewer file writes and renames per run, for antivirus behavior monitors** — one staging folder per command (stale ones from killed runs are removed on the next run) and one folder rename per unpacked VI instead of one per file; a cache hit writes nothing. `LVKIT_CACHE_DIR` and `python -m lvkit` are documented in a new cache page (#131).
 
 ## [0.8.8] - 2026-10-17
 - **Fix: a reentrant VI could show as non-reentrant** — LabVIEW records reentrant execution with either of two flags; both are read now, so a VI saved that way shows its real shared or preallocated clone setting (#132).
