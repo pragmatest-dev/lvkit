@@ -236,19 +236,24 @@ def _apply_clear_wrapping(
     error_op_ids = find_error_path_ops(clear_op, all_ops, ctx)
 
     if error_op_ids:
-        # Scoped: wrap only statements from error-path operations
-        to_wrap: list[ast.stmt] = []
-        keep: list[tuple[set[str], ast.stmt]] = []
+        # Scoped: wrap only statements from error-path operations. Statements
+        # keep their dataflow order: each run of consecutive error-path
+        # statements gets its own try block at that position, so a statement
+        # that reads a wrapped statement's value still runs after it.
+        result: list[tuple[set[str], ast.stmt]] = []
+        run: list[ast.stmt] = []
         for op_ids, stmt in tagged:
             if op_ids & error_op_ids:
-                to_wrap.append(stmt)
-            else:
-                keep.append((op_ids, stmt))
-        if to_wrap:
-            wrapped = build_clear_try_except(to_wrap)
-            keep.append(({clear_op.id}, wrapped))
+                run.append(stmt)
+                continue
+            if run:
+                result.append(({clear_op.id}, build_clear_try_except(run)))
+                run = []
+            result.append((op_ids, stmt))
+        if run:
+            result.append(({clear_op.id}, build_clear_try_except(run)))
         tagged.clear()
-        tagged.extend(keep)
+        tagged.extend(result)
     else:
         # No graph or no upstream found — wrap everything
         all_stmts = [stmt for _, stmt in tagged]
