@@ -287,11 +287,20 @@ class EnumValue:
     description: str | None = None
 
 
-def enum_values_from_labels(labels: list[str]) -> dict[str, EnumValue]:
-    """An ordered label list -> ``{label: EnumValue(ordinal)}``. The one place
-    enum/ring members get their ordinals, shared by every type reconstructor
-    (VCTP, CONP, FP-heap) so they can't drift."""
-    return {label: EnumValue(value=i) for i, label in enumerate(labels)}
+def enum_values_from_labels(
+    labels: list[str], values: list[int] | None = None
+) -> dict[str, EnumValue]:
+    """An ordered label list -> ``{label: EnumValue(value)}``. The one place
+    enum/ring members get their values, shared by every type reconstructor
+    (VCTP, CONP, FP-heap) so they can't drift.
+
+    ``values`` are a ring's own item values (its heap ``ringSparseValues``,
+    see ``parser.fp_heap_type.ring_sparse_values``), parallel to ``labels``.
+    Without them, or when the two lists don't line up, each item's value is
+    its ordinal, as for an enum."""
+    if not values or len(values) != len(labels):
+        values = list(range(len(labels)))
+    return {label: EnumValue(value=v) for label, v in zip(labels, values)}
 
 
 @dataclass

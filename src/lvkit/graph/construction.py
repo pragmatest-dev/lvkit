@@ -5,6 +5,7 @@ Methods: _add_vi_to_graph, _build_structure_terminals, _format_lv_type_for_displ
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -22,6 +23,7 @@ from ..models import (
     TunnelTerminal,
     bundle_unbundle_name,
     control_type_to_lvtype,
+    enum_values_from_labels,
     inplace_border_name,
 )
 from ..parser import (
@@ -120,6 +122,70 @@ def _string_display_value(raw_bytes: bytes) -> str | None:
     if len(raw_bytes) < 4 + n:
         return None
     return repr(decode_labview_text(raw_bytes[4 : 4 + n]))
+
+
+def _ring_type(
+    lv_type: LVType | None, labels: list[str], values: list[int]
+) -> LVType | None:
+    """A ring control's or constant's type, with its items.
+
+    The VI's type map records a ring as its bare integer (``NumUInt16``,
+    ``NumInt32``, ...): unlike an enum's, a ring's items are not part of its
+    type, only of its heap ddo (``labels`` from the ``multiLabel``, ``values``
+    from ``ringSparseValues``, empty when they are the ordinals). This returns
+    a RING of that same representation carrying the items, so every view can
+    name them -- or, for an array of rings, the array with its element made a
+    ring. Anything that isn't an integer (an enum, which already carries its
+    items, a combo box's string, ...) comes back unchanged.
+    """
+    if lv_type is None or not labels:
+        return lv_type
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        element = _ring_type(lv_type.element_type, labels, values)
+        if element is lv_type.element_type:
+            return lv_type
+        return dataclasses.replace(lv_type, element_type=element)
+    if lv_type.kind != LVTypeKind.PRIMITIVE or not (
+        lv_type.underlying_type or ""
+    ).startswith(("NumInt", "NumUInt")):
+        return lv_type
+    return dataclasses.replace(
+        lv_type,
+        kind=LVTypeKind.RING,
+        values=enum_values_from_labels(labels, values),
+    )
+
+
+def _control_ring_type(lv_type: LVType | None, ctrl: Any) -> LVType | None:
+    """``_ring_type`` for a front-panel control, reaching into its cluster
+    fields too: a cluster (or an array of clusters) gets each field's ring
+    items from the matching field control in ``ctrl.children``. Those come in
+    cluster (``ddoList``) order, the same order as the type's fields, so they
+    pair by position -- and only when the counts agree, else the cluster is
+    left as it is rather than paired wrongly."""
+    if lv_type is None or ctrl is None:
+        return lv_type
+    if (
+        lv_type.kind == LVTypeKind.ARRAY
+        and lv_type.element_type is not None
+        and lv_type.element_type.kind == LVTypeKind.CLUSTER
+    ):
+        element = _control_ring_type(lv_type.element_type, ctrl)
+        if element is lv_type.element_type:
+            return lv_type
+        return dataclasses.replace(lv_type, element_type=element)
+    if lv_type.kind == LVTypeKind.CLUSTER:
+        children = ctrl.children or []
+        if not lv_type.fields or len(children) != len(lv_type.fields):
+            return lv_type
+        fields = [
+            dataclasses.replace(f, type=_control_ring_type(f.type, child))
+            for f, child in zip(lv_type.fields, children)
+        ]
+        if all(new.type is old.type for new, old in zip(fields, lv_type.fields)):
+            return lv_type
+        return dataclasses.replace(lv_type, fields=fields)
+    return _ring_type(lv_type, ctrl.enum_values, ctrl.ring_values)
 
 
 def decode_constant(
@@ -396,6 +462,8 @@ class ConstructionMixin:
             if not lv_type and control_type_str:
                 lv_type = control_type_to_lvtype(control_type_str)
 
+            lv_type = _control_ring_type(lv_type, ctrl)
+
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
                 id=q_term_uid,
@@ -467,6 +535,7 @@ class ConstructionMixin:
             term_info = bd.terminal_info.get(const.uid)
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
+            lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
 
             _, decoded_value, display_value = decode_constant(const, lv_type=lv_type)
 

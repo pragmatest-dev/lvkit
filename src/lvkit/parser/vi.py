@@ -32,7 +32,12 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .flags import is_indicator, is_inverted_terminal, is_output_terminal
-from .fp_heap_type import _direct_fields, _wrapped_control, reconstruct_control_lvtype
+from .fp_heap_type import (
+    _direct_fields,
+    _wrapped_control,
+    reconstruct_control_lvtype,
+    ring_sparse_values,
+)
 from .front_panel import (
     _lvtype_to_parsed,
     extract_fp_terminals,
@@ -1702,8 +1707,11 @@ def _parse_ddo(
     # unlike a ring it can also hold free-typed text with no fixed list at all
     # (no real corpus instance found with one).
     enum_values: list[str] = []
+    ring_values: list[int] = []
     if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
+    if control_type == "stdRing":
+        ring_values = ring_sparse_values(ddo)
 
     # A Slide's own recorded range, straight off its ddo (no VCTP needed).
     slide_min = slide_max = None
@@ -1817,6 +1825,8 @@ def _parse_ddo(
             else:
                 if element_class in ("stdEnum", "stdRing"):
                     enum_values = _enum_labels_of(element)
+                if element_class == "stdRing":
+                    ring_values = ring_sparse_values(element)
                 element_default_value = (
                     elem_defaults if isinstance(elem_defaults, str) else None
                 )
@@ -1835,6 +1845,7 @@ def _parse_ddo(
         children=children,
         parts=_parse_fp_parts(ddo),
         enum_values=enum_values,
+        ring_values=ring_values,
         cluster_geom=cluster_geom,
         element_default_value=element_default_value,
         element_lv_type=element_lv_type,

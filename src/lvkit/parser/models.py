@@ -74,6 +74,13 @@ class ParsedConstant:
     # icon, NOT its members/elements (LabVIEW cannot shrink a value's natural
     # height, so a small box is a collapse, never squashed content).
     collapsed: bool = False
+    # A RING constant's items, from its own ``stdRing`` ddo: the item labels
+    # (``multiLabel`` ``<buf>``) and, when they differ from the ordinals, the
+    # item values (``ringSparseValues``). The VI's type map only knows the
+    # ring's integer representation, so these are where its items live. Empty
+    # for every other constant.
+    ring_labels: list[str] = field(default_factory=list)
+    ring_values: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -561,6 +568,11 @@ class ParsedFPControl:
     label_visible: bool = True
     caption_visible: bool = False
     enum_values: list[str] = field(default_factory=list)
+    # A ring's own item values (``ringSparseValues``), parallel to
+    # ``enum_values``, when they differ from the ordinals -- for an `indArr`,
+    # its ring ELEMENT's. Empty for a ring numbered 0, 1, 2, ... and for every
+    # non-ring control.
+    ring_values: list[int] = field(default_factory=list)
     ddo_uid: str | None = None  # UID of the inner ddo element (for ctlRefConst lookup)
     children: list[ParsedFPControl] = field(default_factory=list)  # For clusters
     # Constituent parts with control-local geometry (array index display /

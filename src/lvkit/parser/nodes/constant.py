@@ -5,6 +5,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from ..constants import CONSTANT_DCO_CLASS, TERMINAL_CLASS
+from ..fp_heap_type import _multilabel_items, _wrapped_control, ring_sparse_values
 from ..models import ParsedConstant
 from ..utils import (
     clean_labview_string,
@@ -92,6 +93,23 @@ def _extract_caption(dco: ET.Element) -> str | None:
     return caption or None
 
 
+def _extract_ring(dco: ET.Element) -> tuple[list[str], list[int]]:
+    """A ring constant's item labels and values, from its own ``stdRing`` ddo
+    (unwrapping a ``typeDef`` ddo first, the same way the front panel does).
+
+    A ring's items are not part of its type -- the VI's type map records only
+    its integer representation -- so this ddo is the one place they are kept.
+    Values are ``[]`` when the ring is numbered by ordinal (see
+    ``fp_heap_type.ring_sparse_values``); both lists are empty for any other
+    constant."""
+    ddo = dco.find("ddo")
+    if ddo is not None and ddo.get("class") == "typeDef":
+        ddo = _wrapped_control(ddo)
+    if ddo is None or ddo.get("class") != "stdRing":
+        return [], []
+    return _multilabel_items(ddo), ring_sparse_values(ddo)
+
+
 _COLLAPSED_FLAG = 0x10000000  # DDO objFlags bit: "View As Icon" (collapsed)
 
 
@@ -146,6 +164,7 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
         type_desc = dco.find("typeDesc")
         value_hex = _extract_const_value_hex(dco)
         label = _extract_caption(dco)
+        ring_labels, ring_values = _extract_ring(dco)
 
         if value_hex is not None:
             constants.append(
@@ -160,6 +179,8 @@ def extract_constants(root: ET.Element) -> list[ParsedConstant]:
                     label=label,
                     display_format=_extract_display_format(dco),
                     collapsed=_extract_collapsed(dco),
+                    ring_labels=ring_labels,
+                    ring_values=ring_values,
                 )
             )
 

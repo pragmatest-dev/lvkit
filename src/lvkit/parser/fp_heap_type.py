@@ -58,6 +58,28 @@ def _multilabel_items(ctrl: ET.Element) -> list[str]:
     return []
 
 
+def ring_sparse_values(ctrl: ET.Element) -> list[int]:
+    """A ring's own item values, from its ``<ringSparseValues>``, in item order.
+
+    LabVIEW records them only when they differ from the item ordinals (a ring
+    whose items stand for 0, 1024 and 8192, say); a ring numbered 0, 1, 2, ...
+    carries no such element, and this returns ``[]``. pylabview emits each
+    element as the raw heap integer in hex -- big-endian, signed, minimal
+    length (its ``HeapNodeStdInt`` encoding) -- so ``0400`` is 1024 and ``FF``
+    is -1. An element that isn't hex drops the whole list (``[]``) rather than
+    leave the values misaligned with the labels."""
+    values: list[int] = []
+    for elem in ctrl.findall("ringSparseValues/SL__arrayElement"):
+        try:
+            raw = bytes.fromhex(elem.text or "")
+        except ValueError:
+            return []
+        if not raw:
+            return []
+        values.append(int.from_bytes(raw, "big", signed=True))
+    return values
+
+
 def _wrapped_control(typedef: ET.Element) -> ET.Element | None:
     """The single control a ``typeDef`` DDO wraps — the first known-class control
     in document order (the wrapped type precedes its own children). A nested
@@ -139,7 +161,7 @@ def reconstruct_control_lvtype(
         return LVType(
             kind=LVTypeKind.ENUM,
             underlying_type="Ring",
-            values=enum_values_from_labels(items),
+            values=enum_values_from_labels(items, ring_sparse_values(ctrl)),
         )
 
     if cls == "stdClust":

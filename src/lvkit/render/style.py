@@ -259,7 +259,12 @@ def numeric_repr(lv_type: LVType | None) -> str | None:
     if lv_type.kind == LVTypeKind.ARRAY:
         return numeric_repr(lv_type.element_type)
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
-        return _ENUM_UNIT_TO_NUMERIC.get(lv_type.underlying_type or "")
+        underlying = lv_type.underlying_type or ""
+        # A ring built from the type map keeps that integer's own token
+        # (``NumUInt16``), not a ``Unit*`` code -- it IS that numeric.
+        if lv_type.kind == LVTypeKind.RING and underlying in _NUMERIC_TYPES:
+            return underlying
+        return _ENUM_UNIT_TO_NUMERIC.get(underlying)
     if (
         lv_type.kind == LVTypeKind.PRIMITIVE
         and lv_type.underlying_type in _NUMERIC_TYPES
@@ -280,6 +285,10 @@ def type_repr(lv_type: LVType | None) -> str:
         dims = lv_type.dimensions or 1
         inner = type_repr(lv_type.element_type) or "?"
         return "[" * dims + inner + "]" * dims
+    if lv_type.kind == LVTypeKind.RING and lv_type.underlying_type in _NUMERIC_TYPES:
+        # A ring built from the type map keeps its integer's token (``U16``),
+        # the one it showed before its items were known.
+        return _TYPE_REPR.get(lv_type.underlying_type or "", "")
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return "Enum"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
