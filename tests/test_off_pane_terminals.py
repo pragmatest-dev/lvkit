@@ -15,11 +15,23 @@ from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.lvnet_parse import parse_lvnet
-from lvkit.graph.lvnet_reconstruct import reconstruct_module
-from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.graph.lvnet_reconstruct import LvnetReconstructError, reconstruct_module
+from lvkit.graph.models import VIContext
+from lvkit.graph.netlist import (
+    NetlistModule,
+    NetRef,
+    build_netlist_from_graph,
+    render_lvnet,
+)
 from lvkit.graph.netlist_json import netlist_to_dict
+from lvkit.graph.netlist_models import (
+    BoundaryOutput,
+    ConnectorPane,
+    ConnectorPaneTerminal,
+    WiringRequirement,
+)
 from lvkit.load_mode import LoadMode
-from lvkit.models import FPTerminal
+from lvkit.models import FPTerminal, LVType, LVTypeKind
 from tests.test_lvnet_identity import _assert_graph_identity
 
 _ISSUES = Path(__file__).resolve().parent / "corpus" / "issues"
@@ -218,3 +230,119 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     # The control's saved default is the empty string; a caller may set it.
     assert default_case.messages == ["no error when expected"]
     assert named_case.messages == ["no error during parsing"]
+
+
+def _fp(tid: str, name: str, direction: str, index: int | None, default=None):
+    return FPTerminal(
+        id=tid,
+        index=index,
+        direction=direction,
+        name=name,
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+        is_indicator=direction == "output",
+        is_public=index is not None,
+        default_value=default,
+    )
+
+
+def test_colliding_control_names_get_distinct_parameters_and_fields() -> None:
+    """A connector-pane control and off-pane controls whose labels normalize to
+    one Python name each get their own parameter; same for result fields."""
+    context = VIContext(
+        name="Collide.vi",
+        inputs=[_fp("c1", "x+y", "input", 0, "1")],
+        outputs=[_fp("o1", "out", "output", 1)],
+        off_pane_inputs=[
+            _fp("c2", "xy", "input", None, "2"),
+            _fp("c3", "X Y", "input", None, "3"),
+        ],
+        off_pane_outputs=[_fp("o2", "Out", "output", None)],
+    )
+    code = build_module(context, "Collide.vi")
+    assert "def collide(xy: int=1, *, xy_2: int=2, x_y: int=3)" in code
+    namespace: dict[str, object] = {}
+    exec(compile(code, "<collide>", "exec"), namespace)  # noqa: S102
+    function = namespace["collide"]
+    assert callable(function)
+    assert function() is not None
+    assert function(7, xy_2=8, x_y=9) is not None
+    assert list(namespace["CollideResult"]._fields) == ["out", "out_2"]
+
+
+def _duplicate_indicator_module(wired: tuple[bool, bool]) -> NetlistModule:
+    """Two off-pane indicators sharing the label `Result`, optionally driven."""
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    source = NetRef(node=None, terminal="seed", occurrence=None, bare="seed")
+    return NetlistModule(
+        vi_name="Dup.vi",
+        inputs=[],
+        outputs=[],
+        off_pane_outputs=[
+            BoundaryOutput(
+                name="Result",
+                type_descriptor="String",
+                source=source if is_wired else None,
+                lv_type=string,
+            )
+            for is_wired in wired
+        ],
+        connector_pane=ConnectorPane(
+            pattern_id=None,
+            terminals=[
+                ConnectorPaneTerminal(
+                    name="Result",
+                    type="String",
+                    direction="output",
+                    index=None,
+                    wiring_requirement=WiringRequirement.UNKNOWN,
+                    default=None,
+                    lv_type=string,
+                )
+                for _ in wired
+            ],
+        ),
+    )
+
+
+@pytest.mark.parametrize("wired", [(True, False), (False, True), (True, True)])
+def test_duplicate_off_pane_labels_keep_their_drive_lines_distinct(
+    wired: tuple[bool, bool],
+) -> None:
+    module = _duplicate_indicator_module(wired)
+    text = render_lvnet(module, display_name="Dup.vi", verbose=True)
+    assert text.count("Result = ") == 2
+    rebuilt = reconstruct_module(parse_lvnet(text))
+    assert render_lvnet(rebuilt, display_name="Dup.vi", verbose=True) == text
+    assert [o.source is not None for o in rebuilt.off_pane_outputs] == list(wired)
+
+
+def test_reconstruct_rejects_a_drive_line_that_cannot_be_matched_to_one_row() -> None:
+    text = render_lvnet(
+        _duplicate_indicator_module((True, True)),
+        display_name="Dup.vi",
+        verbose=True,
+    )
+    lines = text.splitlines()
+    lines.remove(next(line for line in lines if line.strip().startswith("Result =")))
+    with pytest.raises(LvnetReconstructError, match="cannot be matched"):
+        reconstruct_module(parse_lvnet("\n".join(lines)))
+
+
+@pytest.mark.needs_samples
+def test_corpus_vi_with_shared_front_panel_labels_round_trips() -> None:
+    vi = (
+        _SAMPLES
+        / "JKI-EasyXML/Source/Examples/Scalar and Compound Data with Attributes.vi"
+    )
+    if not vi.exists():
+        pytest.skip(f"sample corpus VI not present: {vi}")
+    graph, key = load_vi_by_path(
+        vi, LoadMode.MINIMAL, search_paths=[_SAMPLES / "JKI-EasyXML"], layout=False
+    )
+    module = build_netlist_from_graph(graph, key)
+    labels = [o.name for o in module.off_pane_outputs]
+    assert labels.count("XML String") == 6
+    text = render_lvnet(module, display_name=vi.name, verbose=True)
+    rebuilt = reconstruct_module(parse_lvnet(text))
+    assert render_lvnet(rebuilt, display_name=vi.name, verbose=True) == text
+    _assert_graph_identity(module, rebuilt, vi.name)

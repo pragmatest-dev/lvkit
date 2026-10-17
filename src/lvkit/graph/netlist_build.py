@@ -2212,11 +2212,17 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         for t in ctx.inputs
     ]
     outputs = [_boundary_output(graph, ctx, vi_name, t, build_ctx) for t in ctx.outputs]
+    # An off-pane indicator gets a drive line when something drives it, or
+    # when its label is shared with another off-pane indicator (then every
+    # holder of the label is listed, in row order, so a drive line maps to
+    # exactly one row).
+    label_counts = Counter(t.name or "output" for t in ctx.off_pane_outputs)
     off_pane_outputs = [
         out
         for t in ctx.off_pane_outputs
         if (out := _boundary_output(graph, ctx, vi_name, t, build_ctx)).source
         is not None
+        or label_counts[out.name] > 1
     ]
 
     # On-pane terminals first (unchanged order/identity -- `@<index>` rows),

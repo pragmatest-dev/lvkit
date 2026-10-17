@@ -79,6 +79,7 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 
 from ..models import (
@@ -1155,9 +1156,21 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
 
     # Drive lines past the on-pane outputs belong to wired off-pane
     # indicators, in the order their rows appear.
-    unmatched_off_pane = [
+    off_pane_rows = [
         t for t in parsed.boundary if t.index is None and t.direction == "out"
     ]
+    row_counts = Counter(t.name for t in off_pane_rows)
+    drive_counts = Counter(d.net for d in parsed.output_drives[len(outputs) :])
+    for name, rows in row_counts.items():
+        # A shared label is only unambiguous when every holder has its drive
+        # line (rendered in row order).
+        if rows > 1 and drive_counts[name] != rows:
+            raise LvnetReconstructError(
+                f"{rows} off-pane indicators are labelled {name!r} but "
+                f"{drive_counts[name]} drive line(s) name it: a drive line "
+                f"cannot be matched to one of them"
+            )
+    unmatched_off_pane = list(off_pane_rows)
     for drive in parsed.output_drives[len(outputs) :]:
         match = next((t for t in unmatched_off_pane if t.name == drive.net), None)
         if match is None:
@@ -1169,9 +1182,13 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
             BoundaryOutput(
                 name=match.name,
                 type_descriptor=match.type,
-                source=_require_netref(
-                    _parse_source_token(drive.source, registry),
-                    f"output drive {drive.net!r}",
+                source=(
+                    None
+                    if drive.source == "?"
+                    else _require_netref(
+                        _parse_source_token(drive.source, registry),
+                        f"output drive {drive.net!r}",
+                    )
                 ),
                 lv_type=_maybe_attach_lvtype(match.type, types_dict, memo),
                 caption=match.caption,

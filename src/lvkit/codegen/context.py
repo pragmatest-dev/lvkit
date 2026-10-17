@@ -32,7 +32,7 @@ from lvkit.models import (
 )
 from lvkit.vilib_resolver import derive_python_name
 
-from .ast_utils import to_function_name, to_var_name
+from .ast_utils import parameter_names, to_function_name, to_var_name
 
 
 @dataclass
@@ -109,6 +109,14 @@ class CodeGenContext:
     _body_generator: (
         Callable[[list[AnyGraphNode], CodeGenContext], list[ast.stmt]] | None
     ) = field(default=None, repr=False)
+
+    def parameter_var_names(self) -> set[str]:
+        """The Python names the VI's parameters are bound to."""
+        names: set[str] = set()
+        for inp in self.vi_inputs:
+            var = self.graph.get_var_name(inp.id) if self.graph is not None else None
+            names.add(var or to_var_name(inp.name or "input"))
+        return names
 
     def generate_body(self, operations: list[AnyGraphNode]) -> list[ast.stmt]:
         """Generate code for a list of operations.
@@ -469,12 +477,15 @@ class CodeGenContext:
         ctx = cls(
             graph=graph,
             vi_name=vi_name,
-            vi_inputs=list(graph.get_inputs(vi_name, public_only=False)),
+            vi_inputs=[
+                *graph.get_inputs(vi_name),
+                *graph.get_off_pane_inputs(vi_name),
+            ],
         )
 
         _bind_inputs_and_constants(
             ctx,
-            graph.get_inputs(vi_name, public_only=False),
+            ctx.vi_inputs,
             graph.get_constants(vi_name),
         )
         return ctx
@@ -609,9 +620,10 @@ def _bind_inputs_and_constants(
     Shared by from_graph() and from_vi_context(). Skips error cluster
     inputs (Python uses exceptions instead).
     """
+    names = parameter_names([i for i in inputs if i.id])
     for inp in inputs:
         if inp.id and not inp.is_error_cluster:
-            var = to_var_name(inp.name or "input")
+            var = names[inp.id]
             ctx.bind(inp.id, var)
             # Track array-typed inputs so the final arrayify pass broadcasts
             # operators/conversions applied to them (same as array-typed

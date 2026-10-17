@@ -476,7 +476,7 @@ def _pre_declare_outputs(
     ctx: CodeGenContext,
 ) -> list[ast.stmt]:
     """Pre-declare output tunnel variables before the case structure."""
-    param_names = {to_var_name(inp.name or "") for inp in ctx.vi_inputs}
+    param_names = ctx.parameter_var_names()
     # Collect vars from INPUT tunnel outers only.  Output tunnel outers are
     # resolved via BFS through the inner graph (self-loops, IPES output
     # terminals) and would incorrectly mark frame-computed variables as

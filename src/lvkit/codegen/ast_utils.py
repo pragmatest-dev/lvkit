@@ -7,7 +7,7 @@ import builtins
 import keyword
 import logging
 
-from lvkit.models import LVType, LVTypeKind, ScalarValue
+from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +281,49 @@ def result_field_name(name: str) -> str:
     class and every caller reading the field share this one definition."""
     name = to_var_name(name or "output")
     return "output" + name if name.startswith("_") else name
+
+
+def unique_names(names: list[str]) -> list[str]:
+    """``names`` made pairwise distinct, in order: a repeat gets ``_2``, ``_3``…
+    (the first holder of a name keeps it)."""
+    used: set[str] = set()
+    result: list[str] = []
+    for name in names:
+        candidate, n = name, 1
+        while candidate in used:
+            n += 1
+            candidate = f"{name}_{n}"
+        used.add(candidate)
+        result.append(candidate)
+    return result
+
+
+def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
+    """Terminal id -> the Python parameter name of each non-error-cluster VI
+    control, unique across ``terminals`` (connector-pane controls first, then
+    off-pane ones). The function signature and the variable each control is
+    bound to both take their name from here."""
+    params = [t for t in terminals if not t.is_error_cluster]
+    names = unique_names([to_var_name(t.name or "input") for t in params])
+    return {t.id: name for t, name in zip(params, names, strict=True)}
+
+
+def result_field_names(
+    outputs: list[Terminal], off_pane_outputs: list[Terminal]
+) -> dict[str, str]:
+    """Terminal id -> result field name of each non-error-cluster indicator.
+    Connector-pane fields keep ``result_field_name`` (callers read them by it);
+    an off-pane indicator's field is made distinct from every earlier one."""
+    pane = [t for t in outputs if not t.is_error_cluster]
+    names = {t.id: result_field_name(t.name or "output") for t in pane}
+    taken = list(names.values())
+    for t in off_pane_outputs:
+        if t.is_error_cluster:
+            continue
+        name = unique_names([*taken, result_field_name(t.name or "output")])[-1]
+        taken.append(name)
+        names[t.id] = name
+    return names
 
 
 # Builtin names a generated variable must not shadow.

@@ -476,7 +476,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # Skip if the variable is already a function parameter or if the
     # resolved value is an expression (not a valid assignment target)
     if stop_condition_var:
-        param_names = {to_var_name(inp.name or "") for inp in ctx.vi_inputs}
+        param_names = ctx.parameter_var_names()
         is_identifier = stop_condition_var.isidentifier()
         if is_identifier and stop_condition_var not in param_names:
             pre_loop_stmts.append(

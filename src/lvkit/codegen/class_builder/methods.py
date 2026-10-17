@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from lvkit.structure import LVMethod
 
-from ..ast_utils import to_function_name
+from ..ast_utils import parameter_names, to_function_name
 from ..builder import CodeGenContext, build_args, generate_body
 from ._shared import _EMPTY_VI_CONTEXT
 
@@ -56,7 +56,11 @@ class _MethodBuilderMixin:
         ]
 
         # Use existing build_args() - handles types and error filtering
-        args_obj = build_args(filtered_inputs, vi_context.off_pane_inputs)
+        args_obj = build_args(
+            filtered_inputs,
+            vi_context.off_pane_inputs,
+            parameter_names([*inputs, *vi_context.off_pane_inputs]),
+        )
 
         # Generate method body from the method VI's top-level graph nodes.
         ctx = CodeGenContext.from_vi_context(vi_context, graph=self._graph)
@@ -121,7 +125,11 @@ class _MethodBuilderMixin:
         ]
 
         # Use existing build_args() for proper types and error filtering
-        args_obj = build_args(filtered_inputs, vi_context.off_pane_inputs)
+        args_obj = build_args(
+            filtered_inputs,
+            vi_context.off_pane_inputs,
+            parameter_names([*inputs, *vi_context.off_pane_inputs]),
+        )
 
         # Prepend self
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
