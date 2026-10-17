@@ -36,7 +36,6 @@ from ..models import (
     SequenceFrame,
     Terminal,
     Tunnel,
-    TunnelMode,
     TunnelTerminal,
     _is_error_cluster,
 )
@@ -108,27 +107,6 @@ from .render_lvnet import (
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
-
-
-_ETA_INDEX_MODE_BY_TUNNEL_MODE: dict[TunnelMode, str] = {
-    TunnelMode.INDEXING: "array",
-    TunnelMode.LAST_VALUE: "last",
-    TunnelMode.CONCATENATING: "concat",
-    TunnelMode.PASSTHROUGH: "passthrough",
-}
-
-
-def _eta_index_mode(mode: TunnelMode | None) -> str:
-    """``EtaMerge.index_mode`` from a loop output tunnel's BASE ``TunnelMode``
-    -- faithful, never guessed: every base value maps to its own distinct
-    label (``array``/``last``/``concat``/``passthrough``), so none are silently
-    folded together. The orthogonal Conditional modifier is carried separately
-    on ``EtaMerge.conditional``. ``None`` (shouldn't occur on a genuine
-    ``lpTun`` tunnel) renders the honest ``"?"`` rather than guess.
-    """
-    if mode is None:
-        return "?"
-    return _ETA_INDEX_MODE_BY_TUNNEL_MODE.get(mode, "?")
 
 
 _INT_UNDERLYING_TYPES = frozenset(
@@ -457,6 +435,7 @@ def _tunnels_from_terminals_gn(terminals: list[Terminal]) -> list[Tunnel]:
                 tunnel_type=term.tunnel_type,
                 mode=term.mode,
                 conditional=term.conditional,
+                condition_terminal_uid=term.condition_terminal,
                 sr_initialized=term.sr_initialized,
                 sr_stack_depth=term.sr_stack_depth,
             )
@@ -592,6 +571,22 @@ def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
         or (rsr is not None and rsr.outer_terminal_uid == term.id)
     )
     return f"loop_{loop_uid}.shift{k}"
+
+
+def _is_loop_iteration_terminal_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True when ``term`` is a loop's iteration terminal ``i`` -- the loop's
+    one output terminal that is not a tunnel, shift register or count
+    terminal (the same terminal codegen binds to the Python loop index)."""
+    return (
+        isinstance(node, LoopNode)
+        and term.direction == "output"
+        and not isinstance(term, TunnelTerminal)
+    )
+
+
+def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
+    """``loop_<uid>.i`` -- a loop's iteration count, read inside its body."""
+    return f"loop_{_uid_of(node.id)}.i"
 
 
 # Frame-only structures (sequence/disabled/event, ``_FRAME_STRUCTURE_TYPES``
@@ -818,6 +813,9 @@ def _resolve_source_gn(
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_mu_shift_register_read_gn(owner, term):
                 name = _mu_net_name_gn(owner, term)
+                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            if _is_loop_iteration_terminal_gn(owner, term):
+                name = _loop_iteration_net_name_gn(owner)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
             if _is_frame_output_tunnel_gn(owner, term):
                 name = _frame_net_name_gn(owner, term)
@@ -1711,9 +1709,12 @@ def _build_loop_outputs_gn(
         merges.append(
             EtaMerge(
                 net=f"loop_{loop_uid}.out{k}",
-                index_mode=_eta_index_mode(tunnel.mode),
+                mode=tunnel.mode,
                 conditional=tunnel.conditional,
                 value=value,
+                condition=_selector_ref_gn(
+                    graph, ctx, vi_name, build_ctx, tunnel.condition_terminal_uid
+                ),
             )
         )
     return merges
@@ -1749,17 +1750,19 @@ def _build_loop_scope_gn(
         passthrough=_has_output_tunnel_gn(node),
     )
     tunnels = _tunnels_from_terminals_gn(node.terminals)
+    term_by_id = {t.id: t for t in node.terminals}
     tunnel_info = [
         NetlistTunnelInfo(
             tunnel_type=t.tunnel_type,
-            mode=t.mode.value if t.mode is not None else None,
+            direction=term_by_id[t.outer_terminal_uid].direction,
+            mode=t.mode,
+            conditional=t.conditional,
             sr_initialized=t.sr_initialized,
             sr_stack_depth=t.sr_stack_depth,
         )
         for t in tunnels
     ]
     loop_uid = _uid_of(node.id)
-    term_by_id = {t.id: t for t in node.terminals}
     outputs: list[GammaMerge | MuMerge | EtaMerge] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id

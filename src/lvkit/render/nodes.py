@@ -44,8 +44,8 @@ from ..graph.models import (
     VINode,
 )
 from ..graph.op_walk import (
+    _flatten_fields,
     _nmux_field_sources,
-    _nmux_index_leaf_only,
     _resolve_nmux_field_name,
     correlate_property_terminals,
 )
@@ -700,7 +700,6 @@ class JsonGlyphResolver:
 def _resolve_bundle_by_name_labels(
     field_terms: list[Terminal],
     *field_sources: list[ClusterField],
-    leaf_only: bool,
 ) -> tuple[str, ...]:
     """Resolve each By-Name field terminal's label via the fall-through
     chain (``_resolve_nmux_field_name`` over ``field_sources``, then the
@@ -728,9 +727,7 @@ def _resolve_bundle_by_name_labels(
     names: list[str] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(
-            fi, *field_sources, leaf_only=leaf_only
-        )
+        name = t.display_name or _resolve_nmux_field_name(fi, *field_sources)
         if name:
             t.display_name = name
             names.append(name)
@@ -780,12 +777,7 @@ def _bundle_by_name_glyph(
     # its terminal's ``display_name`` so the hover connector-panel (which has
     # room to show the name untruncated) shows the SAME resolved name as this
     # glyph row, not a generic "terminal N".
-    names = _resolve_bundle_by_name_labels(
-        field_terms,
-        own_fields,
-        dep_fields,
-        leaf_only=_nmux_index_leaf_only(node.node_type, agg),
-    )
+    names = _resolve_bundle_by_name_labels(field_terms, own_fields, dep_fields)
     # Direction comes from the FIELD terminals, not the aggregate — there can
     # be TWO aggregate terminals (an input source cluster and an output
     # assembled cluster) sharing one DCO, so ``agg.direction`` is ambiguous.
@@ -813,17 +805,20 @@ def _event_data_glyph(
     same heap class. Returns None if there are no field terminals at all
     (caller falls back to the generic box)."""
     agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
-    # NAMES resolve through the SAME shared, leaf-first resolver Bundle-By-Name
-    # uses (incl. the own-class private-data fallback), pinning display_name so
-    # the glyph row and the hover connector-panel agree. The positional
-    # ``fields`` list is kept ONLY for the per-row type-color FALLBACK (the
-    # terminal's own VCTP type is preferred, so this rarely fires).
+    # NAMES resolve through the SAME shared resolver Bundle-By-Name uses (incl.
+    # the own-class private-data fallback), pinning display_name so the glyph
+    # row and the hover connector-panel agree. The flattened ``fields`` list is
+    # kept ONLY for the per-row type-color FALLBACK (the terminal's own VCTP
+    # type is preferred, so this rarely fires).
     own_fields, dep_fields = _nmux_field_sources(node.vi_path, agg, graph)
-    fields = (
-        graph.get_type_fields(agg.lv_type, caller_vi_key=node.vi_path) or []
-        if agg is not None and agg.lv_type is not None
-        else []
-    )
+    fields = [
+        f
+        for _path, f in _flatten_fields(
+            graph.get_type_fields(agg.lv_type, caller_vi_key=node.vi_path) or []
+            if agg is not None and agg.lv_type is not None
+            else []
+        )
+    ]
     field_terms = sorted(
         (t for t in node.terminals if t.nmux_role == "list"),
         key=lambda t: t.index,
@@ -833,12 +828,7 @@ def _event_data_glyph(
     rows: list[tuple[str, LVType | None]] = []
     for t in field_terms:
         fi = t.nmux_field_index
-        name = t.display_name or _resolve_nmux_field_name(
-            fi,
-            own_fields,
-            dep_fields,
-            leaf_only=_nmux_index_leaf_only(node.node_type, agg),
-        )
+        name = t.display_name or _resolve_nmux_field_name(fi, own_fields, dep_fields)
         if name:
             t.display_name = name
         elif t.name:
@@ -888,11 +878,12 @@ def _implicit_binding(node: PrimitiveNode) -> tuple[bool, str, str | None]:
 def _property_node_glyph(node: PrimitiveNode) -> PropertyNodeGlyph | None:
     """A Property Node glyph: one row per accessed property, labelled with the
     property NAME and marked read/write. Names come from ``node.properties``
-    (parsed from the heap ``propItemInfo`` list), correlated to each property's
-    VALUE terminal by ``op_walk.correlate_property_terminals`` -- the ONE
-    correlation the load-time display-name stamp (``op_walk.
-    stamp_property_value_names``) and the netlist projection also share. The
-    per-row read/write flag is the direction of that correlated terminal.
+    (one entry per heap ``propItem`` row; a nested row reads ``Label.Text``),
+    correlated to each property's VALUE terminal by
+    ``op_walk.correlate_property_terminals`` -- the ONE correlation the
+    load-time display-name stamp (``op_walk.stamp_property_value_names``) and
+    the netlist projection also share. The per-row read/write flag is the
+    direction of that correlated terminal.
     Returns None when the node carries no property names, so the caller falls
     back to the plain "Property Node" box rather than an empty drawer."""
     props = node.properties

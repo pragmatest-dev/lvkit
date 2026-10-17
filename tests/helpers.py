@@ -239,6 +239,7 @@ def tunnel_terminals(tunnels):
             tunnel_type=t.tunnel_type,
             mode=t.mode,
             conditional=t.conditional,
+            condition_terminal=t.condition_terminal_uid,
             sr_initialized=t.sr_initialized,
             sr_stack_depth=t.sr_stack_depth,
         )

@@ -3,7 +3,19 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: generated Python read and wrote the wrong Property Node property, out of order** — each row now reads or writes its own terminal in the node's top-to-bottom order (unwired reads included), so a node that writes one property and reads others no longer shifts every value by one.
+- **Fix: a nested Property Node property (`Label.Text`) shifted every later row's name by one** — it is now one row named `Label.Text` (generated Python reads `ref.label.text`), so each row after it keeps its own name and terminal in render, `describe`, lvnet and codegen.
+- **Fix: lvnet named a loop's iteration terminal `For Loop::0`/`While Loop::0`** — ambiguous with two loops and lost on read-back; it is now the loop's own `loop_<uid>::i`.
 - **Fix: a VI calling LabVIEW install files (`<resource>`, `<extravilib>`) no longer fails with "Ambiguous VI reference"** — those paths were joined onto each caller's own folder, so one dependency got a different identity per caller; every unconfigured symbolic root is now handled like `<vilib>`.
+- **`diff` reports a structure's tunnel changes** — a tunnel turned shift register, indexing toggled, Conditional set, or a tunnel added/removed is now its own change, named by what it carries ("shift register (error in): tunnel → shift register") and highlighted on the tunnel itself in the viewer, even when the data flow is unchanged (#133).
+- **`describe --format json` speaks LabVIEW, and shows what drives a Conditional tunnel** — loop and case outputs are `tunnel`/`shift_register` with `initial_value`/`next_value` and a lower-case `mode`, each loop tunnel lists its `direction`, and a Conditional output names the wire on its condition terminal (lvnet shows it as a `value`/`condition` block); `diff` folds a new or rewired condition into that tunnel's own row.
+- **Fix: a Conditional tunnel's condition terminal was never drawn** — the wire into it ended on the loop border; it now renders as a `?` terminal under its tunnel, where LabVIEW puts it.
+- **Fix: structure border terminals draw at their saved size** — tunnels, shift registers, N, i and case selectors were drawn shrunk inside their saved bounds, leaving gaps between pieces that touch in LabVIEW (a tunnel and its `?`, the elements of a stacked shift register).
+- **Fix: a loop output tunnel with indexing off could read as "pass-through"** — it is now always a last value tunnel, in `describe`, lvnet, and `diff`.
+- **`describe` lists each loop's tunnels** — every tunnel, shift register, and count terminal in LabVIEW's words, with what it carries and, on a Conditional tunnel, what drives its condition.
+- **Fix: generated Python ignored a Conditional tunnel's condition** — a loop output now takes a value only on iterations where its condition is True; a condition with no value in Python (an error cluster's status) stops generation with a clear error instead of producing wrong code.
+- **Fix: a While Loop's indexing output tunnel produced one value, not an array** — While Loop outputs now build their array like a For Loop's, and a loop nested inside another no longer resets the outer loop's array.
+- **Fix: Bundle/Unbundle By Name, In Place Element cluster nodes and Event Data Nodes named the wrong field after a nested sub-cluster** — in render, describe, diff and generated Python; a drawer's field index counts each sub-cluster as its own slot, as the label stored on every drawer's own type confirms (#134).
 
 ## [0.8.7] - 2026-10-04
 - **A `.ctl` cluster field with an unusual heap class (Timestamp, Variant) no longer vanishes silently** — field enumeration used a class allowlist meant for a different, pre-VCTP fallback path; every real field is kept regardless of class now (#101).

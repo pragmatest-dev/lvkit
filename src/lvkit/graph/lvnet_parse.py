@@ -61,12 +61,12 @@ from .lvnet_grammar import (
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
-    _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
+    _lvnet_tunnel_mode_word,
 )
 from .netlist import (
     ConnectorPaneTerminal,
@@ -606,11 +606,14 @@ class ParsedShiftRegister:
 
 @dataclass(frozen=True)
 class ParsedTunnel:
-    """``tunnel <net> : <mode> = <source>`` (§8) -- a single line."""
+    """``tunnel <net> : <mode> = <source>`` (§8) -- a single line; or, for a
+    Conditional tunnel, ``tunnel <net> : <mode> :`` + its ``value``/
+    ``condition`` lines."""
 
     net: str
     mode: str
     source: str
+    condition: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1006,7 +1009,9 @@ def _parse_shift_register(
     return ParsedShiftRegister(net=net, init=init, each=each)
 
 
-def _parse_tunnel(content: str, line_no: int) -> ParsedTunnel:
+def _parse_tunnel(
+    cursor: _Cursor, body_indent: int, content: str, line_no: int
+) -> ParsedTunnel:
     rest = content[len("tunnel ") :]
     sep_idx = rest.find(_LVNET_TYPE_SEP)
     if sep_idx == -1:
@@ -1016,6 +1021,18 @@ def _parse_tunnel(content: str, line_no: int) -> ParsedTunnel:
     net = rest[:sep_idx]
     tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     eq_idx = tail.find(_LVNET_DRIVER_OP)
+    if eq_idx == -1 and tail.endswith(_LVNET_BLOCK_OPEN):
+        # A Conditional tunnel's block: its value, then its condition.
+        child_indent = body_indent + _LVNET_INDENT_WIDTH
+        value = _expect_kv_line(cursor, child_indent, "value", required=True)
+        assert value is not None
+        condition = _expect_kv_line(cursor, child_indent, "condition", required=False)
+        return ParsedTunnel(
+            net=net,
+            mode=tail[: -len(_LVNET_BLOCK_OPEN)],
+            source=value,
+            condition=condition,
+        )
     if eq_idx == -1:
         raise LvnetParseError(
             f"line {line_no}: tunnel line missing ' = <source>' (§8): {content!r}"
@@ -1086,7 +1103,9 @@ def _parse_loop_scope(
             )
         elif line_content.startswith("tunnel "):
             cursor.take()
-            tunnels.append(_parse_tunnel(line_content, cur_line_no))
+            tunnels.append(
+                _parse_tunnel(cursor, body_indent, line_content, cur_line_no)
+            )
         else:
             break
     return ParsedScope(
@@ -2224,7 +2243,7 @@ def _module_loop_scope_signature(
     kind_word = "while-loop" if scope.kind == "while" else "for-loop"
     body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
     shift_regs: list[tuple[str, str, str | None]] = []
-    tunnels: list[tuple[str, str, str]] = []
+    tunnels: list[tuple[str, str, str, str | None]] = []
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
@@ -2236,12 +2255,17 @@ def _module_loop_scope_signature(
             )
             shift_regs.append((net, init_str, each_str))
         elif isinstance(merge, EtaMerge):
-            mode_word = _LVNET_TUNNEL_MODE_WORD.get(merge.index_mode, merge.index_mode)
+            mode_word = _lvnet_tunnel_mode_word(merge.mode)
             if merge.conditional:
                 mode_word += "+conditional"
             value_str = _render_lvnet_source(merge.value, handles)
+            condition_str = (
+                _render_lvnet_source(merge.condition, handles)
+                if merge.condition is not None
+                else None
+            )
             net = _lvnet_net_separator(merge.net)
-            tunnels.append((net, mode_word, value_str))
+            tunnels.append((net, mode_word, value_str, condition_str))
     return ("scope", kind_word, None, body_sig, tuple(shift_regs), tuple(tunnels))
 
 
@@ -2432,7 +2456,7 @@ def _parsed_item_signature(
             _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
         )
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
-        tunnels = tuple((t.net, t.mode, t.source) for t in item.tunnels)
+        tunnels = tuple((t.net, t.mode, t.source, t.condition) for t in item.tunnels)
         return ("scope", item.kind, None, body_sig, shift_regs, tunnels)
     if isinstance(item, ParsedNode):
         terminals = tuple(

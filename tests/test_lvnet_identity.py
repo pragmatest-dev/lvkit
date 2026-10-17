@@ -81,10 +81,16 @@ from lvkit.load_mode import LoadMode
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
+_AF_ROOT = Path(".lvkit/cache/samples/actor-framework")
 
 # The SAME corpus VIs as test_lvnet_reconstruct.py's `_IDEMPOTENCE_CASES` --
 # the same VIs, asked the STRONGER identity question.
 _IDENTITY_CASES = [
+    pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "GetControlRef.vi",
+        _JKI_SOURCE_ROOT,
+        id="GetControlRef_nested_property_loop_index",
+    ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
         _JKI_SOURCE_ROOT,
@@ -122,6 +128,11 @@ _IDENTITY_CASES = [
         / "Graphical Test Runner - Main UI - .vi",
         _JKI_SOURCE_ROOT,
         id="Graphical_Test_Runner_Main_UI",
+    ),
+    pytest.param(
+        _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
+        _AF_ROOT,
+        id="Force_Icon_Editor_to_Unload",
     ),
 ]
 
@@ -424,6 +435,9 @@ def _compare_scope(
         elif isinstance(ma, EtaMerge):
             assert isinstance(mb, EtaMerge)
             _compare_net(ma.value, mb.value, f"{merge_path}.value", errors, ctx)
+            _compare_net(
+                ma.condition, mb.condition, f"{merge_path}.condition", errors, ctx
+            )
         elif isinstance(ma, GammaMerge):
             assert isinstance(mb, GammaMerge)
             if len(ma.cases) != len(mb.cases):

@@ -167,6 +167,7 @@ class OperationsMixin:
                     # carries the value faithfully.
                     mode=term.mode,
                     conditional=term.conditional,
+                    condition_terminal_uid=term.condition_terminal,
                     sr_initialized=term.sr_initialized,
                     sr_stack_depth=term.sr_stack_depth,
                 )

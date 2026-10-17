@@ -1539,6 +1539,111 @@ class TestParseVI:
         assert node.object_name == "Invoke Method"
         assert node.method_name == "Run"
 
+    def test_property_node_row_is_one_property_with_path_segments(
+        self, tmp_path: Path
+    ):
+        """One ``propItem`` is one Property Node row. A nested property
+        (``Label.Text``) is ONE row whose ``propList`` holds two
+        ``propItemInfo`` segments, so the next row (``Indicator``) pairs with
+        the second ``dcoList`` terminal. Covers both layouts: the row as the
+        term's own ``<dco>`` and the row as a separate element the term's
+        ``<dco>`` references (no ``PropItemName``)."""
+        from lvkit.graph.op_walk import correlate_property_terminals
+        from lvkit.models import Terminal
+        from lvkit.parser.node_types import PropertyNode
+
+        bd_xml = """<?xml version="1.0"?>
+<root>
+    <node class="propNode" uid="700">
+        <termList elements="2">
+            <SL__arrayElement class="term" uid="701">
+                <dco class="propItem" uid="711">
+                    <typeDesc>TypeID(1)</typeDesc>
+                    <propList elements="2">
+                        <SL__arrayElement class="propItemInfo" uid="712">
+                            <PropItemName>"Label"</PropItemName>
+                            <PropItemCode>104013829</PropItemCode>
+                        </SL__arrayElement>
+                        <SL__arrayElement class="propItemInfo" uid="713">
+                            <PropItemName>"Text"</PropItemName>
+                            <PropItemCode>103995392</PropItemCode>
+                        </SL__arrayElement>
+                    </propList>
+                </dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="702">
+                <dco class="propItem" uid="721">
+                    <typeDesc>TypeID(2)</typeDesc>
+                    <propList elements="1">
+                        <SL__arrayElement class="propItemInfo" uid="722">
+                            <PropItemName>"Indicator"</PropItemName>
+                            <PropItemCode>281</PropItemCode>
+                        </SL__arrayElement>
+                    </propList>
+                </dco>
+            </SL__arrayElement>
+        </termList>
+        <dcoList elements="2">
+            <SL__arrayElement uid="711" />
+            <SL__arrayElement uid="721" />
+        </dcoList>
+        <nodeName>"Ctl"</nodeName>
+        <oMId>0007</oMId>
+    </node>
+    <node class="propNode" uid="800">
+        <termList elements="1">
+            <SL__arrayElement class="term" uid="801">
+                <dco uid="811" />
+            </SL__arrayElement>
+        </termList>
+        <SL__arrayElement class="propItem" uid="811">
+            <propList elements="1">
+                <SL__arrayElement class="propItemInfo" uid="812">
+                    <PropItemCode>7</PropItemCode>
+                </SL__arrayElement>
+            </propList>
+        </SL__arrayElement>
+        <dcoList elements="1"><SL__arrayElement uid="811" /></dcoList>
+        <nodeName>"VI"</nodeName>
+        <oMId>0007</oMId>
+    </node>
+    <signalList></signalList>
+</root>"""
+        bd_file = tmp_path / "test_BDHb.xml"
+        bd_file.write_text(bd_xml)
+
+        vi = parse_vi(bd_xml=bd_file)
+        nodes = {n.uid: n for n in vi.block_diagram.nodes}
+
+        nested = nodes["700"]
+        assert isinstance(nested, PropertyNode)
+        assert len(nested.properties) == 2
+        label_text, indicator = nested.properties
+        assert [(s.name, s.code) for s in label_text.segments] == [
+            ("Label", 104013829),
+            ("Text", 103995392),
+        ]
+        assert label_text.name == "Label.Text"
+        assert [(s.name, s.code) for s in indicator.segments] == [("Indicator", 281)]
+        assert nested.dco_terminal_uids == ["701", "702"]
+
+        terminals = [
+            Terminal(id=uid, index=i, direction="output")
+            for i, uid in enumerate(nested.dco_terminal_uids)
+        ]
+        paired = correlate_property_terminals(
+            nested.properties, terminals, nested.dco_terminal_uids
+        )
+        assert [(p.name, t.id if t else None) for p, t in paired] == [
+            ("Label.Text", "701"),
+            ("Indicator", "702"),
+        ]
+
+        separate = nodes["800"]
+        assert isinstance(separate, PropertyNode)
+        assert len(separate.properties) == 1
+        assert [(s.name, s.code) for s in separate.properties[0].segments] == [("", 7)]
+
     def test_parse_property_node_implicit_vs_explicit(self, tmp_path: Path):
         """A Property Node's ``bound_control_uid`` (task #51) comes ONLY from
         its own DIRECT ``<ddo>`` CHILD -- a sibling of ``<termList>``, never a

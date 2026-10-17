@@ -182,6 +182,11 @@ TUNNEL_CLASS_SEQ_TUN = "seqTun"  # Sequence tunnel (pass-through between frames)
 TUNNEL_CLASS_FLAT_SEQ_TUN = "flatSeqTun"  # Flat seq tunnel (with mate)
 # IPES cluster/array/DVR tunnel
 TUNNEL_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeTunnel"
+# A Feedback Node's initializer terminal moved onto a loop's border
+TUNNEL_CLASS_INIT_FEEDBACK = "initFeedback"
+# A Conditional loop output tunnel's condition terminal (its own border dco,
+# named by the lpTun's <LpTunConditionDCO>; termList [inner, outer])
+TUNNEL_CLASS_LOOP_TUNNEL_CONDITION = "lpTunConditionDCO"
 
 # Shift register node (contains inner tunnel terminals)
 NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels

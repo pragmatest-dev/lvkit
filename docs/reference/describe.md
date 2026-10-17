@@ -74,6 +74,10 @@ Case Structure (2 frames)
   `optional`; `unknown` means the VI doesn't record one for that terminal.
 - `[prim N]` after an operation (e.g. `Match Pattern [prim 1535]`) is the
   primitive's `primResID`, LabVIEW's internal ID for that built-in node.
+- A For or While Loop ends with a `Tunnels:` list, inputs first: each
+  tunnel, shift register, or count terminal in LabVIEW's words, with what it
+  carries in parentheses. A Conditional tunnel also names what drives its
+  condition, e.g. `out conditional indexing tunnel (BusType), condition ← True`.
 - An unresolved [SubVI](subvi-resolution.md) is not an error. If a call's
   target isn't found on `--search-path`, `describe` still lists it under
   `## Dependencies` — just without a signature or description, since those

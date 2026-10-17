@@ -12,7 +12,14 @@ from __future__ import annotations
 from dataclasses import asdict as _dataclass_asdict
 from typing import Any
 
-from ..models import LVType
+from ..models import LVType, TunnelMode
+from ..parser.constants import (
+    TUNNEL_CLASS_INIT_FEEDBACK,
+    TUNNEL_CLASS_LEFT_SR,
+    TUNNEL_CLASS_LMAX,
+    TUNNEL_CLASS_LOOP_TUNNEL,
+    TUNNEL_CLASS_RIGHT_SR,
+)
 from .models import (
     vi_health_to_dict,
     vi_properties_to_dict,
@@ -81,10 +88,26 @@ def _gamma_case_to_dict(case: GammaCase) -> dict[str, Any]:
     return {"frame": case.frame_key, "source": _merge_source_to_dict(case.source)}
 
 
+def _mode_to_json(mode: TunnelMode | None) -> str | None:
+    """A loop tunnel's mode as a lower-case token (``indexing``,
+    ``last_value``, ``concatenating``, ``passthrough``)."""
+    return mode.value.lower() if mode is not None else None
+
+
+# A loop border terminal's heap class -> what LabVIEW calls it.
+_LOOP_BORDER_KIND: dict[str, str] = {
+    TUNNEL_CLASS_LOOP_TUNNEL: "tunnel",
+    TUNNEL_CLASS_LEFT_SR: "shift_register",
+    TUNNEL_CLASS_RIGHT_SR: "shift_register",
+    TUNNEL_CLASS_LMAX: "count_terminal",
+    TUNNEL_CLASS_INIT_FEEDBACK: "feedback_node_initializer",
+}
+
+
 def _gamma_to_dict(gamma: GammaMerge) -> dict[str, Any]:
     return {
         "net": gamma.net,
-        "kind": "gamma",
+        "kind": "tunnel",
         "selector": _netref_to_dict(gamma.selector) if gamma.selector else None,
         "cases": [_gamma_case_to_dict(c) for c in gamma.cases],
     }
@@ -93,18 +116,21 @@ def _gamma_to_dict(gamma: GammaMerge) -> dict[str, Any]:
 def _mu_to_dict(mu: MuMerge) -> dict[str, Any]:
     return {
         "net": mu.net,
-        "kind": "mu",
-        "init": _merge_source_to_dict(mu.init),
-        "recur": _netref_to_dict(mu.recur) if mu.recur is not None else None,
+        "kind": "shift_register",
+        "initial_value": _merge_source_to_dict(mu.init),
+        "next_value": _netref_to_dict(mu.recur) if mu.recur is not None else None,
     }
 
 
 def _eta_to_dict(eta: EtaMerge) -> dict[str, Any]:
     return {
         "net": eta.net,
-        "kind": "eta",
-        "index_mode": eta.index_mode,
+        "kind": "tunnel",
+        "mode": _mode_to_json(eta.mode),
         "conditional": eta.conditional,
+        "condition": (
+            _netref_to_dict(eta.condition) if eta.condition is not None else None
+        ),
         "value": _merge_source_to_dict(eta.value),
     }
 
@@ -147,8 +173,8 @@ def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
         "kind": "feedback",
         "uid": fb.uid,
         "delay": fb.delay,
-        "init": _merge_source_to_dict(fb.init),
-        "recur": _netref_to_dict(fb.recur) if fb.recur is not None else None,
+        "initial_value": _merge_source_to_dict(fb.init),
+        "next_value": _netref_to_dict(fb.recur) if fb.recur is not None else None,
     }
 
 
@@ -328,8 +354,10 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
         d["parallel_static_workers"] = item.parallel_static_workers
         d["tunnels"] = [
             {
-                "tunnel_type": t.tunnel_type,
-                "mode": t.mode,
+                "kind": _LOOP_BORDER_KIND[t.tunnel_type],
+                "direction": t.direction,
+                "mode": _mode_to_json(t.mode),
+                "conditional": t.conditional,
                 "sr_initialized": t.sr_initialized,
                 "sr_stack_depth": t.sr_stack_depth,
             }

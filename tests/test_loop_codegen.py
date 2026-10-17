@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.ast_utils import parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
+from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.codegen.nodes.loop import (
     _build_while_loop,
     _get_dest_terminal_name,
@@ -22,6 +25,7 @@ from lvkit.models import (
     LVTypeKind,
     Terminal,
     Tunnel,
+    TunnelMode,
     TunnelTerminal,
 )
 from tests.conftest import make_ctx
@@ -1060,3 +1064,195 @@ class TestUninitializedShiftRegister:
         # Call 2: sees the value persisted from call 1.
         assert run(12) == (5, 12)
         assert ns[global_name] == 12
+
+
+def _output_tunnel(
+    outer: str,
+    inner: str,
+    mode: TunnelMode,
+    condition: str | None = None,
+) -> list[TunnelTerminal]:
+    """A loop OUTPUT tunnel's outer/inner terminals (outer is the output side),
+    carrying an I32, optionally Conditional with ``condition`` as its
+    condition terminal."""
+
+    def side(tid: str, paired: str, direction: str, boundary: str) -> TunnelTerminal:
+        return TunnelTerminal(
+            id=tid,
+            index=0 if boundary == "outer" else 1,
+            direction=direction,
+            boundary=boundary,
+            paired_id=paired,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+            tunnel_type="lpTun",
+            mode=mode,
+            conditional=condition is not None,
+            condition_terminal=condition,
+        )
+
+    return [
+        side(outer, inner, "output", "outer"),
+        side(inner, outer, "input", "inner"),
+    ]
+
+
+def _run_statements(statements: list[ast.stmt]) -> dict:
+    module = ast.Module(body=statements, type_ignores=[])
+    ast.fix_missing_locations(module)
+    local_vars: dict = {}
+    exec(compile(module, "<test>", "exec"), {}, local_vars)  # noqa: S102
+    return local_vars
+
+
+class TestConditionalOutputTunnel:
+    """A Conditional output tunnel takes a loop iteration's value only when its
+    condition terminal reads True. These generate the loop, run the code, and
+    check what comes out."""
+
+    def _for_loop(self, mode: TunnelMode, count: int) -> tuple[list, dict]:
+        """For loop over ``count`` iterations; ``i`` feeds the output tunnel,
+        whose condition is ``i % 2 == 0``."""
+        data_flow = [
+            Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+            Wire.from_terminals(from_terminal_id="iter", to_terminal_id="out_inner"),
+            Wire.from_terminals(from_terminal_id="cond_src", to_terminal_id="cond"),
+        ]
+        ctx = CodeGenContext.from_wires(data_flow)
+        ctx.bind("n_src", str(count))
+        ctx.bind("cond_src", "i % 2 == 0")
+        loop_op = _mk_loop(
+            ctx,
+            loop_type="forLoop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="n_outer",
+                    inner_terminal_uid="n_inner",
+                    tunnel_type="lMax",
+                )
+            ],
+            terminals=[
+                *_output_tunnel("out_outer", "out_inner", mode, condition="cond"),
+                Terminal(id="iter", index=10, direction="output"),
+                Terminal(id="cond", index=11, direction="input"),
+            ],
+        )
+        fragment = loop.generate(loop_op, ctx)
+        result = _run_statements(fragment.statements)
+        return result[fragment.bindings["out_outer"]], result
+
+    def test_indexing_keeps_only_iterations_where_the_condition_is_true(self):
+        values, _ = self._for_loop(TunnelMode.INDEXING, 6)
+        assert values == [0, 2, 4]
+
+    def test_last_value_is_the_last_iteration_where_the_condition_is_true(self):
+        value, _ = self._for_loop(TunnelMode.LAST_VALUE, 6)
+        assert value == 4
+
+    def test_last_value_is_the_default_when_the_loop_never_runs(self):
+        value, _ = self._for_loop(TunnelMode.LAST_VALUE, 0)
+        assert value == 0
+
+    def test_unwired_condition_is_an_error(self):
+        ctx = CodeGenContext.from_wires(
+            [Wire.from_terminals(from_terminal_id="iter", to_terminal_id="out_inner")]
+        )
+        loop_op = _mk_loop(
+            ctx,
+            loop_type="forLoop",
+            terminals=[
+                *_output_tunnel(
+                    "out_outer", "out_inner", TunnelMode.INDEXING, condition="cond"
+                ),
+                Terminal(id="iter", index=10, direction="output"),
+                Terminal(id="cond", index=11, direction="input"),
+            ],
+        )
+        with pytest.raises(CodeGenError, match="condition terminal is not wired"):
+            loop.generate(loop_op, ctx)
+
+
+class TestWhileLoopOutputTunnel:
+    """A While loop's output tunnels: indexing builds a list across iterations,
+    and a Conditional one keeps only the iterations whose condition is True.
+    The body counts 1, 2, 3 in a shift register and stops at 3."""
+
+    def _while_loop(self, mode: TunnelMode, conditional: bool) -> list | int:
+        data_flow = [
+            Wire.from_terminals(
+                from_terminal_id="seed_src", to_terminal_id="lsr_outer"
+            ),
+            Wire.from_terminals(from_terminal_id="lsr_inner", to_terminal_id="add_x"),
+            Wire.from_terminals(from_terminal_id="one_src", to_terminal_id="add_y"),
+            Wire.from_terminals(from_terminal_id="add_out", to_terminal_id="rsr_inner"),
+            Wire.from_terminals(from_terminal_id="add_out", to_terminal_id="out_inner"),
+            Wire.from_terminals(from_terminal_id="add_out", to_terminal_id="ge_x"),
+            Wire.from_terminals(from_terminal_id="three_src", to_terminal_id="ge_y"),
+            Wire.from_terminals(from_terminal_id="ge_out", to_terminal_id="stop"),
+            Wire.from_terminals(from_terminal_id="ge_out", to_terminal_id="cond"),
+        ]
+        ctx = CodeGenContext.from_wires(data_flow)
+        ctx.bind("seed_src", "0")
+        ctx.bind("one_src", "1")
+        ctx.bind("three_src", "3")
+        add = PrimitiveNode(
+            vi_path="test.vi",
+            id="add",
+            name="Add",
+            prim_id=1050,
+            terminals=[
+                Terminal(id="add_x", index=1, direction="input", name="x"),
+                Terminal(id="add_y", index=2, direction="input", name="y"),
+                Terminal(id="add_out", index=0, direction="output", name="result"),
+            ],
+        )
+        ge = PrimitiveNode(
+            vi_path="test.vi",
+            id="ge",
+            name="Greater Or Equal?",
+            prim_id=1103,
+            terminals=[
+                Terminal(id="ge_y", index=1, direction="input", name="y"),
+                Terminal(id="ge_x", index=2, direction="input", name="x"),
+                Terminal(id="ge_out", index=0, direction="output", name="ge"),
+            ],
+        )
+        loop_op = _mk_loop(
+            ctx,
+            loop_type="whileLoop",
+            stop_condition_terminal="stop",
+            tunnels=[
+                Tunnel(
+                    outer_terminal_uid="lsr_outer",
+                    inner_terminal_uid="lsr_inner",
+                    tunnel_type="lSR",
+                ),
+                Tunnel(
+                    outer_terminal_uid="rsr_outer",
+                    inner_terminal_uid="rsr_inner",
+                    tunnel_type="rSR",
+                ),
+            ],
+            terminals=[
+                *_output_tunnel(
+                    "out_outer",
+                    "out_inner",
+                    mode,
+                    condition="cond" if conditional else None,
+                ),
+                Terminal(id="stop", index=10, direction="input"),
+                Terminal(id="cond", index=11, direction="input"),
+            ],
+            inner_nodes=[add, ge],
+        )
+        fragment = loop.generate(loop_op, ctx)
+        result = _run_statements(fragment.statements)
+        return result[fragment.bindings["out_outer"]]
+
+    def test_indexing_output_builds_a_list(self):
+        assert self._while_loop(TunnelMode.INDEXING, conditional=False) == [1, 2, 3]
+
+    def test_conditional_indexing_keeps_only_matching_iterations(self):
+        assert self._while_loop(TunnelMode.INDEXING, conditional=True) == [3]
+
+    def test_last_value_is_the_final_iteration_value(self):
+        assert self._while_loop(TunnelMode.LAST_VALUE, conditional=False) == 3

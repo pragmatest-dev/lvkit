@@ -58,8 +58,7 @@ Acceptance metric: on the repro, oblique wire-segment count → 0.
   one-liner.
 - **Half-stroke inset** (bounding-box outlines): structures inset by ½·stroke
   (`render/glyphs/structures/base.py`), but the generic node box draws at the raw
-  bbox (`render/glyphs/nodes/base.py:220`) and terminals use a %-fudge
-  (`render/glyphs/terminals/base.py`, `inset(frac=0.075)`) instead of the geometric
-  rule — outlines bleed ½·stroke outside, reading slightly large. Fix: own the
-  half-stroke inset in one place (backend/`stroke_rect`) and reconcile the two
-  existing ad-hoc insets.
+  bbox (`render/glyphs/nodes/base.py:220`) — outlines bleed ½·stroke outside,
+  reading slightly large. Fix: own the half-stroke inset in one place
+  (backend/`stroke_rect`). Structure border terminals draw at their saved
+  bounds exactly (`render/glyphs/terminals/base.py`).

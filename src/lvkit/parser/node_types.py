@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..models import LVType
+from ..models import LVType, PropertyDef, PropertySegment
 from .layout import _rect
 from .models import ParsedNode
 from .nodes.base import extract_label
@@ -648,10 +648,10 @@ class PropertyNode(ParsedNode):
 
     object_name: str = ""
     object_method_id: str = ""
-    properties: list[dict[str, Any]] = field(default_factory=list)
-    # ``dcoList`` re-expressed as TERMINAL uids, one per accessed property,
+    properties: list[PropertyDef] = field(default_factory=list)
+    # ``dcoList`` re-expressed as TERMINAL uids, one per Property Node row,
     # in heap order -- the FAITHFUL structural correlation between
-    # ``properties[i]`` and its VALUE terminal (see
+    # ``properties[i]`` (row i) and its VALUE terminal (see
     # ``_dco_list_terminal_uids``). Exact even when a property's value is
     # itself Refnum-typed, unlike a type-based (Refnum/error-cluster) filter.
     dco_terminal_uids: list[str] = field(default_factory=list)
@@ -832,17 +832,30 @@ class PropertyNodeHandler(NodeTypeHandler):
         object_name = clean_labview_string(elem.findtext("nodeName"))
         omid = elem.findtext("oMId") or ""
 
-        properties: list[dict[str, Any]] = []
-        for prop_info in elem.iter():
-            if prop_info.get("class") != "propItemInfo":
+        # One ``propItem`` element is one row, in ``dcoList`` order. Its
+        # ``propList`` holds one ``propItemInfo`` per path segment.
+        properties: list[PropertyDef] = []
+        for row in elem.iter():
+            if row.get("class") != "propItem":
                 continue
-            name = clean_labview_string(prop_info.findtext("PropItemName"))
-            code_text = prop_info.findtext("PropItemCode") or "0"
-            try:
-                code = int(code_text)
-            except ValueError:
-                code = 0
-            properties.append({"name": name, "code": code})
+            segments: list[PropertySegment] = []
+            prop_list = row.find("propList")
+            if prop_list is not None:
+                for seg in prop_list.findall("SL__arrayElement"):
+                    if seg.get("class") != "propItemInfo":
+                        continue
+                    code_text = seg.findtext("PropItemCode") or "0"
+                    try:
+                        code = int(code_text)
+                    except ValueError:
+                        code = 0
+                    segments.append(
+                        PropertySegment(
+                            name=clean_labview_string(seg.findtext("PropItemName")),
+                            code=code,
+                        )
+                    )
+            properties.append(PropertyDef(segments=segments))
 
         # An IMPLICIT property node's DIRECT <ddo> CHILD (a sibling of its
         # own <termList>, never a part of it) names the front-panel control

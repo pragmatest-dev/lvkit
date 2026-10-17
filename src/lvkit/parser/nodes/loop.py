@@ -9,7 +9,10 @@ from lvkit.models import Tunnel
 from ..constants import (
     LOOP_NODE_CLASSES,
     TERMINAL_CLASS,
+    TUNNEL_CLASS_INIT_FEEDBACK,
     TUNNEL_CLASS_LEFT_SR,
+    TUNNEL_CLASS_LOOP_TUNNEL,
+    TUNNEL_CLASS_LOOP_TUNNEL_CONDITION,
     TUNNEL_CLASS_RIGHT_SR,
     TUNNEL_DCO_CLASSES,
 )
@@ -129,6 +132,40 @@ def _annotate_sr_tunnels(
             t.sr_stack_depth = depth
 
 
+def _term_list_uids(dco: ET.Element) -> list[str]:
+    return [
+        uid
+        for e in dco.findall("termList/SL__arrayElement")
+        if (uid := e.get("uid"))
+    ]
+
+
+def _condition_terminals(term_list_elem: ET.Element) -> dict[str, str]:
+    """Each Conditional loop tunnel's condition terminal, keyed by the tunnel's
+    outer terminal uid. A Conditional ``lpTun`` names its condition dco in
+    ``<LpTunConditionDCO uid>``; that dco is another border term of the same
+    loop (``class="lpTunConditionDCO"``) whose termList is ``[inner, outer]``
+    -- the inner face is the Boolean input wired inside the loop."""
+    terms = term_list_elem.findall(f"SL__arrayElement[@class='{TERMINAL_CLASS}']")
+    dcos = [dco for term in terms if (dco := term.find("dco")) is not None]
+    condition_inner = {
+        dco.get("uid"): terms[0]
+        for dco in dcos
+        if dco.get("class") == TUNNEL_CLASS_LOOP_TUNNEL_CONDITION
+        and (terms := _term_list_uids(dco))
+    }
+    linked: dict[str, str] = {}
+    for dco in dcos:
+        ref = dco.find("LpTunConditionDCO")
+        if dco.get("class") != TUNNEL_CLASS_LOOP_TUNNEL or ref is None:
+            continue
+        inner = condition_inner.get(ref.get("uid"))
+        terms = _term_list_uids(dco)
+        if inner is not None and terms:
+            linked[terms[-1]] = inner
+    return linked
+
+
 def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
     """Extract loop structures (while, for) with tunnel mappings.
 
@@ -205,12 +242,12 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                         # (never referenced by any real wire) gets this
                         # terminal a normal TunnelTerminal/type/color through
                         # the existing machinery with no collision risk.
-                        elif dco_class == "initFeedback" and term_uid:
+                        elif dco_class == TUNNEL_CLASS_INIT_FEEDBACK and term_uid:
                             tunnels.append(
                                 Tunnel(
                                     outer_terminal_uid=term_uid,
                                     inner_terminal_uid=f"{term_uid}$initFeedbackInner",
-                                    tunnel_type="initFeedback",
+                                    tunnel_type=TUNNEL_CLASS_INIT_FEEDBACK,
                                 )
                             )
                         # A while-loop serializes the RIGHT shift register
@@ -269,6 +306,11 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
 
             # Pair shift registers (lSR <-> rSR)
             _pair_shift_registers(tunnels)
+
+            if term_list_elem is not None:
+                conditions = _condition_terminals(term_list_elem)
+                for t in tunnels:
+                    t.condition_terminal_uid = conditions.get(t.outer_terminal_uid)
 
             # Find stop condition terminal for while loops (loopTestDCO class="lTst")
             stop_condition_uid: str | None = None

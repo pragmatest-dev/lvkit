@@ -14,6 +14,7 @@ from ..models import (
     Frame,
     SequenceFrame,
     Terminal,
+    TunnelTerminal,
     _is_error_cluster,
 )
 from ..parser.models import ParsedWiringRule
@@ -52,6 +53,14 @@ from .op_walk import (
     _terminal_display_name,
 )
 from .operations import frame_key
+from .tunnel_names import (
+    carried_name,
+    condition_name,
+    condition_source,
+    constant_names,
+    outer_tunnels,
+    tunnel_kind_name,
+)
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout, Point, Rect
@@ -151,6 +160,10 @@ class ElementChange:
     # all in the other pane -- it was itself added/removed alongside this wire,
     # so there is nothing there to reveal.
     endpoints: list[str] | None = None
+    # For TUNNEL changes only: trailing UID of the structure whose border the
+    # tunnel sits on (head side for added/modified, base for removed), so the
+    # tree lists each tunnel change under its loop/case header. None otherwise.
+    structure_uid: str | None = None
 
 
 @dataclass
@@ -191,6 +204,7 @@ class ChangeMap:
                     "frame_path_before": c.frame_path_before,
                     "element": c.element,
                     "endpoints": c.endpoints,
+                    "structure_uid": c.structure_uid,
                 }
                 for c in self.changes
             ],
@@ -696,6 +710,7 @@ _LEAF_KINDS = frozenset(
         "terminal",
         "property",
         "connector_pane",
+        "tunnel",
     }
 )
 _TREE_KINDS = _LEAF_KINDS | frozenset({"structure"})
@@ -1459,36 +1474,218 @@ def _struct_frame_changes(
     return changes
 
 
+def _matched_structure_pairs(
+    a: dict[str, _ElemInfo],
+    b: dict[str, _ElemInfo],
+    exact: dict[str, str],
+    fuzzy: dict[str, str],
+) -> list[tuple[_ElemInfo, _ElemInfo]]:
+    """Every (base entry, head entry) pair of the SAME logical structure
+    (any kind: case, loop, sequence, event, disable, In Place Element) across
+    versions — same UID kept by LabVIEW, or matched by ``_match_elements``'s
+    exact/fuzzy dataflow identity (a re-keyed structure). A mismatched type at
+    a shared uid (LabVIEW recycling a uid for a different kind of node) is
+    skipped — same guard as the constant modified-check's type guard."""
+    cand = [(u, u) for u in sorted(a.keys() & b.keys(), key=_uid_sort)]
+    h2b = {**exact, **fuzzy}
+    cand += [(u, h2b[u]) for u in sorted(h2b, key=_uid_sort)]
+    pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
+    for base_uid, head_uid in cand:
+        ea, eb = a.get(base_uid), b.get(head_uid)
+        if ea is None or eb is None or ea.kind != "structure":
+            continue
+        if type(ea.op) is not type(eb.op):
+            continue
+        pairs.append((ea, eb))
+    return pairs
+
+
 def _matched_struct_pairs(
     a: dict[str, _ElemInfo],
     b: dict[str, _ElemInfo],
     exact: dict[str, str],
     fuzzy: dict[str, str],
 ) -> list[tuple[_ElemInfo, _ElemInfo]]:
-    """Every (base entry, head entry) pair of the SAME logical Case/Sequence
-    structure across versions — same UID kept by LabVIEW, or matched by
-    ``_match_elements``'s exact/fuzzy dataflow identity (a re-keyed
-    structure) — so their FRAME SETS can be diffed. A mismatched type at a
-    shared uid (LabVIEW recycling a uid for a different kind of node) is
-    skipped — same guard as the constant modified-check's type guard."""
-    pairs: list[tuple[_ElemInfo, _ElemInfo]] = []
-    for base_uid in sorted(a.keys() & b.keys(), key=_uid_sort):
-        ea, eb = a[base_uid], b[base_uid]
-        if type(ea.op) is not type(eb.op):
-            continue
-        if _frames_of(ea.op) is not None:
-            pairs.append((ea, eb))
-    h2b = {**exact, **fuzzy}
-    for base_uid in sorted(h2b, key=_uid_sort):
-        head_uid = h2b[base_uid]
-        ea, eb = a.get(base_uid), b.get(head_uid)
-        if ea is None or eb is None:
-            continue
-        if type(ea.op) is not type(eb.op):
-            continue
-        if _frames_of(ea.op) is not None:
-            pairs.append((ea, eb))
-    return pairs
+    """The frame-bearing (Case/Sequence/Event/Disable) subset of
+    ``_matched_structure_pairs``, whose FRAME SETS can be diffed."""
+    return [
+        (ea, eb)
+        for ea, eb in _matched_structure_pairs(a, b, exact, fuzzy)
+        if _frames_of(ea.op) is not None
+    ]
+
+
+def _terminal_wiring(
+    wires: list[Wire],
+    vi_self: str,
+    term_id: str,
+    to_head: Mapping[str, str],
+) -> list[tuple[str, str, str]]:
+    """Every wire on one terminal as ``(role, neighbour-UID,
+    neighbour-terminal-UID)`` — on a tunnel's OUTER terminal, what it carries
+    in from / out to the surrounding diagram. ``to_head`` translates a
+    base-side neighbour UID to its head-side counterpart (exact/fuzzy match),
+    so the same wiring yields the same tuples in both versions."""
+
+    def nid(node_id: str) -> str:
+        uid = "__self__" if node_id == vi_self else _uid_of(node_id)
+        return to_head.get(uid, uid)
+
+    out: list[tuple[str, str, str]] = []
+    for w in wires:
+        if w.source.terminal_id == term_id:
+            out.append(("out", nid(w.dest.node_id), _uid_of(w.dest.terminal_id)))
+        if w.dest.terminal_id == term_id:
+            out.append(("in", nid(w.source.node_id), _uid_of(w.source.terminal_id)))
+    return sorted(out)
+
+
+def _condition_key(
+    graph: InMemoryVIGraph,
+    wires: list[Wire],
+    vi_self: str,
+    t: TunnelTerminal,
+    to_head: Mapping[str, str],
+    constants: Mapping[str, str],
+) -> tuple[object, str] | None:
+    """What drives a Conditional tunnel's condition terminal, comparable across
+    versions: a key and the name to show (``not_x``, ``True``). The key is the
+    feeding node (via ``to_head``) and name; a constant, which LabVIEW re-keys
+    on save, is keyed by its value alone. None when the tunnel isn't
+    Conditional."""
+    if t.condition_terminal is None:
+        return None
+    wire = condition_source(wires, t)
+    if wire is None:
+        return None, "unwired"
+    name = condition_name(graph, wire, constants)
+    if wire.source.node_id in constants:
+        return ("constant", name), name
+    wiring = _terminal_wiring(wires, vi_self, t.condition_terminal, to_head)
+    return (tuple(n for _, n, _ in wiring), name), name
+
+
+def _condition_detail(
+    before: tuple[object, str] | None,
+    after: tuple[object, str] | None,
+) -> str | None:
+    """``condition ← <source>`` (plus ``(was <old>)``) when the wire driving
+    a Conditional tunnel's condition is new or changed; None otherwise."""
+    if after is None or (before is not None and before[0] == after[0]):
+        return None
+    detail = f"condition ← {after[1]}"
+    if before is not None:
+        detail += f" (was {before[1]})"
+    return detail
+
+
+def _struct_tunnel_changes(
+    graph_a: InMemoryVIGraph,
+    graph_b: InMemoryVIGraph,
+    entry_a: _ElemInfo,
+    entry_b: _ElemInfo,
+    wires_a: list[Wire],
+    wires_b: list[Wire],
+    va: str,
+    vb: str,
+    to_head: Mapping[str, str],
+    layout_a: Layout | None,
+    layout_b: Layout | None,
+) -> list[ElementChange]:
+    """Each changed border terminal of a matched structure — a tunnel replaced
+    by a shift register, indexing toggled, Conditional set, a tunnel added or
+    removed — as its OWN ``kind="tunnel"`` change, highlighted on the tunnel
+    itself: ``element`` is its kind in LabVIEW's words (``shift register``),
+    ``label`` what it carries (``error in``), and a modified one's ``detail``
+    the kind transition (``tunnel → shift register``). A Conditional tunnel's
+    condition wire belongs to the tunnel too: a new or rewired condition adds
+    ``condition ← <source>`` to that tunnel's own ``detail``.
+
+    The wire diff can't see these: it follows wires THROUGH tunnels, so the
+    data flow on either side is unchanged. Tunnels are correlated across
+    versions by kept terminal UID, then by the outside wiring they carry
+    (neighbour node + terminal, then neighbour node alone); whatever is left
+    on one side only was added or removed."""
+    tunnels_a = outer_tunnels(entry_a.op)
+    tunnels_b = outer_tunnels(entry_b.op)
+    # Keyed by the terminal OBJECT, not its id: two revisions of the same file
+    # share terminal ids, but each side's terminals are distinct objects.
+    wiring: dict[int, list[tuple[str, str, str]]] = {
+        id(t): _terminal_wiring(wires_a, va, t.id, to_head) for t in tunnels_a
+    }
+    wiring |= {id(t): _terminal_wiring(wires_b, vb, t.id, {}) for t in tunnels_b}
+
+    def by_wiring(t: TunnelTerminal) -> object | None:
+        w = wiring[id(t)]
+        return (t.direction, tuple(w)) if w else None
+
+    def by_neighbour(t: TunnelTerminal) -> object | None:
+        w = wiring[id(t)]
+        return (t.direction, tuple((r, n) for r, n, _ in w)) if w else None
+
+    pairs, removed, added = _correlate_by_keys(
+        tunnels_a,
+        tunnels_b,
+        [lambda t: _uid_of(t.id), by_wiring, by_neighbour],
+    )
+    struct_a, struct_b = _uid_of(entry_a.op.id), _uid_of(entry_b.op.id)
+    consts_a, consts_b = constant_names(graph_a, va), constant_names(graph_b, vb)
+    changes: list[ElementChange] = []
+
+    def change(
+        t: TunnelTerminal,
+        kind: str,
+        entry: _ElemInfo,
+        struct_uid: str,
+        layout: Layout | None,
+        **extra: Any,
+    ) -> ElementChange:
+        uid = _uid_of(t.id)
+        graph, wires = (graph_a, wires_a) if kind == "removed" else (graph_b, wires_b)
+        return ElementChange(
+            uid,
+            t.id,
+            "tunnel",
+            kind,
+            carried_name(graph, wires, t.id) or "",
+            _node_bounds(layout, uid),
+            element=tunnel_kind_name(t),
+            container_uid=entry.container_uid,
+            frame_path=entry.frame_path,
+            structure_uid=struct_uid,
+            **extra,
+        )
+
+    for ta, tb in pairs:
+        before, after = tunnel_kind_name(ta), tunnel_kind_name(tb)
+        parts = [f"{before} → {after}"] if before != after else []
+        condition = _condition_detail(
+            _condition_key(graph_a, wires_a, va, ta, to_head, consts_a),
+            _condition_key(graph_b, wires_b, vb, tb, {}, consts_b),
+        )
+        if condition is not None:
+            parts.append(condition)
+        if parts:
+            changes.append(
+                change(
+                    tb,
+                    "modified",
+                    entry_b,
+                    struct_b,
+                    layout_b,
+                    bounds_before=_node_bounds(layout_a, _uid_of(ta.id)),
+                    detail=", ".join(parts),
+                )
+            )
+    for t in added:
+        condition = _condition_detail(
+            None, _condition_key(graph_b, wires_b, vb, t, {}, consts_b)
+        )
+        changes.append(
+            change(t, "added", entry_b, struct_b, layout_b, detail=condition)
+        )
+    changes += [change(t, "removed", entry_a, struct_a, layout_a) for t in removed]
+    return changes
 
 
 # ── Constant diff (task: constants as first-class change elements) ─────
@@ -2145,6 +2342,26 @@ def diff_uid(
             )
         )
 
+    # Border-terminal changes on every matched structure (loops included): a
+    # tunnel turned shift register, indexing toggled, a tunnel added/removed —
+    # one change per tunnel.
+    for entry_a, entry_b in _matched_structure_pairs(a, b, exact, fuzzy):
+        cmap.changes.extend(
+            _struct_tunnel_changes(
+                graph_a,
+                graph_b,
+                entry_a,
+                entry_b,
+                wires_a,
+                wires_b,
+                va,
+                vb,
+                {**exact, **fuzzy},
+                layout_a,
+                layout_b,
+            )
+        )
+
     # VI-level (container-less) AUTHORED changes: the VI's own connector pane
     # and its Properties facet, as ordinary ``ElementChange`` leaves (``kind``
     # "connector_pane"/"property") -- exactly like a constant or a node, not a
@@ -2182,10 +2399,17 @@ def diff_uid(
     # modified, then by UID. This is only a deterministic TIEBREAK now -- the
     # real, user-facing order is the tree's own containment order, applied
     # next.
+    # Tunnel changes keep the order they were emitted in (a structure's border
+    # order, inputs first), which the tree then lists under their structure.
     _rank = {"added": 0, "removed": 1, "modified": 2}
-    cmap.changes.sort(
-        key=lambda c: (c.kind != "structure", _rank.get(c.change, 3), _uid_sort(c.uid))
-    )
+    _emitted = {id(c): i for i, c in enumerate(cmap.changes)}
+
+    def _provisional(c: ElementChange) -> tuple[bool, int, tuple[int, object]]:
+        if c.kind == "tunnel":
+            return (True, len(_rank), (2, _emitted[id(c)]))
+        return (c.kind != "structure", _rank.get(c.change, 3), _uid_sort(c.uid))
+
+    cmap.changes.sort(key=_provisional)
     _reorder_by_tree(cmap, graph_a, graph_b, va, vb)
     return cmap
 
@@ -2374,6 +2598,21 @@ def _terminal_leaf_text(c: ElementChange, *, detailed: bool) -> str:
     return f"{head}: {_ascii_arrows(c.detail)}"
 
 
+# The glyph for a structure border terminal (tunnel / shift register / count
+# terminal) change -- a small filled block, like the tunnel LabVIEW draws.
+_TUNNEL_GLYPH = "▪"
+
+
+def _tunnel_leaf_text(c: ElementChange, *, detailed: bool) -> str:
+    """One tunnel change leaf's netlist text: the tunnel glyph + its kind in
+    LabVIEW's words (``c.element``) + what it carries (``c.label``), plus --
+    for a modified tunnel -- the ``old -> new`` kind transition and/or its
+    new ``condition = <source>`` (ASCII arrows), in both text tiers: that IS
+    the change."""
+    head = f"{_TUNNEL_GLYPH} {c.element}" + (f" ({c.label})" if c.label else "")
+    return f"{head}: {_ascii_arrows(c.detail)}" if c.detail else head
+
+
 # Per-kind netlist leaf-text renderer (glyph + text), the second half of the
 # change-kind registry above — kept here because it references the helpers just
 # defined. ``_netlist_diff``'s leaf switch dispatches through this, so a new
@@ -2385,6 +2624,7 @@ _LEAF_TEXT: dict[str, Callable[..., str]] = {
     "terminal": _terminal_leaf_text,
     "property": _metadata_leaf_text,
     "connector_pane": _metadata_leaf_text,
+    "tunnel": _tunnel_leaf_text,
 }
 
 
@@ -2690,6 +2930,12 @@ def _netlist_diff(
             for c in here
             if c.kind == "structure" and c.change in ("added", "removed")
         }
+        # Tunnel changes list under their structure's header (a tunnel sits on
+        # the structure's border, at the structure's own locality).
+        tunnels_by_struct: dict[str, list[ElementChange]] = {}
+        for c in here:
+            if c.kind == "tunnel" and c.structure_uid is not None:
+                tunnels_by_struct.setdefault(c.structure_uid, []).append(c)
         # A structure's OWN header must render even with NO descendant at
         # all -- an empty/childless added case, or (always) a Loop/flat
         # Sequence: neither is ``_is_interactive_struct``, so its children
@@ -2702,7 +2948,7 @@ def _netlist_diff(
         # doesn't matter -- ``_sort_key`` below re-orders everything.
         struct_uids: list[str] = []
         seen: set[str] = set()
-        for uid in [*struct_by_uid, *child_uids(path)]:
+        for uid in [*struct_by_uid, *tunnels_by_struct, *child_uids(path)]:
             if uid not in seen:
                 seen.add(uid)
                 struct_uids.append(uid)
@@ -2716,8 +2962,10 @@ def _netlist_diff(
             (_sort_key(c.uid), "leaf", c)
             for c in here
             # property/connector_pane are rendered above under their group
-            # folder (root only), never as loose siblings.
-            if c.kind in _LEAF_KINDS and c.kind not in ("property", "connector_pane")
+            # folder (root only), and tunnels under their structure's header —
+            # never as loose siblings.
+            if c.kind in _LEAF_KINDS
+            and c.kind not in ("property", "connector_pane", "tunnel")
         )
         siblings.sort(key=lambda s: s[0])
         # When VI-level groups lead the ROOT, wrap the diagram changes under a
@@ -2750,6 +2998,17 @@ def _netlist_diff(
                         uid=uid,
                         kind="scope",
                     )
+                )
+                rows.extend(
+                    NetlistDiffRow(
+                        change=tc.change,
+                        depth=content_depth + 1,
+                        text=_tunnel_leaf_text(tc, detailed=detailed),
+                        uid=tc.uid,
+                        kind="tunnel",
+                    )
+                    # Already in border order (inputs first) — see outer_tunnels.
+                    for tc in tunnels_by_struct.get(uid, [])
                 )
                 rows.extend(render_struct_children(uid, path, content_depth + 1))
                 continue

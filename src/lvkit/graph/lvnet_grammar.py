@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from ..models import DisableStructureKind
+from ..models import DisableStructureKind, TunnelMode
 from .netlist_models import NetlistInstanceKind
 
 # ------------------------------------------------------------------
@@ -188,16 +188,19 @@ _OPEN_INSTANCE_TRAILING_TODO: dict[NetlistInstanceKind, str] = {
     ),
 }
 
-# ``EtaMerge.index_mode``'s internal short code -> lvnet §8's border-construct
-# WORD ("mode: auto-indexing | last-value | concatenating | pass-through").
-# ``index_mode`` is already computed by ``_eta_index_mode``; this is purely a
-# display remap, not a new semantic derivation.
-_LVNET_TUNNEL_MODE_WORD: dict[str, str] = {
-    "array": "auto-indexing",
-    "last": "last-value",
-    "concat": "concatenating",
-    "passthrough": "pass-through",
+# ``EtaMerge.mode`` -> lvnet §8's border-construct WORD ("mode: auto-indexing |
+# last-value | concatenating | pass-through"). Purely a display remap; a mode-less
+# tunnel renders the honest ``"?"``.
+_LVNET_TUNNEL_MODE_WORD: dict[TunnelMode, str] = {
+    TunnelMode.INDEXING: "auto-indexing",
+    TunnelMode.LAST_VALUE: "last-value",
+    TunnelMode.CONCATENATING: "concatenating",
+    TunnelMode.PASSTHROUGH: "pass-through",
 }
+
+
+def _lvnet_tunnel_mode_word(mode: TunnelMode | None) -> str:
+    return _LVNET_TUNNEL_MODE_WORD[mode] if mode is not None else "?"
 
 # ``DisableStructureKind`` -> lvnet §8's disable-family structure KEYWORD.
 # Straight from the §8 table -- no invented word.

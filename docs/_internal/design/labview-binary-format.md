@@ -965,3 +965,45 @@ array is homogeneous (one element type for every value), the array glyph
 draws every visible row at this ONE real size (`ArrayConstantGlyph.cell_w`/
 `cell_h`) instead of stretching to a synthetic fixed row height — never
 scaled, since the cell IS the element's own real size.
+
+## A by-name drawer's field index counts every sub-cluster as its own slot (issue #134)
+
+Bundle/Unbundle By Name (`nMux`, `<i>`), the In Place Element cluster node
+(`decomposeClusterNode`, `<index>`) and Event Data/Filter Nodes
+(`eventDataNode`, `<i>`) all select a field by an index into the aggregate's
+DEPTH-FIRST flatten in which a nested sub-cluster is a slot of its own,
+followed by its fields — for class private data, typedefs and event data
+alike. An absent index element means 0.
+
+Ground truth needs no field list: each drawer's `typeDesc TypeID(N)` is a
+heap TypeID → consolidated TypeID (the XML comments) → VCTP
+`TopLevel/TypeDesc[@Index]` FlatTypeID → that flat TypeDesc's `Label` (or its
+nested typedef type's `Label`), which is the selected field's name. Across 75
+corpus VIs, every drawer whose name differs between a leaf-only and a full
+flatten matched the full flatten: nMux 349/349, event data 51/51, decompose
+24/24. Example: `MeasurementContext` private data
+`[pin map context {pin_map_id, sites}, gRPC server call]` — a drawer with
+`<i>`=0 is typed as the whole `pin map context` cluster, `<i>`=3 is `gRPC
+server call`.
+
+## A Property Node row is ONE `propItem`; its `propList` holds one `propItemInfo` per path segment, so a nested property (`Label.Text`) is one row, not two
+
+A `class="propNode"`'s rows are its `class="propItem"` elements, and their
+document order (`elem.iter()`) is the order of the node's `<dcoList>` — the
+i-th row owns the i-th `dcoList` terminal. Across 2,030 Property Nodes in 529
+cached corpus VIs (both layouts below) the two orders agree in 2,030/2,030.
+
+A row's property PATH is its `<propList>`: one `<SL__arrayElement
+class="propItemInfo">` per segment, each with its own `<PropItemName>` and
+`<PropItemCode>`. Of the 2,470 common-layout rows in that survey, 95 have two
+segments and none more. Example:
+JKI `GetControlRef.vi`, node uid 156 — the row with dco 502 is `Label` (code
+104013829) then `Text` (code 103995392), i.e. `Label.Text`; the row with dco
+281 is `Indicator`; `<dcoList>` = [502, 281]. Counting every `propItemInfo`
+as a row shifts each later row's name by one.
+
+Two layouts carry the same `propItem > propList > propItemInfo` shape. Common:
+the `propItem` is the `<dco class="propItem">` inside a `termList` term.
+Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
+the node, the term's `<dco uid=...>` only references it, and its
+`propItemInfo` carries no `PropItemName` (the name is empty).

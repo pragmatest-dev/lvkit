@@ -437,8 +437,8 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` | single implicit body (index `i`, count `N`) |
-| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`) |
+| For Loop | `for-loop :` | single implicit body (index `i`, count `N`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case |
@@ -503,7 +503,10 @@ in their own header text.
 shift-register loop_879::shift0 :
   init = <source>          # value on the first iteration
   each = <source>          # value fed to the next iteration
-tunnel loop_879::out0 : auto-indexing = <source>   # mode: auto-indexing | last-value | concatenating | pass-through [+ conditional]
+tunnel loop_879::out0 : auto-indexing = <source>   # mode: auto-indexing | last-value | concatenating | pass-through
+tunnel loop_879::out1 : last-value+conditional :   # a Conditional tunnel is a block
+  value = <source>         # the value taken on each iteration
+  condition = <source>     # the wire on its condition terminal (omitted when unwired)
 case_139::out0 = <source>      # a case output, driven inside each frame
 ```
 

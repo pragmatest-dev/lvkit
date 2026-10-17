@@ -1485,13 +1485,20 @@ class ConstructionMixin:
             # flows). An INPUT tunnel is auto-index (INDEXING) or no-indexing
             # (PASSTHROUGH) only -- it has no last-value/concatenate/conditional
             # semantics (those are output-only), so re-label its "indexing off"
-            # LAST_VALUE as PASSTHROUGH and clear conditional.
+            # LAST_VALUE as PASSTHROUGH and clear conditional. An OUTPUT tunnel
+            # with indexing off is LAST_VALUE however the file spelled it (it
+            # may omit the indexing record that tells the parser LAST_VALUE).
             tun_mode = tunnel.mode
             tun_conditional = tunnel.conditional
+            tun_condition = tunnel.condition_terminal_uid
             if is_input_tunnel and ttype == "lpTun":
                 if tun_mode == TunnelMode.LAST_VALUE:
                     tun_mode = TunnelMode.PASSTHROUGH
                 tun_conditional = False
+                tun_condition = None
+            elif ttype == "lpTun" and tun_mode == TunnelMode.PASSTHROUGH:
+                tun_mode = TunnelMode.LAST_VALUE
+            q_condition = self._qid(vi_key, tun_condition) if tun_condition else None
 
             # Outer terminal
             outer_lv_type = None
@@ -1509,6 +1516,7 @@ class ConstructionMixin:
                 paired_id=q_inner_uid,
                 mode=tun_mode,
                 conditional=tun_conditional,
+                condition_terminal=q_condition,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )
@@ -1544,6 +1552,7 @@ class ConstructionMixin:
                 frame=inner_frame,
                 mode=tun_mode,
                 conditional=tun_conditional,
+                condition_terminal=q_condition,
                 sr_initialized=tunnel.sr_initialized,
                 sr_stack_depth=tunnel.sr_stack_depth,
             )

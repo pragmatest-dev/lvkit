@@ -491,7 +491,7 @@ def test_issue38_loop_tunnel_glyph_from_mode():
     ``TunnelMode`` (single source of truth), not a binary indexing flag.
 
     The repro For Loop has three OUTPUT tunnels — a last-value ``Numeric``
-    (``PASSTHROUGH`` here), an auto-indexing ``Array`` (``INDEXING``), and an
+    (``LAST_VALUE``), an auto-indexing ``Array`` (``INDEXING``), and an
     auto-concatenating ``Array 2`` (``CONCATENATING``). Before the fix the
     concatenating tunnel was drawn identically to the indexing one (``[ ]``
     brackets); now each mode maps to a distinct glyph, and ``concatenate`` is
@@ -508,7 +508,7 @@ def test_issue38_loop_tunnel_glyph_from_mode():
             glyph_by_mode[(t.mode, t.direction)] = b.glyph_kind
     assert glyph_by_mode[(TunnelMode.CONCATENATING, "output")] == "concatenate"
     assert glyph_by_mode[(TunnelMode.INDEXING, "output")] == "autoindex"
-    assert glyph_by_mode[(TunnelMode.PASSTHROUGH, "output")] == "tunnel"
+    assert glyph_by_mode[(TunnelMode.LAST_VALUE, "output")] == "tunnel"
 
 
 def test_issue38_fixture_renders():
@@ -656,3 +656,46 @@ def test_issue39_overlapping_nodes_occlude_by_zorder():
     assert order.index(front) > order.index(back), (
         "frontmost (lower z_order) node must draw last so it occludes the back one"
     )
+
+
+def test_issue133_diff_reports_each_tunnel_replaced_by_a_shift_register():
+    """Replacing a For Loop's pass-through tunnels with a shift register is a
+    real edit even though the data flow (error in -> error out) is unchanged.
+    Each tunnel is its OWN change — named by what it carries, highlighted on
+    the tunnel itself in both panes — listed under the loop in the text diff."""
+    from lvkit.graph.diff import diff_uid, format_diff
+
+    ga, va = _load("133/Run_before.vi")
+    gb, vb = _load("133/Run_after.vi")
+    cmap = diff_uid(ga, gb, va, vb)
+
+    tunnels = [c for c in cmap.changes if c.kind == "tunnel"]
+    assert [(c.change, c.element, c.label, c.detail) for c in tunnels] == [
+        ("modified", "shift register", "error in", "tunnel → shift register"),
+        (
+            "modified",
+            "shift register",
+            "error out",
+            "last value tunnel → shift register",
+        ),
+    ]
+    assert all(c.bounds and c.bounds_before for c in tunnels)
+    # Each highlight sits on its own tunnel, not on the whole loop.
+    assert tunnels[0].bounds != tunnels[1].bounds
+    assert not [c for c in cmap.changes if c.kind == "structure"]
+
+    text = format_diff(ga, gb, va, vb)
+    assert "  for:" in text
+    assert "~   ▪ shift register (error in): tunnel -> shift register" in text
+    assert (
+        "~   ▪ shift register (error out): last value tunnel -> shift register" in text
+    )
+
+
+def test_issue133_unchanged_tunnels_report_nothing():
+    """A VI diffed against itself has no tunnel changes (no false positive)."""
+    from lvkit.graph.diff import diff_uid
+
+    ga, va = _load("133/Run_after.vi")
+    gb, vb = _load("133/Run_after.vi")
+    assert not [c for c in diff_uid(ga, gb, va, vb).changes if c.kind == "tunnel"]

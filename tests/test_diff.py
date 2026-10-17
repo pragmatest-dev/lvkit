@@ -36,6 +36,7 @@ from lvkit.models import (
     LVTypeKind,
     SelectorRange,
     SequenceFrame,
+    TunnelTerminal,
 )
 from lvkit.parser.layout import Layout
 
@@ -1421,3 +1422,79 @@ class TestQualifiedSubVINames:
         for op in qualified:
             assert op.name and op.display_name.endswith(op.name)  # ends in the leaf
             assert ".lvclass" not in (op.name or "")  # bare name unqualified
+
+
+# ── Conditional loop output tunnels ──────────────────────────────────────
+
+_FORCE_UNLOAD_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Tooling/Force Icon Editor to Unload.vi"
+)
+_CONFIG_VI = Path(".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi")
+
+
+def _without_conditional(graph: InMemoryVIGraph, vi: str) -> None:
+    """Turn every Conditional loop tunnel back into a plain one, in memory:
+    clear the flag and delete the wire into its condition terminal -- the
+    "before" side of a user setting Conditional and wiring the condition."""
+    for node in graph.iter_nodes(vi):
+        for t in node.terminals:
+            if not isinstance(t, TunnelTerminal) or t.condition_terminal is None:
+                continue
+            condition = t.condition_terminal
+            t.conditional = False
+            t.condition_terminal = None
+            graph._graph.remove_edges_from(
+                [
+                    (u, v, k)
+                    for u, v, k, d in graph._graph.edges(keys=True, data=True)
+                    if d.get("dest") is not None
+                    and d["dest"].terminal_id == condition
+                ]
+            )
+
+
+def test_setting_conditional_is_one_tunnel_change_naming_its_condition():
+    """Setting Conditional on a loop output tunnel and wiring its condition is
+    ONE change on that tunnel -- the kind transition plus the wire now driving
+    the condition -- not a separate stray wire into the loop."""
+    ga, va = _load(_FORCE_UNLOAD_VI, layout=True)
+    gb, vb = _load(_FORCE_UNLOAD_VI, layout=True)
+    _without_conditional(ga, va)
+
+    changes = diff_uid(ga, gb, va, vb).changes
+    assert [(c.kind, c.change, c.element, c.detail) for c in changes] == [
+        (
+            "tunnel",
+            "modified",
+            "conditional last value tunnel",
+            "last value tunnel → conditional last value tunnel, condition ← not_x",
+        )
+    ]
+    assert changes[0].bounds is not None
+    text = format_diff(ga, gb, va, vb)
+    assert (
+        "▪ conditional last value tunnel: "
+        "last value tunnel -> conditional last value tunnel, condition = not_x"
+    ) in text
+
+
+def test_condition_wired_from_a_constant_is_named_by_the_constant():
+    """Config.vi wires one Boolean constant into both tunnels' condition
+    terminals; the change names that constant, never ``unwired``."""
+    ga, va = _load(_CONFIG_VI, layout=True)
+    gb, vb = _load(_CONFIG_VI, layout=True)
+    _without_conditional(ga, va)
+
+    changes = diff_uid(ga, gb, va, vb).changes
+    assert [(c.change, c.detail) for c in changes] == [
+        (
+            "modified",
+            "indexing tunnel → conditional indexing tunnel, condition ← True",
+        )
+    ] * 2
+
+
+def test_unchanged_conditional_tunnel_reports_nothing():
+    ga, va = _load(_FORCE_UNLOAD_VI, layout=True)
+    gb, vb = _load(_FORCE_UNLOAD_VI, layout=True)
+    assert diff_uid(ga, gb, va, vb).changes == []

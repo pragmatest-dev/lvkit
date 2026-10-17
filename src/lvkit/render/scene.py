@@ -184,8 +184,10 @@ class RenderBorderTerminal:
     "sr_down", "sr_up", "autoindex" (array index/accumulate — [ ] brackets),
     "concatenate" (auto-concatenating output tunnel — two side-by-side
     type-color blocks), "tunnel" (last-value passthrough — a filled type-color
-    block), "selector", or None. ``color`` is the type color for a filled
-    "tunnel"/"concatenate" glyph and the "autoindex" brackets.
+    block), "tunnel_condition" (a Conditional tunnel's ``?`` condition
+    terminal), "selector", or None. ``color`` is the type color for a filled
+    "tunnel"/"concatenate" glyph, the "autoindex" brackets, and the
+    "tunnel_condition" outline.
     """
 
     terminal: Terminal | None
@@ -799,6 +801,7 @@ def _structure_borders(
     # unwired in some frame). A valid VI must have the option enabled for such a
     # tunnel, so unwired-in-a-frame is a sound, data-only signal.
     inner_by_outer: dict[str, list[TunnelTerminal]] = {}
+    term_by_id = {t.id: t for t in node.terminals}
     for t in node.terminals:
         if isinstance(t, TunnelTerminal) and t.boundary == "inner" and t.paired_id:
             inner_by_outer.setdefault(t.paired_id, []).append(t)
@@ -886,6 +889,24 @@ def _structure_borders(
         consumed.add(raw)
         if glyph_kind:
             kinds_present.add(glyph_kind)
+        # A Conditional tunnel's condition terminal: a plain Boolean input on
+        # the loop (not itself a tunnel), drawn at its own saved bounds --
+        # just inside the border, under its tunnel.
+        condition = term_by_id.get(t.condition_terminal or "")
+        condition_rect = (
+            layout.node_bounds.get(_strip_prefix(condition.id, vi_name))
+            if condition is not None
+            else None
+        )
+        if condition is not None and condition_rect is not None:
+            result.append(
+                RenderBorderTerminal(
+                    terminal=condition,
+                    bounds=condition_rect,
+                    glyph_kind="tunnel_condition",
+                    color=wire_style(condition.lv_type).color,
+                )
+            )
 
     raw_struct_uid = _strip_prefix(node.id, vi_name)
     border_uids = layout.structure_border_uids.get(raw_struct_uid, [])

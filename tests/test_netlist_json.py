@@ -34,7 +34,7 @@ from lvkit.graph.netlist import (
     netlist_to_dict,
 )
 from lvkit.graph.op_walk import ComponentPort
-from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind, TunnelMode
 
 
 def _ref(node, terminal, bare, occ=None):
@@ -148,12 +148,11 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert sc["frames"][1]["body"] == []
 
 
-def test_feedback_item_is_kind_tagged_with_mu_shape():
-    """A Feedback Node body item -- the JSON counterpart of
-    ``render_netlist``'s ``fb{k} := mu[z^-N](init -> …, recur -> …)`` line --
-    is discriminated by ``kind="feedback"`` and carries the net name, the
-    z^-N delay, and the mu ``init``/``recur`` sources (``init`` as a merge
-    source that may be a type default; ``recur`` a NetRef or null)."""
+def test_feedback_item_is_kind_tagged_with_shift_register_shape():
+    """A Feedback Node body item is discriminated by ``kind="feedback"`` and
+    carries the net name, the delay, and -- like a shift register -- its
+    ``initial_value`` (a merge source that may be a type default) and
+    ``next_value`` (a NetRef or null)."""
     fb = NetlistFeedback(
         uid="3719",
         net="fb0",
@@ -169,11 +168,15 @@ def test_feedback_item_is_kind_tagged_with_mu_shape():
     assert item["uid"] == "3719"
     assert item["net"] == "fb0"
     assert item["delay"] == 1
-    # init is a type-default merge source (never a fabricated wire).
-    assert item["init"] == {"kind": "default", "type": "DBL", "literal": "0.0"}
-    assert item["recur"]["bare"] == "now.0"
+    # The initial value is a type-default merge source (never a fabricated wire).
+    assert item["initial_value"] == {
+        "kind": "default",
+        "type": "DBL",
+        "literal": "0.0",
+    }
+    assert item["next_value"]["bare"] == "now.0"
 
-    # recur=None (never-written Feedback Node) serializes as null, not omitted.
+    # A never-written Feedback Node's next value serializes as null, not omitted.
     fb2 = NetlistFeedback(
         uid="9",
         net="fb1",
@@ -184,14 +187,14 @@ def test_feedback_item_is_kind_tagged_with_mu_shape():
     d2 = netlist_to_dict(
         NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb2])
     )
-    assert d2["body"][0]["recur"] is None
+    assert d2["body"][0]["next_value"] is None
     assert d2["body"][0]["delay"] is None
 
 
-def test_case_scope_outputs_carries_gamma_merge_union_shape():
-    """A case scope's ``outputs`` -- the JSON counterpart of ``render_netlist``'s
-    ``out{k} := gamma(...)`` line -- carries the full net name, a "gamma" kind
-    tag, the selector NetRef, and one {frame, source} pair per frame. A
+def test_case_scope_outputs_carries_output_tunnel_shape():
+    """A case scope's ``outputs`` -- one per case output tunnel -- carries the
+    full net name, a "tunnel" kind tag, the selector NetRef, and one
+    {frame, source} pair per frame. A
     wired frame's ``source`` is a plain NetRef dict (no "kind" key, same as
     every other net reference in this IR); an unwired frame's is a
     discriminated ``{"kind": "default", ...}`` DefaultValue -- the two must
@@ -240,28 +243,27 @@ def test_case_scope_outputs_carries_gamma_merge_union_shape():
     assert sc["scope_kind"] == "case"
     assert len(sc["outputs"]) == 1
 
-    gamma = sc["outputs"][0]
-    assert gamma["net"] == "case0.out0"
-    assert gamma["kind"] == "gamma"
-    assert gamma["selector"]["bare"] == "sel2"
-    assert len(gamma["cases"]) == 2
+    tunnel = sc["outputs"][0]
+    assert tunnel["net"] == "case0.out0"
+    assert tunnel["kind"] == "tunnel"
+    assert tunnel["selector"]["bare"] == "sel2"
+    assert len(tunnel["cases"]) == 2
 
-    wired = gamma["cases"][0]
+    wired = tunnel["cases"][0]
     assert wired["frame"] == "True"
     assert wired["source"]["bare"] == "difference"
     assert "kind" not in wired["source"]
 
-    unwired = gamma["cases"][1]
+    unwired = tunnel["cases"][1]
     assert unwired["frame"] == "default"
     assert unwired["source"] == {"kind": "default", "type": "I32", "literal": "0"}
 
 
-def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
-    """A loop scope's ``outputs`` -- the JSON counterpart of
-    ``render_netlist``'s ``shift{k} := mu(...)``/``out{k} := eta(...)``
-    lines -- carries one ``{"kind": "mu", ...}`` entry per shift register
-    and one ``{"kind": "eta", ...}`` entry per output tunnel, alongside
-    (never replacing) case scopes' ``{"kind": "gamma", ...}`` shape."""
+def test_loop_scope_outputs_carries_shift_register_and_tunnel_shape():
+    """A loop scope's ``outputs`` carries one ``{"kind": "shift_register",
+    ...}`` entry per shift register and one ``{"kind": "tunnel", ...}`` entry
+    per output tunnel -- a Conditional one naming the net wired to its
+    condition terminal."""
     scope = NetlistScope(
         uid="12",
         kind="for",
@@ -280,9 +282,16 @@ def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
             ),
             EtaMerge(
                 net="loop0.out0",
-                index_mode="array",
+                mode=TunnelMode.INDEXING,
                 conditional=False,
                 value=_ref("Accumulate", "result", "result"),
+            ),
+            EtaMerge(
+                net="loop0.out1",
+                mode=TunnelMode.LAST_VALUE,
+                conditional=True,
+                value=_ref("Accumulate", "result", "result"),
+                condition=_ref("Not", "not_x", "not_x"),
             ),
         ],
     )
@@ -291,30 +300,36 @@ def test_loop_scope_outputs_carries_mu_and_eta_merge_union_shape():
     d = netlist_to_dict(module)
     sc = d["body"][0]
     assert sc["scope_kind"] == "for"
-    assert len(sc["outputs"]) == 3
+    assert len(sc["outputs"]) == 4
 
-    mu0 = sc["outputs"][0]
-    assert mu0["net"] == "loop0.shift0"
-    assert mu0["kind"] == "mu"
-    assert mu0["init"] == {"kind": "default", "type": "I32", "literal": "0"}
-    assert mu0["recur"]["bare"] == "result"
-    assert "kind" not in mu0["recur"]
+    sr0 = sc["outputs"][0]
+    assert sr0["net"] == "loop0.shift0"
+    assert sr0["kind"] == "shift_register"
+    assert sr0["initial_value"] == {"kind": "default", "type": "I32", "literal": "0"}
+    assert sr0["next_value"]["bare"] == "result"
+    assert "kind" not in sr0["next_value"]
 
-    mu1 = sc["outputs"][1]
-    assert mu1["kind"] == "mu"
-    assert mu1["init"]["bare"] == "seed_net"
-    assert "kind" not in mu1["init"]
-    # A shift register genuinely never written to has a null recur -- not
+    sr1 = sc["outputs"][1]
+    assert sr1["kind"] == "shift_register"
+    assert sr1["initial_value"]["bare"] == "seed_net"
+    assert "kind" not in sr1["initial_value"]
+    # A shift register genuinely never written to has a null next value -- not
     # an unresolved placeholder.
-    assert mu1["recur"] is None
+    assert sr1["next_value"] is None
 
-    eta0 = sc["outputs"][2]
-    assert eta0["net"] == "loop0.out0"
-    assert eta0["kind"] == "eta"
-    assert eta0["index_mode"] == "array"
-    assert eta0["conditional"] is False
-    assert eta0["value"]["bare"] == "result"
-    assert "kind" not in eta0["value"]
+    out0 = sc["outputs"][2]
+    assert out0["net"] == "loop0.out0"
+    assert out0["kind"] == "tunnel"
+    assert out0["mode"] == "indexing"
+    assert out0["conditional"] is False
+    assert out0["condition"] is None
+    assert out0["value"]["bare"] == "result"
+    assert "kind" not in out0["value"]
+
+    out1 = sc["outputs"][3]
+    assert out1["mode"] == "last_value"
+    assert out1["conditional"] is True
+    assert out1["condition"]["bare"] == "not_x"
 
 
 def test_instance_carries_cpdarith_operation():

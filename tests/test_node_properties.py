@@ -18,17 +18,24 @@ exercised directly against a hand-built ``dco`` element, same pattern as
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.describe import describe_vi
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.graph.netlist import build_netlist_from_graph, netlist_to_dict
 from lvkit.models import Tunnel, TunnelMode
 from lvkit.parser.nodes.base import extract_tunnel_mapping
+from lvkit.parser.nodes.loop import extract_loops
+from lvkit.render.backend import SvgBackend
+from lvkit.render.draw import _draw_border_terminal
+from lvkit.render.scene import RenderBorderTerminal, _structure_borders
+from lvkit.render.style import DEFAULT_THEME
 
 # ---------------------------------------------------------------------------
 # Corpus VI paths (all under .lvkit/cache/samples/, verified against the
@@ -43,6 +50,9 @@ CREATE_TEST_CONFIG_VI = Path(
     ".lvkit/cache/samples/DCAF-DAQModule/source/testing/Create Test Configuration.vi"
 )
 CONFIG_VI = Path(".lvkit/cache/samples/DCAF-DAQModule/source/testing/Config.vi")
+FORCE_UNLOAD_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Tooling/Force Icon Editor to Unload.vi"
+)
 FILTER_MPA_VI = Path(
     ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/"
     "utils/Filter - Moving Point Average.vi"
@@ -150,22 +160,112 @@ class TestTunnelMode:
         (conditionally index each iteration's element)."""
         _skip_if_missing(CONFIG_VI)
         op = _loop_op(CONFIG_VI, "167")
+        loop_terms = {t.id for t in op.terminals}
         for outer_uid in ("179", "185"):
             tunnel = _tunnel_by_outer(op, outer_uid)
             assert tunnel.tunnel_type == "lpTun"
             assert tunnel.mode == TunnelMode.INDEXING
             assert tunnel.conditional is True
+            # Linked to its own condition terminal, a Boolean input on the loop.
+            assert tunnel.condition_terminal_uid in loop_terms
+
+    def test_conditional_output_without_indexing_is_last_value(self) -> None:
+        """Force Icon Editor to Unload.vi forLoop 848 -- lpTun dco 1876 (outer
+        terminal 1882) is a Conditional OUTPUT tunnel with no indexing record
+        (no ``innerLpTunDCO``), so the parser alone reads PASSTHROUGH; its
+        outer side is the same String as the inner, so it is a last-value
+        tunnel. Its ``<LpTunConditionDCO uid="1938">`` is a border dco whose
+        termList is [1940, 1941]: 1940, wired from the Not node inside the
+        loop, is the condition terminal."""
+        _skip_if_missing(FORCE_UNLOAD_VI)
+        op = _loop_op(FORCE_UNLOAD_VI, "848")
+        tunnel = _tunnel_by_outer(op, "1882")
+        assert tunnel.mode == TunnelMode.LAST_VALUE
+        assert tunnel.conditional is True
+        assert tunnel.condition_terminal_uid is not None
+        assert tunnel.condition_terminal_uid.endswith("::1940")
+
+    def test_get_context_json_shows_condition(self) -> None:
+        """The loop's output tunnel entry names the net wired to its
+        condition terminal."""
+        _skip_if_missing(FORCE_UNLOAD_VI)
+        g, vi_name = _load(FORCE_UNLOAD_VI)
+        d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
+        scope = _find_scope(d["body"], "848")
+        assert scope is not None
+        conditional = [o for o in scope["outputs"] if o["conditional"]]
+        assert len(conditional) == 1
+        assert conditional[0]["kind"] == "tunnel"
+        assert conditional[0]["mode"] == "last_value"
+        assert conditional[0]["condition"]["node"] == "Not"
+        assert conditional[0]["condition"]["terminal"] == "not_x"
+
+    def test_describe_text_lists_the_loop_tunnels(self) -> None:
+        """Plain-text describe lists a loop's tunnels in LabVIEW's words, each
+        with what it carries and a Conditional one's condition -- on Config.vi
+        a Boolean constant wired to both condition terminals."""
+        _skip_if_missing(CONFIG_VI)
+        g, vi_name = _load(CONFIG_VI)
+        text = describe_vi(g, vi_name)
+        assert (
+            "  Tunnels:\n"
+            "    in  count terminal\n"
+            "    in  indexing tunnel (DevNames)\n"
+            "    out conditional indexing tunnel (Real Device Product Types),"
+            " condition ← True\n"
+            "    out conditional indexing tunnel (BusType), condition ← True"
+        ) in text
 
     def test_get_context_json_shows_tunnel_mode(self) -> None:
         """netlist_to_dict (the MCP get_context tool's JSON shape) carries
-        the tunnel mode through as the enum's string value."""
+        the tunnel mode through as a lower-case token."""
         _skip_if_missing(BUILD_VI)
         g, vi_name = _load(BUILD_VI)
         d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         scope = _find_scope(d["body"], "287")
         assert scope is not None
-        modes = {t["tunnel_type"]: t["mode"] for t in scope["tunnels"]}
-        assert modes["lpTun"] == "INDEXING"
+        modes = {t["kind"]: t["mode"] for t in scope["tunnels"]}
+        assert modes["tunnel"] == "indexing"
+
+
+def test_conditional_tunnel_links_its_condition_terminal() -> None:
+    """A Conditional lpTun names its condition dco in ``<LpTunConditionDCO>``;
+    that dco is another border term of the same loop with termList
+    [inner, outer] -- the inner face is the condition terminal. Same shape as
+    every conditional tunnel in the sample corpus (77 of 77)."""
+    root = ET.fromstring(
+        """
+        <root>
+          <SL__arrayElement class="forLoop" uid="10">
+            <termList elements="2">
+              <SL__arrayElement class="term" uid="12">
+                <dco class="lpTun" uid="11">
+                  <termList elements="2">
+                    <SL__arrayElement uid="13" />
+                    <SL__arrayElement uid="12" />
+                    </termList>
+                  <IsConditional>True</IsConditional>
+                  <LpTunConditionDCO uid="20" />
+                  </dco>
+                </SL__arrayElement>
+              <SL__arrayElement class="term" uid="22">
+                <dco class="lpTunConditionDCO" uid="20">
+                  <termList elements="2">
+                    <SL__arrayElement uid="21" />
+                    <SL__arrayElement uid="22" />
+                    </termList>
+                  <lpTunDCO uid="11" />
+                  </dco>
+                </SL__arrayElement>
+              </termList>
+            </SL__arrayElement>
+        </root>
+        """
+    )
+    (loop,) = extract_loops(root)
+    (tunnel,) = loop.tunnels
+    assert tunnel.conditional is True
+    assert tunnel.condition_terminal_uid == "21"
 
 
 class TestLpTunModeSynthetic:
@@ -358,7 +458,7 @@ class TestShiftRegister:
             t
             for scope in _iter_scopes(d["body"])
             for t in scope.get("tunnels", [])
-            if t["tunnel_type"] == "rSR"
+            if t["kind"] == "shift_register" and t["direction"] == "output"
         ]
         assert any(t["sr_stack_depth"] == 20 for t in rsr_entries)
 
@@ -435,3 +535,60 @@ def _find_scope(items: list[dict], uid: str) -> dict | None:
         if scope["uid"] == uid:
             return scope
     return None
+
+
+@pytest.mark.parametrize(
+    ("vi_path", "loop_uid", "expected"),
+    [
+        (FORCE_UNLOAD_VI, "848", {"1882": "1940"}),
+        (CONFIG_VI, "167", {"179": "194", "185": "198"}),
+    ],
+)
+def test_render_draws_each_condition_terminal_under_its_tunnel(
+    vi_path: Path, loop_uid: str, expected: dict[str, str]
+) -> None:
+    """A Conditional tunnel's condition terminal is drawn (as a ``?`` glyph)
+    at its own saved bounds, directly under its tunnel and touching it -- the
+    same spot LabVIEW draws it."""
+    _skip_if_missing(vi_path)
+    g = InMemoryVIGraph()
+    g.load_vi(str(vi_path), mode=LoadMode.NONE, layout=True)
+    vi_name = g.resolve_vi_name(vi_path.name)
+    layout = g.get_layout(vi_name)
+    assert layout is not None
+    op = _find_op(g, vi_name, g.top_level_nodes(vi_name), loop_uid)
+    assert isinstance(op, LoopNode)
+    borders = {
+        b.terminal.id.rsplit("::", 1)[-1]: b
+        for b in _structure_borders(op, layout, vi_name)
+        if b.terminal is not None
+    }
+    conditions = {
+        uid for uid, b in borders.items() if b.glyph_kind == "tunnel_condition"
+    }
+    assert conditions == set(expected.values())
+    for tunnel_uid, condition_uid in expected.items():
+        tx1, _, tx2, ty2 = layout.node_bounds[tunnel_uid]
+        cx1, cy1, cx2, _ = borders[condition_uid].bounds
+        assert (cx1, cx2, cy1) == (tx1, tx2, ty2)  # same column, just below
+        # The drawn outlines fill those bounds, so the two boxes touch.
+        _, _, _, drawn_ty2 = _drawn_box(borders[tunnel_uid])
+        drawn_cx1, drawn_cy1, drawn_cx2, _ = _drawn_box(borders[condition_uid])
+        assert drawn_cy1 == pytest.approx(drawn_ty2, abs=0.1)
+        assert (drawn_cx1, drawn_cx2) == pytest.approx((tx1, tx2), abs=0.1)
+
+
+def _drawn_box(border: RenderBorderTerminal) -> tuple[float, float, float, float]:
+    """Outer edges of the first box a border glyph draws, stroke included."""
+    backend = SvgBackend()
+    _draw_border_terminal(border, backend, DEFAULT_THEME)
+    svg = backend.render(border.bounds)
+    rect = re.search(
+        r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"'
+        r'[^>]*stroke-width="([\d.]+)"',
+        svg,
+    )
+    assert rect is not None
+    x, y, w, h, stroke = (float(v) for v in rect.groups())
+    half = stroke / 2
+    return x - half, y - half, x + w + half, y + h + half

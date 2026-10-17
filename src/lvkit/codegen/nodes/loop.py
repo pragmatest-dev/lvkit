@@ -16,6 +16,23 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from .base import CodeGenError
+
+
+def _when_condition(
+    tunnel: Tunnel, write: ast.stmt, ctx: CodeGenContext, node: LoopNode
+) -> ast.stmt:
+    """An output tunnel's per-iteration write. A Conditional tunnel takes the
+    iteration's value only when its condition terminal is True, so its write
+    is wrapped in ``if <condition>:``."""
+    if tunnel.condition_terminal_uid is None:
+        return write
+    condition = ctx.resolve(tunnel.condition_terminal_uid)
+    if condition is None:
+        raise CodeGenError(
+            "Conditional tunnel's condition terminal is not wired", node
+        )
+    return ast.If(test=parse_expr(condition), body=[write], orelse=[])
 
 
 def _tunnel_is_input(outer_term_uid: str | None, term_by_id: dict) -> bool:
@@ -170,18 +187,19 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                     # Integer or unknown - use directly
                     n_terminal_var = outer_var
 
-        elif (
-            tunnel_type == "lpTun"
-            and loop_type == "forLoop"
-            and not _tunnel_is_input(outer_term, term_by_id)
-        ):
-            # A For-loop lpTun OUTPUT tunnel (outer terminal direction is
+        elif tunnel_type == "lpTun" and not _tunnel_is_input(outer_term, term_by_id):
+            # A loop's lpTun OUTPUT tunnel (outer terminal direction is
             # "output"). Its mode decides the shape:
             # - INDEXING (default): auto-indexed into an array (accumulate).
-            # - PASSTHROUGH (indexing disabled): the LAST-iteration value, a
+            # - LAST_VALUE (indexing disabled): the LAST-iteration value, a
             #   scalar; assigned each pass, seeded to the type default so a
-            #   0-iteration loop yields the default.
-            if tunnel.mode == TunnelMode.PASSTHROUGH:
+            #   0-iteration loop -- or a Conditional tunnel whose condition is
+            #   never True -- yields the default. A While loop's body always
+            #   runs at least once, so its plain last value is just the body
+            #   value, bound after the loop (step 7).
+            if tunnel.mode == TunnelMode.LAST_VALUE:
+                if loop_type != "forLoop" and not tunnel.conditional:
+                    continue
                 # Disambiguate the generic fallback name ("value") so two
                 # last-value tunnels in one VI don't collapse to one var and
                 # clobber each other (mirrors the shift-register handling).
@@ -200,9 +218,13 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 bindings[outer_term] = last_var
             else:
                 # Auto-indexed accumulator — pluralized name to avoid
-                # conflict with the inner (singular) iteration variable.
-                base_name = _make_var_name(tunnel, ctx)
-                accum_var = _pluralize(base_name)
+                # conflict with the inner (singular) iteration variable, made
+                # unique and reserved like a last-value tunnel's so a loop
+                # nested in this one can't reuse (and reset) it.
+                accum_var = _unique_shift_var_name(
+                    _pluralize(_make_var_name(tunnel, ctx)), ctx
+                )
+                ctx._allocated_vars.add(accum_var)
                 pre_loop_stmts.append(
                     build_assign(accum_var, ast.List(elts=[], ctx=ast.Load()))
                 )
@@ -308,24 +330,24 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         inner_term = tunnel.inner_terminal_uid
         inner_val = inner_ctx.resolve(inner_term)
         if inner_val and inner_val != accum_var:
-            inner_stmts.append(
-                ast.Expr(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id=accum_var, ctx=ast.Load()),
-                            attr="append",
-                            ctx=ast.Load(),
-                        ),
-                        args=[parse_expr(inner_val)],
-                        keywords=[],
-                    )
+            append = ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id=accum_var, ctx=ast.Load()),
+                        attr="append",
+                        ctx=ast.Load(),
+                    ),
+                    args=[parse_expr(inner_val)],
+                    keywords=[],
                 )
             )
+            inner_stmts.append(_when_condition(tunnel, append, inner_ctx, node))
 
     for tunnel, last_var in lastval_tunnels:
         inner_val = inner_ctx.resolve(tunnel.inner_terminal_uid)
         if inner_val and inner_val != last_var:
-            inner_stmts.append(build_assign(last_var, parse_expr(inner_val)))
+            assign = build_assign(last_var, parse_expr(inner_val))
+            inner_stmts.append(_when_condition(tunnel, assign, inner_ctx, node))
 
     # 5. Handle shift register updates (rSR) at end of loop body
     #

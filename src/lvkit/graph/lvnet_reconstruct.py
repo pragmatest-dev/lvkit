@@ -88,6 +88,7 @@ from ..models import (
     LVType,
     LVTypeKind,
     ScalarValue,
+    TunnelMode,
 )
 from .interface_order import WiringRequirement
 from .lvnet_grammar import (
@@ -582,8 +583,8 @@ def _maybe_attach_lvtype(
 _REVERSE_INSTANCE_KEYWORDS: dict[str, NetlistInstanceKind] = {
     word: kind for kind, word in _LVNET_INSTANCE_KEYWORDS.items()
 }
-_REVERSE_TUNNEL_MODE_WORD: dict[str, str] = {
-    word: code for code, word in _LVNET_TUNNEL_MODE_WORD.items()
+_REVERSE_TUNNEL_MODE_WORD: dict[str, TunnelMode] = {
+    word: mode for mode, word in _LVNET_TUNNEL_MODE_WORD.items()
 }
 _REVERSE_DISABLE_KEYWORD: dict[str, DisableStructureKind] = {
     word: kind for kind, word in _LVNET_DISABLE_KEYWORD.items()
@@ -785,12 +786,23 @@ def _reconstruct_tunnel(
     if mode_text.endswith("+conditional"):
         conditional = True
         mode_text = mode_text[: -len("+conditional")]
-    index_mode = _REVERSE_TUNNEL_MODE_WORD.get(mode_text)
-    if index_mode is None:
+    mode = _REVERSE_TUNNEL_MODE_WORD.get(mode_text)
+    if mode is None:
         raise LvnetReconstructError(f"unrecognized tunnel mode word: {t.mode!r}")
     value = _parse_source_token(t.source, registry)
+    condition = (
+        _require_netref(
+            _parse_source_token(t.condition, registry), f"{t.net} condition"
+        )
+        if t.condition is not None
+        else None
+    )
     return EtaMerge(
-        net=t.net, index_mode=index_mode, conditional=conditional, value=value
+        net=t.net,
+        mode=mode,
+        conditional=conditional,
+        value=value,
+        condition=condition,
     )
 
 
