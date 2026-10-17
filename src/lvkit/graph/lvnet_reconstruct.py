@@ -149,7 +149,7 @@ from .netlist import (
     NetlistTerminalBinding,
     NetRef,
 )
-from .render_lvnet import _lvnet_type_inline
+from .render_lvnet import _lvnet_type_inline, lvnet_name_token
 
 
 class LvnetReconstructError(ValueError):
@@ -183,6 +183,8 @@ class _HandleTarget:
     name: str
     uid: str
     is_constant: bool
+    # A front-panel control's quoted name (see ``reconstruct_module``).
+    is_boundary: bool = False
 
 
 def _handle_base_and_suffix(handle: str) -> tuple[str, str]:
@@ -348,6 +350,15 @@ def _parse_source_token(
         if end != len(text):
             raise LvnetReconstructError(
                 f"trailing text after quoted literal in source: {text!r}"
+            )
+        control = registry.get(text)
+        if control is not None and control.is_boundary:
+            return NetRef(
+                node=None,
+                terminal=control.name,
+                occurrence=None,
+                bare=control.name,
+                boundary=True,
             )
         return NetRef(
             node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
@@ -1070,6 +1081,13 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
 
     registry: dict[str, _HandleTarget] = {}
     _index_handles(parsed.body, registry)
+
+    for terminal in parsed.boundary:
+        token = lvnet_name_token(terminal.name)
+        if token.startswith('"'):
+            registry[token] = _HandleTarget(
+                name=terminal.name, uid="", is_constant=False, is_boundary=True
+            )
 
     body = _reconstruct_items(parsed.body, registry, types_dict, memo, fresh_uid)
 

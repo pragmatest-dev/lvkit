@@ -14,7 +14,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
-from lvkit.graph.lvnet_parse import parse_lvnet
+from lvkit.graph.lvnet_parse import netlist_signature, parse_lvnet
 from lvkit.graph.lvnet_reconstruct import LvnetReconstructError, reconstruct_module
 from lvkit.graph.models import VIContext
 from lvkit.graph.netlist import (
@@ -28,6 +28,7 @@ from lvkit.graph.netlist_models import (
     BoundaryOutput,
     ConnectorPane,
     ConnectorPaneTerminal,
+    NetlistBoundaryInput,
     WiringRequirement,
 )
 from lvkit.load_mode import LoadMode
@@ -344,5 +345,104 @@ def test_corpus_vi_with_shared_front_panel_labels_round_trips() -> None:
     assert labels.count("XML String") == 6
     text = render_lvnet(module, display_name=vi.name, verbose=True)
     rebuilt = reconstruct_module(parse_lvnet(text))
+    assert render_lvnet(rebuilt, display_name=vi.name, verbose=True) == text
+    _assert_graph_identity(module, rebuilt, vi.name)
+
+
+_AWKWARD_LABELS = [
+    pytest.param("Current Test\nSucceeded", id="newline"),
+    pytest.param("x = y?", id="equals"),
+    pytest.param("Image : Type", id="colon"),
+    pytest.param("tab\there", id="tab"),
+]
+
+
+def _label_module(label: str, *, on_pane: bool) -> NetlistModule:
+    """A control and an indicator both labelled ``label`` (distinct directions)
+    on or off the pane, the indicator driven by the control's net."""
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    index = (0, 1) if on_pane else (None, None)
+
+    def pane(direction: str, slot: int | None) -> ConnectorPaneTerminal:
+        return ConnectorPaneTerminal(
+            name=label,
+            type="String",
+            direction=direction,
+            index=slot,
+            wiring_requirement=WiringRequirement.UNKNOWN,
+            default=None,
+            lv_type=string,
+        )
+
+    source = NetRef(
+        node=None, terminal=label, occurrence=None, bare=label, boundary=True
+    )
+    indicator = BoundaryOutput(
+        name=label, type_descriptor="String", source=source, lv_type=string
+    )
+    return NetlistModule(
+        vi_name="Names.vi",
+        inputs=(
+            [NetlistBoundaryInput(name=label, type_descriptor="String", lv_type=string)]
+            if on_pane
+            else []
+        ),
+        outputs=[indicator] if on_pane else [],
+        off_pane_outputs=[] if on_pane else [indicator],
+        connector_pane=ConnectorPane(
+            pattern_id=None,
+            terminals=[pane("input", index[0]), pane("output", index[1])],
+        ),
+    )
+
+
+@pytest.mark.parametrize("on_pane", [True, False])
+@pytest.mark.parametrize("label", _AWKWARD_LABELS)
+def test_front_panel_labels_with_delimiters_round_trip(
+    label: str, on_pane: bool
+) -> None:
+    module = _label_module(label, on_pane=on_pane)
+    text = render_lvnet(module, display_name="Names.vi", verbose=True)
+    assert text.count("\n") == len(text.splitlines()) - 1
+    parsed = parse_lvnet(text)
+    assert [t.name for t in parsed.boundary] == [label, label]
+    rebuilt = reconstruct_module(parsed)
+    assert render_lvnet(rebuilt, display_name="Names.vi", verbose=True) == text
+    _assert_graph_identity(module, rebuilt, "Names.vi")
+    drive = (rebuilt.outputs + rebuilt.off_pane_outputs)[0]
+    assert drive.name == label
+    assert drive.source is not None
+    assert drive.source.bare == label
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize(
+    "vi,root",
+    [
+        pytest.param(
+            _SAMPLES / "measurement-plugin-labview/Source/Tests/run_tests.vi",
+            _SAMPLES / "measurement-plugin-labview",
+            id="run_tests",
+        ),
+        pytest.param(
+            _SAMPLES
+            / "JKI-EasyXML/Source/Support/Low Level/Date Time"
+            / "TEST - Parse XML dateTime.vi",
+            _SAMPLES / "JKI-EasyXML",
+            id="TEST_Parse_XML_dateTime",
+        ),
+    ],
+)
+def test_corpus_vi_with_delimiter_labels_round_trips(vi: Path, root: Path) -> None:
+    if not vi.exists():
+        pytest.skip(f"sample corpus VI not present: {vi}")
+    graph, key = load_vi_by_path(
+        vi, LoadMode.MINIMAL, search_paths=[root], layout=False
+    )
+    module = build_netlist_from_graph(graph, key)
+    text = render_lvnet(module, display_name=vi.name, verbose=True)
+    parsed = parse_lvnet(text)
+    assert netlist_signature(module) == netlist_signature(parsed)
+    rebuilt = reconstruct_module(parsed)
     assert render_lvnet(rebuilt, display_name=vi.name, verbose=True) == text
     _assert_graph_identity(module, rebuilt, vi.name)

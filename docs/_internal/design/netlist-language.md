@@ -249,8 +249,9 @@ physical line, the way every other lvnet construct does (§10, §17 item 5).
 **Quoting a NAME (the name-safety rule).** A string *value* is always quoted
 (above); a **name** — a terminal name (§3), an enum member or cluster field
 (§10/§10.1) — renders **bare by default** and is quoted **only when a bare
-spelling would break the parser.** A name renders bare unless it (a) is empty
-or carries leading/trailing whitespace, (b) contains a column-delimiter
+spelling would break the parser.** A name renders bare unless it (a) is empty,
+carries leading/trailing whitespace, or contains a control character (any C0,
+U+0000–U+001F: a line break, a tab…), (b) contains a column-delimiter
 **SEQUENCE** — `` : `` / `, ` / ` = ` (the exact tokens the grammar splits a
 line on) — or (c) carries an **UNBALANCED** quote or brace/bracket. Crucially,
 a bare `:` / `,` / `=` with **no surrounding spaces** stays bare (`error in
@@ -262,7 +263,12 @@ string literal (same escapes as above), so a control named `Image Parameters :
 Image Type` or an enum member `big-endian, network order` round-trips. This is
 the single rule `_lvnet_name_is_safe_bare` enforces for every name column; it is
 **not** verbose-only — a name that needs quoting to parse is quoted in every
-mode.
+mode. The rule applies to every place a front-panel name appears: its `in`/`out`
+row (on-pane and off-pane), the sink side of its boundary-output drive line
+(`"x = y?" = <source>`), and a driver that is that control's own net
+(`in a : I32 = "x = y?"`). A quoted driver is a literal string unless it spells
+a quoted front-panel name declared in `front-panel :`, in which case it is that
+control's net.
 
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most

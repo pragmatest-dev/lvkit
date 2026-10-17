@@ -923,6 +923,8 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     # the ``case_UID.outK``-shaped structure-net regex), so routing it
     # through unconditionally is safe and keeps one call site for every
     # ``bare`` shape (net name, structure net, or literal).
+    if source.boundary:
+        return lvnet_name_token(source.bare)
     literal = source.lvnet_value if source.lvnet_value is not None else source.bare
     return _lvnet_net_separator(literal)
 
@@ -1455,7 +1457,8 @@ _LVNET_NAME_UNSAFE_SEQS = (" : ", ", ", " = ")
 
 def _lvnet_name_is_safe_bare(name: str) -> bool:
     """Whether a NAME can render BARE without breaking the parser. It is safe
-    unless it (a) is empty or has leading/trailing whitespace, (b) contains a
+    unless it (a) is empty, has leading/trailing whitespace or contains a
+    control character (U+0000-U+001F, e.g. a line break), (b) contains a
     column-delimiter SEQUENCE (`` : `` / ``, `` / `` = ``) at all -- a bare
     ``:``/``,``/``=`` with no surrounding spaces is fine, e.g. ``(None: Create
     New)`` -- or (c) carries an UNBALANCED quote or brace/bracket, which would
@@ -1466,6 +1469,7 @@ def _lvnet_name_is_safe_bare(name: str) -> bool:
     return bool(
         name
         and name == name.strip()
+        and not any(ord(ch) < 0x20 for ch in name)
         and not any(seq in name for seq in _LVNET_NAME_UNSAFE_SEQS)
         and name.count('"') % 2 == 0
         and name.count("{") == name.count("}")
@@ -1891,7 +1895,9 @@ def render_lvnet(
         source_str = (
             _render_lvnet_source(o.source, handles) if o.source is not None else "?"
         )
-        lines.append(f"{body_indent}{o.name}{_LVNET_DRIVER_OP}{source_str}")
+        lines.append(
+            f"{body_indent}{lvnet_name_token(o.name)}{_LVNET_DRIVER_OP}{source_str}"
+        )
 
     if verbose:
         _render_lvnet_types(module, lines)

@@ -1437,12 +1437,14 @@ def _parse_one_item_or_drive(
         return _parse_event_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content == _INPLACE_SCOPE_HEADER:
         return _parse_inplace_scope(cursor, indent, scope_content, line_no, scope_uid)
-    if _LVNET_DRIVER_OP in content:
-        # FIRST occurrence: a net name (``case_UID::outK``/``loop_UID::
-        # shiftK``/a boundary control's name) never contains " = ", so it's
-        # always the real operator regardless of what a (possibly quoted,
-        # md §4/§10) literal source afterward contains.
-        net, _, source = content.partition(_LVNET_DRIVER_OP)
+    sep = _find_first_top_level(content, _LVNET_DRIVER_OP)
+    if sep != -1:
+        # FIRST top-level occurrence: a net name is bare (never contains " = ")
+        # or quoted (``lvnet_name_token``), so it's always the real operator
+        # regardless of what a (possibly quoted, md §4/§10) literal source
+        # afterward contains.
+        net = _unquote_name_token(content[:sep])
+        source = content[sep + len(_LVNET_DRIVER_OP) :]
         _validate_if_quoted(source, line_no)
         return ParsedDrive(net=net, source=source)
     raise LvnetParseError(f"line {line_no}: unrecognized body line: {content!r}")

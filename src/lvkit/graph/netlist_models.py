@@ -68,6 +68,10 @@ class NetRef:
     # ``Graphical Test Runner - Main UI - .vi`` round-trip xfail). ``None``
     # for every non-constant ``NetRef`` (a net name is never escaped).
     lvnet_value: str | None = None
+    # ``render_lvnet``-ONLY: this net is a VI front-panel control's own net
+    # (``bare`` is its label), so it renders as a NAME (quoted when the label
+    # needs it), never as a literal.
+    boundary: bool = False
     # Phase 3, ``render_lvnet``-ONLY (mirrors ``constant_uid`` above): the
     # producing NODE's own uid (the SAME id ``NetlistInstance.uid`` uses) for
     # a genuine node-terminal reference -- lets ``render_lvnet`` resolve the

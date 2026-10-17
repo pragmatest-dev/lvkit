@@ -828,7 +828,9 @@ def _resolve_source_gn(
         for t in (*ctx.inputs, *ctx.off_pane_inputs):
             if t.id == src.terminal_id:
                 bare = t.name or str(t.index)
-                return NetRef(node=None, terminal=bare, occurrence=None, bare=bare)
+                return NetRef(
+                    node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
+                )
 
         const = build_ctx.const_by_id.get(src.node_id)
         if const is not None:
