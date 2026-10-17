@@ -62,6 +62,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+from lvkit.extractor import resolve_extracted
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import (
@@ -79,7 +80,8 @@ from lvkit.graph.models import (
     VIProperties,
     WindowProps,
 )
-from lvkit.parser.metadata import _parse_lvsr_properties
+from lvkit.models import VIKind
+from lvkit.parser.metadata import _parse_lvsr_properties, parse_vi_metadata
 
 
 class TestParseLvsrProperties:
@@ -216,7 +218,9 @@ class TestParseLvsrProperties:
         assert result["execution"]["priority"] == Priority.ABOVE_NORMAL.value
         assert result["execution"]["exec_system"] == ExecSystem.SAME_AS_CALLER.value
         assert result["instance"]["is_system_vi"] is True
-        assert result["vi_type"] == "Control"
+        # pylabview labels stored code 2 "Control"; the stored code means an
+        # ordinary VI.
+        assert result["vi_type"] == "VI"
 
     def test_priority_codes_map_to_faithful_values(self) -> None:
         """Every documented 0-indexed LVSR Priority code -> its faithful
@@ -267,6 +271,69 @@ class TestParseLvsrProperties:
         )
         result = _parse_lvsr_properties(root)
         assert result["execution"]["reentrancy"] == Reentrancy.NON_REENTRANT.value
+
+    def test_reentrancy_save_parallel_alone_is_preallocated_clone(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="0" SaveParallel="1" PooledReentrancy="0"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.PREALLOCATED_CLONE.value
+
+    def test_reentrancy_save_parallel_pooled_is_shared_clone(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="0" SaveParallel="1" PooledReentrancy="1"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.SHARED_CLONE.value
+
+    def test_reentrancy_is_reentrant_alone_is_preallocated_clone(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="1" SaveParallel="0" PooledReentrancy="0"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.PREALLOCATED_CLONE.value
+
+    def test_reentrancy_neither_flag_ignores_pooled(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section>"
+            '<Execution IsReentrant="0" SaveParallel="0" PooledReentrancy="1"/>'
+            "</Section></LVSR></RSRC>"
+        )
+        result = _parse_lvsr_properties(root)
+        assert result["execution"]["reentrancy"] == Reentrancy.NON_REENTRANT.value
+
+    def test_vi_kind_codes_map_to_labview_names(self) -> None:
+        """The stored code -> VI kind, from pylabview's label (its VI_TYPE
+        member name, or the bare number when the code is outside that enum)."""
+        expected = {
+            "Control": "VI",  # stored code 2
+            "Polymorph": "Global VI",  # stored code 4
+            "Subsystem": "Control",  # stored code 6
+            "11": "Polymorphic VI",
+            "7": "unknown (code 7)",  # pylabview: Facade
+            "Facade": "unknown (code 7)",
+            "12": "unknown (code 12)",
+        }
+        for label, kind in expected.items():
+            root = self._root(
+                f'<RSRC><LVSR><Section><Instrument Type="{label}"/>'
+                "</Section></LVSR></RSRC>"
+            )
+            assert _parse_lvsr_properties(root)["vi_type"] == kind, label
+
+    def test_vi_kind_enum_values(self) -> None:
+        assert [(k.name, int(k)) for k in VIKind] == [
+            ("ORDINARY", 2),
+            ("GLOBAL", 4),
+            ("CONTROL", 6),
+            ("POLYMORPHIC", 11),
+        ]
 
     def test_reentrancy_shared_clone(self) -> None:
         root = self._root(
@@ -595,6 +662,26 @@ SHARED_CLONE_VI = Path(".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML F
 DATA_ACQUISITION_VI = Path(
     ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Digital Input/DI_class/Update All.vi"
 )
+ACTOR_FRAMEWORK_DO_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Core/ActorFramework/Message/Do.vi"
+)
+ACTOR_FRAMEWORK_DEQUEUE_VI = Path(
+    ".lvkit/cache/samples/actor-framework/Core/ActorFramework/"
+    "Message Priority Queue/Dequeue Timed Out.vi"
+)
+GLOBAL_VI = Path(
+    ".lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/NIIconEditor/"
+    "Global Variables/Data.vi"
+)
+CONTROL_FILE = Path(
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
+    "appcontrol/appcontrol.llb/Find Focus State__ogtk.ctl"
+)
+POLYMORPHIC_VI = Path(
+    ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib/"
+    "array/array.llb/Reorder Array__ogtk.vi"
+)
+ORDINARY_VI = Path("tests/corpus/issues/39/zorder-not-respected.vi")
 
 
 def _skip_if_missing(path: Path) -> None:
@@ -633,7 +720,7 @@ class TestVIPropertiesCorpus:
         props = _context_for(PASSWORD_PROTECTED_VI).properties
         assert props.execution.reentrancy == Reentrancy.PREALLOCATED_CLONE
         assert props.lv_version == "9.0.0"
-        assert props.vi_type == "Control"
+        assert props.vi_type == "VI"
 
     def test_subroutine_vi(self) -> None:
         """A real subroutine VI -- VI Properties -> Execution priority ==
@@ -648,6 +735,43 @@ class TestVIPropertiesCorpus:
         _skip_if_missing(SHARED_CLONE_VI)
         props = _context_for(SHARED_CLONE_VI).properties
         assert props.execution.reentrancy == Reentrancy.SHARED_CLONE
+
+    @pytest.mark.needs_samples
+    def test_actor_framework_do_is_shared_clone(self) -> None:
+        """Actor Framework ``Do.vi`` is saved with the SaveParallel flag (not
+        IsReentrant) and the pooled flag set -> shared clone."""
+        _skip_if_missing(ACTOR_FRAMEWORK_DO_VI)
+        props = _context_for(ACTOR_FRAMEWORK_DO_VI).properties
+        assert props.execution.reentrancy == Reentrancy.SHARED_CLONE
+
+    @pytest.mark.needs_samples
+    def test_actor_framework_dequeue_timed_out_is_preallocated_clone(self) -> None:
+        _skip_if_missing(ACTOR_FRAMEWORK_DEQUEUE_VI)
+        props = _context_for(ACTOR_FRAMEWORK_DEQUEUE_VI).properties
+        assert props.execution.reentrancy == Reentrancy.PREALLOCATED_CLONE
+
+    def test_vi_kind_ordinary_vi(self) -> None:
+        props = _context_for(ORDINARY_VI).properties
+        assert props.vi_type == VIKind.ORDINARY.label == "VI"
+
+    @pytest.mark.needs_samples
+    def test_vi_kind_global_vi(self) -> None:
+        _skip_if_missing(GLOBAL_VI)
+        props = _context_for(GLOBAL_VI).properties
+        assert props.vi_type == "Global VI"
+
+    @pytest.mark.needs_samples
+    def test_vi_kind_control(self) -> None:
+        _skip_if_missing(CONTROL_FILE)
+        _bd, _fp, main_xml = resolve_extracted(CONTROL_FILE)
+        assert main_xml is not None
+        assert parse_vi_metadata(main_xml)["vi_type"] == "Control"
+
+    @pytest.mark.needs_samples
+    def test_vi_kind_polymorphic_vi(self) -> None:
+        _skip_if_missing(POLYMORPHIC_VI)
+        props = _context_for(POLYMORPHIC_VI).properties
+        assert props.vi_type == "Polymorphic VI"
 
     def test_data_acquisition_exec_system_vi(self) -> None:
         """A real VI with PrefExecSyst="3" -> exec_system == DATA_ACQUISITION."""

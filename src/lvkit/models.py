@@ -50,6 +50,52 @@ class LVTypeKind(str, Enum):
     CLASS = "class"
 
 
+class VIKind(IntEnum):
+    """What kind of file a VI-format file is, from the 2-byte code in the
+    ``LVSR`` Instrument record (``<Instrument Type>``).
+
+    ``IntEnum`` so a member equals the raw code read from the binary. The stored
+    numbering is NOT the numbering of NI's documented VI Type property. Each code
+    below was verified on the sample corpus (4,737 files, LabVIEW 9-25) by an
+    independent structural test, in both directions:
+
+    - 2: ordinary VI (4,031 files).
+    - 4: global VI (12 files) -- the VI a global variable is saved as.
+    - 6: control (635 files) -- every ``.ctl``: custom control, type definition
+      and strict type definition alike.
+    - 11: polymorphic VI (59 files).
+
+    Any other code is not a member; see ``vi_kind_label``.
+    """
+
+    ORDINARY = 2
+    GLOBAL = 4
+    CONTROL = 6
+    POLYMORPHIC = 11
+
+    @property
+    def label(self) -> str:
+        """The kind in LabVIEW's words."""
+        return _VI_KIND_LABELS[self]
+
+
+_VI_KIND_LABELS: dict[VIKind, str] = {
+    VIKind.ORDINARY: "VI",
+    VIKind.GLOBAL: "Global VI",
+    VIKind.CONTROL: "Control",
+    VIKind.POLYMORPHIC: "Polymorphic VI",
+}
+
+
+def vi_kind_label(code: int) -> str:
+    """Display text for a stored VI-kind code: the kind's LabVIEW name, or
+    ``unknown (code N)`` for a code that is not a ``VIKind`` member."""
+    try:
+        return VIKind(code).label
+    except ValueError:
+        return f"unknown (code {code})"
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""

@@ -387,7 +387,7 @@ class VIFacts:
     # (e.g. ``query vi WHERE kind_has_no_block_diagram=1``).
     # "Major.Minor.Bugfix", e.g. "21.0.0", or None if absent.
     lv_version: str | None = None
-    vi_type: str | None = None  # <Instrument Type="..."> verbatim
+    vi_type: str | None = None  # VI kind: "VI", "Global VI", "Control", ...
     # One of graph.models.LockState's values ("unlocked" / "locked" /
     # "password_protected") -- kept a plain string here (this module is
     # deliberately Pydantic/LVType-free, see the module docstring).

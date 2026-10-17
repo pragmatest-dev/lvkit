@@ -1007,3 +1007,63 @@ the `propItem` is the `<dco class="propItem">` inside a `termList` term.
 Older: the `propItem` is its own `<SL__arrayElement class="propItem">` inside
 the node, the term's `<dco uid=...>` only references it, and its
 `propItemInfo` carries no `PropItemName` (the name is empty).
+
+## A reentrant VI is recorded with EITHER the `IsReentrant` OR the `SaveParallel` Execution flag; `PooledReentrancy` then picks shared vs preallocated clones (issue #132)
+
+In the main XML's `<LVSR><Section><Execution .../>`, pylabview names two flag
+bits that both mean "this VI is reentrant": `IsReentrant` (1<<5) and
+`SaveParallel` (1<<24, pylabview's "Save parallel"). A reentrant VI has one or
+the other set. lvkit decodes: reentrant if `IsReentrant=1` OR `SaveParallel=1`;
+then `PooledReentrancy=1` is a shared clone and `PooledReentrancy=0` is a
+preallocated clone. Neither flag set is non-reentrant, and `PooledReentrancy`
+is ignored there (a sticky leftover bit). Reading `IsReentrant` alone calls
+every `SaveParallel` VI non-reentrant.
+
+Evidence (4,799 corpus files):
+
+- No file has both flags set.
+- 206 VIs that NI's public docs say must be reentrant have `SaveParallel` only.
+  An inlined subVI must also select Preallocated clone reentrant execution:
+  "To inline a subVI ... You must also select Preallocated clone reentrant
+  execution"
+  (https://docs-be.ni.com/api/bundle/labview/page/vi-execution-speed.html).
+- All 23 Actor Framework `Do.vi` overrides agree on reentrancy only when
+  reading `IsReentrant` OR `SaveParallel`. NI requires every VI that implements
+  a dynamic dispatch method to use the same reentrancy
+  (https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/method-reentrancy-mismatch.html;
+  see also
+  https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/dynamic-reentrancy-not-allowed.html).
+  Spot checks: `Core/ActorFramework/Message/Do.vi` is a shared clone;
+  `Core/ActorFramework/Message Priority Queue/Dequeue Timed Out.vi` is a
+  preallocated clone.
+- Issue #132's attached `Run.vi` (`tests/corpus/issues/132/`) has
+  `IsReentrant=0`, `SaveParallel=1`, `PooledReentrancy=0` -> preallocated clone.
+
+## The `<Instrument Type>` code is the VI KIND, in its own numbering — NOT NI's VI Type property numbering (issue #144)
+
+The LVSR Instrument record stores a 2-byte VI-kind code. pylabview labels it
+with its `VI_TYPE` enum (`pylabview/LVinstrument.py`), which is NI's numbering
+for the VI Type *property*; the stored field uses a different numbering, so
+those labels are wrong (an ordinary VI prints as "Control"). lvkit recovers the
+number from pylabview's label with pylabview's own enum
+(`VI_TYPE[label].value`; a label that is already a number is used as is) and
+maps the number with `lvkit.models.VIKind`:
+
+| Stored code | VI kind | Corpus files |
+|---|---|---|
+| 2 | ordinary VI | 4,031 |
+| 4 | global VI | 12 |
+| 6 | control (.ctl: custom control, type definition and strict type definition alike) | 635 |
+| 11 | polymorphic VI | 59 |
+
+Each kind was verified by an independent structural test in both directions
+(every file with the structure has the code, every file with the code has the
+structure), stable across LabVIEW 9–25. Any other code is shown as
+`unknown (code N)`, never guessed. Spot checks:
+`tests/corpus/issues/39/zorder-not-respected.vi` is an ordinary VI; the icon
+editor's `Global Variables/Data.vi` is a global VI; OpenG `Find Focus State__ogtk.ctl`
+is a control; OpenG `Reorder Array__ogtk.vi` is a polymorphic VI.
+
+The value exposed as `vi_type` (describe text and `--format json`, the index
+`vi_type` column) is the readable kind: `VI`, `Global VI`, `Control`,
+`Polymorphic VI`, or `unknown (code N)`.

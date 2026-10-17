@@ -644,13 +644,17 @@ class Priority(Enum):
 
 class Reentrancy(Enum):
     """VI Properties -> Execution -> Reentrant execution (the LVSR
-    ``IsReentrant``/``PooledReentrancy`` pair, NI-doc + corpus verified).
+    ``IsReentrant``/``SaveParallel``/``PooledReentrancy`` flags, NI-doc +
+    corpus verified).
 
-    Derived from ``<Execution IsReentrant>``/``<Execution PooledReentrancy>``:
-    ``IsReentrant=0`` -> non_reentrant (``PooledReentrancy`` is then IGNORED
-    -- a sticky leftover bit when non-reentrant); ``IsReentrant=1`` +
-    ``Pooled=0`` -> preallocated_clone; ``IsReentrant=1`` + ``Pooled=1`` ->
-    shared_clone. See ``parser.metadata._parse_lvsr_properties``.
+    Derived from ``<Execution IsReentrant>``/``<Execution SaveParallel>``/
+    ``<Execution PooledReentrancy>``: LabVIEW records a reentrant VI with
+    EITHER ``IsReentrant`` or ``SaveParallel`` (never both). Neither set ->
+    non_reentrant (``PooledReentrancy`` is then IGNORED -- a sticky leftover
+    bit when non-reentrant); either set + ``Pooled=0`` -> preallocated_clone;
+    either set + ``Pooled=1`` -> shared_clone. See
+    ``parser.metadata._parse_lvsr_properties`` and
+    ``docs/_internal/design/labview-binary-format.md``.
     """
 
     NON_REENTRANT = "non_reentrant"
@@ -836,11 +840,9 @@ class VIProperties:
 
     # "Major.Minor.Bugfix", e.g. "21.0.0" -- from <Version Major Minor Bugfix>.
     lv_version: str | None = None
-    # <Instrument Type="..."> verbatim, kept RAW -- NOT remodeled. pylabview
-    # PARTIALLY decodes this (Control/Subsystem/Polymorph...) but also emits
-    # un-decoded ordinals like "11" outside NI's documented VI-Type 0-9
-    # range; a faithful enum needs a pylabview-source decode (follow-up), so
-    # this stays the raw string as pylabview emits it.
+    # The VI kind in LabVIEW's words, decoded from <Instrument Type> by
+    # ``models.VIKind``: "VI", "Global VI", "Control", "Polymorphic VI", or
+    # "unknown (code N)" for a code that is not a known kind.
     vi_type: str | None = None
     lock_state: LockState = LockState.UNLOCKED
     execution: ExecutionProps = field(default_factory=ExecutionProps)

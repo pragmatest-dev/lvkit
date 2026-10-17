@@ -101,7 +101,8 @@ VIEWS: dict[str, _View] = {
             "whose qualified_name is NULL.",
             "lv_version": "LabVIEW version the VI was saved with, "
             "'Major.Minor.Bugfix' (e.g. '21.0.0'), or NULL if absent",
-            "vi_type": "VI kind from the Instrument record (e.g. 'Control'), or NULL",
+            "vi_type": "VI kind from the Instrument record: 'VI', 'Global VI', "
+            "'Control', 'Polymorphic VI', or 'unknown (code N)'; NULL if absent",
             "lock_state": "VI Properties -> Protection: 'unlocked', 'locked', "
             "or 'password_protected'",
             # -- exec_* : VI Properties -> Execution -------------------------
@@ -109,8 +110,9 @@ VIEWS: dict[str, _View] = {
             "Priority, faithfully decoded): 'background', 'normal', "
             "'above_normal', 'high', 'time_critical', or 'subroutine'",
             "reentrancy": "VI Properties -> Execution reentrant-execution "
-            "mode (LVSR IsReentrant + PooledReentrancy, faithfully decoded): "
-            "'non_reentrant', 'shared_clone', or 'preallocated_clone'",
+            "mode (LVSR IsReentrant/SaveParallel + PooledReentrancy, "
+            "faithfully decoded): 'non_reentrant', 'shared_clone', "
+            "or 'preallocated_clone'",
             "exec_system": "VI Properties -> Execution preferred execution "
             "system (LVSR PrefExecSyst, faithfully decoded): "
             "'same_as_caller', 'user_interface', 'standard', "

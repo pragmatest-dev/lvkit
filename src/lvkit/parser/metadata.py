@@ -8,6 +8,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
+from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
+
+from lvkit.models import vi_kind_label
 from lvkit.text_encoding import decode_labview_text
 
 from .models import ParsedDependencyRef
@@ -83,11 +86,15 @@ def _priority_from_code(code: int | None) -> str:
     return _PRIORITY_BY_CODE.get(code, PRIORITY_NORMAL)
 
 
-def _reentrancy(is_reentrant: bool, pooled: bool) -> str:
-    """``IsReentrant``/``PooledReentrancy`` -> faithful string value.
-    ``IsReentrant=0`` ignores ``pooled`` entirely -- a sticky leftover bit
-    when non-reentrant, not a real pooling choice."""
-    if not is_reentrant:
+def _reentrancy(is_reentrant: bool, save_parallel: bool, pooled: bool) -> str:
+    """``IsReentrant``/``SaveParallel``/``PooledReentrancy`` -> faithful string
+    value. LabVIEW records a reentrant VI with EITHER of the first two flags
+    (never both -- corpus-verified, see ``docs/_internal/design/
+    labview-binary-format.md``), so the VI is reentrant when either is set.
+    ``pooled`` then picks shared (set) or preallocated (clear) clones. A VI with
+    neither flag set is non-reentrant and ignores ``pooled`` entirely -- a
+    sticky leftover bit, not a real pooling choice."""
+    if not (is_reentrant or save_parallel):
         return REENTRANCY_NON_REENTRANT
     return REENTRANCY_SHARED_CLONE if pooled else REENTRANCY_PREALLOCATED_CLONE
 
@@ -213,6 +220,17 @@ def _bool_attr(elem: ET.Element | None, attr: str) -> bool:
     return elem is not None and elem.get(attr) == "1"
 
 
+def _vi_kind_code(pylabview_label: str) -> int:
+    """The stored VI-kind code behind pylabview's ``<Instrument Type>`` text.
+
+    pylabview writes the code as the member name of its own ``VI_TYPE`` enum when
+    the code is in that enum, else as the bare number; this recovers the number
+    from either form using pylabview's own enum."""
+    if pylabview_label.lstrip("-").isdigit():
+        return int(pylabview_label)
+    return int(VI_TYPE[pylabview_label].value)
+
+
 def _int_attr(elem: ET.Element | None, attr: str) -> int | None:
     if elem is None:
         return None
@@ -242,10 +260,15 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     locked; ``Protected=1`` + real password -> password_protected. There is
     no unlocked-with-password state.
 
+    ``vi_type`` is the VI kind in LabVIEW's words ("VI", "Global VI", "Control",
+    "Polymorphic VI", or "unknown (code N)"), decoded from the stored code by
+    ``models.VIKind``.
+
     ``priority``/``reentrancy``/``exec_system``/``typedef_status`` are
     derived FAITHFUL enum string values (see ``_priority_from_code``/
     ``_reentrancy``/``_exec_system_from_code``/``_typedef_status`` above) --
-    NI-doc + corpus verified. The legacy ``IsSubroutine`` flag is redundant
+    NI-doc + corpus verified. ``reentrancy`` reads both the ``IsReentrant`` and
+    ``SaveParallel`` flags. The legacy ``IsSubroutine`` flag is redundant
     with ``priority == "subroutine"`` and is no longer read.
 
     Element paths (verified against a real extracted main .xml -- see
@@ -277,7 +300,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     if instrument is not None:
         vi_type = instrument.get("Type")
         if vi_type:
-            result["vi_type"] = vi_type
+            result["vi_type"] = vi_kind_label(_vi_kind_code(vi_type))
 
     # The LVSR <Library> carries Protected= — distinct from the <LIBN>
     # <Library> (bare owning-library name text, no Protected attribute).
@@ -308,6 +331,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "priority": _priority_from_code(_int_attr(execution, "Priority")),
         "reentrancy": _reentrancy(
             _bool_attr(execution, "IsReentrant"),
+            _bool_attr(execution, "SaveParallel"),
             _bool_attr(execution, "PooledReentrancy"),
         ),
         "exec_system": _exec_system_from_code(_int_attr(execution, "PrefExecSyst")),

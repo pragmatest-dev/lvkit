@@ -22,6 +22,7 @@ from lvkit.graph.models import (
     DisableStructureNode,
     LabelNode,
     LoopNode,
+    Reentrancy,
     SequenceNode,
 )
 from lvkit.models import DisableStructureKind, TunnelMode, TunnelTerminal
@@ -699,3 +700,13 @@ def test_issue133_unchanged_tunnels_report_nothing():
     ga, va = _load("133/Run_after.vi")
     gb, vb = _load("133/Run_after.vi")
     assert not [c for c in diff_uid(ga, gb, va, vb).changes if c.kind == "tunnel"]
+
+
+def test_issue132_save_parallel_vi_reads_as_reentrant():
+    """#132: the repro VI is saved reentrant with the SaveParallel flag
+    (IsReentrant clear) and the pooled flag clear -> preallocated clone, and
+    its VI kind reads as an ordinary VI."""
+    graph, vi = _load("132/Run.vi")
+    props = graph.get_vi_context(vi).properties
+    assert props.execution.reentrancy == Reentrancy.PREALLOCATED_CLONE
+    assert props.vi_type == "VI"
