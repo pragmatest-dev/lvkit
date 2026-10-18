@@ -1804,12 +1804,17 @@ def _subvi_rel_path(
     likewise non-portable. Both cases — and any other resolution error —
     return ``None`` rather than emit a wrong or misleading link; an inert
     node is fine, a wrong link is not.
+
+    Both ends are resolved first, so a project opened through a symlinked
+    folder links between the same real folders the SubVI lookup returns.
     """
     try:
         resolved = resolve_subvi_source(node, graph)
         if resolved is None or not resolved.project_local:
             return None
-        rel = os.path.relpath(resolved.path, rendered_vi_path.parent)
+        rel = os.path.relpath(
+            Path(resolved.path).resolve(), rendered_vi_path.parent.resolve()
+        )
     except (OSError, ValueError):
         return None
     return Path(rel).as_posix()

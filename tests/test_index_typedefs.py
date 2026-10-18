@@ -137,7 +137,9 @@ def test_an_unreadable_control_is_a_stub_with_its_reason(project: Path) -> None:
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_records_the_controls_it_depends_on() -> None:
     graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
-    facts = project_vi_facts(graph, vi, _USER_VI.resolve(), _ICON_API.resolve())
+    # Unresolved on purpose: in a worktree the samples folder is a symlink, and
+    # a project reached through one must keep its own controls.
+    facts = project_vi_facts(graph, vi, _USER_VI, _ICON_API)
     assert facts.typedef_paths
     assert all(Path(p).suffix == ".ctl" for p in facts.typedef_paths)
     assert facts.typedef_paths == sorted(set(facts.typedef_paths))

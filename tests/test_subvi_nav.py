@@ -70,6 +70,22 @@ def test_resolvable_subvi_emits_relative_posix_path():
 
 
 @pytest.mark.needs_samples
+def test_subvi_link_through_a_symlinked_folder_stays_a_sibling(tmp_path: Path):
+    """A project opened through a symlinked folder links each SubVI by its real
+    location relative to the caller, not by climbing out of the symlink."""
+    if not RESOLVABLE_SUBVI_VI.exists():
+        pytest.skip(f"sample VI not available: {RESOLVABLE_SUBVI_VI}")
+    link = tmp_path / "linked"
+    link.symlink_to(RESOLVABLE_SUBVI_VI.parent.resolve(), target_is_directory=True)
+    svg = _render(link / RESOLVABLE_SUBVI_VI.name)
+    matches = re.findall(r'data-lv-vi-rel="([^"]*)"', svg)
+    assert "Parse XML.vi" in matches
+    for rel in matches:
+        assert not rel.startswith("..")
+        assert (link / rel).is_file()
+
+
+@pytest.mark.needs_samples
 def test_unresolvable_subvi_omits_the_attribute():
     svg = _render(UNRESOLVABLE_SUBVI_VI)
     assert "data-lv-vi-rel" not in svg

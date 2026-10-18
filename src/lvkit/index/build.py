@@ -657,11 +657,13 @@ def project_vi_facts(
     # The typedef-kind dependencies this VI has (its dep-graph edges to loaded
     # typedef nodes), scoped to controls under THIS project's root -- an
     # out-of-root one (vi.lib, another repo) belongs to another project's index
-    # and this project's sync can never refresh it.
+    # and this project's sync can never refresh it. Both sides are resolved, so
+    # a project reached through a symlinked folder keeps its own controls.
+    real_root = project_root.resolve()
     typedef_deps = sorted(
         dep
         for dep in graph.get_vi_dependencies(vi_name)
-        if graph.is_typedef(dep) and Path(dep).resolve().is_relative_to(project_root)
+        if graph.is_typedef(dep) and Path(dep).resolve().is_relative_to(real_root)
     )
     typedef_paths = [dep for dep in typedef_deps if not graph.is_stub(dep)]
     # A dependency's own type_id is recorded for invalidation ONLY (compared
