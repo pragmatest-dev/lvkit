@@ -356,6 +356,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             instance["access"] = item.access
         elif item.kind == NetlistInstanceKind.SHARED_VARIABLE:
             instance["kind"] = "shared_variable"
+            instance["library"] = item.library
             instance["variable"] = item.name
             instance["access"] = item.access
         return instance

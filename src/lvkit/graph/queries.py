@@ -33,6 +33,7 @@ from .models import (
     MethodAccessInfo,
     MethodOverrideInfo,
     PolyInfo,
+    SharedVariableNode,
     StructureNode,
     StubTerminalInfo,
     StubVIInfo,
@@ -391,6 +392,15 @@ class QueryMixin:
         refers to, found among the calling VI's own dependencies. ``None`` when
         no single dependency of that VI carries the node's recorded name."""
         return self._dep_key_for_ref(node.global_vi.qualified_name, node.vi_path)
+
+    def shared_variable_library_key(self, node: SharedVariableNode) -> str | None:
+        """The dependency key (the library's file path) the project library of a
+        Shared Variable node is found under, among the calling VI's own
+        dependencies. ``None`` when the node records no library or no single
+        dependency of that VI carries the library's name."""
+        if node.library is None:
+            return None
+        return self._dep_key_for_ref(node.library.qualified_name, node.vi_path)
 
     def global_vi_control(
         self, node: GlobalVariableNode

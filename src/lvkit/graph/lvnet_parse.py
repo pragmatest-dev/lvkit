@@ -1066,17 +1066,42 @@ def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
     return global_vi, control, rest
 
 
-def split_shared_variable_component(component: str) -> tuple[str, str]:
-    """A ``shared-variable`` header's ``<variable name> : <read|write>`` component
-    -> ``(variable name, access)``. The name is a name token (§4), bare or
-    quoted; ``read``/``write`` is what follows the LAST `` : ``."""
-    name_token, sep, access = component.rpartition(_LVNET_TYPE_SEP)
+def split_shared_variable_component(
+    component: str,
+) -> tuple[str | None, str, str]:
+    """A ``shared-variable`` header's ``<library>::<variable name> : <read|write>``
+    component (the ``<library>::`` half is absent for a node whose library the VI
+    does not record) -> ``(library, variable name, access)``. Each name is a name
+    token (§4), bare or quoted; a quoted library ends at its closing quote, a bare
+    one at the first ``::``; ``read``/``write`` is what follows the LAST `` : ``."""
+    target, sep, access = component.rpartition(_LVNET_TYPE_SEP)
     if not sep or access not in ("read", "write"):
         raise LvnetParseError(
-            f"shared-variable component must be '<variable name> : read' or "
-            f"'<variable name> : write' (§7): {component!r}"
+            f"shared-variable component must be '<library>::<variable name> : read'"
+            f" or '<library>::<variable name> : write' (§7): {component!r}"
         )
-    return _unquote_name_token(name_token), access
+    if target.startswith('"'):
+        end = _scan_quoted_literal(target, 0)
+        first, after = _unescape_lvnet_string(target[:end]), target[end:]
+    else:
+        sep_at = target.find(_LVNET_TERMINAL_SEP)
+        if sep_at == -1:
+            first, after = target, ""
+        else:
+            first, after = target[:sep_at], target[sep_at:]
+    if not after:
+        return None, first, access
+    if not after.startswith(_LVNET_TERMINAL_SEP):
+        raise LvnetParseError(
+            f"shared-variable library must be followed by '{_LVNET_TERMINAL_SEP}' "
+            f"(§7): {component!r}"
+        )
+    variable = _unquote_name_token(after[len(_LVNET_TERMINAL_SEP) :])
+    if not first or not variable:
+        raise LvnetParseError(
+            f"shared-variable target has an empty name (§7): {component!r}"
+        )
+    return first, variable, access
 
 
 def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:

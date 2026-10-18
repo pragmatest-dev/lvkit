@@ -970,8 +970,8 @@ def _lvnet_component(instance: NetlistInstance) -> str:
         return f"{instance.object_name or '?'}.{instance.method_name or '?'}"
     if instance.kind == NetlistInstanceKind.SHARED_VARIABLE:
         return (
-            f"{lvnet_name_token(instance.name)}{_LVNET_TYPE_SEP}"
-            f"{instance.access or '?'}"
+            f"{lvnet_shared_variable_target(instance.library, instance.name)}"
+            f"{_LVNET_TYPE_SEP}{instance.access or '?'}"
         )
     return instance.name
 
@@ -1068,6 +1068,22 @@ def _lvnet_global_target(global_vi: str, control: str) -> str:
         f"{_lvnet_global_part_token(global_vi, may_hold_separator=True)}"
         f"{_LVNET_TERMINAL_SEP}"
         f"{_lvnet_global_part_token(control, may_hold_separator=False)}"
+    )
+
+
+def lvnet_shared_variable_target(library: str | None, variable: str) -> str:
+    """The Shared Variable a ``shared-variable`` header names: ``<library>::
+    <variable>``, or the bare ``<variable>`` when the VI records no library for
+    the node. A library name, and a variable name read without a library, are
+    quoted when they hold the ``::`` separator or open with a quote."""
+    variable_token = _lvnet_global_part_token(
+        variable, may_hold_separator=library is None
+    )
+    if library is None:
+        return variable_token
+    return (
+        f"{_lvnet_global_part_token(library, may_hold_separator=True)}"
+        f"{_LVNET_TERMINAL_SEP}{variable_token}"
     )
 
 

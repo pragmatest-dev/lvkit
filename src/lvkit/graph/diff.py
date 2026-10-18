@@ -271,9 +271,12 @@ def _global_variable_identity(op: GlobalVariableNode) -> str:
 
 
 def _shared_variable_identity(op: SharedVariableNode) -> str:
-    """What a Shared Variable node IS for a diff: the variable and whether it
-    reads or writes it."""
-    return f"{op.variable_name} {'write' if op.is_write else 'read'}"
+    """What a Shared Variable node IS for a diff: the library it belongs to (when
+    the VI records one), the variable and whether it reads or writes it."""
+    access = "write" if op.is_write else "read"
+    if op.library is None:
+        return f"{op.variable_name} {access}"
+    return f"{op.library.qualified_name}::{op.variable_name} {access}"
 
 
 def _node_identity_word(op: AnyGraphNode) -> str:

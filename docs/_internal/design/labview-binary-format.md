@@ -219,6 +219,38 @@ qualified name; none is left unresolved. `tests/test_global_variable.py::
 test_every_global_variable_node_in_the_corpus_resolves_its_global_vi` asserts it.
 The record layout is in the `parser/link_table.py` module docstring.
 
+## A Shared Variable node's library is named by the `HpVL` link-table record, found by the node's uid
+
+A **Shared Variable** node (`class="sharedVariable"`) names its variable in its
+`<name4>` (hex text) and nothing else: its label text is a project path
+(`.\SV Sample.lvlib\Value`), not an identity. The variable's **library** is in
+the calling VI's block-diagram link table (`LIbd`), in an `HpVL` record that
+lists the heap uid of EVERY Shared Variable node using that variable (one record
+per variable). pylabview has no decoder for it (`LinkObj b'HpVL' parsing not
+implemented`, which also makes it drop the whole `LIbd` section into the raw
+`_LIbd.bin` sidecar), so the sidecar is always where it is read. The VI-level
+table (`LIvi`) holds a sibling `VIVl` record with the same name and path but no
+node uids; it is not needed and not read.
+
+The record's head is the one an `IUVI` record starts with (qualified name as
+parts -- the library's name parts then the variable's name -- an empty path, link
+flag, type id, link reference); then the item type (`NI_Variable_Variable`), the
+target (`My Computer`), the variable's persistent ID (a braced GUID, the same one
+the `.lvproj` records as `varPersistentID:{...}`), the node uid list, a second GUID
+(role not established), 9 bytes of unknown role, and the variable type string.
+That string is `Global` for a **single-process** variable (LabVIEW's recorded
+name for it) and `Network` for a network-published one. Exact layout:
+`parser/link_table.py` module docstring.
+
+Evidence: `tests/corpus/issues/149/SV Sample.vi` (LabVIEW 25.0, reporter
+metman-oss): one `HpVL` record, library `SV Sample.lvlib`, variable `Value`, type
+`Global`, uids 1033, 1112, 977 -- the three `sharedVariable` nodes of the VI.
+Terminal `terminal_ID` 3 exists only on the node set to show the timestamp, as an
+output of the timestamp type. The persistent ID equals the project's
+`varPersistentID`. The reporter says a network-published variable is recorded in an `HpVr` record
+instead (a three-part name, type `Network`); no such VI has been read, so that
+record is not decoded here and the scan never looks at it.
+
 ## "Compound Arithmetic (cpdArith) operation is in objFlags bits 16-18, NOT dcoFiller — corpus-verified decode that fixed"
 <!-- was memory: reference_cpdarith_objflags -->
 

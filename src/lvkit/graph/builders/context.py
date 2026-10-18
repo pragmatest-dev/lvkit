@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lvkit.models import LVType, Terminal
+from lvkit.parser.link_table import SharedVariableLink
 from lvkit.parser.models import ParsedBlockDiagram, ParsedDependencyRef
 
 
@@ -31,6 +32,8 @@ class GraphBuildContext:
     iuse_to_qpath: dict[str, str]  # iUse uid -> qualified on-disk path
     # uid of every node referring to another VI -> that VI's recorded name + path
     iuse_refs: dict[str, ParsedDependencyRef]
+    # uid of every Shared Variable node -> the link-table record of its variable
+    shared_variable_links: dict[str, SharedVariableLink]
     type_map: dict[int, LVType]  # this VI's TypeID -> LVType table
     # For the early ref handlers (ctlRefConst / gRef / statVIRef):
     fp: Any  # ParsedFrontPanel | None

@@ -47,6 +47,7 @@ from . import (
     property_node,
     queue_ops,
     sequence,
+    shared_variable,
     subvi,
 )
 from .base import CodeGenError, MissingDependencyError, UnknownNodeError
@@ -79,11 +80,7 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     if isinstance(node, GlobalVariableNode):
         return global_variable.generate(node, ctx)
     if isinstance(node, SharedVariableNode):
-        raise CodeGenError(
-            f"Shared Variable '{node.variable_name}' has no Python equivalent: it is "
-            "a network-published LabVIEW variable",
-            node,
-        )
+        return shared_variable.generate(node, ctx)
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
         # graph. Faithful Python codegen isn't implemented yet -- fail loud

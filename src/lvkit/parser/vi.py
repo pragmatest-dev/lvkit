@@ -56,8 +56,10 @@ from .layout import (
 from .link_table import (
     IUseLink,
     LinkTableVersion,
+    SharedVariableLink,
     qualified_link_name,
     read_iuse_links,
+    read_shared_variable_links,
 )
 from .metadata import (
     _decode_pth0_components,
@@ -322,18 +324,23 @@ def _parse_metadata(
     # block-diagram link table only as the raw ``_LIbd.bin`` sidecar -- read
     # that instead.
     libd_links: list[IUseLink] = []
+    shared_variable_links: list[SharedVariableLink] = []
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
-    if main_root.find(".//LIbd//BDHP/IUVI") is None and libd_bin.exists():
-        version_elem = main_root.find(".//LVSR/Section/Version")
-        if version_elem is not None:
-            libd_links = read_iuse_links(
-                libd_bin, LinkTableVersion.from_lvsr(version_elem)
-            )
+    version_elem = main_root.find(".//LVSR/Section/Version")
+    if libd_bin.exists() and version_elem is not None:
+        link_version = LinkTableVersion.from_lvsr(version_elem)
+        if main_root.find(".//LIbd//BDHP/IUVI") is None:
+            libd_links = read_iuse_links(libd_bin, link_version)
+        # pylabview has no decoder for the Shared Variable records, so they are
+        # only ever in the sidecar.
+        shared_variable_links = read_shared_variable_links(libd_bin, link_version)
     (
         subvi_qualified_names,
         iuse_refs,
         dependency_refs,
-    ) = _extract_subvi_info(main_root, qualified_name, libd_links)
+    ) = _extract_subvi_info(
+        main_root, qualified_name, libd_links, shared_variable_links
+    )
     iuse_to_qualified_name = {
         uid: ref.qualified_name for uid, ref in iuse_refs.items() if ref.qualified_name
     }
@@ -374,6 +381,9 @@ def _parse_metadata(
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
         iuse_refs=iuse_refs,
+        shared_variable_links={
+            str(uid): link for link in shared_variable_links for uid in link.node_uids
+        },
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
@@ -1230,6 +1240,7 @@ def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
     libd_links: Sequence[IUseLink] = (),
+    shared_variable_links: Sequence[SharedVariableLink] = (),
 ) -> tuple[list[str], dict[str, ParsedDependencyRef], list[ParsedDependencyRef]]:
     """Extract SubVI qualified names, iUse uid -> referenced VI, and dependency
     path refs.
@@ -1237,6 +1248,10 @@ def _extract_subvi_info(
     ``libd_links`` are the block-diagram link records decoded from the raw
     ``_LIbd.bin`` sidecar, for a VI whose main XML does not carry the decoded
     ``LIbd//BDHP/IUVI`` elements; they are read exactly like the decoded ones.
+    ``shared_variable_links`` are the Shared Variable records of that sidecar: each
+    one's library is a dependency of the VI. The record holds no path for the
+    library (its path component list is empty), so the dependency carries none
+    and resolves by name.
     """
     subvi_qualified_names: list[str] = []
     iuse_refs: dict[str, ParsedDependencyRef] = {}
@@ -1306,6 +1321,10 @@ def _extract_subvi_info(
         )
         if qname:
             _add_dependency(qname, link.path_tokens)
+
+    # The project library each Shared Variable belongs to.
+    for sv_link in shared_variable_links:
+        _add_dependency(sv_link.library_qualified_name, ())
 
     # --- SubVI qualified names (for the dep loading loop in graph/loading.py) ---
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.

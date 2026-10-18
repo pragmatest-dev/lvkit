@@ -367,9 +367,10 @@ def _compare_instance(
         NetlistInstanceKind.GLOBAL_VARIABLE,
         NetlistInstanceKind.SHARED_VARIABLE,
     ):
-        # Which variable (and, for a global, which Global VI) and which end of
-        # it is tapped are the identity of these nodes -- all in the text.
-        for attr in ("name", "global_vi", "access"):
+        # Which variable (for a global, which Global VI; for a Shared Variable,
+        # which library) and which end of it is tapped are the identity of these
+        # nodes -- all in the text.
+        for attr in ("name", "global_vi", "library", "access"):
             if getattr(a, attr) != getattr(b, attr):
                 errors.append(
                     f"{path}: {attr} mismatch: "

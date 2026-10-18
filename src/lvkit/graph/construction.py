@@ -32,6 +32,7 @@ from ..parser import (
     ParsedFrontPanel,
 )
 from ..parser.front_panel import _lvtype_to_parsed
+from ..parser.link_table import SharedVariableLink
 from ..parser.models import (
     ParsedConstant,
     ParsedDependencyRef,
@@ -396,6 +397,7 @@ class ConstructionMixin:
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
         iuse_refs: dict[str, ParsedDependencyRef] | None = None,
+        shared_variable_links: dict[str, SharedVariableLink] | None = None,
     ) -> None:
         """Add a VI's nodes and edges to the unified graph.
 
@@ -407,7 +409,8 @@ class ConstructionMixin:
         VINode.qualified_path so resolution diagnostics can point at the
         real source file. iuse_refs maps the uid of every node that refers to
         another VI (a subVI call, a global variable) to that VI's recorded
-        qualified name and path.
+        qualified name and path. shared_variable_links maps the uid of every
+        Shared Variable node to the link-table record of its variable.
         """
         if type_map is None:
             type_map = {}
@@ -650,6 +653,7 @@ class ConstructionMixin:
             iuse_to_qname=iuse_to_qname or {},
             iuse_to_qpath=iuse_to_qpath,
             iuse_refs=iuse_refs or {},
+            shared_variable_links=shared_variable_links or {},
             type_map=type_map,
             fp=fp,
             ddo_to_fpdco=ddo_to_fpdco,

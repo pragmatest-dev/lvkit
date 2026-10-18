@@ -292,7 +292,8 @@ VIEWS: dict[str, _View] = {
             "for parent_uid containment walks)",
             "kind": "the specific node kind, a CLOSED set: vi (a SubVI call site) "
             "| primitive | constant | local_variable | global_variable (reads or "
-            "writes a control of a Global VI) | formula | case | while | for | "
+            "writes a control of a Global VI) | shared_variable (reads or writes "
+            "a variable of a project library) | formula | case | while | for | "
             "sequence | event | disabled | inplace | other",
             "name": "resolved node label (primitive / SubVI / structure name). "
             "HUMAN-CONVENIENCE ONLY — localized and variant-dependent; for "
@@ -303,7 +304,12 @@ VIEWS: dict[str, _View] = {
             "prefer it over name.",
             "qualified_name": "for kind='vi', the callee SubVI's qualified name "
             "(the unresolved call key); for kind='global_variable', the Global "
-            "VI's qualified name; NULL otherwise. The robust filter for "
+            "VI's qualified name; for kind='shared_variable', the project library's "
+            "qualified name (NULL when the VI records none), so 'VIs that use "
+            "library X' = SELECT DISTINCT vi_path FROM node WHERE "
+            "kind='shared_variable' AND qualified_name=X (name is the variable "
+            "read or written; callee_path stays NULL: a library is not a VI); "
+            "NULL otherwise. The robust filter for "
             "SubVI-based operations (e.g. vi.lib queue/event VIs).",
             "callee_path": "for kind='global_variable', the Global VI resolved to "
             "an in-repo VI path by the same rule, so 'VIs that use Global VI X' "

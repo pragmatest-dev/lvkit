@@ -31,6 +31,7 @@ from ..parser import (
     parse_vi,
     parse_vi_metadata,
 )
+from ..parser.link_table import SharedVariableLink
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
     LVClass,
@@ -274,6 +275,7 @@ class LoadingMixin:
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
             iuse_refs: dict[str, ParsedDependencyRef] | None = None,
+            shared_variable_links: dict[str, SharedVariableLink] | None = None,
         ) -> None: ...
         def resolve_dispatch_qnames(self) -> None: ...
         def _dep_key_for_ref(
@@ -1507,6 +1509,7 @@ class LoadingMixin:
                 iuse_to_qname=metadata.iuse_to_qualified_name,
                 iuse_to_qpath=iuse_to_qpath,
                 iuse_refs=metadata.iuse_refs,
+                shared_variable_links=metadata.shared_variable_links,
             )
 
         return vi_key

@@ -236,9 +236,10 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
     if kind in ("function", "in-place-element", "formula-node"):
         return component
     if kind == NetlistInstanceKind.SHARED_VARIABLE.value:
-        # The component is ``<variable name> : <read|write>``; the variable name
-        # is the instance's name, exactly (``_lvnet_component`` renders it).
-        return split_shared_variable_component(component)[0]
+        # The component is ``<library>::<variable name> : <read|write>``; the
+        # variable name is the instance's name, exactly (``_lvnet_component``
+        # renders it).
+        return split_shared_variable_component(component)[1]
     base, _ = _handle_base_and_suffix(handle)
     return base
 
@@ -740,8 +741,9 @@ def _reconstruct_instance(
     object_name: str | None = None
     method_name: str | None = None
     access: str | None = None
+    library: str | None = None
     if kind_enum is NetlistInstanceKind.SHARED_VARIABLE:
-        access = split_shared_variable_component(item.component)[1]
+        library, _, access = split_shared_variable_component(item.component)
     elif kind_enum is NetlistInstanceKind.SUBVI:
         qualified_name = item.component
     elif kind_enum is NetlistInstanceKind.PROPERTY_NODE:
@@ -809,6 +811,7 @@ def _reconstruct_instance(
         object_name=object_name,
         method_name=method_name,
         access=access,
+        library=library,
     )
 
 

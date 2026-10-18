@@ -86,6 +86,7 @@ class NodeKind(str, Enum):
     CONSTANT = "constant"
     LOCAL_VARIABLE = "local_variable"
     GLOBAL_VARIABLE = "global_variable"  # reads/writes a control of a Global VI
+    SHARED_VARIABLE = "shared_variable"  # reads/writes a variable of a library
     FORMULA = "formula"
     CASE = "case"
     WHILE = "while"

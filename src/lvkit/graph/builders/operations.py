@@ -34,7 +34,7 @@ from lvkit.parser.node_types import (
     SharedVariableNode as ParserSharedVariableNode,
 )
 
-from ..models import AnyGraphNode, SharedVariableNode, VINode
+from ..models import AnyGraphNode, SharedVariableLibrary, SharedVariableNode, VINode
 from ..models import FormulaNode as GraphFormulaNode
 from ..models import PrimitiveNode as GraphPrimitiveNode
 from .context import GraphBuildContext
@@ -95,7 +95,8 @@ class FormulaBuildHandler(NodeBuildHandler):
 class SharedVariableBuildHandler(NodeBuildHandler):
     """A Shared Variable node: each terminal is placed at its ``terminal_ID`` and
     named when the ID is a known one (``SharedVariableTerminal``); a terminal
-    with another ID keeps only its number."""
+    with another ID keeps only its number. The node's library is the one the
+    link-table record listing the node's uid names."""
 
     def build(self, node, node_name, q_node_uid, node_terminals, description, ctx):
         if not isinstance(node, ParserSharedVariableNode):
@@ -119,6 +120,16 @@ class SharedVariableBuildHandler(NodeBuildHandler):
                 update={"index": terminal_id, "name": terminal.name}
             )
         node_terminals.sort(key=lambda t: t.index)
+        link = ctx.shared_variable_links.get(node.uid)
+        library = (
+            SharedVariableLibrary(
+                qualified_name=link.library_qualified_name,
+                kind=link.kind,
+                persistent_id=link.persistent_id,
+            )
+            if link is not None
+            else None
+        )
         return SharedVariableNode(
             id=q_node_uid,
             vi_path=ctx.vi_name,
@@ -129,6 +140,7 @@ class SharedVariableBuildHandler(NodeBuildHandler):
             terminals=node_terminals,
             description=description,
             variable_name=node.variable_name,
+            library=library,
             is_write=node.access is SharedVariableAccess.WRITE,
         )
 

@@ -41,6 +41,7 @@ from ..graph.models import (
     LocalVariableNode,
     LoopNode,
     SequenceNode,
+    SharedVariableNode,
     VINode,
 )
 from ..graph.models import FormulaNode as GraphFormulaNode
@@ -769,12 +770,15 @@ def _constant_wired_to(
 
 
 def _node_callee_key(node: AnyGraphNode) -> str | None:
-    """The qualified name of the VI a node refers to: the callee of a SubVI
-    call, the Global VI of a global variable; None for every other node."""
+    """The qualified name of the file a node refers to: the callee of a SubVI
+    call, the Global VI of a global variable, the project library of a Shared
+    Variable (when the VI records one); None for every other node."""
     if isinstance(node, VINode):
         return node.qualified_name
     if isinstance(node, GlobalVariableNode):
         return node.global_vi.qualified_name
+    if isinstance(node, SharedVariableNode) and node.library is not None:
+        return node.library.qualified_name
     return None
 
 
@@ -801,6 +805,8 @@ def _node_kind(node: AnyGraphNode) -> NodeKind:
         return NodeKind.LOCAL_VARIABLE
     if isinstance(node, GlobalVariableNode):
         return NodeKind.GLOBAL_VARIABLE
+    if isinstance(node, SharedVariableNode):
+        return NodeKind.SHARED_VARIABLE
     if isinstance(node, DisableStructureNode):
         return NodeKind.DISABLED
     if isinstance(node, EventStructureNode):

@@ -96,6 +96,27 @@ def vi_kind_label(code: int) -> str:
         return f"unknown (code {code})"
 
 
+class SharedVariableKind(str, Enum):
+    """How a Shared Variable is published, as the variable type string the VI's
+    block-diagram link table records for it (``Global`` is LabVIEW's recorded name
+    for a single-process variable). ``(str, Enum)`` so a member equals the recorded
+    string it was read from."""
+
+    SINGLE_PROCESS = "Global"
+    NETWORK = "Network"
+
+    @property
+    def label(self) -> str:
+        """The kind in LabVIEW's words."""
+        return _SHARED_VARIABLE_KIND_LABELS[self]
+
+
+_SHARED_VARIABLE_KIND_LABELS: dict[SharedVariableKind, str] = {
+    SharedVariableKind.SINGLE_PROCESS: "Single Process",
+    SharedVariableKind.NETWORK: "Network",
+}
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""

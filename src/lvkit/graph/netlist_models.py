@@ -283,6 +283,10 @@ class NetlistInstance:
     # ``"read"`` / ``"write"`` for a global or Shared Variable node (which end of
     # the variable it taps) -- ``None`` for every other instance kind.
     access: str | None = None
+    # A Shared Variable's project library, by its qualified name as the calling VI
+    # records it (``name`` is the variable) -- ``None`` for every other instance
+    # kind, and for a Shared Variable whose library the VI does not record.
+    library: str | None = None
 
 
 @dataclass
@@ -673,7 +677,8 @@ class DependencyKind(str, Enum):
     dependency's qualified identity file extension (``.vi`` -> subVI,
     ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed
     input; except ``global``, a Global VI that a global variable node refers
-    to (also a ``.vi`` file). See ``_dependency_kind_for``/
+    to (also a ``.vi`` file), and ``library``, the project library (``.lvlib``) a
+    Shared Variable node refers to. See ``_dependency_kind_for``/
     ``_build_dependency_manifest``.
     """
 
@@ -681,6 +686,7 @@ class DependencyKind(str, Enum):
     TYPEDEF = "typedef"
     CLASS = "class"
     GLOBAL = "global"
+    SHARED_VARIABLE_LIBRARY = "library"
 
     @classmethod
     def for_node_type(cls, node_type: NodeType) -> DependencyKind:

@@ -8,6 +8,7 @@ lvkit follows semantic versioning.
 - **A repeat `describe`/`render` of an unchanged project no longer writes the index** — a row already stored for the same VI bytes is left alone; a fuller load still upgrades it and a partial load never downgrades it (#131).
 - **Far fewer file writes and renames per run, for antivirus behavior monitors** — one staging folder per command (stale ones from killed runs are removed on the next run) and one folder rename per unpacked VI instead of one per file; a cache hit writes nothing. `LVKIT_CACHE_DIR` and `python -m lvkit` are documented in a new cache page (#131).
 - **Fix: a project opened through a symlinked folder** got SubVI click links that climbed out of the folder, and lost the controls its VIs depend on from the project index; both now use the folder's real location.
+- **Shared Variable nodes name their project library** — describe, lvnet (`shared-variable … : SV Sample.lvlib::Value : read`), JSON, diff and the project index show the library, and it is a dependency of the VI; generated Python runs a single-process variable as a value shared by every module, with the timestamp of the last write (#149).
 
 ## [0.8.8] - 2026-10-17
 - **Fix: a reentrant VI could show as non-reentrant** — LabVIEW records reentrant execution with either of two flags; both are read now, so a VI saved that way shows its real shared or preallocated clone setting (#132).

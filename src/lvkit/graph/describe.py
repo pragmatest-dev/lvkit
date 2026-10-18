@@ -161,11 +161,15 @@ def describe_vi(
     # pane detail above; it never swaps this section out.
     top_nodes = graph.top_level_nodes(vi_name)
     subvi_names = _collect_subvi_names(graph, top_nodes, vi_name)
-    global_vi_names = _collect_global_vi_names(graph, top_nodes, vi_name)
-    if subvi_names or global_vi_names:
+    global_vi_names, library_names = _collect_variable_dependencies(
+        graph, top_nodes, vi_name
+    )
+    if subvi_names or global_vi_names or library_names:
         lines.append("## Dependencies")
         for name in sorted(global_vi_names):
             lines.append(f"  {name} (Global VI)")
+        for name in sorted(library_names):
+            lines.append(f"  {name} (Shared Variable library)")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
             ports = _subvi_ports(graph, name)
@@ -309,23 +313,27 @@ def _collect_subvi_names(
     return names
 
 
-def _collect_global_vi_names(
+def _collect_variable_dependencies(
     graph: InMemoryVIGraph,
     nodes: list[AnyGraphNode],
     vi_name: str,
-) -> set[str]:
-    """The qualified names of the Global VIs the nodes (and everything nested in
-    them) read or write through global variable nodes."""
-    names: set[str] = set()
+) -> tuple[set[str], set[str]]:
+    """The qualified names of the Global VIs and of the project libraries the
+    nodes (and everything nested in them) read or write through global variable
+    and Shared Variable nodes."""
+    global_vis: set[str] = set()
+    libraries: set[str] = set()
     for node in nodes:
         if isinstance(node, GlobalVariableNode):
-            names.add(node.global_vi.qualified_name)
-        names.update(
-            _collect_global_vi_names(
-                graph, graph.child_nodes(node.id, vi_name), vi_name
-            )
+            global_vis.add(node.global_vi.qualified_name)
+        elif isinstance(node, SharedVariableNode) and node.library is not None:
+            libraries.add(node.library.qualified_name)
+        nested_vis, nested_libraries = _collect_variable_dependencies(
+            graph, graph.child_nodes(node.id, vi_name), vi_name
         )
-    return names
+        global_vis.update(nested_vis)
+        libraries.update(nested_libraries)
+    return global_vis, libraries
 
 
 def _get_subvi_description(
@@ -975,7 +983,8 @@ def _describe_single_op(
             )
         case SharedVariableNode():
             access = "write" if node.is_write else "read"
-            return f"Shared Variable `{node.variable_name}` ({access})"
+            where = f" ({node.library.qualified_name})" if node.library else ""
+            return f"Shared Variable `{node.variable_name}`{where} {access}"
         case CaseStructureNode():
             return f"Case Structure ({len(node.frames)} frames)"
         case LoopNode():

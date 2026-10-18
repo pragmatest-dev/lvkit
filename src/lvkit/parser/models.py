@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
 from .layout import ClusterGeom
+from .link_table import SharedVariableLink
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -692,6 +693,10 @@ class ParsedVIMetadata:
     # the VI's block-diagram link table; ``iuse_to_qualified_name`` is this map's
     # qualified names.
     iuse_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # Heap uid of every Shared Variable node -> the ``HpVL`` record of the
+    # variable it reads or writes (library, kind, persistent ID), from the same
+    # link table. A node whose variable has no record read here is absent.
+    shared_variable_links: dict[str, SharedVariableLink] = field(default_factory=dict)
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)

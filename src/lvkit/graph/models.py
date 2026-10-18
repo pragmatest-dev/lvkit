@@ -24,6 +24,7 @@ from ..models import (
     PropertyDef,
     ScalarValue,
     SequenceFrame,
+    SharedVariableKind,
     Terminal,
     VIKind,
 )
@@ -465,18 +466,35 @@ class GlobalVariableNode(GraphNode):
     is_write: bool = False
 
 
+class SharedVariableLibrary(BaseModel):
+    """The project library a Shared Variable belongs to, as the calling VI's
+    block-diagram link table records it: the library's qualified name, how the
+    variable is published, and its persistent ID (the one the ``.lvproj`` records
+    as ``varPersistentID``)."""
+
+    model_config = {"frozen": True}
+
+    qualified_name: str
+    kind: SharedVariableKind
+    persistent_id: str
+
+
 class SharedVariableNode(GraphNode):
     """A Shared Variable node (class="sharedVariable") -- reads or writes a
-    network-published Shared Variable (a variable of a project library).
+    variable of a project library.
 
-    ``variable_name`` is the variable's name; the library it belongs to is not
-    part of the node. ``is_write``: the value terminal (``Variable``) is an input
-    on a write node, an output on a read node. The other terminals are the
-    error cluster in and out.
+    ``variable_name`` is the variable's name. ``library`` is the library it
+    belongs to, found by the node's uid in the calling VI's link table; ``None``
+    when that table holds no record for the node that is read here, so the library
+    is unknown. The calling VI depends on the library, so it is loaded and listed
+    like a subVI. ``is_write``: the value terminal (``Variable``) is an input on a
+    write node, an output on a read node. The other terminals are the error
+    cluster in and out.
     """
 
     kind: Literal["shared_variable"] = "shared_variable"
     variable_name: str
+    library: SharedVariableLibrary | None = None
     is_write: bool = False
 
 

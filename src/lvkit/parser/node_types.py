@@ -155,15 +155,19 @@ class SharedVariableAccess(str, Enum):
 
 class SharedVariableTerminal(IntEnum):
     """The ``terminal_ID`` of a Shared Variable node's terminals that are known:
-    the value (an output on a read node, an input on a write node), error in and
-    error out. NI's public page for the Shared Variable node lists three more
-    terminals -- ``ms timeout (0)`` (read only), ``timed out?`` (read only) and
-    ``timestamp`` (read only) -- whose ``terminal_ID`` values are not confirmed,
-    so a terminal with any other ID keeps only its number."""
+    the value (an output on a read node, an input on a write node), error in,
+    error out and, on a read node set to show it, the timestamp. The timestamp is
+    the one extra terminal of the node that shows it in the issue #149 sample
+    (``tests/corpus/issues/149``); it is an output of the timestamp type, which is
+    what NI's public page for the Shared Variable node lists as ``timestamp``
+    (read only). The page also lists ``ms timeout (0)`` and ``timed out?`` (read
+    only), whose ``terminal_ID`` values are not confirmed, so a terminal with any
+    other ID keeps only its number."""
 
     VARIABLE = 0
     ERROR_IN = 1
     ERROR_OUT = 2
+    TIMESTAMP = 3
 
     @property
     def label(self) -> str:
@@ -174,6 +178,7 @@ _SHARED_VARIABLE_TERMINAL_LABELS: dict[SharedVariableTerminal, str] = {
     SharedVariableTerminal.VARIABLE: "Variable",
     SharedVariableTerminal.ERROR_IN: "error in (no error)",
     SharedVariableTerminal.ERROR_OUT: "error out",
+    SharedVariableTerminal.TIMESTAMP: "timestamp",
 }
 
 

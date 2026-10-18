@@ -182,8 +182,9 @@ def test_describe_text_and_json(tmp_path: Path) -> None:
         _node(200, "TC-32_Out", write=True),
     )
     text = describe_vi(graph, vi)
-    assert "Shared Variable `TC-32_Out` (read)" in text
-    assert "Shared Variable `TC-32_Out` (write)" in text
+    # no link-table record names these nodes' library
+    assert "Shared Variable `TC-32_Out` read" in text
+    assert "Shared Variable `TC-32_Out` write" in text
 
     body = netlist_to_dict(build_netlist_from_graph(graph, vi))["body"]
     by_uid = {item["uid"]: item for item in body}
@@ -214,9 +215,9 @@ def test_lvnet_renders_and_round_trips(tmp_path: Path) -> None:
     assert render_lvnet(rebuilt, display_name="Shared.vi", verbose=True) == text
 
 
-def test_codegen_names_the_variable_that_has_no_python_equivalent(
+def test_codegen_names_the_variable_whose_library_is_unknown(
     tmp_path: Path,
 ) -> None:
     graph, vi = _load(tmp_path, _node(100, "TC-32_Out", write=False))
-    with pytest.raises(CodeGenError, match="Shared Variable 'TC-32_Out' has no Python"):
+    with pytest.raises(CodeGenError, match="Shared Variable 'TC-32_Out' cannot be"):
         build_module(graph.get_vi_context(vi), vi, graph=graph)

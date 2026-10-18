@@ -1214,6 +1214,11 @@ def _build_instance_gn(
             if isinstance(node, GlobalVariableNode | SharedVariableNode)
             else None
         ),
+        library=(
+            node.library.qualified_name
+            if isinstance(node, SharedVariableNode) and node.library is not None
+            else None
+        ),
     )
 
 
@@ -2228,36 +2233,50 @@ def _build_dependency_manifest(
     # .lvclass/.lvlib -- so a member whose own node came out unqualified is
     # qualified by the class dependency sitting beside it (both are already in
     # this manifest's dep set). Graph-native: no path re-resolution.
+    # The files this VI's variable nodes refer to -- a Global VI through its global
+    # variable nodes, a project library through its Shared Variable nodes -- by
+    # dependency key, with the kind and the qualified name those nodes spell (the
+    # same text their ``global-variable`` / ``shared-variable`` lines carry). A
+    # variables-only library owns none of the VIs beside it, so it qualifies none.
+    variable_dep_by_key: dict[str, tuple[DependencyKind, str]] = {}
+    for n in graph.iter_nodes(vi_name):
+        if isinstance(n, GlobalVariableNode):
+            global_key = graph.global_vi_key(n)
+            if global_key is not None:
+                variable_dep_by_key[global_key] = (
+                    DependencyKind.GLOBAL,
+                    n.global_vi.qualified_name,
+                )
+        elif isinstance(n, SharedVariableNode) and n.library is not None:
+            library_key = graph.shared_variable_library_key(n)
+            if library_key is not None:
+                variable_dep_by_key[library_key] = (
+                    DependencyKind.SHARED_VARIABLE_LIBRARY,
+                    n.library.qualified_name,
+                )
+
     class_qname_by_dir: dict[str, str] = {}
     for key in dep_keys:
+        if key in variable_dep_by_key:
+            continue
         n = graph._dep_graph.nodes.get(key, {})
         if n.get("node_type") in (NodeType.LIBRARY, NodeType.CLASS):
             p = graph._dependency_file_path(key)
             if p is not None and n.get("qname"):
                 class_qname_by_dir[str(p.parent)] = n["qname"]
 
-    # The Global VIs this VI's global variable nodes refer to, by dependency
-    # key, with the qualified name those nodes spell (the same text their
-    # ``global-variable`` lines carry).
-    global_qname_by_key: dict[str, str] = {}
-    for n in graph.iter_nodes(vi_name):
-        if isinstance(n, GlobalVariableNode):
-            global_key = graph.global_vi_key(n)
-            if global_key is not None:
-                global_qname_by_key[global_key] = n.global_vi.qualified_name
-
     manifest: list[NetlistDependency] = []
     seen: set[str] = set()
     for key in dep_keys:
         node = graph._dep_graph.nodes.get(key, {})
         resolved = graph._dependency_file_path(key)
-        if key in global_qname_by_key:
-            qname = global_qname_by_key[key]
+        if key in variable_dep_by_key:
+            variable_kind, qname = variable_dep_by_key[key]
             if qname not in seen:
                 seen.add(qname)
                 manifest.append(
                     NetlistDependency(
-                        kind=DependencyKind.GLOBAL,
+                        kind=variable_kind,
                         qualified=qname,
                         path=project_relative_display(resolved, rel_base),
                     )

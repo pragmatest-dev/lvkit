@@ -89,7 +89,7 @@ def _instance_name_display(instance: NetlistInstance) -> str:
 
     A global variable's Global VI and access (``[Data.vi read]``) take the same
     slot, naming where the control named by ``name`` lives; a Shared Variable's
-    access (``[write]``) does too.
+    library and access (``[Lib.lvlib write]``) do too.
 
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
     the same bracket-suffix treatment as ``operation`` -- the two never
@@ -116,6 +116,8 @@ def _instance_name_display(instance: NetlistInstance) -> str:
         obj_suffix = f" [{instance.object_name}]"
     elif instance.global_vi:
         obj_suffix = f" [{instance.global_vi} {instance.access}]"
+    elif instance.library:
+        obj_suffix = f" [{instance.library} {instance.access}]"
     elif instance.access:
         obj_suffix = f" [{instance.access}]"
     else:
