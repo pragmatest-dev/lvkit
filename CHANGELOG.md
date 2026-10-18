@@ -9,6 +9,9 @@ lvkit follows semantic versioning.
 - **Far fewer file writes and renames per run, for antivirus behavior monitors** — one staging folder per command (stale ones from killed runs are removed on the next run) and one folder rename per unpacked VI instead of one per file; a cache hit writes nothing. `LVKIT_CACHE_DIR` and `python -m lvkit` are documented in a new cache page (#131).
 - **Fix: a project opened through a symlinked folder** got SubVI click links that climbed out of the folder, and lost the controls its VIs depend on from the project index; both now use the folder's real location.
 - **Shared Variable nodes name their project library** — describe, lvnet (`shared-variable … : SV Sample.lvlib::Value : read`), JSON, diff and the project index show the library, and it is a dependency of the VI; generated Python runs a single-process variable as a value shared by every module, with the timestamp of the last write (#149).
+- **Fix: a User Event showed its data type's name instead of its own** — a User Event is named by the label on its data type, now shown in describe, lvnet, JSON and diff (`UserEvent refnum{Drive Status: Network Endpoint}`) (#115).
+- **Fix: nodes inside an Error Ring or Match Regular Expression showed up on the calling VI's diagram** — those nodes carry their own inner diagram, which is no longer read as part of the caller's.
+- **Fix: structures in some older VIs lost their tunnels** — when a VI lists a structure's tunnels separately from its border terminals, the tunnels are now read.
 
 ## [0.8.8] - 2026-10-17
 - **Fix: a reentrant VI could show as non-reentrant** — LabVIEW records reentrant execution with either of two flags; both are read now, so a VI saved that way shows its real shared or preallocated clone setting (#132).

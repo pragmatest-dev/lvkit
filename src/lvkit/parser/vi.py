@@ -14,7 +14,7 @@ import re
 import struct
 import warnings
 import xml.etree.ElementTree as ET
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 from lvkit.extractor import extract_vi_xml
@@ -431,6 +431,7 @@ def _parse_block_diagram(
     """
     tree = ET.parse(bd_xml)
     root = tree.getroot()
+    _inline_structure_tunnel_dcos(root)
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
@@ -655,6 +656,50 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
+def _inline_structure_tunnel_dcos(root: ET.Element) -> None:
+    """Give a structure's border terminals their tunnel definition inline.
+
+    A structure normally defines each tunnel as the ``<dco class=...>`` of its
+    border ``<term>``. A VI saved in the older form instead lists the tunnels in
+    the structure's own ``<tunnelList>`` and leaves each border ``<term>`` a bare
+    ``<dco uid=.../>`` back-reference. Replace such a back-reference with a
+    ``<dco>`` carrying the listed tunnel's class and content, so every reader of
+    the diagram sees one form."""
+    for structure in root.iter():
+        tunnel_list = structure.find("tunnelList")
+        term_list = structure.find("termList")
+        if tunnel_list is None or term_list is None:
+            continue
+        tunnels = {
+            t.get("uid"): t
+            for t in tunnel_list.findall("SL__arrayElement")
+            if t.get("uid") and t.get("class")
+        }
+        for term in term_list.findall("SL__arrayElement"):
+            dco = term.find("dco")
+            if dco is None or dco.get("class") is not None:
+                continue
+            tunnel = tunnels.get(dco.get("uid"))
+            if tunnel is None:
+                continue
+            dco.set("class", tunnel.get("class", ""))
+            dco.extend(tunnel)
+
+
+def _iter_diagram_elements(root: ET.Element) -> Iterator[ET.Element]:
+    """Every element under ``root`` in document order, except what lies inside an
+    XNode (``class="xNode"``, e.g. Error Ring): an XNode is one node on the
+    block diagram, and the implementation diagram it stores internally (its own
+    Format String, shift-register node, ...) is not part of the VI's diagram.
+    The XNode element itself is yielded; its subtree is not."""
+    stack = [root]
+    while stack:
+        elem = stack.pop()
+        yield elem
+        if elem.get("class") != "xNode":
+            stack.extend(reversed(elem))
+
+
 def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     """Extract nodes from the block diagram using node type factory.
 
@@ -668,7 +713,7 @@ def _extract_nodes(root: ET.Element) -> list[ParsedNode]:
     by_class: dict[str, list[ET.Element]] = {}
     generic: list[ET.Element] = []
     disable_elems: list[ET.Element] = []
-    for elem in root.iter():
+    for elem in _iter_diagram_elements(root):
         # `.//*[@class=X]` matches descendants only — exclude root from buckets.
         if elem is not root:
             cls = elem.get("class")

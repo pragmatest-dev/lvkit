@@ -38,6 +38,7 @@ class ParsedType:
     element_type: ParsedType | None = None  # Array element type (recursive)
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
+    user_event_name: str | None = None  # User Event refnum: its data type label
 
 
 @dataclass

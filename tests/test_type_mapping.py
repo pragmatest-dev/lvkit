@@ -227,3 +227,79 @@ class TestRefnumElementType:
         assert c.classname == "TestCase.lvclass"
         assert c.element_type is None
         assert c.type_descriptor() == "TestCase.lvclass"
+
+
+class TestUserEventName:
+    """A User Event's name is the label of its data type; a type-definition
+    data type carries the constant's own label, not the .ctl file name."""
+
+    def _vctp(self, tmp_path, body: str):
+        xml = textwrap.dedent(f"""\
+            <?xml version="1.0" encoding="UTF-8"?>
+            <RSRC><VCTP><Section>
+            {body}
+            </Section></VCTP></RSRC>
+        """)
+        p = tmp_path / "uev.xml"
+        p.write_text(xml)
+        return parse_vctp_types(p)
+
+    def test_plain_data_type_label_is_the_event_name(self, tmp_path):
+        result = self._vctp(
+            tmp_path,
+            """\
+            <TypeDesc Type="Boolean" Label="stopped" />
+            <TypeDesc Type="Refnum" RefType="UserEvent">
+                <TypeDesc TypeID="0" />
+            </TypeDesc>""",
+        )
+        assert result[1].user_event_name == "stopped"
+        assert result[1].type_descriptor() == "UserEvent refnum{stopped: TF}"
+
+    def test_typedef_instance_label_wins_over_ctl_name(self, tmp_path):
+        result = self._vctp(
+            tmp_path,
+            """\
+            <TypeDesc Type="TypeDef">
+                <TypeDesc Type="Cluster" Nested="True" Label="Drive Status" />
+                <Label Text="Lib.lvlib" />
+                <Label Text="Network Endpoint.ctl" />
+            </TypeDesc>
+            <TypeDesc Type="Refnum" RefType="UserEvent">
+                <TypeDesc TypeID="0" />
+            </TypeDesc>""",
+        )
+        ev = result[1]
+        assert ev.user_event_name == "Drive Status"
+        assert ev.element_type is not None
+        assert ev.element_type.typedef_name == "Network Endpoint.ctl"
+        assert ev.type_descriptor() == (
+            "UserEvent refnum{Drive Status: Network Endpoint}"
+        )
+
+    def test_other_parametrized_refnums_carry_no_name(self, tmp_path):
+        result = self._vctp(
+            tmp_path,
+            """\
+            <TypeDesc Type="NumFloat64" Label="payload" />
+            <TypeDesc Type="Refnum" RefType="Queue">
+                <TypeDesc TypeID="0" />
+            </TypeDesc>""",
+        )
+        assert result[1].user_event_name is None
+        assert result[1].type_descriptor() == "Queue refnum{DBL}"
+
+    def test_event_name_is_part_of_type_identity(self, tmp_path):
+        result = self._vctp(
+            tmp_path,
+            """\
+            <TypeDesc Type="Boolean" Label="a" />
+            <TypeDesc Type="Boolean" Label="b" />
+            <TypeDesc Type="Refnum" RefType="UserEvent">
+                <TypeDesc TypeID="0" />
+            </TypeDesc>
+            <TypeDesc Type="Refnum" RefType="UserEvent">
+                <TypeDesc TypeID="1" />
+            </TypeDesc>""",
+        )
+        assert result[2] != result[3]

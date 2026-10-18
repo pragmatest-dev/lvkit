@@ -122,6 +122,7 @@ from .lvnet_parse import (
     ParsedTypeDef,
     _find_first_top_level,
     _scan_quoted_literal,
+    _split_event_name,
     _split_top_level_commas,
     _unescape_lvnet_string,
     _unquote_name_token,
@@ -540,13 +541,14 @@ def _reconstruct_type_ref(
         # ``Cluster{ ... refnum{...} ... }`` field -- the whole text is a
         # cluster (handled below), not a top-level refnum.
         ref_type = text[:refnum_idx]
-        inner = text[refnum_idx + len(" refnum{") : -1].strip()
+        event_name, inner = _split_event_name(text[refnum_idx + len(" refnum{") : -1])
         elem = _reconstruct_type_ref(inner, types_dict, memo)
         return LVType(
             kind=LVTypeKind.PRIMITIVE,
             underlying_type="Refnum",
             ref_type=ref_type,
             element_type=elem,
+            user_event_name=event_name,
         )
     if text.endswith(" refnum") and "{" not in text:
         return LVType(

@@ -377,6 +377,7 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
                 if lv_type.element_type is not None:
                     return (
                         f"{lv_type.ref_type} refnum{{ "
+                        f"{_lvnet_event_name_prefix(lv_type)}"
                         f"{lvnet_type_ref(lv_type.element_type)} }}"
                     )
                 return f"{lv_type.ref_type} refnum"
@@ -385,6 +386,14 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
     if lv_type.kind == LVTypeKind.CLASS:
         return lv_type.classname or "?"
     return "?"
+
+
+def _lvnet_event_name_prefix(lv_type: LVType) -> str:
+    """A User Event refnum's ``<name-token> : `` lead (the event name, quoted
+    per the name-safety rule); empty when the refnum carries no event name."""
+    if not lv_type.user_event_name:
+        return ""
+    return f"{lvnet_name_token(lv_type.user_event_name)}{_LVNET_TYPE_SEP}"
 
 
 def _lvnet_type_inline(lv_type: LVType) -> str:
@@ -422,7 +431,8 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
         and lv_type.element_type is not None
     ):
         return (
-            f"{lv_type.ref_type} refnum{{{_lvnet_type_inline(lv_type.element_type)}}}"
+            f"{lv_type.ref_type} refnum{{{_lvnet_event_name_prefix(lv_type)}"
+            f"{_lvnet_type_inline(lv_type.element_type)}}}"
         )
     if lvnet_named_stem(lv_type) is not None:
         return lv_type.type_descriptor(expand_named=False)
@@ -652,7 +662,7 @@ def _lv_type_comparison_shape(
 
     Below a NAMED enum/ring/cluster (not yet reached, ``full=False``): an
     array/refnum wrapper still decomposes (``("array", dims, inner)`` /
-    ``("refnum", ref_type, inner)`` -- this is NOT new depth, it mirrors
+    ``("refnum", ref_type, inner, event_name)`` -- this is NOT new depth, it mirrors
     ``type_descriptor``'s own pre-existing recursion into those two
     containers); anything else is an opaque ``("leaf", <the SAME
     ``type_descriptor(expand_named=False)`` string ``_lvnet_type_label``
@@ -702,6 +712,7 @@ def _lv_type_comparison_shape(
             _lv_type_comparison_shape(
                 lv_type.element_type, seen, full=full, ambiguous=ambiguous
             ),
+            lv_type.user_event_name or None,
         )
 
     name = lvnet_named_stem(lv_type)

@@ -125,6 +125,11 @@ class LVType:
     underlying_type: str | None = None
     ref_type: str | None = None
     classname: str | None = None
+    # A User Event refnum's event name: the label of the data type wired to
+    # Create User Event (for a type-definition data type, the label on the
+    # constant's own instance of it, not the .ctl file name). None for every
+    # other refnum and for an unlabeled data type.
+    user_event_name: str | None = None
 
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
@@ -221,7 +226,8 @@ class LVType:
         - ``primitive``: a class refnum renders its class name verbatim
           (``TestCase.lvclass``); a parametrized refnum shows its element in
           braces like a cluster/enum (``Queue refnum{error cluster}``,
-          ``Notifier refnum{DBL}``); otherwise ``"<ref_type> refnum"`` /
+          ``Notifier refnum{DBL}``; a User Event leads with its event name,
+          ``UserEvent refnum{stopped: TF}``); otherwise ``"<ref_type> refnum"`` /
           ``"refnum"``. Other primitives map through the shared numeric/scalar
           token table, falling back to the raw ``underlying_type`` (never
           "Any"/"int") for an unmapped token.
@@ -300,6 +306,8 @@ class LVType:
                         inner = self.element_type.type_descriptor(
                             expand_named=expand_named
                         )
+                        if self.user_event_name:
+                            inner = f"{self.user_event_name}: {inner}"
                         return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"

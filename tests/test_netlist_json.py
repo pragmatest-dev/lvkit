@@ -793,6 +793,7 @@ def test_verbose_adds_dependencies_manifest_with_interface():
                         "typedef_name": None,
                         "description": None,
                         "measure_flavor": None,
+                        "user_event_name": None,
                     },
                 },
                 {
@@ -815,6 +816,7 @@ def test_verbose_adds_dependencies_manifest_with_interface():
                         "typedef_name": "Mode.ctl",
                         "description": None,
                         "measure_flavor": None,
+                        "user_event_name": None,
                     },
                 },
             ],
@@ -849,6 +851,7 @@ def test_verbose_adds_structured_type_with_enum_ordinals_and_cluster_fields():
                 "typedef_name": "Mode.ctl",
                 "description": None,
                 "measure_flavor": None,
+                "user_event_name": None,
             },
         },
         {
@@ -866,6 +869,7 @@ def test_verbose_adds_structured_type_with_enum_ordinals_and_cluster_fields():
                 "typedef_name": None,
                 "description": None,
                 "measure_flavor": None,
+                "user_event_name": None,
             },
         },
     ]

@@ -1980,7 +1980,7 @@ def parse_lvnet(text: str) -> ParsedLvnet:
 # either a plain ``("leaf", <label string>)`` (unchanged, string-equality
 # comparison) or a decomposed structural shape once a §10 NAMED type is
 # reached (``("enum", members)`` / ``("cluster", fields)`` / ``("array",
-# dims, inner)`` / ``("refnum", ref_type, inner)`` / ``("named", name)`` on
+# dims, inner)`` / ``("refnum", ref_type, inner, event_name)`` / ``("named", name)`` on
 # a cycle) -- see ``netlist._lv_type_comparison_shape`` (MODULE side) and
 # ``_parsed_type_ref_shape`` below (PARSED side), which build the identical
 # shape independently so the two compare directly.
@@ -2055,6 +2055,20 @@ def _find_first_top_level(text: str, sep: str) -> int:
             return i
         i += 1
     return -1
+
+
+def _split_event_name(body: str) -> tuple[str | None, str]:
+    """A refnum body's ``(event name, element type text)``: a User Event leads
+    with ``<name-token> : ``; any other refnum body is just the type text (a
+    ``" : "`` only ever sits inside a nested ``Cluster{...}``, never at depth
+    zero), so its name is ``None``."""
+    sep_pos = _find_first_top_level(body, _LVNET_TYPE_SEP)
+    if sep_pos == -1:
+        return None, body.strip()
+    return (
+        _unquote_name_token(body[:sep_pos].strip()),
+        body[sep_pos + len(_LVNET_TYPE_SEP) :].strip(),
+    )
 
 
 def _unquote_name_token(raw: str) -> str:
@@ -2176,13 +2190,14 @@ def _parsed_type_ref_shape(
         # ``Cluster{ ... refnum{...} ... }`` field, and the whole text is a
         # cluster (handled below), not a refnum.
         ref_type = text[:refnum_idx]
-        inner = text[refnum_idx + len(" refnum{") : -1].strip()
+        event_name, inner = _split_event_name(text[refnum_idx + len(" refnum{") : -1])
         return (
             "refnum",
             ref_type,
             _parsed_type_ref_shape(
                 inner, types_dict, seen, full=full, ambiguous=ambiguous
             ),
+            event_name,
         )
     if text.endswith(" refnum") and "{" not in text:
         return ("leaf", text)

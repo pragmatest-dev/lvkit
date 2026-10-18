@@ -86,7 +86,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default ""
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
@@ -157,8 +157,8 @@ vi loadTestsFromTestCase.vi :
 #    here with the same +1 padding as everywhere else, for one consistent
 #    rule rather than reproducing an isolated typo.
 # 7. `testSuiteStatusChanged EventRef`'s type renders
-#    `UserEvent refnum{suiteStatusChanged--Cluster}` -- the inner cluster's
-#    OWN `typedef_name` (verified: `LVType.typedef_name` on that terminal's
+#    `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}` --
+#    the event name, then the inner cluster's OWN `typedef_name` (verified: `LVType.typedef_name` on that terminal's
 #    element type is literally `"...suiteStatusChanged--Cluster"`, stripped
 #    the same way `type_descriptor()` always has) makes it a NAMED type, so
 #    lvnet's terse renderer (§10/§11, this pass) shows the bare name alone
@@ -288,7 +288,7 @@ vi loadTestsFromTestCase.vi :
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
       in   TestSuite in                    : TestSuite.lvclass
       in   tests (none)                    : [LabVIEW Object]
-      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster}
+      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
       in   GUID ("")                       : String
       in   error in (no error)             : Error
       out  TestSuite out                   : TestSuite.lvclass

@@ -322,6 +322,7 @@ class InMemoryVIGraph(
             element_type=self._enrich_type(parsed_type.element_type),
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
+            user_event_name=parsed_type.user_event_name,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external

@@ -603,7 +603,7 @@ Faithful LVType on every terminal, **never a Python type**:
   field's type.
 - Enum: `Enum{a,b,c}`.
 - Class: `MyClass.lvclass` (qualified).
-- Refnum: `refnum{…}` — `UserEvent refnum{suiteStatusChanged--Cluster{TestSuite, suiteStatus}}`.
+- Refnum: `refnum{…}` — `Queue refnum{Error}`. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `UserEvent refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
 - Typedefs referenced by qualified name, never expanded inline (full field
   expansion is verbose-only).
 - **A NAMED enum/ring/cluster/typedef renders by name alone in terse** (the
@@ -657,8 +657,9 @@ The lossless def grammar, keyed to the same closed set of `LVType` kinds:
 - **array**: `[<type-ref>]`, nested once per `dimensions` (`[[DBL]]` for a 2D
   array of `DBL`).
 - **refnum**: a class refnum shows its class name verbatim; a parametrized
-  refnum shows `<ref_type> refnum{ <type-ref> }`; otherwise `<ref_type>
-  refnum` / `"refnum"`.
+  refnum shows `<ref_type> refnum{ <type-ref> }` (a User Event:
+  `UserEvent refnum{ <name-token> : <type-ref> }`, its event name leading);
+  otherwise `<ref_type> refnum` / `"refnum"`.
 - **typedef wrapping something with no enum/cluster shape of its own** (e.g.
   a `.ctl` typedef of a bare scalar): falls out of the same dispatch as its
   own underlying kind — there is no separate "typedef" keyword, the footnote
@@ -877,7 +878,7 @@ the document is wrapped in the `front-panel :` (connector-pane `pattern :`
 id + boundary terminals, each with its own `@<index>` pane-slot column) /
 `block-diagram :` (body + boundary-output-drive lines at the end) section
 layout (§2); `testSuiteStatusChanged EventRef`'s refnum collapses to its
-inner cluster's NAME (`UserEvent refnum{suiteStatusChanged--Cluster}`, §10)
+inner cluster's NAME (`UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, §10)
 instead of expanding its fields; `TestSuite in`/that same refnum terminal
 render the bare word `default` (no literal to show, §4); and the block's own
 column width is capped, so that one refnum type doesn't stretch the
@@ -932,7 +933,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default ""
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass

@@ -1,11 +1,11 @@
 """Structural identity for LabVIEW types, and the catalog that records them.
 
 A type's ``type_id`` is a hash of its STRUCTURE -- kind, underlying / ref type,
-class or typedef name, dimensions, enum items ``(name, value)``, cluster fields
-``(name, child id)``, array / refnum element id -- built bottom-up, so the id of a
-composite depends only on the ids of its parts. Two occurrences of the same type
-share an id wherever they appear (different VIs, different files); two types that
-merely share a NAME but differ in structure get different ids (a name is not
+class or typedef name, user event name, dimensions, enum items ``(name, value)``,
+cluster fields ``(name, child id)``, array / refnum element id -- built bottom-up,
+so the id of a composite depends only on the ids of its parts. Two occurrences of
+the same type share an id wherever they appear (different VIs, different files); two
+types that merely share a NAME but differ in structure get different ids (a name is not
 identity). A type nested inside itself bottoms out at an unresolved field
 (``type_id`` None) rather than recursing.
 
@@ -113,6 +113,7 @@ def _hash(
             lv_type.typedef_name,
             lv_type.dimensions,
             lv_type.measure_flavor,
+            lv_type.user_event_name,
             [[i.name, i.value] for i in items],
             [[f.name, f.type_id] for f in fields],
             element_id,

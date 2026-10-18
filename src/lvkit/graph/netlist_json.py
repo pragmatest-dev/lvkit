@@ -252,6 +252,7 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
         "typedef_name": lv_type.typedef_name,
         "description": lv_type.description,
         "measure_flavor": lv_type.measure_flavor,
+        "user_event_name": lv_type.user_event_name,
     }
 
 

@@ -42,6 +42,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         ),
         dimensions=lv_type.dimensions,
         measure_flavor=lv_type.measure_flavor,
+        user_event_name=lv_type.user_event_name,
     )
 
 

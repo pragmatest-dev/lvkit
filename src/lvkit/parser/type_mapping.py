@@ -359,6 +359,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             ref_type = td.get("RefType")
             classname = None
             element_type = None
+            user_event_name = None
 
             if ref_type == "UDClassInst":
                 # Extract fully qualified class name from <Item> chain.
@@ -380,6 +381,10 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                     tid = nested[0].get("TypeID")
                     if tid:
                         element_type = resolve_type(int(tid), visited)
+                        if ref_type == "UserEvent":
+                            user_event_name = (
+                                _field_label(flat_types.get(int(tid)), "") or None
+                            )
 
             lv_type = LVType(
                 kind=LVTypeKind.PRIMITIVE,
@@ -387,6 +392,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 ref_type=ref_type,
                 classname=classname,
                 element_type=element_type,
+                user_event_name=user_event_name,
             )
 
         elif type_name == "MeasureData":
