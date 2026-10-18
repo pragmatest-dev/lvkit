@@ -30,7 +30,7 @@ from lvkit.models import (
     Terminal,
     Tunnel,
     TunnelTerminal,
-    TypeFilter,
+    TypeNamer,
 )
 
 from .ast_utils import parameter_names, to_function_name, to_var_name
@@ -94,7 +94,7 @@ class CodeGenContext:
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
     # every generate() call.
-    import_resolver: Callable[[str], str] | None = field(default=None, repr=False)
+    import_resolver: ImportResolver | None = field(default=None, repr=False)
     # Module-level Python functions generated for Formula Nodes; the builder
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
@@ -466,21 +466,41 @@ class CodeGenContext:
         return f"idx_{self.loop_depth}"
 
     def add_import(self, import_stmt: str) -> None:
-        """Add an import statement."""
-        self.imports.add(import_stmt)
+        """Add an import statement (none when empty)."""
+        if import_stmt:
+            self.imports.add(import_stmt)
 
-    def type_importable(self) -> TypeFilter | None:
-        """Whether a named class or typedef has a class this module can import;
-        ``None`` when the module is generated without import paths."""
-        return importable_types(self.import_resolver)
+    def import_function(self, vi_name: str) -> str:
+        """Import the function of a VI and return the name this module calls it
+        by."""
+        if isinstance(self.import_resolver, ImportResolver):
+            imported = self.import_resolver.function(vi_name)
+            self.add_import(imported.statement)
+            return imported.name
+        function = to_function_name(vi_name)
+        self.add_import(f"from .{function} import {function}")
+        return function
+
+    def type_namer(self) -> TypeNamer | None:
+        """The name this module spells a named class or typedef as, or None for
+        one it cannot import; ``None`` when generated without import paths."""
+        return type_namer(self.import_resolver)
 
     def constant_expression(self, const: Constant | ConstantNode) -> str:
         """The Python expression for a constant, importing the enum class when
-        the constant is one of its members."""
-        importable = self.type_importable()
-        if enum_member_constant(const, importable) is not None:
+        the constant is one of its members, and the function when it is a
+        reference to a VI."""
+        lv_type = const.lv_type
+        if (
+            lv_type is not None
+            and lv_type.underlying_type == "VIRefnum"
+            and isinstance(const.value, str)
+        ):
+            return self.import_function(const.value)
+        names = self.type_namer()
+        if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
-        return _format_constant(const, importable)
+        return _format_constant(const, names)
 
     def import_types(self, lv_type: LVType | None, *, at_run_time: bool) -> None:
         """Import the class of every class or typedef ``lv_type`` names: for the
@@ -491,11 +511,11 @@ class CodeGenContext:
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
             type_ref = named.type_ref()
-            statement = (
+            imported = (
                 self.import_resolver.type_import(type_ref) if type_ref else None
             )
-            if statement is not None:
-                target.add(statement)
+            if imported is not None:
+                target.add(imported.statement)
 
     def add_module_global(self, name: str, value: ast.expr) -> None:
         """Register a module-level global variable, seeded to ``value``.
@@ -596,7 +616,7 @@ class CodeGenContext:
         cls,
         vi_context: VIContext,
         graph: InMemoryVIGraph | None = None,
-        import_resolver: Callable[[str], str] | None = None,
+        import_resolver: ImportResolver | None = None,
     ) -> CodeGenContext:
         """Create context from VIContext.
 
@@ -687,18 +707,6 @@ def _bind_inputs_and_constants(
             ctx.bind(const.id, bound)
             if _needs_simplenamespace(bound):
                 ctx.add_import(_SIMPLENAMESPACE_IMPORT)
-            # VIRefnum constants need an import for the callable.
-            if (
-                const.lv_type
-                and const.lv_type.underlying_type == "VIRefnum"
-                and isinstance(const.value, str)
-            ):
-                vi_name = const.value
-                if ctx.import_resolver:
-                    ctx.add_import(ctx.import_resolver(vi_name))
-                else:
-                    func = to_function_name(vi_name)
-                    ctx.add_import(f"from .{func} import {func}")
 
 
 def _python_float_constant(value: float) -> str:
@@ -824,45 +832,47 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
     return f"SimpleNamespace({kwargs})"
 
 
-def importable_types(
-    import_resolver: Callable[[str], str] | None,
-) -> TypeFilter | None:
-    """Whether a named class or typedef has a class a module generated with
-    ``import_resolver`` can import; ``None`` when it has no import paths."""
+def type_namer(
+    import_resolver: ImportResolver | None,
+) -> TypeNamer | None:
+    """The name a module generated with ``import_resolver`` spells a named class
+    or typedef as, or None for a type it cannot import; ``None`` when the module
+    has no import paths."""
     if not isinstance(import_resolver, ImportResolver):
         return None
     resolver = import_resolver
 
-    def importable(lv_type: LVType) -> bool:
+    def names(lv_type: LVType) -> str | None:
         type_ref = lv_type.type_ref()
-        return type_ref is not None and resolver.type_import(type_ref) is not None
+        imported = resolver.type_import(type_ref) if type_ref else None
+        return imported.name if imported is not None else None
 
-    return importable
+    return names
 
 
 def enum_member_constant(
-    const: Constant | ConstantNode, importable: TypeFilter | None = None
+    const: Constant | ConstantNode, names: TypeNamer | None = None
 ) -> str | None:
     """``Class.member`` for a constant that is an item of a named enum or ring
-    whose class is importable; None for any other constant."""
+    whose class is names; None for any other constant."""
     if not (const.lv_type and const.lv_type.values and const.value is not None):
         return None
     try:
-        return const.lv_type.enum_member_ref(int(const.value), importable)
+        return const.lv_type.enum_member_ref(int(const.value), names)
     except (ValueError, TypeError):
         return None
 
 
 def _format_constant(
-    const: Constant | ConstantNode, importable: TypeFilter | None = None
+    const: Constant | ConstantNode, names: TypeNamer | None = None
 ) -> str:
     """Format a constant value as a Python expression.
 
-    An item of a named enum is ``Class.member`` when ``importable`` says the
-    class can be imported (``CodeGenContext.constant_expression`` adds the
+    An item of a named enum is ``Class.member`` when ``names`` gives the
+    module's name for the class (``CodeGenContext.constant_expression`` adds the
     import); otherwise it is the item's value.
     """
-    member_ref = enum_member_constant(const, importable)
+    member_ref = enum_member_constant(const, names)
     if member_ref is not None:
         return member_ref
 
@@ -882,10 +892,6 @@ def _format_constant(
 
     value = const.value
     underlying = const.lv_type.underlying_type if const.lv_type else None
-
-    # VI Reference: value is the VI name — convert to Python function name.
-    if underlying == "VIRefnum" and isinstance(value, str):
-        return to_function_name(value)
 
     if value is None:
         return "None"

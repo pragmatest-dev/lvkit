@@ -26,6 +26,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..import_resolver import ImportResolver
 from ..unresolved import emit_soft_unresolved
 
 
@@ -72,7 +73,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
         return _generate_inline(node, ctx, vilib_vi)
 
-    func_name = to_function_name(subvi_name)
+    func_name = ctx.import_function(subvi_name)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
 
     # Gather input arguments with proper names
@@ -105,17 +106,9 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     # Build output bindings using vilib terminal names
     bindings = _build_output_bindings(node, result_var, vilib_vi, ctx)
 
-    # Build import - use resolver if available, otherwise default relative
-    if ctx.import_resolver:
-        import_stmt = ctx.import_resolver(subvi_name)
-    else:
-        import_stmt = f"from .{func_name} import {func_name}"
-    imports = {import_stmt}
-
     return CodeFragment(
         statements=[stmt],
         bindings=bindings,
-        imports=imports,
     )
 
 
@@ -472,14 +465,13 @@ def _resolve_enum_value(
             if lv_type.typedef_name:
                 package, class_name = derive_python_location(lv_type.typedef_name)
                 # Add import for this enum
-                if ctx.import_resolver:
-                    # Get import statement and replace func name with enum class
-                    import_stmt = ctx.import_resolver(subvi_name)
-                    # Replace the function import with enum class import
-                    import_stmt = (
-                        import_stmt.rsplit(" import ", 1)[0] + f" import {class_name}"
-                    )
-                    ctx.add_import(import_stmt)
+                if isinstance(ctx.import_resolver, ImportResolver):
+                    # The enum class sits in the module of the called VI
+                    module = ctx.import_resolver.function(subvi_name).statement
+                    if module:
+                        ctx.add_import(
+                            module.rsplit(" import ", 1)[0] + f" import {class_name}"
+                        )
                 else:
                     ctx.add_import(f"from {package} import {class_name}")
                 return f"{class_name}.{member_name}"
@@ -744,6 +736,7 @@ def _generate_static_fallback(
     node: VINode, ctx: CodeGenContext, func_name: str
 ) -> CodeFragment:
     """Fallback for dynIUse with no inputs — generate as static function call."""
+    func_name = ctx.import_function(node.name or func_name)
     result_var = f"{func_name}_result"
     call = ast.Call(
         func=ast.Name(id=func_name, ctx=ast.Load()),
@@ -762,16 +755,7 @@ def _generate_static_fallback(
             field = result_field_name(term.name or f"out_{term.index}")
             bindings[term.id] = f"{result_var}.{field}"
 
-    if ctx.import_resolver:
-        import_stmt = ctx.import_resolver(node.name or func_name)
-    else:
-        import_stmt = f"from .{func_name} import {func_name}"
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings=bindings,
-        imports={import_stmt},
-    )
+    return CodeFragment(statements=[stmt], bindings=bindings)
 
 
 def _is_class_terminal(term: Terminal) -> bool:

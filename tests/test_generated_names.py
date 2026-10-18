@@ -67,6 +67,24 @@ def _module_named(package: Path, suffix: str) -> Path:
     return module
 
 
+def _module_defining(package: Path, class_name: str) -> Path:
+    """The module that defines ``class_name``."""
+    (module,) = (
+        p for p in _modules(package) if f"\nclass {class_name}(" in p.read_text()
+    )
+    return module
+
+
+def _discovery_module(package: Path, stem: str) -> Path:
+    """The module of the Discovery V1 client VI named ``stem``."""
+    (module,) = (
+        p
+        for p in _modules(package)
+        if p.parent.name == "ni_discovery_v1_clientlvlib" and p.stem.startswith(stem)
+    )
+    return module
+
+
 def _undefined_names(source: str) -> set[str]:
     """Names the module reads that no assignment, import, def, class or parameter
     binds anywhere in it, and that are not builtins."""
@@ -146,19 +164,19 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
 
-    call = _module_named(package, "testcaseprivatecalltestmethod.py").read_text()
+    call = _module_named(package, "testcaselvclass_calltestmethod.py").read_text()
     guarded = next(n for n in ast.parse(call).body if isinstance(n, ast.If))
     imported = {a.name for n in guarded.body for a in n.names}
     assert {"TestCase", "MethodEnum"} <= imported
 
     modules = _import_all(package, monkeypatch)
-    enum = modules[_module_named(package, "testcaseprivatemethod__enumctl.py").name]
+    enum = modules[_module_named(package, "testcaselvclass_method__enumctl.py").name]
     assert [(m.name, m.value) for m in enum.MethodEnum] == [
         ("setUp", 0),
         ("testMethod", 1),
         ("tearDown", 2),
     ]
-    testcase = modules[_module_named(package, "testcasetestcaselvclass.py").name]
+    testcase = modules[_module_defining(package, "TestCase").name]
     root = importlib.import_module("lvkit.runtime.labview_object")
     assert issubclass(testcase.TestCase, root.LabVIEWObject)
 
@@ -166,7 +184,7 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
 def test_enum_constant_is_imported_at_run_time(tmp_path):
     package = _generate(TESTCASE_RUN, tmp_path)
     assert _all_undefined(package) == {}
-    run = ast.parse(_module_named(package, "testcaserun.py").read_text())
+    run = ast.parse(_module_named(package, "testcaselvclass_run.py").read_text())
     runtime = [
         a.name for n in run.body if isinstance(n, ast.ImportFrom) for a in n.names
     ]
@@ -216,7 +234,7 @@ def test_a_disable_structure_generates_its_enabled_subdiagram(tmp_path):
 
 def test_a_subvi_result_is_not_resolved_through_the_called_vi(tmp_path):
     package = _generate(RECREATE_CLIENT, tmp_path)
-    source = _module_named(package, "discovery_v1recreate_client.py").read_text()
+    source = _discovery_module(package, "recreate_client").read_text()
     assert "grpc_client_id_out = create_client_result.grpc_client_id" in source
     assert _all_undefined(package) == {}
 
@@ -226,7 +244,7 @@ def test_in_place_element_on_an_array_edits_the_array(tmp_path, monkeypatch):
     assert list(package.rglob("*.error.py")) == []
     assert _all_undefined(package) == {}
     modules = _import_all(package, monkeypatch)
-    registry = modules[_module_named(package, "tracingsupporttdm_registry.py").name]
+    registry = modules[_module_named(package, "tdm_registry.py").name]
 
     # Registering a notifier twice replaces its entry in place; the run ends in
     # the Type Cast of a refnum, which the runtime does not support.
@@ -243,8 +261,28 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     package = _generate(UNRESERVE_SESSIONS, tmp_path)
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
-    source = _module_named(package, "session_reservationunreserve_sessions.py")
+    source = _module_named(package, "unreserve_sessions.py")
     assert (
         "is_dvr_valid(dvr_valid_in=session_reservation_in"
         ".session_and_driver_infos[0].dvr_valid)"
     ) in source.read_text()
+
+
+WAVEGEN_LIB = SAMPLES / "lv-flex-channel-examples/WaveGen/WaveGen.lvlib"
+
+
+def test_module_names_come_from_the_vi_not_its_folder(tmp_path):
+    package = _generate(CALL_TEST_METHOD, tmp_path)
+    stems = {m.stem for m in _modules(package)}
+    assert "calltestmethod" in {s.rsplit("_", 1)[-1] for s in stems} or any(
+        s.endswith("calltestmethod") for s in stems
+    )
+    for stem in stems:
+        assert "home" not in stem and "lvkit" not in stem and "samples" not in stem
+
+
+def test_a_library_has_no_module_and_nothing_imports_one(tmp_path, monkeypatch):
+    package = _generate(WAVEGEN_LIB, tmp_path)
+    assert [m for m in _modules(package) if m.stem.endswith("lvlib")] == []
+    assert _unresolved_relative_imports(package) == []
+    _import_all(package, monkeypatch)

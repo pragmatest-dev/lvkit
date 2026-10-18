@@ -7,7 +7,7 @@ Two groups of types:
 
 The Frame hierarchy (CaseFrame/SequenceFrame/EventFrame) lives here because
 the parser constructs these instances directly, so they must live in a
-parser-importable module — not inside graph/. Frame metadata (selector
+parser-names module — not inside graph/. Frame metadata (selector
 values, ranges, …) is a pure projection out of the graph; a frame's actual
 contents are read from ``InMemoryVIGraph.child_nodes``/``top_level_nodes``,
 never stored on the Frame itself — graph/models.py's ``GraphNode``
@@ -120,8 +120,10 @@ _SHARED_VARIABLE_KIND_LABELS: dict[SharedVariableKind, str] = {
 }
 
 
-# Whether the class a named type is spelled as can be imported by the module.
-TypeFilter = Callable[["LVType"], bool]
+# The name a module spells a named type's class as -- its own, or an alias when
+# two classes of one module derive the same name -- or None when the module has
+# no class to import for the type.
+TypeNamer = Callable[["LVType"], str | None]
 
 
 @dataclass
@@ -189,23 +191,25 @@ class LVType:
         elif self.kind == LVTypeKind.ARRAY and self.element_type is not None:
             yield from self.element_type.named_types()
 
-    def to_python(self, importable: TypeFilter | None = None) -> str:
+    def to_python(self, names: TypeNamer | None = None) -> str:
         """Render as Python type annotation string.
 
-        ``importable`` says whether a named class or typedef has a class the
-        module can import. A named type that has none renders as its LabVIEW
-        representation: an ``int`` for an enum or ring, ``Any`` otherwise.
+        ``names`` gives the name the module spells a named class or typedef as,
+        or None when the module can import none. A named type that has none
+        renders as its LabVIEW representation: an ``int`` for an enum or ring,
+        ``Any`` otherwise.
         """
         class_name = self.python_class_name()
         if class_name is not None:
-            if importable is None or importable(self):
-                return class_name
+            local = class_name if names is None else names(self)
+            if local is not None:
+                return local
             return "int" if self.kind in (LVTypeKind.ENUM, LVTypeKind.RING) else "Any"
         if self.kind == LVTypeKind.PRIMITIVE:
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
             inner = (
-                self.element_type.to_python(importable) if self.element_type else "Any"
+                self.element_type.to_python(names) if self.element_type else "Any"
             )
             result = f"list[{inner}]"
             for _ in range((self.dimensions or 1) - 1):
@@ -221,17 +225,20 @@ class LVType:
         return "Any"
 
     def enum_member_ref(
-        self, ordinal: int, importable: TypeFilter | None = None
+        self, ordinal: int, names: TypeNamer | None = None
     ) -> str | None:
         """``Class.member`` for the item of this named enum or ring whose value
-        is ``ordinal``; None when the type has no importable class, no such item,
-        or an item that cannot be spelled as an attribute."""
+        is ``ordinal``, spelled with the module's name for the class; None when
+        the type has no importable class, no such item, or an item that cannot
+        be spelled as an attribute."""
         class_name = self.python_class_name()
         member = self.member_name(ordinal)
         if class_name is None or member is None or not is_enum_member_name(member):
             return None
-        if importable is not None and not importable(self):
-            return None
+        if names is not None:
+            class_name = names(self)
+            if class_name is None:
+                return None
         return f"{class_name}.{member}"
 
     def item_for(self, raw: ScalarValue) -> str | None:
@@ -539,9 +546,9 @@ class Terminal(BaseModel):
     # between them, only this shared DCO.
     dco_uid: str | None = None
 
-    def python_type(self, importable: TypeFilter | None = None) -> str:
+    def python_type(self, names: TypeNamer | None = None) -> str:
         """Python type string derived from lv_type (see ``LVType.to_python``)."""
-        return self.lv_type.to_python(importable) if self.lv_type else "Any"
+        return self.lv_type.to_python(names) if self.lv_type else "Any"
 
     def type_descriptor(self) -> str:
         """This terminal's exact type descriptor, or ``""`` when its type didn't

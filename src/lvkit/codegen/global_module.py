@@ -15,7 +15,6 @@ node on such a control generates nothing for the same reason.
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
 
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
@@ -30,7 +29,7 @@ from .context import (
     _SIMPLENAMESPACE_IMPORT,
     _format_constant,
     _needs_simplenamespace,
-    importable_types,
+    type_namer,
 )
 from .import_resolver import ImportResolver
 
@@ -57,7 +56,7 @@ def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
 
 
 def build_global_module(
-    vi_node: VINode, import_resolver: Callable[[str], str] | None = None
+    vi_node: VINode, import_resolver: ImportResolver | None = None
 ) -> str:
     """Module source for a Global VI: one annotated module-level name per
     front-panel control, in the VI's own control order, bound to the control's
@@ -65,7 +64,7 @@ def build_global_module(
     (``parameter_names`` over the same control list). A control of a class or
     typedef type is annotated with that class, imported under ``TYPE_CHECKING``."""
     controls = vi_node.terminals
-    importable = importable_types(import_resolver)
+    spell = type_namer(import_resolver)
     annotation_imports: set[str] = set()
     names = parameter_names(controls)
     body: list[ast.stmt] = [
@@ -85,13 +84,13 @@ def build_global_module(
         if isinstance(import_resolver, ImportResolver) and control.lv_type:
             for named in control.lv_type.named_types():
                 type_ref = named.type_ref()
-                statement = import_resolver.type_import(type_ref) if type_ref else None
-                if statement is not None:
-                    annotation_imports.add(statement)
+                imported = import_resolver.type_import(type_ref) if type_ref else None
+                if imported is not None:
+                    annotation_imports.add(imported.statement)
         assignments.append(
             ast.AnnAssign(
                 target=ast.Name(id=names[control.id], ctx=ast.Store()),
-                annotation=parse_expr(control.python_type(importable)),
+                annotation=parse_expr(control.python_type(spell)),
                 value=value,
                 simple=1,
             )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
@@ -11,6 +10,7 @@ from lvkit.structure import LVClass, LVMethod
 
 from ..ast_optimizer import optimize_module
 from ..ast_utils import build_type_checking_block, to_var_name
+from ..import_resolver import ImportResolver
 from ._shared import _EMPTY_VI_CONTEXT
 from .config import ClassConfig
 from .init_builder import _InitBuilderMixin
@@ -44,14 +44,14 @@ class ClassBuilder(
     ) -> None:
         self.config = config or ClassConfig()
         self._method_contexts: dict[str, VIContext] = {}
-        self._import_resolver: Callable[[str], str] | None = None
+        self._import_resolver: ImportResolver | None = None
 
     def build_class_module(
         self,
         lvclass: LVClass,
         method_contexts: dict[str, VIContext] | None = None,
         parent_class_name: str | None = None,
-        import_resolver: Callable[[str], str] | None = None,
+        import_resolver: ImportResolver | None = None,
         graph: InMemoryVIGraph | None = None,
     ) -> ast.Module:
         """Build complete module with class definition.

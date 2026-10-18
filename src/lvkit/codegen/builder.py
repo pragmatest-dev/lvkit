@@ -5,11 +5,10 @@ from __future__ import annotations
 import ast
 import warnings
 from collections import deque
-from collections.abc import Callable
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
-from lvkit.models import LVTypeKind, Terminal, TypeFilter
+from lvkit.models import LVTypeKind, Terminal, TypeNamer
 
 from .ast_optimizer import optimize_module
 from .ast_utils import (
@@ -35,13 +34,14 @@ from .error_handler import (
     needs_error_handling,
 )
 from .global_module import build_global_module
+from .import_resolver import ImportResolver
 from .nodes import generate as generate_node
 
 
 def build_module(
     vi_context: VIContext,
     vi_name: str,
-    import_resolver: Callable[[str], str] | None = None,
+    import_resolver: ImportResolver | None = None,
     has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
@@ -659,8 +659,8 @@ def build_module_ast(
     module_body.extend(build_imports(vi_context, ctx, use_error_handling))
 
     # Result class
-    importable = ctx.type_importable()
-    result_class = build_result_class(vi_context, importable)
+    spell = ctx.type_namer()
+    result_class = build_result_class(vi_context, spell)
     if result_class:
         module_body.append(result_class)
 
@@ -675,7 +675,7 @@ def build_module_ast(
         module_body.append(ctx.module_globals[name])
 
     # Function definition
-    func_def = build_function_def(vi_context, vi_name, body, importable)
+    func_def = build_function_def(vi_context, vi_name, body, spell)
     module_body.append(func_def)
 
     return ast.Module(body=module_body, type_ignores=[])
@@ -746,7 +746,7 @@ def has_result_fields(vi_context: VIContext) -> bool:
 
 
 def build_result_class(
-    vi_context: VIContext, importable: TypeFilter | None = None
+    vi_context: VIContext, spell: TypeNamer | None = None
 ) -> ast.ClassDef | None:
     """Build NamedTuple result class.
 
@@ -767,7 +767,7 @@ def build_result_class(
             continue
 
         name = field_names[out.id]
-        type_hint = out.python_type(importable)
+        type_hint = out.python_type(spell)
         fields.append((name, type_hint))
 
     if len({name for name, _ in fields}) != len(fields):
@@ -803,7 +803,7 @@ def build_function_def(
     vi_context: VIContext,
     vi_name: str,
     body: list[ast.stmt],
-    importable: TypeFilter | None = None,
+    spell: TypeNamer | None = None,
 ) -> ast.FunctionDef:
     """Build function definition."""
     # Name the function by the VI's DISPLAY name, not the raw vi_name (which in
@@ -815,7 +815,7 @@ def build_function_def(
 
     # Build arguments
     args = build_args(
-        vi_context.inputs, vi_context.off_pane_inputs, importable=importable
+        vi_context.inputs, vi_context.off_pane_inputs, spell=spell
     )
 
     # Build return annotation
@@ -841,7 +841,7 @@ def build_args(
     inputs: list[Terminal],
     off_pane_inputs: list[Terminal] | None = None,
     names: dict[str, str] | None = None,
-    importable: TypeFilter | None = None,
+    spell: TypeNamer | None = None,
 ) -> ast.arguments:
     """Build function arguments from inputs.
 
@@ -875,7 +875,7 @@ def build_args(
             continue
 
         # Arrays and anonymous clusters use a conservative None default.
-        type_hint = inp.python_type(importable)
+        type_hint = inp.python_type(spell)
         if _is_array_input(inp) or _is_anonymous_cluster(inp):
             type_hint = f"{type_hint} | None"
         args.append(
@@ -891,7 +891,7 @@ def build_args(
     for ctl in off_pane_inputs or []:
         if ctl.is_error_cluster:
             continue
-        type_hint = ctl.python_type(importable)
+        type_hint = ctl.python_type(spell)
         if _is_array_input(ctl) or _is_anonymous_cluster(ctl):
             type_hint = f"{type_hint} | None"
         kwonly_args.append(

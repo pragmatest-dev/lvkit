@@ -11,13 +11,15 @@ LabVIEW representation instead.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import CaseStructureNode, PrimitiveNode
+from lvkit.graph.models import CaseStructureNode, Constant, PrimitiveNode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import (
     ClusterField,
@@ -27,7 +29,7 @@ from lvkit.models import (
     Terminal,
     TunnelTerminal,
 )
-from lvkit.pipeline import create_import_resolver
+from lvkit.pipeline import create_import_resolver, module_stem, unique_module_stems
 from lvkit.type_names import ROOT_CLASS, derive_python_name, is_enum_member_name
 from tests.helpers import make_graph_with_edge
 
@@ -44,6 +46,10 @@ def _class_refnum(classname: str) -> LVType:
     return LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", classname=classname
     )
+
+
+def _unimportable(_lv_type: LVType) -> None:
+    return None
 
 
 class TestClassNames:
@@ -83,7 +89,7 @@ class TestUnloadedTypes:
         assert array.to_python() == "list[TestCase]"
 
     def test_a_type_without_an_importable_class_is_its_representation(self):
-        never = lambda _t: False  # noqa: E731
+        never = _unimportable
         assert _enum("M.ctl", a=0).to_python(never) == "int"
         assert _class_refnum("TestCase.lvclass").to_python(never) == "Any"
         array = LVType(
@@ -95,8 +101,8 @@ class TestUnloadedTypes:
 
     def test_an_enum_constant_of_an_unimportable_class_is_not_a_member_ref(self):
         lv_type = _enum("M.ctl", a=0)
-        assert lv_type.enum_member_ref(0, lambda _t: False) is None
-        assert lv_type.enum_member_ref(0, lambda _t: True) == "M.a"
+        assert lv_type.enum_member_ref(0, _unimportable) is None
+        assert lv_type.enum_member_ref(0, lambda _t: "M") == "M.a"
 
     def test_an_item_that_is_a_keyword_has_no_member_ref(self):
         assert _enum("M.ctl", **{"None": 0}).enum_member_ref(0) is None
@@ -119,25 +125,34 @@ class TestImportDepth:
 
     def test_root_module_imports_into_a_library_folder(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "root_vi.py")
-        assert resolver("A.lvlib:Dep.vi") == "from .lib_a.dep_vi import dep"
+        assert (
+            resolver.function("A.lvlib:Dep.vi").statement
+            == "from .lib_a.dep_vi import dep"
+        )
 
     def test_library_module_imports_from_the_root(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "lib_a/dep_vi.py")
-        assert resolver("Root.vi") == "from ..root_vi import root"
+        assert resolver.function("Root.vi").statement == "from ..root_vi import root"
 
     def test_library_module_imports_into_another_library(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "lib_a/dep_vi.py")
-        assert resolver("B.lvlib:Dep2.vi") == "from ..lib_b.dep2_vi import dep2"
+        assert (
+            resolver.function("B.lvlib:Dep2.vi").statement
+            == "from ..lib_b.dep2_vi import dep2"
+        )
 
     def test_nested_module_imports_a_module_of_its_parent_folder(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "lib_a/inner/deep_vi.py")
-        assert resolver("A.lvlib:Dep.vi") == "from ...lib_a.dep_vi import dep"
+        assert (
+            resolver.function("A.lvlib:Dep.vi").statement
+            == "from ...lib_a.dep_vi import dep"
+        )
 
     def test_nested_module_reaches_the_root_with_one_dot_per_level(
         self, tmp_path: Path
     ):
         resolver = self._resolver(tmp_path, "lib_a/inner/deep_vi.py")
-        assert resolver("Root.vi") == "from ...root_vi import root"
+        assert resolver.function("Root.vi").statement == "from ...root_vi import root"
 
     def test_a_whole_module_import_has_the_same_depth(self, tmp_path: Path):
         in_library = self._resolver(tmp_path, "lib_a/dep_vi.py")
@@ -151,9 +166,12 @@ class TestImportDepth:
 
     def test_the_root_class_is_a_runtime_module(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "root_vi.py")
-        assert resolver.type_import(ROOT_CLASS) == (
+        root = resolver.type_import(ROOT_CLASS)
+        assert root is not None
+        assert root.statement == (
             "from lvkit.runtime.labview_object import LabVIEWObject"
         )
+        assert root.name == "LabVIEWObject"
 
     def test_a_type_with_no_graph_is_not_importable(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "root_vi.py")
@@ -263,3 +281,182 @@ class TestTypeReferenceResolution:
     def test_a_name_no_dependency_carries_is_not_a_type(self):
         graph = self._graph()
         assert graph.type_key("Other.lvclass", "/p/caller.vi") is None
+
+
+class TestSameDerivedName:
+    """Two typedefs of different owners that derive the same class name are two
+    classes: one module needing both spells each by its own alias."""
+
+    OWNERS = ("TestCase.lvclass", "TestSuite.lvclass")
+
+    @classmethod
+    def _enum(cls, owner: str) -> LVType:
+        return _enum(f"{owner}:Method--enum.ctl", setUp=0, tearDown=1)
+
+    @classmethod
+    def _module(cls, tmp_path: Path) -> tuple[str, CodeGenContext]:
+        graph = InMemoryVIGraph()
+        deps = graph._dep_graph
+        deps.add_node("/p/caller.vi")
+        paths: dict[str, Path] = {}
+        out = tmp_path / "pkg"
+        for owner in cls.OWNERS:
+            key = f"/p/{owner}/Method--enum.ctl"
+            deps.add_node(
+                key,
+                node_type=NodeType.TYPEDEF,
+                qname=f"{owner}:Method--enum.ctl",
+                name="Method--enum.ctl",
+            )
+            deps.add_edge("/p/caller.vi", key)
+            paths[key] = out / owner.split(".")[0].lower() / "method_enum.py"
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            out / "caller.py",
+            caller_key="/p/caller.vi",
+            graph=graph,
+        )
+        ctx = CodeGenContext(graph=graph, import_resolver=resolver)
+        first, second = (cls._enum(owner) for owner in cls.OWNERS)
+        for lv_type in (first, second):
+            ctx.import_types(lv_type, at_run_time=False)
+        namer = ctx.type_namer()
+        constant = Constant(id="c", value="1", lv_type=second)
+        member = ctx.constant_expression(constant)
+        lines = [
+            "from __future__ import annotations",
+            *sorted(ctx.imports),
+            "from typing import TYPE_CHECKING",
+            "if TYPE_CHECKING:",
+            *(f"    {s}" for s in sorted(ctx.annotation_imports)),
+            f"def f(a: {first.to_python(namer)}, b: {second.to_python(namer)}):",
+            f"    return {member}",
+        ]
+        return "\n".join(lines) + "\n", ctx
+
+    def test_each_type_is_imported_and_spelled_by_its_own_alias(self, tmp_path):
+        source, ctx = self._module(tmp_path)
+        assert ctx.annotation_imports == {
+            "from .testcase.method_enum import MethodEnum",
+            "from .testsuite.method_enum import MethodEnum as MethodEnum_2",
+        }
+        assert "def f(a: MethodEnum, b: MethodEnum_2)" in source
+        assert "return MethodEnum_2.tearDown" in source
+        assert ctx.imports == {
+            "from .testsuite.method_enum import MethodEnum as MethodEnum_2"
+        }
+
+    def test_the_module_has_no_undefined_or_redefined_name(self, tmp_path):
+        source, _ctx = self._module(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "check",
+                "--select",
+                "F821,F811",
+                "--no-fix",
+                "--stdin-filename",
+                "generated.py",
+                "-",
+            ],
+            input=source,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout
+
+
+class TestModuleNames:
+    """A module is named from its VI's own name, qualified by its class or
+    library, never from where its file sits."""
+
+    @staticmethod
+    def _graph() -> InMemoryVIGraph:
+        graph = InMemoryVIGraph()
+        for key, display in (
+            ("/home/me/lvkit/corpus/a/run.vi", "TestCase.lvclass:run.vi"),
+            ("/home/me/lvkit/corpus/b/Init.vi", "Init.vi"),
+            ("/home/me/lvkit/corpus/c/Init.vi", "Init.vi"),
+        ):
+            graph._vi_nodes[key] = set()
+            graph._vi_display_names[key] = display
+        return graph
+
+    def test_stem_is_the_qualified_vi_name(self):
+        graph = self._graph()
+        assert module_stem("/home/me/lvkit/corpus/a/run.vi", graph) == (
+            "testcaselvclass_run"
+        )
+        assert module_stem("/home/me/lvkit/corpus/b/Init.vi", graph) == "init"
+
+    def test_vis_of_one_name_get_distinct_modules(self):
+        graph = self._graph()
+        keys = list(graph._vi_display_names)
+        stems = unique_module_stems(keys, graph)
+        assert sorted(stems.values()) == ["init", "init_2", "testcaselvclass_run"]
+
+
+class TestSameFunctionName:
+    """A subVI whose function has the name of the module's own function, or of
+    another import, is imported under an alias."""
+
+    def test_the_import_of_a_namesake_does_not_shadow_the_modules_function(
+        self, tmp_path: Path
+    ):
+        out = tmp_path / "pkg"
+        paths = {
+            "A.lvlib:Create Client.vi": out / "lib_a" / "create_client.py",
+            "B.lvlib:Create Client.vi": out / "lib_b" / "create_client.py",
+            "C.lvlib:Create Client.vi": out / "lib_c" / "create_client.py",
+        }
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            out / "lib_a" / "create_client.py",
+            caller_key="A.lvlib:Create Client.vi",
+        )
+        own = resolver.function("A.lvlib:Create Client.vi")
+        other = resolver.function("B.lvlib:Create Client.vi")
+        third = resolver.function("C.lvlib:Create Client.vi")
+        again = resolver.function("B.lvlib:Create Client.vi")
+        assert (own.statement, own.name) == ("", "create_client")
+        assert other.name == "create_client_2"
+        assert other.statement == (
+            "from ..lib_b.create_client import create_client as create_client_2"
+        )
+        assert third.name == "create_client_3"
+        assert again == other
+
+        source = "\n".join(
+            [
+                other.statement,
+                third.statement,
+                "def create_client():",
+                f"    return {other.name}() + {third.name}()",
+            ]
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "check",
+                "--select",
+                "F821,F811",
+                "--no-fix",
+                "--stdin-filename",
+                "generated.py",
+                "-",
+            ],
+            input=source,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout

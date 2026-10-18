@@ -17,12 +17,15 @@ import ast
 from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.models import ClusterField, LVType, LVTypeKind, TypeFilter
+from lvkit.models import ClusterField, LVType, LVTypeKind, TypeNamer
 from lvkit.type_names import ROOT_CLASS, derive_python_name, is_enum_member_name
 
 from .ast_utils import build_type_checking_block, parse_expr, to_var_name
-from .context import importable_types
+from .context import type_namer
 from .import_resolver import ImportResolver
+
+# What the Python spelling of a field type or an alias can name.
+_TYPING_IMPORTS = {"from pathlib import Path", "from typing import Any"}
 
 
 def build_type_module(
@@ -42,9 +45,7 @@ def build_type_module(
             module="__future__", names=[ast.alias(name="annotations")], level=0
         )
     ]
-    for statement in sorted(
-        {*runtime_imports, "from pathlib import Path", "from typing import Any"}
-    ):
+    for statement in sorted(runtime_imports):
         body.extend(ast.parse(statement).body)
     body.extend(build_type_checking_block(annotation_imports))
     body.extend(definition)
@@ -63,14 +64,14 @@ def _annotation_imports(
             continue
         for named in lv_type.named_types():
             type_ref = named.type_ref()
-            statement = import_resolver.type_import(type_ref) if type_ref else None
-            if statement is not None:
-                imports.add(statement)
+            imported = import_resolver.type_import(type_ref) if type_ref else None
+            if imported is not None:
+                imports.add(imported.statement)
     return imports
 
 
 def _field_annotations(
-    fields: list[ClusterField], importable: TypeFilter | None
+    fields: list[ClusterField], spell: TypeNamer | None
 ) -> list[ast.stmt]:
     """One annotated attribute per field, named as ``Unbundle By Name`` reads it."""
     annotations: list[ast.stmt] = []
@@ -81,7 +82,7 @@ def _field_annotations(
             continue
         taken.add(name)
         annotation = (
-            field.type.to_python(importable) if field.type is not None else "Any"
+            field.type.to_python(spell) if field.type is not None else "Any"
         )
         annotations.append(
             ast.AnnAssign(
@@ -99,13 +100,12 @@ def _class_definition(
     name = derive_python_name(Path(key).name)
     parent_key = graph.class_parent_key(key)
     if parent_key is not None:
-        parent_import = import_resolver.node_import(parent_key)
-        parent_class = derive_python_name(Path(parent_key).name)
+        parent = import_resolver.node_import(parent_key)
     elif graph.class_parent_name(key) is None:
-        parent_import = import_resolver.type_import(ROOT_CLASS)
-        parent_class = derive_python_name(ROOT_CLASS)
-        if parent_import is None:
+        root = import_resolver.type_import(ROOT_CLASS)
+        if root is None:
             raise ValueError(f"Cannot import the root class for {key}")
+        parent = root
     else:
         raise ValueError(
             f"Parent class {graph.class_parent_name(key)} of {key} is not loaded"
@@ -113,17 +113,17 @@ def _class_definition(
     fields = graph.class_own_fields(key)
     body: list[ast.stmt] = [
         ast.Expr(value=ast.Constant(value=f"LabVIEW class {Path(key).name}.")),
-        *_field_annotations(fields, importable_types(import_resolver)),
+        *_field_annotations(fields, type_namer(import_resolver)),
     ]
     definition = ast.ClassDef(
         name=name,
-        bases=[ast.Name(id=parent_class, ctx=ast.Load())],
+        bases=[ast.Name(id=parent.name, ctx=ast.Load())],
         keywords=[],
         body=body,
         decorator_list=[],
     )
     return (
-        {parent_import},
+        {parent.statement, *_TYPING_IMPORTS},
         _annotation_imports([f.type for f in fields], import_resolver),
         [definition],
     )
@@ -144,7 +144,7 @@ def _typedef_definition(
     if root.kind == LVTypeKind.CLUSTER and root.fields:
         body: list[ast.stmt] = [
             ast.Expr(value=ast.Constant(value=f"LabVIEW typedef {info.name}.")),
-            *_field_annotations(root.fields, importable_types(import_resolver)),
+            *_field_annotations(root.fields, type_namer(import_resolver)),
         ]
         definition = ast.ClassDef(
             name=name,
@@ -154,15 +154,16 @@ def _typedef_definition(
             decorator_list=[],
         )
         return (
-            {"from types import SimpleNamespace"},
+            {"from types import SimpleNamespace", *_TYPING_IMPORTS},
             _annotation_imports([f.type for f in root.fields], import_resolver),
             [definition],
         )
     alias = ast.Assign(
         targets=[ast.Name(id=name, ctx=ast.Store())],
-        value=parse_expr(root.to_python(importable_types(import_resolver))),
+        value=parse_expr(root.to_python(type_namer(import_resolver))),
     )
-    return _annotation_imports([root], import_resolver), set(), [alias]
+    runtime = _annotation_imports([root], import_resolver) | _TYPING_IMPORTS
+    return runtime, set(), [alias]
 
 
 def _enum_definition(name: str, label: str, root: LVType) -> ast.ClassDef:

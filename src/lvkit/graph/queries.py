@@ -50,7 +50,7 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
-from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType
+from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -402,6 +402,11 @@ class QueryMixin:
         ):
             return None
         return key
+
+    def node_type(self, key: str) -> NodeType:
+        """What the dependency node at ``key`` is: a VI, class, library or
+        typedef."""
+        return node_type_of(self._dep_graph.nodes[key])
 
     def is_class(self, key: str) -> bool:
         """True when ``key`` is a class node, loaded or a stub."""
