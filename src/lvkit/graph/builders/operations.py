@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from lvkit.models import Terminal
+from lvkit.parser.link_table import SharedVariableRecordFailure
 from lvkit.parser.node_types import (
     CpdArithNode,
     EventRegNode,
@@ -92,6 +93,22 @@ class FormulaBuildHandler(NodeBuildHandler):
         )
 
 
+def _unreadable_reason(
+    failures: list[SharedVariableRecordFailure], uid: int
+) -> str | None:
+    """Why a Shared Variable node with no decoded record has no library: the
+    reason of the failed record that lists its uid, else of the first failed
+    record that failed before listing any uid (it may have been the node's);
+    ``None`` when no record failed that could be the node's."""
+    for failure in failures:
+        if failure.node_uids is not None and uid in failure.node_uids:
+            return failure.reason
+    for failure in failures:
+        if failure.node_uids is None:
+            return failure.reason
+    return None
+
+
 class SharedVariableBuildHandler(NodeBuildHandler):
     """A Shared Variable node: each terminal is placed at its ``terminal_ID`` and
     named when the ID is a known one (``SharedVariableTerminal``); a terminal
@@ -126,8 +143,14 @@ class SharedVariableBuildHandler(NodeBuildHandler):
                 qualified_name=link.library_qualified_name,
                 kind=link.kind,
                 persistent_id=link.persistent_id,
+                network_path=link.network_path,
             )
             if link is not None
+            else None
+        )
+        unreadable = (
+            _unreadable_reason(ctx.shared_variable_failures, int(node.uid))
+            if link is None
             else None
         )
         return SharedVariableNode(
@@ -141,6 +164,7 @@ class SharedVariableBuildHandler(NodeBuildHandler):
             description=description,
             variable_name=node.variable_name,
             library=library,
+            library_unreadable=unreadable,
             is_write=node.access is SharedVariableAccess.WRITE,
         )
 

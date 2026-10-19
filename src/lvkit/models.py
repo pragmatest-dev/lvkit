@@ -116,7 +116,7 @@ class SharedVariableKind(str, Enum):
 
 _SHARED_VARIABLE_KIND_LABELS: dict[SharedVariableKind, str] = {
     SharedVariableKind.SINGLE_PROCESS: "Single Process",
-    SharedVariableKind.NETWORK: "Network",
+    SharedVariableKind.NETWORK: "Network-Published",
 }
 
 

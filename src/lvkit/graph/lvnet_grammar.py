@@ -63,6 +63,11 @@ _LVNET_DEP_PATH_SEP = "; "
 _LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
 _LVNET_RING_OPEN = "Ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"
+# A ``shared-variable`` header's trailing attribute (§7): ``(network-published
+# "<path>")`` for a variable published to the network, ``(library unreadable
+# "<reason>")`` for a node whose library link could not be read.
+_LVNET_NETWORK_PUBLISHED = "network-published"
+_LVNET_LIBRARY_UNREADABLE = "library unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 # The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
 # ``caption hidden "<text>"`` when the caption is set but not shown.

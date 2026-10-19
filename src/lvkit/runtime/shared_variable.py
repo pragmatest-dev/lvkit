@@ -1,9 +1,14 @@
-"""Single-process Shared Variables for generated code.
+"""Shared Variables for generated code.
 
-A single-process Shared Variable holds one value shared by everything in the
-application that reads or writes it, as a global variable does. It belongs to a
-project library, so it is named by the library and the variable. Every generated
-module that uses the same pair reaches the same value.
+A Shared Variable holds one value shared by everything in the application that
+reads or writes it, as a global variable does. It belongs to a project library, so
+it is named by the library and the variable. Every generated module that uses the
+same pair reaches the same value.
+
+A network-published variable is generated the same way as a single-process one.
+Publishing it to other processes or other machines is not reproduced: the value
+is shared exactly as a single-process variable's is, among the modules of one
+Python program.
 
 The timestamp is the time of the last write, in seconds since the Unix epoch (the
 form ``Get Date/Time In Seconds`` generates); a variable nothing has written yet

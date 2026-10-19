@@ -470,13 +470,15 @@ class SharedVariableLibrary(BaseModel):
     """The project library a Shared Variable belongs to, as the calling VI's
     block-diagram link table records it: the library's qualified name, how the
     variable is published, and its persistent ID (the one the ``.lvproj`` records
-    as ``varPersistentID``)."""
+    as ``varPersistentID``). ``network_path`` is the path a network-published
+    variable is published at; ``None`` for a single-process one."""
 
     model_config = {"frozen": True}
 
     qualified_name: str
     kind: SharedVariableKind
     persistent_id: str
+    network_path: str | None = None
 
 
 class SharedVariableNode(GraphNode):
@@ -486,7 +488,10 @@ class SharedVariableNode(GraphNode):
     ``variable_name`` is the variable's name. ``library`` is the library it
     belongs to, found by the node's uid in the calling VI's link table; ``None``
     when that table holds no record for the node that is read here, so the library
-    is unknown. The calling VI depends on the library, so it is loaded and listed
+    is unknown. ``library_unreadable`` is why, when the table's record for the
+    node (or, if the record failed before it listed its nodes, a record that could
+    be the node's) could not be decoded; ``None`` otherwise. The calling VI depends
+    on the library, so it is loaded and listed
     like a subVI. ``is_write``: the value terminal (``Variable``) is an input on a
     write node, an output on a read node. The other terminals are the error
     cluster in and out.
@@ -495,6 +500,7 @@ class SharedVariableNode(GraphNode):
     kind: Literal["shared_variable"] = "shared_variable"
     variable_name: str
     library: SharedVariableLibrary | None = None
+    library_unreadable: str | None = None
     is_write: bool = False
 
 

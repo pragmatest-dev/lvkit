@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).
+- **Network-published Shared Variables in generated Python** — they run like single-process ones (a value shared by every module, with the timestamp of the last write), and describe, lvnet, JSON, diff and the index show the variable's kind and network path (#149).
 
 ## [0.8.9] - 2026-10-17
 - **Global variables are their own node** — a global variable was read as a local variable of the calling VI; it now names its Global VI and control (from the VI's link table), shows in describe, lvnet (`global-variable … : read Data.vi::Debug`), render, diff and the index, and generated Python reads and writes the Global VI's module-level value (#141).

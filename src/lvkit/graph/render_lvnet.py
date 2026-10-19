@@ -49,7 +49,9 @@ from .lvnet_grammar import (
     _LVNET_INDENT,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_LIBRARY_UNREADABLE,
     _LVNET_NAME_CAP,
+    _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
@@ -983,6 +985,7 @@ def _lvnet_component(instance: NetlistInstance) -> str:
         return (
             f"{lvnet_shared_variable_target(instance.library, instance.name)}"
             f"{_LVNET_TYPE_SEP}{instance.access or '?'}"
+            f"{lvnet_shared_variable_attribute(instance)}"
         )
     return instance.name
 
@@ -1096,6 +1099,24 @@ def lvnet_shared_variable_target(library: str | None, variable: str) -> str:
         f"{_lvnet_global_part_token(library, may_hold_separator=True)}"
         f"{_LVNET_TERMINAL_SEP}{variable_token}"
     )
+
+
+def lvnet_shared_variable_attribute(instance: NetlistInstance) -> str:
+    """The trailing attribute of a ``shared-variable`` header: `` (network-published
+    "<path>")`` for a variable published to the network, `` (library unreadable
+    "<reason>")`` for a node whose library link could not be read, and the empty
+    string otherwise (a single-process variable carries none)."""
+    if instance.network_path is not None:
+        return (
+            f" ({_LVNET_NETWORK_PUBLISHED} "
+            f"{lvnet_literal_token(instance.network_path)})"
+        )
+    if instance.library_unreadable is not None:
+        return (
+            f" ({_LVNET_LIBRARY_UNREADABLE} "
+            f"{lvnet_literal_token(instance.library_unreadable)})"
+        )
+    return ""
 
 
 def _render_lvnet_global_variable(

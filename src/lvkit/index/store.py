@@ -176,6 +176,8 @@ CREATE TABLE IF NOT EXISTS nodes (
     callee_path TEXT,
     object_name TEXT,
     method_name TEXT,
+    network_path TEXT,
+    library_unreadable TEXT,
     parent_uid TEXT,
     frame TEXT
 );
@@ -741,7 +743,8 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
     conn.executemany(
         "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
         "qualified_name, callee_path, object_name, method_name, "
-        "parent_uid, frame) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "network_path, library_unreadable, parent_uid, frame) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             (
                 f.path,
@@ -754,6 +757,8 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
                 n.callee_path,
                 n.object_name,
                 n.method_name,
+                n.network_path,
+                n.library_unreadable,
                 n.parent_uid,
                 n.frame,
             )
@@ -1025,7 +1030,8 @@ def load(project_root: Path) -> list[VIFacts]:
         nodes_by_vi: dict[str, list[NodeFact]] = {}
         for row in conn.execute(
             "SELECT vi_path, uid, kind, name, prim_id, qualified_name, "
-            "callee_path, object_name, method_name, parent_uid, frame "
+            "callee_path, object_name, method_name, network_path, "
+            "library_unreadable, parent_uid, frame "
             "FROM nodes ORDER BY vi_path, ord"
         ):
             (
@@ -1038,6 +1044,8 @@ def load(project_root: Path) -> list[VIFacts]:
                 callee_path,
                 object_name,
                 method_name,
+                network_path,
+                library_unreadable,
                 parent_uid,
                 frame,
             ) = row
@@ -1051,6 +1059,8 @@ def load(project_root: Path) -> list[VIFacts]:
                     callee_path=callee_path,
                     object_name=object_name,
                     method_name=method_name,
+                    network_path=network_path,
+                    library_unreadable=library_unreadable,
                     parent_uid=parent_uid,
                     frame=frame,
                 )

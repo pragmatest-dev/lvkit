@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lvkit.models import LVType, Terminal
-from lvkit.parser.link_table import SharedVariableLink
+from lvkit.parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from lvkit.parser.models import ParsedBlockDiagram, ParsedDependencyRef
 
 
@@ -34,6 +34,8 @@ class GraphBuildContext:
     iuse_refs: dict[str, ParsedDependencyRef]
     # uid of every Shared Variable node -> the link-table record of its variable
     shared_variable_links: dict[str, SharedVariableLink]
+    # the ``HpVL`` records of the link table that could not be decoded
+    shared_variable_failures: list[SharedVariableRecordFailure]
     type_map: dict[int, LVType]  # this VI's TypeID -> LVType table
     # For the early ref handlers (ctlRefConst / gRef / statVIRef):
     fp: Any  # ParsedFrontPanel | None

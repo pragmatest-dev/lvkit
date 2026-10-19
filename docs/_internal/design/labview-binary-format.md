@@ -237,19 +237,40 @@ parts -- the library's name parts then the variable's name -- an empty path, lin
 flag, type id, link reference); then the item type (`NI_Variable_Variable`), the
 target (`My Computer`), the variable's persistent ID (a braced GUID, the same one
 the `.lvproj` records as `varPersistentID:{...}`), the node uid list, a second GUID
-(role not established), 9 bytes of unknown role, and the variable type string.
-That string is `Global` for a **single-process** variable (LabVIEW's recorded
-name for it) and `Network` for a network-published one. Exact layout:
-`parser/link_table.py` module docstring.
+(role not established), the 4 bytes `00 02 00 03` (role not established), then
+a layout that depends on the **byte right after those 4**: `01` (a
+single-process variable) is its own flag byte, followed by a u32 (seen as 1);
+`00` (a network-published variable) is the high byte of the **network path's**
+u32 length -- a string of fewer than 16 MB always starts with `00` -- so the path
+(`\\.\SV Sample\Value`; `\\.\` is the local machine) is read from that byte
+on, followed by four u32 (seen as `ffffffff 1 2 1`, roles not established).
+Both end with the variable type string: `Global` for a **single-process**
+variable (LabVIEW's recorded name for it) and `Network` for a network-published
+one. Any other byte is an unseen layout, and a type that disagrees with the
+layout is an inconsistent record; the decoder reports either as a
+`SharedVariableRecordFailure` (offset, reason, the node uids if the failure came
+after the uid list) instead of raising, so the VI still loads and the affected
+nodes say their library link is unreadable. Exact layout: `parser/link_table.py`
+module docstring.
 
 Evidence: `tests/corpus/issues/149/SV Sample.vi` (LabVIEW 25.0, reporter
 metman-oss): one `HpVL` record, library `SV Sample.lvlib`, variable `Value`, type
 `Global`, uids 1033, 1112, 977 -- the three `sharedVariable` nodes of the VI.
 Terminal `terminal_ID` 3 exists only on the node set to show the timestamp, as an
 output of the timestamp type. The persistent ID equals the project's
-`varPersistentID`. The reporter says a network-published variable is recorded in an `HpVr` record
-instead (a three-part name, type `Network`); no such VI has been read, so that
-record is not decoded here and the scan never looks at it.
+`varPersistentID`. `tests/corpus/issues/149/network/SV Sample.vi` is the same project with `Value`
+switched to Network-Published (no buffering, no binding): its `HpVL` record has
+the same head, uids 1112, 977, 1033, the network path `\\.\SV Sample\Value`,
+and type `Network`. The reporter also saw an `HpVr` record (a three-part name:
+`My Computer`, `SV Sample.lvlib`, `Value`; type `Network`; a network path with the
+machine's address, `\\<host>\SV Sample\Value`) for nodes placed after the variable
+was already network-published. It is decoded by the same code as `HpVL`; the one
+difference is that its first name part is the record's own `target` field, which is
+dropped before the library and variable are split (a first part that is not the
+target is a `SharedVariableRecordFailure`). **This layout comes from the reporter's
+description plus the structure shared with `HpVL`; it has not been checked against a
+real `HpVr` file yet.** The link keeps which ident it came from
+(`SharedVariableLink.record`); nothing user-facing shows it.
 
 ## "Compound Arithmetic (cpdArith) operation is in objFlags bits 16-18, NOT dcoFiller — corpus-verified decode that fixed"
 <!-- was memory: reference_cpdarith_objflags -->

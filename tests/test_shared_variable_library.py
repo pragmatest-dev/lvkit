@@ -4,6 +4,8 @@
 sequence -- write 1.5, read, read with the timestamp -- on the single-process
 variable ``Value`` of ``SV Sample.lvlib``. The VI's block-diagram link table
 records the library in an ``HpVL`` record that lists the three nodes' uids.
+``tests/corpus/issues/149/network/SV Sample.vi`` is the same project with ``Value``
+published to the network; its record differs after the second GUID.
 """
 
 from __future__ import annotations
@@ -20,28 +22,42 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.lvnet_parse import (
     LvnetParseError,
+    SharedVariableComponent,
     netlist_signature,
     parse_lvnet,
     split_shared_variable_component,
 )
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import SharedVariableLibrary, SharedVariableNode
-from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
 from lvkit.graph.netlist_json import netlist_to_dict
-from lvkit.graph.render_lvnet import lvnet_shared_variable_target
+from lvkit.graph.render_lvnet import lvnet_literal_token, lvnet_shared_variable_target
 from lvkit.index.build import project_vi_facts
 from lvkit.index.model import NodeKind
 from lvkit.load_mode import LoadMode
 from lvkit.models import SharedVariableKind
 from lvkit.parser import parse_vi
+from lvkit.parser import vi as vi_parser
+from lvkit.parser.link_table import (
+    LinkTableVersion,
+    SharedVariableRecordFailure,
+    SharedVariableTable,
+    decode_shared_variable_links,
+)
 from lvkit.parser.node_types import SharedVariableTerminal
 from lvkit.runtime import shared_variable
 
+from .test_link_table import build_hpvl_record
 from .test_lvnet_identity import _assert_graph_identity
 from .test_lvnet_roundtrip import _first_mismatch
 
 SV_SAMPLE = Path(__file__).parent / "corpus" / "issues" / "149" / "SV Sample.vi"
+SV_NETWORK_SAMPLE = SV_SAMPLE.parent / "network" / "SV Sample.vi"
 PERSISTENT_ID = "{F7E00465-D283-4032-9E36-1D82BDC3CC46}"
+NETWORK_PATH = r"\\.\SV Sample\Value"
+BOTH_FIXTURES = pytest.mark.parametrize(
+    "vi", [SV_SAMPLE, SV_NETWORK_SAMPLE], ids=["single-process", "network"]
+)
 
 
 def _load(vi: Path = SV_SAMPLE) -> tuple[InMemoryVIGraph, str]:
@@ -108,8 +124,9 @@ def test_describe_lists_the_library_and_each_access() -> None:
     graph, vi = _load()
     text = describe_vi(graph, vi)
     assert "## Dependencies\n  SV Sample.lvlib (Shared Variable library)" in text
-    assert "Shared Variable `Value` (SV Sample.lvlib) write" in text
-    assert text.count("Shared Variable `Value` (SV Sample.lvlib) read") == 2
+    published = "SV Sample.lvlib, Single Process"
+    assert f"Shared Variable `Value` ({published}) write" in text
+    assert text.count(f"Shared Variable `Value` ({published}) read") == 2
 
 
 def test_library_is_listed_without_its_file(tmp_path: Path) -> None:
@@ -131,15 +148,20 @@ def test_lvnet_names_the_library_and_lists_it_under_uses() -> None:
     assert "out  timestamp           : MeasureData" in text
 
 
-def test_lvnet_round_trips_strictly() -> None:
-    graph, vi = _load()
-    module = build_netlist_from_graph(graph, vi)
-    text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
+def _assert_strict_round_trip(text: str, module: NetlistModule) -> None:
     parsed = parse_lvnet(text)
     assert _first_mismatch(netlist_signature(module), netlist_signature(parsed)) is None
     rebuilt = reconstruct_module(parsed)
     _assert_graph_identity(module, rebuilt, "SV Sample.vi")
     assert render_lvnet(rebuilt, display_name="SV Sample.vi", verbose=True) == text
+
+
+@BOTH_FIXTURES
+def test_lvnet_round_trips_strictly(vi: Path) -> None:
+    graph, vi_name = _load(vi)
+    module = build_netlist_from_graph(graph, vi_name)
+    text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
+    _assert_strict_round_trip(text, module)
 
 
 def test_json_names_the_library() -> None:
@@ -187,11 +209,9 @@ def test_lvnet_target_names_read_back_exactly(
 ) -> None:
     target = lvnet_shared_variable_target(library, variable)
     for access in ("read", "write"):
-        assert split_shared_variable_component(f"{target} : {access}") == (
-            library,
-            variable,
-            access,
-        )
+        assert split_shared_variable_component(
+            f"{target} : {access}"
+        ) == SharedVariableComponent(library, variable, access)
 
 
 def test_lvnet_target_without_access_is_an_error() -> None:
@@ -228,12 +248,258 @@ def test_a_variable_nothing_wrote_reads_its_type_default(
     assert shared_variable.read("Unwritten.lvlib", "X", 0.0) == 2.0
 
 
-def test_a_network_published_variable_has_no_python_equivalent() -> None:
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        "",
+        f" (network-published {lvnet_literal_token(NETWORK_PATH)})",
+        ' (library unreadable "HpVL record at offset 12: a : b \\"q\\"")',
+    ],
+)
+def test_lvnet_attribute_reads_back_exactly(attribute: str) -> None:
+    component = f"Lib.lvlib::Value : write{attribute}"
+    parsed = split_shared_variable_component(component)
+    assert (parsed.library, parsed.variable, parsed.access) == (
+        "Lib.lvlib",
+        "Value",
+        "write",
+    )
+    assert (parsed.network_path is not None) == ("network-published" in attribute)
+    assert (parsed.library_unreadable is not None) == ("unreadable" in attribute)
+
+
+def test_lvnet_attribute_after_a_quoted_name_with_a_separator() -> None:
+    parsed = split_shared_variable_component(
+        'Lib.lvlib::"Two Words : x" : read (network-published "p : q")'
+    )
+    assert parsed.variable == "Two Words : x"
+    assert parsed.network_path == "p : q"
+
+
+def test_a_malformed_lvnet_attribute_is_an_error() -> None:
+    for bad in (
+        'read (network-published "p"',
+        "read (somewhere)",
+        "read (library unreadable p)",
+    ):
+        with pytest.raises(LvnetParseError):
+            split_shared_variable_component(f"Lib.lvlib::Value : {bad}")
+
+
+def test_network_fixture_loads_with_its_library_and_path() -> None:
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    nodes = _nodes(graph, vi)
+    assert sorted(nodes) == ["1033", "1112", "977"]
+    for node in nodes.values():
+        assert node.library == SharedVariableLibrary(
+            qualified_name="SV Sample.lvlib",
+            kind=SharedVariableKind.NETWORK,
+            persistent_id=PERSISTENT_ID,
+            network_path=NETWORK_PATH,
+        )
+        assert node.library_unreadable is None
+    assert nodes["1033"].is_write
+
+
+def test_network_fixture_describe_names_library_kind_and_path() -> None:
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    text = describe_vi(graph, vi)
+    published = f"SV Sample.lvlib, Network-Published at {NETWORK_PATH}"
+    assert f"Shared Variable `Value` ({published}) write" in text
+    assert text.count(f"Shared Variable `Value` ({published}) read") == 2
+
+
+def test_network_fixture_lvnet_json_and_index_carry_the_path() -> None:
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    module = build_netlist_from_graph(graph, vi)
+    text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
+    escaped = NETWORK_PATH.replace("\\", "\\\\")
+    expected = (
+        "shared-variable Value_1033 : SV Sample.lvlib::Value : write "
+        f'(network-published "{escaped}")'
+    )
+    assert expected in text
+    body = netlist_to_dict(module)["body"]
+    shared = [
+        inner
+        for item in body
+        for frame in item.get("frames", [])
+        for inner in frame["body"]
+        if inner.get("kind") == "shared_variable"
+    ]
+    assert {s["network_path"] for s in shared} == {NETWORK_PATH}
+    facts = project_vi_facts(graph, vi, SV_NETWORK_SAMPLE, SV_NETWORK_SAMPLE.parent)
+    nodes = [n for n in facts.nodes if n.kind is NodeKind.SHARED_VARIABLE]
+    assert {n.network_path for n in nodes} == {NETWORK_PATH}
+
+
+def test_single_process_fixture_has_no_network_path() -> None:
     graph, vi = _load()
     for node in _nodes(graph, vi).values():
-        assert node.library is not None
-        node.library = node.library.model_copy(
-            update={"kind": SharedVariableKind.NETWORK}
-        )
-    with pytest.raises(CodeGenError, match="network-published and has no Python"):
+        assert node.library is not None and node.library.network_path is None
+
+
+def test_generated_python_for_a_network_published_variable_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shared_variable, "_cells", {})
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    source = build_module(graph.get_vi_context(vi), vi, graph=graph)
+    namespace: dict[str, object] = {}
+    exec(compile(source, "sv_sample_network.py", "exec"), namespace)
+    sv_sample = namespace["sv_sample"]
+    assert callable(sv_sample)
+
+    assert shared_variable.timestamp("SV Sample.lvlib", "Value") == 0.0
+    result = sv_sample()
+    assert result.value == 1.5
+    assert isinstance(result.timestamp, float) and result.timestamp > 0
+    assert shared_variable.read("SV Sample.lvlib", "Value", 0.0) == 1.5
+    assert result.timestamp == shared_variable.timestamp("SV Sample.lvlib", "Value")
+
+
+def _fail_shared_variable_records(
+    monkeypatch: pytest.MonkeyPatch, node_uids: tuple[int, ...] | None
+) -> None:
+    """Make the link table's ``HpVL`` record undecodable, as the loader sees it."""
+    failure = SharedVariableRecordFailure(
+        offset=12,
+        reason="HpVL record at offset 12: unknown layout flag 0x07",
+        node_uids=node_uids,
+    )
+    monkeypatch.setattr(
+        vi_parser,
+        "read_shared_variable_links",
+        lambda path, version: SharedVariableTable(links=[], failures=[failure]),
+    )
+
+
+@pytest.mark.parametrize("node_uids", [(1033, 1112, 977), None])
+def test_an_unreadable_record_leaves_the_vi_loadable_with_the_reason(
+    monkeypatch: pytest.MonkeyPatch, node_uids: tuple[int, ...] | None
+) -> None:
+    _fail_shared_variable_records(monkeypatch, node_uids)
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    reason = "HpVL record at offset 12: unknown layout flag 0x07"
+    for node in _nodes(graph, vi).values():
+        assert node.library is None
+        assert node.library_unreadable == reason
+    text = describe_vi(graph, vi)
+    assert f"Shared Variable `Value` (library link unreadable: {reason}) write" in text
+    assert "## Dependencies" not in text
+
+
+def test_a_record_failing_before_its_uids_is_read_names_no_node_wrongly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fail_shared_variable_records(monkeypatch, (4242,))
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    for node in _nodes(graph, vi).values():
+        assert node.library is None
+        assert node.library_unreadable is None
+
+
+def test_an_unreadable_record_reads_back_strictly_from_lvnet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fail_shared_variable_records(monkeypatch, (1033, 1112, 977))
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    module = build_netlist_from_graph(graph, vi)
+    text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
+    assert (
+        "shared-variable Value_1033 : Value : write (library unreadable "
+        '"HpVL record at offset 12: unknown layout flag 0x07")'
+    ) in text
+    _assert_strict_round_trip(text, module)
+    item = netlist_to_dict(module)["body"][0]["frames"][0]["body"][0]
+    assert item["library_unreadable"].startswith("HpVL record at offset 12")
+
+
+def test_an_unreadable_record_raises_a_clear_error_for_generated_python(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fail_shared_variable_records(monkeypatch, (1033, 1112, 977))
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    with pytest.raises(CodeGenError, match="library link is unreadable.*layout flag"):
         build_module(graph.get_vi_context(vi), vi, graph=graph)
+
+
+def _use_hpvr_record(monkeypatch: pytest.MonkeyPatch) -> str:
+    """Make the link table hold one ``HpVr`` record (three-part name, network
+    path with a host address) listing the fixture's three nodes."""
+    path = r"\\host\SV Sample\Value"
+    data = build_hpvl_record(
+        offset=0,
+        library=b"",
+        variable=b"",
+        name_parts=[b"My Computer", b"SV Sample.lvlib", b"Value"],
+        persistent_id=PERSISTENT_ID,
+        node_uids=[1033, 1112, 977],
+        variable_type="Network",
+        network_path=path,
+        ident=b"HpVr",
+    )
+    table = decode_shared_variable_links(data, LinkTableVersion(25, 0, 0, 4))
+    assert table.failures == []
+    monkeypatch.setattr(vi_parser, "read_shared_variable_links", lambda p, v: table)
+    return path
+
+
+def test_an_hpvr_record_links_its_nodes_and_describe_shows_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = _use_hpvr_record(monkeypatch)
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    for node in _nodes(graph, vi).values():
+        assert node.library == SharedVariableLibrary(
+            qualified_name="SV Sample.lvlib",
+            kind=SharedVariableKind.NETWORK,
+            persistent_id=PERSISTENT_ID,
+            network_path=path,
+        )
+    text = describe_vi(graph, vi)
+    published = f"SV Sample.lvlib, Network-Published at {path}"
+    assert f"Shared Variable `Value` ({published}) write" in text
+    assert "  SV Sample.lvlib (Shared Variable library)" in text
+
+
+def test_an_hpvr_record_reads_back_strictly_and_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _use_hpvr_record(monkeypatch)
+    monkeypatch.setattr(shared_variable, "_cells", {})
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    module = build_netlist_from_graph(graph, vi)
+    text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
+    assert "(network-published " in text
+    _assert_strict_round_trip(text, module)
+
+    source = build_module(graph.get_vi_context(vi), vi, graph=graph)
+    namespace: dict[str, object] = {}
+    exec(compile(source, "sv_sample_hpvr.py", "exec"), namespace)
+    result = namespace["sv_sample"]()  # type: ignore[operator]
+    assert result.value == 1.5
+    assert result.timestamp == shared_variable.timestamp("SV Sample.lvlib", "Value")
+
+
+def test_an_hpvr_mismatch_leaves_the_vi_loading_with_the_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data = build_hpvl_record(
+        offset=0,
+        library=b"",
+        variable=b"",
+        name_parts=[b"Elsewhere", b"SV Sample.lvlib", b"Value"],
+        persistent_id=PERSISTENT_ID,
+        node_uids=[1033, 1112, 977],
+        variable_type="Network",
+        network_path=r"\\host\SV Sample\Value",
+        ident=b"HpVr",
+    )
+    table = decode_shared_variable_links(data, LinkTableVersion(25, 0, 0, 4))
+    monkeypatch.setattr(vi_parser, "read_shared_variable_links", lambda p, v: table)
+    graph, vi = _load(SV_NETWORK_SAMPLE)
+    for node in _nodes(graph, vi).values():
+        assert node.library is None
+        assert "does not start with the record's target" in str(node.library_unreadable)
+    assert "library link unreadable: HpVr record at offset 2" in describe_vi(graph, vi)

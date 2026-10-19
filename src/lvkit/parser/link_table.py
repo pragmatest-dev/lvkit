@@ -1,4 +1,4 @@
-"""Block-diagram link-table decoding: the ``IUVI`` and ``HpVL`` records of
+r"""Block-diagram link-table decoding: the ``IUVI`` and ``HpVL`` records of
 ``_LIbd.bin``.
 
 A VI's block-diagram link table (``LIbd``) names, for every node that refers to
@@ -11,9 +11,10 @@ main XML for most files (``LIbd//BDHP/IUVI``); for the rest only the raw
 One ``HpVL`` record exists per Shared Variable the VI uses and lists the heap
 uids of EVERY Shared Variable node that reads or writes it. pylabview has no
 decoder for it (``LinkObj b'HpVL' parsing not implemented``), so the table
-always stays in the sidecar. Layout, verified on one LabVIEW 25.0 VI (a
-single-process variable; ``tests/corpus/issues/149``); the head is the one an
-``IUVI`` record starts with::
+always stays in the sidecar. Layout, verified on two LabVIEW 25.0 VIs (a
+single-process variable, ``tests/corpus/issues/149``, and the same variable
+published to the network, ``tests/corpus/issues/149/network``); the head is the
+one an ``IUVI`` record starts with::
 
     'HpVL'                                  ident
     <link head>                             name, path, flag, type id, link
@@ -25,15 +26,40 @@ single-process variable; ``tests/corpus/issues/149``); the head is the one an
                                             same ID as ``varPersistentID``)
     u32 count, count x u32                  node uids
     u32 len, bytes                          a second GUID (role not established)
-    9 bytes                                 seen as 00 02 00 03 01 00 00 00 01
-                                            (role not established)
+    00 02 00 03                             (role not established)
+
+    then, selected by the byte that follows (the layout flag):
+
+    flag 01 (single process): the flag is its own byte
+    u8 01, u32                              the u32 seen as 1 (role not
+                                            established)
+
+    flag 00 (network-published): the flag is the high byte of the path length,
+    so it is NOT consumed on its own
+    u32 len, bytes                          network path (``\\.\SV Sample\Value``;
+                                            ``\\.\`` is the local machine)
+    4 x u32                                 seen as ffffffff 1 2 1 (roles not
+                                            established)
+
     u32 len, bytes                          variable type (``Global`` for a
                                             single-process variable, ``Network``
                                             for a network-published one)
 
 The qualified name is the library's name parts followed by the variable's name.
-A record of any other kind (``HpVr``, ``VIVl``) is never looked at: the scan
-only stops at the idents it knows.
+
+An ``HpVr`` record is how a node refers to a variable that was already
+network-published when the node was placed. It has the same layout as ``HpVL``
+and is decoded by the same code, with one difference in the name: the record's
+own target (the ``My Computer`` field above) is the first name part, so it is
+dropped before the library and variable are split. A first part that is not the
+record's target is a ``SharedVariableRecordFailure``. This layout is taken from
+the reporter's description of the record and the structure it shares with
+``HpVL``; it has not been checked against a real ``HpVr`` file.
+
+Any other flag is a layout not seen, and a type that disagrees with
+the flag is an inconsistent record; either way the record is reported as a
+``SharedVariableRecordFailure``, never guessed at. A record of any other kind
+(``VIVl``) is never looked at: the scan only stops at the idents it knows.
 
 Record layout (pylabview ``LVlinkinfo.py``: ``LinkObjIUseToVILink`` ->
 ``HeapToVILinkSaveInfo`` -> ``OffsetLinkSaveInfo`` -> ``TypedLinkSaveInfo`` ->
@@ -65,6 +91,7 @@ import re
 import struct
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from lvkit.models import SharedVariableKind
@@ -73,7 +100,6 @@ from lvkit.text_encoding import decode_labview_text
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
-_HPVL_IDENT = b"HpVL"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -133,13 +159,33 @@ class IUseLink:
     node_uids: tuple[int, ...]
 
 
+class SharedVariableRecordKind(str, Enum):
+    """The ident of the link-table record a Shared Variable link was read from,
+    which is how the node refers to the variable: ``HpVL``, or ``HpVr`` (seen for
+    nodes placed while the variable was already network-published).
+    ``(str, Enum)`` so a member equals the ident text."""
+
+    HPVL = "HpVL"
+    HPVR = "HpVr"
+
+    @property
+    def ident(self) -> bytes:
+        return self.value.encode("ascii")
+
+
 @dataclass(frozen=True)
 class SharedVariableLink:
-    """One ``HpVL`` record: a Shared Variable and every node that uses it.
+    r"""One ``HpVL`` or ``HpVr`` record: a Shared Variable and every node that
+    uses it.
 
     ``library_parts`` is the qualified name of the project library the variable
     belongs to (one part per nesting level); ``variable_name`` is the variable's
-    own name inside it.
+    own name inside it. ``network_path`` is the path a network-published variable
+    is published at (``\\.\SV Sample\Value``), ``None`` for a single-process one.
+
+    ``second_guid`` and ``layout_values`` are recorded as read, their role not
+    established: the second GUID, and the integers that follow the layout flag
+    (one for a single-process record, four for a network-published one).
     """
 
     library_parts: tuple[str, ...]
@@ -149,6 +195,10 @@ class SharedVariableLink:
     item_type: str
     target: str
     node_uids: tuple[int, ...]
+    network_path: str | None = None
+    second_guid: str = ""
+    layout_values: tuple[int, ...] = ()
+    record: SharedVariableRecordKind = SharedVariableRecordKind.HPVL
 
     @property
     def library_qualified_name(self) -> str:
@@ -157,6 +207,35 @@ class SharedVariableLink:
         if name is None:
             raise LinkTableError("Shared Variable record names no library")
         return name
+
+
+@dataclass(frozen=True)
+class SharedVariableRecordFailure:
+    """One ``HpVL`` or ``HpVr`` record that could not be decoded: where it starts
+    in the sidecar, why, and the heap uids of the nodes it lists when the failure came
+    after the uid list was read (``None`` when it came before)."""
+
+    offset: int
+    reason: str
+    node_uids: tuple[int, ...] | None
+
+
+@dataclass(frozen=True)
+class SharedVariableTable:
+    """What the ``HpVL`` and ``HpVr`` records of a sidecar hold: the links that
+    decoded and the records that did not."""
+
+    links: list[SharedVariableLink]
+    failures: list[SharedVariableRecordFailure]
+
+
+class _SharedVariableRecordError(LinkTableError):
+    """A malformed ``HpVL`` or ``HpVr`` record, with the node uids read before the
+    failure."""
+
+    def __init__(self, message: str, node_uids: tuple[int, ...] | None) -> None:
+        super().__init__(message)
+        self.node_uids = node_uids
 
 
 @dataclass(frozen=True)
@@ -186,6 +265,13 @@ class _Reader:
 
     def u8(self) -> int:
         return self.take(1)[0]
+
+    def peek_u8(self) -> int:
+        if self.pos >= len(self.data):
+            raise LinkTableError(
+                f"record runs past the end of the table at {self.pos + 1}"
+            )
+        return self.data[self.pos]
 
     def u16(self) -> int:
         return struct.unpack(">H", self.take(2))[0]
@@ -289,34 +375,75 @@ def _decode_record(data: bytes, ident_pos: int, version: LinkTableVersion) -> IU
     )
 
 
+_SV_LAYOUT_MARKER = b"\x00\x02\x00\x03"
+_SV_LAYOUT_SINGLE_PROCESS = 1
+_SV_LAYOUT_NETWORK = 0
+_SV_NETWORK_VALUES = 4
+
+
 def _decode_shared_variable_record(
-    data: bytes, ident_pos: int, version: LinkTableVersion
+    data: bytes,
+    ident_pos: int,
+    record: SharedVariableRecordKind,
+    version: LinkTableVersion,
 ) -> SharedVariableLink:
-    r = _Reader(data, ident_pos + len(_HPVL_IDENT))
-    head = _read_link_head(r, version)
-    if len(head.name_parts) < 2:
-        raise LinkTableError(
-            f"qualified name {head.name_parts!r} lacks a library and a variable"
-        )
-    item_type = decode_labview_text(r.pascal())
-    target = r.string32()
-    persistent_id = r.string32()
-    node_uids = _read_node_uids(r)
-    r.string32()  # second GUID
-    r.take(9)
-    kind_text = r.string32()
+    r = _Reader(data, ident_pos + len(record.ident))
+    node_uids: tuple[int, ...] | None = None
     try:
-        kind = SharedVariableKind(kind_text)
-    except ValueError:
-        raise LinkTableError(f"unknown Shared Variable type {kind_text!r}") from None
+        head = _read_link_head(r, version)
+        item_type = decode_labview_text(r.pascal())
+        target = r.string32()
+        persistent_id = r.string32()
+        node_uids = _read_node_uids(r)
+        name_parts = head.name_parts
+        if record is SharedVariableRecordKind.HPVR:
+            if not name_parts or name_parts[0] != target:
+                raise LinkTableError(
+                    f"qualified name {name_parts!r} does not start with the "
+                    f"record's target {target!r}"
+                )
+            name_parts = name_parts[1:]
+        if len(name_parts) < 2:
+            raise LinkTableError(
+                f"qualified name {name_parts!r} lacks a library and a variable"
+            )
+        second_guid = r.string32()
+        r.take(len(_SV_LAYOUT_MARKER))
+        layout = r.peek_u8()
+        network_path: str | None = None
+        if layout == _SV_LAYOUT_SINGLE_PROCESS:
+            r.u8()
+            layout_values = (r.u32(),)
+        elif layout == _SV_LAYOUT_NETWORK:
+            network_path = r.string32()
+            layout_values = tuple(r.u32() for _ in range(_SV_NETWORK_VALUES))
+        else:
+            raise LinkTableError(f"unknown layout flag {layout:#04x}")
+        kind_text = r.string32()
+        try:
+            kind = SharedVariableKind(kind_text)
+        except ValueError:
+            raise LinkTableError(
+                f"unknown Shared Variable type {kind_text!r}"
+            ) from None
+        if (kind is SharedVariableKind.NETWORK) != (network_path is not None):
+            raise LinkTableError(
+                f"type {kind_text!r} does not match layout flag {layout:#04x}"
+            )
+    except LinkTableError as exc:
+        raise _SharedVariableRecordError(str(exc), node_uids) from exc
     return SharedVariableLink(
-        library_parts=head.name_parts[:-1],
-        variable_name=head.name_parts[-1],
+        library_parts=name_parts[:-1],
+        variable_name=name_parts[-1],
         kind=kind,
         persistent_id=persistent_id,
         item_type=item_type,
         target=target,
         node_uids=node_uids,
+        network_path=network_path,
+        second_guid=second_guid,
+        layout_values=layout_values,
+        record=record,
     )
 
 
@@ -361,25 +488,41 @@ def read_iuse_links(libd_path: Path, version: LinkTableVersion) -> list[IUseLink
 
 def decode_shared_variable_links(
     data: bytes, version: LinkTableVersion
-) -> list[SharedVariableLink]:
-    """Every ``HpVL`` record in a ``_LIbd.bin`` sidecar, in file order.
-
-    Raises ``LinkTableError`` when a record does not follow the documented layout
-    -- an unreadable record is never skipped.
-    """
-    links: list[SharedVariableLink] = []
-    for start in _record_starts(data, _HPVL_IDENT):
-        _require_supported(version)
+) -> SharedVariableTable:
+    """Every ``HpVL`` and ``HpVr`` record in a ``_LIbd.bin`` sidecar, in file
+    order: the links that decoded, and a ``SharedVariableRecordFailure`` for each
+    record that did not follow the documented layout -- an unreadable record is
+    reported, never skipped and never guessed at."""
+    table = SharedVariableTable(links=[], failures=[])
+    starts = sorted(
+        (start, record)
+        for record in SharedVariableRecordKind
+        for start in _record_starts(data, record.ident)
+    )
+    for start, record in starts:
         try:
-            links.append(_decode_shared_variable_record(data, start, version))
+            _require_supported(version)
+            table.links.append(
+                _decode_shared_variable_record(data, start, record, version)
+            )
         except LinkTableError as exc:
-            raise LinkTableError(f"HpVL record at offset {start}: {exc}") from exc
-    return links
+            table.failures.append(
+                SharedVariableRecordFailure(
+                    offset=start,
+                    reason=f"{record.value} record at offset {start}: {exc}",
+                    node_uids=(
+                        exc.node_uids
+                        if isinstance(exc, _SharedVariableRecordError)
+                        else None
+                    ),
+                )
+            )
+    return table
 
 
 def read_shared_variable_links(
     libd_path: Path, version: LinkTableVersion
-) -> list[SharedVariableLink]:
+) -> SharedVariableTable:
     """``decode_shared_variable_links`` over a ``_LIbd.bin`` file."""
     return decode_shared_variable_links(libd_path.read_bytes(), version)
 

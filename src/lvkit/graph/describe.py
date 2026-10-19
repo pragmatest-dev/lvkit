@@ -983,7 +983,15 @@ def _describe_single_op(
             )
         case SharedVariableNode():
             access = "write" if node.is_write else "read"
-            where = f" ({node.library.qualified_name})" if node.library else ""
+            if node.library is not None:
+                published = node.library.kind.label
+                if node.library.network_path is not None:
+                    published += f" at {node.library.network_path}"
+                where = f" ({node.library.qualified_name}, {published})"
+            elif node.library_unreadable is not None:
+                where = f" (library link unreadable: {node.library_unreadable})"
+            else:
+                where = ""
             return f"Shared Variable `{node.variable_name}`{where} {access}"
         case CaseStructureNode():
             return f"Case Structure ({len(node.frames)} frames)"

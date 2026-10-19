@@ -272,11 +272,19 @@ def _global_variable_identity(op: GlobalVariableNode) -> str:
 
 def _shared_variable_identity(op: SharedVariableNode) -> str:
     """What a Shared Variable node IS for a diff: the library it belongs to (when
-    the VI records one), the variable and whether it reads or writes it."""
+    the VI records one), how it is published (a network-published variable's
+    path), the variable and whether it reads or writes it. A node whose library
+    link is unreadable says so."""
     access = "write" if op.is_write else "read"
     if op.library is None:
-        return f"{op.variable_name} {access}"
-    return f"{op.library.qualified_name}::{op.variable_name} {access}"
+        unreadable = " (library link unreadable)" if op.library_unreadable else ""
+        return f"{op.variable_name}{unreadable} {access}"
+    published = (
+        f" (network-published at {op.library.network_path})"
+        if op.library.network_path is not None
+        else ""
+    )
+    return f"{op.library.qualified_name}::{op.variable_name}{published} {access}"
 
 
 def _node_identity_word(op: AnyGraphNode) -> str:

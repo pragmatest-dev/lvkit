@@ -59,6 +59,8 @@ from .lvnet_grammar import (
     _LVNET_INDENT_WIDTH,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_LIBRARY_UNREADABLE,
+    _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
@@ -1066,20 +1068,85 @@ def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
     return global_vi, control, rest
 
 
-def split_shared_variable_component(
-    component: str,
-) -> tuple[str | None, str, str]:
-    """A ``shared-variable`` header's ``<library>::<variable name> : <read|write>``
-    component (the ``<library>::`` half is absent for a node whose library the VI
-    does not record) -> ``(library, variable name, access)``. Each name is a name
-    token (§4), bare or quoted; a quoted library ends at its closing quote, a bare
-    one at the first ``::``; ``read``/``write`` is what follows the LAST `` : ``."""
-    target, sep, access = component.rpartition(_LVNET_TYPE_SEP)
-    if not sep or access not in ("read", "write"):
+@dataclass(frozen=True)
+class SharedVariableComponent:
+    """A ``shared-variable`` header's component, split: the library (``None``
+    when the node's library is not recorded), the variable name, ``read`` or
+    ``write``, and the trailing attribute -- the network path of a
+    network-published variable, or why the library link was unreadable."""
+
+    library: str | None
+    variable: str
+    access: str
+    network_path: str | None = None
+    library_unreadable: str | None = None
+
+
+def _first_unquoted_type_sep(text: str) -> int:
+    """Index of the first `` : `` outside a quoted name token (a token opens a
+    quote only at the start of the text or right after ``::``), or ``-1``."""
+    i = 0
+    while i < len(text):
+        if text[i] == '"' and (i == 0 or text[:i].endswith(_LVNET_TERMINAL_SEP)):
+            i = _scan_quoted_literal(text, i)
+        elif text.startswith(_LVNET_TYPE_SEP, i):
+            return i
+        else:
+            i += 1
+    return -1
+
+
+def _split_shared_variable_attribute(
+    rest: str, component: str
+) -> tuple[str, str | None, str | None]:
+    """``read`` / ``write`` followed by an optional ``(network-published
+    "<path>")`` or ``(library unreadable "<reason>")`` -> ``(access, network path,
+    unreadable reason)``."""
+    for access in ("read", "write"):
+        if rest == access:
+            return access, None, None
+        if rest.startswith(f"{access} ("):
+            attribute = rest[len(access) + 2 :]
+            break
+    else:
         raise LvnetParseError(
             f"shared-variable component must be '<library>::<variable name> : read'"
             f" or '<library>::<variable name> : write' (§7): {component!r}"
         )
+    for word in (_LVNET_NETWORK_PUBLISHED, _LVNET_LIBRARY_UNREADABLE):
+        prefix = f"{word} "
+        if attribute.startswith(prefix + '"'):
+            start = len(prefix)
+            end = _scan_quoted_literal(attribute, start)
+            if attribute[end:] != ")":
+                break
+            value = _unescape_lvnet_string(attribute[start:end])
+            if word == _LVNET_NETWORK_PUBLISHED:
+                return access, value, None
+            return access, None, value
+    raise LvnetParseError(
+        f"shared-variable attribute must be '(network-published \"<path>\")' or "
+        f"'(library unreadable \"<reason>\")' (§7): {component!r}"
+    )
+
+
+def split_shared_variable_component(component: str) -> SharedVariableComponent:
+    """A ``shared-variable`` header's ``<library>::<variable name> : <read|write>``
+    component (the ``<library>::`` half is absent for a node whose library the VI
+    does not record, and a trailing attribute may follow ``read``/``write``).
+    Each name is a name token (§4), bare or quoted; a quoted library ends at its
+    closing quote, a bare one at the first ``::``; ``read``/``write`` is what
+    follows the first `` : `` outside a quoted name."""
+    sep_at = _first_unquoted_type_sep(component)
+    if sep_at == -1:
+        raise LvnetParseError(
+            f"shared-variable component must be '<library>::<variable name> : read'"
+            f" or '<library>::<variable name> : write' (§7): {component!r}"
+        )
+    target = component[:sep_at]
+    access, network_path, unreadable = _split_shared_variable_attribute(
+        component[sep_at + len(_LVNET_TYPE_SEP) :], component
+    )
     if target.startswith('"'):
         end = _scan_quoted_literal(target, 0)
         first, after = _unescape_lvnet_string(target[:end]), target[end:]
@@ -1090,7 +1157,9 @@ def split_shared_variable_component(
         else:
             first, after = target[:sep_at], target[sep_at:]
     if not after:
-        return None, first, access
+        return SharedVariableComponent(
+            None, first, access, network_path, unreadable
+        )
     if not after.startswith(_LVNET_TERMINAL_SEP):
         raise LvnetParseError(
             f"shared-variable library must be followed by '{_LVNET_TERMINAL_SEP}' "
@@ -1101,7 +1170,7 @@ def split_shared_variable_component(
         raise LvnetParseError(
             f"shared-variable target has an empty name (§7): {component!r}"
         )
-    return first, variable, access
+    return SharedVariableComponent(first, variable, access, network_path, unreadable)
 
 
 def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:

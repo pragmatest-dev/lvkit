@@ -289,6 +289,10 @@ class NodeFact:
     callee_path: str | None = None  # SubVI callee resolved path (merge-time)
     object_name: str | None = None  # property/invoke target class
     method_name: str | None = None  # invoke method
+    # Shared Variable only: the path a network-published variable is published at
+    network_path: str | None = None
+    # Shared Variable only: why its library link could not be read
+    library_unreadable: str | None = None
     parent_uid: str | None = None  # containing structure uid, or None
     frame: str | None = None  # containing frame selector value, or None
 

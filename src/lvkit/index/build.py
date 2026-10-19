@@ -647,6 +647,14 @@ def project_vi_facts(
             qualified_name=_node_callee_key(gn),
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
+            network_path=(
+                gn.library.network_path
+                if isinstance(gn, SharedVariableNode) and gn.library is not None
+                else None
+            ),
+            library_unreadable=(
+                gn.library_unreadable if isinstance(gn, SharedVariableNode) else None
+            ),
             parent_uid=gn.parent,
             frame=str(gn.frame) if gn.frame is not None else None,
         )

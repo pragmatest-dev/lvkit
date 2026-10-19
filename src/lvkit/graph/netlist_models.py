@@ -287,6 +287,13 @@ class NetlistInstance:
     # records it (``name`` is the variable) -- ``None`` for every other instance
     # kind, and for a Shared Variable whose library the VI does not record.
     library: str | None = None
+    # A network-published Shared Variable's network path -- ``None`` for every
+    # other instance kind and for a single-process variable.
+    network_path: str | None = None
+    # Why a Shared Variable's library link could not be read (the link-table
+    # record for it did not decode) -- ``None`` for every other instance kind and
+    # for a variable whose library is known.
+    library_unreadable: str | None = None
 
 
 @dataclass

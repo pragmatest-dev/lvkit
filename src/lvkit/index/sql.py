@@ -327,6 +327,13 @@ VIEWS: dict[str, _View] = {
             "class method.",
             "object_name": "property/invoke target class (e.g. 'Bool'), or NULL",
             "method_name": "invoke-node method name, or NULL",
+            "network_path": "for kind='shared_variable', the path a "
+            "network-published variable is published at (e.g. "
+            "'\\\\.\\SV Sample\\Value'); NULL for a single-process variable "
+            "and every other kind",
+            "library_unreadable": "for kind='shared_variable', why the VI's "
+            "link table record for the node's library could not be decoded; "
+            "NULL otherwise",
             "parent_uid": "uid of the CONTAINING structure node (STRUCTURAL "
             "nesting only, NOT a wire), or NULL at top level. Self-join child.node "
             "to parent.node ON child.parent_uid=parent.uid AND "

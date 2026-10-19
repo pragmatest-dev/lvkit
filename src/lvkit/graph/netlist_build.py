@@ -1219,6 +1219,14 @@ def _build_instance_gn(
             if isinstance(node, SharedVariableNode) and node.library is not None
             else None
         ),
+        network_path=(
+            node.library.network_path
+            if isinstance(node, SharedVariableNode) and node.library is not None
+            else None
+        ),
+        library_unreadable=(
+            node.library_unreadable if isinstance(node, SharedVariableNode) else None
+        ),
     )
 
 

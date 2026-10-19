@@ -360,6 +360,8 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             instance["library"] = item.library
             instance["variable"] = item.name
             instance["access"] = item.access
+            instance["network_path"] = item.network_path
+            instance["library_unreadable"] = item.library_unreadable
         return instance
     if isinstance(item, NetlistFeedback):
         return _feedback_to_dict(item)

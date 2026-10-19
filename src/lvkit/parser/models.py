@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
 from .layout import ClusterGeom
-from .link_table import SharedVariableLink
+from .link_table import SharedVariableLink, SharedVariableRecordFailure
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -698,6 +698,11 @@ class ParsedVIMetadata:
     # variable it reads or writes (library, kind, persistent ID), from the same
     # link table. A node whose variable has no record read here is absent.
     shared_variable_links: dict[str, SharedVariableLink] = field(default_factory=dict)
+    # Every ``HpVL`` record that could not be decoded. A Shared Variable node
+    # none of the decoded records lists has no library; these say why.
+    shared_variable_failures: list[SharedVariableRecordFailure] = field(
+        default_factory=list
+    )
     dependency_refs: list[ParsedDependencyRef] = field(
         default_factory=list,
     )  # Dependency path refs from LIvi LinkSavePathRef (all file types)

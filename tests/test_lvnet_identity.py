@@ -370,7 +370,14 @@ def _compare_instance(
         # Which variable (for a global, which Global VI; for a Shared Variable,
         # which library) and which end of it is tapped are the identity of these
         # nodes -- all in the text.
-        for attr in ("name", "global_vi", "library", "access"):
+        for attr in (
+            "name",
+            "global_vi",
+            "library",
+            "access",
+            "network_path",
+            "library_unreadable",
+        ):
             if getattr(a, attr) != getattr(b, attr):
                 errors.append(
                     f"{path}: {attr} mismatch: "

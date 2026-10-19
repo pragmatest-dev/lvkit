@@ -1,13 +1,15 @@
 """Code generator for Shared Variable nodes.
 
-A single-process Shared Variable holds one value shared by the whole application,
-as a global variable does, so a node reads or writes it through
+A Shared Variable holds one value shared by the whole application, as a global
+variable does, so a node reads or writes it through
 ``lvkit.runtime.shared_variable``, which keeps the value per library and variable:
 every generated module that names the same library and variable reaches the same
-value. The timestamp output is the time of the variable's last write.
+value. A single-process and a network-published variable are generated the same
+way. The timestamp output is the time of the variable's last write.
 
-A network-published variable has no Python equivalent, and neither does one whose
-library the calling VI's link table does not record.
+A node whose library the calling VI's link table does not record, or records in a
+form that could not be read, has no generated code: it raises a ``CodeGenError``
+saying which.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import SharedVariableNode
-from lvkit.models import SharedVariableKind, Terminal
+from lvkit.models import Terminal
 from lvkit.parser.node_types import SharedVariableTerminal
 
 from ..ast_utils import default_value_expr, parse_expr
@@ -55,18 +57,17 @@ def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
     plus ``t = _shared_variable.timestamp(library, variable)`` when its timestamp
     terminal is wired."""
     library = node.library
+    if library is None and node.library_unreadable is not None:
+        raise CodeGenError(
+            f"Shared Variable '{node.variable_name}' cannot be generated: its "
+            f"library link is unreadable ({node.library_unreadable})",
+            node,
+        )
     if library is None:
         raise CodeGenError(
             f"Shared Variable '{node.variable_name}' cannot be generated: the VI's "
             "link table records no library for it, so how it is published is "
             "unknown",
-            node,
-        )
-    if library.kind is not SharedVariableKind.SINGLE_PROCESS:
-        raise CodeGenError(
-            f"Shared Variable '{node.variable_name}' of {library.qualified_name} "
-            f"is {library.kind.label.lower()}-published and has no Python "
-            "equivalent",
             node,
         )
     name: list[ast.expr] = [

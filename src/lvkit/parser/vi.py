@@ -57,6 +57,7 @@ from .link_table import (
     IUseLink,
     LinkTableVersion,
     SharedVariableLink,
+    SharedVariableTable,
     qualified_link_name,
     read_iuse_links,
     read_shared_variable_links,
@@ -324,7 +325,7 @@ def _parse_metadata(
     # block-diagram link table only as the raw ``_LIbd.bin`` sidecar -- read
     # that instead.
     libd_links: list[IUseLink] = []
-    shared_variable_links: list[SharedVariableLink] = []
+    shared_variable_table = SharedVariableTable(links=[], failures=[])
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
     version_elem = main_root.find(".//LVSR/Section/Version")
     if libd_bin.exists() and version_elem is not None:
@@ -333,13 +334,13 @@ def _parse_metadata(
             libd_links = read_iuse_links(libd_bin, link_version)
         # pylabview has no decoder for the Shared Variable records, so they are
         # only ever in the sidecar.
-        shared_variable_links = read_shared_variable_links(libd_bin, link_version)
+        shared_variable_table = read_shared_variable_links(libd_bin, link_version)
     (
         subvi_qualified_names,
         iuse_refs,
         dependency_refs,
     ) = _extract_subvi_info(
-        main_root, qualified_name, libd_links, shared_variable_links
+        main_root, qualified_name, libd_links, shared_variable_table.links
     )
     iuse_to_qualified_name = {
         uid: ref.qualified_name for uid, ref in iuse_refs.items() if ref.qualified_name
@@ -382,8 +383,11 @@ def _parse_metadata(
         iuse_to_qualified_name=iuse_to_qualified_name,
         iuse_refs=iuse_refs,
         shared_variable_links={
-            str(uid): link for link in shared_variable_links for uid in link.node_uids
+            str(uid): link
+            for link in shared_variable_table.links
+            for uid in link.node_uids
         },
+        shared_variable_failures=shared_variable_table.failures,
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
