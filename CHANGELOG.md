@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the index forgot which VI a SubVI call goes to after `describe`, `render`, `generate`, `docs` or `diff`** — each of these (and MCP `read_vi`/`render`) adds the VIs it loads to the project index, and that cleared the `callee_path` an index refresh had found, so a later query showed no callee for those calls and missed those callers (MCP `query` does not refresh while the session's index is loaded, nor does `lvkit query --no-refresh`). The found callee is now kept until the next refresh.
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

@@ -451,6 +451,8 @@ class _Prior:
     impact_score: int
     callers_count: int
     class_fact: ClassFact | None
+    # Each node's stored ``callee_path``, by node uid (resolved ones only).
+    callee_paths: dict[str, str]
 
 
 def facts_digest(f: VIFacts) -> str:
@@ -498,6 +500,13 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         if cf_row is not None
         else None
     )
+    callee_paths = dict(
+        conn.execute(
+            "SELECT uid, callee_path FROM nodes "
+            "WHERE vi_path = ? AND callee_path IS NOT NULL",
+            (path,),
+        ).fetchall()
+    )
     return _Prior(
         content_sha=row[0],
         facts_digest=row[1],
@@ -506,6 +515,7 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         impact_score=row[4],
         callers_count=row[5],
         class_fact=class_fact,
+        callee_paths=callee_paths,
     )
 
 
@@ -564,7 +574,9 @@ def _coalesce_class_fact(
     )
 
 
-def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
+def _facts_to_write(
+    conn: sqlite3.Connection, f: VIFacts, *, callees_resolved: bool
+) -> VIFacts | None:
     """The facts ``save()`` must persist for ``f`` given what ``conn`` already
     holds, or ``None`` when the stored row is already current.
 
@@ -582,6 +594,10 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
     * a stub never replaces a loaded VI.
     * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
       stored ones stay.
+    * each node's ``callee_path`` is resolved across the whole project too: when
+      ``callees_resolved`` is false (a progressive write, which never resolves
+      it), a node with no ``callee_path`` keeps its stored one. A full sync's
+      resolution is the truth, ``None`` included (the callee left the project).
 
     The result is compared by :func:`facts_digest`; equal means nothing to write.
     """
@@ -596,6 +612,16 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             class_fact=_coalesce_class_fact(prior.class_fact, f.class_fact),
             impact_score=prior.impact_score,
             callers_count=prior.callers_count,
+            nodes=(
+                f.nodes
+                if callees_resolved
+                else [
+                    replace(n, callee_path=prior.callee_paths.get(n.uid))
+                    if n.callee_path is None
+                    else n
+                    for n in f.nodes
+                ]
+            ),
         )
         if prior.facts_digest == facts_digest(effective):
             return None
@@ -624,21 +650,28 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
     return conn
 
 
-def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
+def _probe_is_current(
+    project_root: Path, vis: list[VIFacts], *, callees_resolved: bool
+) -> bool:
     """True when every one of ``vis`` is already stored as-is: a save would
     write nothing, so it need not open the DB for writing at all."""
     conn = _probe(project_root)
     if conn is None:
         return False
     try:
-        return all(_facts_to_write(conn, f) is None for f in vis)
+        return all(
+            _facts_to_write(conn, f, callees_resolved=callees_resolved) is None
+            for f in vis
+        )
     except sqlite3.Error:
         return False
     finally:
         conn.close()
 
 
-def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
+def save(
+    project_root: Path, vis: Iterable[VIFacts], *, callees_resolved: bool = True
+) -> None:
     """Upsert the given ``VIFacts`` rows into the project's index DB.
 
     A VI whose stored row is already current is not touched (see
@@ -647,16 +680,20 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     and its WAL files exactly as they were. The terminals/constants/nodes/
     type_uses child tables are intrinsic to a single-VI load and are always
     rewritten together with their VI's row. (``callee_path`` on the node rows is
-    the one exception filled at merge, like impact_score.)
+    the one exception filled at merge, like impact_score: pass
+    ``callees_resolved=False`` for facts whose ``callee_path`` was never
+    resolved, so the stored ones are kept.)
     """
     pending = list(vis)
-    if not pending or _probe_is_current(project_root, pending):
+    if not pending or _probe_is_current(
+        project_root, pending, callees_resolved=callees_resolved
+    ):
         return
     conn = _connect(project_root)
     try:
         with conn:
             for incoming in pending:
-                f = _facts_to_write(conn, incoming)
+                f = _facts_to_write(conn, incoming, callees_resolved=callees_resolved)
                 if f is not None:
                     _write_vi(conn, f)
             drop_unused_types(conn)
