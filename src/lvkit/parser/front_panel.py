@@ -313,55 +313,40 @@ def parse_connector_pane_types(
 ) -> dict[int, int]:
     """Get wiring rules for connected connector pane terminals.
 
-    Finds the VI's connector pane Function TypeDesc by matching connected
-    slot indices from the FPHb conpane, then extracts wiring rules.
+    Reads each connected slot's Flags from the VI's OWN connector-pane
+    Function TypeDesc (see ``_resolve_own_connector_pane_function``).
 
-    Wiring rule encoding in TypeDesc Flags bits 8-9:
-    - 0 = Invalid Wire Rule
-    - 1 = Required
-    - 2 = Recommended
-    - 3 = Optional
-    - 4 = Dynamic Dispatch
+    Wiring rule encoding in TypeDesc Flags (see ``get_wiring_rule``):
+    - bit 12 set = Required
+    - else bit 11 set = Recommended
+    - neither = Optional (a slot with ``Flags="0x0000"`` is Optional)
+    Bit 8 marks an output and bit 15 a Dynamic Dispatch terminal; neither
+    changes the wiring rule.
 
     Args:
         main_xml_path: Path to the main .xml file (not BDHb/FPHb)
         fp_conpane: ParsedConnectorPane from FPHb with connected slot indices
 
     Returns:
-        Dict mapping slot index -> wiring rule (0-4)
+        Dict mapping slot index -> ``ParsedWiringRule`` value (1-3); empty
+        when the VI's connector pane can't be resolved.
     """
     connected_indices = {s.index for s in fp_conpane.slots if s.fp_dco_uid}
     if not connected_indices:
         return {}
 
-    max_index = max(connected_indices)
+    func_td = _resolve_own_connector_pane_function(ET.parse(main_xml_path).getroot())
+    if func_td is None:
+        return {}
+    children = func_td.findall("TypeDesc")
 
-    tree = ET.parse(main_xml_path)
-    root = tree.getroot()
-
-    for func_td in root.findall(".//TypeDesc[@Type='Function']"):
-        children = func_td.findall("TypeDesc")
-        if len(children) <= max_index:
+    rules: dict[int, int] = {}
+    for idx in sorted(connected_indices):
+        if idx >= len(children):
             continue
-
-        matches = all(
-            children[i].get("Flags", "0x0000") != "0x0000" for i in connected_indices
-        )
-        if not matches:
-            continue
-
-        rules: dict[int, int] = {}
-        for idx in connected_indices:
-            flags_str = children[idx].get("Flags", "0x0000")
-            try:
-                flags = int(flags_str, 16)
-            except ValueError:
-                flags = 0
-            rules[idx] = get_wiring_rule(flags)
-
-        return rules
-
-    return {}
+        flags = int(children[idx].get("Flags", "0x0000"), 16)
+        rules[idx] = get_wiring_rule(flags)
+    return rules
 
 
 def _flat_type_table(root: ET.Element) -> list[ET.Element]:
