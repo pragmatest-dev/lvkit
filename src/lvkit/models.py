@@ -1054,3 +1054,14 @@ def _strip_typedef_stem(typedef_name: str) -> str:
     type's own name are kept verbatim (mirrors the stripping convention in
     ``graph/construction.py``'s ``_format_lv_type_for_display``)."""
     return typedef_name.rsplit(":", 1)[-1].replace(".ctl", "")
+
+
+def leading_element(value: object) -> object:
+    """The first element of a decoded array value, however many dimensions it
+    has: a multi-dimensional array's value is lists nested one level per
+    dimension (see ``parser.vi._decode_element``), so this walks down the first
+    entry of each. ``None`` when an empty array is reached; a value that is not a
+    list (a scalar, or a cluster's dict) is returned as is."""
+    while isinstance(value, list):
+        value = value[0] if value else None
+    return value

@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: multi-dimensional array values (2D tables, 3D grids) read only the first dimension** — front-panel defaults and diagram constants now show every row, and the fields after one in a cluster are no longer shifted; Picture values and class objects inside a cluster are skipped correctly (#174).
+- **Fix: a type definition of an array or a refnum kept no inner type** — its element type, dimensions, refnum kind and User Event data type now show in describe, lvnet and JSON, and an array's default value is read (#175).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

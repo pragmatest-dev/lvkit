@@ -1162,3 +1162,96 @@ is a control; OpenG `Reorder Array__ogtk.vi` is a polymorphic VI.
 The value exposed as `vi_type` (describe text and `--format json`, the index
 `vi_type` column) is the readable kind: `VI`, `Global VI`, `Control`,
 `Polymorphic VI`, or `unknown (code N)`.
+
+## A flattened array stores one 32-bit size per dimension, slowest-varying first, then the elements row-major; a Picture is a 4-byte length plus that many bytes (issues #174, #175)
+
+An array default (front-panel `DefaultData`) or diagram constant (`ConstValue`)
+is the flattened form of the value. NI's public "Flattened Data" page, section
+"Arrays" (https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html):
+"Flattened 32-bit integers that record the size, in elements, of each of the
+dimensions of an array precede the data for a flattened array. The slowest
+varying dimension is first ... The flattened data follows immediately after
+these dimension sizes in the same order in which LabVIEW stores them in
+memory." Its example, a 2D array of six 8-bit integers `{{1,2,3},{4,5,6}}`,
+flattens to `0000 0002 0000 0003 0102 0304 0506`.
+
+So an N-dimensional array is `4 x N` bytes of sizes, then `product(sizes)`
+elements; the dimension count N is the number of `<Dimension>` children of its
+VCTP `Array` descriptor. Checked against the corpus (stored byte count =
+`4 x N` + elements):
+
+| VI (control) | Type | Sizes | Bytes |
+|---|---|---|---|
+| OpenG `Index Array Elements (2D) Example 01.vi` (`array`) | `[[U32]]` | 3 x 4 | 56 |
+| OpenG `Reverse 2D Array Example 01.vi` (`Array`) | `[[TF]]` | 4 x 6 | 32 |
+| measurement-plugin `Next Generation.vi` (`cells in`) | `[[TF]]` | 13 x 16 | 216 |
+| OpenG `Write GIF File Example.vi` (`Array`) | `[[[U32]]]` | 75 x 36 x 36 | 388,812 |
+| LabVIEW-OOP-Classes `AI_New.vi` (`Data`, a cluster with an empty 0 x 0 `[[DBL]]`) | cluster | 0 x 0 | 62 |
+
+A reader that takes the first size as the whole element count decodes the
+second size as an element, and inside a cluster every following field
+misaligns.
+
+A **Picture** is not described on that page. In the ni-labview-icon-editor
+`Install Glyphs.vi` control `Glyph list` (an array of a cluster
+`{Install: TF, Current: Picture, Icon Library: Picture, Subfolder: String,
+Name: String}`), the stored default is 565 bytes with one element, which
+equals `4 (array size) + 1 (TF) + 2 x (4 + 272) (the two pictures, each a
+4-byte length 272 then 272 bytes) + 4 + 4 (the two empty strings)`: a Picture
+is a length-prefixed byte run, deduced from the byte count.
+
+That layout was then checked against every Picture-bearing value in the
+extracted corpus (130 distinct VI and control files; all but three of the 409
+values below come from the ni-labview-icon-editor sample project, the rest from
+JKI-VI-Tester and actor-framework): 409 default and constant values in 206
+extracts (338 front-panel defaults, 71 diagram constants). 374 of them are
+consumed to exactly their stored byte count, so every Picture and every field
+after it lines up; those 374 hold 169 Pictures (56 non-empty, in 21 distinct
+files; 113 empty). The largest, `LayerList.ctl` `User layers`, is a cluster of
+four non-empty Pictures in 12,452 bytes; `lv_icon.vi` `Framework Templates` is
+1,172. The 35 that are not exact are not Picture mismatches: 34 are all-zero
+diagram constants stored with one extra trailing zero byte (an empty array
+`0000000000` is 5 bytes; the same extra byte appears on Picture-free empty
+array and cluster constants), and 1 is a front-panel default whose array holds
+a LabVIEW class object (`Layer.lvclass`), whose flattened private data (see
+"Classes" on the NI page) the decoder does not read yet. Every value holding a
+non-empty Picture is exact. Nearly all the evidence comes from one project, so a Picture saved by
+another LabVIEW version is lightly tested.
+
+A `TypeDef` descriptor holds the type it wraps as its single `Nested='True'`
+child TypeDesc; for an `Array` that child carries the `<Dimension>` children
+and the element's `TypeID`, and for a `Refnum` its `RefType` and payload
+`TypeID` (child `TypeID`s are FlatTypeIDs like everywhere else in VCTP).
+
+## A LabVIEW class value is a flattened object: level, class name section, version list, private data (issues #174, #175)
+
+A class-typed value (a `Refnum` descriptor with `RefType="UDClassInst"` and an
+`<Item>` chain naming the class) in a front-panel default or diagram constant is
+not a 4-byte handle but the flattened object. NI's public "Flattened Data" page,
+section "Classes" (https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html):
+
+- **level in hierarchy**: 4-byte unsigned integer. 0 is an instance of LabVIEW
+  Object and the other three fields are omitted (the value is 4 bytes).
+- **class name**: a length byte for the qualified name, then Pascal strings, the
+  last of length zero, padded with zero bytes so the whole section is a multiple
+  of 4.
+- **version list**: one cluster of four 2-byte unsigned integers (8 bytes) per
+  level. At level 1 with version 0 the value is the class's default data and the
+  remaining field is omitted.
+- **private data**: per level, a 4-byte signed byte count then that many bytes of
+  flattened cluster, padded to a multiple of 4. Decoding those bytes needs the
+  class's own private data type, so lvkit skips them and shows the class name.
+
+Evidence: in `Extract Default Icon Data.vi` the `All User Layers` default holds
+one `Layer.lvclass` object of 112 bytes: `00000001` (level) + `0f 0d Layer.lvclass
+00` (the 16-byte name section, already a multiple of 4) + 8 bytes of version +
+`00000049` (73 bytes of private data, padded to 76). The fields after it then
+start at the right byte. Across 236 class-bearing defaults and constants in 149
+extracts (a deterministic quarter of the 2,302 distinct VIs that name a class;
+723 class objects, 714 at level 1 and 9 at level 0), 210 are consumed to exactly
+their stored byte count. Of the other 26, 24 are diagram constants
+with one extra trailing zero byte (the same extra byte seen on constants with no
+class or Picture), and 2 are one `Data` cluster whose last field is a type
+descriptor lvkit does not decode (its 4 remaining bytes are zero). No value in
+the sample has a level above 1, so the multi-level layout rests on the NI page
+alone.

@@ -10,15 +10,17 @@ Architecture:
 from __future__ import annotations
 
 import logging
+import math
 import re
 import struct
 import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
 from pathlib import Path
+from typing import Any
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import LVType, LVTypeKind, leading_element
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -1855,12 +1857,10 @@ def _parse_ddo(
         # one representative (the first encoded) row's fields, so its own
         # field defaults come from field_defaults[0], the same "one visible
         # row" convention cluster_geom already documents for array geometry.
-        # None for an array saved with zero elements (field_defaults == []).
-        elem_defaults = (
-            field_defaults[0]
-            if isinstance(field_defaults, list) and field_defaults
-            else None
-        )
+        # None for an array saved with zero elements (field_defaults == []);
+        # a multi-dimensional array's is nested lists, whose first row's first
+        # element is that representative row.
+        elem_defaults = leading_element(field_defaults)
         # The element ddo may itself be typeDef-wrapped (an array of a NAMED
         # cluster/enum typedef, e.g. an array element typed as a `.ctl` --
         # "Scope Time/Div Settings"'s TIMECONTROL.ctl element, verified on the
@@ -2127,6 +2127,74 @@ def _decode_numeric_default(data: bytes) -> str | None:
     return None
 
 
+def _class_object_size(data: bytes | memoryview) -> int | None:
+    """The byte count of one flattened LabVIEW class object at the start of
+    ``data``, or None when ``data`` is too short for its own layout. NI's
+    "Flattened Data" page, "Classes":
+    https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html
+
+    - ``level in hierarchy``: 4 bytes; 0 is an instance of LabVIEW Object and
+      nothing follows.
+    - ``class name``: a length byte (of the Pascal-string run that follows,
+      ending in a zero length byte), padded with zero bytes so the whole
+      section is a multiple of 4.
+    - ``version list``: one 8-byte version (four 2-byte integers) per level. A
+      one-level object whose version is 0 is the class's default data and
+      nothing follows.
+    - ``private data``: per level, a 4-byte signed byte count and that many bytes
+      of flattened cluster, padded to a multiple of 4.
+    """
+    if len(data) < 4:
+        return None
+    level = int.from_bytes(data[:4], "big")
+    if level == 0:
+        return 4
+    if len(data) < 5:
+        return None
+    idx = 4 + _padded_to_4(1 + data[4])
+    versions_end = idx + 8 * level
+    if versions_end > len(data):
+        return None
+    if level == 1 and not any(data[idx:versions_end]):
+        return versions_end
+    idx = versions_end
+    for _ in range(level):
+        if idx + 4 > len(data):
+            return None
+        idx += 4 + _padded_to_4(int.from_bytes(data[idx : idx + 4], "big", signed=True))
+        if idx > len(data):
+            return None
+    return idx
+
+
+def _padded_to_4(size: int) -> int:
+    """``size`` rounded up to a multiple of 4."""
+    return (size + 3) & ~3
+
+
+def _nest_by_dimension(flat: list[Any], sizes: list[int]) -> list[Any]:
+    """``flat`` (row-major, one entry per element) as lists nested by ``sizes``,
+    slowest-varying dimension outermost: ``[3, 4]`` gives 3 rows of 4. A
+    one-dimension array is ``flat`` itself."""
+    if len(sizes) == 1:
+        return flat
+    row_len = math.prod(sizes[1:])
+    return [
+        _nest_by_dimension(flat[row * row_len : (row + 1) * row_len], sizes[1:])
+        for row in range(sizes[0])
+    ]
+
+
+def _list_display(items: list[Any]) -> str:
+    """A decoded array's display string: its elements' display strings
+    (``str``), or nested lists of them for a multi-dimensional array."""
+    return (
+        "["
+        + ", ".join(_list_display(i) if isinstance(i, list) else i for i in items)
+        + "]"
+    )
+
+
 def _decode_element(
     data: bytes | memoryview, elem_type: LVType | None
 ) -> tuple[str | None, int, object]:
@@ -2186,6 +2254,18 @@ def _decode_element(
         # both for scalar string constants and for arrays of strings.
         value = repr(string_val)
         return value, 4 + str_len, value
+
+    # Picture: a 4-byte length then that many bytes of drawing data (the stored
+    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4).
+    # The drawing is not turned into a value, but its bytes are consumed so a
+    # cluster's following fields stay aligned.
+    if underlying == "Picture":
+        if len(data) < 4:
+            return None, 0, None
+        picture_len = int.from_bytes(data[:4], "big")
+        if len(data) < 4 + picture_len:
+            return None, 0, None
+        return None, 4 + picture_len, None
 
     # Boolean: 1 byte in binary data
     if underlying == "Boolean":
@@ -2247,12 +2327,16 @@ def _decode_element(
         value = value or 'Path("")'
         return value, consumed, value
 
-    # Array: 4-byte length + elements
+    # Array: one 4-byte size per dimension (slowest-varying first), then the
+    # elements in row-major order.
     if kind == LVTypeKind.ARRAY and elem_type.element_type:
-        if len(data) < 4:
+        dims = elem_type.dimensions or 1
+        header = 4 * dims
+        if len(data) < header:
             return None, 0, None
-        array_len = int.from_bytes(data[:4], "big")
-        idx = 4
+        sizes = [int.from_bytes(data[4 * d : 4 * d + 4], "big") for d in range(dims)]
+        array_len = math.prod(sizes)
+        idx = header
         elements = []
         # The STRUCTURED per-element values (see the docstring) -- kept
         # alongside ``elements``'s display strings so a caller can thread each
@@ -2267,7 +2351,7 @@ def _decode_element(
                 data[idx:],
                 elem_type.element_type,
             )
-            if elem_val is None:
+            if elem_val is None and consumed <= 0:
                 break
             # No forward progress (e.g. an undecodable element that returns
             # consumed=0, like a non-PTH0 Path) means the remaining elements
@@ -2289,10 +2373,18 @@ def _decode_element(
                     idx,
                 )
                 break
-            elements.append(elem_val)
+            # An element read past but with no value (a Picture) shows as None.
+            elements.append("None" if elem_val is None else elem_val)
             elements_structured.append(elem_structured)
             idx += consumed
-        return "[" + ", ".join(elements) + "]", idx, elements_structured
+        if len(elements) < array_len:
+            # Truncated: the elements read so far, flat.
+            return _list_display(elements), idx, elements_structured
+        return (
+            _list_display(_nest_by_dimension(elements, sizes)),
+            idx,
+            _nest_by_dimension(elements_structured, sizes),
+        )
 
     # Cluster: sequential fields
     if kind == LVTypeKind.CLUSTER and elem_type.fields:
@@ -2309,6 +2401,10 @@ def _decode_element(
                 data[idx:],
                 field.type,
             )
+            # An unreadable field (no value, no bytes) leaves the later fields'
+            # positions unknown: stop rather than read them from its bytes.
+            if field_val is None and consumed <= 0:
+                break
             if field_val is None:
                 field_values[field.name] = "None"
                 field_structured[field.name] = None
@@ -2319,41 +2415,18 @@ def _decode_element(
         items = [f"'{k}': {v}" for k, v in field_values.items()]
         return "{" + ", ".join(items) + "}", idx, field_structured
 
-    # Refnum: a 4-byte opaque handle. A CLASS/LVObject refnum reads as its CLASS
-    # NAME (from the resolved type), never the handle — the handle is a
-    # meaningless runtime cookie, and a class ref's on-disk value even embeds the
-    # class path AFTER the 4 bytes (a marker byte + two length-prefixed strings +
-    # padding, whose alignment isn't reliably derivable), which this fixed 4-byte
-    # read does NOT consume. The label comes from the TYPE, so it's right
-    # regardless of that under-read; ``size`` stays 4 (unchanged) so cluster
-    # field decoding is not perturbed. A plain typed refnum keeps its handle
-    # token. Same class-name rule as render.style.lv_type_label.
+    # Refnum: a 4-byte opaque handle, except a CLASS value (a typed refnum
+    # with a ``classname``), which is a flattened object (see
+    # ``_class_object_size``) and reads as its CLASS NAME from the resolved
+    # type. A plain typed refnum keeps its handle token. Same class-name rule
+    # as render.style.lv_type_label.
     if underlying == "Refnum":
         if elem_type.classname:
-            # A CLASS/LVObject refnum's on-disk value is a class-name descriptor:
-            #   [4-byte class-chain count N][ N x [1-byte block-len]
-            #                                     [1-byte name-len][name] ]
-            # where block-len is self-inclusive (= 2 + name-len). Consuming only
-            # a fixed 4 bytes (the old behavior) left [block-len][name-len][name]
-            # in place, which a FOLLOWING cluster field then misread — e.g. an
-            # array field read the class-name bytes as a 290M length (the decode
-            # runaway). Parse the descriptor so cluster fields stay aligned.
-            # Verified across TestCase/TestResult/TestSuite/JUnitXML/LVObject.
             name = elem_type.classname.rsplit(":", 1)[-1]
-            if len(data) >= 4:
-                n = int.from_bytes(data[:4], "big")
-                idx = 4
-                if 0 <= n <= 16:  # a real class chain is short; guards garbage
-                    for _ in range(n):
-                        if idx >= len(data):
-                            break
-                        blk = data[idx]  # self-inclusive block length (2+namelen)
-                        if blk < 2 or idx + blk > len(data):
-                            idx = 4  # malformed descriptor — fall back to 4
-                            break
-                        idx += blk
-                    return name, idx, name
-            return name, min(4, len(data)), name
+            size = _class_object_size(data)
+            if size is None:
+                return None, 0, None
+            return name, size, name
         size = min(4, len(data))
         val = int.from_bytes(data[:size], "big")
         value = f"Refnum({val})" if val else "None"

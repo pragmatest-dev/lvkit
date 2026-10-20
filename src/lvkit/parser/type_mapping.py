@@ -5,6 +5,7 @@ Handles parsing TypeID mappings and VCTP section to build LVType structures.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -230,23 +231,10 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
     # Second pass: build LVTypes with resolved references
     resolved: dict[int, LVType] = {}
 
-    def resolve_type(fid: int, visited: set[int] | None = None) -> LVType | None:
-        """Recursively resolve a FlatTypeID to LVType."""
-        if visited is None:
-            visited = set()
-
-        if fid in visited:
-            # Cycle detection - return placeholder
-            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Recursive")
-
-        if fid in resolved:
-            return resolved[fid]
-
-        if fid not in flat_types:
-            return None
-
-        visited = visited | {fid}
-        td = flat_types[fid]
+    def build_lvtype(td: ET.Element, visited: set[int]) -> LVType:
+        """The LVType one TypeDesc element describes, its child references
+        followed by ``resolve_type``. A top-level descriptor and the descriptor
+        nested inside a TypeDef are both built here."""
         type_name = td.get("Type", "")
 
         if type_name == "Cluster":
@@ -292,49 +280,27 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             )
 
         elif type_name == "TypeDef":
-            # Parse typedef - get underlying type and name
+            # A TypeDef wraps one Nested='True' descriptor: it is that
+            # descriptor's type (cluster fields, enum labels, array element and
+            # dimensions, refnum kind and payload, ...) plus the typedef's
+            # identity, the .ctl name.
             nested = td.find("TypeDesc[@Nested='True']")
-            underlying = nested.get("Type") if nested is not None else None
             typedef_name = None
             for lbl in td.findall("Label"):
                 text = lbl.get("Text", "")
                 if text.endswith(".ctl"):
                     typedef_name = text
                     break
-
-            # Parse enum labels if present
-            enum_values = None
-            td_fields: list[ClusterField] | None = None
-            if nested is not None:
-                enum_labels = nested.findall("EnumLabel")
-                if enum_labels:
-                    enum_values = {}
-                    for i, el in enumerate(enum_labels):
-                        if el.text:
-                            enum_values[el.text] = EnumValue(value=i)
-
-                # Recurse into nested type's children (cluster fields,
-                # array elements, etc.) — same as top-level parsing.
-                if underlying == "Cluster":
-                    td_fields = []
-                    for child in nested.findall("TypeDesc"):
-                        child_tid = child.get("TypeID")
-                        if child_tid:
-                            ft = resolve_type(int(child_tid), visited)
-                            ref = flat_types.get(int(child_tid))
-                            default = f"field_{len(td_fields)}"
-                            name = _field_label(ref, default)
-                            td_fields.append(
-                                ClusterField(name=name, type=ft),
-                            )
-
-            lv_type = LVType(
-                kind=_get_kind(underlying or ""),
-                underlying_type=underlying,
-                typedef_name=typedef_name,
-                values=enum_values,
-                fields=td_fields if td_fields else None,
-            )
+            if nested is None:
+                lv_type = LVType(
+                    kind=LVTypeKind.PRIMITIVE,
+                    underlying_type=None,
+                    typedef_name=typedef_name,
+                )
+            else:
+                lv_type = dataclasses.replace(
+                    build_lvtype(nested, visited), typedef_name=typedef_name
+                )
 
         elif type_name in ("UnitUInt16", "UnitUInt32", "UnitUInt8") or (
             type_name.startswith("Enum")
@@ -412,6 +378,24 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type=type_name,
             )
 
+        return lv_type
+
+    def resolve_type(fid: int, visited: set[int] | None = None) -> LVType | None:
+        """Recursively resolve a FlatTypeID to LVType."""
+        if visited is None:
+            visited = set()
+
+        if fid in visited:
+            # Cycle detection - return placeholder
+            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Recursive")
+
+        if fid in resolved:
+            return resolved[fid]
+
+        if fid not in flat_types:
+            return None
+
+        lv_type = build_lvtype(flat_types[fid], visited | {fid})
         resolved[fid] = lv_type
         return lv_type
 

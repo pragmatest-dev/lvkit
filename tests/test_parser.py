@@ -37,18 +37,12 @@ from lvkit.parser.vi import (
 
 def test_class_refnum_value_decodes_to_class_name_not_handle():
     """A CLASS/LVObject refnum's DataFill decodes to its CLASS NAME (from the
-    resolved type), never the opaque handle. The on-disk value is a class-name
-    descriptor: ``[4-byte class-count N][ N x [1-byte block-len][1-byte name-len]
-    [name] ]`` — for a nested ``lib:class`` the block holds BOTH length-prefixed
-    strings (block-len is self-inclusive). We consume the WHOLE descriptor so a
-    following cluster field stays aligned: the old fixed-4-byte read left the
-    name bytes in place, which a later array field misread as a huge length (a
-    290M-element decode runaway). A PLAIN typed refnum (no classname) keeps its
-    ``Refnum(<handle>)`` token.
-
-    NOTE: the class's default-OBJECT data (its member instance) can follow the
-    descriptor and is class-dependent; that trailing region is not yet consumed
-    (see TASKS: class-refnum value under-consumed)."""
+    resolved type), never the opaque handle, and consumes the whole flattened
+    object (level, class name section, version list, private data -- see
+    ``_class_object_size``) so a following cluster field stays aligned. This
+    value is a one-level object at version 0, the class's default data, so it
+    ends after the version list. A PLAIN typed refnum (no classname) keeps its
+    ``Refnum(<handle>)`` token."""
     from lvkit.models import LVType, LVTypeKind
 
     cls = LVType(
@@ -65,8 +59,9 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     val, size, _structured = _decode_element(raw, cls)
     assert val == "MeasurementContext.lvclass"
     assert "Refnum(" not in val
-    # count(4) + self-inclusive block(0x45=69) = the whole name descriptor.
-    assert size == 73
+    # level(4) + name section (length byte + 69 bytes, padded to 72) + 8-byte
+    # version list = every stored byte.
+    assert size == len(raw) == 84
 
     # A generic refnum (no classname) keeps the handle token.
     gen = LVType(

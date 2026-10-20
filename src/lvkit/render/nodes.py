@@ -50,7 +50,13 @@ from ..graph.op_walk import (
     _resolve_nmux_field_name,
     correlate_property_terminals,
 )
-from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
+from ..models import (
+    ClusterField,
+    LVType,
+    Terminal,
+    bundle_unbundle_name,
+    leading_element,
+)
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
 from ..parser.layout import ClusterGeom, Rect, RefnumPayload
@@ -1585,18 +1591,21 @@ def _cluster_const_glyph(
 
 
 def _array_const_values(value: object) -> list[object]:
-    """An array constant's values as a Python list. The graph stores the value
-    as its ``repr`` string (``"[0, 0, 1, ...]"`` / ``"['a', 'b']"``); parse it
-    back with ``ast.literal_eval`` the same way the cluster path does."""
+    """An array constant's values as a Python list, one per entry of the first
+    dimension. The graph stores the value as its ``repr`` string (``"[0, 0, 1,
+    ...]"`` / ``"['a', 'b']"``); parse it back with ``ast.literal_eval`` the same
+    way the cluster path does. The glyph draws one cell per entry, so a
+    multi-dimensional array's entry (a row, as a nested list) is drawn as its
+    first element."""
     if isinstance(value, (list, tuple)):
-        return list(value)
+        return [leading_element(v) for v in value]
     if isinstance(value, str) and value:
         try:
             parsed = ast.literal_eval(value)
         except (ValueError, SyntaxError):
             return []
         if isinstance(parsed, (list, tuple)):
-            return list(parsed)
+            return [leading_element(v) for v in parsed]
     return []
 
 
@@ -1690,6 +1699,14 @@ def _array_const_glyph(
     )
 
 
+def _element_count(value: object) -> int:
+    """How many elements an array value holds: every entry of a
+    multi-dimensional array's nested lists."""
+    if isinstance(value, (list, tuple)):
+        return sum(_element_count(v) for v in value)
+    return 1
+
+
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
     """A cluster field's value as short text for the hover tooltip — mirrors
     what ``_leaf_const_glyph`` draws (type defaults for an unset field)."""
@@ -1715,7 +1732,8 @@ def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
         )
         return "{" + inner + "}"
     if fam == "array" and isinstance(raw, (list, tuple)):
-        return f"[{len(raw)} element{'s' if len(raw) != 1 else ''}]"
+        count = _element_count(raw)
+        return f"[{count} element{'s' if count != 1 else ''}]"
     return str(raw) if raw is not None else ""
 
 
