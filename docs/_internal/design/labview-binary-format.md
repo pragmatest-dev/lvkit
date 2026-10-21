@@ -237,21 +237,28 @@ parts -- the library's name parts then the variable's name -- an empty path, lin
 flag, type id, link reference); then the item type (`NI_Variable_Variable`), the
 target (`My Computer`), the variable's persistent ID (a braced GUID, the same one
 the `.lvproj` records as `varPersistentID:{...}`), the node uid list, a second GUID
-(role not established), the 4 bytes `00 02 00 03` (role not established), then
-a layout that depends on the **byte right after those 4**: `01` (a
-single-process variable) is its own flag byte, followed by a u32 (seen as 1);
-`00` (a network-published variable) is the high byte of the **network path's**
-u32 length -- a string of fewer than 16 MB always starts with `00` -- so the path
-(`\\.\SV Sample\Value`; `\\.\` is the local machine) is read from that byte
-on, followed by four u32 (seen as `ffffffff 1 2 1`, roles not established).
-Both end with the variable type string: `Global` for a **single-process**
-variable (LabVIEW's recorded name for it) and `Network` for a network-published
-one. Any other byte is an unseen layout, and a type that disagrees with the
-layout is an inconsistent record; the decoder reports either as a
+(role not established), two u16 values (role not established), then one of two
+layouts. **No byte selects the layout**: the decoder reads the single-process
+layout first and keeps it only if its type string reads `Global`; otherwise it
+reads the network-published layout and keeps it only if its type string reads
+`Network`.
+
+- single process: a u8 (seen as `01` in the committed sample and `00` in a
+  LabVIEW 2025 project, so it is not a layout flag), a u32 (seen as 1), then the
+  type string `Global` (LabVIEW's recorded name for a single-process variable);
+- network-published: the **network path** as a u32-length string
+  (`\\.\SV Sample\Value`; `\\.\` is the local machine), four u32 (seen as
+  `ffffffff 1 2 1`, roles not established), then the type string `Network`.
+
+The two u16 values are not a fixed marker: in a LabVIEW 2025 project the first
+differs from record to record within a VI and the second is the same for every
+record of that VI (seen as 2, 3, 5 and 6); both committed samples read `2, 3`.
+Their meaning, and the meaning of the u8 and the u32, are not established; the
+link keeps them as read. A record that fits neither layout is a
 `SharedVariableRecordFailure` (offset, reason, the node uids if the failure came
-after the uid list) instead of raising, so the VI still loads and the affected
-nodes say their library link is unreadable. Exact layout: `parser/link_table.py`
-module docstring.
+after the uid list) instead of an exception, so the VI still loads and the
+affected nodes say their library link is unreadable. Exact layout:
+`parser/link_table.py` module docstring.
 
 Evidence: `tests/corpus/issues/149/SV Sample.vi` (LabVIEW 25.0, reporter
 metman-oss): one `HpVL` record, library `SV Sample.lvlib`, variable `Value`, type
