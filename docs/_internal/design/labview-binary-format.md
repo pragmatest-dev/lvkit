@@ -1162,3 +1162,34 @@ is a control; OpenG `Reorder Array__ogtk.vi` is a polymorphic VI.
 The value exposed as `vi_type` (describe text and `--format json`, the index
 `vi_type` column) is the readable kind: `VI`, `Global VI`, `Control`,
 `Polymorphic VI`, or `unknown (code N)`.
+
+## A connector-pane terminal's wiring rule is Flags bits 11-12 of the Function TypeDesc that CONP points to (issue #173)
+
+Each connected slot is a child of the VI's own connector-pane Function
+`TypeDesc` (`CONP` TypeID -> `VCTP/TopLevel` -> FlatTypeID). Its `Flags`:
+
+| Bit | Meaning |
+|---|---|
+| 12 (`0x1000`) | Required |
+| 11 (`0x0800`) | Recommended (when bit 12 is clear) |
+| neither | Optional (`Flags="0x0000"` is a normal Optional input) |
+| 8 (`0x0100`) | output |
+| 15 (`0x8000`) | Dynamic Dispatch (with bit 12 on an input, bit 11 on an output) |
+
+Evidence: the reporter's scan of 17,514 terminals in 3,890 VIs (LabVIEW 9.0 to
+24.0): bit 8 on 7,983 of 7,983 outputs and 0 of 9,531 inputs; bit 12 on 3,987
+inputs and 0 outputs; bits 11 and 12 never together. A re-check on a capped
+sample (295 VIs, direction from the FP DCO `objFlags` bit 0): bit 8 on 553 of
+553 outputs and 0 of 639 inputs; bit 12 on 274 inputs and no output; bit 11 on
+360 inputs and 553 outputs; neither on 5 inputs; no slot with both 11 and 12;
+bit 15 on 43 inputs and 38 outputs. Labels agree: `custom report message ("")`
+is `0x0000`; JKI-EasyXML `Easy Write XML File.vi` has `XML File Path`
+`0x1000` (Required), `Overwrite File? (false)` `0x0800` (Recommended),
+`Encoding (none)` `0x0000` (Optional). NI's public docs name the dynamic-dispatch
+settings "Dynamic Dispatch Input (Required)" / "Dynamic Dispatch Output
+(Recommended)". Bits 0-3, 9, 10, 16, 17 are unrelated to the wiring rule
+(meaning unknown).
+
+A VCTP lists every type used in the VI, including other VIs' interfaces, so
+more than one same-shaped `Function` TypeDesc can exist; only the one CONP
+names is the VI's own (JKI-EasyXML `Easy Parse XML.vi`).
