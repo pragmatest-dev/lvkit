@@ -60,6 +60,8 @@ VI_B = Path(
 
 
 def _load(vi_path: Path, *, layout: bool = False) -> tuple[InMemoryVIGraph, str]:
+    if not vi_path.exists():
+        pytest.skip(f"{vi_path} not present on this machine")
     graph = InMemoryVIGraph()
     graph.load_vi(str(vi_path), mode=LoadMode.NONE, layout=layout)
     vi_name = graph.resolve_vi_name(vi_path.name)
@@ -1083,8 +1085,9 @@ class TestConnectorPaneRequalification:
         result = subprocess.run(
             ["git", "-C", self.REPO, "show", f"{ref}:{self.FILE_PATH}"],
             capture_output=True,
-            check=True,
         )
+        if result.returncode != 0:
+            pytest.skip(f"commit {ref} not in the local {self.REPO} clone")
         out = tmp_path / out_name
         out.write_bytes(result.stdout)
         return out

@@ -23,7 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import pytest
@@ -56,6 +56,11 @@ def _run_leaf(vi_rel: str, *args: object) -> Any:
     fn = ns.get(func_name)
     assert callable(fn), f"entry function {func_name} not defined"
     return fn(*args)
+
+
+def _posix(path: object) -> str:
+    """A path value in forward-slash form, whatever the OS-native separator."""
+    return PurePath(str(path)).as_posix()
 
 
 def _slug(s: str) -> str:
@@ -211,13 +216,13 @@ def test_strip_path_traditional() -> None:
     """Split a path into its last component (name) and its parent (stripped)."""
     r = _run_leaf("file/file.llb/Strip Path - Traditional__ogtk.vi", "/home/u/f.txt")
     assert r.name == "f.txt"
-    assert str(r.stripped_path) == "/home/u"
+    assert _posix(r.stripped_path) == "/home/u"
 
 
 def test_vi_library_appends_to_vilib() -> None:
     """Appends the input to the (path-constant) vi.lib fragment."""
     r = _run_leaf("file/file.llb/VI Library__ogtk.vi", "proj")
-    assert str(r.vi_library__relative) == "vi.lib/proj"
+    assert _posix(r.vi_library__relative) == "vi.lib/proj"
 
 
 def test_reorder_1d_array_by_indices() -> None:
@@ -335,7 +340,7 @@ def test_build_path_traditional() -> None:
     r = _run_leaf(
         "file/file.llb/Build Path - Traditional__ogtk.vi", "/home/u", "f.txt"
     )
-    assert str(r.appended_path) == "/home/u/f.txt"
+    assert _posix(r.appended_path) == "/home/u/f.txt"
 
 
 def test_build_path_file_names_array() -> None:
@@ -345,7 +350,10 @@ def test_build_path_file_names_array() -> None:
         "/home/u",
         ["a.txt", "b.txt"],
     )
-    assert [str(p) for p in r.appended_path] == ["/home/u/a.txt", "/home/u/b.txt"]
+    assert [_posix(p) for p in r.appended_path] == [
+        "/home/u/a.txt",
+        "/home/u/b.txt",
+    ]
 
 
 def test_build_path_traditional_path() -> None:
@@ -353,7 +361,7 @@ def test_build_path_traditional_path() -> None:
     r = _run_leaf(
         "file/file.llb/Build Path - Traditional - path__ogtk.vi", "/a/b", "c.txt"
     )
-    assert str(r.appended_path) == "/a/b/c.txt"
+    assert _posix(r.appended_path) == "/a/b/c.txt"
 
 
 def test_build_path_file_names_array_path() -> None:
@@ -363,7 +371,7 @@ def test_build_path_file_names_array_path() -> None:
         "/a/b",
         ["x", "y"],
     )
-    assert [str(p) for p in r.appended_path] == ["/a/b/x", "/a/b/y"]
+    assert [_posix(p) for p in r.appended_path] == ["/a/b/x", "/a/b/y"]
 
 
 # --------------------------------------------------------------------------
@@ -499,8 +507,8 @@ def test_compare_two_paths_common_and_relative() -> None:
         Path("/a/b/c"),
         Path("/a/b/d"),
     )
-    assert str(r.common_path) == "/a/b"
-    assert str(r.relative_path_from_1_to_2) == "d"
+    assert _posix(r.common_path) == "/a/b"
+    assert _posix(r.relative_path_from_1_to_2) == "d"
     assert r.different_types is False
 
 
@@ -516,10 +524,13 @@ def test_append_path_to_root_if_relative() -> None:
         Path("/root"),
         Path("rel/x"),
     )
-    assert str(rel.absolute_or_appended_path) == "/root/rel/x"
+    assert _posix(rel.absolute_or_appended_path) == "/root/rel/x"
+    # "Absolute" is the platform's own meaning (os.path.isabs): on Windows a
+    # path needs a drive, so anchor the absolute path at the current drive.
+    abs_path = Path(Path.cwd().anchor) / "abs" / "y"
     absolute = _run_leaf(
         "file/file.llb/Append Path to Root if Relative - Scalar__ogtk.vi",
         Path("/root"),
-        Path("/abs/y"),
+        abs_path,
     )
-    assert str(absolute.absolute_or_appended_path) == "/abs/y"
+    assert absolute.absolute_or_appended_path == abs_path

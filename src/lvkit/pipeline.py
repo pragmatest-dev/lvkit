@@ -475,7 +475,10 @@ def _generate_polymorphic_module(
     # names, so collect the provided values in call order and let _lv_dispatch
     # map them to the chosen variant's parameters positionally.
     lines.append(f"def {wrapper_func}(*args, **kwargs) -> {returns}:")
-    lines.append(f'    """Polymorphic wrapper for {wrapper_name}."""')
+    # repr() makes the VI path a valid string literal whatever it contains
+    # (a Windows path holds backslashes).
+    docstring = repr(f"Polymorphic wrapper for {wrapper_name}.")
+    lines.append(f"    {docstring}")
     lines.append("    _vals = [*args, *kwargs.values()]")
 
     if variant_funcs:

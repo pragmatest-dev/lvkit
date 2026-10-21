@@ -194,7 +194,7 @@ def _write(
     if not unchanged:
         tmp = staging.temp_path(cache_paths.global_cache_root())
         tmp.write_text(body, encoding="utf-8")
-        os.replace(tmp, body_path)
+        staging.replace(tmp, body_path)
     cache_paths.write_meta(vi_path, meta_path, **extra)
     _sweep_once()
 

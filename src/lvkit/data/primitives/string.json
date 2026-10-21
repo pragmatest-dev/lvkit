@@ -150,12 +150,12 @@
         }
       ],
       "python_code": {
-        "_import": "import re",
-        "_body": "_m = re.search(in_1, in_0[in_2:])",
-        "before_substring": "in_0[in_2:][:_m.start()] if _m else in_0[in_2:]",
-        "match_substring": "_m.group() if _m else ''",
-        "after_substring": "in_0[in_2:][_m.end():] if _m else ''",
-        "offset_past_match": "(in_2 + _m.end()) if _m else -1"
+        "_import": "from lvkit.runtime.match_pattern import match_pattern as _match_pattern",
+        "_body": "_m = _match_pattern(in_0, in_1, in_2)",
+        "before_substring": "_m[0]",
+        "match_substring": "_m[1]",
+        "after_substring": "_m[2]",
+        "offset_past_match": "_m[3]"
       },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"

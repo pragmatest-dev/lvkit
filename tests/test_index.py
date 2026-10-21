@@ -654,7 +654,7 @@ _EXPECTED_OWN_VI: dict[str, int] = {
 
 
 def _rel_lvproj(m_lvproj_path: str) -> str:
-    return str(Path(m_lvproj_path).relative_to(JKI_ROOT.resolve()))
+    return Path(m_lvproj_path).relative_to(JKI_ROOT.resolve()).as_posix()
 
 
 @pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")

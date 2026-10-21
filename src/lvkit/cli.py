@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import subprocess
 import sys
@@ -191,8 +192,20 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     return store
 
 
+def _use_utf8_output() -> None:
+    """Write UTF-8 to stdout/stderr whatever the platform's default encoding.
+
+    The CLI prints non-ASCII symbols (arrows, ticks); a Windows pipe defaults to
+    the ANSI code page, which cannot encode them and would crash the command.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main() -> int:
     """Main CLI entry point."""
+    _use_utf8_output()
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
