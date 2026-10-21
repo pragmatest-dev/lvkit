@@ -151,13 +151,54 @@ Flat sequence frames act like implicit subVIs. ALL nodes inside a frame execute 
 
 **How to apply:** When generating code for a flat sequence frame, emit code for EVERY node in the frame, not just the ones in the wired dataflow chain. Unwired nodes (like Wait) must still appear in the generated Python for the frame.
 
-## "Pre-LV9 (LV8.2) VIs have no VCTP; connector-pane types live in the CONP block (decoded, #11 DONE); non-interface controls fall back to FP-heap reconstruction"
+## "Pre-LV9 (LV8.2) VIs have no VCTP; the diagram and front-panel type pool is the DTHP block, the connector-pane types are the CONP block (both decoded)"
 <!-- was memory: project_pre_lv9_no_vctp_trec -->
 
 **Pre-LV9 VIs (LabVIEW 8.2) have no `<VCTP>` block.** pylabview reads types only
 from VCTP, so it resolves nothing for them. But the types ARE recoverable
-clean-room (#11 DONE — 148 unresolved connector-pane terminals -> 0):
+clean-room. Three sources, by what they cover:
 
+0. **DTHP block = the diagram + front-panel type pool (every `TypeID(N)` a
+   terminal, constant or control names).** In an LV9+ VI, `DTHP` holds only a
+   `TypeDescSlice` into VCTP. In an LV8.2 VI it IS the pool, laid out like VCTP;
+   pylabview misreads it as the LV9 slice and leaves it raw, so the extractor
+   writes `*_DTHP.bin` (an LV9+ VI parses to XML and has no sidecar). Layout:
+   `u32 count`, `count` TDs (the TD framing of item 1 below), then
+   `u16 ntop` + `ntop x u16` TD-index. **Heap `TypeID(N)` = flat TD
+   `top[N-1]`** (`parser/heap_types.py`; TD decode shared with CONP in
+   `parser/td_pool.py`). Wired into `parse_type_map_rich`, which every view reads,
+   so the pool is single-sourced: VCTP first; no VCTP and a `DTHP` sidecar -> this.
+   *Evidence:* (a) all 232 `DTHP.bin` sidecars in the corpus (62 distinct VIs --
+   exactly the 62 corpus files with no `VCTP` ident, i.e. every LV8.2 VI) satisfy
+   `2 + 2*ntop == bytes after the TD list` and every `top` entry `< count`;
+   (b) apart from `TypeID(0)`, no diagram or front-panel `TypeID` exceeds `ntop`
+   (e.g. `Error Cluster From Error Code`: ids up to 150, `ntop` = 152); (c) all 231
+   front-panel terminals of the 62 VIs resolve through DTHP to a type equal to
+   the one CONP -- an independent block -- gives (cluster field names, enum
+   labels, typedef names, refnum classes included); (d) a by-name Unbundle's
+   field wires carry the types of the fields its drawer indices select.
+   `TypeID(0)` is "no type" (a local variable), as in LV9+. Measured on the 62
+   VIs: untyped diagram terminals 3236 -> 232 of 3440 (the remainder are terminals
+   the file itself gives no `typeDesc`, ~6.7% -- 62 LV9+ OpenG VIs measure 5.5%); arrays
+   with no element type 16 -> 0.
+   Extra TD facts the pool needed (verified on the 232 sidecars): an array body is
+   `u16 ndims`, `ndims x u32` size, `u16` element ref, label (the CONP decoder had
+   read the element at the wrong offset); an enum's label list is padded to an
+   even offset before the terminal label; a typedef (`0xf1`) body is `u32 flag`,
+   `u32 n` + `n` pstr qualified name (owning libraries then the `.ctl`), then the
+   inner TD as a nested `[u16 len][flags][type][body]` running to the end of the
+   body; string, path, picture and substring bodies start with a `u32` before the
+   label; `0x53` (variant) is label-only; a Queue/Notifier/User Event/Data Value/
+   FIFO/DataLog refnum body is `u16 kind`, `u16 n`, `n x u16` element TD ref.
+   A pre-LV9 structure defines its DCOs on itself -- by-name Bundle/Unbundle
+   drawers (with their field index `<i>`) in `dcoList`, the aggregate as `dcoAgg`,
+   a case selector as `caseSelDCO`, tunnels in `tunnelList` -- and each border
+   `<term>` holds a bare `<dco uid/>`; `_inline_structure_tunnel_dcos` copies the
+   definition into the term so every reader sees the LV9+ form. (Without it every
+   drawer read as field 0 and every case selector as unwired: 42 `case ? :`
+   headers in 27 of the 62 VIs, 0 after.)
+   `TM80` is NOT this pool: it is the data-space type map (same framing, other
+   numbering), which only the case-selector tables read.
 1. **CONP block = the connector-pane type pool** (the authoritative source). Same
    bottom-up TypeDesc format as VCTP, sidecarred by the extractor as
    `*_CONP.bin` (pylabview leaves it raw: "we do not know how to parse complex
@@ -169,11 +210,14 @@ clean-room (#11 DONE — 148 unresolved connector-pane terminals -> 0):
    CONP stub (types moved to VCTP), so the decoder is a no-op there. Wired into
    `extract_fp_terminals` as a slot-correlated overlay (commits 632e509, e7ac326).
 2. **CONP is INTERFACE-ONLY.** A front-panel control not wired to the connector
-   pane (~37/2192 in JKI) is NOT in CONP -> use the **FP-heap DDO reconstruction**
+   pane (~37/2192 in JKI) is NOT in CONP -> its type comes from DTHP (item 0); the
+   **FP-heap DDO reconstruction**
    (`parser/fp_heap_type.py`, commit 11caa50): structure + enum labels from the
    heap subtree (ring items in a `multiLabel <buf>`, cluster fields via
    `<ddoList>`), but no field NAMES (pre-LV9 label text is a dropped text-pool
-   ref). Precedence: VCTP (LV9+) > CONP (LV8.2 interface) > FP-heap (private/fallback).
+   ref). Precedence: VCTP (LV9+) > DTHP pool (LV8.2 diagram and front panel); a connector-pane
+   terminal's CONP type overrides its DTHP type (same structure, plus the terminal's
+   name); FP-heap reconstruction only when neither yields a type.
 
 **Dead-end corrected:** `TRec` blocks are GEOMETRY (72-byte terminal records),
 NOT the type pool — an early wrong guess. Field names are NOT in the FP heap for

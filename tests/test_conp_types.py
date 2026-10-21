@@ -201,7 +201,9 @@ def test_conp_slot_alignment_agrees_with_control_type():
         "stdClust": lambda lbl: (
             lbl == "Error" or lbl.startswith(("cluster", "cluster{"))
         ),
-        "stdRing": lambda lbl: lbl.startswith("enum{") or lbl == "ring",
+        # A typedef'd ring renders as ``<Name>{items}``; an anonymous one as
+        # ``enum{items}``.
+        "stdRing": lambda lbl: lbl.startswith("enum{") or lbl.endswith("}"),
         "stdString": lambda lbl: lbl == "String",
     }
     g, name = _load_one(str(_LV82_VI))

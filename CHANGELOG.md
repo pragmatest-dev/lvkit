@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **LabVIEW 8.2 block diagrams now carry real types** — array dimensions and element types, error clusters, enums and clusters on every wire and terminal (lvnet, describe, render, generated Python), where they showed `?`; Bundle/Unbundle By Name drawers name their own fields instead of repeating the first, and case structures name their selector instead of `case ?`.
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

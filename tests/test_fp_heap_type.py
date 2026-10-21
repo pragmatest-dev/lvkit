@@ -352,10 +352,8 @@ def test_lv82_ring_and_clusters_resolve_end_to_end():
     ]
     labels = {t.type_descriptor() for t in terms}
 
-    # The ring is fully recovered WITH its item labels.
-    assert any(
-        lbl.startswith("enum{") and "Major Increment" in lbl for lbl in labels
-    ), labels
+    # The ring is fully recovered WITH its item labels (and its typedef name).
+    assert any(lbl.endswith("}") and "Major Increment" in lbl for lbl in labels), labels
     # CONP recovers the cluster field names, so the error clusters are detected.
     assert "Error" in labels, labels
     # No structured terminal is left as the bare family word.
