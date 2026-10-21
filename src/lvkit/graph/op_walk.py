@@ -30,7 +30,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
-from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.constants import NMUX_NAMED_LANE_NODE_CLASSES
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant
@@ -231,8 +231,9 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     once a class search-path resolves, can fill it in). Safe to call
     repeatedly (e.g. once per top-level ``load_vi``).
 
-    Gated to ``NMUX_BY_NAME_NODE_CLASSES`` (``nMux``/``decomposeClusterNode``)
-    -- NOT every node carrying ``nmux_role`` terminals. ``mux``/``demux``
+    Gated to ``NMUX_NAMED_LANE_NODE_CLASSES`` (``nMux``/
+    ``decomposeClusterNode``/``eventDataNode``, whose terminals each store a
+    field index) -- NOT every node carrying ``nmux_role`` terminals. ``mux``/``demux``
     (loop/structure-boundary bundlers) share the exact same dcoAgg/dcoList
     terminal shape but index POSITIONALLY, never by a real field name; naming
     their ports/wires after whatever field happens to sit at that position
@@ -243,7 +244,7 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     """
     for vi_name in graph.list_vis():
         for node in graph.iter_nodes(vi_name):
-            if node.node_type not in NMUX_BY_NAME_NODE_CLASSES:
+            if node.node_type not in NMUX_NAMED_LANE_NODE_CLASSES:
                 continue
             agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
             if agg is None:

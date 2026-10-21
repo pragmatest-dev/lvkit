@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -817,18 +818,93 @@ def _owning_node_gn(
     return node
 
 
-def _resolve_source_gn(
+class StructureBorder(Enum):
+    """A value a structure's border supplies to the diagram: the structure
+    itself is the source, not whatever feeds it inside."""
+
+    CASE_OUTPUT_TUNNEL = "case output tunnel"
+    LOOP_OUTPUT_TUNNEL = "loop output tunnel"
+    SHIFT_REGISTER = "shift register"
+    ITERATION_TERMINAL = "iteration terminal"
+    FRAME_OUTPUT_TUNNEL = "frame output tunnel"
+    IN_PLACE_OUTPUT = "In Place Element output"
+    FEEDBACK_NODE = "Feedback Node"
+
+
+@dataclass(frozen=True)
+class TracedSource:
+    """Where a terminal's value really comes from, after hopping through
+    structure tunnels. ``wire_end`` is the last wire end reached. At most one
+    of the following says what it is: ``border`` (``owner`` is the structure
+    or Feedback Node supplying the value, ``term`` its terminal), ``owner`` /
+    ``term`` alone (a node's own terminal), ``element_net`` (an In Place
+    Element border node), ``boundary`` (a VI front-panel input). With none of
+    them set the source is a constant, or a node the graph does not model."""
+
+    wire_end: WireEnd
+    owner: AnyGraphNode | None = None
+    term: Terminal | None = None
+    border: StructureBorder | None = None
+    element_net: str | None = None
+    boundary: Terminal | None = None
+
+
+def _border_of_gn(
+    graph: InMemoryVIGraph, owner: AnyGraphNode, term: Terminal
+) -> StructureBorder | None:
+    """Which structure-border value ``term`` is, or ``None`` when it is an
+    ordinary node terminal."""
+    if _is_gamma_output_tunnel_gn(owner, term):
+        return StructureBorder.CASE_OUTPUT_TUNNEL
+    if _is_eta_output_tunnel_gn(owner, term):
+        return StructureBorder.LOOP_OUTPUT_TUNNEL
+    if _is_mu_shift_register_read_gn(owner, term):
+        return StructureBorder.SHIFT_REGISTER
+    if _is_loop_iteration_terminal_gn(owner, term):
+        return StructureBorder.ITERATION_TERMINAL
+    if _is_frame_output_tunnel_gn(owner, term):
+        return StructureBorder.FRAME_OUTPUT_TUNNEL
+    if _is_inplace_output_gn(owner, term):
+        return StructureBorder.IN_PLACE_OUTPUT
+    if _is_feedback_output_read_gn(graph, owner, term):
+        return StructureBorder.FEEDBACK_NODE
+    return None
+
+
+def _border_net_name_gn(
+    border: StructureBorder,
+    owner: AnyGraphNode,
+    term: Terminal,
+    build_ctx: _GraphBuildCtx,
+) -> str:
+    """The net name of a structure-border value."""
+    match border:
+        case StructureBorder.CASE_OUTPUT_TUNNEL:
+            return _gamma_net_name_gn(owner, term)
+        case StructureBorder.LOOP_OUTPUT_TUNNEL:
+            return _eta_net_name_gn(owner, term)
+        case StructureBorder.SHIFT_REGISTER:
+            return _mu_net_name_gn(owner, term)
+        case StructureBorder.ITERATION_TERMINAL:
+            return _loop_iteration_net_name_gn(owner)
+        case StructureBorder.FRAME_OUTPUT_TUNNEL:
+            return _frame_net_name_gn(owner, term)
+        case StructureBorder.IN_PLACE_OUTPUT:
+            return _inplace_net_name_gn(owner, term)
+        case StructureBorder.FEEDBACK_NODE:
+            return f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
+
+
+def trace_source_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
     vi_name: str,
     terminal_id: str,
-    build_ctx: _GraphBuildCtx,
-) -> NetRef | None:
-    """Resolve the net feeding a terminal, hopping through structure tunnels
-    and Feedback Node master/slave links as needed. Resolves a wire's
-    producing node via ``_owning_node_gn``
-    (``graph.get_graph_node``/``graph.get_terminal``-backed) -- no
-    precomputed node-tree index needed."""
+) -> TracedSource | None:
+    """Follow the wire feeding a terminal back to its real source, hopping
+    through single-source structure tunnels. Resolves a wire's producing node
+    via ``_owning_node_gn`` (``graph.get_graph_node``-backed) -- no
+    precomputed node-tree index needed. ``None`` when nothing is wired."""
     seen: set[str] = set()
     tid = terminal_id
     while True:
@@ -855,91 +931,102 @@ def _resolve_source_gn(
             else None
         )
         if owner is not None and term is not None:
-            if _is_gamma_output_tunnel_gn(owner, term):
-                name = _gamma_net_name_gn(owner, term)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_eta_output_tunnel_gn(owner, term):
-                name = _eta_net_name_gn(owner, term)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_mu_shift_register_read_gn(owner, term):
-                name = _mu_net_name_gn(owner, term)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_loop_iteration_terminal_gn(owner, term):
-                name = _loop_iteration_net_name_gn(owner)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_frame_output_tunnel_gn(owner, term):
-                name = _frame_net_name_gn(owner, term)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_inplace_output_gn(owner, term):
-                name = _inplace_net_name_gn(owner, term)
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
-            if _is_feedback_output_read_gn(graph, owner, term):
-                name = f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
-                return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            border = _border_of_gn(graph, owner, term)
+            if border is not None:
+                return TracedSource(src, owner=owner, term=term, border=border)
             paired = _paired_tunnel_id_gn(term)
             if paired is not None and paired not in seen:
                 tid = paired
                 continue
-            node_name = _display_name_gn(owner)
-            occurrence = build_ctx.occurrence_by_uid.get(_uid_of(owner.id))
-            # Phase 3: tag this reference with its producer's own uid
-            # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
-            # straight to the producer's ``<base>_<uid>`` handle via
-            # ``_LvnetHandles.by_uid`` -- the SAME mechanism a labeled
-            # constant already uses via ``constant_uid``. ``occurrence``
-            # stays populated unchanged (``netlist_to_dict`` parity -- it
-            # never reads ``producer_uid``).
-            return replace(
-                _term_ref(node_name, occurrence, term),
-                producer_uid=_uid_of(owner.id),
-            )
+            return TracedSource(src, owner=owner, term=term)
 
         element_net = _inplace_border_read_net_gn(graph, src.node_id, src.terminal_id)
         if element_net is not None:
-            return NetRef(
-                node=None, terminal=element_net, occurrence=None, bare=element_net
-            )
+            return TracedSource(src, element_net=element_net)
 
         for t in (*ctx.inputs, *ctx.off_pane_inputs):
             if t.id == src.terminal_id:
-                bare = t.name or str(t.index)
-                return NetRef(
-                    node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
-                )
+                return TracedSource(src, boundary=t)
 
-        const = build_ctx.const_by_id.get(src.node_id)
-        if const is not None:
-            # ``bare``/``node``/``terminal`` stay the inlined literal VALUE --
-            # unchanged behavior, so ``netlist_to_dict`` never sees a
-            # difference. ``constant_uid`` tags the PRODUCER (the SAME
-            # trailing uid ``NetlistConstant.uid`` uses, not the full
-            # qualified id -- see ``_build_constant_gn``) for
-            # ``render_lvnet`` alone, which looks it up directly against its
-            # own handle map (see ``_LvnetHandles.by_uid``/
-            # ``_assign_lvnet_handles``) to decide whether to show the
-            # inlined literal or the LABELED constant's own ``<handle>``
-            # net name -- lvnet §7. ``lvnet_value`` is the SAME value,
-            # escaped for lvnet's own grammar (``NetRef.lvnet_value``'s
-            # docstring) -- ``render_lvnet`` prefers it; ``netlist_to_dict``
-            # never reads it, so ``bare`` stays untouched.
-            value_str = _const_value_str(const)
-            return NetRef(
-                node=None,
-                terminal=value_str,
-                occurrence=None,
-                bare=value_str,
-                constant_uid=_uid_of(const.id),
-                lvnet_value=_lvnet_const_value_str(const),
+        return TracedSource(src)
+
+
+def _resolve_source_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    terminal_id: str,
+    build_ctx: _GraphBuildCtx,
+) -> NetRef | None:
+    """Resolve the net feeding a terminal (see :func:`trace_source_gn`)."""
+    traced = trace_source_gn(graph, ctx, vi_name, terminal_id)
+    if traced is None:
+        return None
+    src = traced.wire_end
+
+    if traced.owner is not None and traced.term is not None:
+        if traced.border is not None:
+            name = _border_net_name_gn(
+                traced.border, traced.owner, traced.term, build_ctx
             )
-
-        node_name = src.name or _uid_of(src.node_id)
-        terminal = str(src.index) if src.index is not None else src.terminal_id
-        return NetRef(
-            node=node_name,
-            terminal=terminal,
-            occurrence=None,
-            bare=f"{node_name}.{terminal}",
+            return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+        node_name = _display_name_gn(traced.owner)
+        occurrence = build_ctx.occurrence_by_uid.get(_uid_of(traced.owner.id))
+        # Tag this reference with its producer's own uid
+        # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
+        # straight to the producer's ``<base>_<uid>`` handle via
+        # ``_LvnetHandles.by_uid`` -- the SAME mechanism a labeled
+        # constant already uses via ``constant_uid``. ``occurrence``
+        # stays populated unchanged (``netlist_to_dict`` parity -- it
+        # never reads ``producer_uid``).
+        return replace(
+            _term_ref(node_name, occurrence, traced.term),
+            producer_uid=_uid_of(traced.owner.id),
         )
+
+    if traced.element_net is not None:
+        net = traced.element_net
+        return NetRef(node=None, terminal=net, occurrence=None, bare=net)
+
+    if traced.boundary is not None:
+        bare = traced.boundary.name or str(traced.boundary.index)
+        return NetRef(
+            node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
+        )
+
+    const = build_ctx.const_by_id.get(src.node_id)
+    if const is not None:
+        # ``bare``/``node``/``terminal`` stay the inlined literal VALUE --
+        # unchanged behavior, so ``netlist_to_dict`` never sees a
+        # difference. ``constant_uid`` tags the PRODUCER (the SAME
+        # trailing uid ``NetlistConstant.uid`` uses, not the full
+        # qualified id -- see ``_build_constant_gn``) for
+        # ``render_lvnet`` alone, which looks it up directly against its
+        # own handle map (see ``_LvnetHandles.by_uid``/
+        # ``_assign_lvnet_handles``) to decide whether to show the
+        # inlined literal or the LABELED constant's own ``<handle>``
+        # net name -- lvnet §7. ``lvnet_value`` is the SAME value,
+        # escaped for lvnet's own grammar (``NetRef.lvnet_value``'s
+        # docstring) -- ``render_lvnet`` prefers it; ``netlist_to_dict``
+        # never reads it, so ``bare`` stays untouched.
+        value_str = _const_value_str(const)
+        return NetRef(
+            node=None,
+            terminal=value_str,
+            occurrence=None,
+            bare=value_str,
+            constant_uid=_uid_of(const.id),
+            lvnet_value=_lvnet_const_value_str(const),
+        )
+
+    node_name = src.name or _uid_of(src.node_id)
+    terminal = str(src.index) if src.index is not None else src.terminal_id
+    return NetRef(
+        node=node_name,
+        terminal=terminal,
+        occurrence=None,
+        bare=f"{node_name}.{terminal}",
+    )
 
 
 def _resolve_or_default_gn(
@@ -1573,17 +1660,23 @@ def _build_case_outputs_gn(
     return gammas
 
 
-def _selector_lv_type_gn(
-    node: AnyGraphNode, selector_terminal: str | None
-) -> LVType | None:
-    """The selector terminal's own resolved ``LVType``, or ``None`` when
-    there is no selector terminal or it has no resolved type."""
-    if not selector_terminal:
-        return None
-    for t in node.terminals:
-        if t.id == selector_terminal:
-            return t.lv_type
-    return None
+def case_selector_type_gn(node: CaseStructureNode) -> tuple[LVType | None, bool]:
+    """A case structure's selector type and whether it is an error cluster --
+    the two facts every frame label is worked out from."""
+    lv_type = None
+    if node.selector_terminal:
+        for t in node.terminals:
+            if t.id == node.selector_terminal:
+                lv_type = t.lv_type
+                break
+    return lv_type, bool(lv_type and _is_error_cluster(lv_type))
+
+
+def case_frame_label_gn(node: CaseStructureNode, frame: CaseFrame) -> str:
+    """One case frame's label, by the structure's selector type -- the text
+    lvnet and JSON show for that frame."""
+    lv_type, is_error = case_selector_type_gn(node)
+    return _selector_label(frame, lv_type, is_error)
 
 
 def _build_case_scope_gn(
@@ -1597,8 +1690,7 @@ def _build_case_scope_gn(
     plus the case output (gamma) merges."""
     selector = _selector_ref_gn(graph, ctx, vi_name, build_ctx, node.selector_terminal)
     passthrough = _has_output_tunnel_gn(node)
-    lv_type = _selector_lv_type_gn(node, node.selector_terminal)
-    is_error = bool(lv_type and _is_error_cluster(lv_type))
+    lv_type, is_error = case_selector_type_gn(node)
     frames = [
         NetlistFrame(
             label=_selector_label(frame, lv_type, is_error),

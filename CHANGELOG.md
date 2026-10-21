@@ -4,6 +4,9 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Fix: case frames showed the wrong selector values** — empty-string frames, extra strings, value-plus-Default frames, enum defaults, open ranges and overwritten values now match the VI; lvnet frame headers read `frame "Error", default :` and `frame "0", "43" :` (#170).
+- **Fix: `describe` text names case frames, sequences and selectors like lvnet** — frame headers show enum item names and `No Error`/`Error`, a stacked sequence is called Stacked, and "gated on" / "stops when" follow the wire through tunnels and shift registers to the real source (a Case Structure no longer reads as "Select", unnamed outputs are named) (#171).
+- **Fix: a case selector wired from a constant or a local variable** — `describe` names it by the constant's value or as `<name> (local variable)` instead of printing the VI path and a terminal id (#162).
+- **Fix: Event Data Node outputs are named by their event-data field** — describe, lvnet and JSON show `Type`, `Time`, `NewVal` or a user event's own fields instead of `out 1`, `out 2` (#171).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).
