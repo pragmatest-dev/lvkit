@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Stacked Sequence sequence locals are read** — the frame that writes one shows `sequence_<uid>::local0 = …` in lvnet, later frames read that name instead of an undriven input, describe says `gated on sequence local (frame 0)`, and generated Python carries the value between frames (#172).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

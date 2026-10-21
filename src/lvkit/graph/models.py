@@ -272,12 +272,32 @@ class LoopNode(StructureNode):
     hidden_border_terminals: frozenset[str] = frozenset()
 
 
+class SequenceLocalLink(BaseModel):
+    """One sequence local of a Stacked Sequence as the graph sees it: the
+    frame terminal that writes it and the later-frame terminals that read it.
+    A local nothing is wired to has neither. A local wired in a way LabVIEW
+    does not allow (read but never written, written more than once, read in a
+    frame that does not come after its write, wired off the frame boundary) is
+    ``unreadable``: it gets no join between write and reads, and
+    ``unreadable_frame`` (its first frame with a wired terminal) is where the
+    reason is shown."""
+
+    write_terminal: str | None = None
+    write_frame: int | None = None
+    read_terminals: list[str] = []
+    unreadable: str | None = None
+    unreadable_frame: int | None = None
+
+
 class SequenceNode(StructureNode):
     """A flat or stacked sequence with ordered frames."""
 
     model_config = {"arbitrary_types_allowed": True}
 
     frames: list[SequenceFrame] = []
+    # Sequence locals in heap list order; the position is the ``K`` of the
+    # ``sequence_<uid>.local<K>`` net.
+    sequence_locals: list[SequenceLocalLink] = []
     # Frame a STACKED sequence last displayed (heap ``dIdx``, range-checked) —
     # the faithful initial view. None for a flat sequence (all frames shown)
     # and when ``dIdx`` is an out-of-range legacy ordinal → renderer opens

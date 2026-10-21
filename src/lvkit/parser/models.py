@@ -185,7 +185,7 @@ class ParsedLoopStructure:
     bg_color: str | None = None
 
 
-from ..models import CaseFrame, SequenceFrame  # noqa: E402
+from ..models import CaseFrame, SequenceFrame, SequenceLocal  # noqa: E402
 
 
 @dataclass
@@ -309,6 +309,8 @@ class ParsedFlatSequenceStructure:
     uid: str
     tunnels: list[Tunnel] = field(default_factory=list)
     frames: list[SequenceFrame] = field(default_factory=list)
+    # Sequence locals, in heap list order (``seqLocDCOList``).
+    sequence_locals: list[SequenceLocal] = field(default_factory=list)
     # Frame LabVIEW last displayed (heap ``dIdx``, range-checked). Only a
     # STACKED sequence stacks its frames, so this is None for a flat sequence
     # (which shows every frame) and None when ``dIdx`` is an out-of-range

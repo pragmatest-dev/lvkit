@@ -45,6 +45,9 @@ from .netlist_models import (
     NetlistPropertyAccess,
     NetlistTerminalBinding,
     NetRef,
+    ScopeOutput,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .typedef import TypedefField, TypedefInfo, TypedefRef
 
@@ -145,15 +148,37 @@ def _border_drive_to_dict(drive: InPlaceBorderDrive) -> dict[str, Any]:
     }
 
 
-def _merge_to_dict(
-    merge: GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive,
+def _sequence_local_drive_to_dict(drive: SequenceLocalDrive) -> dict[str, Any]:
+    return {
+        "net": drive.net,
+        "kind": "sequence_local",
+        "frame": drive.frame,
+        "value": _netref_to_dict(drive.value),
+    }
+
+
+def _sequence_local_unreadable_to_dict(
+    unreadable: SequenceLocalUnreadable,
 ) -> dict[str, Any]:
+    return {
+        "net": unreadable.net,
+        "kind": "sequence_local",
+        "frame": unreadable.frame,
+        "unreadable": unreadable.reason,
+    }
+
+
+def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
     if isinstance(merge, GammaMerge):
         return _gamma_to_dict(merge)
     if isinstance(merge, MuMerge):
         return _mu_to_dict(merge)
     if isinstance(merge, InPlaceBorderDrive):
         return _border_drive_to_dict(merge)
+    if isinstance(merge, SequenceLocalDrive):
+        return _sequence_local_drive_to_dict(merge)
+    if isinstance(merge, SequenceLocalUnreadable):
+        return _sequence_local_unreadable_to_dict(merge)
     return _eta_to_dict(merge)
 
 

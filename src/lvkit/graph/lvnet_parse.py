@@ -101,6 +101,7 @@ from .render_lvnet import (
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
+    _sequence_frame_drives,
     lvnet_literal_token,
 )
 
@@ -1503,7 +1504,11 @@ def _parse_case_scope(
 
 
 def _parse_labeled_frames(
-    cursor: _Cursor, frame_indent: int, body_indent: int
+    cursor: _Cursor,
+    frame_indent: int,
+    body_indent: int,
+    *,
+    allow_drives: bool = False,
 ) -> list[ParsedFrame]:
     """Parse a run of ``frame <label> :`` blocks (§8) at EXACTLY
     ``frame_indent`` spaces -- shared by the sequence/disabled/event-
@@ -1514,12 +1519,10 @@ def _parse_labeled_frames(
     event label) -- so ``label`` is kept VERBATIM, quotes and all, exactly as
     ``_parse_case_scope`` already does for its own (always-quoted) labels.
 
-    None of these three families' ``NetlistScope``s carry any output MERGE
-    (see ``NetlistScope.outputs``'s docstring: "empty for every other scope
-    kind" -- sequence/disabled/event have none), so unlike a case frame, a
-    frame here never has its own ``net = source`` drive lines; encountering
-    one is a genuine grammar violation for this scope family, raised rather
-    than silently accepted.
+    Only a sequence frame may carry ``net = source`` drive lines (the
+    sequence locals it writes, ``allow_drives``); for disabled/event frames
+    encountering one is a genuine grammar violation, raised rather than
+    silently accepted.
     """
     frames: list[ParsedFrame] = []
     while True:
@@ -1540,7 +1543,7 @@ def _parse_labeled_frames(
         header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         label, is_default = _split_trailing_default(header)
         items, drives = _parse_items(cursor, body_indent)
-        if drives:
+        if drives and not allow_drives:
             raise LvnetParseError(
                 f"line {frame_line_no}: this scope family has no output "
                 f"merge to drive, so its frames must not contain bare "
@@ -1550,7 +1553,7 @@ def _parse_labeled_frames(
             ParsedFrame(
                 label=label,
                 body=tuple(items),
-                drives=(),
+                drives=tuple(drives),
                 is_default=is_default,
             )
         )
@@ -1564,7 +1567,10 @@ def _parse_sequence_scope(
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
     kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
     frames = _parse_labeled_frames(
-        cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
+        cursor,
+        indent + _LVNET_INDENT_WIDTH,
+        indent + _LVNET_INDENT_WIDTH * 2,
+        allow_drives=True,
     )
     if not frames:
         raise LvnetParseError(
@@ -2610,19 +2616,21 @@ def _module_frame_only_scope_signature(
     frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
     handles: _LvnetHandles,
     ambiguous: frozenset[str],
+    frame_drives: list[list[tuple[str, str]]] | None = None,
 ) -> tuple:
     """Shared by the three frame-only scope families (sequence/disabled/
     event, see ``_parse_labeled_frames``'s docstring for why they share one
-    shape): none of them carry an output MERGE (``NetlistScope.outputs`` is
-    always empty for these kinds), so a frame's signature is just its own
-    already-rendered label + its body -- no drive-entries computation like
-    ``_module_case_scope_signature``'s (kept as an empty tuple for
-    STRUCTURAL symmetry with a case frame's 3-tuple shape, so
-    ``_parsed_item_signature``'s matching branch doesn't need a special
-    case)."""
+    shape): a frame's signature is its already-rendered label, its body and
+    its drive lines -- ``frame_drives`` (one list per frame) for a sequence's
+    sequence locals, empty for disabled/event frames. The 3-tuple matches a
+    case frame's shape, so ``_parsed_item_signature``'s matching branch needs
+    no special case."""
+    drives = frame_drives or [[] for _ in frame_labels_and_bodies]
     frames = tuple(
-        (label, _module_body_signature(body, handles, ambiguous), ())
-        for label, body in frame_labels_and_bodies
+        (label, _module_body_signature(body, handles, ambiguous), tuple(frame_drive))
+        for (label, body), frame_drive in zip(
+            frame_labels_and_bodies, drives, strict=True
+        )
     )
     return ("scope", kind_word, None, frames)
 
@@ -2639,6 +2647,7 @@ def _module_sequence_scope_signature(
         [(f"[{frame.value}]", frame.body) for frame in scope.frames],
         handles,
         ambiguous,
+        [_sequence_frame_drives(scope, f.value, handles) for f in scope.frames],
     )
 
 
@@ -2780,9 +2789,8 @@ def _parsed_item_signature(
     if isinstance(item, ParsedScope):
         if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
             # Same 3-tuple frame shape as a case scope (label, body, drives)
-            # -- §8's sequence/disabled/event families just never populate
-            # ``drives`` (see ``_parse_labeled_frames``: none of them carry
-            # an output merge to drive, so ``f.drives`` is always ``()``).
+            # -- only a sequence frame populates ``drives`` (the sequence
+            # locals it writes).
             #
             # A CASE frame's label is re-normalized through
             # ``_quoted_frame_label`` here -- matching

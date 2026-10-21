@@ -635,6 +635,12 @@ def _resolve_selector(
                 return t.name
         return None
     node, term = hit
+    if isinstance(node, SequenceNode):
+        for link in node.sequence_locals:
+            if term.id in link.read_terminals:
+                if link.unreadable is not None:
+                    return f"sequence local (unreadable: {link.unreadable})"
+                return f"sequence local (frame {link.write_frame})"
     term_name = term.name or f"idx={term.index}"
     return f"{_gated_source(node)}.{term_name}"
 
@@ -709,7 +715,13 @@ def _collect_structures(
                 )
                 structures.append(f"{kind} (stops when {gated})" if gated else kind)
             case SequenceNode():
-                structures.append(f"Flat sequence ({len(node.frames)} frames)")
+                kind = "Flat sequence" if node.is_flat else "Stacked sequence"
+                structures.append(f"{kind} ({len(node.frames)} frames)")
+                for k, link in enumerate(node.sequence_locals):
+                    if link.unreadable is not None:
+                        structures.append(
+                            f"  \\ Sequence local {k} unreadable: {link.unreadable}"
+                        )
                 fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
                 for frame in node.frames:
                     for s in _collect_structures(

@@ -56,6 +56,7 @@ from .lvnet_grammar import (
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
+    _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
     _LVNET_TERMINAL_SEP,
@@ -84,6 +85,8 @@ from .netlist_models import (
     NetlistModule,
     NetlistScope,
     NetRef,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .op_walk import _format_error_cluster
 
@@ -1351,6 +1354,28 @@ def _render_lvnet_case_scope(
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
+def _sequence_frame_drives(
+    scope: NetlistScope, frame_value: str, handles: _LvnetHandles
+) -> list[tuple[str, str]]:
+    """The ``(net, source)`` drive lines of one sequence frame -- each sequence
+    local the frame writes (``sequence_<uid>::local<K> = <source>``), or, for
+    a local wired in a way LabVIEW does not allow, ``= (sequence local
+    unreadable "<reason>")``."""
+    lines: list[tuple[str, str]] = []
+    for d in scope.outputs:
+        if isinstance(d, SequenceLocalDrive) and d.frame == frame_value:
+            lines.append(
+                (_lvnet_net_separator(d.net), _render_lvnet_source(d.value, handles))
+            )
+        elif isinstance(d, SequenceLocalUnreadable) and d.frame == frame_value:
+            attribute = (
+                f"({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "
+                f"{lvnet_literal_token(d.reason)})"
+            )
+            lines.append((_lvnet_net_separator(d.net), attribute))
+    return lines
+
+
 def _render_lvnet_sequence_scope(
     scope: NetlistScope,
     indent: str,
@@ -1374,6 +1399,10 @@ def _render_lvnet_sequence_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
+        for net, source_str in _sequence_frame_drives(scope, frame.value, handles):
+            lines.append(
+                f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
+            )
 
 
 def _render_lvnet_disabled_scope(

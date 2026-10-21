@@ -90,6 +90,9 @@ from .netlist_models import (
     NetlistTerminalBinding,
     NetlistTunnelInfo,
     NetRef,
+    ScopeOutput,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .node_kinds import NodeType
 from .op_walk import (
@@ -635,6 +638,19 @@ def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
 
 
+def _sequence_local_net_name_gn(node: AnyGraphNode, terminal_id: str) -> str | None:
+    """``sequence_<uid>.local<K>`` when ``terminal_id`` is a terminal that
+    READS one of a Stacked Sequence's sequence locals (``K`` is the local's
+    position in the structure's list), else ``None``. The net's identity
+    belongs to the structure, not to the frame that writes the value."""
+    if not isinstance(node, SequenceNode):
+        return None
+    for k, link in enumerate(node.sequence_locals):
+        if terminal_id in link.read_terminals:
+            return f"sequence_{_uid_of(node.id)}.local{k}"
+    return None
+
+
 def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
     """External OUTPUT ports of an In Place Element Structure -- every
     output-direction terminal EXCEPT an inner tunnel boundary (an inner
@@ -869,6 +885,11 @@ def _resolve_source_gn(
             if _is_frame_output_tunnel_gn(owner, term):
                 name = _frame_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
+            local_net = _sequence_local_net_name_gn(owner, term.id)
+            if local_net is not None:
+                return NetRef(
+                    node=None, terminal=local_net, occurrence=None, bare=local_net
+                )
             if _is_inplace_output_gn(owner, term):
                 name = _inplace_net_name_gn(owner, term)
                 return NetRef(node=None, terminal=name, occurrence=None, bare=name)
@@ -1616,7 +1637,7 @@ def _build_case_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     case_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
+    outputs: list[ScopeOutput] = [
         *_build_case_outputs_gn(
             graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
@@ -1724,11 +1745,35 @@ def _build_sequence_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
+    seq_uid = _uid_of(node.id)
+    drives: list[ScopeOutput] = []
+    for k, link in enumerate(node.sequence_locals):
+        if link.unreadable is not None and link.unreadable_frame is not None:
+            drives.append(
+                SequenceLocalUnreadable(
+                    net=f"sequence_{seq_uid}.local{k}",
+                    frame=frames[link.unreadable_frame].value,
+                    reason=link.unreadable,
+                )
+            )
+            continue
+        if link.write_terminal is None or link.write_frame is None:
+            continue
+        value = _resolve_source_gn(graph, ctx, vi_name, link.write_terminal, build_ctx)
+        if value is not None:
+            drives.append(
+                SequenceLocalDrive(
+                    net=f"sequence_{seq_uid}.local{k}",
+                    frame=frames[link.write_frame].value,
+                    value=value,
+                )
+            )
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=seq_uid,
         kind="sequence",
         selector=None,
         frames=frames,
+        outputs=drives,
         sequence_is_flat=node.is_flat,
     )
 
@@ -1845,7 +1890,7 @@ def _build_loop_scope_gn(
         for t in tunnels
     ]
     loop_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
+    outputs: list[ScopeOutput] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
         ),

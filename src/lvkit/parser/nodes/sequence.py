@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvkit.models import SequenceFrame, Tunnel
+from lvkit.models import SequenceFrame, SequenceLocal, Tunnel
 
 from ..constants import TERMINAL_CLASS, TUNNEL_DCO_CLASSES
 from ..models import ParsedFlatSequenceStructure
@@ -110,9 +110,29 @@ def _extract_one_sequence(
         uid=seq_uid,
         tunnels=all_tunnels,
         frames=frames,
+        sequence_locals=_extract_sequence_locals(seq_elem),
         displayed_frame=displayed_frame,
         is_flat=(seq_class == "flatSequence"),
     )
+
+
+def _extract_sequence_locals(seq_elem: ET.Element) -> list[SequenceLocal]:
+    """The sequence locals of a stacked sequence (``seqLocDCOList``), in list
+    order. Each entry's ``termList`` has one terminal per frame."""
+    local_list = seq_elem.find("seqLocDCOList")
+    if local_list is None:
+        return []
+    return [
+        SequenceLocal(
+            uid=local.get("uid") or "",
+            frame_terminal_uids=[
+                uid
+                for t in local.findall("termList/SL__arrayElement")
+                if (uid := t.get("uid"))
+            ],
+        )
+        for local in local_list.findall("SL__arrayElement[@class='sLoc']")
+    ]
 
 
 def _extract_tunnels_from_termlist(

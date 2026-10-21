@@ -18,7 +18,7 @@ from lvkit.models import (
     SequenceFrame,
     Terminal,
 )
-from lvkit.parser.models import ParsedNode
+from lvkit.parser.models import ParsedFlatSequenceStructure, ParsedNode
 
 from ..models import (
     CaseStructureNode,
@@ -26,6 +26,7 @@ from ..models import (
     EventStructureNode,
     InPlaceNode,
     LoopNode,
+    SequenceLocalLink,
     SequenceNode,
     StructureNode,
     WireEnd,
@@ -213,6 +214,81 @@ class EventBuildHandler(StructureBuildHandler):
         )
 
 
+def _join_sequence_locals(
+    flat_seq: ParsedFlatSequenceStructure,
+    q_node_uid: str,
+    ctx: GraphBuildContext,
+) -> list[SequenceLocalLink]:
+    """Join each sequence local's write terminal to its read terminals with an
+    internal edge on the structure (the way a tunnel's outer and inner sides
+    are joined), so a reader resolves to the writer's source.
+
+    The write is the frame terminal a wire drives; a read is one that drives a
+    wire. NI defines a local as written in one frame and read only in later
+    frames. A local wired any other way is kept as ``unreadable`` with the
+    reason and gets no join, so the VI still loads."""
+    sinks = {w.to_term for w in ctx.bd.wires}
+    sources = {w.from_term for w in ctx.bd.wires}
+    links: list[SequenceLocalLink] = []
+    for local in flat_seq.sequence_locals:
+        writes: list[tuple[int, str]] = []
+        reads: list[tuple[int, str]] = []
+        off_boundary: list[int] = []
+        for frame_index, term_uid in enumerate(local.frame_terminal_uids):
+            if term_uid not in sinks and term_uid not in sources:
+                continue
+            if term_uid not in ctx.term_lookup:
+                off_boundary.append(frame_index)
+                continue
+            (writes if term_uid in sinks else reads).append((frame_index, term_uid))
+        wired_frames = sorted([f for f, _ in writes + reads] + off_boundary)
+        reason: str | None = None
+        if off_boundary:
+            reason = (
+                f"wired terminal in frame(s) {off_boundary} is not on the "
+                "structure's frame boundary"
+            )
+        elif len(writes) > 1:
+            reason = (
+                f"written in frames {[f for f, _ in writes]}; a sequence "
+                "local has exactly one write"
+            )
+        elif reads and not writes:
+            reason = f"read in frames {[f for f, _ in reads]} but never written"
+        elif writes:
+            early = [f for f, _ in reads if f <= writes[0][0]]
+            if early:
+                reason = (
+                    f"written in frame {writes[0][0]} but read in frame(s) "
+                    f"{early}; a read must come in a later frame"
+                )
+        link = SequenceLocalLink(
+            write_terminal=(
+                ctx.term_lookup[writes[0][1]].terminal_id
+                if len(writes) == 1 and not off_boundary
+                else None
+            ),
+            write_frame=writes[0][0] if len(writes) == 1 else None,
+            read_terminals=[
+                ctx.term_lookup[u].terminal_id for _, u in reads if u in ctx.term_lookup
+            ],
+            unreadable=reason,
+            unreadable_frame=wired_frames[0] if reason else None,
+        )
+        links.append(link)
+        if reason is None and link.write_terminal is not None:
+            write_end = ctx.term_lookup[writes[0][1]]
+            for _, read_uid in reads:
+                ctx.graph.add_edge(
+                    q_node_uid,
+                    q_node_uid,
+                    source=write_end,
+                    dest=ctx.term_lookup[read_uid],
+                    vi=ctx.vi_name,
+                )
+    return links
+
+
 class SequenceBuildHandler(StructureBuildHandler):
     node_types = ("flatSequence", "seq", "sequence")
 
@@ -238,6 +314,11 @@ class SequenceBuildHandler(StructureBuildHandler):
             node_type=node.node_type,
             terminals=structure_terminals,
             frames=seq_frames,
+            sequence_locals=(
+                _join_sequence_locals(flat_seq, q_node_uid, ctx)
+                if flat_seq
+                else []
+            ),
             displayed_frame=(flat_seq.displayed_frame if flat_seq else None),
             is_flat=(flat_seq.is_flat if flat_seq else True),
             bg_color=_first_frame_bg_color(seq_frames),

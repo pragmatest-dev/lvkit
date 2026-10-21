@@ -460,6 +460,41 @@ class InPlaceBorderDrive:
     value: NetRef
 
 
+@dataclass(frozen=True)
+class SequenceLocalDrive:
+    """The value a Stacked Sequence frame writes into a sequence local: ONE
+    named net (``sequence_<uid>.local<K>``, ``K`` the local's position in the
+    structure's list) driven by ``value`` inside frame ``frame`` (the frame's
+    ``NetlistFrame.value``). A reader in a later frame references the same
+    net (see ``netlist_build._sequence_local_net_name_gn``)."""
+
+    net: str
+    frame: str
+    value: NetRef
+
+
+@dataclass(frozen=True)
+class SequenceLocalUnreadable:
+    """A sequence local whose wiring LabVIEW does not allow (see
+    ``SequenceLocalLink.unreadable``): the net's reason, shown in the first
+    frame ``frame`` where the local has a wired terminal. Readers still
+    reference the net."""
+
+    net: str
+    frame: str
+    reason: str
+
+
+ScopeOutput = (
+    GammaMerge
+    | MuMerge
+    | EtaMerge
+    | InPlaceBorderDrive
+    | SequenceLocalDrive
+    | SequenceLocalUnreadable
+)
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event / inplace.
@@ -506,11 +541,10 @@ class NetlistScope:
     # tunnel (see ``_build_loop_shift_registers_gn``/``_build_loop_outputs_gn``,
     # shift registers first); an In Place Element structure (kind ==
     # "inplace") carries one ``InPlaceBorderDrive`` per wired border-node
-    # input. Empty for every other scope kind (sequence/
-    # disabled/event have no such merge).
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = field(
-        default_factory=list
-    )
+    # input; a sequence (kind == "sequence") carries one
+    # ``SequenceLocalDrive`` per written sequence local. Empty for every other
+    # scope kind (disabled/event have no such merge).
+    outputs: list[ScopeOutput] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
