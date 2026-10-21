@@ -55,6 +55,7 @@ from .models import (
     InPlaceNode,
     LocalVariableNode,
     LoopNode,
+    SequenceLocalLink,
     SequenceNode,
     SharedVariableNode,
     VIContext,
@@ -91,6 +92,9 @@ from .netlist_models import (
     NetlistTerminalBinding,
     NetlistTunnelInfo,
     NetRef,
+    ScopeOutput,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .node_kinds import NodeType
 from .op_walk import (
@@ -637,6 +641,30 @@ def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
 
 
+def sequence_local_read_gn(
+    node: AnyGraphNode, terminal_id: str
+) -> tuple[int, SequenceLocalLink] | None:
+    """``(K, link)`` when ``terminal_id`` is a terminal that READS one of a
+    Stacked Sequence's sequence locals (``K`` is the local's position in the
+    structure's list), else ``None``."""
+    if not isinstance(node, SequenceNode):
+        return None
+    for k, link in enumerate(node.sequence_locals):
+        if terminal_id in link.read_terminals:
+            return k, link
+    return None
+
+
+def _sequence_local_net_name_gn(node: AnyGraphNode, terminal_id: str) -> str | None:
+    """``sequence_<uid>.local<K>`` when ``terminal_id`` reads a sequence local
+    (see :func:`sequence_local_read_gn`), else ``None``. The net's identity
+    belongs to the structure, not to the frame that writes the value."""
+    hit = sequence_local_read_gn(node, terminal_id)
+    if hit is None:
+        return None
+    return f"sequence_{_uid_of(node.id)}.local{hit[0]}"
+
+
 def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
     """External OUTPUT ports of an In Place Element Structure -- every
     output-direction terminal EXCEPT an inner tunnel boundary (an inner
@@ -827,6 +855,7 @@ class StructureBorder(Enum):
     SHIFT_REGISTER = "shift register"
     ITERATION_TERMINAL = "iteration terminal"
     FRAME_OUTPUT_TUNNEL = "frame output tunnel"
+    SEQUENCE_LOCAL = "sequence local"
     IN_PLACE_OUTPUT = "In Place Element output"
     FEEDBACK_NODE = "Feedback Node"
 
@@ -864,6 +893,8 @@ def _border_of_gn(
         return StructureBorder.ITERATION_TERMINAL
     if _is_frame_output_tunnel_gn(owner, term):
         return StructureBorder.FRAME_OUTPUT_TUNNEL
+    if sequence_local_read_gn(owner, term.id) is not None:
+        return StructureBorder.SEQUENCE_LOCAL
     if _is_inplace_output_gn(owner, term):
         return StructureBorder.IN_PLACE_OUTPUT
     if _is_feedback_output_read_gn(graph, owner, term):
@@ -889,6 +920,10 @@ def _border_net_name_gn(
             return _loop_iteration_net_name_gn(owner)
         case StructureBorder.FRAME_OUTPUT_TUNNEL:
             return _frame_net_name_gn(owner, term)
+        case StructureBorder.SEQUENCE_LOCAL:
+            local_net = _sequence_local_net_name_gn(owner, term.id)
+            assert local_net is not None
+            return local_net
         case StructureBorder.IN_PLACE_OUTPUT:
             return _inplace_net_name_gn(owner, term)
         case StructureBorder.FEEDBACK_NODE:
@@ -1710,7 +1745,7 @@ def _build_case_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     case_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
+    outputs: list[ScopeOutput] = [
         *_build_case_outputs_gn(
             graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
@@ -1818,11 +1853,35 @@ def _build_sequence_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
+    seq_uid = _uid_of(node.id)
+    drives: list[ScopeOutput] = []
+    for k, link in enumerate(node.sequence_locals):
+        if link.unreadable is not None and link.unreadable_frame is not None:
+            drives.append(
+                SequenceLocalUnreadable(
+                    net=f"sequence_{seq_uid}.local{k}",
+                    frame=frames[link.unreadable_frame].value,
+                    reason=link.unreadable,
+                )
+            )
+            continue
+        if link.write_terminal is None or link.write_frame is None:
+            continue
+        value = _resolve_source_gn(graph, ctx, vi_name, link.write_terminal, build_ctx)
+        if value is not None:
+            drives.append(
+                SequenceLocalDrive(
+                    net=f"sequence_{seq_uid}.local{k}",
+                    frame=frames[link.write_frame].value,
+                    value=value,
+                )
+            )
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=seq_uid,
         kind="sequence",
         selector=None,
         frames=frames,
+        outputs=drives,
         sequence_is_flat=node.is_flat,
     )
 
@@ -1939,7 +1998,7 @@ def _build_loop_scope_gn(
         for t in tunnels
     ]
     loop_uid = _uid_of(node.id)
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
+    outputs: list[ScopeOutput] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
         ),

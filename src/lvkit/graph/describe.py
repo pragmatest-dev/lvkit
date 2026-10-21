@@ -50,6 +50,7 @@ from .netlist_build import (
     TracedSource,
     case_frame_label_gn,
     case_selector_type_gn,
+    sequence_local_read_gn,
     trace_source_gn,
 )
 from .node_kinds import EdgeRel
@@ -632,7 +633,14 @@ def _border_name(
 ) -> str:
     """A structure's border terminal as the source of a wire, in LabVIEW's
     words: ``While Loop shift register``, ``Case Structure tunnel``,
-    ``Stacked Sequence sequence local``."""
+    ``sequence local (frame 0)``."""
+    if border is StructureBorder.SEQUENCE_LOCAL:
+        hit = sequence_local_read_gn(owner, term.id)
+        assert hit is not None
+        link = hit[1]
+        if link.unreadable is not None:
+            return f"sequence local (unreadable: {link.unreadable})"
+        return f"sequence local (frame {link.write_frame})"
     if isinstance(term, TunnelTerminal):
         kind = tunnel_kind_name(term)
     elif border is StructureBorder.ITERATION_TERMINAL:
@@ -739,6 +747,11 @@ def _collect_structures(
                 structures.append(
                     f"{node.kind_word} sequence ({_frame_count(len(node.frames))})"
                 )
+                for k, link in enumerate(node.sequence_locals):
+                    if link.unreadable is not None:
+                        structures.append(
+                            f"  \\ Sequence local {k} unreadable: {link.unreadable}"
+                        )
                 fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
                 for frame in node.frames:
                     for s in _collect_structures(

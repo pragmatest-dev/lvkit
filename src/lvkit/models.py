@@ -935,6 +935,15 @@ class SequenceFrame(Frame):
     index: int = 0
 
 
+class SequenceLocal(BaseModel):
+    """A Stacked Sequence's sequence local: a value one frame writes and later
+    frames read. The file lists one terminal per frame; ``frame_terminal_uids``
+    keeps that order, so the list position is the frame index."""
+
+    uid: str
+    frame_terminal_uids: list[str] = []
+
+
 class EventFrame(Frame):
     """A frame in an Event Structure — handles ONE registered event.
 

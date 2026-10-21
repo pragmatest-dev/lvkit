@@ -894,6 +894,8 @@ def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
     - case/select tunnels (``selTun``/``csTun``/``caseSel``): pass-through --
       no nested inner dco; every face (outer + each frame's inner) shares the
       dco's own ``<typeDesc>``.
+    - sequence locals (``sLoc``): every frame's terminal shares the local's
+      ``<typeDesc>``.
     """
     inner_types: dict[str, str] = {}
     for dco in root.iter("dco"):
@@ -910,6 +912,14 @@ def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
             continue
         if type_desc is not None and type_desc.text:
             inner_types[uid] = type_desc.text
+    # A sequence local's terminals (one per frame, each a bare ``<dco uid=.../>``)
+    # take the type of the local's own ``<typeDesc>``.
+    for local in root.iter("SL__arrayElement"):
+        if local.get("class") != "sLoc":
+            continue
+        type_desc = local.find("typeDesc")
+        if local.get("uid") and type_desc is not None and type_desc.text:
+            inner_types[local.get("uid", "")] = type_desc.text
     return inner_types
 
 

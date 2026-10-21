@@ -68,6 +68,10 @@ _LVNET_CLUSTER_OPEN = "Cluster{"
 # "<reason>")`` for a node whose library link could not be read.
 _LVNET_NETWORK_PUBLISHED = "network-published"
 _LVNET_LIBRARY_UNREADABLE = "library unreadable"
+
+# A sequence local's drive position holds ``(sequence local unreadable
+# "<reason>")`` instead of a source when its wiring is not one LabVIEW allows.
+_LVNET_SEQUENCE_LOCAL_UNREADABLE = "sequence local unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 # The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
 # ``caption hidden "<text>"`` when the caption is set but not shown.

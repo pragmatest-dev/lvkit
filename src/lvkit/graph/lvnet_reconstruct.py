@@ -102,6 +102,7 @@ from .lvnet_grammar import (
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_RING_OPEN,
+    _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
@@ -152,6 +153,11 @@ from .netlist import (
     NetlistScope,
     NetlistTerminalBinding,
     NetRef,
+)
+from .netlist_models import (
+    ScopeOutput,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .render_lvnet import _lvnet_type_inline, lvnet_name_token
 
@@ -900,6 +906,16 @@ def _reconstruct_tunnel(
     )
 
 
+def _sequence_local_unreadable_reason(source: str) -> str | None:
+    """The reason in a sequence-local drive written as ``(sequence local
+    unreadable "<reason>")``, or ``None`` for an ordinary source."""
+    prefix = f'({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "'
+    text = source.lstrip()
+    if not (text.startswith(prefix) and text.endswith(")")):
+        return None
+    return _unescape_lvnet_string(text[len(prefix) - 1 : -1])
+
+
 def _structure_uid_from_net(net: str) -> str | None:
     """Recover a structure's own real BD uid from one of its
     ``case_UID::outK``/``loop_UID::shiftK``/``loop_UID::outK``/
@@ -965,7 +981,7 @@ def _reconstruct_scope(
             selector = _require_netref(
                 _parse_source_token(item.selector, registry), "case selector"
             )
-        outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = [
+        outputs: list[ScopeOutput] = [
             GammaMerge(net=net, selector=None, cases=cases_by_net[net])
             for net in net_order
         ]
@@ -1008,6 +1024,7 @@ def _reconstruct_scope(
 
     if item.kind in ("flat-sequence", "stacked-sequence"):
         frames = []
+        local_drives: list[ScopeOutput] = []
         for f in item.frames:
             value = f.label
             if value.startswith("[") and value.endswith("]"):
@@ -1016,11 +1033,42 @@ def _reconstruct_scope(
             frames.append(
                 NetlistFrame(label=value, value=value, is_default=False, body=body)
             )
+            for d in f.drives:
+                reason = _sequence_local_unreadable_reason(d.source)
+                if reason is not None:
+                    local_drives.append(
+                        SequenceLocalUnreadable(net=d.net, frame=value, reason=reason)
+                    )
+                    continue
+                local_drives.append(
+                    SequenceLocalDrive(
+                        net=d.net,
+                        frame=value,
+                        value=_require_netref(
+                            _parse_source_token(d.source, registry),
+                            f"{d.net} drive",
+                        ),
+                    )
+                )
+        sequence_uid = item.uid
+        if sequence_uid is None:
+            sequence_uid = next(
+                (
+                    uid
+                    for d in local_drives
+                    if isinstance(d, SequenceLocalDrive)
+                    and (uid := _structure_uid_from_net(d.net)) is not None
+                ),
+                None,
+            )
         return NetlistScope(
-            uid=item.uid if item.uid is not None else fresh_uid.next("sequence"),
+            uid=sequence_uid
+            if sequence_uid is not None
+            else fresh_uid.next("sequence"),
             kind="sequence",
             selector=None,
             frames=frames,
+            outputs=local_drives,
             sequence_is_flat=(item.kind == "flat-sequence"),
         )
 
