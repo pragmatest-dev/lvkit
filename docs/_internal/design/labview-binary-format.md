@@ -1318,7 +1318,22 @@ its stored byte count AND read every field and element its type declares
 - **An array of more than 4,000,000 elements** (a camera frame of 18,001,000
   pixels is a front-panel default) is read to its end but its values are not kept.
 
-Not decoded, but read to its exact extent: the private data of a class object
-(1 value in the corpus: 73 bytes in `Extract Default Icon Data.vi`). Decoding it
-needs the class's private data cluster type, which lives in the class's own
-`.lvclass`/control and would have to be loaded and passed to the decoder.
+A class object's private data is decoded when its class is loaded: the object
+holds one cluster per level of the class hierarchy, oldest ancestor first, and
+the graph gives the type's class the private-data fields of each level
+(`InMemoryVIGraph.get_class_private_levels`, from the loaded `.lvclass` nodes and
+their parent chain; `LVType.class_levels`). Each level's stored bytes are read
+with that level's fields and must be consumed exactly; the value then shows as
+`Layer.lvclass{'Origin': {...}, 'Data': {...}, 'Type': 2}` (all levels' fields in
+one cluster display). In `Extract Default Icon Data.vi` the 73 stored bytes of
+`Layer.lvclass` read exactly as its three private-data fields: `Origin` (cluster
+`Horizontal`, `Vertical`), `Data` (cluster `LayerIcon` Picture, `LayerName`
+`'VI Icon'`, `Opacity` 100, `Visibility?` True) and `Type` (a 16-bit enum, 2).
+Where the class is not loaded, the number of levels differs from the object's,
+or a level does not read exactly, the private data is skipped by its stored
+count and the value shows the class name only; the bytes are still accounted
+for. A class held in another class's private data is stamped the same way, down
+to any depth; a class already being stamped further up (its private data holds
+itself, directly or through another class) is left without levels, so that
+inner instance shows its name and keeps its exact extent. The only corpus value with stored private data is that one (every other class object in
+the corpus is the class's default, a one-level object at version 0).

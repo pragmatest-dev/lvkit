@@ -111,8 +111,8 @@ class _Trace:
         ):
             self.problems.append(f"short {key}")
         elif underlying == "Refnum" and lv_type.classname and consumed:
-            extent = _vi.class_object_extent(data)
-            if extent is not None and extent[1]:
+            extent = _vi.read_class_object(data)
+            if extent is not None and any(s != e for s, e in extent.private):
                 self.undecoded.append("class private data")
         elif lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields:
             if isinstance(structured, dict) and len(structured) < len(lv_type.fields):

@@ -343,3 +343,254 @@ def test_every_stored_value_is_read_to_its_exact_size(relative):
     assert not wrong, [
         (r["kind"], r["size"], r["consumed"], r["cause"], r["tail"]) for r in wrong
     ]
+
+
+# === A class instance's private data ===
+# One cluster per level of the class hierarchy, oldest ancestor first (NI
+# "Flattened Data", "Classes"); read with the private-data fields of the loaded
+# class, else skipped by its stored byte count.
+
+
+def _class_with(levels: list[list[ClusterField]] | None) -> LVType:
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Lib.lvlib:Child.lvclass",
+        class_levels=levels,
+    )
+
+
+def _name_section(*segments: str) -> bytes:
+    body = b"".join(bytes([len(s)]) + s.encode() for s in segments) + b"\x00"
+    section = bytes([len(body)]) + body
+    return section + b"\x00" * (-len(section) % 4)
+
+
+_VERSION = bytes([0, 1, 0, 0, 0, 0, 0, 0])
+_BASE = [ClusterField(name="count", type=_prim("NumUInt8"))]
+_OWN = [
+    ClusterField(name="label", type=_prim("String")),
+    ClusterField(name="mode", type=_prim("UnitUInt16")),
+]
+
+
+def _two_level_object() -> bytes:
+    base = bytes([7])
+    own = _string("hi") + (3).to_bytes(2, "big")
+    return (
+        _u32(2)
+        + _name_section("Base.lvclass", "Child.lvclass")
+        + _VERSION * 2
+        + _u32(len(base))
+        + base
+        + _u32(len(own))
+        + own
+    )
+
+
+def test_a_loaded_class_shows_its_private_data_after_its_name():
+    data = _two_level_object() + bytes([9])
+    lv_type = _cluster(
+        ("obj", _class_with([_BASE, _OWN])), ("after", _prim("NumUInt8"))
+    )
+    value, consumed, structured = _decode_element(data, lv_type)
+    assert consumed == len(data)
+    assert value == (
+        "{'obj': Child.lvclass{'count': 7, 'label': 'hi', 'mode': 3}, 'after': 9}"
+    )
+    assert structured == {"obj": "Child.lvclass", "after": "9"}
+
+
+def test_a_class_that_is_not_loaded_keeps_its_name_and_exact_extent():
+    data = _two_level_object() + bytes([9])
+    lv_type = _cluster(("obj", _class_with(None)), ("after", _prim("NumUInt8")))
+    value, consumed, _ = _decode_element(data, lv_type)
+    assert consumed == len(data)
+    assert value == "{'obj': Child.lvclass, 'after': 9}"
+
+
+def test_private_data_the_loaded_fields_do_not_read_exactly_is_only_skipped():
+    data = _two_level_object()
+    wrong = [[ClusterField(name="count", type=_prim("NumUInt32"))], _OWN]
+    assert _decode_element(data, _class_with(wrong))[:2] == ("Child.lvclass", len(data))
+    # A hierarchy of a different depth than the stored object.
+    assert _decode_element(data, _class_with([_OWN]))[:2] == (
+        "Child.lvclass",
+        len(data),
+    )
+
+
+def test_a_default_object_has_no_private_data_to_show():
+    data = _u32(1) + _name_section("Child.lvclass") + bytes(8)
+    assert _decode_element(data, _class_with([_OWN]))[:2] == (
+        "Child.lvclass",
+        len(data),
+    )
+
+
+def _class_graph():
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.graph.node_kinds import NodeType
+
+    g = InMemoryVIGraph()
+    g._dep_graph.add_node(
+        "Base.lvclass",
+        node_type=NodeType.CLASS,
+        fields=_BASE,
+        parent_class="LabVIEW Object",
+    )
+    g._dep_graph.add_node(
+        "Child.lvclass",
+        node_type=NodeType.CLASS,
+        fields=_OWN,
+        parent_class="Base",
+        parent_key="Base.lvclass",
+    )
+    return g
+
+
+def test_the_graph_gives_a_class_its_levels_oldest_ancestor_first():
+    g = _class_graph()
+    levels = g.get_class_private_levels("Child.lvclass")
+    assert levels is not None
+    assert [[f.name for f in level] for level in levels] == [
+        ["count"],
+        ["label", "mode"],
+    ]
+    assert g.get_class_private_levels("Missing.lvclass") is None
+
+
+def test_a_type_holding_a_class_is_stamped_with_a_copy():
+    g = _class_graph()
+    plain = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Child.lvclass",
+    )
+    holder = _cluster(("objects", _array(plain)))
+    stamped = g.with_class_levels(holder)
+    assert stamped is not holder
+    assert holder.fields[0].type.element_type.class_levels is None
+    element = stamped.fields[0].type.element_type
+    assert [len(level) for level in element.class_levels] == [1, 2]
+    unrelated = _cluster(("n", _prim("NumUInt8")))
+    assert g.with_class_levels(unrelated) is unrelated
+
+
+@pytest.mark.needs_samples
+def test_corpus_a_loaded_class_shows_the_private_data_of_its_default():
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.graph.loading import LoadMode
+
+    root = SAMPLES / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon"
+    vi = root / "Support/Extract Default Icon Data.vi"
+
+    def default_of(search_paths):
+        g = InMemoryVIGraph()
+        g.load_vi(vi, mode=LoadMode.FULL, search_paths=search_paths)
+        node = g._graph.nodes[str(vi.resolve())]["node"]
+        return next(t.default_value for t in node.terminals if "Icon Data" in t.name)
+
+    loaded = default_of(None)
+    assert "'All User Layers': [Layer.lvclass{'Origin': {'Horizontal': 0, " in loaded
+    assert (
+        "'LayerName': 'VI Icon', 'Opacity': 100, 'Visibility?': True}, 'Type': 2}]"
+        in loaded
+    )
+
+
+def _instance(name: str) -> LVType:
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname=name,
+    )
+
+
+def _object(name: str, private: bytes | None) -> bytes:
+    """A one-level class object: the default object (no private data) or one that
+    stores ``private``."""
+    if private is None:
+        return _u32(1) + _name_section(name) + bytes(8)
+    return _u32(1) + _name_section(name) + _VERSION + _u32(len(private)) + private
+
+
+def _graph_of(classes: dict[str, list[ClusterField]]):
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.graph.node_kinds import NodeType
+
+    g = InMemoryVIGraph()
+    for name, fields in classes.items():
+        g._dep_graph.add_node(
+            name,
+            node_type=NodeType.CLASS,
+            fields=fields,
+            parent_class="LabVIEW Object",
+        )
+    return g
+
+
+def test_a_class_held_in_another_classes_private_data_reads_its_own():
+    g = _graph_of(
+        {
+            "Outer.lvclass": [
+                ClusterField(name="inner", type=_instance("Inner.lvclass")),
+                ClusterField(name="n", type=_prim("NumUInt8")),
+            ],
+            "Inner.lvclass": [ClusterField(name="v", type=_prim("NumUInt8"))],
+        }
+    )
+    stamped = g.with_class_levels(_instance("Outer.lvclass"))
+    inner_type = stamped.class_levels[0][0].type
+    assert [f.name for f in inner_type.class_levels[0]] == ["v"]
+    data = _object("Outer.lvclass", _object("Inner.lvclass", bytes([4])) + bytes([8]))
+    value, consumed, _ = _decode_element(data, stamped)
+    assert consumed == len(data)
+    assert value == "Outer.lvclass{'inner': Inner.lvclass{'v': 4}, 'n': 8}"
+
+
+@pytest.mark.parametrize(
+    "classes",
+    [
+        {"Node.lvclass": ("next", "Node.lvclass")},
+        {"A.lvclass": ("b", "B.lvclass"), "B.lvclass": ("a", "A.lvclass")},
+    ],
+    ids=["itself", "through another class"],
+)
+def test_a_class_that_holds_itself_stops_at_the_inner_instance(classes):
+    g = _graph_of(
+        {
+            name: [
+                ClusterField(name=field, type=_instance(target)),
+                ClusterField(name="v", type=_prim("NumUInt8")),
+            ]
+            for name, (field, target) in classes.items()
+        }
+    )
+    first = next(iter(classes))
+    stamped = g.with_class_levels(_instance(first))
+    assert stamped.class_levels is not None
+    # Walk down the stamped fields: the chain ends where a class repeats.
+    seen, current = [first], stamped
+    while current.class_levels is not None:
+        current = current.class_levels[0][0].type
+        seen.append(current.classname)
+    assert len(seen) == len(classes) + 1
+    assert current.classname == first
+    # The innermost instance reads as its name with its exact extent.
+    name = first.rsplit(".", 1)[0]
+    inner = _object(first, None)
+    if len(classes) == 1:
+        data = _object(first, inner + bytes([5]))
+        shown = f"{name}.lvclass{{'next': {name}.lvclass, 'v': 5}}"
+    else:
+        other = next(c for c in classes if c != first)
+        inside = _object(other, _object(first, None) + bytes([6]))
+        data = _object(first, inside + bytes([5]))
+        shown = f"{first}{{'b': {other}{{'a': {first}, 'v': 6}}, 'v': 5}}"
+    value, consumed, _ = _decode_element(data, stamped)
+    assert consumed == len(data)
+    assert value == shown

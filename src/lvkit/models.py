@@ -162,6 +162,11 @@ class LVType:
     # built-in today); a LabVIEW class fills it from its ``.lvclass``.
     # ``compare=False`` — presentation, never type identity/coercion.
     wire_style: WireStyle | None = field(default=None, compare=False)
+    # For a class instance whose ``.lvclass`` is loaded: the private-data fields
+    # of each level of its hierarchy, oldest ancestor first (a flattened object
+    # holds one cluster per level). None when the class is not loaded.
+    # ``compare=False`` -- what a value of the type is read with, not its identity.
+    class_levels: list[list[ClusterField]] | None = field(default=None, compare=False)
 
     def type_ref(self) -> str | None:
         """The LabVIEW name of the class or typedef this type names -- the
@@ -1090,3 +1095,17 @@ def unique_names(names: Iterable[str]) -> list[str]:
         seen[name] += 1
         result.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
     return result
+
+
+def contains_class_instance(lv_type: LVType | None) -> bool:
+    """Whether ``lv_type`` is, or holds in a field, element, key or value, a class
+    instance (a refnum naming a class)."""
+    if lv_type is None:
+        return False
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
+        return True
+    return (
+        contains_class_instance(lv_type.element_type)
+        or contains_class_instance(lv_type.value_type)
+        or any(contains_class_instance(f.type) for f in lv_type.fields or [])
+    )

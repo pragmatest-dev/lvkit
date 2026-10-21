@@ -16,13 +16,21 @@ import struct
 import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 from lvkit.extractor import extract_vi_xml
 from lvkit.measure_data import measure_data_value_type
-from lvkit.models import LVType, LVTypeKind, leading_element, unique_names
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    contains_class_instance,
+    leading_element,
+    unique_names,
+)
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -613,6 +621,12 @@ def _parse_front_panel(
         )
         if control:
             control.ddo_uid = ddo.get("uid")
+            if (
+                default_elem is not None
+                and default_elem.text
+                and contains_class_instance(lv_type)
+            ):
+                control.default_raw = decode_xml_entities_to_bytes(raw_data)
             controls.append(control)
 
     # The heap root's <ddoList> names every fPDCO in DCO-table order -- the
@@ -2221,6 +2235,10 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
 MAX_STORED_ARRAY_ELEMENTS = 4_000_000
 
 
+# The unit-tagged unsigned integers an enum, ring or class field is stored as.
+_UNIT_INTEGER_TYPES = frozenset({"UnitUInt8", "UnitUInt16", "UnitUInt32"})
+
+
 def _quad_to_float(raw: bytes | memoryview) -> float:
     """A flattened extended-precision number -- 16 bytes, IEEE 754 binary128
     (1 sign bit, 15 exponent bits, 112 fraction bits, big-endian) -- as the
@@ -2283,11 +2301,23 @@ def _decode_tag_refnum(
     return value, end, value
 
 
-def class_object_extent(data: bytes | memoryview) -> tuple[int, int] | None:
-    """One flattened LabVIEW class object at the start of ``data``: its total byte
-    count and how many of those bytes are private data (skipped, not decoded), or
-    None when ``data`` is too short for its own layout. NI's
-    "Flattened Data" page, "Classes":
+@dataclass(frozen=True)
+class ClassObject:
+    """One flattened class object: its total size and, per level of its hierarchy
+    (oldest ancestor first), the ``(start, end)`` of that level's private-data
+    bytes. A level of a default object has none."""
+
+    size: int
+    private: tuple[tuple[int, int], ...]
+
+    @property
+    def level(self) -> int:
+        return len(self.private)
+
+
+def read_class_object(data: bytes | memoryview) -> ClassObject | None:
+    """One flattened LabVIEW class object at the start of ``data``, or None when
+    ``data`` is too short for its own layout. NI's "Flattened Data", "Classes":
     https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html
 
     - ``level in hierarchy``: 4 bytes; 0 is an instance of LabVIEW Object and
@@ -2307,7 +2337,7 @@ def class_object_extent(data: bytes | memoryview) -> tuple[int, int] | None:
         return None
     level = int.from_bytes(data[:4], "big")
     if level == 0:
-        return 4, 0
+        return ClassObject(4, ())
     if len(data) < 5:
         return None
     idx = 4 + _padded_to_4(1 + data[4])
@@ -2315,18 +2345,62 @@ def class_object_extent(data: bytes | memoryview) -> tuple[int, int] | None:
     if versions_end > len(data):
         return None
     if level == 1 and not any(data[idx:versions_end]):
-        return versions_end, 0
+        return ClassObject(versions_end, ((versions_end, versions_end),))
     idx = versions_end
-    private = 0
+    private = []
     for _ in range(level):
         if idx + 4 > len(data):
             return None
         count = int.from_bytes(data[idx : idx + 4], "big")
+        private.append((idx + 4, idx + 4 + count))
         idx += 4 + count
-        private += count
         if idx > len(data):
             return None
-    return idx, private
+    return ClassObject(idx, tuple(private))
+
+
+def _decode_class_object(
+    data: bytes | memoryview, elem_type: LVType
+) -> tuple[str | None, int, object]:
+    """A class instance: shown as its class name, followed by its private data
+    (the fields of every level of the hierarchy, as a cluster is shown) when the
+    class is loaded and its private-data types read the stored bytes exactly.
+    Otherwise the private data is skipped by its stored count."""
+    name = (elem_type.classname or "").rsplit(":", 1)[-1]
+    obj = read_class_object(data)
+    if obj is None:
+        return None, 0, None
+    private = _decode_private_data(data, obj, elem_type.class_levels)
+    shown = name if private is None else f"{name}{private}"
+    return shown, obj.size, name
+
+
+def _decode_private_data(
+    data: bytes | memoryview,
+    obj: ClassObject,
+    levels: list[list[ClusterField]] | None,
+) -> str | None:
+    """The cluster display of every level's private data, joined into one, ``""``
+    for a default object (no stored private data), or None when the class's
+    levels are unknown, differ in number from the object's, or a level's bytes
+    are not read exactly by its fields."""
+    if levels is None or len(levels) != obj.level:
+        return None
+    if all(start == end for start, end in obj.private):
+        return ""
+    items = []
+    for level_fields, (start, end) in zip(levels, obj.private):
+        if start == end:
+            return None
+        level_type = LVType(
+            kind=LVTypeKind.CLUSTER, underlying_type="Cluster", fields=level_fields
+        )
+        value, consumed, _ = _decode_element(data[start:end], level_type)
+        if value is None or consumed != end - start:
+            return None
+        if len(value) > 2:
+            items.append(value[1:-1])
+    return "{" + ", ".join(items) + "}"
 
 
 def _padded_to_4(size: int) -> int:
@@ -2444,7 +2518,7 @@ def _decode_element(
         return value, 1, value
 
     # Enum: decode as its underlying integer type
-    if kind == LVTypeKind.ENUM:
+    if kind == LVTypeKind.ENUM or underlying in _UNIT_INTEGER_TYPES:
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0, None
@@ -2601,16 +2675,13 @@ def _decode_element(
 
     # Refnum: a 4-byte opaque handle, except a CLASS value (a typed refnum
     # with a ``classname``), which is a flattened object (see
-    # ``class_object_extent``) and reads as its CLASS NAME from the resolved
-    # type. A plain typed refnum keeps its handle token. Same class-name rule
-    # as render.style.lv_type_label.
+    # ``read_class_object``) and reads as its CLASS NAME from the resolved
+    # type, followed by its private data when the class is loaded. A plain typed
+    # refnum keeps its handle token. Same class-name rule as
+    # render.style.lv_type_label.
     if underlying == "Refnum":
         if elem_type.classname:
-            name = elem_type.classname.rsplit(":", 1)[-1]
-            extent = class_object_extent(data)
-            if extent is None:
-                return None, 0, None
-            return name, extent[0], name
+            return _decode_class_object(data, elem_type)
         if elem_type.ref_type in _TAG_REFNUM_TYPES:
             return _decode_tag_refnum(data, elem_type.ref_type)
         size = min(4, len(data))

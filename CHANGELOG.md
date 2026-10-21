@@ -4,7 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Fix: multi-dimensional array values (2D tables, 3D grids) read only the first dimension** — front-panel defaults and diagram constants now show every row, and the fields after one in a cluster are no longer shifted; Picture values and class objects inside a cluster are skipped correctly (#174).
-- **Fix: stored default and constant values are read to their exact size** — Variants, extended-precision numbers, waveforms, VISA/DAQmx/IMAQ tag refnums, Sets and Maps, class objects, empty clusters and repeated field names no longer corrupt or drop the fields after them (#174).
+- **Fix: stored default and constant values are read to their exact size** — Variants, extended-precision numbers, waveforms, VISA/DAQmx/IMAQ tag refnums, Sets and Maps, class objects (with their private data when the class is loaded), empty clusters and repeated field names no longer corrupt or drop the fields after them (#174).
 - **Fix: a type definition of an array or a refnum kept no inner type** — its element type, dimensions, refnum kind and User Event data type now show in describe, lvnet and JSON, and an array's default value is read (#175).
 
 ## [0.8.10] - 2026-10-18
