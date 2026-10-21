@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.graph.core import _uid_of
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
 
@@ -24,6 +25,7 @@ from .ast_utils import (
     param_default_expr,
     parameter_names,
     parse_expr,
+    to_function_name,
 )
 from .context import (
     _SIMPLENAMESPACE_IMPORT,
@@ -31,10 +33,14 @@ from .context import (
     _needs_simplenamespace,
     type_namer,
 )
+from .data_files import data_file_expression, holds_array_whole
+from .elementwise import LV_IMPORT
 from .import_resolver import ImportResolver
 
 
-def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
+def _saved_default(
+    control: Terminal, module_stem: str, data_files: dict[str, bytes] | None
+) -> tuple[ast.expr, bool]:
     """The control's saved default as an expression, and whether it needs
     ``SimpleNamespace``. A cluster or array keeps its saved value, formatted by the
     same path as a cluster or array constant on a diagram; unlike a function
@@ -42,12 +48,32 @@ def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
     the intended initial value. Every other control takes ``param_default_expr``."""
     lv_type = control.lv_type
     default = control.default_value
+    if control.unwritable is not None:
+        text = data_file_expression(
+            what="control",
+            name=control.name,
+            uid=_uid_of(control.id),
+            module_stem=module_stem,
+            unwritable=control.unwritable,
+            lv_type=lv_type,
+            data_files=data_files,
+            whole_value=holds_array_whole(control.unwritable, lv_type),
+        )
+        return ast.parse(text, mode="eval").body, False
     if (
         lv_type is not None
         and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
         and isinstance(default, str)
     ):
-        text = _format_constant(Constant(id=control.id, value=default, lv_type=lv_type))
+        text = _format_constant(
+            Constant(
+                id=control.id,
+                value=default,
+                lv_type=lv_type,
+                unwritable=control.unwritable,
+                label=control.name,
+            )
+        )
         try:
             return ast.parse(text, mode="eval").body, _needs_simplenamespace(text)
         except SyntaxError:
@@ -56,7 +82,9 @@ def _saved_default(control: Terminal) -> tuple[ast.expr, bool]:
 
 
 def build_global_module(
-    vi_node: VINode, import_resolver: ImportResolver | None = None
+    vi_node: VINode,
+    import_resolver: ImportResolver | None = None,
+    data_files: dict[str, bytes] | None = None,
 ) -> str:
     """Module source for a Global VI: one annotated module-level name per
     front-panel control, in the VI's own control order, bound to the control's
@@ -76,10 +104,15 @@ def build_global_module(
     ]
     assignments: list[ast.stmt] = []
     needs_namespace = False
+    needs_runtime = False
     for control in controls:
         if control.id not in names:
             continue
-        value, namespace = _saved_default(control)
+        value, namespace = _saved_default(
+            control, to_function_name(vi_node.name or ""), data_files
+        )
+        if control.unwritable is not None:
+            needs_runtime = True
         needs_namespace = needs_namespace or namespace
         if isinstance(import_resolver, ImportResolver) and control.lv_type:
             for named in control.lv_type.named_types():
@@ -97,6 +130,8 @@ def build_global_module(
         )
     if needs_namespace:
         body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
+    if needs_runtime:
+        body.extend(ast.parse(LV_IMPORT).body)
     body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])
     ast.fix_missing_locations(module)

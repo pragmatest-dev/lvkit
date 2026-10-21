@@ -22,6 +22,7 @@ from ..models import (
     contains_class_instance,
 )
 from ..parser.models import ParsedType, ParsedVI
+from ..type_names import ROOT_CLASS
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -327,14 +328,17 @@ class InMemoryVIGraph(
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
             classname=parsed_type.classname,
+            class_file=parsed_type.class_file,
             typedef_path=parsed_type.typedef_path,
             typedef_name=parsed_type.typedef_name,
+            typedef_file=parsed_type.typedef_file,
             values=parsed_type.enum_values,
             element_type=self._enrich_type(parsed_type.element_type),
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,
             dotnet_type=parsed_type.dotnet_type,
+            unreadable=parsed_type.unreadable,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external
@@ -445,7 +449,7 @@ class InMemoryVIGraph(
             levels.append(list(data.get("fields") or []))
             parent_raw = data.get("parent_class")
             node_key = self._parent_class_key(node_key)
-            if node_key is None and parent_raw and parent_raw != "LabVIEW Object":
+            if node_key is None and parent_raw and parent_raw != ROOT_CLASS:
                 return None
         return levels[::-1] or None
 
@@ -535,7 +539,7 @@ class InMemoryVIGraph(
         if pk is not None and self._dep_graph.has_node(pk) and pk not in self._stubs:
             return pk
         parent_raw = data.get("parent_class")
-        if parent_raw and parent_raw != "LabVIEW Object":
+        if parent_raw and parent_raw != ROOT_CLASS:
             cand = self._dep_key_for_ref(parent_raw + ".lvclass")
             if (
                 cand is not None

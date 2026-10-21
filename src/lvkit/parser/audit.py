@@ -14,7 +14,8 @@ import math
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from lvkit.models import LVType, LVTypeKind
+from lvkit.measure_data import TIMESTAMP_FLAVOR
+from lvkit.models import LVType, LVTypeKind, UndecodedPicture
 
 from . import vi as _vi
 from .type_mapping import parse_type_map_rich
@@ -106,10 +107,12 @@ class _Trace:
             self.problems.append(f"unreadable {key}")
         elif (
             underlying == "MeasureData"
-            and lv_type.measure_flavor == "TimeStamp"
+            and lv_type.measure_flavor == TIMESTAMP_FLAVOR
             and consumed != 16
         ):
             self.problems.append(f"short {key}")
+        elif isinstance(structured, UndecodedPicture):
+            self.undecoded.append("picture drawing")
         elif underlying == "Refnum" and lv_type.classname and consumed:
             extent = _vi.read_class_object(data)
             if extent is not None and any(s != e for s, e in extent.private):

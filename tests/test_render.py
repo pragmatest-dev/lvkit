@@ -54,12 +54,13 @@ from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 # --------------------------------------------------------------------------- #
 
 
-def _frame(value, ranges=(), is_default=False):
+def _frame(value, ranges=(), is_default=False, is_no_error=False):
     from lvkit.models import CaseFrame, SelectorRange
 
     return CaseFrame(
         selector_value=value,
         is_default=is_default,
+        is_no_error=is_no_error,
         selector_ranges=[SelectorRange(start=s, end=e) for s, e in ranges],
     )
 
@@ -144,7 +145,8 @@ def test_selector_label_error_no_error_and_error():
     from lvkit.models import LVType
 
     t = LVType(kind=LVTypeKind.CLUSTER)
-    assert _selector_label(_frame("0", [(0, 0)]), t, True) == "No Error"
+    no_error = _frame("0", [(0, 0)], is_no_error=True)
+    assert _selector_label(no_error, t, True) == "No Error"
     assert _selector_label(_frame("1", [(1, 1)]), t, True) == "Error"
     # Error frame that is the structure's default is still "Error", not "Default"
     assert _selector_label(_frame("Default", is_default=True), t, True) == "Error"
@@ -1262,6 +1264,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname="NI DAQmx.lvlib:DAQmx Module Configuration.lvclass",
+        class_file="DAQmx Module Configuration.lvclass",
     )
     assert type_family(cls) == "unknown"  # a class refnum is NOT the refnum family
     assert lv_type_label(cls) == "DAQmx Module Configuration.lvclass"

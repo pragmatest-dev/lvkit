@@ -15,10 +15,15 @@ Binary layout of a pool::
         u8   flags          (0x40 = the body ends in a Pascal-string label)
         u8   type_code      (LabVIEW TD_FULL_TYPE)
         ...type-specific body...
+        [label]             (a Pascal string, present exactly when flag 0x40 is set)
 
 TypeDescs are bottom-up: a cluster/array/refnum names its members by INDEX into
 the TDs decoded before it. A typedef (``0xf1``) instead embeds its inner TypeDesc
 directly after its qualified name.
+
+The type-specific bodies follow pylabview's own readers (``LVdatatype`` and
+``LVdatatyperef``). A descriptor that does not decode is not dropped: its entry is
+a type that says why it is unreadable.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ import struct
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from ..lv_type_codes import REFNUM_TYPE, TD_FULL_TYPE
 from ..models import (
     ClusterField,
     EnumValue,
@@ -36,84 +42,98 @@ from ..models import (
 )
 from .naming import build_qualified_name
 
-# TD_FULL_TYPE code -> the ``underlying_type`` string ``LVType.type_descriptor``
-# expects, so a pool-decoded scalar renders identically to a VCTP-decoded one.
-_SCALAR_CODE: dict[int, str] = {
-    0x01: "NumInt8",
-    0x02: "NumInt16",
-    0x03: "NumInt32",
-    0x04: "NumInt64",
-    0x05: "NumUInt8",
-    0x06: "NumUInt16",
-    0x07: "NumUInt32",
-    0x08: "NumUInt64",
-    0x09: "NumFloat32",
-    0x0A: "NumFloat64",
-    0x0B: "NumFloatExt",
-    0x0C: "NumComplex64",
-    0x0D: "NumComplex128",
-    0x0E: "NumComplexExt",
-    0x20: "BooleanU16",
-    0x21: "Boolean",
-    0x30: "String",
-    0x31: "String2",
-    0x32: "Path",
-    0x33: "Picture",
-    0x34: "CString",
-    0x35: "PasString",
-    0x37: "Tag",
-    0x3F: "SubString",
-    0x53: "LVVariant",
-}
-# Scalar codes whose body starts with a ``u32`` before the label pstr.
-_U32_PREFIXED = frozenset({0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x37, 0x3F})
-# Enum codes -> their TD_FULL_TYPE name (the ordinal's width).
-_ENUM_CODES: dict[int, str] = {
-    0x15: "UnitUInt8",
-    0x16: "UnitUInt16",
-    0x17: "UnitUInt32",
-}
+# Scalars whose descriptor has no body before the label.
+_NO_BODY_TYPES = frozenset(
+    {
+        TD_FULL_TYPE.NumInt8,
+        TD_FULL_TYPE.NumInt16,
+        TD_FULL_TYPE.NumInt32,
+        TD_FULL_TYPE.NumInt64,
+        TD_FULL_TYPE.NumUInt8,
+        TD_FULL_TYPE.NumUInt16,
+        TD_FULL_TYPE.NumUInt32,
+        TD_FULL_TYPE.NumUInt64,
+        TD_FULL_TYPE.NumFloat32,
+        TD_FULL_TYPE.NumFloat64,
+        TD_FULL_TYPE.NumFloatExt,
+        TD_FULL_TYPE.NumComplex64,
+        TD_FULL_TYPE.NumComplex128,
+        TD_FULL_TYPE.NumComplexExt,
+        TD_FULL_TYPE.BooleanU16,
+        TD_FULL_TYPE.Boolean,
+        TD_FULL_TYPE.CString,
+        TD_FULL_TYPE.PasString,
+        TD_FULL_TYPE.LVVariant,
+    }
+)
+# Scalars whose body is a ``u32`` before the label (the size of the blob).
+_BLOB_TYPES = frozenset(
+    {
+        TD_FULL_TYPE.String,
+        TD_FULL_TYPE.Path,
+        TD_FULL_TYPE.Picture,
+        TD_FULL_TYPE.SubString,
+    }
+)
+# Enum types: the width of the ordinal they hold.
+_ENUM_TYPES = frozenset(
+    {TD_FULL_TYPE.UnitUInt8, TD_FULL_TYPE.UnitUInt16, TD_FULL_TYPE.UnitUInt32}
+)
 
-# Refnum sub-kind code (u16 at the start of a 0x70 body) -> the RefType name
-# LabVIEW uses, so a pool-decoded refnum renders identically -- e.g.
-# ``Queue refnum``, ``LVObjCtl refnum`` -- to a VCTP-decoded one.
-_REFNUM_KIND: dict[int, str] = {
-    0: "Generic",
-    1: "DataLog",
-    2: "ByteStream",
-    3: "Device",
-    4: "Occurrence",
-    5: "TCPNetConn",
-    7: "AutoRef",
-    8: "LVObjCtl",
-    9: "Menu",
-    11: "Imaq",
-    13: "DataSocket",
-    14: "VisaRef",
-    15: "IVIRef",
-    16: "UDPNetConn",
-    17: "NotifierRef",
-    18: "Queue",
-    19: "IrdaNetConn",
-    20: "UsrDefined",
-    21: "UsrDefndTag",
-    23: "EventReg",
-    24: "DotNet",
-    25: "UserEvent",
-    27: "Callback",
-    29: "UsrDefTagFlt",
-    30: "UDClassInst",
-    31: "BluetoothCon",
-    32: "DataValueRef",
-    33: "FIFORef",
-    34: "TDMSFile",
-}
-# Refnum kinds whose body is ``u16 count`` + ``count x u16`` client TD index: a
-# parametrized refnum carrying one element/payload type.
-_PARAMETRIZED_REFNUMS = frozenset({1, 17, 18, 25, 32, 33})
+# Refnum kinds whose body is the kind, then a count and that many client TD
+# indexes (a parametrized refnum carrying one element/payload type).
+_CLIENT_LIST_REFNUMS = frozenset(
+    {
+        REFNUM_TYPE.DataLog,
+        REFNUM_TYPE.NotifierRef,
+        REFNUM_TYPE.Queue,
+        REFNUM_TYPE.UserEvent,
+        REFNUM_TYPE.DataValueRef,
+        REFNUM_TYPE.FIFORef,
+    }
+)
+# A data value reference's client list is followed by an "is external" byte.
+_EXTERNAL_FLAG_REFNUMS = frozenset({REFNUM_TYPE.DataValueRef})
+# Refnum kinds whose body is the kind alone.
+_KIND_ONLY_REFNUMS = frozenset(
+    {
+        REFNUM_TYPE.Generic,
+        REFNUM_TYPE.ByteStream,
+        REFNUM_TYPE.Device,
+        REFNUM_TYPE.Occurrence,
+        REFNUM_TYPE.TCPNetConn,
+        REFNUM_TYPE.Menu,
+        REFNUM_TYPE.DataSocket,
+        REFNUM_TYPE.UDPNetConn,
+        REFNUM_TYPE.IrdaNetConn,
+        REFNUM_TYPE.BluetoothCon,
+        REFNUM_TYPE.TDMSFile,
+    }
+)
 
-_VOID, _ARRAY, _CLUSTER, _REFNUM = 0x00, 0x40, 0x50, 0x70
-_CONPANE, _TYPEDEF = 0xF0, 0xF1
+# The 4-byte field a class refnum's body carries after its 2-byte field. A pool
+# block exists only in files older than LabVIEW 8.6, and pylabview reads this
+# field in every file older than 8.6.1.
+_CLASS_REFNUM_OLD_FIELD_BYTES = 4
+
+
+def read_var_size(data: bytes | memoryview, pos: int) -> tuple[int, int] | None:
+    """A 16-bit value, or a 32-bit one when the first bit is set (the high bit is
+    not part of the value). Returns ``(value, next position)``."""
+    if pos + 2 > len(data):
+        return None
+    value = int.from_bytes(data[pos : pos + 2], "big")
+    if value & 0x8000:
+        if pos + 4 > len(data):
+            return None
+        return ((value & 0x7FFF) << 16) | int.from_bytes(
+            data[pos + 2 : pos + 4], "big"
+        ), pos + 4
+    return value, pos + 2
+
+
+class PoolError(Exception):
+    """A descriptor that does not follow its type's layout; the message says how."""
 
 
 @dataclass(frozen=True)
@@ -129,54 +149,52 @@ class RawTD:
         return bool(self.flags & 0x40)
 
 
-def read_td_list(data: bytes, start: int = 0) -> tuple[list[RawTD], int]:
-    """Split ``u32 count`` + the TypeDescs at ``start``. Returns them and the
-    offset just past the last one. Stops early at a structural surprise."""
+@dataclass(frozen=True)
+class TdList:
+    """The TypeDescs a pool block lists, the offset just past the last one read,
+    and why reading stopped early (None when every listed descriptor was read)."""
+
+    tds: list[RawTD]
+    end: int
+    failure: str | None
+
+
+def read_td_list(data: bytes, start: int = 0) -> TdList:
+    """Split ``u32 count`` + the TypeDescs at ``start``."""
     if start + 4 > len(data):
-        return [], start
+        return TdList([], start, "the block is too short to hold a descriptor count")
     (count,) = struct.unpack_from(">I", data, start)
     off = start + 4
     tds: list[RawTD] = []
-    for _ in range(count):
+    for index in range(count):
         if off + 4 > len(data):
-            break
+            return TdList(tds, off, f"the block ends inside descriptor {index}")
         (tlen,) = struct.unpack_from(">H", data, off)
         if tlen < 4 or off + tlen > len(data):
-            break
+            return TdList(
+                tds,
+                off,
+                f"descriptor {index} has a length of {tlen} bytes it cannot hold",
+            )
         tds.append(RawTD(data[off + 3], data[off + 2], data[off + 4 : off + tlen]))
         off += tlen
-    return tds, off
+    return TdList(tds, off, None)
+
+
+def unreadable_type(reason: str) -> LVType:
+    """The type of a descriptor that did not decode, carrying why."""
+    return LVType(kind=LVTypeKind.PRIMITIVE, unreadable=reason)
 
 
 def _pstr(data: bytes, off: int) -> tuple[str, int]:
     """Read a length-prefixed (1-byte) latin-1 string at ``off``; return it and
     the offset past it."""
+    if off >= len(data):
+        raise PoolError("a string runs past the end of the descriptor")
     n = data[off]
+    if off + 1 + n > len(data):
+        raise PoolError("a string runs past the end of the descriptor")
     return data[off + 1 : off + 1 + n].decode("latin1"), off + 1 + n
-
-
-def _is_type_identity(s: str | None) -> bool:
-    """A ``.lvclass``/``.ctl`` string is a TYPE identity, never a terminal label."""
-    return bool(s) and (".lvclass" in s or ".ctl" in s)  # type: ignore[arg-type]
-
-
-def _all_pstrs(body: bytes) -> list[str]:
-    """Every printable length-prefixed string in ``body`` (best-effort; used for
-    the name-bearing refnum bodies whose fixed layout is only partly known)."""
-    out: list[str] = []
-    off = 0
-    while off < len(body):
-        n = body[off]
-        if n == 0 or off + 1 + n > len(body):
-            off += 1
-            continue
-        chunk = body[off + 1 : off + 1 + n]
-        if all(32 <= c < 127 for c in chunk):
-            out.append(chunk.decode("latin1"))
-            off += 1 + n
-        else:
-            off += 1
-    return out
 
 
 def _decode_enum(body: bytes, start: int) -> tuple[dict[str, EnumValue], int]:
@@ -192,163 +210,271 @@ def _decode_enum(body: bytes, start: int) -> tuple[dict[str, EnumValue], int]:
     return enum_values_from_labels(labels), off + (off & 1)
 
 
-def _name_at(body: bytes, off: int) -> str | None:
-    if 0 <= off < len(body):
-        try:
-            s, _ = _pstr(body, off)
-            return s or None
-        except IndexError:
-            return None
-    return None
+def _label(td: RawTD, off: int) -> str | None:
+    """The descriptor's label, which starts at ``off`` exactly when its flags say
+    it has one."""
+    if not td.has_label:
+        return None
+    label, _ = _pstr(td.body, off)
+    return label or None
 
 
 class TdPool:
-    """A decoded TypeDesc pool: per-TD ``LVType`` and label, in pool order."""
+    """A decoded TypeDesc pool: per-TD ``LVType`` and label, in pool order. A
+    descriptor that did not decode has an ``unreadable_type`` and its reason in
+    ``failures``."""
 
     def __init__(self, tds: list[RawTD]):
         self.tds = tds
-        self.lvtypes: list[LVType | None] = []
+        self.lvtypes: list[LVType] = []
         self.names: list[str | None] = []
+        self.failures: dict[int, str] = {}
         # The strictly bottom-up order is what lets a member ref resolve against
         # TDs already decoded.
-        for td in tds:
-            lv, name = self._decode(td.type_code, td.body)
+        for index, td in enumerate(tds):
+            try:
+                lv, name = self._decode(td)
+            except (PoolError, struct.error, IndexError) as exc:
+                reason = (
+                    str(exc)
+                    if isinstance(exc, PoolError)
+                    else "its body is shorter than its type's layout"
+                )
+                self.failures[index] = reason
+                lv, name = unreadable_type(reason), None
             self.lvtypes.append(lv)
             self.names.append(name)
 
-    def _ref(self, index: int) -> LVType | None:
-        return self.lvtypes[index] if index < len(self.lvtypes) else None
+    def _ref(self, index: int) -> LVType:
+        if index >= len(self.lvtypes):
+            raise PoolError(f"it refers to descriptor {index}, which is not listed")
+        return self.lvtypes[index]
 
-    def _decode(
-        self,
-        type_code: int,
-        body: bytes,
-    ) -> tuple[LVType | None, str | None]:
+    def _decode(self, td: RawTD) -> tuple[LVType, str | None]:
+        code = td.type_code
+        body = td.body
         try:
-            if type_code == _VOID:
-                return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Void"), None
+            full_type = TD_FULL_TYPE(code)
+        except ValueError:
+            raise PoolError(f"type code 0x{code:02X} is not a known type") from None
 
-            if type_code in _SCALAR_CODE:
-                name_off = 4 if type_code in _U32_PREFIXED else 0
-                return LVType(
-                    kind=LVTypeKind.PRIMITIVE,
-                    underlying_type=_SCALAR_CODE[type_code],
-                ), _name_at(body, name_off)
+        if full_type == TD_FULL_TYPE.Void:
+            return LVType(
+                kind=LVTypeKind.PRIMITIVE, underlying_type=full_type.name
+            ), _label(td, 0)
 
-            if type_code in _ENUM_CODES:
-                values, off = _decode_enum(body, 0)
-                return LVType(
-                    kind=LVTypeKind.ENUM,
-                    underlying_type=_ENUM_CODES[type_code],
-                    values=values,
-                ), _name_at(body, off)
+        if full_type in _NO_BODY_TYPES:
+            return LVType(
+                kind=LVTypeKind.PRIMITIVE, underlying_type=full_type.name
+            ), _label(td, 0)
 
-            if type_code == _CLUSTER:
-                return self._decode_cluster(body)
+        if full_type in _BLOB_TYPES:
+            if len(body) < 4:
+                raise PoolError("its body is shorter than its type's layout")
+            return LVType(
+                kind=LVTypeKind.PRIMITIVE, underlying_type=full_type.name
+            ), _label(td, 4)
 
-            if type_code == _ARRAY:
-                # u16 ndims, ndims x u32 dimension size, u16 element TD ref.
-                (ndims,) = struct.unpack_from(">H", body, 0)
-                ref_off = 2 + 4 * ndims
-                (elem_ref,) = struct.unpack_from(">H", body, ref_off)
-                return LVType(
-                    kind=LVTypeKind.ARRAY,
-                    underlying_type="Array",
-                    element_type=self._ref(elem_ref),
-                    dimensions=ndims or 1,
-                ), _name_at(body, ref_off + 2)
+        if full_type in _ENUM_TYPES:
+            values, off = _decode_enum(body, 0)
+            return LVType(
+                kind=LVTypeKind.ENUM,
+                underlying_type=full_type.name,
+                values=values,
+            ), _label(td, off)
 
-            if type_code == _REFNUM:
-                return self._decode_refnum(body)
+        if full_type == TD_FULL_TYPE.Cluster:
+            return self._decode_cluster(td)
 
-            if type_code == _TYPEDEF:
-                return self._decode_typedef(body)
-        except (struct.error, IndexError):
-            return None, None
-        # Any unmodelled type code: no type, no name.
-        return None, None
+        if full_type == TD_FULL_TYPE.Array:
+            return self._decode_array(td)
 
-    def _decode_cluster(self, body: bytes) -> tuple[LVType, str | None]:
-        (fcount,) = struct.unpack_from(">H", body, 0)
-        refs = [struct.unpack_from(">H", body, 2 + k * 2)[0] for k in range(fcount)]
-        # Out-of-range refs are dropped FIRST so the positional ``field_{i}``
-        # fallback numbers the KEPT fields contiguously (no gaps).
-        valid = [r for r in refs if r < len(self.lvtypes)]
+        if full_type == TD_FULL_TYPE.Refnum:
+            return self._decode_refnum(td)
+
+        if full_type == TD_FULL_TYPE.TypeDef:
+            return self._decode_typedef(td)
+
+        raise PoolError(f"type code 0x{code:02X} ({full_type.name}) is not read")
+
+    def _decode_array(self, td: RawTD) -> tuple[LVType, str | None]:
+        """``u16`` ndims, ndims x ``u32`` dimension size, then the element TD."""
+        body = td.body
+        (ndims,) = struct.unpack_from(">H", body, 0)
+        ref_off = 2 + 4 * ndims
+        element = read_var_size(body, ref_off)
+        if element is None:
+            raise PoolError("its body is shorter than its type's layout")
+        elem_ref, label_off = element
+        return LVType(
+            kind=LVTypeKind.ARRAY,
+            underlying_type=TD_FULL_TYPE.Array.name,
+            element_type=self._ref(elem_ref),
+            dimensions=ndims or 1,
+        ), _label(td, label_off)
+
+    def _decode_cluster(self, td: RawTD) -> tuple[LVType, str | None]:
+        body = td.body
+        counted = read_var_size(body, 0)
+        if counted is None:
+            raise PoolError("its body is shorter than its type's layout")
+        fcount, pos = counted
+        refs: list[int] = []
+        for _ in range(fcount):
+            member = read_var_size(body, pos)
+            if member is None:
+                raise PoolError("its body is shorter than its type's layout")
+            refs.append(member[0])
+            pos = member[1]
+        member_types = [self._ref(r) for r in refs]
         fields = [
-            ClusterField(name=self.names[r] or f"field_{i}", type=self.lvtypes[r])
-            for i, r in enumerate(valid)
+            ClusterField(name=self.names[r] or f"field_{i}", type=member_types[i])
+            for i, r in enumerate(refs)
         ]
         return LVType(
             kind=LVTypeKind.CLUSTER,
-            underlying_type="Cluster",
-            # A cluster that lists no members is empty (``[]``); one whose
-            # members could not be resolved has no known fields (None).
-            fields=fields if fields or not refs else None,
-        ), _name_at(body, 2 + fcount * 2)
+            underlying_type=TD_FULL_TYPE.Cluster.name,
+            fields=fields,
+        ), _label(td, pos)
 
-    def _decode_refnum(self, body: bytes) -> tuple[LVType, str | None]:
-        """``u16`` sub-kind, then a kind-specific part. A class refnum carries
-        ``[class name][label]``: the ``.lvclass`` name is the TYPE, the pstr right
-        after it is the terminal LABEL (LabVIEW's default label for a
-        dynamic-dispatch terminal IS its class name; a second same-class terminal
-        is ``<class> 2``). A parametrized refnum carries its element TD index."""
-        refkind = struct.unpack_from(">H", body, 0)[0] if len(body) >= 2 else None
-        strs = _all_pstrs(body)
-        classname = next((s for s in strs if s.endswith(".lvclass")), None)
-        if classname is not None:
-            ci = strs.index(classname)
-            name = strs[ci + 1] if ci + 1 < len(strs) else None
-        else:
-            name = strs[-1] if strs else None
+    def _decode_refnum(self, td: RawTD) -> tuple[LVType, str | None]:
+        """``u16`` refnum kind, then a kind-specific part (pylabview's
+        ``LVdatatyperef``). A parametrized refnum carries its element TD index; a
+        class refnum carries its class name; a control reference carries a
+        qualified name when it has one."""
+        body = td.body
+        (kind_code,) = struct.unpack_from(">H", body, 0)
+        try:
+            kind = REFNUM_TYPE(kind_code)
+        except ValueError:
+            raise PoolError(f"refnum kind {kind_code} is not a known kind") from None
 
         element_type: LVType | None = None
         user_event_name: str | None = None
-        if refkind in _PARAMETRIZED_REFNUMS:
-            (nclients,) = struct.unpack_from(">H", body, 2)
-            if nclients == 1:
-                (elem_ref,) = struct.unpack_from(">H", body, 4)
-                element_type = self._ref(elem_ref)
-                if refkind == 25 and elem_ref < len(self.names):
-                    user_event_name = self.names[elem_ref]
-            name = _name_at(body, 4 + 2 * nclients)
+        classname: str | None = None
+        class_file: str | None = None
+        label_off: int | None
 
+        if kind in _CLIENT_LIST_REFNUMS:
+            (nclients,) = struct.unpack_from(">H", body, 2)
+            pos = 4
+            clients: list[int] = []
+            for _ in range(nclients):
+                client = read_var_size(body, pos)
+                if client is None:
+                    raise PoolError("its body is shorter than its type's layout")
+                clients.append(client[0])
+                pos = client[1]
+            if nclients == 1:
+                element_type = self._ref(clients[0])
+                if kind == REFNUM_TYPE.UserEvent:
+                    user_event_name = self.names[clients[0]]
+            if kind in _EXTERNAL_FLAG_REFNUMS:
+                pos += 1
+            label_off = pos
+        elif kind == REFNUM_TYPE.UDClassInst:
+            items, label_off = _read_class_items(body)
+            classname = ":".join(items)
+            class_file = items[-1] if items else None
+        elif kind == REFNUM_TYPE.LVObjCtl:
+            label_off = _control_reference_end(body)
+        elif kind in _KIND_ONLY_REFNUMS:
+            label_off = 2
+        else:
+            # The layout of this kind's body is not read, so neither is its label.
+            label_off = None
+
+        name = _label(td, label_off) if label_off is not None else None
         return LVType(
             kind=LVTypeKind.PRIMITIVE,
-            underlying_type="Refnum",
-            ref_type=_REFNUM_KIND.get(refkind) if refkind is not None else None,
+            underlying_type=TD_FULL_TYPE.Refnum.name,
+            ref_type=kind.name,
             classname=classname,
+            class_file=class_file,
             element_type=element_type,
             user_event_name=user_event_name,
         ), name
 
-    def _decode_typedef(self, body: bytes) -> tuple[LVType | None, str | None]:
+    def _decode_typedef(self, td: RawTD) -> tuple[LVType, str | None]:
         """``u32`` flag, ``u32`` count + that many qualified-name pstrs (owning
         libraries, then the ``.ctl``), then the inner TypeDesc as a nested
         ``[u16 len][flags][type][body]`` record running to the end of the body.
-        The typedef takes the inner type's structure, labelled by the ``.ctl``."""
+        The typedef takes the inner type's structure, labelled by the inner
+        descriptor's own label."""
+        body = td.body
         (nnames,) = struct.unpack_from(">I", body, 4)
         off = 8
         names: list[str] = []
         for _ in range(nnames):
             s, off = _pstr(body, off)
             names.append(s)
-        typedef_name = (
-            build_qualified_name(
-                [n for n in names[:-1] if n.endswith((".llb", ".lvlib", ".lvclass"))],
-                names[-1],
-            )
-            if names
-            else None
-        )
+        if not names:
+            raise PoolError("it names no file")
+        if td.has_label:
+            raise PoolError("a type definition with a label of its own is not read")
         if off + 4 > len(body):
-            return None, None
-        inner_code = body[off + 3]
-        lv, label = self._decode(inner_code, body[off + 4 :])
-        if lv is not None:
-            lv = replace(lv, typedef_name=typedef_name)
-        if _is_type_identity(label) or label == typedef_name:
-            label = None
-        return lv, label
+            raise PoolError("its body is shorter than its type's layout")
+        inner = RawTD(body[off + 3], body[off + 2], body[off + 4 :])
+        lv, label = self._decode(inner)
+        return replace(
+            lv,
+            typedef_name=build_qualified_name(names[:-1], names[-1]),
+            typedef_file=names[-1],
+        ), label
+
+
+def _read_class_items(body: bytes) -> tuple[list[str], int]:
+    """A class refnum's class name parts, and the offset just past them: after the
+    2-byte kind, a 2-byte field and the old 4-byte field, a length byte covers the
+    names. A name that ends in a zero byte is a list of length-prefixed parts
+    ended by a zero length; otherwise the bytes are one name. The whole is padded
+    to an even size."""
+    pos = 2 + 2 + _CLASS_REFNUM_OLD_FIELD_BYTES
+    if pos >= len(body):
+        raise PoolError("its body is shorter than its type's layout")
+    total = body[pos]
+    start = pos + 1
+    end = start + total
+    if end > len(body):
+        raise PoolError("its class name runs past the end of the descriptor")
+    text = body[start:end]
+    items: list[str] = []
+    if text and text[-1] == 0:
+        cursor = 0
+        while cursor < len(text):
+            n = text[cursor]
+            if n == 0:
+                break
+            if cursor + 1 + n > len(text):
+                raise PoolError("its class name parts run past the name")
+            items.append(text[cursor + 1 : cursor + 1 + n].decode("latin1"))
+            cursor += 1 + n
+    else:
+        items.append(text.decode("latin1"))
+    return items, end + ((total + 1) % 2)
+
+
+def _control_reference_end(body: bytes) -> int:
+    """Where a control reference's body ends: the kind, a client count and that
+    many client indexes, a flags word, a has-item word and, when it has an item,
+    its 4-byte identifier and a qualified name (a ``u32`` count of strings)."""
+    (nclients,) = struct.unpack_from(">H", body, 2)
+    pos = 4
+    for _ in range(nclients):
+        client = read_var_size(body, pos)
+        if client is None:
+            raise PoolError("its body is shorter than its type's layout")
+        pos = client[1]
+    pos += 2
+    (has_item,) = struct.unpack_from(">H", body, pos)
+    pos += 2
+    if has_item:
+        pos += 4
+        (count,) = struct.unpack_from(">I", body, pos)
+        pos += 4
+        for _ in range(count):
+            _, pos = _pstr(body, pos)
+    return pos
 
 
 def block_sidecar_path(xml_path: Path | str, block: str) -> Path:

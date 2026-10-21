@@ -351,14 +351,14 @@ def test_a_dco_without_dnet_info_keeps_its_type() -> None:
     assert parsed.ref_type == "DotNet"
 
 
-def test_an_unreadable_item_type_keeps_the_terminal_type_and_is_logged(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_an_unreadable_item_type_keeps_the_terminal_type_and_says_why() -> None:
     elem = _invoke_node(_dnet_dco("4D63ZZ"))
-    with caplog.at_level("WARNING"):
-        parsed = _terminal_type(elem)
-    assert parsed.dotnet_type is None
-    assert "not hex-encoded" in caplog.text
+    terminals: dict[str, ParsedTerminalInfo] = {}
+    _process_element_terminals(elem, set(), {"11"}, {0: _refnum()}, terminals, {})
+    parsed = terminals["11"].parsed_type
+    assert parsed is not None and parsed.dotnet_type is None
+    reason = terminals["11"].dotnet_type_unreadable
+    assert reason is not None and "not hex-encoded" in reason
 
 
 # --- the VI-level views ---
@@ -370,10 +370,10 @@ def _stand_in_types(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def item_type(
         elem: ET.Element, dco: ET.Element | None, dco_uid: str | None
-    ) -> DotNetType | None:
+    ) -> tuple[DotNetType | None, str | None]:
         if elem.get("class") == "sharedVariable":
-            return DotNetType.from_qualified(ERROR_INFO_TYPE)
-        return None
+            return DotNetType.from_qualified(ERROR_INFO_TYPE), None
+        return None, None
 
     dnva = build_dnva_record(offset=0)
     dnda = build_dnda_record(offset=len(dnva), node_uids=[1033, 1112])
@@ -428,6 +428,22 @@ def test_lvnet_lists_the_assembly_under_uses_and_round_trips(
     assert mismatch is None
 
 
+def test_an_unreadable_terminal_type_is_reported_with_the_unreadable_assemblies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reason = "the .NET type of a node terminal is unreadable: bad name"
+    monkeypatch.setattr(
+        vi_parser,
+        "_dotnet_item_type",
+        lambda elem, dco, dco_uid: (
+            (None, reason) if elem.get("class") == "sharedVariable" else (None, None)
+        ),
+    )
+    graph, vi = _load()
+    assert graph.get_dotnet_assemblies(vi).unreadable == [reason]
+    assert f"(.NET unreadable: {reason})" in describe_vi(graph, vi)
+
+
 def test_json_carries_the_assembly_and_the_full_type(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -450,7 +466,7 @@ def test_an_unreadable_record_is_reported_in_every_view(
     )
     monkeypatch.setattr(vi_parser, "_read_dotnet_assemblies", lambda root, xml: table)
     graph, vi = _load()
-    assert f"(.NET assembly link unreadable: {reason})" in describe_vi(graph, vi)
+    assert f"(.NET unreadable: {reason})" in describe_vi(graph, vi)
     module = build_netlist_from_graph(graph, vi)
     body = netlist_to_dict(module, verbose=True)
     assert {

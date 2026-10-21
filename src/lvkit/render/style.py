@@ -13,6 +13,9 @@ import re
 from dataclasses import dataclass
 from itertools import groupby
 
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+
+from ..measure_data import TIMESTAMP_FLAVOR
 from ..models import (
     _NUMERIC_TYPE_DESCRIPTOR,
     LVType,
@@ -301,7 +304,7 @@ def type_repr(lv_type: LVType | None) -> str:
             return "Class" if lv_type.classname else "Ref"
         if (
             lv_type.underlying_type == "MeasureData"
-            and lv_type.measure_flavor == "TimeStamp"
+            and lv_type.measure_flavor == TIMESTAMP_FLAVOR
         ):
             # A Timestamp (task #66) — a clean-room-chosen 2-char mnemonic
             # (no NI-doc source found for a canonical short form), styled
@@ -329,7 +332,7 @@ def numeric_sample(lv_type: LVType | None) -> str | None:
         return "1+2i" if "Complex" in ut else "1.23"
     if "Int" in ut:
         return "123"
-    if ut == "String":
+    if is_string_type_name(ut):
         return "abc"
     return None
 
@@ -389,14 +392,14 @@ def type_family(lv_type: LVType | None) -> str:
             return "float"
         if ut in _INT_TYPES:
             return "int"
-        if ut == "Boolean":
+        if is_boolean_type_name(ut):
             return "bool"
-        if ut == "MeasureData" and lv_type.measure_flavor == "TimeStamp":
+        if ut == "MeasureData" and lv_type.measure_flavor == TIMESTAMP_FLAVOR:
             # A Timestamp (heap ddo class "absTime") — its own distinct dark
             # red-brown wire/terminal/constant color (task #66), not the
             # generic grey "unknown" a bare MeasureData used to fall to.
             return "timestamp"
-        if ut in ("String", "SubString"):
+        if is_string_type_name(ut):
             # "SubString" is a string subtype (e.g. Search/Split String's
             # outputs) — a string for color/glyph purposes, as the rest of the
             # codebase already treats it (graph.construction._TYPE_CATEGORIES,
@@ -450,9 +453,9 @@ def lv_type_label(lv_type: LVType | None) -> str:
         # its short class name (lib qualifier stripped, ``.lvclass`` kept). Only a
         # non-class typed refnum (queue, event, control ref, …) keeps "<t> Refnum".
         if lv_type.classname:
-            return lv_type.classname.rsplit(":", 1)[-1]
+            return lv_type.class_file or lv_type.classname
         return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
-    if ut in ("Boolean", "String", "Path"):
+    if is_boolean_type_name(ut) or is_string_type_name(ut) or ut == "Path":
         return ut
     return type_repr(lv_type) or ut or "?"
 

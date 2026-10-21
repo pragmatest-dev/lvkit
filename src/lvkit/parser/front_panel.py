@@ -19,6 +19,7 @@ from .models import (
     ParsedFPTerminal,
     ParsedType,
 )
+from .td_pool import unreadable_type
 from .type_resolution import resolve_type_rich
 
 
@@ -33,8 +34,10 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         type_name=lv_type.underlying_type or "unknown",
         typedef_path=lv_type.typedef_path,
         typedef_name=lv_type.typedef_name,
+        typedef_file=lv_type.typedef_file,
         ref_type=lv_type.ref_type,
         classname=lv_type.classname,
+        class_file=lv_type.class_file,
         fields=lv_type.fields,
         enum_values=lv_type.values,
         element_type=(
@@ -44,6 +47,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         measure_flavor=lv_type.measure_flavor,
         user_event_name=lv_type.user_event_name,
         dotnet_type=lv_type.dotnet_type,
+        unreadable=lv_type.unreadable,
     )
 
 
@@ -234,7 +238,7 @@ def _apply_conp_types(
     OVERRIDES the structure-only FP-heap fallback the loop above set. It never
     fights VCTP: CONP is non-empty ONLY for pre-LV9 VIs, which have no VCTP at
     all, so a terminal already resolved from VCTP (LV9+) is never reached here
-    (LV9+ CONP is an empty stub -> ``decode_conp_terminals`` returns ``[]``).
+    (LV9+ CONP is an empty stub -> ``decode_conp_terminals`` returns no terminals).
     Correlated by connector-pane SLOT: CONP terminal at slot S -> the conpane
     slot with the same index -> its ``fp_dco_uid`` -> the matching terminal.
     """
@@ -242,17 +246,21 @@ def _apply_conp_types(
     conp_bin = conp_sidecar_path(fp_path)
     if not conp_bin.exists():
         return
-    conp_terms = decode_conp_terminals(conp_bin.read_bytes())
-    if not conp_terms:
+    conp = decode_conp_terminals(conp_bin.read_bytes())
+    if not conp.terminals and conp.failure is None:
         return
     cpane = parse_connector_pane(fp_path)
     if cpane is None:
         return
     slot_to_dco = {s.index: s.fp_dco_uid for s in cpane.slots if s.fp_dco_uid}
     by_dco = {t.fp_dco_uid: t for t in terminals}
-    for ct in conp_terms:
-        if ct.lv_type is None:
-            continue
+    if conp.failure is not None:
+        # The block could not be read, so no terminal's type is known.
+        unreadable = _lvtype_to_parsed(unreadable_type(conp.failure))
+        for dco in slot_to_dco.values():
+            if dco in by_dco:
+                by_dco[dco].parsed_type = unreadable
+    for ct in conp.terminals:
         dco = slot_to_dco.get(ct.slot)
         term = by_dco.get(dco) if dco else None
         if term is None:

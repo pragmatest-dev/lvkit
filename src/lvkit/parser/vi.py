@@ -23,12 +23,25 @@ from typing import Any
 
 from lvkit.dotnet_types import DotNetType, DotNetTypeError
 from lvkit.extractor import extract_vi_xml
-from lvkit.measure_data import measure_data_value_type
+from lvkit.lv_type_codes import (
+    FLOAT_BYTE_WIDTHS,
+    INTEGER_BYTE_WIDTHS,
+    SIGNED_INTEGER_TYPE_NAMES,
+    TD_FULL_TYPE,
+    is_float_type_name,
+    is_integer_type_name,
+    plain_number_name,
+)
+from lvkit.measure_data import TIMESTAMP_FLAVOR, measure_data_value_type
 from lvkit.models import (
     ClusterField,
     LVType,
     LVTypeKind,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValuesNotKept,
     contains_class_instance,
+    find_unwritable,
     leading_element,
     unique_names,
 )
@@ -1118,9 +1131,10 @@ def _process_element_terminals(
             # wire propagation. See _build_tunnel_inner_type_map.
             type_desc_str = tunnel_inner_types[dco_uid]
         parsed_type = None
+        dotnet_type_unreadable = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
-            dotnet_type = _dotnet_item_type(elem, dco, dco_uid)
+            dotnet_type, dotnet_type_unreadable = _dotnet_item_type(elem, dco, dco_uid)
             if dotnet_type is not None:
                 lv_type = replace(lv_type, dotnet_type=dotnet_type)
             parsed_type = _lvtype_to_parsed(lv_type)
@@ -1156,6 +1170,7 @@ def _process_element_terminals(
             name=term_name,
             inverted=inverted,
             dco_uid=dco_uid or None,
+            dotnet_type_unreadable=dotnet_type_unreadable,
         )
 
 
@@ -1343,17 +1358,17 @@ def _private_data_holders(elem: ET.Element) -> dict[str, ET.Element]:
 
 def _dotnet_item_type(
     elem: ET.Element, dco: ET.Element | None, dco_uid: str | None
-) -> DotNetType | None:
+) -> tuple[DotNetType | None, str | None]:
     """The .NET type a .NET node's terminal passes: the ``DotNetItemType`` of the
     ``dnetItemInfo`` in the ``privDataList`` of the terminal's DCO. The DCO is
     defined either in the terminal's own ``<dco>`` or, when that is a bare uid
-    reference, in one of the node's lists. ``None`` for a terminal of any other
-    node, or when the recorded name is not readable (logged)."""
+    reference, in one of the node's lists. ``(None, None)`` for a terminal of any
+    other node; ``(None, reason)`` when the recorded name is not readable."""
     holder = dco if dco is not None and dco.find("privDataList") is not None else None
     if holder is None and dco_uid and dco is not None and len(dco) == 0:
         holder = _private_data_holders(elem).get(dco_uid)
     if holder is None:
-        return None
+        return None, None
     for info in holder.iterfind("privDataList//*"):
         if _DOTNET_ITEM_INFO not in (info.tag, info.get("class")):
             continue
@@ -1361,11 +1376,10 @@ def _dotnet_item_type(
         if item_type is None or not item_type.text:
             continue
         try:
-            return DotNetType.from_item_type(item_type.text)
+            return DotNetType.from_item_type(item_type.text), None
         except DotNetTypeError as exc:
-            logger.warning("terminal %s of node %s: %s", dco_uid, elem.get("uid"), exc)
-            return None
-    return None
+            return None, f"the .NET type of a node terminal is unreadable: {exc}"
+    return None, None
 
 
 def _xml_dotnet_assembly(
@@ -1407,8 +1421,8 @@ def _read_dotnet_assemblies(
             if any(record.ident in data for record in DotNetAssemblyRecordKind):
                 table.failures.append(
                     DotNetAssemblyRecordFailure(
-                        f"{sidecar.name} holds a .NET assembly record but the VI "
-                        "records no version to read it with"
+                        "the VI holds a .NET assembly record but records no "
+                        "version to read it with"
                     )
                 )
             continue
@@ -1626,7 +1640,9 @@ def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
     if not conp_bin.exists():
         return {}
     return {
-        t.slot: t.name for t in decode_conp_terminals(conp_bin.read_bytes()) if t.name
+        t.slot: t.name
+        for t in decode_conp_terminals(conp_bin.read_bytes()).terminals
+        if t.name
     }
 
 
@@ -1867,9 +1883,17 @@ def _parse_cluster_fields(
             field_elem,
             field_elem.get("uid", ""),
             set(),
-            value if isinstance(value, str) else None,
+            (
+                str(value)
+                if isinstance(value, (str, ValuesNotKept, UndecodedPicture))
+                else None
+            ),
             unresolved_uids=unresolved_uids,
-            field_defaults=value if isinstance(value, (dict, list)) else None,
+            field_defaults=(
+                value
+                if isinstance(value, (dict, list, ValuesNotKept, UndecodedPicture))
+                else None
+            ),
             type_map=type_map,
             own_lv_type=field_lv_type,
         )
@@ -2107,6 +2131,7 @@ def _parse_ddo(
         is_indicator=control_is_indicator,
         lv_type=own_lv_type,
         default_value=default_data,
+        unwritable=find_unwritable(field_defaults),
         caption=caption,
         label_visible=_part_shown(ddo, 16) is not None,
         caption_visible=_part_shown(ddo, 82) is not None and bool(caption),
@@ -2357,16 +2382,23 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
             shown = f"Variant({value})"
     if pos + 4 > len(data):
         return None, 0, None
-    attributes = int.from_bytes(data[pos : pos + 4], "big")
+    attribute_count = int.from_bytes(data[pos : pos + 4], "big")
     pos += 4
-    for _ in range(attributes):
+    attributes = []
+    for _ in range(attribute_count):
         name_end = _read_string(data, pos)
         if name_end is None:
             return None, 0, None
-        _value, consumed, _structured = _decode_variant(data[name_end:])
-        if consumed == 0:
+        attribute, consumed, _structured = _decode_variant(data[name_end:])
+        if attribute is None or consumed == 0:
             return None, 0, None
+        name = bytes(data[pos + 4 : name_end]).decode("latin-1")
+        attributes.append(f"{name!r}: {attribute}")
         pos = name_end + consumed
+    if attributes:
+        listed = "{" + ", ".join(attributes) + "}"
+        inner = shown[len("Variant(") : -1]
+        shown = f"Variant({inner + ', ' if inner else ''}attributes={listed})"
     return shown, pos, structured
 
 
@@ -2378,7 +2410,14 @@ MAX_STORED_ARRAY_ELEMENTS = 4_000_000
 
 
 # The unit-tagged unsigned integers an enum, ring or class field is stored as.
-_UNIT_INTEGER_TYPES = frozenset({"UnitUInt8", "UnitUInt16", "UnitUInt32"})
+_UNIT_INTEGER_TYPES = frozenset(
+    {
+        TD_FULL_TYPE.UnitUInt8.name,
+        TD_FULL_TYPE.UnitUInt16.name,
+        TD_FULL_TYPE.UnitUInt32.name,
+    }
+)
+
 
 
 def _quad_to_float(raw: bytes | memoryview) -> float:
@@ -2507,14 +2546,17 @@ def _decode_class_object(
     """A class instance: shown as its class name, followed by its private data
     (the fields of every level of the hierarchy, as a cluster is shown) when the
     class is loaded and its private-data types read the stored bytes exactly.
-    Otherwise the private data is skipped by its stored count."""
-    name = (elem_type.classname or "").rsplit(":", 1)[-1]
+    Otherwise the private data is skipped by its stored count and the value says
+    it was not read."""
+    name = elem_type.class_file or elem_type.classname or ""
     obj = read_class_object(data)
     if obj is None:
         return None, 0, None
     private = _decode_private_data(data, obj, elem_type.class_levels)
-    shown = name if private is None else f"{name}{private}"
-    return shown, obj.size, name
+    if private is None:
+        unread = UnreadPrivateData(name)
+        return str(unread), obj.size, unread
+    return f"{name}{private}", obj.size, name
 
 
 def _decode_private_data(
@@ -2526,10 +2568,10 @@ def _decode_private_data(
     for a default object (no stored private data), or None when the class's
     levels are unknown, differ in number from the object's, or a level's bytes
     are not read exactly by its fields."""
-    if levels is None or len(levels) != obj.level:
-        return None
     if all(start == end for start, end in obj.private):
         return ""
+    if levels is None or len(levels) != obj.level:
+        return None
     items = []
     for level_fields, (start, end) in zip(levels, obj.private):
         if start == end:
@@ -2645,14 +2687,17 @@ def _decode_element(
     # Picture: a 4-byte length then that many bytes of drawing data (the stored
     # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4).
     # The drawing is not turned into a value, but its bytes are consumed so a
-    # cluster's following fields stay aligned.
+    # cluster's following fields stay aligned. A Picture with no drawing is empty.
     if underlying == "Picture":
         if len(data) < 4:
             return None, 0, None
         picture_len = int.from_bytes(data[:4], "big")
         if len(data) < 4 + picture_len:
             return None, 0, None
-        return None, 4 + picture_len, None
+        if picture_len == 0:
+            return "None", 4, None
+        picture = UndecodedPicture(picture_len)
+        return str(picture), 4 + picture_len, picture
 
     # Boolean: 1 byte in binary data
     if underlying == "Boolean":
@@ -2668,11 +2713,11 @@ def _decode_element(
         return str(val), size, str(val)
 
     # Numeric integer types
-    if underlying.startswith("NumInt") or underlying.startswith("NumUInt"):
+    if is_integer_type_name(underlying):
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0, None
-        signed = underlying.startswith("NumInt")
+        signed = underlying in SIGNED_INTEGER_TYPE_NAMES
         val = int.from_bytes(data[:size], "big", signed=signed)
         return str(val), size, str(val)
 
@@ -2680,9 +2725,9 @@ def _decode_element(
     # components (NumComplex64 = 2x f32 = 8 bytes, NumComplex128 = 2x f64 = 16),
     # and extended floats are 16/32 — under-reading them (the old code read every
     # non-f32 as 8) desyncs the following cluster field.
-    if underlying.startswith(("NumFloat", "NumComplex", "UnitFloat", "UnitComplex")):
+    if is_float_type_name(underlying):
         # A physical quantity (a number with a unit) flattens as its plain number.
-        underlying = underlying.replace("Unit", "Num", 1)
+        underlying = plain_number_name(underlying)
         width = {
             "NumFloat32": 4,
             "NumFloat64": 8,
@@ -2731,14 +2776,22 @@ def _decode_element(
         array_len = math.prod(sizes)
         idx = header
         elements = []
-        read = 0
         keep_values = array_len <= MAX_STORED_ARRAY_ELEMENTS
+        element_width = _fixed_element_width(elem_type.element_type)
         # The STRUCTURED per-element values (see the docstring) -- kept
         # alongside ``elements``'s display strings so a caller can thread each
         # element's own real value down to its own control (see
         # _parse_cluster_fields), the same reason the CLUSTER branch below
         # keeps ``field_structured``.
         elements_structured: list[object] = []
+        if (
+            not keep_values
+            and element_width is not None
+            and header + element_width * array_len <= len(data)
+        ):
+            # Fixed-width elements: the extent is known without reading each one.
+            idx = header + element_width * array_len
+            array_len = 0
         for _ in range(array_len):
             if idx >= len(data):
                 break
@@ -2768,15 +2821,20 @@ def _decode_element(
                     idx,
                 )
                 break
-            # An element read past but with no value (a Picture) shows as None.
+            # An element read past but with no value shows as None.
             if keep_values:
                 elements.append("None" if elem_val is None else elem_val)
                 elements_structured.append(elem_structured)
-            read += 1
             idx += consumed
         if not keep_values:
             # Every element was read (so the extent is exact), none kept.
-            return f"<{read} of {array_len} elements>", idx, []
+            not_kept = ValuesNotKept(
+                math.prod(sizes),
+                tuple(sizes),
+                bytes(data[header:idx]),
+                elem_type.element_type,
+            )
+            return str(not_kept), idx, not_kept
         if len(elements) < array_len:
             # Truncated: the elements read so far, flat.
             return _list_display(elements), idx, elements_structured
@@ -2855,7 +2913,7 @@ def _decode_element(
     # renderer's timedelta(seconds=...) reconstruction anyway), carrying
     # into the whole-second count on the (rare) round-up-to-1.0 edge.
     if underlying == "MeasureData":
-        if elem_type.measure_flavor == "TimeStamp":
+        if elem_type.measure_flavor == TIMESTAMP_FLAVOR:
             if len(data) < 16:
                 return None, 0, None
             secs = int.from_bytes(data[:8], "big", signed=True)
@@ -2872,6 +2930,21 @@ def _decode_element(
         return _decode_element(data, parts)
 
     return None, 0, None
+
+
+def _fixed_element_width(lv_type: LVType | None) -> int | None:
+    """The bytes each element of ``lv_type`` takes when flattened, for the types
+    that always take the same number (integers, floats, Booleans); else None."""
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
+        return None
+    name = lv_type.underlying_type or ""
+    if name in INTEGER_BYTE_WIDTHS:
+        return INTEGER_BYTE_WIDTHS[name]
+    if name in FLOAT_BYTE_WIDTHS:
+        return FLOAT_BYTE_WIDTHS[name]
+    if name == TD_FULL_TYPE.Boolean.name:
+        return 1
+    return None
 
 
 def _get_numeric_size(type_name: str) -> int:

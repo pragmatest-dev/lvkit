@@ -28,6 +28,7 @@ from lvkit.graph.models import (
 )
 
 from ..context import CodeGenContext
+from ..errors import CodeGenError, MissingDependencyError, UnknownNodeError
 from ..fragment import CodeFragment
 
 # Import modules (not classes) for dispatch
@@ -52,7 +53,6 @@ from . import (
     shared_variable,
     subvi,
 )
-from .base import CodeGenError, MissingDependencyError, UnknownNodeError
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:

@@ -171,8 +171,8 @@ def _kind_generic(backend: Backend, cx: float, cy: float, s: float, color: str) 
         )
 
 
-# Keyed by the real ``LVType.ref_type`` strings the parser records (see
-# ``parser.conp_types._REFNUM_KIND`` / ``type_mapping``'s VCTP ``RefType``
+# Keyed by the real ``LVType.ref_type`` strings the parser records (the names of
+# pylabview's ``REFNUM_TYPE`` members, ``type_mapping``'s VCTP ``RefType``
 # attribute — verified corpus values include "UserEvent", "Queue", "Menu",
 # "LVObjCtl", "EventReg", "DataLog"). Any kind without its own entry —
 # including "LVObjCtl" (VI/control/application refnums, the broadest

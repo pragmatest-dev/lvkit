@@ -15,8 +15,8 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError
 
 
 def _when_condition(

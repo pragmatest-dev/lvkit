@@ -9,7 +9,7 @@ import dataclasses
 import logging
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import networkx as nx
 
@@ -22,9 +22,11 @@ from ..models import (
     Tunnel,
     TunnelMode,
     TunnelTerminal,
+    UnwritableValue,
     bundle_unbundle_name,
     control_type_to_lvtype,
     enum_values_from_labels,
+    find_unwritable,
     inplace_border_name,
 )
 from ..parser import (
@@ -218,15 +220,23 @@ def _default_for(ctrl: ParsedFPControl | None, lv_type: LVType | None) -> str | 
     return ctrl.default_value
 
 
+class DecodedConstant(NamedTuple):
+    """A decoded constant: its Python type, its byte-faithful (latin-1) value for
+    codegen, the codepage-decoded readable form for a string constant (else None,
+    see ``ConstantNode.display_value``), and the array inside it whose values were
+    not kept (else None)."""
+
+    python_type: str
+    value: str
+    display_value: str | None
+    unwritable: UnwritableValue | None
+
+
 def decode_constant(
     const: ParsedConstant,
     lv_type: LVType | None = None,
-) -> tuple[str, str, str | None]:
-    """Decode a constant to (python_type, codegen_value, display_value).
-
-    ``codegen_value`` is byte-faithful (latin-1) for correct execution;
-    ``display_value`` is the codepage-decoded readable form for a string
-    constant (else None). See ConstantNode.display_value.
+) -> DecodedConstant:
+    """Decode a constant to its ``DecodedConstant``.
 
     Args:
         const: The constant to decode
@@ -238,8 +248,10 @@ def decode_constant(
         raw_bytes = bytes.fromhex(value)
         underlying = getattr(lv_type, "underlying_type", "")
         if underlying == "Boolean" and len(raw_bytes) > 1:
-            return (lv_type.to_python(), "True" if any(raw_bytes) else "False", None)
-        decoded, _, _ = _decode_element(raw_bytes, lv_type)
+            return DecodedConstant(
+                lv_type.to_python(), "True" if any(raw_bytes) else "False", None, None
+            )
+        decoded, _, structured = _decode_element(raw_bytes, lv_type)
         display = (
             _string_display_value(raw_bytes)
             if underlying in ("String", "Tag")
@@ -247,10 +259,12 @@ def decode_constant(
         )
         py_type = lv_type.to_python()
         if decoded is not None:
-            return (py_type, decoded, display)
-        return (py_type, get_default_for_type(lv_type), display)
+            return DecodedConstant(
+                py_type, decoded, display, find_unwritable(structured)
+            )
+        return DecodedConstant(py_type, get_default_for_type(lv_type), display, None)
 
-    return ("raw", value, None)
+    return DecodedConstant("raw", value, None, None)
 
 
 # Type categories for terminal matching
@@ -524,6 +538,7 @@ class ConstructionMixin:
                 fp_dco_uid=fp_term.fp_dco_uid,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=_default_for(ctrl, lv_type),
+                unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
             )
             vi_terminals.append(terminal)
@@ -599,7 +614,9 @@ class ConstructionMixin:
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
             lv_type = self.with_class_levels(lv_type, vi_key)
 
-            _, decoded_value, display_value = decode_constant(const, lv_type=lv_type)
+            _, decoded_value, display_value, unwritable = decode_constant(
+                const, lv_type=lv_type
+            )
 
             q_const_uid = self._qid(vi_key, const.uid)
             # Single output terminal
@@ -617,6 +634,7 @@ class ConstructionMixin:
                 lv_type=lv_type,
                 raw_value=const.value,
                 display_value=display_value,
+                unwritable=unwritable,
                 label=const.label,
                 display_format=const.display_format,
                 collapsed=const.collapsed,
@@ -1247,6 +1265,7 @@ class ConstructionMixin:
             fp_dco_uid=ctrl.uid,
             control_type=ctrl.control_type,
             default_value=_default_for(ctrl, lv_type),
+            unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
         )
 

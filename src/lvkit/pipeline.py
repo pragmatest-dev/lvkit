@@ -320,6 +320,12 @@ def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
+    """Write the files a generated module reads at run time beside the module."""
+    for name, content in data_files.items():
+        (folder / name).write_bytes(content)
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -329,8 +335,10 @@ def _generate_polymorphic_module(
     output_dir: Path,
     vi_paths: dict[str, Path],
     soft_unresolved: bool = False,
+    data_files: dict[str, bytes] | None = None,
 ) -> str:
-    """Generate a module containing all variants and wrapper."""
+    """Generate a module containing all variants and wrapper. Data files the
+    variants read at run time are added to ``data_files``."""
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
@@ -375,6 +383,7 @@ def _generate_polymorphic_module(
                 import_resolver=import_resolver,
                 graph=graph,
                 soft_unresolved=soft_unresolved,
+                data_files=data_files,
             )
             # Take the function and result class; collect imports the body needs
             # into the shared header rather than dropping them.
@@ -756,6 +765,7 @@ def {func_name}(*args, **kwargs) -> Any:
             variants = poly_groups[vi_name]
             code = ""
             try:
+                data_files: dict[str, bytes] = {}
                 code = _generate_polymorphic_module(
                     vi_name,
                     variants,
@@ -765,9 +775,11 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code, encoding="utf-8")
+                _write_data_files(output_path.parent, data_files)
                 print(
                     f"         -> polymorphic: {output_path.name}"
                     f" ({len(variants)} variants)"
@@ -802,17 +814,20 @@ def {func_name}(*args, **kwargs) -> Any:
                     graph=graph,
                     vilib_resolver=vilib_resolver,
                 )
+                data_files: dict[str, bytes] = {}
                 code = build_module(
                     vi_context,
                     vi_name,
                     import_resolver=import_resolver,
                     graph=graph,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
 
                 # Validate syntax
                 ast.parse(code)
                 output_path.write_text(code, encoding="utf-8")
+                _write_data_files(output_path.parent, data_files)
                 print(f"         -> AST: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
 
@@ -851,6 +866,7 @@ def {func_name}(*args, **kwargs) -> Any:
         if not wrapper_path.exists():
             try:
                 wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+                data_files: dict[str, bytes] = {}
                 code = _generate_polymorphic_module(
                     wrapper_name,
                     variants,
@@ -860,9 +876,11 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
                 ast.parse(code)
                 wrapper_path.write_text(code, encoding="utf-8")
+                _write_data_files(wrapper_path.parent, data_files)
                 generated.append((wrapper_name, wrapper_path, "ast"))
             except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")

@@ -6,6 +6,12 @@ import re
 import xml.etree.ElementTree as ET
 from enum import Enum, IntEnum
 
+from lvkit.lv_type_codes import (
+    TD_FULL_TYPE,
+    is_boolean_type_name,
+    is_integer_type_name,
+    is_string_type_name,
+)
 from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, Tunnel
 from lvkit.text_encoding import decode_labview_text
 
@@ -14,6 +20,7 @@ from ..models import (
     ParsedCaseStructure,
     ParsedTerminalInfo,
     ParsedType,
+    SelectorKind,
     SelectorTable,
 )
 from ..utils import heap_color
@@ -151,7 +158,10 @@ def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
     ("N, Default"), which codegen's ``case _`` catch-all subsumes. Heap-stored
     cases are skipped: their ``SelectDefaultCase`` is authoritative.
     """
-    if cs.selector_values_in_heap or cs.selector_type not in ("integer", "string"):
+    if cs.selector_values_in_heap or cs.selector_type not in (
+        SelectorKind.INTEGER,
+        SelectorKind.STRING,
+    ):
         return
     if not cs.frames or any(f.is_default for f in cs.frames):
         return
@@ -159,7 +169,7 @@ def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
 
 
 def _frame_ranges(
-    entries: list[tuple[int, int, int, int]],
+    entries: list[tuple[int, int, RangeEndType, RangeEndType]],
 ) -> list[SelectorRange] | _SymbolicFrame:
     """One frame's ``(start, end, startRangeType, endRangeType)`` entries as
     selector ranges, or the symbolic frame they spell.
@@ -192,7 +202,7 @@ def _extract_one_case_structure(
 ) -> ParsedCaseStructure | None:
     """Extract a single case structure from an XML element."""
     selector_terminal_uid: str | None = None
-    selector_type: str | None = None
+    selector_type: SelectorKind | None = None
     selector_vctp_index: int | None = None
     frames: list[CaseFrame] = []
     tunnels: list[Tunnel] = []
@@ -226,7 +236,6 @@ def _extract_one_case_structure(
                     dco = term_elem.find(f"dco[@class='{sel_cls}']")
                     if dco is not None:
                         selector_terminal_uid = term_uid
-                        selector_type = _infer_selector_type(dco)
                         selector_vctp_index = _parse_type_id(
                             dco.findtext("typeDesc"),
                         )
@@ -286,8 +295,7 @@ def _extract_one_case_structure(
                         )
                     )
 
-    # Resolve selector type from the terminal's actual wire type.
-    # This is the source of truth — overrides the DCO-based guess.
+    # Resolve the selector type from the terminal's wire type.
     if selector_terminal_uid and terminal_info:
         ti = terminal_info.get(selector_terminal_uid)
         if ti and ti.parsed_type:
@@ -304,7 +312,9 @@ def _extract_one_case_structure(
     # ``_frame_ranges`` instead of surfacing their filler numbers.
     ranges_by_diag: dict[int, list[SelectorRange]] = {}
     no_error_diags: set[int] = set()
-    raw_ranges_by_diag: dict[int, list[tuple[int, int, int, int]]] = {}
+    raw_ranges_by_diag: dict[
+        int, list[tuple[int, int, RangeEndType, RangeEndType]]
+    ] = {}
     select_range = case_elem.find("SelectRangeArray32")
     if select_range is not None:
         for sr_elem in select_range.findall("SL__arrayElement[@class='SelectorRange']"):
@@ -319,8 +329,8 @@ def _extract_one_case_structure(
                 (
                     int(start),
                     int(end) if end is not None else int(start),
-                    int(start_type) if start_type is not None else 0,
-                    int(end_type) if end_type is not None else 0,
+                    RangeEndType(int(start_type or 0)),
+                    RangeEndType(int(end_type or 0)),
                 )
             )
 
@@ -334,7 +344,7 @@ def _extract_one_case_structure(
     # For string selectors, the start values in SelectRangeArray32 are
     # indices into SelectStringArray (hex-encoded string labels).
     string_labels: list[str] = []
-    if selector_type == "string":
+    if selector_type == SelectorKind.STRING:
         ssa = case_elem.find("SelectStringArray")
         if ssa is not None:
             for item in ssa.findall("SL__arrayElement"):
@@ -362,7 +372,8 @@ def _extract_one_case_structure(
         values_in_heap
         and not default_case_elem
         and default_diag_idx is None
-        and selector_type in ("integer", "string", "enum")
+        and selector_type
+        in (SelectorKind.INTEGER, SelectorKind.STRING, SelectorKind.ENUM)
     ):
         default_diag_idx = 0
     if default_diag_idx is None:
@@ -379,22 +390,26 @@ def _extract_one_case_structure(
             is_default = idx == default_diag_idx
             ranges = ranges_by_diag.get(idx, [])
             resolved_selector: str | None = None
+            boolean_value: bool | None = None
+            is_no_error = False
             if idx in no_error_diags:
-                # Symbolic degenerate point → the canonical No-Error value
-                # that ``op_walk.is_no_error_selector``/``_selector_label``
-                # already recognize (renders "No Error", green border).
+                # Symbolic degenerate point: the "No Error" frame, which
+                # matches status False (0).
                 resolved_selector = "0"
+                is_no_error = True
             elif ranges[:1] and ranges[0].open_start and ranges[0].open_end:
                 # The whole domain has no value of its own to key the frame by.
                 resolved_selector = None
             elif ranges:
                 sv = ranges[0].end if ranges[0].open_start else ranges[0].start
-                if selector_type == "boolean":
-                    resolved_selector = "True" if sv == 1 else "False"
-                elif selector_type == "string":
+                if selector_type == SelectorKind.BOOLEAN:
+                    boolean_value = sv == 1
+                    resolved_selector = str(boolean_value)
+                elif selector_type == SelectorKind.STRING:
                     strings = _range_strings(ranges, string_labels)
                     resolved_selector = strings[0] if strings else None
                 else:
+                    is_no_error = selector_type == SelectorKind.ERROR and sv == 0
                     # Integer, enum, error — semantic identity is the raw
                     # first-range start (or, for an open-start range, the
                     # literal end); faithful display is built later from
@@ -407,13 +422,15 @@ def _extract_one_case_structure(
                 resolved_selector,
                 is_default,
                 selector_type,
+                boolean_value,
+                is_no_error,
             )
             if frame:
                 # A default frame can also have explicit selector values.
                 # Numeric/enum ranges and the catch-all flag are independent.
-                if selector_type == "string":
+                if selector_type == SelectorKind.STRING:
                     frame.selector_strings = _range_strings(ranges, string_labels)
-                elif selector_type != "boolean":
+                elif selector_type != SelectorKind.BOOLEAN:
                     frame.selector_ranges = ranges
                 frames.append(frame)
 
@@ -436,7 +453,7 @@ def _extract_one_case_structure(
         selector_values_in_heap=values_in_heap,
         selector_table_offset=selector_table_offset,
         # Case Insensitive Match only applies to string selectors.
-        case_insensitive=case_insensitive and selector_type == "string",
+        case_insensitive=case_insensitive and selector_type == SelectorKind.STRING,
         frames=frames,
         tunnels=tunnels,
         # The displayed frame from the case node's own heap ``dIdx`` (range-
@@ -502,7 +519,9 @@ def _extract_frame(
     index: int,
     selector_value: str | None = None,
     is_default: bool = False,
-    selector_type: str | None = None,
+    selector_type: SelectorKind | None = None,
+    boolean_value: bool | None = None,
+    is_no_error: bool = False,
 ) -> CaseFrame | None:
     """Extract a single case frame from a diagram element.
 
@@ -511,10 +530,13 @@ def _extract_frame(
         index: Index of the frame in the diagramList
         selector_value: Pre-resolved selector value from SelectRangeArray
         is_default: Whether this frame is the default case
-        selector_type: Resolved selector category ("boolean", "string", ...);
-            gates the boolean fallback so non-boolean cases don't get fake
-            True/False tokens (the real values arrive via the dataspace
-            SelectorTable correlation)
+        selector_type: Resolved selector category; a Boolean selector's frames
+            are False and True by index when no stored value says otherwise,
+            any other type's frames take the frame index as a unique placeholder
+            until the dataspace SelectorTable correlation supplies the values
+        boolean_value: The value a Boolean selector's frame matches, when its
+            stored range gave one
+        is_no_error: Whether the stored range makes this the "No Error" frame
 
     Returns:
         Frame or None if invalid
@@ -530,16 +552,22 @@ def _extract_frame(
         if sel_str_elem is not None and sel_str_elem.text:
             selector_value = sel_str_elem.text
 
-    # Last resort: no stored label in the heap. For a boolean selector the
-    # frames ARE False/True by index; for any other type, emitting True/False
-    # is wrong (that was the #82 bug), so use the frame index as a neutral,
-    # unique placeholder — the dataspace SelectorTable overrides it when it
+    # A Boolean case has a False frame then a True frame.
+    if (
+        selector_type == SelectorKind.BOOLEAN
+        and boolean_value is None
+        and not is_default
+    ):
+        boolean_value = index == 1
+
+    # Last resort: no stored label in the heap. The frame index is a neutral,
+    # unique placeholder -- the dataspace SelectorTable overrides it when it
     # correlates.
     if selector_value is None:
         if is_default:
             selector_value = "Default"
-        elif selector_type == "boolean" or selector_type is None:
-            selector_value = "True" if index == 1 else "False"
+        elif boolean_value is not None:
+            selector_value = str(boolean_value)
         else:
             selector_value = str(index)
 
@@ -553,28 +581,26 @@ def _extract_frame(
         selector_value=selector_value,
         inner_node_uids=inner_node_uids,
         is_default=is_default,
+        boolean_value=boolean_value,
+        is_no_error=is_no_error,
         bg_color=heap_color(diag_elem.findtext("bgColor")),
     )
 
 
-def _parsed_type_to_selector_type(parsed_type: ParsedType) -> str | None:
-    """Map a selector terminal's ``ParsedType`` to a selector type category.
-
-    Returns:
-        "boolean", "integer", "string", "enum", "error", or None
-    """
+def _parsed_type_to_selector_type(parsed_type: ParsedType) -> SelectorKind | None:
+    """Map a selector terminal's ``ParsedType`` to its selector kind, or None for
+    a type no case selector has."""
     if parsed_type.kind == LVTypeKind.ENUM:
-        return "enum"
-    tn = parsed_type.type_name.lower()
-    if tn == "boolean":
-        return "boolean"
-    if tn == "string":
-        return "string"
-    if tn.startswith("num") or tn in ("i32", "u32", "i16", "u16", "i8", "u8"):
-        return "integer"
-    if tn == "cluster":
+        return SelectorKind.ENUM
+    if is_boolean_type_name(parsed_type.type_name):
+        return SelectorKind.BOOLEAN
+    if is_string_type_name(parsed_type.type_name):
+        return SelectorKind.STRING
+    if is_integer_type_name(parsed_type.type_name):
+        return SelectorKind.INTEGER
+    if parsed_type.type_name == TD_FULL_TYPE.Cluster.name:
         # Error cluster selector
-        return "error"
+        return SelectorKind.ERROR
     return None
 
 
@@ -668,7 +694,7 @@ def _table_fits_case(case: ParsedCaseStructure, table: SelectorTable) -> bool:
     """Whether ``table`` is structurally consistent with ``case`` — same kind
     (a string table iff a string case) and every diagram/displayed index in
     range. A negative ``displayed_frame`` is the "none displayed" sentinel."""
-    if (case.selector_type == "string") != table.has_strings:
+    if (case.selector_type == SelectorKind.STRING) != table.has_strings:
         return False
     n_frames = len(case.frames)
     if table.displayed_frame >= n_frames:
@@ -712,7 +738,7 @@ def _apply_selector_tables(
     if not leftover_cases or not leftover_tables:
         return
     with_vctp = [c for c in leftover_cases if c.selector_vctp_index is not None]
-    non_boolean = [c for c in with_vctp if c.selector_type != "boolean"]
+    non_boolean = [c for c in with_vctp if c.selector_type != SelectorKind.BOOLEAN]
     for case_subset in (with_vctp, non_boolean):
         if _try_apply_selector_tables(case_subset, leftover_tables):
             return
@@ -734,7 +760,7 @@ def _try_apply_selector_tables(
 
     # Validate every pair before mutating anything.
     for case, table in zip(ordered, tables):
-        is_string = case.selector_type == "string"
+        is_string = case.selector_type == SelectorKind.STRING
         if is_string != table.has_strings:
             return False
         n_frames = len(case.frames)
@@ -773,6 +799,8 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_value = "Default"
             frame.selector_ranges = []
             frame.selector_strings = []
+            frame.boolean_value = None
+            frame.is_no_error = False
             continue
         # The heap recorded no default, so a frame with values is not one.
         frame.is_default = False
@@ -785,39 +813,21 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_strings = strings
             frame.selector_ranges = []
             frame.selector_value = strings[0] if strings else str(idx)
-        elif case.selector_type == "boolean":
+        elif case.selector_type == SelectorKind.BOOLEAN:
             # A boolean table names True/False by a 0/1 point range per diagram.
             frame.selector_ranges = []
             frame.selector_strings = []
-            frame.selector_value = "True" if my_ranges[0][0] == 1 else "False"
+            frame.boolean_value = my_ranges[0][0] == 1
+            frame.selector_value = str(frame.boolean_value)
         else:
             frame.selector_ranges = [
                 SelectorRange(start=s, end=e) for s, e in my_ranges
             ]
             frame.selector_strings = []
             first = my_ranges[0]
+            frame.is_no_error = (
+                case.selector_type == SelectorKind.ERROR and first[0] == 0
+            )
             frame.selector_value = (
                 str(first[0]) if first[0] == first[1] else f"{first[0]}..{first[1]}"
             )
-
-
-def _infer_selector_type(dco: ET.Element) -> str | None:
-    """Fallback: infer selector type from cSelDCO's typeDesc element.
-
-    Used when terminal_info is not available.
-    """
-    type_elem = dco.find("typeDesc")
-    if type_elem is not None:
-        type_text = type_elem.text or ""
-        type_lower = type_text.lower()
-
-        if "bool" in type_lower:
-            return "boolean"
-        elif "int" in type_lower or "i32" in type_lower or "u32" in type_lower:
-            return "integer"
-        elif "enum" in type_lower:
-            return "enum"
-        elif "string" in type_lower:
-            return "string"
-
-    return None

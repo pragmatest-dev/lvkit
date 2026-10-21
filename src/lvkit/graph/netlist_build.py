@@ -28,6 +28,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+
 from ..models import (
     CaseFrame,
     EventFrame,
@@ -155,9 +157,9 @@ def _default_literal(lv_type: LVType | None) -> str:
             return "0.0"
         if underlying in _COMPLEX_UNDERLYING_TYPES:
             return "0+0i"
-        if underlying == "Boolean":
+        if is_boolean_type_name(underlying):
             return "False"
-        if underlying in ("String", "SubString"):
+        if is_string_type_name(underlying):
             return '""'
         return "?"
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
@@ -1011,9 +1013,9 @@ def _resolve_source_gn(
         # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
         # straight to the producer's ``<base>_<uid>`` handle via
         # ``_LvnetHandles.by_uid`` -- the SAME mechanism a labeled
-        # constant already uses via ``constant_uid``. ``occurrence``
-        # stays populated unchanged (``netlist_to_dict`` parity -- it
-        # never reads ``producer_uid``).
+        # constant already uses via ``constant_uid``. ``occurrence`` is the
+        # producer's occurrence number; ``netlist_to_dict`` never reads
+        # ``producer_uid``.
         return replace(
             _term_ref(node_name, occurrence, traced.term),
             producer_uid=_uid_of(traced.owner.id),
@@ -1031,10 +1033,9 @@ def _resolve_source_gn(
 
     const = build_ctx.const_by_id.get(src.node_id)
     if const is not None:
-        # ``bare``/``node``/``terminal`` stay the inlined literal VALUE --
-        # unchanged behavior, so ``netlist_to_dict`` never sees a
-        # difference. ``constant_uid`` tags the PRODUCER (the SAME
-        # trailing uid ``NetlistConstant.uid`` uses, not the full
+        # ``bare``/``node``/``terminal`` hold the inlined literal VALUE,
+        # which is what ``netlist_to_dict`` shows. ``constant_uid`` tags the
+        # PRODUCER (the SAME trailing uid ``NetlistConstant.uid`` uses, not the full
         # qualified id -- see ``_build_constant_gn``) for
         # ``render_lvnet`` alone, which looks it up directly against its
         # own handle map (see ``_LvnetHandles.by_uid``/

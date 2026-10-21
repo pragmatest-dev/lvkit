@@ -14,9 +14,23 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.codegen.context import _format_constant
+from lvkit.codegen.errors import CodeGenError
 from lvkit.extractor import resolve_extracted
-from lvkit.models import ClusterField, LVType, LVTypeKind, unique_names
+from lvkit.graph.construction import decode_constant
+from lvkit.graph.models import Constant
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValuesNotKept,
+    find_unwritable,
+    unique_names,
+)
 from lvkit.parser.audit import audit_vi, constant_padding
+from lvkit.parser.models import ParsedConstant
 from lvkit.parser.type_mapping import parse_vctp_types
 from lvkit.parser.vi import MAX_STORED_ARRAY_ELEMENTS, _decode_element
 
@@ -97,6 +111,12 @@ def test_a_variant_with_a_value_shows_it():
 def test_a_variant_attribute_is_another_variant():
     data = _EMPTY_VARIANT[:-4] + _u32(1) + _string("units") + _EMPTY_VARIANT
     assert _decode_element(data, _prim("LVVariant"))[1] == len(data)
+
+
+def test_a_variant_shows_its_attributes():
+    data = _EMPTY_VARIANT[:-4] + _u32(1) + _string("units") + _EMPTY_VARIANT
+    value, _, _ = _decode_element(data, _prim("LVVariant"))
+    assert value == "Variant(attributes={'units': Variant()})"
 
 
 def test_variants_in_a_cluster_do_not_swallow_the_next_field():
@@ -266,8 +286,56 @@ def test_a_huge_array_is_read_to_its_end_without_keeping_its_values():
     data = _u32(count) + bytes(count)
     value, consumed, structured = _decode_element(data, _array(_prim("NumUInt8")))
     assert consumed == len(data)
-    assert value == f"<{count} of {count} elements>"
-    assert structured == []
+    assert value == f"<{count} elements, values not kept>"
+    assert structured == ValuesNotKept(count, (count,))
+
+
+def test_a_huge_array_in_a_cluster_keeps_the_next_field():
+    count = MAX_STORED_ARRAY_ELEMENTS + 1
+    lv_type = _cluster(("frame", _array(_prim("NumUInt8"))), ("n", _prim("NumUInt8")))
+    data = _u32(count) + bytes(count) + bytes([7])
+    value, consumed, structured = _decode_element(data, lv_type)
+    assert consumed == len(data)
+    assert structured["n"] == "7"
+    assert find_unwritable(structured) == ValuesNotKept(count, (count,))
+    assert "values not kept" in value
+
+
+def test_code_generation_names_a_constant_whose_values_are_not_kept():
+    count = MAX_STORED_ARRAY_ELEMENTS + 1
+    lv_type = _array(_prim("NumUInt8"))
+    const = ParsedConstant(
+        uid="c", type_desc="", value=(_u32(count) + bytes(count)).hex()
+    )
+    decoded = decode_constant(const, lv_type=lv_type)
+    assert decoded.unwritable == ValuesNotKept(count, (count,))
+    node = Constant(
+        id="c",
+        value=decoded.value,
+        lv_type=lv_type,
+        unwritable=decoded.unwritable,
+        label="Frame",
+    )
+    with pytest.raises(CodeGenError, match=rf"'Frame'.*{count} elements"):
+        _format_constant(node)
+
+
+def test_a_picture_with_drawing_is_shown_as_not_decoded_and_cannot_be_written():
+    lv_type = _prim("Picture")
+    data = _u32(3) + b"\x01\x02\x03"
+    value, consumed, structured = _decode_element(data, lv_type)
+    assert (value, consumed) == ("<Picture, 3 bytes of drawing not decoded>", 7)
+    assert structured == UndecodedPicture(3)
+    node = Constant(id="c", value=value, lv_type=lv_type, unwritable=structured)
+    with pytest.raises(CodeGenError, match="Picture of 3 bytes"):
+        _format_constant(node)
+
+
+def test_an_empty_picture_is_written_as_none():
+    lv_type = _prim("Picture")
+    value, consumed, structured = _decode_element(_u32(0), lv_type)
+    assert (consumed, structured) == (4, None)
+    assert _format_constant(Constant(id="c", value=value, lv_type=lv_type)) == "None"
 
 
 # === What a diagram constant stores ===
@@ -357,6 +425,7 @@ def _class_with(levels: list[list[ClusterField]] | None) -> LVType:
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname="Lib.lvlib:Child.lvclass",
+        class_file="Child.lvclass",
         class_levels=levels,
     )
 
@@ -402,23 +471,23 @@ def test_a_loaded_class_shows_its_private_data_after_its_name():
     assert structured == {"obj": "Child.lvclass", "after": "9"}
 
 
-def test_a_class_that_is_not_loaded_keeps_its_name_and_exact_extent():
+def test_a_class_that_is_not_loaded_keeps_its_extent_and_says_its_data_is_unread():
     data = _two_level_object() + bytes([9])
     lv_type = _cluster(("obj", _class_with(None)), ("after", _prim("NumUInt8")))
-    value, consumed, _ = _decode_element(data, lv_type)
+    value, consumed, structured = _decode_element(data, lv_type)
     assert consumed == len(data)
-    assert value == "{'obj': Child.lvclass, 'after': 9}"
+    assert value == "{'obj': Child.lvclass(private data not read), 'after': 9}"
+    assert structured["obj"] == UnreadPrivateData("Child.lvclass")
+    assert find_unwritable(structured) == UnreadPrivateData("Child.lvclass")
 
 
-def test_private_data_the_loaded_fields_do_not_read_exactly_is_only_skipped():
+def test_private_data_the_loaded_fields_do_not_read_exactly_is_skipped_and_said_so():
     data = _two_level_object()
     wrong = [[ClusterField(name="count", type=_prim("NumUInt32"))], _OWN]
-    assert _decode_element(data, _class_with(wrong))[:2] == ("Child.lvclass", len(data))
+    unread = "Child.lvclass(private data not read)"
+    assert _decode_element(data, _class_with(wrong))[:2] == (unread, len(data))
     # A hierarchy of a different depth than the stored object.
-    assert _decode_element(data, _class_with([_OWN]))[:2] == (
-        "Child.lvclass",
-        len(data),
-    )
+    assert _decode_element(data, _class_with([_OWN]))[:2] == (unread, len(data))
 
 
 def test_a_default_object_has_no_private_data_to_show():
@@ -594,3 +663,115 @@ def test_a_class_that_holds_itself_stops_at_the_inner_instance(classes):
     value, consumed, _ = _decode_element(data, stamped)
     assert consumed == len(data)
     assert value == shown
+
+
+# === Large arrays go to a data file beside the generated module ===
+
+
+def _large_array_constant(
+    monkeypatch, element: str, dims: tuple[int, ...], blob: bytes
+):
+    monkeypatch.setattr("lvkit.parser.vi.MAX_STORED_ARRAY_ELEMENTS", 3)
+    lv_type = _array(_prim(element), len(dims))
+    data = b"".join(_u32(d) for d in dims) + blob
+    const = ParsedConstant(uid="c", type_desc="", value=data.hex())
+    decoded = decode_constant(const, lv_type=lv_type)
+    node = Constant(
+        id="vi::77",
+        value=decoded.value,
+        lv_type=lv_type,
+        unwritable=decoded.unwritable,
+        label="Frame",
+    )
+    return node, decoded
+
+
+def test_a_large_array_keeps_its_stored_bytes_and_still_displays_in_words(
+    monkeypatch,
+):
+    node, decoded = _large_array_constant(
+        monkeypatch, "NumUInt16", (2, 3), bytes(range(12))
+    )
+    assert decoded.value == "<6 elements, values not kept>"
+    assert decoded.unwritable.element_bytes == bytes(range(12))
+    assert decoded.unwritable.dimension_sizes == (2, 3)
+
+
+@pytest.mark.parametrize(
+    ("element", "blob", "expected"),
+    [
+        (
+            "NumUInt16",
+            bytes([0, 1, 0, 2, 0, 3, 1, 0, 2, 0, 255, 255]),
+            [[1, 2, 3], [256, 512, 65535]],
+        ),
+        ("NumInt8", bytes([1, 255, 2, 254, 3, 253]), [[1, -1, 2], [-2, 3, -3]]),
+        (
+            "NumFloat32",
+            struct.pack(">6f", 1, 2, 3, 4, 5, 6.5),
+            [[1, 2, 3], [4, 5, 6.5]],
+        ),
+        (
+            "Boolean",
+            bytes([1, 0, 1, 0, 0, 1]),
+            [[True, False, True], [False, False, True]],
+        ),
+    ],
+)
+def test_generated_code_loads_a_large_array_from_its_data_file(
+    monkeypatch, tmp_path, element, blob, expected
+):
+    from lvkit.codegen.context import CodeGenContext
+
+    node, _ = _large_array_constant(monkeypatch, element, (2, 3), blob)
+    ctx = CodeGenContext(data_files={}, module_stem="my_vi")
+    expression = ctx.constant_expression(node)
+    assert "from lvkit.runtime import lv as _lv" in ctx.imports
+    (file_name, content), = ctx.data_files.items()
+    assert file_name == "my_vi.frame_77.bin"
+    assert content == blob
+
+    module = tmp_path / "my_vi.py"
+    module.write_text(
+        "from lvkit.runtime import lv as _lv\n" f"value = {expression}\n"
+    )
+    (tmp_path / file_name).write_bytes(content)
+    namespace: dict = {"__file__": str(module)}
+    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    assert namespace["value"] == expected
+
+
+def test_a_large_one_dimensional_array_loads_flat(monkeypatch, tmp_path):
+    from lvkit.runtime import lv
+
+    (tmp_path / "a.bin").write_bytes(struct.pack(">4I", 7, 8, 9, 4000000000))
+    module = tmp_path / "m.py"
+    assert lv.load_array(str(module), "a.bin", "I", (4,)) == [7, 8, 9, 4000000000]
+
+
+def test_a_large_array_without_a_place_for_its_file_says_so(monkeypatch):
+    from lvkit.codegen.context import CodeGenContext
+
+    node, _ = _large_array_constant(monkeypatch, "NumUInt8", (6,), bytes(6))
+    with pytest.raises(CodeGenError, match="returns only the module's text"):
+        CodeGenContext().constant_expression(node)
+
+
+def test_a_large_array_inside_a_cluster_constant_is_named_in_the_error(monkeypatch):
+    from lvkit.codegen.context import CodeGenContext
+
+    monkeypatch.setattr("lvkit.parser.vi.MAX_STORED_ARRAY_ELEMENTS", 3)
+    lv_type = _cluster(("frame", _array(_prim("NumUInt8"))), ("n", _prim("NumUInt8")))
+    data = _u32(6) + bytes(6) + bytes([7])
+    decoded = decode_constant(
+        ParsedConstant(uid="c", type_desc="", value=data.hex()), lv_type=lv_type
+    )
+    node = Constant(
+        id="vi::5",
+        value=decoded.value,
+        lv_type=lv_type,
+        unwritable=decoded.unwritable,
+        label="Settings",
+    )
+    with pytest.raises(CodeGenError, match="'Settings'.*6 elements"):
+        CodeGenContext(data_files={}).constant_expression(node)

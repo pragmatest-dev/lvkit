@@ -9,8 +9,9 @@ from lvkit.graph.op_walk import correlate_property_terminals
 
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError, resolve_ref_input
+from .base import resolve_ref_input
 
 
 def _attribute_chain(

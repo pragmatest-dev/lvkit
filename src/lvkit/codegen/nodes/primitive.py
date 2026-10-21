@@ -6,6 +6,7 @@ import ast
 import re
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.primitive_resolver import (
@@ -792,9 +793,9 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
     lv_type = term.lv_type
     if lv_type:
         ut = lv_type.underlying_type or ""
-        if ut == "Boolean":
+        if is_boolean_type_name(ut):
             return "False"
-        if ut == "String":
+        if is_string_type_name(ut):
             return "''"
         if ut == "Path":
             ctx.imports.add("from pathlib import Path")

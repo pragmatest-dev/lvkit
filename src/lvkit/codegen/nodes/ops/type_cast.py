@@ -22,6 +22,7 @@ Terminals (from the primitives.json entry):
 from __future__ import annotations
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import is_string_type_name
 from lvkit.models import LVType, LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
 
@@ -45,7 +46,7 @@ def _spec(lt: LVType | None) -> str:
         elem = getattr(lt.element_type, "underlying_type", None)
         return f"{_INT_SPEC[elem]}[]" if elem in _INT_SPEC else "array"
     underlying = lt.underlying_type or ""
-    if underlying == "String":
+    if is_string_type_name(underlying):
         return "str"
     # A LabVIEW unit type (UnitUInt16, UnitFloat64, …) is the underlying numeric
     # value plus a physical unit; units are meaningless in Python, so cast on the

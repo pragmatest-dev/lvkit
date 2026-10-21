@@ -28,6 +28,8 @@ from lvkit.models import (
 )
 from lvkit.parser.metadata import _decode_pth0_components
 
+from .type_names import ROOT_CLASS
+
 
 @dataclass
 class LVMethod:
@@ -1048,7 +1050,7 @@ def _build_ancestor_chain(
     current_url = parent_url
     while (
         current_parent
-        and current_parent != "LabVIEW Object"
+        and current_parent != ROOT_CLASS
         and current_parent not in seen
     ):
         ancestors.append(current_parent)

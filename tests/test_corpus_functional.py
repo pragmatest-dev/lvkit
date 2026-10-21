@@ -276,8 +276,8 @@ def test_get_header_from_td_builds_cluster() -> None:
     mutable attribute object) and the bundle materializing one variable instead
     of mutating a throwaway per statement."""
     vi = "lvdata/lvdata.llb/Get Header from TD__ogtk.vi"
-    # The TD element unpacks into (length-source, packed private|type, # elements)
-    r = _run_leaf(vi, [(5, (7 << 16) | 9, 11)])
+    # The TD array holds (length-source, packed private|type, # elements)
+    r = _run_leaf(vi, [5, (7 << 16) | 9, 11])
     h = r.type_descriptor_header
     assert (h.length, h.private, h.type_, h._elements) == (5, 7, 9, 11)
 

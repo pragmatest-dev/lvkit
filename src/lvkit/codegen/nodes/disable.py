@@ -9,8 +9,8 @@ from lvkit.graph.models import DisableStructureNode
 from lvkit.models import CaseFrame
 
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError
 
 
 def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:

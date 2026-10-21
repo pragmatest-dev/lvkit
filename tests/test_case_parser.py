@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+import pytest
+
 from lvkit.graph.op_walk import _selector_label
 from lvkit.parser.models import ParsedTerminalInfo, ParsedType, SelectorTable
 from lvkit.parser.nodes.case import (
@@ -158,6 +160,56 @@ class TestBooleanSelector:
         cs = cases[0]
         assert cs.frames[0].selector_value == "True"
         assert cs.frames[1].selector_value == "False"
+
+
+class TestTypedFrameFacts:
+    def test_boolean_frames_carry_their_boolean_value(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(1, 0), (0, 1)])
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "Boolean"))
+        assert [f.boolean_value for f in cases[0].frames] == [True, False]
+
+    def test_a_16_bit_boolean_selects_like_a_boolean(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0), (1, 1)])
+        cases = extract_case_structures(
+            root, _make_terminal_info("sel1", "BooleanU16")
+        )
+        assert [f.boolean_value for f in cases[0].frames] == [False, True]
+
+    def test_a_substring_selector_is_a_string_selector(self):
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0)],
+            string_array=["616C706861"],
+            default_diag=1,
+        )
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "SubString"))
+        assert cases[0].selector_type == "string"
+        assert cases[0].frames[0].selector_strings == ["alpha"]
+
+    def test_an_unknown_selector_type_gets_no_boolean_labels(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=None)
+        cases = extract_case_structures(root, None)
+        frames = cases[0].frames
+        assert [f.boolean_value for f in frames] == [None, None]
+        assert [f.selector_value for f in frames] == ["Default", "1"]
+
+    def test_the_no_error_frame_is_flagged(self):
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0, 0), (-2147483648, 2147483647, 1)],
+            range_types=[(0, 3), (3, 3)],
+        )
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "Cluster"))
+        assert [f.is_no_error for f in cases[0].frames] == [True, False]
+
+    def test_an_undocumented_range_end_type_is_an_error(self):
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[(0, 0)], range_types=[(2, 0)]
+        )
+        with pytest.raises(ValueError, match="is not a valid RangeEndType"):
+            extract_case_structures(root, _make_terminal_info("sel1", "NumInt32"))
 
 
 class TestStringSelector:

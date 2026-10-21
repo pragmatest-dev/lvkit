@@ -226,6 +226,7 @@ class OperationsMixin:
                         caption_visible=t.caption_visible,
                         control_type=t.control_type,
                         default_value=t.default_value,
+                        unwritable=t.unwritable,
                         enum_values=t.enum_values,
                     )
                 )

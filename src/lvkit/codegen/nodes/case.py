@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
-from lvkit.graph.op_walk import is_no_error_selector
+from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import (
     CaseFrame,
     LVType,
@@ -25,6 +25,7 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 logger = logging.getLogger(__name__)
@@ -157,9 +158,28 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
     if not selector_var:
         selector_var = _fallback_selector(node, ctx)
 
-    if _selector_underlying_type(node) == "Boolean":
+    selector_type = _selector_underlying_type(node)
+    if is_boolean_type_name(selector_type):
         return _generate_if_else(node, selector_var, ctx, ops_by_frame)
+    if selector_type is None and _has_placeholder_frame(node):
+        raise CodeGenError(
+            "The case structure's selector type is unknown, so the values its "
+            "frames match are unknown",
+            node,
+        )
     return _generate_match_case(node, selector_var, ctx, ops_by_frame)
+
+
+def _has_placeholder_frame(node: CaseStructureNode) -> bool:
+    """Whether a non-default frame records no value to match: no strings, no
+    ranges and no Boolean value."""
+    return any(
+        not frame.is_default
+        and not frame.selector_strings
+        and not frame.selector_ranges
+        and frame.boolean_value is None
+        for frame in node.frames
+    )
 
 
 def _selector_underlying_type(node: CaseStructureNode) -> str | None:
@@ -191,10 +211,16 @@ def _generate_if_else(
     for frame in node.frames:
         if frame.is_default:
             default_frame = frame
-        elif frame.selector_value == "True":
+        elif frame.boolean_value is True:
             true_frame = frame
-        elif frame.selector_value == "False":
+        elif frame.boolean_value is False:
             false_frame = frame
+        else:
+            raise CodeGenError(
+                "A frame of a Boolean case structure records neither True nor "
+                "False as its value",
+                node,
+            )
 
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     if_body: list[ast.stmt] = []
@@ -456,7 +482,7 @@ def _generate_error_case(
     no_error_frame = None
     error_frame = None
     for frame in node.frames:
-        if is_no_error_selector(str(frame.selector_value)):
+        if frame.is_no_error:
             no_error_frame = frame
         else:
             error_frame = frame

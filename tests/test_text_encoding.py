@@ -163,7 +163,7 @@ def test_string_codegen_is_byte_faithful_display_uses_labview_encoding(
 
     # A string constant carries BOTH: codegen value (byte-faithful) and
     # display_value (codepage-decoded, readable CJK).
-    _, value, display_value = decode_constant(
+    _, value, display_value, _ = decode_constant(
         ParsedConstant(uid="c", type_desc="", value=data.hex()),
         lv_type=string_type,
     )

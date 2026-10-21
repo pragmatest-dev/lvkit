@@ -50,6 +50,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
+        class_file="MeasurementContext.lvclass",
     )
     raw = bytes.fromhex(
         "0000000145284d6561737572656d656e744c696e6b204d6561737572656d656e74"
@@ -2313,7 +2314,7 @@ class TestRealVIParsing:
         assert target is not None, "GTR's SMUI cluster constant not found"
 
         raw_uid = target.id.rsplit("::", 1)[-1]
-        _, decoded, _ = decode_constant(
+        _, decoded, _, _ = decode_constant(
             ParsedConstant(uid=raw_uid, type_desc="", value=target.raw_value),
             lv_type=target.lv_type,
         )

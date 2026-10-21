@@ -7,13 +7,14 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 
 from ..ast_utils import build_assign, parse_expr, to_var_name, uint_mask
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -42,7 +43,7 @@ def _is_mutable(term: Terminal | None) -> bool:
 def _is_boolean(term: object) -> bool:
     """Check whether a terminal carries a LabVIEW Boolean value."""
     lv_type = getattr(term, "lv_type", None)
-    return bool(lv_type is not None and lv_type.underlying_type == "Boolean")
+    return bool(lv_type is not None and is_boolean_type_name(lv_type.underlying_type))
 
 
 def _is_integer(term: object) -> bool:
@@ -804,9 +805,9 @@ def _reshape_default_element(elem_type: LVType | None) -> ast.expr:
     if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
     if kind == LVTypeKind.PRIMITIVE:
-        if underlying == "String":
+        if is_string_type_name(underlying):
             return ast.Constant(value="")
-        if underlying == "Boolean":
+        if is_boolean_type_name(underlying):
             return ast.Constant(value=False)
         if underlying in (
             "NumInt8",

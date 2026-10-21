@@ -28,7 +28,7 @@ from ..graph.models import (
     Wire,
     WireEnd,
 )
-from ..graph.op_walk import _selector_label, is_no_error_selector
+from ..graph.op_walk import _selector_label
 from ..models import (
     FPTerminal,
     LVType,
@@ -488,11 +488,7 @@ def _frame_info(
                 shown = node.frames[di]
             if shown is None and is_error:
                 shown = next(
-                    (
-                        f
-                        for f in node.frames
-                        if is_no_error_selector(str(f.selector_value))
-                    ),
+                    (f for f in node.frames if f.is_no_error),
                     None,
                 )
             if shown is None:
@@ -506,14 +502,11 @@ def _frame_info(
                 for f in node.frames
             }
             if is_error:
-                # The No-Error (green) frame is the status==False case, value
-                # "0"; every other frame — the "Error" frame, including when it
+                # The No-Error (green) frame is the status==False case; every
+                # other frame — the "Error" frame, including when it
                 # is the structure's default — is red.
                 error_no_error[raw] = {
-                    str(f.selector_value): is_no_error_selector(
-                        str(f.selector_value),
-                    )
-                    for f in node.frames
+                    str(f.selector_value): f.is_no_error for f in node.frames
                 }
         elif isinstance(node, DisableStructureNode) and node.frames:
             # Disable structure: no runtime selector / no lv_type to derive a

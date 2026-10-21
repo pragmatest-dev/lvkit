@@ -306,3 +306,9 @@ def derive_vi_name(bd_xml_path: str) -> str:
     """Derive VI name from block diagram XML filename."""
     basename = os.path.basename(bd_xml_path)
     return basename.replace(BD_XML_SUFFIX, "")
+
+
+# The ``Format`` attribute of a ``TypeDesc`` the extraction could not export in
+# full: only what parsed before the failure is kept (see the type-pool export
+# patch in ``_pylabview_patches``).
+CORRUPT_STUB_FORMAT = "corrupt-stub"

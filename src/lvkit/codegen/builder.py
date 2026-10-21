@@ -46,6 +46,7 @@ def build_module(
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
     unresolved_sink: list[Exception] | None = None,
+    data_files: dict[str, bytes] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -65,6 +66,10 @@ def build_module(
         unresolved_sink: When a list, each resolution gap (unknown primitive /
             unmapped vi.lib VI) is appended to it as the constructed exception.
             `lvkit unresolved` uses this to batch-collect every gap in one pass.
+        data_files: When a dict, every data file the module reads at run time (an
+            array too large to write into the module) is added to it by file name;
+            the caller writes each beside the module. Without it, a VI that needs
+            one fails with an error saying so.
 
     Returns:
         Python source code as string
@@ -85,11 +90,15 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node, import_resolver)
+        return build_global_module(vi_node, import_resolver, data_files)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(
-        vi_context, graph=graph, import_resolver=import_resolver
+        vi_context,
+        graph=graph,
+        import_resolver=import_resolver,
+        data_files=data_files,
+        module_stem=to_function_name(vi_context.name),
     )
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name

@@ -19,13 +19,14 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum, IntEnum
 from typing import Literal
 
 from pydantic import BaseModel
 
 from .dotnet_types import DotNetType
+from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -34,6 +35,82 @@ ScalarValue = str | int | float | bool | None
 # ============================================================
 # Shared types (used by both graph and codegen layers)
 # ============================================================
+
+
+@dataclass(frozen=True)
+class ValuesNotKept:
+    """An array value too large to keep: it was read to its end, so its extent in
+    the file is exact, but none of its elements are stored. ``element_count`` is
+    the product of ``dimension_sizes`` (one size per array dimension, slowest-varying
+    first)."""
+
+    element_count: int
+    dimension_sizes: tuple[int, ...]
+    # The elements exactly as the VI stores them (row-major, each flattened
+    # big-endian), and their type: what a data file written for the array holds.
+    # Empty / None when the extent was read from a type this does not slice.
+    element_bytes: bytes = field(default=b"", repr=False, compare=False)
+    element_type: LVType | None = field(default=None, repr=False, compare=False)
+
+    def __str__(self) -> str:
+        return f"<{self.element_count} elements, values not kept>"
+
+    def reason(self) -> str:
+        shape = " x ".join(str(size) for size in self.dimension_sizes)
+        return (
+            f"an array of {self.element_count} elements ({shape}) whose values "
+            "are not kept"
+        )
+
+
+@dataclass(frozen=True)
+class UndecodedPicture:
+    """A Picture value that holds drawing data. The drawing is read past (its
+    length is stored) but not turned into a value."""
+
+    byte_count: int
+
+    def __str__(self) -> str:
+        return f"<Picture, {self.byte_count} bytes of drawing not decoded>"
+
+    def reason(self) -> str:
+        return f"a Picture of {self.byte_count} bytes whose drawing is not decoded"
+
+
+@dataclass(frozen=True)
+class UnreadPrivateData:
+    """A class object that holds private data this could not read: its class is
+    not loaded, or its stored levels do not match the class's. ``class_name`` is
+    the class's file name."""
+
+    class_name: str
+
+    def __str__(self) -> str:
+        return f"{self.class_name}(private data not read)"
+
+    def reason(self) -> str:
+        return f"an object of {self.class_name} whose private data is not read"
+
+
+UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData
+
+
+def find_unwritable(value: object) -> UnwritableValue | None:
+    """The first part of a decoded value (an array's elements, a cluster's fields,
+    recursively) that holds no value code generation could write, else None."""
+    if isinstance(value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData)):
+        return value
+    if isinstance(value, dict):
+        children: Iterable[object] = value.values()
+    elif isinstance(value, list):
+        children = value
+    else:
+        return None
+    for child in children:
+        found = find_unwritable(child)
+        if found is not None:
+            return found
+    return None
 
 
 class LVTypeKind(str, Enum):
@@ -155,7 +232,15 @@ class LVType:
     dimensions: int | None = None
     typedef_path: str | None = None
     typedef_name: str | None = None
+    # The typedef's ``.ctl`` file name and the class's ``.lvclass`` file name,
+    # without the library chain ``typedef_name`` / ``classname`` carry in front of
+    # them. ``compare=False`` -- the same identity, kept as its own part.
+    typedef_file: str | None = field(default=None, compare=False)
+    class_file: str | None = field(default=None, compare=False)
     description: str | None = None
+    # Why this type could not be read from the file, when the VI records a
+    # descriptor that did not decode; None for a type that read cleanly.
+    unreadable: str | None = None
     # For a MeasureData type (waveform / digital data): its LabVIEW "flavor"
     # (e.g. "Float64Waveform", "DigitalWaveform", "Digitaldata"). These are
     # opaque built-in structures with no VCTP children, so their component names
@@ -323,6 +408,12 @@ class LVType:
         refnum's element) with the SAME flag, so ``[NamedThing]``/
         ``refnum{NamedThing}`` also collapse to the name one level down.
         """
+        if self.unreadable is not None:
+            readable = replace(self, unreadable=None)
+            return (
+                f"{readable.type_descriptor(expand_named=expand_named)} "
+                f"(unreadable: {self.unreadable})"
+            )
         if self.dotnet_type is not None:
             if self._refnum_leaf():
                 return f"DotNet refnum{{{self.dotnet_type.name}}}"
@@ -576,6 +667,9 @@ class Terminal(BaseModel):
     nmux_field_index: int | None = None  # class field index
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     default_value: ScalarValue = None
+    # Set when ``default_value`` shows a part (an array too large to keep, a
+    # Picture's drawing) that code generation has no value to write for.
+    unwritable: UnwritableValue | None = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
     # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
     # same DCO are one value: an In Place Element structure's In/Out Element
@@ -964,6 +1058,12 @@ class CaseFrame(Frame):
     # the default frame — there ``selector_value``/``selector_ranges`` carry
     # the token. ``selector_value`` holds the first string as the unique key.
     selector_strings: list[str] = []
+    # For a Boolean selector: the value this frame matches (True or False). None
+    # for every other selector type.
+    boolean_value: bool | None = None
+    # For an error-cluster selector: whether this is the "No Error" frame (the one
+    # that matches status False).
+    is_no_error: bool = False
 
 
 class SequenceFrame(Frame):
@@ -1035,7 +1135,7 @@ _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
     "NumUInt16": "U16",
     "NumUInt32": "U32",
     "NumUInt64": "U64",
-    "Boolean": "TF",
+    **{name: "TF" for name in BOOLEAN_TYPE_NAMES},
     "Path": "Path",
 }
 
@@ -1045,7 +1145,7 @@ _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
 # abbreviation "abc"/"Var" — see ``render/style.py::_TYPE_REPR`` for that).
 _SCALAR_TYPE_DESCRIPTOR: dict[str, str] = {
     **_NUMERIC_TYPE_DESCRIPTOR,
-    "String": "String",
+    **{name: "String" for name in STRING_TYPE_NAMES},
     "Variant": "Variant",
     "LVVariant": "Variant",
 }
@@ -1061,8 +1161,8 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumUInt64": "int",
     "NumFloat32": "float",
     "NumFloat64": "float",
-    "String": "str",
-    "Boolean": "bool",
+    **{name: "str" for name in STRING_TYPE_NAMES},
+    **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
     "Path": "Path",
     "Variant": "Any",
     "LVVariant": "Any",

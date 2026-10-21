@@ -384,15 +384,6 @@ def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> st
     return ", ".join(_range_tokens(ranges, fmt))
 
 
-def is_no_error_selector(selector_value: str) -> bool:
-    """The error-cluster case that switches on ``status == False`` -- selector
-    value ``"0"`` -- is LabVIEW's "No Error" (green) frame; every other value is
-    an "Error" (red) frame. Shared by ``_selector_label`` (the label text) and
-    ``render/scene.py``'s green/red frame classification, so the two never
-    disagree on which frame is No-Error."""
-    return selector_value == "0"
-
-
 def _terminal_display_name(term: Terminal) -> str | None:
     """The resolved-name half of the terminal naming rule: ``display_name`` (the
     resolved-def name) else the caller-side ``name``, or ``None`` when neither is
@@ -445,7 +436,7 @@ def selector_frame_values(
         # anything else is an error (LabVIEW: "No Error" / "Error", plus code
         # ranges like "Error 3..10" since 2019). The Error frame is often the
         # structure's default -- LabVIEW still labels it "Error", not "Default".
-        if is_no_error_selector(sv):
+        if frame.is_no_error:
             return ("No Error",)
         codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
         if codes:
@@ -456,7 +447,9 @@ def selector_frame_values(
         return tuple(values)
     if frame.is_default:
         return ()
-    return (sv,)  # boolean True/False, or an already-display token
+    if frame.boolean_value is not None:
+        return (str(frame.boolean_value),)
+    return (sv,)  # an already-display token
 
 
 def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:

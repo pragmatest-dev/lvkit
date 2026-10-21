@@ -7,7 +7,7 @@ from lvkit.graph.terminal_layout import LaidOutTerminal, lay_out_node
 from lvkit.models import Terminal
 from lvkit.primitive_resolver import get_resolver
 
-from .base import CodeGenError
+from ..errors import CodeGenError
 
 
 def laid_out_roles(
@@ -20,7 +20,9 @@ def laid_out_roles(
     """
     template = get_resolver().resolve_by_node_type(node_type)
     if template is None:
-        raise CodeGenError(f"No terminal layout for node type {node_type}", node)
+        raise CodeGenError(
+            f"No terminal layout is known for {node.name or 'this function'}", node
+        )
     laid_out = lay_out_node(template.terminals, node.terminals)
     if laid_out is None:
         raise CodeGenError(

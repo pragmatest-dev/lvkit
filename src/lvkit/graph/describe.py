@@ -193,7 +193,7 @@ def describe_vi(
         for assembly in dotnet.assemblies:
             lines.append(f"  {assembly.qualified} (.NET assembly)")
         for reason in dotnet.unreadable:
-            lines.append(f"  (.NET assembly link unreadable: {reason})")
+            lines.append(f"  (.NET unreadable: {reason})")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
             ports = _subvi_ports(graph, name)

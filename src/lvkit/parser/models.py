@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..dotnet_types import DotNetAssembly, DotNetType
-from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
+from ..models import (
+    ClusterField,
+    DisableStructureKind,
+    EventFrame,
+    LVType,
+    Tunnel,
+    UnwritableValue,
+)
 from .layout import ClusterGeom
 from .link_table import (
     DotNetAssemblyRecordFailure,
@@ -36,8 +43,10 @@ class ParsedType:
     type_name: str  # "Path", "Cluster", "NumInt32"
     typedef_path: str | None = None
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
+    typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
+    class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
     enum_values: dict | None = None  # {name: EnumValue} from VCTP
     element_type: ParsedType | None = None  # Array element type (recursive)
@@ -45,6 +54,7 @@ class ParsedType:
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
+    unreadable: str | None = None  # Why the type's descriptor could not be read
 
 
 @dataclass
@@ -126,6 +136,9 @@ class ParsedTerminalInfo:
     # that name the same DCO are one value (an In Place Element structure's
     # In/Out Element port and its border node's cluster/array/index terminal).
     dco_uid: str | None = None
+    # Why the .NET type a .NET node's terminal passes could not be read, when the
+    # VI records a name that does not decode.
+    dotnet_type_unreadable: str | None = None
 
 
 class ParsedWiringRule(IntEnum):
@@ -240,13 +253,24 @@ class SelectorTable:
         return bool(self.strings)
 
 
+class SelectorKind(str, Enum):
+    """What a case structure's selector terminal carries, as far as framing its
+    values goes."""
+
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    STRING = "string"
+    ENUM = "enum"
+    ERROR = "error"
+
+
 @dataclass
 class ParsedCaseStructure:
     """A case structure on the block diagram."""
 
     uid: str
     selector_terminal_uid: str | None = None
-    selector_type: str | None = None
+    selector_type: SelectorKind | None = None
     frames: list[CaseFrame] = field(default_factory=list)
     tunnels: list[Tunnel] = field(default_factory=list)
     # VCTP index of the caseSel selector-value type (``typeDesc TypeID(N)``).
@@ -565,6 +589,9 @@ class ParsedFPControl:
     # None for an unresolved control or a VI whose VCTP was unreadable.
     lv_type: LVType | None = None
     default_value: str | None = None
+    # Set when ``default_value`` shows an array (itself, or inside a cluster) whose
+    # values were not kept because it is too large.
+    unwritable: UnwritableValue | None = None
     # The stored bytes of ``default_value``, kept only when ``lv_type`` holds a
     # class instance: a class's private data is decoded once the class is loaded,
     # which happens after this parse (see ``graph.core._enrich_type``).

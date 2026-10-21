@@ -22,8 +22,8 @@ from lvkit.parser.node_types import SharedVariableTerminal
 
 from ..ast_utils import default_value_expr, parse_expr
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError
 
 _IMPORT = "from lvkit.runtime import shared_variable as _shared_variable"
 _MODULE = "_shared_variable"

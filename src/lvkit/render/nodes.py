@@ -30,6 +30,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
+from lvkit.lv_type_codes import is_boolean_type_name
+
 from .._data import data_dir as _bundled_data_dir
 from ..extractor import extract_vi_xml
 from ..graph.core import InMemoryVIGraph
@@ -1306,7 +1308,7 @@ def _cpd_arith_boolean(node: PrimitiveNode) -> bool:
     ``codegen/nodes/compound.py::_is_boolean``/its use in
     ``generate_compound_arith``, so the glyph and the generated code agree."""
     return any(
-        t.lv_type is not None and t.lv_type.underlying_type == "Boolean"
+        t.lv_type is not None and is_boolean_type_name(t.lv_type.underlying_type)
         for t in node.terminals
     )
 

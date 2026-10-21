@@ -11,12 +11,21 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ..models import ClusterField, EnumValue, LVType, LVTypeKind
-from .heap_types import decode_heap_types, heap_sidecar_path
+from .constants import CORRUPT_STUB_FORMAT
+from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
 
 
-def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
+class TypeMap(dict[int, LVType]):
+    """A VI's TypeID -> type table. ``pool_failure`` says why a pre-LV9 VI's heap
+    type pool could not be read to its end (None when it could, and for every
+    VI that has a VCTP)."""
+
+    pool_failure: str | None = None
+
+
+def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
     """Parse TypeID mappings with rich type info from main XML.
 
     For TypeDefs, extracts the underlying type and .ctl filename.
@@ -30,7 +39,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     Returns:
         Dict mapping TypeID -> LVType with full type structure
     """
-    type_map: dict[int, LVType] = {}
+    type_map = TypeMap()
     heap_to_consolidated: dict[int, int] = {}
     # Track type names for primitives before we have full type info
     type_names: dict[int, str] = {}
@@ -123,7 +132,9 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
         pass  # Fall back to comment-based parsing only
 
     if not type_map:
-        type_map = _parse_pre_lv9_heap_types(xml_path)
+        heap = _parse_pre_lv9_heap_types(xml_path)
+        type_map.update(heap.types)
+        type_map.pool_failure = heap.failure
 
     return type_map
 
@@ -159,6 +170,7 @@ def _apply_typedef_identity(
 ) -> None:
     """Stamp a typedef's qualified name (and relative path, when its link record
     gives one) onto ``lv_type``."""
+    lv_type.typedef_file = ctl_filename
     if ctl_filename not in vicc_paths:
         lv_type.typedef_name = ctl_filename
         return
@@ -170,23 +182,22 @@ def _apply_typedef_identity(
     lv_type.typedef_name = build_qualified_name(owner_chain, ctl_filename)
 
 
-def _parse_pre_lv9_heap_types(xml_path: Path | str) -> dict[int, LVType]:
+def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
     """The heap ``TypeID`` map of a pre-LV9 VI, decoded from its ``DTHP`` sidecar
-    (see ``heap_types``); ``{}`` when the VI has none. A typedef whose ``.ctl`` has
+    (see ``heap_types``); empty when the VI has none. A typedef whose ``.ctl`` has
     a link record gains the same qualified name / path an LV9+ typedef gets."""
     sidecar = heap_sidecar_path(xml_path)
     if not sidecar.exists():
-        return {}
-    heap_types = decode_heap_types(sidecar.read_bytes())
+        return HeapTypes()
+    heap = decode_heap_types(sidecar.read_bytes())
     try:
         vicc_paths = _typedef_ctl_paths(ET.parse(xml_path).getroot())
     except ET.ParseError:
-        return heap_types
-    for lv_type in heap_types.values():
-        ctl_filename = (lv_type.typedef_name or "").rsplit(":", 1)[-1]
-        if ctl_filename in vicc_paths:
-            _apply_typedef_identity(lv_type, ctl_filename, vicc_paths)
-    return heap_types
+        return heap
+    for lv_type in heap.types.values():
+        if lv_type.typedef_file is not None and lv_type.typedef_file in vicc_paths:
+            _apply_typedef_identity(lv_type, lv_type.typedef_file, vicc_paths)
+    return heap
 
 
 def _field_label(ref_td: ET.Element | None, default_name: str) -> str:
@@ -330,10 +341,13 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                     kind=LVTypeKind.PRIMITIVE,
                     underlying_type=None,
                     typedef_name=typedef_name,
+                    typedef_file=typedef_name,
                 )
             else:
                 lv_type = dataclasses.replace(
-                    build_lvtype(nested, visited), typedef_name=typedef_name
+                    build_lvtype(nested, visited),
+                    typedef_name=typedef_name,
+                    typedef_file=typedef_name,
                 )
 
         elif type_name in ("UnitUInt16", "UnitUInt32", "UnitUInt8") or (
@@ -358,6 +372,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             # Refnum type - extract RefType and class name if present
             ref_type = td.get("RefType")
             classname = None
+            class_file = None
             element_type = None
             user_event_name = None
 
@@ -370,6 +385,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 if items:
                     parts = [it.get("Text", "") for it in items]
                     classname = ":".join(parts)
+                    class_file = parts[-1]
             else:
                 # A parametrized refnum (Queue/Notifier/UserEvent/DataValueRef)
                 # carries its element/payload type as a single nested TypeDesc,
@@ -391,6 +407,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type="Refnum",
                 ref_type=ref_type,
                 classname=classname,
+                class_file=class_file,
                 element_type=element_type,
                 user_event_name=user_event_name,
             )
@@ -426,6 +443,10 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type=type_name,
             )
 
+        if td.get("Format") == CORRUPT_STUB_FORMAT:
+            lv_type = dataclasses.replace(
+                lv_type, unreadable="its type descriptor could not be read"
+            )
         return lv_type
 
     def resolve_type(fid: int, visited: set[int] | None = None) -> LVType | None:

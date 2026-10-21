@@ -7,6 +7,7 @@ import builtins
 import keyword
 import logging
 
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
 
 logger = logging.getLogger(__name__)
@@ -46,9 +47,9 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
     if kind == LVTypeKind.ARRAY:
         return ast.Constant(value=None)
     if kind == LVTypeKind.PRIMITIVE:
-        if underlying == "String":
+        if is_string_type_name(underlying):
             return ast.Constant(value="")
-        if underlying == "Boolean":
+        if is_boolean_type_name(underlying):
             return ast.Constant(value=False)
         if underlying in (
             "NumInt8",

@@ -25,8 +25,8 @@ from lvkit.primitive_resolver import ResolvedPrimitive
 from ...ast_utils import build_assign, default_value_expr, parse_expr
 from ...context import CodeGenContext
 from ...elementwise import LV_IMPORT
+from ...errors import CodeGenError
 from ...fragment import CodeFragment
-from ..base import CodeGenError
 from ..terminal_roles import laid_out_roles
 from . import register_op, register_op_fragment
 

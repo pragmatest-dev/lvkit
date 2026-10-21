@@ -27,6 +27,7 @@ from ..models import (
     SequenceFrame,
     SharedVariableKind,
     Terminal,
+    UnwritableValue,
     VIKind,
 )
 from ..parser.models import ParsedFrontPanel
@@ -409,6 +410,9 @@ class ConstantNode(GraphNode):
     # for codegen. None for non-string constants (``value`` is already legible).
     # Mirrors the Terminal.name (codegen) vs display_name (display) split.
     display_value: str | None = None
+    # Set when ``value`` shows an array (itself, or inside a cluster) whose values
+    # were not kept because it is too large.
+    unwritable: UnwritableValue | None = None
     # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
     # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser
@@ -666,6 +670,7 @@ class Constant(BaseModel):
     # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
     display_format: str | None = None
     raw_value: str | None = None
+    unwritable: UnwritableValue | None = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = selector value / index.

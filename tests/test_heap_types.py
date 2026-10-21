@@ -16,8 +16,9 @@ from pathlib import Path
 import pytest
 
 from lvkit.models import LVTypeKind
-from lvkit.parser.heap_types import decode_heap_types
+from lvkit.parser.heap_types import HeapTypes, decode_heap_types
 from lvkit.parser.node_types import _build_nmux_dco_maps
+from lvkit.parser.td_pool import TdPool, read_td_list
 from lvkit.parser.vi import _inline_dco_definitions
 
 
@@ -47,7 +48,7 @@ def test_type_id_n_is_top_entry_n_minus_1():
         _td(0x30, b"\xff\xff\xff\xff" + _pstr("source")),  # [1] String
         _td(0x00, b"", flags=0),  # [2] Void
     ]
-    types = decode_heap_types(_dthp(tds, [1, 0, 0, 2]))
+    types = decode_heap_types(_dthp(tds, [1, 0, 0, 2])).types
     assert types[1].type_descriptor() == "String"
     assert types[2].type_descriptor() == "I32"
     assert types[3].type_descriptor() == "I32"
@@ -70,10 +71,11 @@ def test_cluster_array_and_typedef_enum_decode():
         _td(
             0x40,
             struct.pack(">H", 2) + b"\xff" * 8 + struct.pack(">H", 2),
+            flags=0,
         ),  # [3] 2-D array of cluster [2]
         _td(0xF1, typedef_body, flags=0),  # [4] typedef enum
     ]
-    types = decode_heap_types(_dthp(tds, [2, 3, 4]))
+    types = decode_heap_types(_dthp(tds, [2, 3, 4])).types
     assert types[1].kind == LVTypeKind.CLUSTER
     assert [f.name for f in types[1].fields or []] == ["ok", "name"]
     assert types[2].kind == LVTypeKind.ARRAY
@@ -90,16 +92,59 @@ def test_parametrized_refnum_carries_its_element_type():
         _td(0x30, b"\xff\xff\xff\xff" + _pstr("msg")),  # [0] String
         _td(0x70, struct.pack(">HHH", 18, 1, 0), flags=0),  # [1] Queue of [0]
     ]
-    types = decode_heap_types(_dthp(tds, [1]))
+    types = decode_heap_types(_dthp(tds, [1])).types
     assert types[1].type_descriptor() == "Queue refnum{String}"
 
 
-def test_empty_or_malformed_dthp_yields_nothing():
-    assert decode_heap_types(b"") == {}
-    assert decode_heap_types(struct.pack(">I", 0)) == {}
-    assert decode_heap_types(b"\xff\xff\xff\xff\x00\x0c") == {}
-    # top table claims more entries than the block holds
-    assert decode_heap_types(_dthp([_td(0x03, b"")], [0])[:-2] + b"\x00\x05") == {}
+def test_empty_dthp_yields_nothing_and_no_failure():
+    assert decode_heap_types(struct.pack(">I", 0)) == HeapTypes()
+
+
+@pytest.mark.parametrize(
+    ("block", "reason"),
+    [
+        (b"", "too short to hold a descriptor count"),
+        (b"\xff\xff\xff\xff\x00\x0c", "the block ends inside descriptor 0"),
+        (
+            _dthp([_td(0x03, b"")], [0])[:-2] + b"\x00\x05",
+            "names descriptor 5, which is not listed",
+        ),
+        (struct.pack(">I", 1) + _td(0x03, b""), "has no TypeID table"),
+        (
+            _dthp([_td(0x03, b"")], [0])[:-4] + b"\x00\x09\x00\x00",
+            "lists 9 entries the block does not hold",
+        ),
+    ],
+)
+def test_malformed_dthp_says_why(block, reason):
+    heap = decode_heap_types(block)
+    assert heap.types == {}
+    assert heap.failure is not None and reason in heap.failure
+
+
+def test_a_descriptor_that_does_not_decode_is_an_unreadable_type():
+    tds = [
+        _td(0x03, _pstr("code")),  # [0] I32
+        _td(0x50, struct.pack(">HH", 1, 5)),  # [1] cluster naming TD 5, not listed
+    ]
+    heap = decode_heap_types(_dthp(tds, [0, 1]))
+    assert heap.failure is None
+    assert heap.types[1].unreadable is None
+    reason = heap.types[2].unreadable
+    assert reason is not None and "refers to descriptor 5" in reason
+    assert heap.types[2].type_descriptor().endswith(f"(unreadable: {reason})")
+
+
+def test_a_label_is_read_exactly_when_the_flag_says_there_is_one():
+    labelled = _td(0x03, _pstr("code"))
+    unlabelled = _td(0x03, b"", flags=0)
+    pool = TdPool(read_td_list(struct.pack(">I", 2) + labelled + unlabelled).tds)
+    assert pool.names == ["code", None]
+
+
+def test_a_flagged_label_that_is_missing_is_an_unreadable_type():
+    types = decode_heap_types(_dthp([_td(0x03, b"")], [0])).types
+    assert types[1].unreadable is not None
 
 
 def test_structure_dco_definitions_are_inlined_into_bare_references():

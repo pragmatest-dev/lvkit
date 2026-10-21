@@ -8,6 +8,8 @@ Used in code generation when we need a default value, such as:
 
 from __future__ import annotations
 
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+
 from .models import LVType, LVTypeKind, _is_error_cluster
 from .vilib_resolver import derive_python_name
 
@@ -107,11 +109,11 @@ def _get_primitive_default(type_name: str) -> str:
         return _NUMERIC_DEFAULTS[type_name]
 
     # String types
-    if type_name in ("String", "SubString"):
+    if is_string_type_name(type_name):
         return "''"
 
     # Boolean
-    if type_name == "Boolean":
+    if is_boolean_type_name(type_name):
         return "False"
 
     # Path

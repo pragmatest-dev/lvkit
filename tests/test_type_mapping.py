@@ -303,3 +303,42 @@ class TestUserEventName:
             </TypeDesc>""",
         )
         assert result[2] != result[3]
+
+
+class TestSalvagedTypeDescriptors:
+    """A descriptor the extraction could not export in full is marked, and the
+    type says so."""
+
+    def _vctp(self, tmp_path: Path, body: str) -> Path:
+        xml = tmp_path / "vi.xml"
+        xml.write_text(
+            "<VI><VCTP><Section>" + body + "</Section></VCTP></VI>", encoding="utf-8"
+        )
+        return xml
+
+    def test_a_corrupt_stub_is_an_unreadable_type(self, tmp_path):
+        xml = self._vctp(
+            tmp_path,
+            '<TypeDesc Type="NumInt32" Format="inline" />'
+            '<TypeDesc Type="Void" Format="corrupt-stub" />'
+            '<TypeDesc Type="Refnum" RefType="Queue" Format="corrupt-stub" />',
+        )
+        types = parse_vctp_types(xml)
+        assert types[0].unreadable is None
+        assert types[1].unreadable is not None
+        assert types[2].unreadable is not None
+        assert types[2].ref_type == "Queue"
+        assert "unreadable" in types[1].type_descriptor()
+        assert types[0].type_descriptor() == "I32"
+
+    def test_a_type_id_the_pool_does_not_name_carries_why_the_pool_failed(self):
+        from lvkit.models import LVType, LVTypeKind
+        from lvkit.parser.type_mapping import TypeMap
+        from lvkit.parser.type_resolution import resolve_type_rich
+
+        type_map = TypeMap({1: LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="X")})
+        type_map.pool_failure = "the heap type pool is unreadable: cut off"
+        assert resolve_type_rich("TypeID(1)", type_map).unreadable is None
+        missing = resolve_type_rich("TypeID(2)", type_map)
+        assert missing.unreadable == "the heap type pool is unreadable: cut off"
+        assert resolve_type_rich("TypeID(2)", TypeMap()).unreadable is None

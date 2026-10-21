@@ -16,8 +16,8 @@ from lvkit.formula.emit import VarSpec, transpile
 from lvkit.graph.models import FormulaNode
 from lvkit.models import LVTypeKind
 
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import CodeGenError
 
 if TYPE_CHECKING:
     from ..context import CodeGenContext

@@ -1371,7 +1371,10 @@ array and cluster constants), and 1 is a front-panel default whose array holds
 a LabVIEW class object (`Layer.lvclass`), whose flattened private data (see
 "Classes" on the NI page) the decoder does not read yet. Every value holding a
 non-empty Picture is exact. Nearly all the evidence comes from one project, so a Picture saved by
-another LabVIEW version is lightly tested.
+another LabVIEW version is lightly tested. The drawing bytes themselves are not
+documented publicly, so a non-empty Picture is shown as `<Picture, N bytes of
+drawing not decoded>` (and listed as undecoded by the audit); an empty one
+(length 0) shows as `None`.
 
 A `TypeDef` descriptor holds the type it wraps as its single `Nested='True'`
 child TypeDesc; for an `Array` that child carries the `<Dimension>` children

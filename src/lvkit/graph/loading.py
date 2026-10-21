@@ -1409,7 +1409,16 @@ class LoadingMixin:
             self._vi_health[vi_key] = _build_vi_health(poly_metadata)
             self._vi_dotnet_assemblies[vi_key] = VIDotNetAssemblies(
                 assemblies=metadata.dotnet_assemblies,
-                unreadable=[f.reason for f in metadata.dotnet_assembly_failures],
+                unreadable=[
+                    *(f.reason for f in metadata.dotnet_assembly_failures),
+                    *sorted(
+                        {
+                            t.dotnet_type_unreadable
+                            for t in vi.block_diagram.terminal_info.values()
+                            if t.dotnet_type_unreadable
+                        }
+                    ),
+                ],
             )
 
         # Add to dependency graph

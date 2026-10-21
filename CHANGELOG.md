@@ -20,6 +20,12 @@ lvkit follows semantic versioning.
 - **Fix: multi-dimensional array values (2D tables, 3D grids) read only the first dimension** — front-panel defaults and diagram constants now show every row, and the fields after one in a cluster are no longer shifted; Picture values and class objects inside a cluster are skipped correctly (#174).
 - **Fix: stored default and constant values are read to their exact size** — Variants, extended-precision numbers, waveforms, VISA/DAQmx/IMAQ tag refnums, Sets and Maps, class objects (with their private data when the class is loaded), empty clusters and repeated field names no longer corrupt or drop the fields after them (#174).
 - **Fix: a type definition of an array or a refnum kept no inner type** — its element type, dimensions, refnum kind and User Event data type now show in describe, lvnet and JSON, and an array's default value is read (#175).
+- **Fix: a very large array value no longer reads as an array of text** — describe, lvnet and render show `<N elements, values not kept>`, and generated Python reads a large array constant or Global VI default from a data file written beside the module.
+- **Fix: a string case on a Substring wire, and a Boolean case, are decided by the VI's own types** — a Boolean frame carries True/False and an error case its No Error frame, so generated code never compares a Boolean to the text "True".
+- **Fix: waveform and digital-data values are read from one built-in table** (including 16-bit-stored Booleans and the other string storages); an Old Float64 Waveform value says it is not read.
+- **A Picture with drawing, a class object whose private data is not loaded, and a type the VI stores in a form lvkit cannot read now say so** instead of showing as `None`, the bare class name, or a default.
+- **A Variant's attributes are shown with its value**, and a Variant cluster's members keep their labels.
+- **Fix: .NET types that cannot be read are reported** under `.NET unreadable` in describe and lvnet.
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

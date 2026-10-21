@@ -13,6 +13,7 @@ import ast
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes.case import _generate_match_case, generate
 from lvkit.graph.lvnet_parse import _parse_case_frame_header
 from lvkit.graph.models import CaseStructureNode
@@ -310,6 +311,7 @@ def test_boolean_selector_is_decided_by_type_not_by_frame_text(
     """A String case whose strings are "True" and "False" is a match, a Boolean
     case is an if/else."""
     selector_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
+    boolean = underlying == "Boolean"
     node = CaseStructureNode(
         id="case1",
         vi_path="test.vi",
@@ -320,11 +322,59 @@ def test_boolean_selector_is_decided_by_type_not_by_frame_text(
         ],
         selector_terminal="sel",
         frames=[
-            CaseFrame(selector_value="False", selector_strings=["False"]),
-            CaseFrame(selector_value="True", selector_strings=["True"]),
+            CaseFrame(
+                selector_value="False",
+                selector_strings=["False"],
+                boolean_value=False if boolean else None,
+            ),
+            CaseFrame(
+                selector_value="True",
+                selector_strings=["True"],
+                boolean_value=True if boolean else None,
+            ),
         ],
     )
     fragment = generate(node, make_ctx("sel"))
     assert [type(s) for s in fragment.statements if isinstance(s, statement)] == [
         statement
     ]
+
+
+def test_a_case_with_no_known_selector_type_and_no_values_is_an_error() -> None:
+    """Frames that record no value to match are placeholders: a case whose
+    selector type is unknown cannot be written as a comparison."""
+    node = CaseStructureNode(
+        id="case1",
+        vi_path="test.vi",
+        name="Case",
+        node_type="caseStruct",
+        terminals=[Terminal(id="sel", index=0, direction="input")],
+        selector_terminal="sel",
+        frames=[CaseFrame(selector_value="0"), CaseFrame(selector_value="1")],
+    )
+    with pytest.raises(CodeGenError, match="selector type is unknown"):
+        generate(node, make_ctx("sel"))
+
+
+def test_a_boolean_case_writes_its_if_else_from_the_frames_boolean_values() -> None:
+    node = CaseStructureNode(
+        id="case1",
+        vi_path="test.vi",
+        name="Case",
+        node_type="caseStruct",
+        terminals=[
+            Terminal(
+                id="sel",
+                index=0,
+                direction="input",
+                lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="BooleanU16"),
+            )
+        ],
+        selector_terminal="sel",
+        frames=[
+            CaseFrame(selector_value="True", boolean_value=True),
+            CaseFrame(selector_value="False", boolean_value=False),
+        ],
+    )
+    fragment = generate(node, make_ctx("sel"))
+    assert [type(s) for s in fragment.statements] == [ast.If]
