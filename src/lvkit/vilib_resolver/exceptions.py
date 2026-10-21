@@ -84,5 +84,4 @@ class VILibConflict(Exception):
         for c in self.conflicts:
             msg += f"  Index {c['index']} ({c['field']}): "
             msg += f"{c['existing']} → {c['observed']}\n"
-        msg += "\nSee data/vilib/_pending_terminals.json"
         return msg

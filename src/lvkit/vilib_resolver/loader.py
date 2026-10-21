@@ -41,7 +41,6 @@ class _VILibLoaderMixin:
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context
         self._types: dict[str, LVType] = {}  # Indexed by qualified name
-        self._category_files: dict[str, Path] = {}  # VI name → category file
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
         self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
 
@@ -83,9 +82,9 @@ class _VILibLoaderMixin:
         """Empty the data-bearing lookup tables.
 
         Used by tests to simulate a resolver with no mappings. Clears
-        the seven caches populated from data/vilib, data/openg, and
+        the six caches populated from data/vilib, data/openg, and
         data/drivers JSON files: ``_vis``, ``_by_name``, ``_pdf_entries``,
-        ``_types``, ``_category_files``, ``_variants``,
+        ``_types``, ``_variants``,
         ``_by_poly_selector``.
 
         ``data_dir`` is intentionally preserved — it's a configured
@@ -97,7 +96,6 @@ class _VILibLoaderMixin:
         self._by_name.clear()
         self._pdf_entries.clear()
         self._types.clear()
-        self._category_files.clear()
         self._variants.clear()
         self._by_poly_selector.clear()
 
@@ -136,9 +134,6 @@ class _VILibLoaderMixin:
                     vi_name = f"{entry.name}.vi"
                 else:
                     vi_name = entry.name
-
-                # Track which file this VI came from
-                self._category_files[vi_name] = category_path
 
                 # Only add if not already present (legacy data takes priority)
                 if vi_name not in self._by_name:

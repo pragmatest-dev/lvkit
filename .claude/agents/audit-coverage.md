@@ -195,7 +195,7 @@ Coverage is binary at the symbol level: is it documented or not, and if so, how 
 
 ## Notes
 
-- Private surfaces (leading `_`) are excluded — e.g. `_pending_terminals.json`/`_types.json` entries in `src/lvkit/data/vilib/` are working data, not a documented public mapping; don't count them as undocumented VI entries.
+- Private surfaces (leading `_`) are excluded — e.g. `_types.json` entries in `src/lvkit/data/vilib/` are working data, not a documented public mapping; don't count them as undocumented VI entries.
 - Internal-only JSON fields (e.g. a primitive/vilib entry's `guess_reason`, `verified` provenance markers) are contributor-facing, not user-facing — don't flag them as undocumented; they belong to `docs/_internal/`, not `docs/reference/`.
 - The `.lvkit/` resolution store layout and the AI-agent skill set are each a *mechanism*, not a long enumerable list — report each as one row noting whether the mechanism is documented and where.
 - Every entry in `primitives.json` and every VI entry across `vilib/*.json` is, strictly, a "public surface" a user's generated code depends on — but these are data, not API. Do not enumerate all ~170+ primitives and however many vi.lib VIs as individual coverage-table rows; report them as a single count (documented as "coverage is incremental" per `generate.md`, or not) rather than symbol-by-symbol. Symbol-by-symbol enumeration applies to CLI/MCP/model/graph surfaces, which are the actual API.
