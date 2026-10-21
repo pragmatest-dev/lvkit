@@ -15,7 +15,6 @@ from ..models import (
     SequenceFrame,
     Terminal,
     TunnelTerminal,
-    _is_error_cluster,
 )
 from ..parser.models import ParsedWiringRule
 from ..parser.node_types import get_display_name
@@ -48,7 +47,7 @@ from .netlist import (
     instance_line,
     scope_header,
 )
-from .netlist_build import _selector_lv_type_gn
+from .netlist_build import case_frame_label_gn
 from .op_walk import (
     _const_value_str,
     _selector_label,
@@ -255,7 +254,7 @@ def _struct_label(op: AnyGraphNode) -> str:
     if isinstance(op, LoopNode):
         return "While loop" if op.loop_type == "whileLoop" else "For loop"
     if isinstance(op, SequenceNode):
-        return "Flat sequence"
+        return f"{op.kind_word} sequence"
     if isinstance(op, EventStructureNode):
         return "Event structure"
     if isinstance(op, InPlaceNode):
@@ -1226,13 +1225,9 @@ def _frame_display(frame: Frame, op: AnyGraphNode) -> str:
         # reason).
         return str(frame.selector_value)
     if isinstance(frame, CaseFrame):
-        lv_type = (
-            _selector_lv_type_gn(op, op.selector_terminal)
-            if isinstance(op, CaseStructureNode)
-            else None
-        )
-        is_error = bool(lv_type and _is_error_cluster(lv_type))
-        return _selector_label(frame, lv_type, is_error)
+        if isinstance(op, CaseStructureNode):
+            return case_frame_label_gn(op, frame)
+        return _selector_label(frame, None, False)
     if isinstance(frame, SequenceFrame):
         return str(frame.index)
     if isinstance(frame, EventFrame):

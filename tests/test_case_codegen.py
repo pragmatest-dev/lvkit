@@ -256,8 +256,10 @@ from lvkit.codegen.nodes.case import _build_frame_pattern  # noqa: E402
 from lvkit.models import CaseFrame, SelectorRange  # noqa: E402
 
 
-def _pattern_src(frame: CaseFrame, selector_var: str = "sel") -> str:
-    pattern, guard = _build_frame_pattern(frame, selector_var)
+def _pattern_src(
+    frame: CaseFrame, selector_var: str = "sel", is_string: bool = False
+) -> str:
+    pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
     case = ast.match_case(pattern=pattern, guard=guard, body=[ast.Pass()])
     mod = ast.Match(subject=ast.Name(id=selector_var, ctx=ast.Load()), cases=[case])
     return ast.unparse(
@@ -268,11 +270,11 @@ def _pattern_src(frame: CaseFrame, selector_var: str = "sel") -> str:
 class TestBuildFramePattern:
     def test_single_string(self):
         f = CaseFrame(selector_value="bmp", selector_strings=["bmp"])
-        assert "case 'bmp':" in _pattern_src(f)
+        assert "case 'bmp':" in _pattern_src(f, is_string=True)
 
     def test_multi_string_or_pattern(self):
         f = CaseFrame(selector_value="jpe", selector_strings=["jpe", "jpeg", "jpg"])
-        assert "case 'jpe' | 'jpeg' | 'jpg':" in _pattern_src(f)
+        assert "case 'jpe' | 'jpeg' | 'jpg':" in _pattern_src(f, is_string=True)
 
     def test_multi_singleton_int_or_pattern(self):
         f = CaseFrame(

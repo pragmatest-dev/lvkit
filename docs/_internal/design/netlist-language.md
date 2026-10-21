@@ -492,22 +492,23 @@ this is the piece that closes that gap (§1's graph-identity round-trip
 gate).
 
 **A case frame's `is_default` flag, in the header.** A case frame's header
-lists its selector value(s) as the existing quoted comma list, and — mirroring
-LabVIEW's own `"Error", Default` selector convention — the bare, unquoted
-keyword `default` is appended as that list's **last entry** whenever the frame
-is the structure's default frame, and is the list's **sole entry** when the
-frame carries no specific selector value of its own (the ordinary case:
-`_selector_label` collapses a non-error default frame to the `"Default"`
-sentinel with no real value left to show):
+lists its selector value(s) as a comma list of quoted string literals (§4
+escaping), one per value whatever the selector type — integers and enum item
+names included — and, mirroring LabVIEW's own `"Error", Default` selector
+convention, the bare, unquoted keyword `default` is appended as that list's
+**last entry** whenever the frame is the structure's default frame, and is the
+list's **sole entry** when the frame matches no value of its own:
 
-- a pure default frame (no specific value): `frame default :`
+- a pure default frame (no value of its own): `frame default :`
 - a frame that catches a value AND is the default: `frame "Error", default :`
-- a plain value frame (unchanged): `frame "Error" :`
-- a multi-value frame stays a comma list (unchanged): `frame "A", "B" :`
+- a plain value frame: `frame "Error" :`
+- a multi-value frame, strings or integers or enum items: `frame "A", "B" :`,
+  `frame "0", "43" :`
+- an empty-string frame: `frame "" :`
 
 This closes a real gap an earlier pass of this doc flagged as open: an
-Error-cluster default frame keeps a real value (`_selector_label`'s
-`is_error` branch never returns the `"Default"` sentinel), so on a real
+Error-cluster default frame keeps a real value (it is never a value-less
+default), so on a real
 corpus VI — `TextTestRunner/run.vi`'s dynamic-dispatch cascade — both the
 default frame and an ordinary `"1"`-valued frame are labeled `"Error"`; before
 this fix both rendered the identical `frame "Error" :` header with nothing in

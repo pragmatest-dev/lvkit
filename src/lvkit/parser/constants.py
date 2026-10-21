@@ -78,12 +78,18 @@ NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 # ``mux``/``demux`` (loop/structure-boundary bundlers -- structurally
 # identical SelectNode shape, but positional/sequential indices, never a
 # genuine by-name field lookup -- see _MuxHandler/_DemuxHandler) and
-# ``eventDataNode`` (also genuinely by-name, but resolved through its own
-# EventDataGlyph path in render, never through netlist/diff/describe).
-# Shared by render's Bundle/Unbundle-By-Name glyph selection and
-# graph.op_walk's canonical nMux lane-name resolver so both agree on exactly
-# which node classes get field-name (not index) treatment.
+# ``eventDataNode`` (drawn with its own EventDataGlyph, not the Bundle/
+# Unbundle-By-Name glyph).
+# Shared by render's Bundle/Unbundle-By-Name glyph selection.
 NMUX_BY_NAME_NODE_CLASSES = frozenset({NODE_CLASS_NMUX, "decomposeClusterNode"})
+
+# Node classes whose ``list`` terminals each carry their own stored ``<i>``
+# field index into the aggregate's field list, so their field NAMES resolve
+# the same way: every by-name class above, plus ``eventDataNode`` (an Event
+# Structure's data/filter node -- each output is one field of the event
+# data cluster, the field named by the terminal's ``<i>``, not by its
+# position). Used by graph.op_walk's canonical lane-name resolver.
+NMUX_NAMED_LANE_NODE_CLASSES = NMUX_BY_NAME_NODE_CLASSES | {NODE_CLASS_EVENT_DATA_NODE}
 
 # Node classes that are explicitly ignored during parsing.
 # These are known LabVIEW elements with no Python equivalent and no dataflow

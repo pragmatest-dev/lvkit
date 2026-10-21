@@ -1287,6 +1287,16 @@ def _render_lvnet_loop_scope(
                 lines.append(f"{kv_indent}condition{_LVNET_DRIVER_OP}{condition_str}")
 
 
+def _lvnet_case_header(values: tuple[str, ...], is_default: bool) -> str:
+    """A case frame's header text, between ``frame `` and `` :`` (§8): the
+    quoted selector values, then the bare ``default`` keyword when the frame is
+    the structure's default (the sole entry when it has no values)."""
+    entries = [lvnet_literal_token(v) for v in values]
+    if is_default:
+        entries.append(_LVNET_DEFAULT_KEYWORD)
+    return ", ".join(entries)
+
+
 def _render_lvnet_case_scope(
     scope: NetlistScope,
     indent: str,
@@ -1306,21 +1316,16 @@ def _render_lvnet_case_scope(
     line). ``gamma.net`` is reformatted to ``::`` the same render-time-only
     way as the loop scope's ``merge.net`` above.
 
-    A frame's ``is_default`` is encoded IN the header's comma list, mirroring
-    LabVIEW's own ``"Error", Default`` selector convention -- it is NOT a
-    separate keyword line, and it does NOT apply to the frame-only families
-    below (sequence/disabled/event keep their plain ``frame <label> :``
+    A case frame's header is the comma list of its selector values, each a
+    quoted literal (``frame "0", "43" :``). ``is_default`` is encoded IN that
+    list, mirroring LabVIEW's own ``"Error", Default`` selector convention -- it
+    is NOT a separate keyword line, and it does NOT apply to the frame-only
+    families below (sequence/disabled/event keep their plain ``frame <label> :``
     header): ``default`` (the bare, unquoted ``_LVNET_DEFAULT_KEYWORD``) is
     appended as the list's last entry when ``frame.is_default``, and is the
-    SOLE entry when the frame carries no specific selector value of its own
-    (``_selector_label`` collapsed it to the ``"Default"`` sentinel because
-    it isn't also an Error-cluster frame -- see its own docstring). An
-    Error-cluster default frame DOES keep its specific value (``"Error"``/
-    ``"Error 3..10"``), since ``_selector_label``'s ``is_error`` branch never
-    returns the ``"Default"`` sentinel -- that's exactly the
-    ``TextTestRunner/run.vi`` shape this fixes: two frames both labeled
-    ``"Error"``, only one of which is the default, previously indistinguishable
-    once rendered."""
+    SOLE entry when the frame matches no value of its own (``frame default :``).
+    An Error-cluster default frame keeps its value (``frame "Error", default :``),
+    so two frames both labeled ``"Error"`` stay distinguishable."""
     sel_str = (
         _render_lvnet_source(scope.selector, handles)
         if scope.selector is not None
@@ -1331,13 +1336,8 @@ def _render_lvnet_case_scope(
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
-        if frame.is_default and frame.label == "Default":
-            label = _LVNET_DEFAULT_KEYWORD
-        elif frame.is_default:
-            label = f"{_quoted_frame_label(frame.label)}, {_LVNET_DEFAULT_KEYWORD}"
-        else:
-            label = _quoted_frame_label(frame.label)
-        lines.append(f"{indent + _LVNET_INDENT}frame {label}{_LVNET_BLOCK_OPEN}")
+        header = _lvnet_case_header(frame.values, frame.is_default)
+        lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
         frame_key = "default" if frame.is_default else frame.label
         for gamma in gammas:

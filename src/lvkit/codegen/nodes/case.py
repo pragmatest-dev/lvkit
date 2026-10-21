@@ -9,7 +9,14 @@ from dataclasses import dataclass, field
 
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
-from lvkit.models import CaseFrame, LVType, TunnelTerminal, _is_error_cluster
+from lvkit.graph.op_walk import is_no_error_selector
+from lvkit.models import (
+    CaseFrame,
+    LVType,
+    SelectorRange,
+    TunnelTerminal,
+    _is_error_cluster,
+)
 
 from ..ast_utils import (
     build_assign,
@@ -150,16 +157,18 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
     if not selector_var:
         selector_var = _fallback_selector(node, ctx)
 
-    if _is_boolean_selector(node.frames):
+    if _selector_underlying_type(node) == "Boolean":
         return _generate_if_else(node, selector_var, ctx, ops_by_frame)
     return _generate_match_case(node, selector_var, ctx, ops_by_frame)
 
 
-def _is_boolean_selector(frames: list[CaseFrame]) -> bool:
-    """Check if case structure uses boolean selector."""
-    selector_values = {str(f.selector_value) for f in frames}
-    bool_values = {"True", "False", "Default", "true", "false", "default"}
-    return selector_values <= bool_values and len(frames) <= 3
+def _selector_underlying_type(node: CaseStructureNode) -> str | None:
+    """The underlying type name of the case structure's selector terminal
+    (``Boolean``, ``String``, ...), or None when it has no resolved type."""
+    for term in node.terminals:
+        if term.id == node.selector_terminal and term.lv_type:
+            return term.lv_type.underlying_type
+    return None
 
 
 def _generate_if_else(
@@ -180,13 +189,12 @@ def _generate_if_else(
     default_frame = None
 
     for frame in node.frames:
-        val = str(frame.selector_value).lower()
-        if val == "true":
-            true_frame = frame
-        elif val == "false":
-            false_frame = frame
-        elif "default" in val:
+        if frame.is_default:
             default_frame = frame
+        elif frame.selector_value == "True":
+            true_frame = frame
+        elif frame.selector_value == "False":
+            false_frame = frame
 
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     if_body: list[ast.stmt] = []
@@ -262,13 +270,13 @@ def _generate_match_case(
     # assignment into these same body lists.
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     patterns: list[tuple[ast.pattern, ast.expr | None]] = []
+    is_string = _is_string_selector(node)
     for frame in node.frames:
-        selector_str = str(frame.selector_value)
-        if frame.is_default or selector_str.lower() == "default":
+        if frame.is_default:
             pattern: ast.pattern = ast.MatchAs(pattern=None, name=None)
             guard: ast.expr | None = None
         else:
-            pattern, guard = _build_frame_pattern(frame, selector_var)
+            pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
         patterns.append((pattern, guard))
 
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
@@ -316,26 +324,47 @@ def _generate_match_case(
     )
 
 
-def _build_match_pattern(selector_value: str) -> ast.pattern:
-    """Build AST pattern for a single match value (int if it parses, else str)."""
-    try:
-        int_val = int(selector_value)
-        return ast.MatchValue(value=ast.Constant(value=int_val))
-    except ValueError:
-        pass
+def _is_string_selector(node: CaseStructureNode) -> bool:
+    """Whether the case structure's selector terminal carries a String."""
+    return _selector_underlying_type(node) == "String"
+
+
+def _build_match_pattern(selector_value: str, is_string: bool) -> ast.pattern:
+    """Build AST pattern for a single display token: a string selector matches
+    the string itself; any other selector matches the integer when it parses."""
+    if not is_string:
+        try:
+            return ast.MatchValue(value=ast.Constant(value=int(selector_value)))
+        except ValueError:
+            pass
     return ast.MatchValue(value=ast.Constant(value=selector_value))
+
+
+def _range_clause(selector_var: str, r: SelectorRange) -> str:
+    """The Python comparison for one selector range. An open side has no bound
+    (its stored number is filler), so it compares one-sided."""
+    if r.open_start and r.open_end:
+        return "True"
+    if r.open_start:
+        return f"{selector_var} <= {r.end}"
+    if r.open_end:
+        return f"{selector_var} >= {r.start}"
+    if r.is_single:
+        return f"{selector_var} == {r.start}"
+    return f"{r.start} <= {selector_var} <= {r.end}"
 
 
 def _build_frame_pattern(
     frame: CaseFrame,
     selector_var: str,
+    is_string: bool,
 ) -> tuple[ast.pattern, ast.expr | None]:
     """Build the match pattern (and optional guard) for one non-default frame.
 
     A frame can match several selector values: a string selector matches a set
     of strings (``"jpe" | "jpeg" | "jpg"``); a numeric/enum selector matches a
-    set of singletons and/or closed ranges. Singletons become an OR-pattern;
-    any true range (``start != end``) is expressed as a ``case _ if`` guard,
+    set of singletons and/or ranges. Singletons become an OR-pattern; any true
+    range (closed or open-ended) is expressed as a ``case _ if`` guard,
     OR-combined with the singletons.
     """
     # String selector: OR of the matched string literals.
@@ -347,19 +376,17 @@ def _build_frame_pattern(
 
     # Numeric/enum selector with faithful ranges.
     if frame.selector_ranges:
-        singles = [r for r in frame.selector_ranges if r.start == r.end]
-        spans = [r for r in frame.selector_ranges if r.start != r.end]
-        if not spans:
+        singles = [r for r in frame.selector_ranges if r.is_single]
+        if len(singles) == len(frame.selector_ranges):
             pats = [ast.MatchValue(value=ast.Constant(value=r.start)) for r in singles]
             return (pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)), None
         # At least one true range → wildcard pattern with a boolean guard.
-        clauses: list[str] = [f"{selector_var} == {r.start}" for r in singles]
-        clauses += [f"{r.start} <= {selector_var} <= {r.end}" for r in spans]
+        clauses = [_range_clause(selector_var, r) for r in frame.selector_ranges]
         guard = parse_expr(" or ".join(clauses))
         return ast.MatchAs(pattern=None, name=None), guard
 
     # Fallback: the single display token.
-    return _build_match_pattern(str(frame.selector_value)), None
+    return _build_match_pattern(str(frame.selector_value), is_string), None
 
 
 def _generate_frame_body(
@@ -429,10 +456,9 @@ def _generate_error_case(
     no_error_frame = None
     error_frame = None
     for frame in node.frames:
-        val = str(frame.selector_value).lower()
-        if val in ("false", "no error", "0"):
+        if is_no_error_selector(str(frame.selector_value)):
             no_error_frame = frame
-        elif val in ("true", "error", "1", "default"):
+        else:
             error_frame = frame
 
     if no_error_frame is None and node.frames:

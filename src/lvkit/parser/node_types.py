@@ -620,7 +620,7 @@ class SelectHandler(NodeTypeHandler):
     """
 
     xml_class = "select"
-    display_name = "Select"
+    display_name = "Case Structure"
 
     def parse(self, elem: ET.Element) -> SelectNode:
         return SelectNode(

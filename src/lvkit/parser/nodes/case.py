@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from enum import Enum, IntEnum
 
-from lvkit.models import CaseFrame, SelectorRange, Tunnel
+from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, Tunnel
 from lvkit.text_encoding import decode_labview_text
 
 from ..constants import TERMINAL_CLASS
-from ..models import ParsedCaseStructure, ParsedTerminalInfo, SelectorTable
+from ..models import (
+    ParsedCaseStructure,
+    ParsedTerminalInfo,
+    ParsedType,
+    SelectorTable,
+)
 from ..utils import heap_color
 from .base import (
     extract_tunnel_mapping,
@@ -30,14 +36,28 @@ ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
 # objFlags bit marking a string case structure as "Case Insensitive Match".
 _CASE_INSENSITIVE_BIT = 24
 
-# LabVIEW writes INT_MIN/INT_MAX as the SYMBOLIC filler for an unbounded range
-# side — an error-cluster's status frames encode "No Error" as (INT_MIN, INT_MIN)
-# and "Error" as the full domain (INT_MIN, INT_MAX). A nonzero start/end range
-# type marks filler ONLY when the value actually is one of these sentinels; a
-# nonzero type on a REAL value (e.g. an enum member 0 in a multi-member range) is
-# a genuine match value.
-_I32_MIN = -(2**31)
-_I32_MAX = 2**31 - 1
+
+
+class RangeEndType(IntEnum):
+    """How one end of a ``SelectRangeArray32`` entry reads
+    (``startRangeType``/``endRangeType``; the element is omitted when 0).
+
+    ``SINGLE`` is a lone value (both ends equal and untyped). ``BOUNDED`` is a
+    literal end of a range (``0..2`` is ``(0, 2, BOUNDED, BOUNDED)``). ``OPEN`` is
+    an unbounded side: its stored number is filler (the selector type's limit)
+    and is never a match value -- ``0..`` is ``(0, 2147483647, BOUNDED, OPEN)``,
+    ``..-1`` is ``(-2147483648, -1, OPEN, BOUNDED)``.
+    """
+
+    SINGLE = 0
+    BOUNDED = 1
+    OPEN = 3
+
+
+class _SymbolicFrame(Enum):
+    """A frame whose range entries carry no literal value of their own."""
+
+    NO_ERROR = "no_error"  # error cluster, status False (one open-ended point)
 
 
 def _objflags_bit(elem: ET.Element, bit: int) -> bool:
@@ -136,6 +156,33 @@ def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
     if not cs.frames or any(f.is_default for f in cs.frames):
         return
     cs.frames[-1].is_default = True
+
+
+def _frame_ranges(
+    entries: list[tuple[int, int, int, int]],
+) -> list[SelectorRange] | _SymbolicFrame:
+    """One frame's ``(start, end, startRangeType, endRangeType)`` entries as
+    selector ranges, or the symbolic frame they spell.
+
+    An ``OPEN`` end is unbounded: it becomes ``open_start``/``open_end`` and its
+    stored number (filler) is never surfaced. A range open on both sides is the
+    whole domain (the error cluster's second frame, labeled ``Error ..``). A
+    single entry open on one side whose filler equals its bounded end is the
+    error cluster's "No Error" point.
+    """
+    if len(entries) == 1:
+        s, e, st, et = entries[0]
+        if s == e and RangeEndType.OPEN in (st, et):
+            return _SymbolicFrame.NO_ERROR
+    return [
+        SelectorRange(
+            start=s,
+            end=e,
+            open_start=st == RangeEndType.OPEN,
+            open_end=et == RangeEndType.OPEN,
+        )
+        for s, e, st, et in entries
+    ]
 
 
 def _extract_one_case_structure(
@@ -244,24 +291,19 @@ def _extract_one_case_structure(
     if selector_terminal_uid and terminal_info:
         ti = terminal_info.get(selector_terminal_uid)
         if ti and ti.parsed_type:
-            selector_type = _type_name_to_selector_type(
-                ti.parsed_type.type_name,
-            )
+            selector_type = _parsed_type_to_selector_type(ti.parsed_type)
 
     # Extract selector ranges from SelectRangeArray32, keyed by diagramIdx.
     # A frame can match SEVERAL ranges (e.g. ``1, 3, 5..8``); LabVIEW stores
     # each as start/end (a single value has start == end), plus a
-    # startRangeType/endRangeType per endpoint. Type 0 means the endpoint is a
-    # real literal value; a nonzero type means the endpoint is SYMBOLIC and
-    # the numeric start/end is filler (LabVIEW writes INT_MIN/INT_MAX) — this
-    # is how error-cluster frames encode "No Error" (a symbolic degenerate
-    # point) and the catch-all "Error"/default frame (a symbolic full-domain
-    # span). We preserve literal ranges verbatim — the label is reconstructed
-    # from ranges, there is no stored label — and resolve symbolic ranges
-    # below instead of surfacing their filler numbers.
+    # RangeEndType per endpoint. An OPEN endpoint is unbounded and its number is
+    # filler (the selector type's limit); error-cluster frames encode "No Error"
+    # (one open-ended point) and the catch-all "Error" frame (open on both
+    # sides) this way. Literal endpoints are preserved verbatim -- the label is
+    # reconstructed from ranges -- and symbolic frames resolve in
+    # ``_frame_ranges`` instead of surfacing their filler numbers.
     ranges_by_diag: dict[int, list[SelectorRange]] = {}
     no_error_diags: set[int] = set()
-    default_symbolic_diags: set[int] = set()
     raw_ranges_by_diag: dict[int, list[tuple[int, int, int, int]]] = {}
     select_range = case_elem.find("SelectRangeArray32")
     if select_range is not None:
@@ -283,54 +325,11 @@ def _extract_one_case_structure(
             )
 
     for diag_idx, entries in raw_ranges_by_diag.items():
-        if all(st == 0 and et == 0 for _, _, st, et in entries):
-            # Fully-literal frame — every endpoint is a real value. This is
-            # the common case (enum/int/bool/string); behavior unchanged.
-            ranges_by_diag[diag_idx] = [
-                SelectorRange(start=s, end=e) for s, e, _, _ in entries
-            ]
-            continue
-
-        if len(entries) == 1:
-            s, e, st, et = entries[0]
-            s_fill = st != 0 and s in (_I32_MIN, _I32_MAX)
-            e_fill = et != 0 and e in (_I32_MIN, _I32_MAX)
-            if s_fill and e_fill:
-                if s == e:
-                    # Degenerate symbolic point — error-cluster "No Error".
-                    no_error_diags.add(diag_idx)
-                else:
-                    # Full INT_MIN..INT_MAX domain — error-cluster catch-all
-                    # (displayed "Error"; a real "Default" comes only from
-                    # SelectDefaultCase, never from a range).
-                    default_symbolic_diags.add(diag_idx)
-                continue
-            if st != 0 and et != 0:
-                # Nonzero range types but REAL endpoint values (not the sentinel)
-                # — a genuine multi-value range of the selector's own type (e.g.
-                # two adjacent enum members). Keep it as a real range so the type
-                # resolves the endpoints to member names like any other frame.
-                ranges_by_diag[diag_idx] = [SelectorRange(start=s, end=e)]
-                continue
-            if s_fill != e_fill:
-                # One-sided symbolic — a genuine open integer range. Keep
-                # only the literal endpoint's value; the symbolic side is
-                # filler and must never be surfaced.
-                ranges_by_diag[diag_idx] = [
-                    SelectorRange(
-                        start=s,
-                        end=e,
-                        open_start=s_fill,
-                        open_end=e_fill,
-                    )
-                ]
-                continue
-
-        # Defensive fallback for any other combination (not observed in the
-        # corpus): preserve the literal numbers, matching prior behavior.
-        ranges_by_diag[diag_idx] = [
-            SelectorRange(start=s, end=e) for s, e, _, _ in entries
-        ]
+        frame_ranges = _frame_ranges(entries)
+        if frame_ranges is _SymbolicFrame.NO_ERROR:
+            no_error_diags.add(diag_idx)
+        else:
+            ranges_by_diag[diag_idx] = frame_ranges
 
     # For string selectors, the start values in SelectRangeArray32 are
     # indices into SelectStringArray (hex-encoded string labels).
@@ -350,7 +349,7 @@ def _extract_one_case_structure(
     # selectors then default to diagram 0, even when it also carries literal
     # selector ranges. When the values live only in the dataspace table, the heap
     # records no default; ``_apply_one_table`` and ``_apply_last_frame_default``
-    # decide it. Symbolic error-cluster ranges identify their own catch-all frame.
+    # decide it.
     values_in_heap = select_range is not None
     default_diag_idx: int | None = None
     default_case_elem = case_elem.findtext("SelectDefaultCase")
@@ -359,12 +358,6 @@ def _extract_one_case_structure(
             default_diag_idx = int(default_case_elem, 16)
         except ValueError:
             pass
-    if default_diag_idx is None and default_symbolic_diags:
-        # A symbolic full-domain range (rule 3 above) IS the default frame —
-        # fold it in before the "missing range" heuristic below, since a
-        # symbolic frame has no entry in ``ranges_by_diag`` either and would
-        # otherwise be indistinguishable from a No-Error frame there.
-        default_diag_idx = next(iter(default_symbolic_diags))
     if (
         values_in_heap
         and not default_case_elem
@@ -373,7 +366,7 @@ def _extract_one_case_structure(
     ):
         default_diag_idx = 0
     if default_diag_idx is None:
-        handled = set(ranges_by_diag) | no_error_diags | default_symbolic_diags
+        handled = set(ranges_by_diag) | no_error_diags
         missing = [i for i in range(num_frames) if i not in handled]
         if missing:
             default_diag_idx = missing[0]
@@ -383,7 +376,7 @@ def _extract_one_case_structure(
         for idx, diag_elem in enumerate(
             diag_list.findall("SL__arrayElement[@class='diag']")
         ):
-            is_default = idx == default_diag_idx or idx in default_symbolic_diags
+            is_default = idx == default_diag_idx
             ranges = ranges_by_diag.get(idx, [])
             resolved_selector: str | None = None
             if idx in no_error_diags:
@@ -391,12 +384,16 @@ def _extract_one_case_structure(
                 # that ``op_walk.is_no_error_selector``/``_selector_label``
                 # already recognize (renders "No Error", green border).
                 resolved_selector = "0"
+            elif ranges[:1] and ranges[0].open_start and ranges[0].open_end:
+                # The whole domain has no value of its own to key the frame by.
+                resolved_selector = None
             elif ranges:
                 sv = ranges[0].end if ranges[0].open_start else ranges[0].start
                 if selector_type == "boolean":
                     resolved_selector = "True" if sv == 1 else "False"
-                elif selector_type == "string" and sv < len(string_labels):
-                    resolved_selector = string_labels[sv]
+                elif selector_type == "string":
+                    strings = _range_strings(ranges, string_labels)
+                    resolved_selector = strings[0] if strings else None
                 else:
                     # Integer, enum, error — semantic identity is the raw
                     # first-range start (or, for an open-start range, the
@@ -414,7 +411,9 @@ def _extract_one_case_structure(
             if frame:
                 # A default frame can also have explicit selector values.
                 # Numeric/enum ranges and the catch-all flag are independent.
-                if selector_type not in ("boolean", "string"):
+                if selector_type == "string":
+                    frame.selector_strings = _range_strings(ranges, string_labels)
+                elif selector_type != "boolean":
                     frame.selector_ranges = ranges
                 frames.append(frame)
 
@@ -441,13 +440,15 @@ def _extract_one_case_structure(
         frames=frames,
         tunnels=tunnels,
         # The displayed frame from the case node's own heap ``dIdx`` (range-
-        # checked against the frame list the renderer indexes). This is the
-        # reliable FALLBACK: the dataspace selector-table correlation
-        # (_apply_selector_tables) OVERRIDES it when it succeeds, but aborts on
-        # any case/table count mismatch -- leaving this value, which is why
-        # boolean cases (no table) and multi-case VIs still open on the right
-        # frame. See issue #30.
-        displayed_frame=parse_displayed_frame(case_elem, len(frames)),
+        # checked against the frame list the renderer indexes). A case whose
+        # heap stores its selector values omits ``dIdx`` when it is 0, and the
+        # heap is authoritative for it; a case whose values live only in the
+        # dataspace takes its displayed frame from the correlated selector
+        # table (_apply_selector_tables), which overrides this value. See
+        # issue #30.
+        displayed_frame=parse_displayed_frame(
+            case_elem, len(frames), absent_is_zero=values_in_heap
+        ),
     )
 
 
@@ -518,12 +519,13 @@ def _extract_frame(
     Returns:
         Frame or None if invalid
     """
-    # Use pre-resolved selector value when available
-    if not selector_value:
+    # Use pre-resolved selector value when available. ``""`` is a real value (the
+    # empty string); only ``None`` means "not resolved".
+    if selector_value is None:
         # Fallback: try diagram element's selStr attribute
-        selector_value = diag_elem.get("selStr", "")
+        selector_value = diag_elem.get("selStr")
 
-    if not selector_value:
+    if selector_value is None:
         sel_str_elem = diag_elem.find("selStr")
         if sel_str_elem is not None and sel_str_elem.text:
             selector_value = sel_str_elem.text
@@ -533,7 +535,7 @@ def _extract_frame(
     # is wrong (that was the #82 bug), so use the frame index as a neutral,
     # unique placeholder — the dataspace SelectorTable overrides it when it
     # correlates.
-    if not selector_value:
+    if selector_value is None:
         if is_default:
             selector_value = "Default"
         elif selector_type == "boolean" or selector_type is None:
@@ -555,29 +557,36 @@ def _extract_frame(
     )
 
 
-def _type_name_to_selector_type(type_name: str) -> str | None:
-    """Map a ParsedType.type_name to a selector type category.
-
-    Args:
-        type_name: From ParsedTerminalInfo.parsed_type.type_name
-            e.g. "Boolean", "String", "NumInt32", "Enum", "Cluster"
+def _parsed_type_to_selector_type(parsed_type: ParsedType) -> str | None:
+    """Map a selector terminal's ``ParsedType`` to a selector type category.
 
     Returns:
         "boolean", "integer", "string", "enum", "error", or None
     """
-    tn = type_name.lower()
+    if parsed_type.kind == LVTypeKind.ENUM:
+        return "enum"
+    tn = parsed_type.type_name.lower()
     if tn == "boolean":
         return "boolean"
     if tn == "string":
         return "string"
     if tn.startswith("num") or tn in ("i32", "u32", "i16", "u16", "i8", "u8"):
         return "integer"
-    if "enum" in tn:
-        return "enum"
     if tn == "cluster":
         # Error cluster selector
         return "error"
     return None
+
+
+def _range_strings(ranges: list[SelectorRange], string_labels: list[str]) -> list[str]:
+    """The strings a string-selector frame matches: each range's start..end are
+    indices into the case's ``SelectStringArray``."""
+    return [
+        string_labels[i]
+        for r in ranges
+        for i in range(r.start, r.end + 1)
+        if 0 <= i < len(string_labels)
+    ]
 
 
 def _parse_type_id(type_desc: str | None) -> int | None:
@@ -743,7 +752,15 @@ def _try_apply_selector_tables(
 
 
 def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
-    """Overwrite a case's frame selector values from its correlated table."""
+    """Apply a case's correlated table: its displayed frame and per-frame
+    selector values.
+
+    A case whose heap stores its selector values (``selector_values_in_heap``)
+    is left alone: the heap is authoritative for its values, default frame and
+    displayed frame, and a positionally paired table may belong to another case.
+    """
+    if case.selector_values_in_heap:
+        return
     # displayed_frame < 0 is the "no frame displayed" sentinel — leave the
     # case's own displayed_frame (from dIdx) rather than overwrite with -1.
     if table.displayed_frame >= 0:
@@ -757,10 +774,8 @@ def _apply_one_table(case: ParsedCaseStructure, table: SelectorTable) -> None:
             frame.selector_ranges = []
             frame.selector_strings = []
             continue
-        if not case.selector_values_in_heap:
-            # The heap recorded no default, so a frame with values is not one.
-            # A heap-stored SelectDefaultCase stays authoritative ("0, Default").
-            frame.is_default = False
+        # The heap recorded no default, so a frame with values is not one.
+        frame.is_default = False
         if table.has_strings:
             strings: list[str] = []
             for start, end in my_ranges:

@@ -290,6 +290,11 @@ class SequenceNode(StructureNode):
     # Sequence.
     is_flat: bool = True
 
+    @property
+    def kind_word(self) -> str:
+        """``Flat`` or ``Stacked`` -- which kind of sequence this is."""
+        return "Flat" if self.is_flat else "Stacked"
+
 
 class InPlaceNode(StructureNode):
     """An In Place Element Structure (decompose/recompose).
