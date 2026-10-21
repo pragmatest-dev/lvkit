@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: case frames showed the wrong selector values** — empty-string frames, extra strings, value-plus-Default frames, enum defaults, open ranges and overwritten values now match the VI; lvnet frame headers read `frame "Error", default :` and `frame "0", "43" :` (#170).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

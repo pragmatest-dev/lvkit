@@ -9,6 +9,7 @@ CSS px in both `lvkit docs` and the interactive viewer)."""
 from __future__ import annotations
 
 import re
+from xml.etree import ElementTree
 
 from lvkit.render.backend import SvgBackend
 
@@ -34,3 +35,15 @@ def test_root_svg_width_height_track_a_wide_bounds_too() -> None:
     tag = _svg_tag(svg)
     assert 'width="713"' in tag
     assert 'height="249"' in tag
+
+
+def test_control_characters_a_string_selector_can_hold_stay_well_formed() -> None:
+    """XML 1.0 cannot carry a NUL (even as a character reference): the SVG shows
+    U+FFFD instead, so the whole document still parses."""
+    backend = SvgBackend()
+    backend.begin_group(data={"lv-frames": "\x08;\x00\x00;Default"})
+    backend.text(5.0, 5.0, "a\x00b", 10.0)
+    backend.end_group()
+    svg = backend.render((0.0, 0.0, 20.0, 20.0))
+    ElementTree.fromstring(svg)
+    assert "a�b" in svg

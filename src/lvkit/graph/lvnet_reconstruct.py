@@ -935,7 +935,11 @@ def _reconstruct_scope(
             body = _reconstruct_items(f.body, registry, types_dict, memo, fresh_uid)
             frames.append(
                 NetlistFrame(
-                    label=f.label, value=f.label, is_default=f.is_default, body=body
+                    label=f.label,
+                    value=f.label,
+                    is_default=f.is_default,
+                    body=body,
+                    values=f.values,
                 )
             )
         net_order: list[str] = []

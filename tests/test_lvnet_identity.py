@@ -466,18 +466,21 @@ def _compare_scope(
                         f"{frame_path}: is_default mismatch: "
                         f"{fa.is_default!r} vs {fb.is_default!r}"
                     )
-                # Compare the frame's OWN selector value(s) via the same
-                # quoting ``_render_lvnet_case_scope`` itself applies (the
-                # original's ``label`` is stored BARE, e.g. "Error", while a
-                # reconstructed label is stored ALREADY quoted, e.g.
-                # '"Error"' -- an intentional passthrough asymmetry, not a
-                # real difference -- see ``_quoted_frame_label``'s own
-                # docstring), so this normalizes both sides to the same
-                # final rendered token before comparing.
-                if _quoted_frame_label(fa.label) != _quoted_frame_label(fb.label):
+                # Compare the frame's OWN selector value(s). A case frame
+                # lists them as separate values (``values``); a disabled
+                # frame's label is the original's bare text vs the
+                # reconstructed already-quoted text, so both sides are
+                # normalized to the same rendered token first.
+                if a.kind == "case":
+                    same_values = fa.values == fb.values
+                else:
+                    same_values = _quoted_frame_label(fa.label) == _quoted_frame_label(
+                        fb.label
+                    )
+                if not same_values:
                     errors.append(
                         f"{frame_path}: selector value mismatch: "
-                        f"{fa.label!r} vs {fb.label!r}"
+                        f"{fa.values or fa.label!r} vs {fb.values or fb.label!r}"
                     )
             _compare_items(fa.body, fb.body, frame_path, errors, ctx)
 

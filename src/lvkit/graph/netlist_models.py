@@ -320,6 +320,11 @@ class NetlistFrame:
     # build time via ``_has_output_tunnel_gn`` since the renderer only sees
     # the IR, not the original graph operation.
     passthrough: bool = False
+    # A case frame's selector values, one entry per value and unquoted (enum
+    # item names, integers/ranges, raw strings, ``Error``); empty for a default
+    # frame that matches no value of its own and for non-case frames. What
+    # ``render_lvnet`` writes as the frame header's comma list.
+    values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

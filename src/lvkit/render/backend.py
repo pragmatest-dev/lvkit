@@ -9,10 +9,26 @@ heuristic: it needs to match whatever backend eventually renders the text.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Protocol, runtime_checkable
-from xml.sax.saxutils import escape, quoteattr
+from xml.sax import saxutils
 
 Point = tuple[float, float]
+
+# Characters XML 1.0 cannot carry at all (not even as a character reference):
+# C0 controls other than tab/newline/carriage return, and U+FFFE/U+FFFF. A
+# string selector can hold any of them; the SVG shows U+FFFD in their place.
+_XML_INVALID_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def escape(text: str) -> str:
+    """XML text content for ``text``."""
+    return saxutils.escape(_XML_INVALID_CHARS.sub("\ufffd", text))
+
+
+def quoteattr(text: str) -> str:
+    """A quoted XML attribute value for ``text``."""
+    return saxutils.quoteattr(_XML_INVALID_CHARS.sub("\ufffd", text))
 
 # Average glyph width as a fraction of font size, for a generic sans-serif
 # face. A real backend (or a future PIL/PNG backend) can measure exactly;

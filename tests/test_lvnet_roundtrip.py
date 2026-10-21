@@ -171,6 +171,49 @@ _ROUND_TRIP_CASES = [
         _DCAF_ROOT,
         id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
+    # Case frame headers: an empty-string frame, several strings per frame, a
+    # frame that matches values AND is the default, multi-value integer and
+    # enum frames, open integer ranges, and control characters in a string
+    # frame.
+    pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "Tree_Control_VIs" / "Item Indent.vi",
+        _JKI_SOURCE_ROOT,
+        id="Item_Indent_empty_string_frame",
+    ),
+    pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "Expand Pathroot.vi",
+        _JKI_SOURCE_ROOT,
+        id="Expand_Pathroot_multi_string_frames",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Miscellaneous"
+        / "Key Down Up"
+        / "KeyDown.vi",
+        _ICON_EDITOR_ROOT,
+        id="KeyDown_multi_value_and_control_char_frames",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Miscellaneous"
+        / "Write Error to File.vi",
+        _ICON_EDITOR_ROOT,
+        id="Write_Error_to_File_integer_default_frames",
+    ),
+    pytest.param(
+        Path(".lvkit/cache/samples/JKI-EasyXML")
+        / "Source"
+        / "Fast Parser"
+        / "Link XML Start Tags with End Tags.vi",
+        Path(".lvkit/cache/samples/JKI-EasyXML"),
+        id="Link_XML_Start_Tags_open_range_frames",
+    ),
 ]
 
 

@@ -99,6 +99,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
     correlate_property_terminals,
+    selector_frame_values,
 )
 from .operations import frame_key
 from .queries import ClassContext, collect_class_context
@@ -1603,6 +1604,7 @@ def _build_case_scope_gn(
             label=_selector_label(frame, lv_type, is_error),
             value=str(frame.selector_value),
             is_default=frame.is_default,
+            values=selector_frame_values(frame, lv_type, is_error),
             body=_build_items_gn(
                 graph,
                 ctx,

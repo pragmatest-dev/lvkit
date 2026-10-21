@@ -351,28 +351,36 @@ def _const_value_str(c: Constant) -> str:
     return str(c.value)
 
 
-def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
-    """Render a frame's selector ranges the way LabVIEW builds the label:
-    singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as ``a..``
-    / ``..b``, joined with ``, `` (e.g. ``1, 3, 5..8``). Shared by the
-    renderer's frame-chrome label and the netlist's case/disable frame
-    label -- both need the identical faithful text."""
-    parts: list[str] = []
+def _range_tokens(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> list[str]:
+    """A frame's selector ranges as the separate values LabVIEW lists in its
+    label: singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as
+    ``a..`` / ``..b``, and the whole domain as ``..`` (e.g. ``1``, ``3``,
+    ``5..8``). Exactly two adjacent values list both (``a``, ``b``): ".."
+    means the contiguous middle is skipped, which only applies to a span of
+    three or more values."""
+    tokens: list[str] = []
     for r in ranges:
-        if r.open_start:
-            parts.append(f"..{fmt(r.end)}")
+        if r.open_start and r.open_end:
+            tokens.append("..")
+        elif r.open_start:
+            tokens.append(f"..{fmt(r.end)}")
         elif r.open_end:
-            parts.append(f"{fmt(r.start)}..")
+            tokens.append(f"{fmt(r.start)}..")
         elif r.is_single:
-            parts.append(fmt(r.start))
+            tokens.append(fmt(r.start))
         elif r.end == r.start + 1:
-            # Exactly two values — nothing lies between them to elide, so list
-            # both ("a, b"). ".." means the contiguous middle is skipped, which
-            # only applies to a span of three or more values.
-            parts.append(f"{fmt(r.start)}, {fmt(r.end)}")
+            tokens.extend((fmt(r.start), fmt(r.end)))
         else:
-            parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
-    return ", ".join(parts)
+            tokens.append(f"{fmt(r.start)}..{fmt(r.end)}")
+    return tokens
+
+
+def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
+    """Render a frame's selector ranges the way LabVIEW builds the label: the
+    ``_range_tokens`` values joined with ``, `` (e.g. ``1, 3, 5..8``). Shared by
+    the renderer's frame-chrome label and the netlist's case/disable frame
+    label -- both need the identical faithful text."""
+    return ", ".join(_range_tokens(ranges, fmt))
 
 
 def is_no_error_selector(selector_value: str) -> bool:
@@ -394,9 +402,20 @@ def _terminal_display_name(term: Terminal) -> str | None:
     return term.display_name or term.name
 
 
-def _selector_values_label(frame: CaseFrame, lv_type: LVType | None) -> str | None:
-    """A frame's explicit selector values: enum item name(s), integer
-    value(s)/range(s), or quoted strings; None when it has none."""
+_DEFAULT_LABEL = "Default"
+
+
+def _is_string_selector(frame: CaseFrame, lv_type: LVType | None) -> bool:
+    """Whether the frame's values are strings (shown quoted)."""
+    return bool(frame.selector_strings) or bool(
+        lv_type and lv_type.underlying_type == "String"
+    )
+
+
+def _selector_values(frame: CaseFrame, lv_type: LVType | None) -> list[str]:
+    """A frame's explicit selector values, one entry per value: enum item
+    name(s), integer value(s)/range(s), or the raw strings; empty when it has
+    none."""
     if (
         lv_type
         and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
@@ -404,44 +423,57 @@ def _selector_values_label(frame: CaseFrame, lv_type: LVType | None) -> str | No
         and frame.selector_ranges
     ):
         int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
-        return _format_ranges(
+        return _range_tokens(
             frame.selector_ranges,
             lambda i: int_to_name.get(i, str(i)),
         )
     if frame.selector_ranges:  # integer selector
-        return _format_ranges(frame.selector_ranges, str)
-    if frame.selector_strings:  # string selector — one frame, several strings
-        return ", ".join(f'"{s}"' for s in frame.selector_strings)
-    return None
+        return _range_tokens(frame.selector_ranges, str)
+    return list(frame.selector_strings)  # string selector: one frame, several
+
+
+def selector_frame_values(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> tuple[str, ...]:
+    """The values one case frame's label lists, unquoted and in order -- empty
+    for a default frame that matches no value of its own. Error-cluster frames
+    list their one label (``No Error``/``Error``/``Error 3..10``)."""
+    sv = str(frame.selector_value)
+    if is_error:
+        # The error-cluster case switches on the status boolean: 0 = no error,
+        # anything else is an error (LabVIEW: "No Error" / "Error", plus code
+        # ranges like "Error 3..10" since 2019). The Error frame is often the
+        # structure's default -- LabVIEW still labels it "Error", not "Default".
+        if is_no_error_selector(sv):
+            return ("No Error",)
+        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
+        if codes:
+            return (f"Error {_format_ranges(codes, str)}",)
+        return ("Error",)
+    values = _selector_values(frame, lv_type)
+    if values:
+        return tuple(values)
+    if frame.is_default:
+        return ()
+    return (sv,)  # boolean True/False, or an already-display token
 
 
 def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
     """The faithful case-selector text for one frame, by selector type:
     ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
     integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
+    A default frame that also matches values lists them first
+    (``0, Default``).
     """
-    sv = str(frame.selector_value)
-    if is_error:
-        # The error-cluster case switches on the status boolean: 0 = no error,
-        # anything else is an error (LabVIEW: "No Error" / "Error", plus code
-        # ranges like "Error 3..10" since 2019). The Error frame is often the
-        # structure's default — LabVIEW still labels it "Error", not "Default",
-        # so this precedes the plain-default branch below.
-        if is_no_error_selector(sv):
-            return "No Error"
-        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
-        if codes:
-            return f"Error {_format_ranges(codes, str)}"
-        return "Error"
-    values = _selector_values_label(frame, lv_type)
-    if frame.is_default or sv == "Default":
-        # A default frame can also carry explicit values ("0, Default").
-        return f"{values}, Default" if values else "Default"
-    if values:
-        return values
-    if lv_type and lv_type.underlying_type == "String":
-        return f'"{sv}"'
-    return sv  # boolean True/False, or an already-display token
+    values = selector_frame_values(frame, lv_type, is_error)
+    shown = (
+        [f'"{v}"' for v in values] if _is_string_selector(frame, lv_type) else values
+    )
+    listed = ", ".join(shown)
+    if is_error or not frame.is_default:
+        return listed
+    # A default frame can also carry explicit values ("0, Default").
+    return f"{listed}, {_DEFAULT_LABEL}" if listed else _DEFAULT_LABEL
 
 
 # ============================================================

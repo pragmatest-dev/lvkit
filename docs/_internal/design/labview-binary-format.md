@@ -459,6 +459,34 @@ via `main_xml`. Fixed #82 (was fabricating True/False for all non-boolean cases)
 Renderer `_selector_label` + codegen `_build_frame_pattern` now emit multi-value
 labels / `case "jpe" | "jpeg" | "jpg":` OR-patterns. See [[feedback_no_heuristics]].
 
+### Case selector values in the heap (LabVIEW 2010+)
+
+Verified against the stored label of the displayed frame (`selString/textRec/text`
+of the `select`/`caseStruct` element, frame `dIdx`; LabVIEW omits `dIdx` when it
+is 0) over a fixed corpus list (`tests/test_case_frame_labels_corpus.py`):
+
+- `SelectRangeArray32` entries are `start`/`end` plus `startRangeType`/
+  `endRangeType` (each omitted when 0). **0** = a lone value; **1** = a literal
+  end of a range (`0..2` is `(0, 2, 1, 1)`); **3** = an OPEN side, whose number is
+  filler (the selector type's limit: `0..` is `(0, 2147483647, 1, 3)`, `..-1` is
+  `(-2147483648, -1, 3, 1)`, I16 `126..` is `(126, 32767, 1, 3)`). Both sides open
+  is the whole domain: the error cluster's second frame, stored as `Error ..`
+  (`Error ` plus the range text) with `SelectDefaultCase` FF, so it is not a
+  default frame; one open side whose filler equals the bounded end is its "No
+  Error" point.
+- A string frame lists `SelectStringArray` indices (a frame can match several);
+  the empty string is an element without text.
+- Enum selectors are named `UnitUInt8/16/32` by pylabview; the type's kind is
+  `ENUM`.
+- A heap case's `SelectDefaultCase` is authoritative for its default frame and
+  its `dIdx` (absent = 0) for the displayed frame. A dataspace table paired to it
+  by order may belong to another case, so tables are applied only to cases
+  whose values are not in the heap.
+- A pre-2010 case has no `SelectRangeArray32`; its `dIdx` is a global diagram
+  ordinal (e.g. 36, 38, 52 on 2-frame cases), not a frame index.
+- Stored labels quote enum item names and strings (`"Up", Default`), pad with a
+  space, and write a control character as a backslash code.
+
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->
 
