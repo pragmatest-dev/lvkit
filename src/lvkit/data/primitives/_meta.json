@@ -232,7 +232,7 @@
           "index": 2,
           "direction": "in",
           "name": "dimension size",
-          "type": "array",
+          "type": "numeric",
           "per_dimension_of": 1
         }
       ],

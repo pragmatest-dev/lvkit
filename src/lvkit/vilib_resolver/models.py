@@ -12,7 +12,7 @@ class VITerminal(BaseModel):
 
     name: str = ""
     index: int | None = None
-    direction: str | None = None  # None = unknown, must come from observation
+    direction: str | None = None  # "in" or "out"; None = unknown, from observation
     type: str | None = None
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None

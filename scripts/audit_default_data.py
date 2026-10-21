@@ -24,12 +24,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import resource
 import subprocess
 import sys
+import warnings
 from collections import Counter
 from pathlib import Path
 
+from lvkit.cache_paths import global_cache_root
+from lvkit.parser.audit import audit_vi
+
 WORKER_FLAG = "--_worker"
+# A decoder fault that tries to allocate without bound must fail its worker with
+# MemoryError, not take the machine down.
+WORKER_ADDRESS_SPACE_BYTES = 3 * 1024**3
 LIST_NAME = "vis.txt"
 
 
@@ -55,19 +64,17 @@ def enumerate_extracts(cache_root: Path) -> list[str]:
     return sorted(row for _stamp, row in newest.values())
 
 
+def _limit_worker_memory() -> None:
+    """Runs in the worker process before it starts: caps its address space."""
+    resource.setrlimit(
+        resource.RLIMIT_AS, (WORKER_ADDRESS_SPACE_BYTES, WORKER_ADDRESS_SPACE_BYTES)
+    )
+
+
 def _worker(out_path: str, rows: list[str]) -> int:
     """Audit the given rows in THIS process, one VI at a time, then exit."""
-    import logging
-    import resource
-    import warnings
-
-    # A decoder fault that tries to allocate without bound must fail this one
-    # worker with MemoryError, not take the machine down.
-    limit = 3 * 1024**3
-    resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
     logging.disable(logging.CRITICAL)
     warnings.simplefilter("ignore")
-    from lvkit.parser.audit import audit_vi
 
     with open(out_path, "w") as out:
         for row in rows:
@@ -139,8 +146,6 @@ def main() -> None:
         _summarize(out_dir)
         return
 
-    from lvkit.cache_paths import global_cache_root
-
     rows = enumerate_extracts(global_cache_root())
     if args.limit:
         rows = rows[: args.limit]
@@ -156,6 +161,7 @@ def main() -> None:
             [sys.executable, me, WORKER_FLAG, str(out_path), *batch],
             capture_output=True,
             text=True,
+            preexec_fn=_limit_worker_memory,
         )
         if proc.returncode != 0:
             print(f"  WORKER DIED at {start} rc={proc.returncode} {proc.stderr[-200:]}")

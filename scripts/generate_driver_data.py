@@ -99,25 +99,25 @@ def _cat(name: str, entries: list[dict[str, Any]]) -> dict:
 # =============================================================
 
 # DAQmx — only indices verified from actual VI observations (In.vi)
-_TI = _t("task in", 0, "input", "task_in")  # verified: In.vi
-_TO4 = _t("task out", 4, "output", "task_out")  # verified: In.vi
-_TO8 = _t("task out", None, "output", "task_out")  # unverified
-_CI = _t("task/channels in", 0, "input", "task_in")  # verified: In.vi
-_PC = _t("physical channels", 5, "input", "physical_channel")  # verified: In.vi
-_MN = _t("minimum value", None, "input", "min_val")
-_MX = _t("maximum value", None, "input", "max_val")
+_TI = _t("task in", 0, "in", "task_in")  # verified: In.vi
+_TO4 = _t("task out", 4, "out", "task_out")  # verified: In.vi
+_TO8 = _t("task out", None, "out", "task_out")  # unverified
+_CI = _t("task/channels in", 0, "in", "task_in")  # verified: In.vi
+_PC = _t("physical channels", 5, "in", "physical_channel")  # verified: In.vi
+_MN = _t("minimum value", None, "in", "min_val")
+_MX = _t("maximum value", None, "in", "max_val")
 _RP = {"task_out": "passthrough_from:task_in"}
 _IMP_DAQ = ["import nidaqmx"]
 
 # VISA / pyvisa — indices unverified
-_VI = _t("VISA resource name", None, "input", "instr")
-_VO = _t("VISA resource name out", None, "output", "instr_out")
+_VI = _t("VISA resource name", None, "in", "instr")
+_VO = _t("VISA resource name out", None, "out", "instr_out")
 _VR = {"instr_out": "passthrough_from:instr"}
 _IMP_VISA = ["import pyvisa"]
 
 # NI modular (session-based) — indices unverified
-_SI = _t("instrument handle", None, "input", "session")
-_SO = _t("instrument handle out", None, "output", "session_out")
+_SI = _t("instrument handle", None, "in", "session")
+_SO = _t("instrument handle out", None, "out", "session_out")
 _SR = {"session_out": "passthrough_from:session"}
 
 
@@ -139,7 +139,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "DAQmx Create Task.vi",
             "{task_out} = nidaqmx.Task({task_name})",
             "Creates a DAQmx task.",
-            [_t("task name", 1, "input", "task_name"), _TO4],  # verified: In.vi
+            [_t("task name", 1, "in", "task_name"), _TO4],  # verified: In.vi
             _IMP_DAQ,
             _RP,
         )
@@ -166,7 +166,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "DAQmx Wait Until Done.vi",
             "{task_in}.wait_until_done(timeout={timeout})",
             "Waits for the task to finish.",
-            [_TI, _t("timeout (s)", None, "input", "timeout"), _TO4],
+            [_TI, _t("timeout (s)", None, "in", "timeout"), _TO4],
             _IMP_DAQ,
             _RP,
         )
@@ -185,11 +185,11 @@ def _daqmx_entries() -> list[dict[str, Any]]:
                 _t(
                     "physical channels",
                     5,
-                    "input",  # verified: In.vi
+                    "in",  # verified: In.vi
                     "physical_channel",
                 ),
                 _TO4,
-                _t("task out", 15, "output", "task_out"),
+                _t("task out", 15, "out", "task_out"),
             ],  # verified: In.vi
             _IMP_DAQ,
             _RP,
@@ -204,8 +204,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "Reads samples from the task.",
             [
                 _TI,
-                _t("number of samples per channel", None, "input", "num_samps"),
-                _t("data", None, "output", "data"),
+                _t("number of samples per channel", None, "in", "num_samps"),
+                _t("data", None, "out", "data"),
                 _TO8,
             ],
             _IMP_DAQ,
@@ -228,8 +228,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
                 desc,
                 [
                     _TI,
-                    _t("number of samples per channel", None, "input", "num_samps"),
-                    _t("data", None, "output", "data"),
+                    _t("number of samples per channel", None, "in", "num_samps"),
+                    _t("data", None, "out", "data"),
                     _TO8,
                 ],
                 _IMP_DAQ,
@@ -244,7 +244,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "DAQmx Write.vi",
             "{task_in}.write({data})",
             "Writes samples to the task.",
-            [_TI, _t("data", 7, "input", "data"), _TO4],  # verified: In.vi
+            [_TI, _t("data", 7, "in", "data"), _TO4],  # verified: In.vi
             _IMP_DAQ,
             _RP,
         )
@@ -261,7 +261,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
                 vi,
                 "{task_in}.write({data})",
                 desc,
-                [_TI, _t("data", 7, "input", "data"), _TO4],  # verified: In.vi
+                [_TI, _t("data", 7, "in", "data"), _TO4],  # verified: In.vi
                 _IMP_DAQ,
                 _RP,
                 [vi],
@@ -372,8 +372,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "CO Pulse Freq",
             "co_channels.add_co_pulse_chan_freq",
             [
-                _t("frequency", None, "input", "freq"),
-                _t("duty cycle", None, "input", "duty_cycle"),
+                _t("frequency", None, "in", "freq"),
+                _t("duty cycle", None, "in", "duty_cycle"),
             ],
             ["CO Pulse Freq"],
         ),
@@ -381,8 +381,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "CO Pulse Time",
             "co_channels.add_co_pulse_chan_time",
             [
-                _t("high time", None, "input", "high_time"),
-                _t("low time", None, "input", "low_time"),
+                _t("high time", None, "in", "high_time"),
+                _t("low time", None, "in", "low_time"),
             ],
             ["CO Pulse Time"],
         ),
@@ -390,8 +390,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "CO Pulse Ticks",
             "co_channels.add_co_pulse_chan_ticks",
             [
-                _t("high ticks", None, "input", "high_ticks"),
-                _t("low ticks", None, "input", "low_ticks"),
+                _t("high ticks", None, "in", "high_ticks"),
+                _t("low ticks", None, "in", "low_ticks"),
             ],
             ["CO Pulse Ticks"],
         ),
@@ -426,17 +426,17 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "Sample Clock",
             "timing.cfg_samp_clk_timing",
             [
-                _t("rate", None, "input", "rate"),
-                _t("sample mode", None, "input", "sample_mode"),
-                _t("samples per channel", None, "input", "samps_per_chan"),
+                _t("rate", None, "in", "rate"),
+                _t("sample mode", None, "in", "sample_mode"),
+                _t("samples per channel", None, "in", "samps_per_chan"),
             ],
         ),
         (
             "Implicit",
             "timing.cfg_implicit_timing",
             [
-                _t("sample mode", None, "input", "sample_mode"),
-                _t("samples per channel", None, "input", "samps_per_chan"),
+                _t("sample mode", None, "in", "sample_mode"),
+                _t("samples per channel", None, "in", "samps_per_chan"),
             ],
         ),
     ]
@@ -464,15 +464,15 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "Digital Edge",
             "cfg_dig_edge_start_trig",
             "Configures digital edge start trigger.",
-            [_t("source", None, "input", "trigger_source")],
+            [_t("source", None, "in", "trigger_source")],
         ),
         (
             "Analog Edge",
             "cfg_anlg_edge_start_trig",
             "Configures analog edge start trigger.",
             [
-                _t("source", None, "input", "trigger_source"),
-                _t("level", None, "input", "trigger_level"),
+                _t("source", None, "in", "trigger_source"),
+                _t("level", None, "in", "trigger_level"),
             ],
         ),
         (
@@ -480,9 +480,9 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "cfg_anlg_window_start_trig",
             "Configures analog window start trigger.",
             [
-                _t("source", None, "input", "trigger_source"),
-                _t("window top", None, "input", "window_top"),
-                _t("window bottom", None, "input", "window_bottom"),
+                _t("source", None, "in", "trigger_source"),
+                _t("window top", None, "in", "window_top"),
+                _t("window bottom", None, "in", "window_bottom"),
             ],
         ),
         (
@@ -490,8 +490,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "cfg_dig_pattern_start_trig",
             "Configures digital pattern start trigger.",
             [
-                _t("source", None, "input", "trigger_source"),
-                _t("pattern", None, "input", "trigger_pattern"),
+                _t("source", None, "in", "trigger_source"),
+                _t("pattern", None, "in", "trigger_pattern"),
             ],
         ),
         ("None", "disable_start_trig", "Disables start trigger.", []),
@@ -522,8 +522,8 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "cfg_dig_edge_ref_trig",
             "Configures digital edge reference trigger.",
             [
-                _t("source", None, "input", "trigger_source"),
-                _t("pretrigger samples", None, "input", "pretrigger_samples"),
+                _t("source", None, "in", "trigger_source"),
+                _t("pretrigger samples", None, "in", "pretrigger_samples"),
             ],
         ),
         (
@@ -531,9 +531,9 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "cfg_anlg_edge_ref_trig",
             "Configures analog edge reference trigger.",
             [
-                _t("source", None, "input", "trigger_source"),
-                _t("pretrigger samples", None, "input", "pretrigger_samples"),
-                _t("level", None, "input", "trigger_level"),
+                _t("source", None, "in", "trigger_source"),
+                _t("pretrigger samples", None, "in", "pretrigger_samples"),
+                _t("level", None, "in", "trigger_level"),
             ],
         ),
         ("None", "disable_ref_trig", "Disables reference trigger.", []),
@@ -553,7 +553,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "DAQmx Configure Input Buffer.vi",
             "{task_in}.in_stream.input_buf_size = {buffer_size}",
             "Configures the input buffer size.",
-            [_TI, _t("buffer size", None, "input", "buffer_size"), _TO4],
+            [_TI, _t("buffer size", None, "in", "buffer_size"), _TO4],
             _IMP_DAQ,
             _RP,
         )
@@ -563,7 +563,7 @@ def _daqmx_entries() -> list[dict[str, Any]]:
             "DAQmx Configure Output Buffer.vi",
             "{task_in}.out_stream.output_buf_size = {buffer_size}",
             "Configures the output buffer size.",
-            [_TI, _t("buffer size", None, "input", "buffer_size"), _TO4],
+            [_TI, _t("buffer size", None, "in", "buffer_size"), _TO4],
             _IMP_DAQ,
             _RP,
         )
@@ -587,8 +587,8 @@ def _visa_entries() -> list[dict[str, Any]]:
             ".open_resource({visa_resource_name})",
             "Opens a VISA session to a resource.",
             [
-                _t("VISA resource name", None, "input", "visa_resource_name"),
-                _t("timeout", None, "input", "open_timeout"),
+                _t("VISA resource name", None, "in", "visa_resource_name"),
+                _t("timeout", None, "in", "open_timeout"),
                 _VO,
             ],
             _IMP_VISA,
@@ -601,9 +601,9 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Writes data to a device.",
             [
                 _VI,
-                _t("write buffer", None, "input", "write_buffer"),
+                _t("write buffer", None, "in", "write_buffer"),
                 _VO,
-                _t("return count", None, "output", "return_count"),
+                _t("return count", None, "out", "return_count"),
             ],
             _IMP_VISA,
             _VR,
@@ -616,9 +616,9 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Reads data from a device.",
             [
                 _VI,
-                _t("byte count", None, "input", "byte_count"),
+                _t("byte count", None, "in", "byte_count"),
                 _VO,
-                _t("read buffer", None, "output", "read_buffer"),
+                _t("read buffer", None, "out", "read_buffer"),
             ],
             _IMP_VISA,
             _VR,
@@ -639,8 +639,8 @@ def _visa_entries() -> list[dict[str, Any]]:
             "{find_list} = pyvisa.ResourceManager().list_resources({expression})",
             "Finds VISA resources matching expression.",
             [
-                _t("expression", None, "input", "expression"),
-                _t("find list", None, "output", "find_list"),
+                _t("expression", None, "in", "expression"),
+                _t("find list", None, "out", "find_list"),
             ],
             _IMP_VISA,
         )
@@ -650,7 +650,7 @@ def _visa_entries() -> list[dict[str, Any]]:
             "VISA Write From File.vi",
             "with open({file_path}, 'rb') as _f:\n    {instr}.write_raw(_f.read())",
             "Writes file contents to a device.",
-            [_VI, _t("file path", None, "input", "file_path"), _VO],
+            [_VI, _t("file path", None, "in", "file_path"), _VO],
             _IMP_VISA,
             _VR,
         )
@@ -660,7 +660,7 @@ def _visa_entries() -> list[dict[str, Any]]:
             "VISA Read To File.vi",
             "with open({file_path}, 'wb') as _f:\n    _f.write({instr}.read_raw())",
             "Reads data from device to file.",
-            [_VI, _t("file path", None, "input", "file_path"), _VO],
+            [_VI, _t("file path", None, "in", "file_path"), _VO],
             _IMP_VISA,
             _VR,
         )
@@ -700,7 +700,7 @@ def _visa_entries() -> list[dict[str, Any]]:
             "VISA Read STB.vi",
             "{status_byte} = {instr}.read_stb()",
             "Reads service request status byte.",
-            [_VI, _VO, _t("status byte", None, "output", "status_byte")],
+            [_VI, _VO, _t("status byte", None, "out", "status_byte")],
             _IMP_VISA,
             _VR,
         )
@@ -720,7 +720,7 @@ def _visa_entries() -> list[dict[str, Any]]:
             "VISA Flush I/O Buffer.vi",
             "{instr}.flush(pyvisa.constants.BufferOperation.discard_read_buffer_no_io)",
             "Flushes I/O buffers.",
-            [_VI, _t("mask", None, "input", "mask"), _VO],
+            [_VI, _t("mask", None, "in", "mask"), _VO],
             _IMP_VISA,
             _VR,
         )
@@ -730,7 +730,7 @@ def _visa_entries() -> list[dict[str, Any]]:
             "VISA Set Timeout.vi",
             "{instr}.timeout = {timeout_value}",
             "Sets the timeout for a VISA resource.",
-            [_VI, _t("timeout value (ms)", None, "input", "timeout_value"), _VO],
+            [_VI, _t("timeout value (ms)", None, "in", "timeout_value"), _VO],
             _IMP_VISA,
             _VR,
         )
@@ -745,11 +745,11 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Configures a serial port.",
             [
                 _VI,
-                _t("baud rate", None, "input", "baud_rate"),
-                _t("data bits", None, "input", "data_bits"),
-                _t("parity", None, "input", "parity"),
-                _t("stop bits", None, "input", "stop_bits"),
-                _t("VISA resource name out", None, "output", "instr_out"),
+                _t("baud rate", None, "in", "baud_rate"),
+                _t("data bits", None, "in", "data_bits"),
+                _t("parity", None, "in", "parity"),
+                _t("stop bits", None, "in", "stop_bits"),
+                _t("VISA resource name out", None, "out", "instr_out"),
             ],
             _IMP_VISA,
             _VR,
@@ -764,8 +764,8 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Sets I/O buffer size.",
             [
                 _VI,
-                _t("mask", None, "input", "mask"),
-                _t("size", None, "input", "size"),
+                _t("mask", None, "in", "mask"),
+                _t("size", None, "in", "size"),
                 _VO,
             ],
             _IMP_VISA,
@@ -779,8 +779,8 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Enables event notification.",
             [
                 _VI,
-                _t("event type", None, "input", "event_type"),
-                _t("mechanism", None, "input", "mechanism"),
+                _t("event type", None, "in", "event_type"),
+                _t("mechanism", None, "in", "mechanism"),
                 _VO,
             ],
             _IMP_VISA,
@@ -794,8 +794,8 @@ def _visa_entries() -> list[dict[str, Any]]:
             "Disables event notification.",
             [
                 _VI,
-                _t("event type", None, "input", "event_type"),
-                _t("mechanism", None, "input", "mechanism"),
+                _t("event type", None, "in", "event_type"),
+                _t("mechanism", None, "in", "mechanism"),
                 _VO,
             ],
             _IMP_VISA,
@@ -813,8 +813,8 @@ def _visa_entries() -> list[dict[str, Any]]:
 
 def _serial_entries() -> list[dict[str, Any]]:
     imp = ["import serial"]
-    si = _t("serial port", None, "input", "ser")
-    so = _t("serial port out", None, "output", "ser_out")
+    si = _t("serial port", None, "in", "ser")
+    so = _t("serial port out", None, "out", "ser_out")
     sr = {"ser_out": "passthrough_from:ser"}
 
     return [
@@ -823,8 +823,8 @@ def _serial_entries() -> list[dict[str, Any]]:
             "{ser_out} = serial.Serial(port={port}, baudrate={baud_rate})",
             "Opens and configures a serial port.",
             [
-                _t("port name", None, "input", "port"),
-                _t("baud rate", None, "input", "baud_rate"),
+                _t("port name", None, "in", "port"),
+                _t("baud rate", None, "in", "baud_rate"),
                 so,
             ],
             imp,
@@ -833,7 +833,7 @@ def _serial_entries() -> list[dict[str, Any]]:
             "Serial Port Write.vi",
             "{ser}.write({data})",
             "Writes data to serial port.",
-            [si, _t("data", None, "input", "data"), so],
+            [si, _t("data", None, "in", "data"), so],
             imp,
             sr,
         ),
@@ -843,9 +843,9 @@ def _serial_entries() -> list[dict[str, Any]]:
             "Reads data from serial port.",
             [
                 si,
-                _t("byte count", None, "input", "byte_count"),
+                _t("byte count", None, "in", "byte_count"),
                 so,
-                _t("data", None, "output", "read_data"),
+                _t("data", None, "out", "read_data"),
             ],
             imp,
             sr,
@@ -861,7 +861,7 @@ def _serial_entries() -> list[dict[str, Any]]:
             "Serial Port Bytes at Port.vi",
             "{bytes_at_port} = {ser}.in_waiting",
             "Returns bytes in the input buffer.",
-            [si, _t("bytes at port", None, "output", "bytes_at_port"), so],
+            [si, _t("bytes at port", None, "out", "bytes_at_port"), so],
             imp,
             sr,
         ),
@@ -894,7 +894,7 @@ def _ni_session_lifecycle(
     imp = _ni_sess(pkg)
     init_terms = (
         [
-            _t("resource name", None, "input", "resource_name"),
+            _t("resource name", None, "in", "resource_name"),
         ]
         + (extra_init_terms or [])
         + [_SO]
@@ -926,7 +926,7 @@ def _ni_session_lifecycle(
             f"{prefix} Self-Test.vi",
             "{result} = {session}.self_test()",
             f"Runs {prefix} self-test.",
-            [_SI, _SO, _t("result", None, "output", "result")],
+            [_SI, _SO, _t("result", None, "out", "result")],
             imp,
             _SR,
         ),
@@ -991,10 +991,10 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Configures vertical settings.",
             [
                 _SI,
-                _t("channel", None, "input", "channel"),
-                _t("range", None, "input", "range"),
-                _t("coupling", None, "input", "coupling"),
-                _t("offset", None, "input", "offset"),
+                _t("channel", None, "in", "channel"),
+                _t("range", None, "in", "range"),
+                _t("coupling", None, "in", "coupling"),
+                _t("offset", None, "in", "offset"),
                 _SO,
             ],
             imp,
@@ -1013,11 +1013,11 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Configures horizontal timing.",
             [
                 _SI,
-                _t("min sample rate", None, "input", "min_sample_rate"),
-                _t("min record length", None, "input", "min_num_pts"),
-                _t("reference position", None, "input", "ref_position"),
-                _t("number of records", None, "input", "num_records"),
-                _t("enforce realtime", None, "input", "enforce_realtime"),
+                _t("min sample rate", None, "in", "min_sample_rate"),
+                _t("min record length", None, "in", "min_num_pts"),
+                _t("reference position", None, "in", "ref_position"),
+                _t("number of records", None, "in", "num_records"),
+                _t("enforce realtime", None, "in", "enforce_realtime"),
                 _SO,
             ],
             imp,
@@ -1033,9 +1033,9 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Configures edge trigger.",
             [
                 _SI,
-                _t("trigger source", None, "input", "trigger_source"),
-                _t("level", None, "input", "level"),
-                _t("slope", None, "input", "slope"),
+                _t("trigger source", None, "in", "trigger_source"),
+                _t("level", None, "in", "level"),
+                _t("slope", None, "in", "slope"),
                 _SO,
             ],
             imp,
@@ -1047,8 +1047,8 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Digital",
             "configure_trigger_digital",
             [
-                _t("trigger source", None, "input", "trigger_source"),
-                _t("slope", None, "input", "slope"),
+                _t("trigger source", None, "in", "trigger_source"),
+                _t("slope", None, "in", "slope"),
             ],
         ),
         ("Software", "configure_trigger_software", []),
@@ -1076,11 +1076,11 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Fetches acquired waveforms.",
             [
                 _SI,
-                _t("channel", None, "input", "channel"),
-                _t("num samples", None, "input", "num_samples"),
-                _t("timeout", None, "input", "timeout"),
+                _t("channel", None, "in", "channel"),
+                _t("num samples", None, "in", "num_samples"),
+                _t("timeout", None, "in", "timeout"),
                 _SO,
-                _t("waveforms", None, "output", "waveforms"),
+                _t("waveforms", None, "out", "waveforms"),
             ],
             imp,
             _SR,
@@ -1095,11 +1095,11 @@ def _niscope_entries() -> list[dict[str, Any]]:
             "Acquires and reads waveforms.",
             [
                 _SI,
-                _t("channel", None, "input", "channel"),
-                _t("num samples", None, "input", "num_samples"),
-                _t("timeout", None, "input", "timeout"),
+                _t("channel", None, "in", "channel"),
+                _t("num samples", None, "in", "num_samples"),
+                _t("timeout", None, "in", "timeout"),
                 _SO,
-                _t("waveforms", None, "output", "waveforms"),
+                _t("waveforms", None, "out", "waveforms"),
             ],
             imp,
             _SR,
@@ -1138,10 +1138,10 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             "Configures standard waveform output.",
             [
                 _SI,
-                _t("waveform", None, "input", "waveform"),
-                _t("amplitude", None, "input", "amplitude"),
-                _t("frequency", None, "input", "frequency"),
-                _t("dc offset", None, "input", "dc_offset"),
+                _t("waveform", None, "in", "waveform"),
+                _t("amplitude", None, "in", "amplitude"),
+                _t("frequency", None, "in", "frequency"),
+                _t("dc offset", None, "in", "dc_offset"),
                 _SO,
             ],
             imp,
@@ -1157,9 +1157,9 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             "Configures arbitrary waveform output.",
             [
                 _SI,
-                _t("waveform handle", None, "input", "waveform_handle"),
-                _t("gain", None, "input", "gain"),
-                _t("offset", None, "input", "offset"),
+                _t("waveform handle", None, "in", "waveform_handle"),
+                _t("gain", None, "in", "gain"),
+                _t("offset", None, "in", "offset"),
                 _SO,
             ],
             imp,
@@ -1173,9 +1173,9 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             "Creates an arb waveform from data.",
             [
                 _SI,
-                _t("waveform data", None, "input", "waveform_data"),
+                _t("waveform data", None, "in", "waveform_data"),
                 _SO,
-                _t("waveform handle", None, "output", "waveform_handle"),
+                _t("waveform handle", None, "out", "waveform_handle"),
             ],
             imp,
             _SR,
@@ -1188,8 +1188,8 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             "Writes data to an arb waveform.",
             [
                 _SI,
-                _t("waveform handle", None, "input", "waveform_handle"),
-                _t("waveform data", None, "input", "waveform_data"),
+                _t("waveform handle", None, "in", "waveform_handle"),
+                _t("waveform data", None, "in", "waveform_data"),
                 _SO,
             ],
             imp,
@@ -1221,7 +1221,7 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             f"{pfx} Is Done.vi",
             "{is_done} = {session}.is_done()",
             "Checks if generation is done.",
-            [_SI, _SO, _t("done", None, "output", "is_done")],
+            [_SI, _SO, _t("done", None, "out", "is_done")],
             imp,
             _SR,
         )
@@ -1231,7 +1231,7 @@ def _nifgen_entries() -> list[dict[str, Any]]:
             f"{pfx} Write Script.vi",
             "{session}.write_script({script})",
             "Writes a generation script.",
-            [_SI, _t("script", None, "input", "script"), _SO],
+            [_SI, _t("script", None, "in", "script"), _SO],
             imp,
             _SR,
         )
@@ -1254,7 +1254,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Voltage Level.vi",
             "{session}.voltage_level = {voltage_level}",
             "Sets the output voltage level.",
-            [_SI, _t("voltage level", None, "input", "voltage_level"), _SO],
+            [_SI, _t("voltage level", None, "in", "voltage_level"), _SO],
             imp,
             _SR,
         )
@@ -1264,7 +1264,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Current Limit.vi",
             "{session}.current_limit = {current_limit}",
             "Sets the output current limit.",
-            [_SI, _t("current limit", None, "input", "current_limit"), _SO],
+            [_SI, _t("current limit", None, "in", "current_limit"), _SO],
             imp,
             _SR,
         )
@@ -1274,7 +1274,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Current Level.vi",
             "{session}.current_level = {current_level}",
             "Sets the output current level.",
-            [_SI, _t("current level", None, "input", "current_level"), _SO],
+            [_SI, _t("current level", None, "in", "current_level"), _SO],
             imp,
             _SR,
         )
@@ -1284,7 +1284,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Voltage Limit.vi",
             "{session}.voltage_limit = {voltage_limit}",
             "Sets the output voltage limit.",
-            [_SI, _t("voltage limit", None, "input", "voltage_limit"), _SO],
+            [_SI, _t("voltage limit", None, "in", "voltage_limit"), _SO],
             imp,
             _SR,
         )
@@ -1294,7 +1294,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Output Enabled.vi",
             "{session}.output_enabled = {output_enabled}",
             "Enables or disables the output.",
-            [_SI, _t("output enabled", None, "input", "output_enabled"), _SO],
+            [_SI, _t("output enabled", None, "in", "output_enabled"), _SO],
             imp,
             _SR,
         )
@@ -1304,7 +1304,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Aperture Time.vi",
             "{session}.configure_aperture_time({aperture_time})",
             "Configures measurement aperture time.",
-            [_SI, _t("aperture time", None, "input", "aperture_time"), _SO],
+            [_SI, _t("aperture time", None, "in", "aperture_time"), _SO],
             imp,
             _SR,
         )
@@ -1317,9 +1317,9 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             [
                 _SI,
                 _SO,
-                _t("voltage", None, "output", "voltage"),
-                _t("current", None, "output", "current"),
-                _t("in compliance", None, "output", "in_compliance"),
+                _t("voltage", None, "out", "voltage"),
+                _t("current", None, "out", "current"),
+                _t("in compliance", None, "out", "in_compliance"),
             ],
             imp,
             _SR,
@@ -1333,10 +1333,10 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             "Fetches multiple measurements.",
             [
                 _SI,
-                _t("count", None, "input", "count"),
-                _t("timeout", None, "input", "timeout"),
+                _t("count", None, "in", "count"),
+                _t("timeout", None, "in", "timeout"),
                 _SO,
-                _t("measurements", None, "output", "measurements"),
+                _t("measurements", None, "out", "measurements"),
             ],
             imp,
             _SR,
@@ -1347,7 +1347,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Query In Compliance.vi",
             "{in_compliance} = {session}.query_in_compliance()",
             "Queries if output is in compliance.",
-            [_SI, _SO, _t("in compliance", None, "output", "in_compliance")],
+            [_SI, _SO, _t("in compliance", None, "out", "in_compliance")],
             imp,
             _SR,
         )
@@ -1357,7 +1357,7 @@ def _nidcpower_entries() -> list[dict[str, Any]]:
             f"{pfx} Query Output State.vi",
             "{output_state} = {session}.query_output_state()",
             "Queries the output state.",
-            [_SI, _SO, _t("output state", None, "output", "output_state")],
+            [_SI, _SO, _t("output state", None, "out", "output_state")],
             imp,
             _SR,
         )
@@ -1385,9 +1385,9 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Configures measurement type and range.",
             [
                 _SI,
-                _t("function", None, "input", "function"),
-                _t("range", None, "input", "range"),
-                _t("resolution digits", None, "input", "resolution_digits"),
+                _t("function", None, "in", "function"),
+                _t("range", None, "in", "range"),
+                _t("resolution digits", None, "in", "resolution_digits"),
                 _SO,
             ],
             imp,
@@ -1401,9 +1401,9 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Initiates and reads a measurement.",
             [
                 _SI,
-                _t("maximum time", None, "input", "max_time"),
+                _t("maximum time", None, "in", "max_time"),
                 _SO,
-                _t("reading", None, "output", "reading"),
+                _t("reading", None, "out", "reading"),
             ],
             imp,
             _SR,
@@ -1416,9 +1416,9 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Fetches a measurement result.",
             [
                 _SI,
-                _t("maximum time", None, "input", "max_time"),
+                _t("maximum time", None, "in", "max_time"),
                 _SO,
-                _t("reading", None, "output", "reading"),
+                _t("reading", None, "out", "reading"),
             ],
             imp,
             _SR,
@@ -1433,8 +1433,8 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Configures multi-point acquisition.",
             [
                 _SI,
-                _t("trigger count", None, "input", "trigger_count"),
-                _t("sample count", None, "input", "sample_count"),
+                _t("trigger count", None, "in", "trigger_count"),
+                _t("sample count", None, "in", "sample_count"),
                 _SO,
             ],
             imp,
@@ -1446,7 +1446,7 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             f"{pfx} Configure Trigger.vi",
             "{session}.configure_trigger(trigger_source={trigger_source})",
             "Configures trigger source.",
-            [_SI, _t("trigger source", None, "input", "trigger_source"), _SO],
+            [_SI, _t("trigger source", None, "in", "trigger_source"), _SO],
             imp,
             _SR,
         )
@@ -1460,10 +1460,10 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Fetches multiple measurement results.",
             [
                 _SI,
-                _t("array size", None, "input", "array_size"),
-                _t("maximum time", None, "input", "max_time"),
+                _t("array size", None, "in", "array_size"),
+                _t("maximum time", None, "in", "max_time"),
                 _SO,
-                _t("readings", None, "output", "readings"),
+                _t("readings", None, "out", "readings"),
             ],
             imp,
             _SR,
@@ -1478,10 +1478,10 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Initiates and reads multiple measurements.",
             [
                 _SI,
-                _t("array size", None, "input", "array_size"),
-                _t("maximum time", None, "input", "max_time"),
+                _t("array size", None, "in", "array_size"),
+                _t("maximum time", None, "in", "max_time"),
                 _SO,
-                _t("readings", None, "output", "readings"),
+                _t("readings", None, "out", "readings"),
             ],
             imp,
             _SR,
@@ -1497,10 +1497,10 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Configures waveform acquisition.",
             [
                 _SI,
-                _t("function", None, "input", "function"),
-                _t("range", None, "input", "range"),
-                _t("rate", None, "input", "rate"),
-                _t("waveform points", None, "input", "waveform_points"),
+                _t("function", None, "in", "function"),
+                _t("range", None, "in", "range"),
+                _t("rate", None, "in", "rate"),
+                _t("waveform points", None, "in", "waveform_points"),
                 _SO,
             ],
             imp,
@@ -1514,9 +1514,9 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             "Fetches waveform data.",
             [
                 _SI,
-                _t("array size", None, "input", "array_size"),
+                _t("array size", None, "in", "array_size"),
                 _SO,
-                _t("waveform", None, "output", "waveform"),
+                _t("waveform", None, "out", "waveform"),
             ],
             imp,
             _SR,
@@ -1530,8 +1530,8 @@ def _nidmm_entries() -> list[dict[str, Any]]:
             [
                 _SI,
                 _SO,
-                _t("acquisition backlog", None, "output", "backlog"),
-                _t("acquisition status", None, "output", "status"),
+                _t("acquisition backlog", None, "out", "backlog"),
+                _t("acquisition status", None, "out", "status"),
             ],
             imp,
             _SR,
@@ -1568,8 +1568,8 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "{resource_name}, topology={topology})",
             "Opens a switch session with topology.",
             [
-                _t("resource name", None, "input", "resource_name"),
-                _t("topology", None, "input", "topology"),
+                _t("resource name", None, "in", "resource_name"),
+                _t("topology", None, "in", "topology"),
                 _SO,
             ],
             imp,
@@ -1591,8 +1591,8 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Connects two switch channels.",
             [
                 _SI,
-                _t("channel 1", None, "input", "channel1"),
-                _t("channel 2", None, "input", "channel2"),
+                _t("channel 1", None, "in", "channel1"),
+                _t("channel 2", None, "in", "channel2"),
                 _SO,
             ],
             imp,
@@ -1606,8 +1606,8 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Disconnects two switch channels.",
             [
                 _SI,
-                _t("channel 1", None, "input", "channel1"),
-                _t("channel 2", None, "input", "channel2"),
+                _t("channel 1", None, "in", "channel1"),
+                _t("channel 2", None, "in", "channel2"),
                 _SO,
             ],
             imp,
@@ -1631,10 +1631,10 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Checks if channels can be connected.",
             [
                 _SI,
-                _t("channel 1", None, "input", "channel1"),
-                _t("channel 2", None, "input", "channel2"),
+                _t("channel 1", None, "in", "channel1"),
+                _t("channel 2", None, "in", "channel2"),
                 _SO,
-                _t("path capability", None, "output", "path_capability"),
+                _t("path capability", None, "out", "path_capability"),
             ],
             imp,
             _SR,
@@ -1647,10 +1647,10 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Gets the path between channels.",
             [
                 _SI,
-                _t("channel 1", None, "input", "channel1"),
-                _t("channel 2", None, "input", "channel2"),
+                _t("channel 1", None, "in", "channel1"),
+                _t("channel 2", None, "in", "channel2"),
                 _SO,
-                _t("path", None, "output", "path"),
+                _t("path", None, "out", "path"),
             ],
             imp,
             _SR,
@@ -1661,7 +1661,7 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             f"{pfx} Set Path.vi",
             "{session}.set_path({path_list})",
             "Sets a switch path.",
-            [_SI, _t("path list", None, "input", "path_list"), _SO],
+            [_SI, _t("path list", None, "in", "path_list"), _SO],
             imp,
             _SR,
         )
@@ -1671,7 +1671,7 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             f"{pfx} Wait For Debounce.vi",
             "{session}.wait_for_debounce(maximum_time_ms={max_time})",
             "Waits for switches to settle.",
-            [_SI, _t("maximum time", None, "input", "max_time"), _SO],
+            [_SI, _t("maximum time", None, "in", "max_time"), _SO],
             imp,
             _SR,
         )
@@ -1681,7 +1681,7 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             f"{pfx} Wait For Scan Complete.vi",
             "{session}.wait_for_scan_complete(maximum_time_ms={max_time})",
             "Waits for scanning to complete.",
-            [_SI, _t("maximum time", None, "input", "max_time"), _SO],
+            [_SI, _t("maximum time", None, "in", "max_time"), _SO],
             imp,
             _SR,
         )
@@ -1693,9 +1693,9 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Gets the relay cycle count.",
             [
                 _SI,
-                _t("relay name", None, "input", "relay_name"),
+                _t("relay name", None, "in", "relay_name"),
                 _SO,
-                _t("count", None, "output", "count"),
+                _t("count", None, "out", "count"),
             ],
             imp,
             _SR,
@@ -1708,9 +1708,9 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Gets relay position.",
             [
                 _SI,
-                _t("relay name", None, "input", "relay_name"),
+                _t("relay name", None, "in", "relay_name"),
                 _SO,
-                _t("position", None, "output", "position"),
+                _t("position", None, "out", "position"),
             ],
             imp,
             _SR,
@@ -1723,8 +1723,8 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             "Controls a relay directly.",
             [
                 _SI,
-                _t("relay name", None, "input", "relay_name"),
-                _t("relay action", None, "input", "relay_action"),
+                _t("relay name", None, "in", "relay_name"),
+                _t("relay action", None, "in", "relay_action"),
                 _SO,
             ],
             imp,
@@ -1746,7 +1746,7 @@ def _niswitch_entries() -> list[dict[str, Any]]:
             f"{pfx} Self-Test.vi",
             "{result} = {session}.self_test()",
             "Runs self-test.",
-            [_SI, _SO, _t("result", None, "output", "result")],
+            [_SI, _SO, _t("result", None, "out", "result")],
             imp,
             _SR,
         )
@@ -1769,7 +1769,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Load Pin Map.vi",
             "{session}.load_pin_map({file_path})",
             "Loads a pin map file.",
-            [_SI, _t("pin map file path", None, "input", "file_path"), _SO],
+            [_SI, _t("pin map file path", None, "in", "file_path"), _SO],
             imp,
             _SR,
         )
@@ -1779,7 +1779,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Load Pattern.vi",
             "{session}.load_pattern({file_path})",
             "Loads a digital pattern file.",
-            [_SI, _t("pattern file path", None, "input", "file_path"), _SO],
+            [_SI, _t("pattern file path", None, "in", "file_path"), _SO],
             imp,
             _SR,
         )
@@ -1798,11 +1798,11 @@ def _nidigital_entries() -> list[dict[str, Any]]:
                 _t(
                     "specifications file paths",
                     None,
-                    "input",
+                    "in",
                     "specifications_file_paths",
                 ),
-                _t("levels file paths", None, "input", "levels_file_paths"),
-                _t("timing file paths", None, "input", "timing_file_paths"),
+                _t("levels file paths", None, "in", "levels_file_paths"),
+                _t("timing file paths", None, "in", "timing_file_paths"),
                 _SO,
             ],
             imp,
@@ -1818,8 +1818,8 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Applies levels and timing sheets.",
             [
                 _SI,
-                _t("levels sheet", None, "input", "levels_sheet"),
-                _t("timing sheet", None, "input", "timing_sheet"),
+                _t("levels sheet", None, "in", "levels_sheet"),
+                _t("timing sheet", None, "in", "timing_sheet"),
                 _SO,
             ],
             imp,
@@ -1836,12 +1836,12 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Configures pin voltage levels.",
             [
                 _SI,
-                _t("pin list", None, "input", "pin_list"),
-                _t("VIL", None, "input", "vil"),
-                _t("VIH", None, "input", "vih"),
-                _t("VOL", None, "input", "vol"),
-                _t("VOH", None, "input", "voh"),
-                _t("VTERM", None, "input", "vterm"),
+                _t("pin list", None, "in", "pin_list"),
+                _t("VIL", None, "in", "vil"),
+                _t("VIH", None, "in", "vih"),
+                _t("VOL", None, "in", "vol"),
+                _t("VOH", None, "in", "voh"),
+                _t("VTERM", None, "in", "vterm"),
                 _SO,
             ],
             imp,
@@ -1855,9 +1855,9 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Bursts a digital pattern.",
             [
                 _SI,
-                _t("start label", None, "input", "start_label"),
+                _t("start label", None, "in", "start_label"),
                 _SO,
-                _t("site pass/fail", None, "output", "site_pass_fail"),
+                _t("site pass/fail", None, "out", "site_pass_fail"),
             ],
             imp,
             _SR,
@@ -1868,7 +1868,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Get Site Pass/Fail.vi",
             "{site_pass_fail} = {session}.get_site_pass_fail()",
             "Gets per-site pass/fail results.",
-            [_SI, _SO, _t("site pass/fail", None, "output", "site_pass_fail")],
+            [_SI, _SO, _t("site pass/fail", None, "out", "site_pass_fail")],
             imp,
             _SR,
         )
@@ -1878,7 +1878,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Get Fail Count.vi",
             "{fail_count} = {session}.get_fail_count()",
             "Gets per-pin fail counts.",
-            [_SI, _SO, _t("fail count", None, "output", "fail_count")],
+            [_SI, _SO, _t("fail count", None, "out", "fail_count")],
             imp,
             _SR,
         )
@@ -1888,7 +1888,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Wait Until Done.vi",
             "{session}.wait_until_done(timeout={timeout})",
             "Waits for pattern to complete.",
-            [_SI, _t("timeout", None, "input", "timeout"), _SO],
+            [_SI, _t("timeout", None, "in", "timeout"), _SO],
             imp,
             _SR,
         )
@@ -1898,7 +1898,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Is Done.vi",
             "{is_done} = {session}.is_done()",
             "Checks if pattern burst is done.",
-            [_SI, _SO, _t("done", None, "output", "is_done")],
+            [_SI, _SO, _t("done", None, "out", "is_done")],
             imp,
             _SR,
         )
@@ -1912,10 +1912,10 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Performs PPMU measurement.",
             [
                 _SI,
-                _t("pin list", None, "input", "pin_list"),
-                _t("measurement type", None, "input", "measurement_type"),
+                _t("pin list", None, "in", "pin_list"),
+                _t("measurement type", None, "in", "measurement_type"),
                 _SO,
-                _t("measurements", None, "output", "measurements"),
+                _t("measurements", None, "out", "measurements"),
             ],
             imp,
             _SR,
@@ -1928,8 +1928,8 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Sources voltage or current via PPMU.",
             [
                 _SI,
-                _t("pin list", None, "input", "pin_list"),
-                _t("output function", None, "input", "output_function"),
+                _t("pin list", None, "in", "pin_list"),
+                _t("output function", None, "in", "output_function"),
                 _SO,
             ],
             imp,
@@ -1946,10 +1946,10 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             "Fetches captured waveform data.",
             [
                 _SI,
-                _t("waveform name", None, "input", "waveform_name"),
-                _t("samples to read", None, "input", "samples_to_read"),
+                _t("waveform name", None, "in", "waveform_name"),
+                _t("samples to read", None, "in", "samples_to_read"),
                 _SO,
-                _t("waveform data", None, "output", "waveform_data"),
+                _t("waveform data", None, "out", "waveform_data"),
             ],
             imp,
             _SR,
@@ -1960,7 +1960,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Clock Generator Generate Clock.vi",
             "{session}.clock_generator_generate_clock(frequency={frequency})",
             "Generates a clock signal.",
-            [_SI, _t("frequency", None, "input", "frequency"), _SO],
+            [_SI, _t("frequency", None, "in", "frequency"), _SO],
             imp,
             _SR,
         )
@@ -1980,7 +1980,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Read Static.vi",
             "{pin_states} = {session}.read_static()",
             "Reads static pin states.",
-            [_SI, _SO, _t("pin states", None, "output", "pin_states")],
+            [_SI, _SO, _t("pin states", None, "out", "pin_states")],
             imp,
             _SR,
         )
@@ -1990,7 +1990,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} Write Static.vi",
             "{session}.write_static({state})",
             "Writes static pin states.",
-            [_SI, _t("state", None, "input", "state"), _SO],
+            [_SI, _t("state", None, "in", "state"), _SO],
             imp,
             _SR,
         )
@@ -2000,7 +2000,7 @@ def _nidigital_entries() -> list[dict[str, Any]]:
             f"{pfx} TDR.vi",
             "{offsets} = {session}.tdr()",
             "Performs TDR calibration.",
-            [_SI, _SO, _t("offsets", None, "output", "offsets")],
+            [_SI, _SO, _t("offsets", None, "out", "offsets")],
             imp,
             _SR,
         )

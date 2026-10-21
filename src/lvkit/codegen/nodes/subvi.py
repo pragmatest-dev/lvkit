@@ -136,15 +136,15 @@ def _generate_inline(
         if vt.index is None:
             continue
         param_key = vt.python_param or to_var_name(vt.name)
-        if vt.direction in ("in", "input"):
+        if vt.direction == "in":
             vilib_inputs[vt.index] = param_key
-        elif vt.direction in ("out", "output"):
+        elif vt.direction == "out":
             vilib_outputs[vt.index] = param_key
 
     # Build default values from vilib terminal definitions
     vilib_defaults: dict[str, str] = {}
     for vt in vilib_vi.terminals:
-        if vt.direction in ("in", "input"):
+        if vt.direction == "in":
             param_key = vt.python_param or to_var_name(vt.name)
             default = getattr(vt, "default_value", None)
             if default is not None:
@@ -363,7 +363,7 @@ def _build_arguments(
 
     vilib_inputs = _build_vilib_terminal_map(
         vilib_vi,
-        "input",
+        "in",
     )
 
     args = []
@@ -439,7 +439,7 @@ def _resolve_enum_value(
     # Find this terminal in vilib
     vilib_term = None
     for vt in vilib_vi.terminals:
-        if vt.index == term_index and vt.direction == "input":
+        if vt.index == term_index and vt.direction == "in":
             vilib_term = vt
             break
 
@@ -508,7 +508,7 @@ def _build_output_bindings(
 
     vilib_outputs = _build_vilib_terminal_map(
         vilib_vi,
-        "output",
+        "out",
     )
 
     bindings = {}

@@ -14,12 +14,12 @@
       "terminals": [
         {
           "name": "resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "resource_name"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ]
@@ -36,7 +36,7 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         }
       ]
@@ -53,12 +53,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -78,17 +78,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         },
         {
           "name": "result",
-          "direction": "output",
+          "direction": "out",
           "python_param": "result"
         }
       ],
@@ -108,12 +108,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -133,12 +133,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -158,12 +158,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -183,12 +183,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -208,12 +208,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -233,17 +233,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "voltage level",
-          "direction": "input",
+          "direction": "in",
           "python_param": "voltage_level"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -263,17 +263,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "current limit",
-          "direction": "input",
+          "direction": "in",
           "python_param": "current_limit"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -293,17 +293,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "current level",
-          "direction": "input",
+          "direction": "in",
           "python_param": "current_level"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -323,17 +323,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "voltage limit",
-          "direction": "input",
+          "direction": "in",
           "python_param": "voltage_limit"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -353,17 +353,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "output enabled",
-          "direction": "input",
+          "direction": "in",
           "python_param": "output_enabled"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -383,17 +383,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "aperture time",
-          "direction": "input",
+          "direction": "in",
           "python_param": "aperture_time"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         }
       ],
@@ -413,27 +413,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         },
         {
           "name": "voltage",
-          "direction": "output",
+          "direction": "out",
           "python_param": "voltage"
         },
         {
           "name": "current",
-          "direction": "output",
+          "direction": "out",
           "python_param": "current"
         },
         {
           "name": "in compliance",
-          "direction": "output",
+          "direction": "out",
           "python_param": "in_compliance"
         }
       ],
@@ -453,27 +453,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "count",
-          "direction": "input",
+          "direction": "in",
           "python_param": "count"
         },
         {
           "name": "timeout",
-          "direction": "input",
+          "direction": "in",
           "python_param": "timeout"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         },
         {
           "name": "measurements",
-          "direction": "output",
+          "direction": "out",
           "python_param": "measurements"
         }
       ],
@@ -493,17 +493,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         },
         {
           "name": "in compliance",
-          "direction": "output",
+          "direction": "out",
           "python_param": "in_compliance"
         }
       ],
@@ -523,17 +523,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "session_out"
         },
         {
           "name": "output state",
-          "direction": "output",
+          "direction": "out",
           "python_param": "output_state"
         }
       ],

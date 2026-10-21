@@ -180,7 +180,7 @@ Update it if partial; otherwise create a new entry.
   "VI Name.vi": {
     "name": "VI Name",
     "terminals": [
-      {"name": "terminal_name", "index": N, "direction": "input", "type": "actual_type", "python_param": "python_parameter_name"}
+      {"name": "terminal_name", "index": N, "direction": "in", "type": "actual_type", "python_param": "python_parameter_name"}
     ],
     "python_code": "python_equivalent_expression",
     "inline": true

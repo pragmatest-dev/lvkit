@@ -14,17 +14,17 @@
       "terminals": [
         {
           "name": "port name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "port"
         },
         {
           "name": "baud rate",
-          "direction": "input",
+          "direction": "in",
           "python_param": "baud_rate"
         },
         {
           "name": "serial port out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "ser_out"
         }
       ]
@@ -41,17 +41,17 @@
       "terminals": [
         {
           "name": "serial port",
-          "direction": "input",
+          "direction": "in",
           "python_param": "ser"
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data"
         },
         {
           "name": "serial port out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "ser_out"
         }
       ],
@@ -71,22 +71,22 @@
       "terminals": [
         {
           "name": "serial port",
-          "direction": "input",
+          "direction": "in",
           "python_param": "ser"
         },
         {
           "name": "byte count",
-          "direction": "input",
+          "direction": "in",
           "python_param": "byte_count"
         },
         {
           "name": "serial port out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "ser_out"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "read_data"
         }
       ],
@@ -106,7 +106,7 @@
       "terminals": [
         {
           "name": "serial port",
-          "direction": "input",
+          "direction": "in",
           "python_param": "ser"
         }
       ]
@@ -123,17 +123,17 @@
       "terminals": [
         {
           "name": "serial port",
-          "direction": "input",
+          "direction": "in",
           "python_param": "ser"
         },
         {
           "name": "bytes at port",
-          "direction": "output",
+          "direction": "out",
           "python_param": "bytes_at_port"
         },
         {
           "name": "serial port out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "ser_out"
         }
       ],
@@ -153,12 +153,12 @@
       "terminals": [
         {
           "name": "serial port",
-          "direction": "input",
+          "direction": "in",
           "python_param": "ser"
         },
         {
           "name": "serial port out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "ser_out"
         }
       ],

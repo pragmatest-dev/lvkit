@@ -82,10 +82,10 @@ def test_same_index_in_both_directions_keeps_each_name() -> None:
     }
 
 
-def test_vilib_directions_use_input_output_spelling() -> None:
+def test_a_partial_entry_names_the_terminals_it_lists() -> None:
     catalog = [
-        _CatalogTerminal("string", 0, "input"),
-        _CatalogTerminal("trimmed string", 2, "output"),
+        _CatalogTerminal("string", 0, "in"),
+        _CatalogTerminal("trimmed string", 2, "out"),
     ]
     assert _names([(0, "in"), (2, "out")], catalog, complete=False) == {
         (0, "in"): "string",
@@ -95,8 +95,8 @@ def test_vilib_directions_use_input_output_spelling() -> None:
 
 def test_partial_entry_names_what_it_lists_and_skips_direction_conflicts() -> None:
     catalog = [
-        _CatalogTerminal("string", 0, "input"),
-        _CatalogTerminal("trimmed string", 2, "output"),
+        _CatalogTerminal("string", 0, "in"),
+        _CatalogTerminal("trimmed string", 2, "out"),
     ]
     # Slot 1 is not listed (fine for a partial entry); slot 2 arrives as an
     # input, the other direction, so it stays unnamed.

@@ -37,22 +37,15 @@ class NodeSlot:
     """One terminal of a node: its connector-pane index and direction."""
 
     index: int
-    direction: str  # "in" or "out", the catalog's vocabulary
+    direction: str  # "in" or "out", the one spelling every catalog uses
 
 
 SlotKey = tuple[int, str]
 
 
-# Primitive and node-type entries spell directions "in"/"out"; vi.lib entries
-# spell them "input"/"output".
-_DIRECTION_ALIASES = {"in": "in", "input": "in", "out": "out", "output": "out"}
-
-
 def _direction_fits(catalog_direction: str | None, node_direction: str) -> bool:
     """A catalog terminal with no recorded direction fits either direction."""
-    if catalog_direction is None:
-        return True
-    return _DIRECTION_ALIASES.get(catalog_direction) == node_direction
+    return catalog_direction is None or catalog_direction == node_direction
 
 
 def catalog_terminal_names(

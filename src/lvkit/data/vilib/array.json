@@ -1448,7 +1448,7 @@
           "enum_values": null,
           "python_param": "array",
           "index": 0,
-          "direction": "input"
+          "direction": "in"
         },
         {
           "name": "array with duplicates removed",
@@ -1457,7 +1457,7 @@
           "enum_values": null,
           "python_param": "array_with_duplicates_removed",
           "index": 1,
-          "direction": "output"
+          "direction": "out"
         },
         {
           "name": "indices of removed elements",
@@ -1466,7 +1466,7 @@
           "enum_values": null,
           "python_param": "indices_of_removed_elements",
           "index": 2,
-          "direction": "output"
+          "direction": "out"
         }
       ],
       "match_names": [

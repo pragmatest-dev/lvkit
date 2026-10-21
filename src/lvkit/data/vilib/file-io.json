@@ -1944,7 +1944,7 @@
           "type": "sysdir.llb:System Directory Type.ctl",
           "python_param": "directory_type",
           "index": 11,
-          "direction": "input"
+          "direction": "in"
         },
         {
           "name": "create directory if not found? (F)",
@@ -1960,7 +1960,7 @@
           "enum_values": null,
           "python_param": "system_directory_path",
           "index": 2,
-          "direction": "output"
+          "direction": "out"
         }
       ],
       "imports": [
@@ -1990,7 +1990,7 @@
           "enum_values": null,
           "python_param": "separator",
           "index": 0,
-          "direction": "output",
+          "direction": "out",
           "type": "String"
         }
       ],

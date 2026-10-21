@@ -141,7 +141,7 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     learned = resolver.resolve_by_name("Learn Me.vi")
     assert learned is not None
     assert [t.index for t in learned.terminals] == [4, 1]
-    assert learned.terminals[0].direction == "input"
+    assert learned.terminals[0].direction == "in"
     assert _tree_digest(read_only_catalog) == before
 
 
@@ -170,7 +170,7 @@ def test_conflicting_observation_becomes_a_variant_in_memory(
     resolver.auto_update_terminals("Learn Me.vi", [other_name], caller_vi="Caller.vi")
 
     match = resolver.find_matching_variant(
-        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "input", "type": None}}
+        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "in", "type": None}}
     )
     assert match is not None
     assert match.is_variant
