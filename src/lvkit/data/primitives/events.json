@@ -86,30 +86,30 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "event data cluster",
+          "name": "event data",
           "type": "Cluster"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 4,
           "direction": "in",
           "name": "priority (normal)",
           "type": "Enum32"
         },
         {
-          "index": 4,
+          "index": 8,
           "direction": "out",
           "name": "user event out",
           "type": "Refnum",
           "refnum_type": "user_event"
         },
         {
-          "index": 5,
+          "index": 11,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"
@@ -188,20 +188,20 @@
           "type": "NumInt32"
         },
         {
-          "index": 6,
+          "index": 8,
           "direction": "out",
           "name": "event reg refnum out",
           "type": "Refnum",
           "refnum_type": "event_reg"
         },
         {
-          "index": 7,
+          "index": 9,
           "direction": "out",
           "name": "number of events discarded",
           "type": "NumUInt32"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"

@@ -184,7 +184,7 @@
         {
           "index": 5,
           "direction": "in",
-          "name": "path to private key",
+          "name": "path",
           "type": "Path"
         }
       ],
@@ -221,7 +221,7 @@
         {
           "index": 4,
           "direction": "in",
-          "name": "path to certificates",
+          "name": "path",
           "type": "Path"
         }
       ],
@@ -324,7 +324,7 @@
         {
           "index": 1,
           "direction": "out",
-          "name": "immutable TLS configuration",
+          "name": "TLS configuration out",
           "type": "Refnum",
           "refnum_type": "tls_configuration"
         },

@@ -292,50 +292,50 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "menu reference out",
           "type": "Refnum",
           "refnum_type": "menu"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "in",
           "name": "short cut",
           "type": "Cluster"
         },
         {
-          "index": 3,
+          "index": 6,
           "direction": "in",
           "name": "checked",
           "type": "Boolean"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "in",
           "name": "item tag",
           "type": "String"
         },
         {
-          "index": 5,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 6,
+          "index": 9,
           "direction": "in",
           "name": "enabled",
           "type": "Boolean"
         },
         {
-          "index": 7,
+          "index": 10,
           "direction": "in",
           "name": "item name",
           "type": "String"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "in",
           "name": "menu reference",
           "type": "Refnum",

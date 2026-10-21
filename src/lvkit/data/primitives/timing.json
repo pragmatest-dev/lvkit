@@ -163,7 +163,7 @@
         {
           "index": 3,
           "direction": "in",
-          "name": "seconds (now)",
+          "name": "time stamp",
           "type": "Timestamp"
         },
         {

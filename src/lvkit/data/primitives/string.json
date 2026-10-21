@@ -427,7 +427,7 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "case sensitive?",
+          "name": "ignore case?",
           "type": "Boolean"
         },
         {
@@ -450,37 +450,37 @@
           "type": "String"
         },
         {
-          "index": 6,
+          "index": 7,
           "direction": "in",
           "name": "replace string",
           "type": "String"
         },
         {
-          "index": 7,
+          "index": 8,
           "direction": "out",
           "name": "number of replacements",
           "type": "NumInt32"
         },
         {
-          "index": 8,
+          "index": 9,
           "direction": "in",
           "name": "offset",
           "type": "NumInt32"
         },
         {
-          "index": 9,
+          "index": 10,
           "direction": "out",
           "name": "offset past replacement",
           "type": "NumInt32"
         },
         {
-          "index": 10,
+          "index": 11,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 11,
+          "index": 15,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"

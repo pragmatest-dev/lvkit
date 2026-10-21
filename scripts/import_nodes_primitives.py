@@ -38,6 +38,16 @@ export's bare style_name, without the maintainer weighing the conflicting
 evidence, is exactly the kind of "fix" CLAUDE.md's BUGS gate reserves for the
 maintainer. See HOLD_IDS below for the itemized evidence.
 
+Terminal numbering: a terminal's ``index`` in the export is its POSITION in the
+node's terminal list (0..n-1), not the connector-pane slot the VI file stores as
+``parmIndex``. The two coincide only when the VI's parmIndex values run 0..n-1
+without a gap; many nodes skip slots (Search and Replace String uses 0-5, 7-11
+and 15). So an export position is never trusted as an index on an existing entry:
+the name fill below runs only for entries whose own indices are 0..n-1, and
+entries written from the export carry positions that
+``tests/test_primitive_corpus_indices.py`` checks against the sample corpus's
+real parmIndex values.
+
 Deterministic and re-runnable: same nodes.json + same primitives.json in ->
 same primitives.json out.
 """
@@ -178,6 +188,9 @@ def convert_terminal(
             )
     data_type = term.get("data_type")
     ctype, note = canonical_type(data_type, alias_map, sid)
+    # ``term["index"]`` is the terminal's position in the export, not its
+    # parmIndex (see the module docstring); the corpus test flags any entry
+    # where the two differ.
     out: dict[str, Any] = {
         "index": term["index"],
         "direction": "out" if term["is_source"] else "in",
@@ -300,7 +313,10 @@ def main() -> None:
 
         # PRESERVE: only fill a currently-absent terminal name when
         # index+direction match exactly; never touch type/python_code/
-        # verified/etc.
+        # verified/etc. Export positions equal real indices only for an entry
+        # numbered 0..n-1, so an entry with gaps is left as it is.
+        entry_indices = [term.get("index") for term in entry.get("terminals", [])]
+        positions_are_indices = entry_indices == list(range(len(entry_indices)))
         nodes_terms_by_key = {
             (t["index"], "out" if t["is_source"] else "in"): t["name"]
             for t in node["terminals"]
@@ -308,7 +324,11 @@ def main() -> None:
         filled_any = False
         for term in entry.get("terminals", []):
             key = (term.get("index"), term.get("direction"))
-            if not term.get("name") and key in nodes_terms_by_key:
+            if (
+                positions_are_indices
+                and not term.get("name")
+                and key in nodes_terms_by_key
+            ):
                 term["name"] = nodes_terms_by_key[key]
                 filled_any = True
         if filled_any:
@@ -375,6 +395,12 @@ def main() -> None:
     for h in held:
         print(f"  {h}")
     print(f"Total primitives in output: {total} (verified={verified_count})")
+    if added or corrected:
+        print(
+            "Added/corrected entries carry export positions as terminal indices; "
+            "run tests/test_primitive_corpus_indices.py to check them against "
+            "the corpus's parmIndex values."
+        )
 
     if not args.dry_run:
         PRIMITIVES_PATH.write_text(json.dumps(data, indent=2) + "\n")

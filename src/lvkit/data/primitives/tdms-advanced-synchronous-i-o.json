@@ -76,7 +76,7 @@
         {
           "index": 5,
           "direction": "in",
-          "name": "",
+          "name": "count (-1)",
           "type": "NumInt64"
         },
         {

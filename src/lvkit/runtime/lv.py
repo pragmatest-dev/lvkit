@@ -12,6 +12,7 @@ element-wise behaviour over multidimensional arrays.
 
 from __future__ import annotations
 
+import copy as _copy
 import math as _math
 import operator as _op
 import random as _random
@@ -336,6 +337,41 @@ def array_subset(arr, index, length):
     if length is None:
         return arr[i:]
     return arr[i:i + int(length)]
+
+
+def replace_array_subset(arr, new, offsets, new_rank: int):
+    """Replace Array Subset (node class ``aReplace``) for one new element or
+    subarray, for an array of any rank (``len(offsets)``).
+
+    ``offsets`` holds one start index per dimension (an unwired index is 0).
+    The new element's ``new_rank`` dimensions lie along the array's last
+    dimensions; the leading dimensions pick the cell it lands in. The result is
+    a copy; the input array is not modified. Per NI's page, any subarray too
+    large to fit is cropped, and if any index is negative or larger than its
+    dimension the function has no effect."""
+    rank = len(offsets)
+    out = _copy.deepcopy(arr)
+    sizes = []
+    level = out
+    for _ in range(rank):
+        sizes.append(len(level))
+        level = level[0] if level else []
+    if any(not 0 <= int(i) < size for i, size in zip(offsets, sizes)):
+        return out
+    lead = rank - new_rank
+
+    def place(a, depth, sub):
+        if depth == rank:
+            return sub
+        start = int(offsets[depth])
+        if depth < lead:
+            a[start] = place(a[start], depth + 1, sub)
+            return a
+        for k in range(max(0, min(len(sub), len(a) - start))):
+            a[start + k] = place(a[start + k], depth + 1, sub[k])
+        return a
+
+    return place(out, 0, new)
 
 
 def array_size(a, ndims: int):

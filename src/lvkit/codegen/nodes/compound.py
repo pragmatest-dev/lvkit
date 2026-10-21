@@ -6,12 +6,15 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.terminal_layout import array_rank
 from lvkit.models import LVType, LVTypeKind, Terminal
 
-from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name, uint_mask
+from ..ast_utils import build_assign, parse_expr, to_var_name, uint_mask
 from ..context import CodeGenContext
+from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
 from .base import CodeGenError
+from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
 
@@ -460,65 +463,91 @@ def generate_array_replace(
 ) -> CodeFragment:
     """Generate code for Replace Array Subset (aReplace).
 
-    Per LabVIEW's connector pane: terminal 0 = array in, 1 = output
-    array, 2 = new element (or subarray), 3 = index.
+    Terminal layout (the ``aReplace`` entry in ``_meta.json``): input 0 = array
+    in, output 1 = output array, then one set per replacement -- a new
+    element/subarray followed by one ``index`` input per dimension of the
+    array. A resized node carries several sets; they are applied in terminal
+    order, each to the result of the one before.
 
-    Replace Array Subset never changes the array's length: a replacement
-    that would extend past the original array's bounds is clipped to
-    fit, and an index at/past the end of the array is a no-op (NI docs:
-    "the sub array is cropped to fit ... will not insert elements that
-    are outside the bounds of the original array"). This handles both
-    forms in one formula:
-    - scalar "new element" -> replaces exactly the one element at index
-    - array-typed "new element" (subset) -> replaces a contiguous run
-      starting at index, clipped to the array's existing length
+    NI's page (Replace Array Subset): an index that is not wired starts at
+    element 0 ("starting with element 0"); "If you specify an index without
+    wiring the following indexes, this function continues from the last index
+    you specify" -- so each unwired index is 0. The function "crops any
+    subarray that is too large to fit" and "If any index is negative or larger
+    than the corresponding dimension ... the function has no effect". The rule
+    is the same at every rank and is carried out by ``_lv.replace_array_subset``.
+
+    A new element with fewer dimensions than the array lands along the array's
+    last dimensions, the leading indices picking the cell (a row into a 2-D
+    array: the first index is the row). The page does not say which axis a
+    subarray runs along when only a trailing index is wired, so a subarray
+    whose leading indices are not all wired raises a diagnostic.
     """
-    by_index = {t.index: t for t in node.terminals}
-    array_term = by_index.get(0)
-    new_elem_term = by_index.get(2)
-    index_term = by_index.get(3)
-    outputs = [t for t in node.terminals if t.direction == "output"]
-    if not outputs or array_term is None:
+    roles = laid_out_roles(node, "aReplace")
+    array_term = roles[0][0][1]
+    output_term = roles[1][0][1]
+    rank = _array_rank(array_term)
+    if rank is None:
+        raise CodeGenError(
+            "Replace Array Subset's array input has no known array type", node
+        )
+    elements = roles.get(2, [])
+    if not elements:
         return CodeFragment()
-    output_term = outputs[0]
 
     array_val = ctx.resolve(array_term.id) or "[]"
-    index_val = ctx.resolve(index_term.id) if index_term else None
-    index_val = index_val or "0"
-
-    is_subset = _is_array_type(new_elem_term)
-    new_elem_val = ctx.resolve(new_elem_term.id) if new_elem_term else None
-    if new_elem_val is None:
-        new_elem_val = "[]" if is_subset else "None"
-    subset_str = new_elem_val if is_subset else f"[{new_elem_val}]"
-
-    body_str = f"_n = max(0, min(len({subset_str}), len({array_val}) - ({index_val})))"
-    expr_str = (
-        f"{array_val}[:{index_val}] + ({subset_str})[:_n] "
-        f"+ {array_val}[({index_val}) + _n:]"
-    )
-
-    var_name = ctx.make_output_var(
-        "output_array",
-        node.id,
-        terminal_id=output_term.id,
-    )
-    body_stmt = parse_stmt(body_str)
-    assign_stmt = build_assign(var_name, parse_expr(expr_str))
-
+    statements: list[ast.stmt] = []
+    for position, (placed, element_term) in enumerate(elements):
+        indices = [
+            term
+            for index_placed, term in roles.get(3, [])
+            if index_placed.set_number == placed.set_number
+        ]
+        new_rank = _array_rank(element_term) or 0
+        if new_rank > rank:
+            raise CodeGenError(
+                "Replace Array Subset's new element has more dimensions than "
+                "the array.",
+                node,
+            )
+        index_vals = [ctx.resolve(t.id) for t in indices]
+        leading = rank - new_rank
+        if new_rank and not all(index_vals[:leading]):
+            raise CodeGenError(
+                "Replace Array Subset with a subarray needs the leading "
+                f"{leading} index input(s) wired: NI's page does not say along "
+                "which axis the subarray runs otherwise.",
+                node,
+            )
+        element_val = ctx.resolve(element_term.id)
+        if element_val is None:
+            element_val = "[]" if new_rank else "None"
+        offsets = ", ".join(value or "0" for value in index_vals)
+        target = (
+            ctx.make_output_var("output_array", node.id, terminal_id=output_term.id)
+            if position == len(elements) - 1
+            else ctx.make_output_var(f"array_after_{position}", node.id)
+        )
+        statements.append(
+            build_assign(
+                target,
+                parse_expr(
+                    f"_lv.replace_array_subset({array_val}, {element_val}, "
+                    f"[{offsets}], {new_rank})"
+                ),
+            )
+        )
+        array_val = target
     return CodeFragment(
-        statements=[body_stmt, assign_stmt],
-        bindings={output_term.id: var_name},
+        statements=statements,
+        bindings={output_term.id: array_val},
+        imports={LV_IMPORT},
     )
 
 
-def _is_array_type(term: Terminal | None) -> bool:
-    """True if the terminal's LabVIEW type is an array."""
-    return bool(
-        term is not None
-        and term.lv_type is not None
-        and term.lv_type.kind == LVTypeKind.ARRAY
-    )
+def _array_rank(term: Terminal | None) -> int | None:
+    """Dimension count of an array-typed terminal, else None."""
+    return array_rank(term.lv_type) if term is not None else None
 
 
 def generate_array_insert(
@@ -527,70 +556,76 @@ def generate_array_insert(
 ) -> CodeFragment:
     """Generate code for Insert Into Array (aInsert).
 
-    Per the real connector-pane layout (verified against Reserve cDAQ.vi's
-    aInsDCO terminals -- terminal 2 resolves to a plain numeric type and
-    terminal 3 resolves to the array's own element type, e.g. a String
-    array's terminal 3 is String): terminal 0 = array in, 1 = output
-    array; among the remaining INPUT terminals sorted by ascending index,
-    the LAST one is always "new element/subarray" and every terminal
-    before it is an "index" input (LabVIEW shows one index terminal per
-    array dimension when the node is resized, but "you can wire only one
-    index input" at a time -- NI docs, Insert Into Array). This also
-    matches the NI docs' own Inputs/Outputs prose order (array, index,
-    new element/subarray, output array).
+    Terminal layout (the ``aInsert`` entry in ``_meta.json``, verified against
+    the corpus's aInsert nodes including a 2-D one in Display Client Creation
+    Status.vi): input 0 = array in, output 1 = output array, then one ``index``
+    input per dimension of the array, then the "new element/subarray" input(s)
+    -- several when the node is resized to insert more than one.
 
-    NOTE: primitives.json's aInsert template labels terminal 2 "element"
-    and terminal 3 "index" (with a "-1" default on the index) -- that
-    template is unused (this dedicated handler intercepts before it) and
-    is transposed relative to the terminal ROLES actually observed in
-    real dataflow; left as-is (dead code) rather than edited, matching
-    how aInit/aReplace's equally-unused templates were left untouched.
+    NI docs (Insert Into Array): "You can wire only one index input" -- the
+    wired index picks the dimension along which the insert happens. If no
+    index is wired, the new element/subarray is appended to the end of the
+    array. If the (wired) index is beyond the array's current length, the
+    function does NOT insert anything -- unlike Replace Array Subset, this is
+    a true no-op, not a clip.
 
-    Only the 1-D case (a single index terminal) is verified against real
-    sample data; N-D insert along an inner axis (more than one index
-    terminal present) is out of scope here and raises a diagnostic
-    instead of guessing.
-
-    Semantics (NI docs): if no index is wired, the new element/subarray
-    is appended to the end of the array. If the (wired) index is beyond
-    the array's current length, the function does NOT insert anything --
-    unlike Replace Array Subset, this is a true no-op, not a clip.
+    Several new-element inputs are inserted at the one index in terminal
+    order. Only an insert along the first dimension (the first index wired, or
+    none wired) is generated. For an insert along another dimension (a column
+    into a 2-D array) NI's page says only "LabVIEW pads the resulting array as
+    necessary" and does not say which cells are padded or with what, so a
+    diagnostic is raised instead of guessing.
     """
-    inputs = sorted(
-        (t for t in node.terminals if t.direction == "input"),
-        key=lambda t: t.index,
-    )
-    outputs = [t for t in node.terminals if t.direction == "output"]
-    if not outputs or len(inputs) < 2:
-        return CodeFragment()
-    output_term = outputs[0]
-
-    array_term = inputs[0]
-    index_terms = inputs[1:-1]
-    element_term = inputs[-1]
-
-    if len(index_terms) > 1:
+    roles = laid_out_roles(node, "aInsert")
+    array_term = roles[0][0][1]
+    output_term = roles[1][0][1]
+    rank = _array_rank(array_term)
+    if rank is None:
         raise CodeGenError(
-            f"Insert Into Array with {len(index_terms)} index terminals "
-            "(N-D array, inner-axis insert) is not supported -- only the "
-            "1-D case (a single index terminal) is verified against real "
-            "sample data.",
+            "Insert Into Array's array input has no known array type, so the "
+            "number of index inputs is unknown.",
             node,
         )
+    index_terms = [term for _, term in roles.get(2, [])]
+    element_terms = [term for _, term in roles.get(3, [])]
+    if not element_terms:
+        return CodeFragment()
 
     array_val = ctx.resolve(array_term.id) or "[]"
-    index_term = index_terms[0] if index_terms else None
-    index_val = ctx.resolve(index_term.id) if index_term else None
+    wired = [
+        (axis, ctx.resolve(t.id))
+        for axis, t in enumerate(index_terms)
+        if ctx.resolve(t.id)
+    ]
+    if len(wired) > 1:
+        raise CodeGenError(
+            "Insert Into Array with more than one index wired; LabVIEW allows "
+            "only one.",
+            node,
+        )
+    axis, index_val = wired[0] if wired else (0, None)
+    if axis > 0:
+        raise CodeGenError(
+            f"Insert Into Array along dimension {axis} (inserting columns or "
+            "pages) is not supported: NI's page says only \"LabVIEW pads the "
+            'resulting array as necessary" without saying which cells are '
+            "padded or with what.",
+            node,
+        )
     idx_str = index_val if index_val else f"len({array_val})"
 
-    is_subset = _is_array_type(element_term)
-    elem_val = ctx.resolve(element_term.id)
-    if elem_val is None:
-        elem_val = "[]" if is_subset else "None"
-    items_str = elem_val if is_subset else f"[{elem_val}]"
+    items: list[str] = []
+    for element_term in element_terms:
+        element_rank = _array_rank(element_term)
+        is_subset = element_rank == rank
+        elem_val = ctx.resolve(element_term.id)
+        if elem_val is None:
+            elem_val = "[]" if is_subset else "None"
+        items.append(elem_val if is_subset else f"[{elem_val}]")
+    items_str = " + ".join(f"({item})" for item in items)
 
     expr_str = (
-        f"({array_val}[:{idx_str}] + ({items_str}) + {array_val}[{idx_str}:]) "
+        f"({array_val}[:{idx_str}] + {items_str} + {array_val}[{idx_str}:]) "
         f"if 0 <= ({idx_str}) <= len({array_val}) else list({array_val})"
     )
 

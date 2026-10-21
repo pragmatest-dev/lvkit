@@ -42,37 +42,37 @@
       "name": "Insert Into Map",
       "terminals": [
         {
-          "index": 0,
+          "index": 1,
           "direction": "out",
           "name": "value unchanged?",
           "type": "Boolean"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "key already included?",
           "type": "Boolean"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "map out",
           "type": "MapCollection"
         },
         {
-          "index": 3,
+          "index": 9,
           "direction": "in",
           "name": "value",
           "type": "NumInt32"
         },
         {
-          "index": 4,
+          "index": 10,
           "direction": "in",
           "name": "key",
           "type": "String"
         },
         {
-          "index": 5,
+          "index": 11,
           "direction": "in",
           "name": "map in",
           "type": "MapCollection"
@@ -122,31 +122,31 @@
       "name": "Look In Map",
       "terminals": [
         {
-          "index": 0,
+          "index": 1,
           "direction": "out",
           "name": "value",
           "type": "NumInt32"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "key not found?",
           "type": "Boolean"
         },
         {
-          "index": 2,
+          "index": 9,
           "direction": "in",
           "name": "default value",
           "type": "NumInt32"
         },
         {
-          "index": 3,
+          "index": 10,
           "direction": "in",
           "name": "key",
           "type": "String"
         },
         {
-          "index": 4,
+          "index": 11,
           "direction": "in",
           "name": "map",
           "type": "MapCollection"
