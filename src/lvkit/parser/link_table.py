@@ -26,24 +26,27 @@ one an ``IUVI`` record starts with::
                                             same ID as ``varPersistentID``)
     u32 count, count x u32                  node uids
     u32 len, bytes                          a second GUID (role not established)
-    00 02 00 03                             (role not established)
+    u16, u16                                role not established; the first
+                                            differs from record to record, the
+                                            second is the same for every record
+                                            of a VI
 
-    then, selected by the byte that follows (the layout flag):
+    then one of two layouts, each validated by the type string it ends with. The
+    single-process layout is read first and kept only if its type reads ``Global``;
+    otherwise the network-published layout is read and kept only if its type reads
+    ``Network``:
 
-    flag 01 (single process): the flag is its own byte
-    u8 01, u32                              the u32 seen as 1 (role not
-                                            established)
+    single process:
+    u8, u32                                 the u8 seen as 00 and 01, the u32 seen
+                                            as 1 (roles not established)
+    u32 len, bytes                          variable type, ``Global``
 
-    flag 00 (network-published): the flag is the high byte of the path length,
-    so it is NOT consumed on its own
+    network-published:
     u32 len, bytes                          network path (``\\.\SV Sample\Value``;
                                             ``\\.\`` is the local machine)
     4 x u32                                 seen as ffffffff 1 2 1 (roles not
                                             established)
-
-    u32 len, bytes                          variable type (``Global`` for a
-                                            single-process variable, ``Network``
-                                            for a network-published one)
+    u32 len, bytes                          variable type, ``Network``
 
 The qualified name is the library's name parts followed by the variable's name.
 
@@ -56,8 +59,7 @@ record's target is a ``SharedVariableRecordFailure``. This layout is taken from
 the reporter's description of the record and the structure it shares with
 ``HpVL``; it has not been checked against a real ``HpVr`` file.
 
-Any other flag is a layout not seen, and a type that disagrees with
-the flag is an inconsistent record; either way the record is reported as a
+A record that fits neither layout is reported as a
 ``SharedVariableRecordFailure``, never guessed at. A record of any other kind
 (``VIVl``) is never looked at: the scan only stops at the idents it knows.
 
@@ -183,9 +185,11 @@ class SharedVariableLink:
     own name inside it. ``network_path`` is the path a network-published variable
     is published at (``\\.\SV Sample\Value``), ``None`` for a single-process one.
 
-    ``second_guid`` and ``layout_values`` are recorded as read, their role not
-    established: the second GUID, and the integers that follow the layout flag
-    (one for a single-process record, four for a network-published one).
+    ``second_guid``, ``second_guid_values``, ``layout_byte`` and ``layout_values``
+    are recorded as read, their role not established: the second GUID, the two
+    ``u16`` values after it, the byte that opens a single-process layout (``None``
+    for a network-published one), and the ``u32`` values that follow (one for a
+    single-process record, four for a network-published one).
     """
 
     library_parts: tuple[str, ...]
@@ -197,6 +201,8 @@ class SharedVariableLink:
     node_uids: tuple[int, ...]
     network_path: str | None = None
     second_guid: str = ""
+    second_guid_values: tuple[int, int] = (0, 0)
+    layout_byte: int | None = None
     layout_values: tuple[int, ...] = ()
     record: SharedVariableRecordKind = SharedVariableRecordKind.HPVL
 
@@ -265,13 +271,6 @@ class _Reader:
 
     def u8(self) -> int:
         return self.take(1)[0]
-
-    def peek_u8(self) -> int:
-        if self.pos >= len(self.data):
-            raise LinkTableError(
-                f"record runs past the end of the table at {self.pos + 1}"
-            )
-        return self.data[self.pos]
 
     def u16(self) -> int:
         return struct.unpack(">H", self.take(2))[0]
@@ -375,10 +374,56 @@ def _decode_record(data: bytes, ident_pos: int, version: LinkTableVersion) -> IU
     )
 
 
-_SV_LAYOUT_MARKER = b"\x00\x02\x00\x03"
-_SV_LAYOUT_SINGLE_PROCESS = 1
-_SV_LAYOUT_NETWORK = 0
 _SV_NETWORK_VALUES = 4
+
+
+@dataclass(frozen=True)
+class _SharedVariableLayout:
+    """What follows the two ``u16`` values of a Shared Variable record."""
+
+    kind: SharedVariableKind
+    layout_byte: int | None
+    network_path: str | None
+    layout_values: tuple[int, ...]
+
+
+def _read_single_process_layout(r: _Reader) -> _SharedVariableLayout:
+    layout_byte = r.u8()
+    layout_values = (r.u32(),)
+    kind_text = r.string32()
+    if kind_text != SharedVariableKind.SINGLE_PROCESS.value:
+        raise LinkTableError(f"type {kind_text!r} where 'Global' was expected")
+    return _SharedVariableLayout(
+        SharedVariableKind.SINGLE_PROCESS, layout_byte, None, layout_values
+    )
+
+
+def _read_network_layout(r: _Reader) -> _SharedVariableLayout:
+    network_path = r.string32()
+    layout_values = tuple(r.u32() for _ in range(_SV_NETWORK_VALUES))
+    kind_text = r.string32()
+    if kind_text != SharedVariableKind.NETWORK.value:
+        raise LinkTableError(f"type {kind_text!r} where 'Network' was expected")
+    return _SharedVariableLayout(
+        SharedVariableKind.NETWORK, None, network_path, layout_values
+    )
+
+
+def _read_shared_variable_layout(data: bytes, pos: int) -> _SharedVariableLayout:
+    """The layout that ends the record at ``pos``: the single-process one when its
+    type string reads ``Global``, else the network-published one when its type
+    string reads ``Network``; a record that fits neither is an error."""
+    try:
+        return _read_single_process_layout(_Reader(data, pos))
+    except LinkTableError as single_error:
+        try:
+            return _read_network_layout(_Reader(data, pos))
+        except LinkTableError as network_error:
+            raise LinkTableError(
+                "fits neither Shared Variable layout "
+                f"(single process: {single_error}; "
+                f"network-published: {network_error})"
+            ) from None
 
 
 def _decode_shared_variable_record(
@@ -408,41 +453,23 @@ def _decode_shared_variable_record(
                 f"qualified name {name_parts!r} lacks a library and a variable"
             )
         second_guid = r.string32()
-        r.take(len(_SV_LAYOUT_MARKER))
-        layout = r.peek_u8()
-        network_path: str | None = None
-        if layout == _SV_LAYOUT_SINGLE_PROCESS:
-            r.u8()
-            layout_values = (r.u32(),)
-        elif layout == _SV_LAYOUT_NETWORK:
-            network_path = r.string32()
-            layout_values = tuple(r.u32() for _ in range(_SV_NETWORK_VALUES))
-        else:
-            raise LinkTableError(f"unknown layout flag {layout:#04x}")
-        kind_text = r.string32()
-        try:
-            kind = SharedVariableKind(kind_text)
-        except ValueError:
-            raise LinkTableError(
-                f"unknown Shared Variable type {kind_text!r}"
-            ) from None
-        if (kind is SharedVariableKind.NETWORK) != (network_path is not None):
-            raise LinkTableError(
-                f"type {kind_text!r} does not match layout flag {layout:#04x}"
-            )
+        second_guid_values = (r.u16(), r.u16())
+        layout = _read_shared_variable_layout(data, r.pos)
     except LinkTableError as exc:
         raise _SharedVariableRecordError(str(exc), node_uids) from exc
     return SharedVariableLink(
         library_parts=name_parts[:-1],
         variable_name=name_parts[-1],
-        kind=kind,
+        kind=layout.kind,
         persistent_id=persistent_id,
         item_type=item_type,
         target=target,
         node_uids=node_uids,
-        network_path=network_path,
+        network_path=layout.network_path,
         second_guid=second_guid,
-        layout_values=layout_values,
+        second_guid_values=second_guid_values,
+        layout_byte=layout.layout_byte,
+        layout_values=layout.layout_values,
         record=record,
     )
 

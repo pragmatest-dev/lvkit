@@ -12,6 +12,7 @@ lvkit follows semantic versioning.
 - **Fix: a case selector wired from a constant or a local variable** — `describe` names it by the constant's value or as `<name> (local variable)` instead of printing the VI path and a terminal id (#162).
 - **Fix: Event Data Node outputs are named by their event-data field** — describe, lvnet and JSON show `Type`, `Time`, `NewVal` or a user event's own fields instead of `out 1`, `out 2` (#171).
 - **Fix: `lvkit generate` no longer rewrites lvkit's bundled vi.lib catalog** — terminals learned from a caller are used for that run only, so doc links, terminal descriptions and encoding stay intact (#164).
+- **Fix: Single Process Shared Variables from a LabVIEW 2025 project failed to decode** — the record's layout is now decided by the type it ends with, not a flag byte (#166).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).
