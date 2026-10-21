@@ -16,11 +16,13 @@ import struct
 import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import LVType, LVTypeKind, leading_element
+from lvkit.measure_data import measure_data_value_type
+from lvkit.models import LVType, LVTypeKind, leading_element, unique_names
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -35,6 +37,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .flags import is_indicator, is_inverted_terminal, is_output_terminal
+from .flat_type import descriptor_type, read_descriptors, read_var_size
 from .fp_heap_type import (
     _direct_fields,
     _wrapped_control,
@@ -1688,11 +1691,10 @@ def _parse_cluster_fields(
     direct = _direct_fields(cluster_ddo)
 
     fields: list[ParsedFPControl] = []
-    for field_elem in direct:
-        field_name = extract_label_strict(field_elem)
-        value = (
-            field_defaults.get(field_name) if field_defaults and field_name else None
-        )
+    labels = [extract_label_strict(field_elem) for field_elem in direct]
+    keys = unique_names(label or "" for label in labels)
+    for field_elem, field_name, key in zip(direct, labels, keys):
+        value = field_defaults.get(key) if field_defaults and field_name else None
         # A field's own type -- there is no wrapping fPDCO here (unlike a
         # top-level control), so the ONLY spot is the field ddo's own
         # <typeDesc> child (the same "carries its own child when it nests a
@@ -2127,9 +2129,164 @@ def _decode_numeric_default(data: bytes) -> str | None:
     return None
 
 
-def _class_object_size(data: bytes | memoryview) -> int | None:
-    """The byte count of one flattened LabVIEW class object at the start of
-    ``data``, or None when ``data`` is too short for its own layout. NI's
+def _decode_collection(
+    data: bytes | memoryview, member_types: list[LVType | None], empty: str
+) -> tuple[str | None, int, object]:
+    """A Set (one member type per entry) or a Map (key type, value type): the
+    entry count, then each entry's members in turn. Shown as a Python set or dict
+    literal; the structured value is the list of entries (each a list of its
+    members' values for a Map)."""
+    if len(data) < 4 or any(t is None for t in member_types):
+        return None, 0, None
+    count = int.from_bytes(data[:4], "big")
+    pos = 4
+    entries: list[list[str]] = []
+    structured: list[object] = []
+    for _ in range(count):
+        shown: list[str] = []
+        members: list[object] = []
+        for member_type in member_types:
+            value, consumed, member = _decode_element(data[pos:], member_type)
+            if consumed == 0 and value is None:
+                return None, 0, None
+            shown.append("None" if value is None else value)
+            members.append(member)
+            pos += consumed
+        entries.append(shown)
+        structured.append(members[0] if len(members) == 1 else members)
+    if not entries:
+        return empty, pos, structured
+    if len(member_types) == 1:
+        return "{" + ", ".join(e[0] for e in entries) + "}", pos, structured
+    return "{" + ", ".join(f"{e[0]}: {e[1]}" for e in entries) + "}", pos, structured
+
+
+def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
+    """One flattened Variant: ``[version][type count][type descriptors]
+    [has value][value type index][value][attribute count][attributes]``, each
+    attribute being ``[name length][name]`` and another flattened Variant (NI
+    "Flattened Data" for Variants and "Type Descriptors" for the descriptor
+    format). The value is read with the type its descriptor names; a Variant with
+    no value (type Void) shows as ``Variant()``.
+
+    Returns ``(None, 0, None)`` for a Variant saved by LabVIEW 7 or older (it
+    stores a byte count where the version is) or whose value has a type this
+    does not read."""
+    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+        return None, 0, None
+    count = int.from_bytes(data[4:8], "big")
+    read = read_descriptors(data, 8, count)
+    if read is None:
+        return None, 0, None
+    descriptors, pos = read
+    has_value = read_var_size(data, pos)
+    if has_value is None:
+        return None, 0, None
+    present, pos = has_value
+    shown = "Variant()"
+    structured: object = shown
+    if present:
+        typed = read_var_size(data, pos)
+        if typed is None:
+            return None, 0, None
+        index, pos = typed
+        value_type = descriptor_type(descriptors, index)
+        if value_type is None:
+            return None, 0, None
+        if value_type.underlying_type != "Void":
+            value, consumed, structured = _decode_element(data[pos:], value_type)
+            if value is None and consumed == 0:
+                return None, 0, None
+            pos += consumed
+            shown = f"Variant({value})"
+    if pos + 4 > len(data):
+        return None, 0, None
+    attributes = int.from_bytes(data[pos : pos + 4], "big")
+    pos += 4
+    for _ in range(attributes):
+        name_end = _read_string(data, pos)
+        if name_end is None:
+            return None, 0, None
+        _value, consumed, _structured = _decode_variant(data[name_end:])
+        if consumed == 0:
+            return None, 0, None
+        pos = name_end + consumed
+    return shown, pos, structured
+
+
+# An array with more elements than this is read to its end but its values are not
+# kept: a value that large (a camera frame, a recording) as per-element Python
+# objects and display text runs to gigabytes, and nothing downstream draws or
+# generates it.
+MAX_STORED_ARRAY_ELEMENTS = 4_000_000
+
+
+def _quad_to_float(raw: bytes | memoryview) -> float:
+    """A flattened extended-precision number -- 16 bytes, IEEE 754 binary128
+    (1 sign bit, 15 exponent bits, 112 fraction bits, big-endian) -- as the
+    nearest Python float. NI's "Flattened Data" page: "stores flattened
+    extended-precision, floating-point numbers as 16-byte quantities"."""
+    bits = int.from_bytes(raw, "big")
+    sign = -1.0 if bits >> 127 else 1.0
+    exponent = (bits >> 112) & 0x7FFF
+    fraction = bits & ((1 << 112) - 1)
+    if exponent == 0x7FFF:
+        return sign * math.inf if fraction == 0 else math.nan
+    if exponent == 0:
+        magnitude = Fraction(fraction, 1 << 112) * Fraction(2) ** -16382
+    else:
+        magnitude = (1 + Fraction(fraction, 1 << 112)) * Fraction(2) ** (
+            exponent - 16383
+        )
+    try:
+        return sign * float(magnitude)
+    except OverflowError:
+        return sign * math.inf
+
+
+# Refnums whose value is not a 4-byte handle but flattened strings (NI "Flattened
+# Data", "Refnums": type codes 0xE, 0xF and 0x15 store "a flattened string" holding
+# the refnum tag; 0x1D, with the tag, three more fields). Keyed by RefType.
+_TAG_REFNUM_TYPES = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"})
+_TAG_FLATTENED_REFNUM_TYPE = "UsrDefTagFlt"
+
+
+def _read_string(data: bytes | memoryview, idx: int) -> int | None:
+    """The offset just past the flattened string at ``idx``, else None."""
+    if idx + 4 > len(data):
+        return None
+    end = idx + 4 + int.from_bytes(data[idx : idx + 4], "big")
+    return end if end <= len(data) else None
+
+
+def _decode_tag_refnum(
+    data: bytes | memoryview, ref_type: str
+) -> tuple[str | None, int, object]:
+    """A tag refnum: the tag string, and for ``UsrDefTagFlt`` the string, string,
+    32-bit integer and string that follow it. Shown as the tag text."""
+    tag_end = _read_string(data, 0)
+    if tag_end is None:
+        return None, 0, None
+    end = tag_end
+    if ref_type == _TAG_FLATTENED_REFNUM_TYPE:
+        for part in ("string", "string", "int", "string"):
+            if part == "int":
+                end += 4
+                if end > len(data):
+                    return None, 0, None
+                continue
+            string_end = _read_string(data, end)
+            if string_end is None:
+                return None, 0, None
+            end = string_end
+    value = repr(bytes(data[4:tag_end]).decode("latin-1"))
+    return value, end, value
+
+
+def class_object_extent(data: bytes | memoryview) -> tuple[int, int] | None:
+    """One flattened LabVIEW class object at the start of ``data``: its total byte
+    count and how many of those bytes are private data (skipped, not decoded), or
+    None when ``data`` is too short for its own layout. NI's
     "Flattened Data" page, "Classes":
     https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html
 
@@ -2141,14 +2298,16 @@ def _class_object_size(data: bytes | memoryview) -> int | None:
     - ``version list``: one 8-byte version (four 2-byte integers) per level. A
       one-level object whose version is 0 is the class's default data and
       nothing follows.
-    - ``private data``: per level, a 4-byte signed byte count and that many bytes
-      of flattened cluster, padded to a multiple of 4.
+    - ``private data``: per level, a 4-byte byte count and that many bytes of
+      flattened cluster. The stored count already includes any padding: the bytes
+      after the count are exactly ``count`` long (a 73-byte cluster is followed
+      directly by the next field; see labview-binary-format.md).
     """
     if len(data) < 4:
         return None
     level = int.from_bytes(data[:4], "big")
     if level == 0:
-        return 4
+        return 4, 0
     if len(data) < 5:
         return None
     idx = 4 + _padded_to_4(1 + data[4])
@@ -2156,15 +2315,18 @@ def _class_object_size(data: bytes | memoryview) -> int | None:
     if versions_end > len(data):
         return None
     if level == 1 and not any(data[idx:versions_end]):
-        return versions_end
+        return versions_end, 0
     idx = versions_end
+    private = 0
     for _ in range(level):
         if idx + 4 > len(data):
             return None
-        idx += 4 + _padded_to_4(int.from_bytes(data[idx : idx + 4], "big", signed=True))
+        count = int.from_bytes(data[idx : idx + 4], "big")
+        idx += 4 + count
+        private += count
         if idx > len(data):
             return None
-    return idx
+    return idx, private
 
 
 def _padded_to_4(size: int) -> int:
@@ -2218,7 +2380,16 @@ def _decode_element(
         ``_parse_cluster_fields``) can thread each field's own real value down
         to its own control, not just the aggregate string.
     """
-    if not elem_type or len(data) == 0:
+    if not elem_type:
+        return None, 0, None
+
+    # Types that store no bytes read nothing, even at the end of the data.
+    if elem_type.underlying_type == "Void":
+        return "None", 0, None
+    if elem_type.kind == LVTypeKind.CLUSTER and elem_type.fields == []:
+        return "{}", 0, {}
+
+    if len(data) == 0:
         return None, 0, None
 
     # A memoryview instead of bytes so the ARRAY/CLUSTER branches' recursive
@@ -2293,7 +2464,9 @@ def _decode_element(
     # components (NumComplex64 = 2x f32 = 8 bytes, NumComplex128 = 2x f64 = 16),
     # and extended floats are 16/32 — under-reading them (the old code read every
     # non-f32 as 8) desyncs the following cluster field.
-    if underlying.startswith(("NumFloat", "NumComplex")):
+    if underlying.startswith(("NumFloat", "NumComplex", "UnitFloat", "UnitComplex")):
+        # A physical quantity (a number with a unit) flattens as its plain number.
+        underlying = underlying.replace("Unit", "Num", 1)
         width = {
             "NumFloat32": 4,
             "NumFloat64": 8,
@@ -2315,8 +2488,12 @@ def _decode_element(
             elif underlying == "NumComplex128":
                 re, im = struct.unpack(">dd", data[:16])
                 val = str(complex(re, im))
-            else:  # extended-precision (80/128-bit) — width known, no struct fmt
-                val = f"<{underlying}>"
+            elif underlying == "NumFloatExt":
+                val = str(_quad_to_float(data[:16]))
+            else:  # NumComplexExt: two quad-precision components
+                val = str(
+                    complex(_quad_to_float(data[:16]), _quad_to_float(data[16:32]))
+                )
         except struct.error:
             return None, 0, None
         return val, width, val
@@ -2338,6 +2515,8 @@ def _decode_element(
         array_len = math.prod(sizes)
         idx = header
         elements = []
+        read = 0
+        keep_values = array_len <= MAX_STORED_ARRAY_ELEMENTS
         # The STRUCTURED per-element values (see the docstring) -- kept
         # alongside ``elements``'s display strings so a caller can thread each
         # element's own real value down to its own control (see
@@ -2374,9 +2553,14 @@ def _decode_element(
                 )
                 break
             # An element read past but with no value (a Picture) shows as None.
-            elements.append("None" if elem_val is None else elem_val)
-            elements_structured.append(elem_structured)
+            if keep_values:
+                elements.append("None" if elem_val is None else elem_val)
+                elements_structured.append(elem_structured)
+            read += 1
             idx += consumed
+        if not keep_values:
+            # Every element was read (so the extent is exact), none kept.
+            return f"<{read} of {array_len} elements>", idx, []
         if len(elements) < array_len:
             # Truncated: the elements read so far, flat.
             return _list_display(elements), idx, elements_structured
@@ -2387,16 +2571,16 @@ def _decode_element(
         )
 
     # Cluster: sequential fields
-    if kind == LVTypeKind.CLUSTER and elem_type.fields:
+    if kind == LVTypeKind.CLUSTER and elem_type.fields is not None:
         idx = 0
         field_values = {}
         # By field NAME, recursively -- see the docstring and
         # _parse_cluster_fields (the reason this is kept instead of only the
-        # flattened ``field_values`` display string below).
+        # flattened ``field_values`` display string below). A name a cluster
+        # repeats is made unique (``unique_names``) so no field's value is lost.
         field_structured: dict[str, object] = {}
-        for field in elem_type.fields:
-            if idx >= len(data):
-                break
+        keys = unique_names(f.name for f in elem_type.fields)
+        for field, key in zip(elem_type.fields, keys):
             field_val, consumed, field_val_structured = _decode_element(
                 data[idx:],
                 field.type,
@@ -2406,35 +2590,47 @@ def _decode_element(
             if field_val is None and consumed <= 0:
                 break
             if field_val is None:
-                field_values[field.name] = "None"
-                field_structured[field.name] = None
+                field_values[key] = "None"
+                field_structured[key] = None
             else:
-                field_values[field.name] = field_val
-                field_structured[field.name] = field_val_structured
+                field_values[key] = field_val
+                field_structured[key] = field_val_structured
             idx += consumed
         items = [f"'{k}': {v}" for k, v in field_values.items()]
         return "{" + ", ".join(items) + "}", idx, field_structured
 
     # Refnum: a 4-byte opaque handle, except a CLASS value (a typed refnum
     # with a ``classname``), which is a flattened object (see
-    # ``_class_object_size``) and reads as its CLASS NAME from the resolved
+    # ``class_object_extent``) and reads as its CLASS NAME from the resolved
     # type. A plain typed refnum keeps its handle token. Same class-name rule
     # as render.style.lv_type_label.
     if underlying == "Refnum":
         if elem_type.classname:
             name = elem_type.classname.rsplit(":", 1)[-1]
-            size = _class_object_size(data)
-            if size is None:
+            extent = class_object_extent(data)
+            if extent is None:
                 return None, 0, None
-            return name, size, name
+            return name, extent[0], name
+        if elem_type.ref_type in _TAG_REFNUM_TYPES:
+            return _decode_tag_refnum(data, elem_type.ref_type)
         size = min(4, len(data))
         val = int.from_bytes(data[:size], "big")
         value = f"Refnum({val})" if val else "None"
         return value, size, value
 
-    # LVVariant: opaque — just report the byte count
+    # Set and Map: a 32-bit count, then each element (a Set) or each key and
+    # value (a Map) in the collection's own order -- NI "Flattened Data", "Sets"
+    # and "Maps".
+    if underlying == "Set":
+        return _decode_collection(data, [elem_type.element_type], "set()")
+    if underlying == "Map":
+        return _decode_collection(
+            data, [elem_type.element_type, elem_type.value_type], "{}"
+        )
+
+    # LVVariant: its type descriptors, the value, and its attributes.
     if underlying in ("LVVariant", "Variant"):
-        return "Variant()", len(data), "Variant()"
+        return _decode_variant(data)
 
     # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
     # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
@@ -2446,7 +2642,9 @@ def _decode_element(
     # renderer's timedelta(seconds=...) reconstruction anyway), carrying
     # into the whole-second count on the (rare) round-up-to-1.0 edge.
     if underlying == "MeasureData":
-        if len(data) >= 16:
+        if elem_type.measure_flavor == "TimeStamp":
+            if len(data) < 16:
+                return None, 0, None
             secs = int.from_bytes(data[:8], "big", signed=True)
             frac_u64 = int.from_bytes(data[8:16], "big", signed=False)
             frac_micros = round(frac_u64 * 1_000_000 / 2**64)
@@ -2455,7 +2653,10 @@ def _decode_element(
                 frac_micros = 0
             value = f"Timestamp({secs}.{frac_micros:06d})"
             return value, 16, value
-        return "Timestamp(0)", len(data), "Timestamp(0)"
+        parts = measure_data_value_type(elem_type.measure_flavor)
+        if parts is None:
+            return None, 0, None
+        return _decode_element(data, parts)
 
     return None, 0, None
 

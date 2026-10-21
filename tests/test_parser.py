@@ -39,7 +39,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     """A CLASS/LVObject refnum's DataFill decodes to its CLASS NAME (from the
     resolved type), never the opaque handle, and consumes the whole flattened
     object (level, class name section, version list, private data -- see
-    ``_class_object_size``) so a following cluster field stays aligned. This
+    ``class_object_extent``) so a following cluster field stays aligned. This
     value is a one-level object at version 0, the class's default data, so it
     ends after the version list. A PLAIN typed refnum (no classname) keeps its
     ``Refnum(<handle>)`` token."""

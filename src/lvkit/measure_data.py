@@ -22,6 +22,7 @@ import json
 import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
 
 from ._data import data_dir as _bundled_data_dir
+from .models import ClusterField, LVType, LVTypeKind
 
 # The closed set of flavor names pylabview can emit as <Flavor> (it writes the
 # enum MEMBER NAME via enumOrIntToName(td.dtFlavor())). Every key in the data
@@ -127,3 +128,98 @@ def measure_data_field_name(flavor: str | None, field_index: int | None) -> str 
         return None
     layout = _load_table().get(flavor)
     return layout.get(field_index) if layout else None
+
+
+# The sample type of each analog-waveform flavor. A waveform value is flattened
+# like a cluster (NI "Flattened Data": "LabVIEW flattens waveforms like
+# clusters"): t0 (a 16-byte timestamp), dt (a double), Y (a 1D array of the
+# sample type), the error cluster, and the attributes Variant.
+_WAVEFORM_SAMPLE: dict[str, str] = {
+    "Int8Waveform": "NumInt8",
+    "Int16Waveform": "NumInt16",
+    "Int32Waveform": "NumInt32",
+    "Int64Waveform": "NumInt64",
+    "UInt8Waveform": "NumUInt8",
+    "UInt16Waveform": "NumUInt16",
+    "UInt32Waveform": "NumUInt32",
+    "UInt64Waveform": "NumUInt64",
+    "Float32Waveform": "NumFloat32",
+    "Float64Waveform": "NumFloat64",
+    "FloatExtWaveform": "NumFloatExt",
+    "Complex64Waveform": "NumComplex64",
+    "Complex128Waveform": "NumComplex128",
+    "ComplexExtWaveform": "NumComplexExt",
+}
+
+
+def _primitive(name: str) -> LVType:
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=name)
+
+
+def _array_of(element: LVType, dimensions: int = 1) -> LVType:
+    return LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=element,
+        dimensions=dimensions,
+    )
+
+
+def _cluster_of(**fields: LVType) -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[ClusterField(name=name, type=t) for name, t in fields.items()],
+    )
+
+
+def _timestamp() -> LVType:
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="MeasureData",
+        measure_flavor="TimeStamp",
+    )
+
+
+def _error_cluster() -> LVType:
+    return _cluster_of(
+        status=_primitive("Boolean"),
+        code=_primitive("NumInt32"),
+        source=_primitive("String"),
+    )
+
+
+def _digital_table() -> LVType:
+    """The digital data's own structure: the transitions (a 1D array of U32) and
+    the data (a 2D array of U8)."""
+    return _cluster_of(
+        transitions=_array_of(_primitive("NumUInt32")),
+        data=_array_of(_primitive("NumUInt8"), 2),
+    )
+
+
+def _waveform(samples: LVType) -> LVType:
+    return _cluster_of(
+        t0=_timestamp(),
+        dt=_primitive("NumFloat64"),
+        Y=samples,
+        error=_error_cluster(),
+        attributes=_primitive("LVVariant"),
+    )
+
+
+def measure_data_value_type(flavor: str | None) -> LVType | None:
+    """The flattened structure of a MeasureData value of ``flavor`` (a cluster of
+    its parts), or ``None`` for a flavor whose structure is not known (the
+    timestamp is read directly)."""
+    if flavor in _WAVEFORM_SAMPLE:
+        return _waveform(_array_of(_primitive(_WAVEFORM_SAMPLE[flavor])))
+    if flavor == "DigitalWaveform":
+        return _waveform(_digital_table())
+    if flavor == "Digitaldata":
+        return _digital_table()
+    if flavor == "Dynamicdata":
+        return _cluster_of(
+            waveforms=_array_of(_waveform(_array_of(_primitive("NumFloat64"))))
+        )
+    return None

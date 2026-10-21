@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from ....models import unique_names
 from ....parser.models import ParsedFPControl
 
 
@@ -16,11 +17,12 @@ def with_value(ctrl: ParsedFPControl, value: object) -> ParsedFPControl:
     if isinstance(value, str):
         return replace(ctrl, default_value=value)
     if isinstance(value, dict) and ctrl.children:
+        keys = unique_names(child.name for child in ctrl.children)
         return replace(
             ctrl,
             children=[
-                with_value(child, value[child.name]) if child.name in value else child
-                for child in ctrl.children
+                with_value(child, value[key]) if key in value else child
+                for child, key in zip(ctrl.children, keys)
             ],
         )
     if isinstance(value, list):

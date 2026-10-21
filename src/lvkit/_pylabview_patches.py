@@ -46,6 +46,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", SyntaxWarning)
     import pylabview.LVblock as _lv_block  # type: ignore[import-untyped]
     import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
+    import pylabview.LVdatatyperef as _lv_datatyperef  # type: ignore[import-untyped]
     import pylabview.LVheap as _lv_heap  # type: ignore[import-untyped]
     import pylabview.LVmisc as _lv_misc  # type: ignore[import-untyped]
     import pylabview.LVrsrcontainer as _lv_rsrc  # type: ignore[import-untyped]
@@ -250,6 +251,48 @@ def install_pylabview_patches() -> None:
     # be written back faithfully — read path only.)
     _orig_tdlist = _lv_block.VCTP.exportXMLTypeDescList
 
+    def _salvaged_refnum(td):  # type: ignore[no-untyped-def]
+        """What a reference descriptor says before its body: its refnum kind (the
+        16-bit code right after the 4-byte header)."""
+        element = _lv_xml.Element("TypeDesc")
+        element.set("Type", "Refnum")
+        raw = td.raw_data or b""
+        if len(raw) >= 6:
+            try:
+                kind = _lv_datatyperef.refnumEnToName(int.from_bytes(raw[4:6], "big"))
+                element.set("RefType", kind)
+            except Exception:  # noqa: BLE001 -- an unnamed kind stays unnamed
+                pass
+        return element
+
+    def _salvaged_type_desc(td):  # type: ignore[no-untyped-def]
+        """The part of a descriptor that parsed before its body failed to: a
+        reference's kind, inside its type definition's labels. Anything else is a
+        Void that holds the position. The refnum's own body (its tag and Variant)
+        is not needed to know what kind of value it holds."""
+        TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
+        try:
+            td.parseData()
+        except Exception:  # noqa: BLE001 -- what parsed before the failure is kept
+            pass
+        element = _lv_xml.Element("TypeDesc")
+        element.set("Format", "corrupt-stub")
+        element.set("Type", "Void")
+        if td.otype == TD_FULL_TYPE.TypeDef and td.clients:
+            inner = td.clients[0].nested
+            if inner is not None and inner.otype == TD_FULL_TYPE.Refnum:
+                element.set("Type", "TypeDef")
+                nested_element = _salvaged_refnum(inner)
+                nested_element.set("Nested", "True")
+                element.append(nested_element)
+                for label in td.labels:
+                    text = label.decode("mac_roman", "replace") if label else ""
+                    _lv_xml.SubElement(element, "Label").set("Text", text)
+        elif td.otype == TD_FULL_TYPE.Refnum:
+            element = _salvaged_refnum(td)
+            element.set("Format", "corrupt-stub")
+        return element
+
     def _resilient_tdlist(  # type: ignore[no-untyped-def]
         self, section_elem, section_num, section, fname_base
     ):
@@ -279,9 +322,7 @@ def install_pylabview_patches() -> None:
                     TDObject.exportXMLFinish(nested, subelem)
             except Exception:  # noqa: BLE001 — corrupt type -> position-holding stub
                 section_elem.remove(subelem)
-                stub = _lv_xml.SubElement(section_elem, "TypeDesc")
-                stub.set("Type", "Void")
-                stub.set("Format", "corrupt-stub")
+                section_elem.append(_salvaged_type_desc(nested))
 
     _resilient_tdlist.__wrapped__ = _orig_tdlist  # type: ignore[attr-defined]
     _lv_block.VCTP.exportXMLTypeDescList = _resilient_tdlist
@@ -319,5 +360,43 @@ def install_pylabview_patches() -> None:
         return encode_default_data(content)
 
     _lv_heap.HeapNodeString.prepareContentXML = _byte_exact_default_data
+
+    # (9) Set and Map type descriptors. Type codes 0x73 (Set) and 0x74 (Map) are
+    # not in pylabview's type table, so they fall into its refnum family, whose
+    # body parser reads the descriptor's bytes as a refnum type code and a client
+    # list that is not there (a Map came out with no members; a Set with a runaway
+    # list of garbage). Their bodies, read from the corpus's own descriptors:
+    #
+    #   Map  [header][2][key type index][value type index][label]
+    #   Set  [header][element type index][label]
+    #
+    # (a Map's leading 2 is a member count, like a cluster's; a Set's one member
+    # is named directly -- its leading word is the element's index, which varies
+    # from descriptor to descriptor). The patched classes export each member as a
+    # ``<TypeDesc TypeID=n>`` child; the type code is written to the XML as
+    # ``115`` / ``116``.
+    _orig_new_td = _lv_datatype.newTDObject
+    _TDObject = _lv_datatype.TDObject
+
+    class _SetTDObject(_lv_datatype.TDObjectCluster):  # type: ignore[misc]
+        def parseRSRCData(self, bldata):  # type: ignore[no-untyped-def]
+            self.otype, self.oflags, _obj_len = _TDObject.parseRSRCDataHeader(bldata)
+            element, _length = self.parseRSRCIndexedTD(bldata)
+            self.clients = [element]
+            self.parseRSRCDataFinish(bldata)
+
+    def _new_td_object(vi, blockref, idx, obj_flags, obj_type, po):  # type: ignore[no-untyped-def]
+        if obj_type == 0x73:
+            return _SetTDObject(vi, blockref, idx, obj_flags, obj_type, po)
+        if obj_type == 0x74:
+            return _lv_datatype.TDObjectCluster(
+                vi, blockref, idx, obj_flags, obj_type, po
+            )
+        return _orig_new_td(vi, blockref, idx, obj_flags, obj_type, po)
+
+    _new_td_object.__wrapped__ = _orig_new_td  # type: ignore[attr-defined]
+    _lv_datatype.newTDObject = _new_td_object
+    # The VCTP block reads its descriptors through its own star-imported name.
+    _lv_block.newTDObject = _new_td_object
 
     _installed = True

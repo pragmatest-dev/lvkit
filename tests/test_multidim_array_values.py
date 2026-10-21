@@ -399,7 +399,7 @@ def test_corpus_pictures_in_a_cluster_of_clusters_consume_the_whole_default():
 # Object, nothing follows), the class name (a length byte, Pascal strings, a zero
 # length byte, padded to 4), one 8-byte version per level (one level at version
 # 0 is the default data, nothing follows), then per level a 4-byte byte count and
-# that many bytes of private data, padded to 4.
+# that many bytes of private data (the count is the stored size; no pad follows).
 
 
 def _class_type(name: str = "Lib.lvlib:Layer.lvclass") -> LVType:
@@ -430,14 +430,14 @@ def test_a_default_object_has_no_private_data():
     assert _decode_element(data, _class_type())[1] == len(data)
 
 
-def test_private_data_is_skipped_and_padded_to_four():
+def test_private_data_is_skipped_by_its_stored_byte_count():
     version = bytes([0, 1, 0, 0, 0, 0, 0, 0])
     data = (
         _u32(1)
         + _name_section("Layer.lvclass")
         + version
         + _u32(5)
-        + b"abcde\x00\x00\x00"
+        + b"abcde"
     )
     assert _decode_element(data, _class_type())[1] == len(data)
 
@@ -450,7 +450,7 @@ def test_every_level_carries_its_own_version_and_private_data():
         + versions
         + _u32(0)
         + _u32(3)
-        + b"xyz\x00"
+        + b"xyz"
     )
     assert _decode_element(data, _class_type())[1] == len(data)
 
@@ -465,7 +465,7 @@ def test_fields_after_a_class_object_stay_aligned():
         + bytes([0, 1])
         + b"\x00" * 6
         + _u32(2)
-        + b"ab\x00\x00"
+        + b"ab"
     )
     data = _u32(2) + obj + obj + bytes([7, 8])
     value, consumed, structured = _decode_element(data, lv_type)

@@ -200,6 +200,11 @@ def _make_primitive_lvtype(type_name: str) -> LVType:
         return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
 
 
+# Type codes 0x73 and 0x74, which pylabview does not name (the patched reader
+# writes them to the XML as their decimal code).
+_COLLECTION_TYPE_NAMES = {"115": "Set", "116": "Map"}
+
+
 def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
     """Parse VCTP section to get full type info including cluster fields.
 
@@ -254,7 +259,9 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             lv_type = LVType(
                 kind=LVTypeKind.CLUSTER,
                 underlying_type="Cluster",
-                fields=fields if fields else None,
+                # A cluster that lists no members is empty (``[]``); one whose
+                # members could not be resolved has no known fields (None).
+                fields=fields if fields or not td.findall("TypeDesc") else None,
             )
 
         elif type_name in ("Array", "SubArray"):
@@ -361,6 +368,20 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 user_event_name=user_event_name,
             )
 
+        elif type_name in _COLLECTION_TYPE_NAMES:
+            # A Set (one member type: its element) or a Map (two: key, then
+            # value). The members are listed by TypeID like a cluster's fields.
+            members = [
+                resolve_type(int(child.attrib["TypeID"]), visited)
+                for child in td.findall("TypeDesc[@TypeID]")
+            ]
+            lv_type = LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type=_COLLECTION_TYPE_NAMES[type_name],
+                element_type=members[0] if members else None,
+                value_type=members[1] if len(members) > 1 else None,
+            )
+
         elif type_name == "MeasureData":
             # Waveform / digital-data: an opaque built-in structure (no VCTP
             # children). Keep its FLAVOR so a built-in component table can name
@@ -415,7 +436,7 @@ def _get_kind(type_name: str) -> LVTypeKind:
         return LVTypeKind.ARRAY
     elif type_name.startswith("Enum") or type_name == "Ring":
         return LVTypeKind.ENUM
-    elif type_name.startswith("Unit"):
-        return LVTypeKind.ENUM  # UnitUInt16 etc are often enums
+    elif type_name in ("UnitUInt8", "UnitUInt16", "UnitUInt32"):
+        return LVTypeKind.ENUM  # a unit-tagged unsigned integer is an enum's storage
     else:
         return LVTypeKind.PRIMITIVE

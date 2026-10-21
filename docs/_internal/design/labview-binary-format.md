@@ -1238,15 +1238,20 @@ section "Classes" (https://docs-be.ni.com/api/bundle/labview/page/flattened-data
 - **version list**: one cluster of four 2-byte unsigned integers (8 bytes) per
   level. At level 1 with version 0 the value is the class's default data and the
   remaining field is omitted.
-- **private data**: per level, a 4-byte signed byte count then that many bytes of
-  flattened cluster, padded to a multiple of 4. Decoding those bytes needs the
+- **private data**: per level, a 4-byte byte count then exactly that many bytes of
+  flattened cluster. NI's page says each cluster "ends with enough pad bytes to
+  increase the cluster to a multiple of 4"; the stored count already includes
+  them, and nothing follows the counted bytes. Decoding those bytes needs the
   class's own private data type, so lvkit skips them and shows the class name.
 
 Evidence: in `Extract Default Icon Data.vi` the `All User Layers` default holds
 one `Layer.lvclass` object of 112 bytes: `00000001` (level) + `0f 0d Layer.lvclass
 00` (the 16-byte name section, already a multiple of 4) + 8 bytes of version +
-`00000049` (73 bytes of private data, padded to 76). The fields after it then
-start at the right byte. Across 236 class-bearing defaults and constants in 149
+`00000049` (73 bytes of private data, nothing after them). The fields after it
+then start at the right byte: reading a pad up to 76 leaves the next field's
+4-byte length 3 bytes late and the default 12 bytes short of its stored 181, and
+without the pad all 181 bytes are consumed (the `Font` string in that cluster,
+which had looked like a 1-byte-length string, is an ordinary 4-byte-length one). Across 236 class-bearing defaults and constants in 149
 extracts (a deterministic quarter of the 2,302 distinct VIs that name a class;
 723 class objects, 714 at level 1 and 9 at level 0), 210 are consumed to exactly
 their stored byte count. Of the other 26, 24 are diagram constants
@@ -1255,3 +1260,65 @@ class or Picture), and 2 are one `Data` cluster whose last field is a type
 descriptor lvkit does not decode (its 4 remaining bytes are zero). No value in
 the sample has a level above 1, so the multi-level layout rests on the NI page
 alone.
+
+
+## Every stored default and constant reads to its exact size (audit of 14,914 values, issues #174, #175)
+
+`scripts/audit_default_data.py` decodes every front-panel `DefaultData` and every
+diagram constant of every extracted VI/control in the corpus (4,850 distinct
+files; 14,914 values in 2,928 of them -- 1,485 front-panel defaults, 13,429
+diagram constants) with `_decode_element` and requires each to consume exactly
+its stored byte count AND read every field and element its type declares
+(`lvkit.parser.audit`). Before the fixes below 10,573 were exact; after, all
+14,914. What each group needed:
+
+- **A diagram constant whose flattened value is all zero bytes carries one extra
+  trailing zero byte.** 4,139 constants had a surplus of exactly one `00`; in all
+  4,139 the value bytes were all zero, and in none of the other 9,290 diagram
+  constants was there a surplus. It follows from nothing in NI's pages, so it is
+  a stored-form fact of the constant (a front-panel default never has it):
+  `lvkit.parser.audit.constant_padding`.
+- **Extended-precision numbers are IEEE binary128** (1 sign bit, 15 exponent
+  bits, 112 fraction bits, big-endian, 16 bytes; a complex is two). NI: "stores
+  flattened extended-precision, floating-point numbers as 16-byte quantities".
+  A physical quantity (a number with a unit, `UnitFloat*`/`UnitComplex*`) flattens
+  as its plain number; it was being read as an enum. 33 values.
+- **Tag refnums store flattened strings, not a 4-byte handle.** NI, "Refnums":
+  type codes 0xE (`VisaRef`), 0xF (`IVIRef`) and 0x15 (`UsrDefndTag`) hold "a
+  flattened string" (the tag); 0x1D (`UsrDefTagFlt`) holds the tag, a string, a
+  string, a 32-bit integer and a string (an IMAQ image's pixels are that last
+  string -- values up to 2 MB). Together with waveforms and unit-tagged extended
+  numbers below, 46 values.
+- **A Variant is `[version][type count][type descriptors][has value]
+  [value type index][value][attribute count][attributes]`**, an attribute being a
+  name string and another Variant. The type descriptors are those of NI's "Type
+  Descriptors" page (`[size][flags][type code][info][name]`; an array names its
+  element, a cluster its members, by index into the same list); the value is read
+  with the type its descriptor names. Every Variant in the corpus (134) is the
+  empty 20-byte form (version, one Void descriptor, has-value 1, type 0, no
+  attributes); a Variant that holds a value is read from its descriptors.
+- **A waveform is flattened like a cluster** (NI "Waveforms"): t0 (the 16-byte
+  timestamp), dt (a double), Y (a 1D array of the sample type), the error
+  cluster (Boolean, 32-bit integer, string) and the attributes Variant. Digital
+  data is a cluster of the 1D U32 transition array and the 2D U8 data array;
+  dynamic data a cluster of an array of waveforms. 57-byte example: 16 + 8 + 4 +
+  9 + 20.
+- **Set (type code 0x73) and Map (0x74)**: their type descriptors are
+  `[header][element index][label]` and `[header][2][key index][value index]
+  [label]` (the corpus's own descriptors; 15 values), which pylabview reads as a
+  refnum. Their values are a 32-bit count then each element, or each key and
+  value (NI "Sets" and "Maps"); the 37-byte Map `{'PinGroup1': ['Pin1', 'Pin2']}`
+  is `00000001 00000009 "PinGroup1" 00000002 00000004 "Pin1" 00000004 "Pin2"`.
+- **A type definition over a refnum pylabview cannot finish reading** (an IMAQ
+  image's body ends in a Variant it misaligns) still names its refnum kind: the
+  16-bit code right after the 4-byte header (15 values).
+- **A cluster with no members stores no bytes**, and neither does a Void; a
+  cluster may repeat a field name (`Left, Bottom, Right, Bottom`), so values keyed
+  by name use `unique_names` (`Bottom`, `Bottom (2)`).
+- **An array of more than 4,000,000 elements** (a camera frame of 18,001,000
+  pixels is a front-panel default) is read to its end but its values are not kept.
+
+Not decoded, but read to its exact extent: the private data of a class object
+(1 value in the corpus: 73 bytes in `Extract Default Icon Data.vi`). Decoding it
+needs the class's private data cluster type, which lives in the class's own
+`.lvclass`/control and would have to be loaded and passed to the decoder.

@@ -17,7 +17,8 @@ subclasses are the single source of truth for node structure.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import Literal
@@ -143,6 +144,9 @@ class LVType:
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
     element_type: LVType | None = None
+    # A Map's value type (``element_type`` is its key type); None for every
+    # other type.
+    value_type: LVType | None = None
     dimensions: int | None = None
     typedef_path: str | None = None
     typedef_name: str | None = None
@@ -208,9 +212,7 @@ class LVType:
         if self.kind == LVTypeKind.PRIMITIVE:
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
-            inner = (
-                self.element_type.to_python(names) if self.element_type else "Any"
-            )
+            inner = self.element_type.to_python(names) if self.element_type else "Any"
             result = f"list[{inner}]"
             for _ in range((self.dimensions or 1) - 1):
                 result = f"list[{result}]"
@@ -368,10 +370,21 @@ class LVType:
                         return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"
+            if self.underlying_type == "Set":
+                return f"set{{{_member_descriptor(self.element_type, expand_named)}}}"
+            if self.underlying_type == "Map":
+                key = _member_descriptor(self.element_type, expand_named)
+                value = _member_descriptor(self.value_type, expand_named)
+                return f"map{{{key}: {value}}}"
             return _SCALAR_TYPE_DESCRIPTOR.get(
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
+
+
+def _member_descriptor(member: LVType | None, expand_named: bool) -> str:
+    """A Set or Map member's descriptor; ``?`` when its type is not known."""
+    return member.type_descriptor(expand_named=expand_named) if member else "?"
 
 
 class WireLineStyle(IntEnum):
@@ -1065,3 +1078,15 @@ def leading_element(value: object) -> object:
     while isinstance(value, list):
         value = value[0] if value else None
     return value
+
+
+def unique_names(names: Iterable[str]) -> list[str]:
+    """``names`` with each repeat made distinct by a `` (2)``, `` (3)`` suffix, in
+    order -- a cluster may hold several fields with the same label, and a value
+    keyed by field name needs one key per field."""
+    seen: Counter[str] = Counter()
+    result = []
+    for name in names:
+        seen[name] += 1
+        result.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
+    return result

@@ -56,6 +56,7 @@ from ..models import (
     Terminal,
     bundle_unbundle_name,
     leading_element,
+    unique_names,
 )
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
@@ -1521,8 +1522,9 @@ def _cluster_value_glyph(
     values = _cluster_field_values(value)
     geom_by_name = {g.name: g for g in cluster_geom.fields} if cluster_geom else {}
     composed = []
-    for f in fields:
-        field_value = values.get(f.name)
+    keys = unique_names(f.name for f in fields)
+    for f, key in zip(fields, keys):
+        field_value = values.get(key)
         field_fam = type_family(f.type)
         if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
             field_geom = geom_by_name.get(f.name)
@@ -1560,7 +1562,8 @@ def _cluster_value_glyph(
                 ),
             ))
     summary = "\n".join(
-        f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
+        f"{f.name}: {_field_summary_value(f.type, values.get(key))}"
+        for f, key in zip(fields, keys)
     )
     return ClusterConstantGlyph(
         tuple(composed),
@@ -1727,8 +1730,10 @@ def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
         # ``{'Idle State': False}``.
         vals = _cluster_field_values(raw)
         inner = ", ".join(
-            f"{f.name}: {_field_summary_value(f.type, vals.get(f.name))}"
-            for f in lv_type.fields
+            f"{f.name}: {_field_summary_value(f.type, vals.get(key))}"
+            for f, key in zip(
+                lv_type.fields, unique_names(f.name for f in lv_type.fields)
+            )
         )
         return "{" + inner + "}"
     if fam == "array" and isinstance(raw, (list, tuple)):

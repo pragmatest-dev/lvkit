@@ -1,0 +1,345 @@
+"""Stored front-panel defaults and diagram constants, read to their exact size.
+
+Hand-built bytes for each layout (NI "Flattened Data" and "Type Descriptors":
+https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html), then the
+corpus audit: every value of a fixed set of VIs, covering each kind of value
+whose reading once came up short, consumed to exactly its stored byte count.
+"""
+
+from __future__ import annotations
+
+import math
+import struct
+from pathlib import Path
+
+import pytest
+
+from lvkit.extractor import resolve_extracted
+from lvkit.models import ClusterField, LVType, LVTypeKind, unique_names
+from lvkit.parser.audit import audit_vi, constant_padding
+from lvkit.parser.type_mapping import parse_vctp_types
+from lvkit.parser.vi import MAX_STORED_ARRAY_ELEMENTS, _decode_element
+
+SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
+
+
+def _u32(*values: int) -> bytes:
+    return b"".join(v.to_bytes(4, "big") for v in values)
+
+
+def _string(text: str) -> bytes:
+    return _u32(len(text)) + text.encode()
+
+
+def _prim(name: str, **kw) -> LVType:
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=name, **kw)
+
+
+def _array(element: LVType, dimensions: int = 1) -> LVType:
+    return LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=element,
+        dimensions=dimensions,
+    )
+
+
+def _cluster(*fields: tuple[str, LVType]) -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[ClusterField(name=n, type=t) for n, t in fields],
+    )
+
+
+# === Text tables (a [[String]] control, as a LabVIEW project stores them) ===
+
+
+def test_a_196_by_2_string_table_reads_every_cell():
+    rows = [("CRE_Energy", "100000,000000"), ("CRE_Exponent", "10,000000")]
+    rows += [(f"Setting_{n}", f"{n},000000") for n in range(194)]
+    data = _u32(196, 2) + b"".join(_string(a) + _string(b) for a, b in rows)
+    value, consumed, structured = _decode_element(data, _array(_prim("String"), 2))
+    assert consumed == len(data)
+    assert value.startswith("[['CRE_Energy', '100000,000000'], ['CRE_Exponent'")
+    assert len(structured) == 196
+    assert structured[1] == ["'CRE_Exponent'", "'10,000000'"]
+
+
+# === Variants ===
+
+_EMPTY_VARIANT = bytes.fromhex("0900800000000001000400000001000000000000")
+
+
+def test_an_empty_variant_is_twenty_bytes():
+    assert _decode_element(_EMPTY_VARIANT, _prim("LVVariant")) == (
+        "Variant()",
+        20,
+        "Variant()",
+    )
+
+
+def test_a_variant_with_a_value_shows_it():
+    data = (
+        bytes.fromhex("09008000")
+        + _u32(2)
+        + bytes.fromhex("00040000")  # type 0: Void
+        + bytes.fromhex("00040003")  # type 1: 32-bit integer
+        + bytes.fromhex("0001")  # has a value
+        + bytes.fromhex("0001")  # of type 1
+        + _u32(42)
+        + _u32(0)  # no attributes
+    )
+    value, consumed, _ = _decode_element(data, _prim("LVVariant"))
+    assert (value, consumed) == ("Variant(42)", len(data))
+
+
+def test_a_variant_attribute_is_another_variant():
+    data = _EMPTY_VARIANT[:-4] + _u32(1) + _string("units") + _EMPTY_VARIANT
+    assert _decode_element(data, _prim("LVVariant"))[1] == len(data)
+
+
+def test_variants_in_a_cluster_do_not_swallow_the_next_field():
+    lv_type = _cluster(("v", _prim("LVVariant")), ("after", _prim("NumUInt8")))
+    data = _EMPTY_VARIANT + bytes([9])
+    _, consumed, structured = _decode_element(data, lv_type)
+    assert consumed == len(data)
+    assert structured == {"v": "Variant()", "after": "9"}
+
+
+# === Extended-precision numbers ===
+
+
+@pytest.mark.parametrize(
+    "head,expected",
+    [("3fff", 1.0), ("c000", -2.0), ("3ffe", 0.5), ("0000", 0.0)],
+)
+def test_an_extended_number_is_a_16_byte_quad(head, expected):
+    data = bytes.fromhex(head) + bytes(14)
+    value, consumed, _ = _decode_element(data, _prim("NumFloatExt"))
+    assert (float(value), consumed) == (expected, 16)
+
+
+def test_extended_infinity_and_not_a_number():
+    inf = bytes.fromhex("7fff") + bytes(14)
+    nan = bytes.fromhex("7fff8000") + bytes(12)
+    assert _decode_element(inf, _prim("NumFloatExt"))[0] == "inf"
+    assert math.isnan(float(_decode_element(nan, _prim("NumFloatExt"))[0]))
+
+
+def test_a_complex_extended_number_is_two_quads():
+    data = bytes.fromhex("3fff") + bytes(14) + bytes.fromhex("c000") + bytes(14)
+    value, consumed, _ = _decode_element(data, _prim("NumComplexExt"))
+    assert (value, consumed) == ("(1-2j)", 32)
+
+
+def test_a_number_with_a_unit_flattens_as_the_number():
+    data = struct.pack(">d", 2.5)
+    assert _decode_element(data, _prim("UnitFloat64")) == ("2.5", 8, "2.5")
+
+
+# === Refnums that store a tag, Sets and Maps ===
+
+
+def test_a_tag_refnum_is_its_flattened_string():
+    lv_type = _prim("Refnum", ref_type="VisaRef")
+    assert _decode_element(_string("COM1"), lv_type) == ("'COM1'", 8, "'COM1'")
+
+
+def test_a_flattened_tag_refnum_carries_three_more_fields():
+    lv_type = _prim("Refnum", ref_type="UsrDefTagFlt")
+    data = (
+        _string("remote image 1")
+        + _string("nivissvc.*")
+        + _string("LV_ImageDTClassInfo")
+        + _u32(1)
+        + _string("PIXELS")
+    )
+    value, consumed, _ = _decode_element(data, lv_type)
+    assert (value, consumed) == ("'remote image 1'", len(data))
+
+
+def test_a_handle_refnum_is_still_four_bytes():
+    lv_type = _prim("Refnum", ref_type="Queue")
+    assert _decode_element(_u32(7), lv_type)[:2] == ("Refnum(7)", 4)
+
+
+def _collection(name: str, element: LVType, value: LVType | None = None) -> LVType:
+    return _prim(name, element_type=element, value_type=value)
+
+
+def test_an_empty_set_and_map_are_just_a_count():
+    string = _prim("String")
+    assert _decode_element(_u32(0), _collection("Set", string)) == (
+        "set()",
+        4,
+        [],
+    )
+    assert _decode_element(_u32(0), _collection("Map", string, string))[:2] == (
+        "{}",
+        4,
+    )
+
+
+def test_a_map_of_strings_to_string_lists():
+    lv_type = _collection("Map", _prim("String"), _array(_prim("String")))
+    data = _u32(1) + _string("PinGroup1") + _u32(2) + _string("Pin1") + _string("Pin2")
+    value, consumed, structured = _decode_element(data, lv_type)
+    assert consumed == len(data) == 37
+    assert value == "{'PinGroup1': ['Pin1', 'Pin2']}"
+    assert structured == [["'PinGroup1'", ["'Pin1'", "'Pin2'"]]]
+
+
+def test_a_set_of_integers():
+    data = _u32(2) + _u32(5) + _u32(9)
+    value, consumed, _ = _decode_element(data, _collection("Set", _prim("NumUInt32")))
+    assert (value, consumed) == ("{5, 9}", 12)
+
+
+def _vctp(tmp_path: Path, descs: str) -> dict[int, LVType]:
+    path = tmp_path / "vi.xml"
+    path.write_text(f"<LVSR><VCTP><Section>{descs}</Section></VCTP></LVSR>")
+    return parse_vctp_types(path)
+
+
+def test_set_and_map_descriptors_name_their_member_types(tmp_path):
+    types = _vctp(
+        tmp_path,
+        '<TypeDesc Type="String" /><TypeDesc Type="NumInt32" />'
+        '<TypeDesc Type="115"><TypeDesc TypeID="0" /></TypeDesc>'
+        '<TypeDesc Type="116"><TypeDesc TypeID="0" />'
+        '<TypeDesc TypeID="1" /></TypeDesc>',
+    )
+    assert types[2].type_descriptor() == "set{String}"
+    assert types[3].type_descriptor() == "map{String: I32}"
+
+
+# === Waveforms, empty clusters, Void, repeated names ===
+
+
+def test_an_analog_waveform_reads_every_part():
+    data = (
+        bytes(16)  # t0
+        + struct.pack(">d", 1.0)  # dt
+        + _u32(2)
+        + struct.pack(">dd", 0.5, 1.5)  # Y
+        + bytes([0])
+        + _u32(0)
+        + _u32(0)  # error: status, code, source
+        + _EMPTY_VARIANT  # attributes
+    )
+    lv_type = _prim("MeasureData", measure_flavor="Float64Waveform")
+    value, consumed, structured = _decode_element(data, lv_type)
+    assert consumed == len(data)
+    assert structured["Y"] == ["0.5", "1.5"]
+    assert structured["dt"] == "1.0"
+
+
+def test_a_timestamp_shorter_than_16_bytes_is_unreadable():
+    lv_type = _prim("MeasureData", measure_flavor="TimeStamp")
+    assert _decode_element(bytes(8), lv_type) == (None, 0, None)
+
+
+def test_an_empty_cluster_and_a_void_hold_no_bytes():
+    empty = LVType(kind=LVTypeKind.CLUSTER, underlying_type="Cluster", fields=[])
+    lv_type = _cluster(("a", _prim("NumUInt8")), ("e", empty), ("v", _prim("Void")))
+    _, consumed, structured = _decode_element(bytes([5]), lv_type)
+    assert consumed == 1
+    assert structured == {"a": "5", "e": {}, "v": None}
+
+
+def test_repeated_field_names_keep_every_value():
+    assert unique_names(["Bottom", "Left", "Bottom", "Bottom"]) == [
+        "Bottom",
+        "Left",
+        "Bottom (2)",
+        "Bottom (3)",
+    ]
+    lv_type = _cluster(("x", _prim("NumUInt8")), ("x", _prim("NumUInt8")))
+    value, _, structured = _decode_element(bytes([1, 2]), lv_type)
+    assert structured == {"x": "1", "x (2)": "2"}
+    assert value == "{'x': 1, 'x (2)': 2}"
+
+
+def test_a_huge_array_is_read_to_its_end_without_keeping_its_values():
+    count = MAX_STORED_ARRAY_ELEMENTS + 1
+    data = _u32(count) + bytes(count)
+    value, consumed, structured = _decode_element(data, _array(_prim("NumUInt8")))
+    assert consumed == len(data)
+    assert value == f"<{count} of {count} elements>"
+    assert structured == []
+
+
+# === What a diagram constant stores ===
+
+
+def test_an_all_zero_constant_has_one_extra_byte():
+    assert constant_padding(bytes(5), 4) == 1
+    assert constant_padding(bytes(4), 4) == 0
+    assert constant_padding(bytes([0, 0, 0, 1]) + bytes(1), 4) == 0
+    assert constant_padding(bytes(6), 4) == 0
+
+
+# === The corpus ===
+
+_PLUGINS = "ni-labview-icon-editor/resource/plugins"
+_SESSIONS = "measurement-plugin-labview/Source/Runtime/Clients/Session Management V1"
+_OPENG = "OpenG/extracted/File Group 0/examples/OpenG"
+_EASYXML = "JKI-EasyXML/Source/Tests/EasyXMLTest"
+
+# One or more VIs for every kind of value that once read short: multi-dimensional
+# arrays, Pictures, class objects (default and with private data), tag refnums,
+# Variants, extended-precision numbers, waveforms, Sets and Maps, repeated field
+# names, Void/empty clusters, type definitions over arrays and refnums, and a
+# front panel holding multi-megabyte values.
+_AUDITED = [
+    f"{_OPENG}/array/examples/Index Array Elements (2D) Example 01.vi",
+    f"{_OPENG}/array/examples/Reverse 2D Array Example 01.vi",
+    f"{_OPENG}/picture/Write GIF File Example.vi",
+    "measurement-plugin-labview/Source/Example Measurements/Game Of Life/"
+    "Game Of Life/Helpers/Next Generation.vi",
+    "LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/utils/AI_New.vi",
+    f"{_PLUGINS}/NIIconEditor/Miscellaneous/ni.com_iconlibrary/Install Glyphs.vi",
+    f"{_PLUGINS}/NIIconEditor/Class/Ants/Initialization/Ants Initialization.vi",
+    f"{_PLUGINS}/NIIconEditor/Controls/LayerList.ctl",
+    "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon/Support/"
+    "Extract Default Icon Data.vi",
+    f"{_PLUGINS}/lv_icon.vi",
+    f"{_SESSIONS}/Session Reservation/Create Session Reservation.vi",
+    f"{_SESSIONS}/Session Reservation/Pins to Set.vi",
+    f"{_SESSIONS}/Session Reservation/Reserve Registered Sessions.vi",
+    f"{_SESSIONS}/Connection Map/Create.vi",
+    "measurement-plugin-labview/Source/Runtime/Measurements/Measure Call Context/"
+    "Create.vi",
+    "measurement-plugin-labview/Source/Runtime/Clients/Discovery V1/"
+    "Service Location FGV Impl.vi",
+    "Event-Source-Actor/Source/Template Source/Event Source Actor/Pre Launch Init.vi",
+    "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/Set Text Icon/Filter Words.vi",
+    f"{_EASYXML}/testSupportedTypes/testNumericEXTPQ.vi",
+    f"{_EASYXML}/testSupportedTypes/testRefnumVISA.vi",
+    f"{_EASYXML}/testSupportedTypes/testRefnumDAQmx.vi",
+    f"{_EASYXML}/testSupportedTypes/testVisaResource/VISA Resource Types.vi",
+    f"{_EASYXML}/testUnsupportedTypes/testWaveform.vi",
+    "JKI-EasyXML/Source/OpenG Derivative/Get Default Data from TD--WithTIMESTAMP.vi",
+    "measurement-plugin-labview/Source/Runtime/Measurements/IMeasurement Service/"
+    "Service Stop Handler.vi",
+    "ni-labview-icon-editor/resource/plugins/NIIconEditor/Class/Ants/Misc/"
+    "RunningAnts.vi",
+    "LabVIEW-DAQ/Intrinsic Optical Signal/Teledyne DALSA Pantera TF 1M60/"
+    "MasterAcquisitionFile_DALSA_IOS.vi",
+]
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize("relative", _AUDITED, ids=lambda p: Path(p).name)
+def test_every_stored_value_is_read_to_its_exact_size(relative):
+    vi = SAMPLES / relative
+    if not vi.exists():
+        pytest.skip(f"{relative} is not in this sample corpus")
+    bd_xml, fp_xml, main_xml = resolve_extracted(vi)
+    assert fp_xml is not None and main_xml is not None
+    records = audit_vi(main_xml, bd_xml, fp_xml)
+    wrong = [r for r in records if not r["exact"]]
+    assert not wrong, [
+        (r["kind"], r["size"], r["consumed"], r["cause"], r["tail"]) for r in wrong
+    ]
