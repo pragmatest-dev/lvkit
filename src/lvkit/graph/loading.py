@@ -54,6 +54,7 @@ from .models import (
     Reentrancy,
     ToolbarProps,
     TypedefStatus,
+    VIDotNetAssemblies,
     VIHealth,
     VIMetadata,
     VIProperties,
@@ -253,6 +254,7 @@ class LoadingMixin:
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
+    _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _vilib_root: Path | None
     _userlib_root: Path | None
     _instrlib_root: Path | None
@@ -1405,6 +1407,10 @@ class LoadingMixin:
             )
             self._vi_properties[vi_key] = _build_vi_properties(poly_metadata)
             self._vi_health[vi_key] = _build_vi_health(poly_metadata)
+            self._vi_dotnet_assemblies[vi_key] = VIDotNetAssemblies(
+                assemblies=metadata.dotnet_assemblies,
+                unreadable=[f.reason for f in metadata.dotnet_assembly_failures],
+            )
 
         # Add to dependency graph
         self._dep_graph.add_node(vi_key)

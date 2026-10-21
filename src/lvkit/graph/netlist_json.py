@@ -240,8 +240,10 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     - ``element_type``: the recursive dict for an array's element or a
       parametrized refnum's inner type -- ``None`` when absent.
     - every other ``LVType`` field carried through verbatim.
+    - ``dotnet_type``: the full assembly-qualified .NET type of a .NET node's
+      terminal; the key is absent for every other type.
     """
-    return {
+    result: dict[str, Any] = {
         "kind": lv_type.kind.value,
         "underlying_type": lv_type.underlying_type,
         "ref_type": lv_type.ref_type,
@@ -279,6 +281,10 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
         "measure_flavor": lv_type.measure_flavor,
         "user_event_name": lv_type.user_event_name,
     }
+    if lv_type.dotnet_type is not None:
+        # Only a .NET node's terminal has one: the assembly-qualified name.
+        result["dotnet_type"] = lv_type.dotnet_type.qualified
+    return result
 
 
 def _dependency_terminal_to_dict(t: ConnectorPaneTerminal) -> dict[str, Any]:
@@ -306,6 +312,8 @@ def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
         "qualified": dep.qualified,
         "path": dep.path,
     }
+    if dep.unreadable is not None:
+        d["unreadable"] = dep.unreadable
     if dep.interface:
         d["interface"] = [_dependency_terminal_to_dict(t) for t in dep.interface]
     return d

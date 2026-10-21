@@ -1220,6 +1220,7 @@ def _reconstruct_dependency(
         qualified=d.qualified,
         path=d.path,
         interface=interface,
+        unreadable=d.unreadable,
     )
 
 

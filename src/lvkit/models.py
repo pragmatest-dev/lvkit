@@ -24,6 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from .dotnet_types import DotNetType
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -139,6 +140,10 @@ class LVType:
     # constant's own instance of it, not the .ctl file name). None for every
     # other refnum and for an unlabeled data type.
     user_event_name: str | None = None
+    # The .NET type of a .NET node's terminal, as the VI records it. The VI types
+    # the terminal as a DotNet refnum (or, for a .NET enum, an I32); this is the
+    # type the node actually passes.
+    dotnet_type: DotNetType | None = None
 
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
@@ -158,6 +163,12 @@ class LVType:
     # built-in today); a LabVIEW class fills it from its ``.lvclass``.
     # ``compare=False`` — presentation, never type identity/coercion.
     wire_style: WireStyle | None = field(default=None, compare=False)
+
+    def _refnum_leaf(self) -> bool:
+        """Whether this type, or the element type of its arrays, is a refnum."""
+        if self.kind == LVTypeKind.ARRAY and self.element_type is not None:
+            return self.element_type._refnum_leaf()
+        return self.kind == LVTypeKind.PRIMITIVE and self.underlying_type == "Refnum"
 
     def type_ref(self) -> str | None:
         """The LabVIEW name of the class or typedef this type names -- the
@@ -270,6 +281,10 @@ class LVType:
         representation) is load-bearing and must never be silently narrowed
         to a Python annotation outside the code generator.
 
+        - a type with a ``dotnet_type`` (a .NET node's terminal): the recorded
+          .NET type name, ``MccDaq.DaqDeviceInterface``; as
+          ``DotNet refnum{MccDaq.ErrorInfo}`` when the terminal is a DotNet
+          refnum (or an array of them), the name keeping its own array suffix.
         - ``array``: bracket-nested element label, one pair per dimension
           (``[DBL]``, ``[[I32]]``); an unresolved element renders ``?``.
         - ``enum``/``ring``: ``{member, member, …}`` in ORDINAL order (by
@@ -301,6 +316,10 @@ class LVType:
         refnum's element) with the SAME flag, so ``[NamedThing]``/
         ``refnum{NamedThing}`` also collapse to the name one level down.
         """
+        if self.dotnet_type is not None:
+            if self._refnum_leaf():
+                return f"DotNet refnum{{{self.dotnet_type.name}}}"
+            return self.dotnet_type.name
         if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
             inner = (

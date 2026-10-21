@@ -7,9 +7,14 @@ from enum import IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..dotnet_types import DotNetAssembly, DotNetType
 from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
 from .layout import ClusterGeom
-from .link_table import SharedVariableLink, SharedVariableRecordFailure
+from .link_table import (
+    DotNetAssemblyRecordFailure,
+    SharedVariableLink,
+    SharedVariableRecordFailure,
+)
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -39,6 +44,7 @@ class ParsedType:
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
+    dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
 
 
 @dataclass
@@ -703,6 +709,12 @@ class ParsedVIMetadata:
     # Every ``HpVL`` record that could not be decoded. A Shared Variable node
     # none of the decoded records lists has no library; these say why.
     shared_variable_failures: list[SharedVariableRecordFailure] = field(
+        default_factory=list
+    )
+    # The .NET assemblies the VI's ``DNVA`` / ``DNDA`` link records name, sorted,
+    # and the records that could not be decoded.
+    dotnet_assemblies: list[DotNetAssembly] = field(default_factory=list)
+    dotnet_assembly_failures: list[DotNetAssemblyRecordFailure] = field(
         default_factory=list
     )
     dependency_refs: list[ParsedDependencyRef] = field(

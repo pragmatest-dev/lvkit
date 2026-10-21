@@ -2357,9 +2357,20 @@ def _build_dependency_manifest(
     has no dependencies -- never a guess, never a filesystem re-resolution.
     """
     vi_name = graph.resolve_vi_name(vi_name)
+    assemblies = [
+        NetlistDependency(
+            kind=DependencyKind.ASSEMBLY, qualified=a.qualified, path=None
+        )
+        for a in graph.get_dotnet_assemblies(vi_name).assemblies
+    ] + [
+        NetlistDependency(
+            kind=DependencyKind.ASSEMBLY, qualified="", path=None, unreadable=reason
+        )
+        for reason in graph.get_dotnet_assemblies(vi_name).unreadable
+    ]
     dep_keys = graph.get_vi_dependencies(vi_name)
     if not dep_keys:
-        return []
+        return assemblies
 
     # Caller-scoped subVI identities straight off the graph's own nodes -- the
     # SAME qualified-name + owning-library chain the block-diagram prints. Keyed
@@ -2486,7 +2497,9 @@ def _build_dependency_manifest(
                 interface=_dependency_interface(graph, kind, qname),
             )
         )
-    return sorted(manifest, key=lambda d: d.qualified)
+    return sorted(
+        [*manifest, *assemblies], key=lambda d: (d.qualified, d.unreadable or "")
+    )
 
 
 def _boundary_output(

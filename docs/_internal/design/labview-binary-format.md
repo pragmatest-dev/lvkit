@@ -279,6 +279,48 @@ description plus the structure shared with `HpVL`; it has not been checked again
 real `HpVr` file yet.** The link keeps which ident it came from
 (`SharedVariableLink.record`); nothing user-facing shows it.
 
+## A .NET assembly is named by a `DNVA` (`LIvi`) and a `DNDA` (`LIbd`) link-table record; each terminal of a .NET node records its .NET type in a `dnetItemInfo` (issue #161)
+
+A VI that calls a .NET assembly records the assembly in both link tables, like
+the project library of a Shared Variable: a `DNVA` record in the VI-level table
+(`LIvi`) and a `DNDA` record in the block-diagram table (`LIbd`) that also lists
+the heap uid of every node using it. pylabview defines both layouts
+(`LinkObjVIToAssembly` and `LinkObjHeapToAssembly` in `LVlinkinfo.py`); lvkit reads
+the main XML when pylabview decoded the table and the `_LIvi.bin` / `_LIbd.bin`
+sidecar otherwise.
+
+The record's qualified name has FOUR parts, not a path: the assembly's name,
+version, culture and public key token (`MccDaq`, `3.0.0.0`, `neutral`,
+`a37eefcf5c6ca10a`). The path holds only the name -- there is no file, the
+assembly comes from the GAC. A `DNVA` record is the basic link head (qualified
+name, path, flag) and a second path; a `DNDA` record is the head an `IUVI`
+record starts with (adds the type id and link reference), the typed-link flags
+(>= 12.0.0.3), the node uids and a second path. The second path is not read.
+Exact layout: `parser/link_table.py` module docstring. A record without four name
+parts, or that runs past the table, is a `DotNetAssemblyRecordFailure`; the VI
+still loads and describe and the JSON say the link is unreadable.
+
+**Evidence and its limits.** Taken from a reported sample, a LabVIEW VI calling
+`MccDaq` 3.0.0.0 (`DNDA ... 06 "MccDaq" 07 "3.0.0.0" 07 "neutral" 10
+"a37eefcf5c6ca10a" PTH0 ... 06 "MccDaq"`), and pylabview's layouts. The sample's
+bytes were reported, not shared: no VI with a `DNDA`/`DNVA` record is in the
+corpus, so the decoder is tested on records built from that layout, and the
+bytes the report elides (alignment, the counts and lengths) are the ones the
+layout implies.
+
+Each terminal of a .NET node is an `invokeItem` DCO whose `privDataList` holds a
+`dnetItemInfo` element. Its `DotNetItemType` field is the terminal's .NET type as
+an assembly-qualified name, hex-encoded, ending in a NUL byte:
+`MccDaq.DaqDeviceDescriptor[], MccDaq, Version=3.0.0.0, Culture=neutral,
+PublicKeyToken=a37eefcf5c6ca10a` (the return value of `GetDaqDeviceInventory`,
+an array), `MccDaq.DaqDeviceInterface, ...` (a parameter the VI types as I32: a
+.NET enum) and `MccDaq.ErrorInfo, ...` (the return value of `IgnoreInstaCal`).
+The VI's own type for the terminal stays the generic DotNet refnum (or I32).
+Member and parameter names are not stored in the VI. The three types come from the
+same report; the element's exact heap shape (whether the `dnetItemInfo` is a tag or
+a `class`, and where the DCO is defined) is read both ways in `parser/vi.py`
+`_dotnet_item_type`.
+
 ## "Compound Arithmetic (cpdArith) operation is in objFlags bits 16-18, NOT dcoFiller — corpus-verified decode that fixed"
 <!-- was memory: reference_cpdarith_objflags -->
 

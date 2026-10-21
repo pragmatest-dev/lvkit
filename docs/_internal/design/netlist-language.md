@@ -408,6 +408,16 @@ uses :
   independently: `.vi` → `subVI`, `.ctl` → `typedef`, `.lvclass` → `class`; a Global VI that a
   `global-variable` node refers to is `global` (also a `.vi`).
   The project library (`.lvlib`) that a `shared-variable` node refers to is `library`.
+  A .NET assembly the VI calls is `assembly`: its identity is the assembly's name,
+  version, culture and public key token as .NET spells them
+  (`MccDaq, Version=3.0.0.0, Culture=neutral, PublicKeyToken=a37eefcf5c6ca10a`) and
+  it has no `; ./path` (no file: it comes from the GAC). A .NET node's terminal type
+  is `DotNet refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
+  keeps its own `[]`: `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
+  type name for a non-refnum parameter such as a .NET enum (`MccDaq.DaqDeviceInterface`).
+  A `DNDA`/`DNVA` link record that could not be read is an `assembly` entry with no
+  identity and the attribute form the `shared-variable` node uses:
+  `assembly (unreadable "<reason>")`, the reason a §4 quoted literal. No view drops it.
 - **`<qualified-identity>`** — the SAME fully-qualified identity a `subVI`/
   `class`/`typedef` component spells at its own declaration elsewhere in the
   file (§7/§9) — e.g. `TestCase.lvclass:listAllTestMethods.vi`,

@@ -63,6 +63,36 @@ A record that fits neither layout is reported as a
 ``SharedVariableRecordFailure``, never guessed at. A record of any other kind
 (``VIVl``) is never looked at: the scan only stops at the idents it knows.
 
+A .NET assembly the VI calls has a ``DNDA`` record in ``LIbd`` (every node that
+uses it) and a ``DNVA`` record in ``LIvi`` (the VI as a whole). pylabview's
+``LinkObjHeapToAssembly`` / ``LinkObjVIToAssembly`` define the layouts; the
+assembly's identity is the record's qualified name, four parts::
+
+    'DNVA'                                  ident
+    <basic head>                            pad to 4, u32 count, count x (u8 len,
+                                            bytes), pad to 2, path, flag (u32
+                                            >= 8.6, u8 >= 8.5)
+    pad to 2, path                          (>= 10.0.0.1; not read)
+
+    'DNDA'                                  ident
+    <link head>                             the head an ``IUVI`` record starts
+                                            with
+    typed-link flags                        u32 (>= 12.0.0.3)
+    u32 count, count x u32                  node uids
+    pad to 2, path                          (>= 10.0.0.1; not read)
+
+    qualified name = name, version, culture, public key token
+                                            (``MccDaq`` ``3.0.0.0`` ``neutral``
+                                            ``a37eefcf5c6ca10a``); the path holds
+                                            only the name -- there is no file, the
+                                            assembly comes from the GAC
+
+Taken from a reported sample (``DNDA ... 06 "MccDaq" 07 "3.0.0.0" 07 "neutral"
+10 "a37eefcf5c6ca10a" PTH0 ... 06 "MccDaq"``) and pylabview's layouts; no
+``DNVA`` or ``DNDA`` record of a real file has been decoded here. A record that
+does not have those four parts, or that runs past the table, is a
+``DotNetAssemblyRecordFailure``.
+
 Record layout (pylabview ``LVlinkinfo.py``: ``LinkObjIUseToVILink`` ->
 ``HeapToVILinkSaveInfo`` -> ``OffsetLinkSaveInfo`` -> ``TypedLinkSaveInfo`` ->
 ``BasicLinkSaveInfo``). Every offset below counts from the start of the sidecar;
@@ -92,10 +122,12 @@ from __future__ import annotations
 import re
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from lvkit.dotnet_types import DotNetAssembly
 from lvkit.models import SharedVariableKind
 from lvkit.text_encoding import decode_labview_text
 
@@ -235,6 +267,45 @@ class SharedVariableTable:
     failures: list[SharedVariableRecordFailure]
 
 
+class DotNetAssemblyRecordKind(str, Enum):
+    """The ident of a .NET assembly link record: ``DNDA`` in the block-diagram
+    table (with the nodes that use the assembly), ``DNVA`` in the VI table.
+    ``(str, Enum)`` so a member equals the ident text."""
+
+    DNDA = "DNDA"
+    DNVA = "DNVA"
+
+    @property
+    def ident(self) -> bytes:
+        return self.value.encode("ascii")
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyLink:
+    """One ``DNDA`` or ``DNVA`` record: a .NET assembly the VI uses and, for a
+    ``DNDA`` record, the heap uids of every node that uses it."""
+
+    assembly: DotNetAssembly
+    node_uids: tuple[int, ...]
+    record: DotNetAssemblyRecordKind
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyRecordFailure:
+    """One ``DNDA`` or ``DNVA`` record that could not be decoded, and why."""
+
+    reason: str
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyTable:
+    """What the ``DNDA`` and ``DNVA`` records of a sidecar hold: the assemblies
+    that decoded and the records that did not."""
+
+    links: list[DotNetAssemblyLink]
+    failures: list[DotNetAssemblyRecordFailure]
+
+
 class _SharedVariableRecordError(LinkTableError):
     """A malformed ``HpVL`` or ``HpVr`` record, with the node uids read before the
     failure."""
@@ -320,8 +391,9 @@ class _Reader:
         raise LinkTableError(f"unrecognized path class {ident!r}")
 
 
-def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
-    """The head of a heap-to-VI link record, read from just after its ident."""
+def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
+    """The name, path and flag every link record starts with, read from just
+    after its ident."""
     r.align(4)
     count = r.u32()
     if count > _MAX_NAME_PARTS:
@@ -335,7 +407,12 @@ def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
         link_flag = r.u32()
     elif version.at_least(8, 5, 0, 1):
         link_flag = r.u8()
+    return _LinkHead(name_parts, path_tokens, link_flag)
 
+
+def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
+    """The head of a heap-to-VI link record, read from just after its ident."""
+    head = _read_basic_head(r, version)
     r.variable_size_u2p2()  # type id of the link's client type
 
     flag_byte = 0xFF
@@ -346,7 +423,7 @@ def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
             r.take(4 + 8)
         if version.at_least(6, 0, 0, 1):
             r.take(4 + 4 + 4)
-    return _LinkHead(name_parts, path_tokens, link_flag)
+    return head
 
 
 def _read_node_uids(r: _Reader) -> tuple[int, ...]:
@@ -474,6 +551,49 @@ def _decode_shared_variable_record(
     )
 
 
+_DOTNET_ASSEMBLY_NAME_PARTS = ("name", "version", "culture", "public key token")
+_OLDEST_DOTNET_RECORD = (8, 5, 0, 1)
+
+
+def dotnet_assembly_from_name_parts(parts: Sequence[str]) -> DotNetAssembly:
+    """The assembly a ``DNDA`` / ``DNVA`` record's qualified name spells: its
+    name, version, culture and public key token, in that order."""
+    if len(parts) != len(_DOTNET_ASSEMBLY_NAME_PARTS):
+        raise LinkTableError(
+            f"qualified name {tuple(parts)!r} has {len(parts)} parts, expected "
+            f"{', '.join(_DOTNET_ASSEMBLY_NAME_PARTS)}"
+        )
+    name, assembly_version, culture, token = parts
+    return DotNetAssembly(name, assembly_version, culture, token)
+
+
+def _decode_dotnet_record(
+    data: bytes,
+    ident_pos: int,
+    record: DotNetAssemblyRecordKind,
+    version: LinkTableVersion,
+) -> DotNetAssemblyLink:
+    if not version.at_least(*_OLDEST_DOTNET_RECORD):
+        raise LinkTableError(
+            f"{record.value} record of a {version.major}.{version.minor} VI is "
+            "older than the oldest supported layout (8.5)"
+        )
+    r = _Reader(data, ident_pos + len(record.ident))
+    node_uids: tuple[int, ...] = ()
+    if record is DotNetAssemblyRecordKind.DNDA:
+        head = _read_link_head(r, version)
+        if version.at_least(12, 0, 0, 3):
+            r.u32()  # typed-link flags
+        node_uids = _read_node_uids(r)
+    else:
+        head = _read_basic_head(r, version)
+    return DotNetAssemblyLink(
+        assembly=dotnet_assembly_from_name_parts(head.name_parts),
+        node_uids=node_uids,
+        record=record,
+    )
+
+
 def _record_starts(data: bytes, ident: bytes) -> list[int]:
     """Offsets of every ``ident`` that starts a list item of the table."""
     return [
@@ -545,6 +665,38 @@ def decode_shared_variable_links(
                 )
             )
     return table
+
+
+def decode_dotnet_assemblies(
+    data: bytes, version: LinkTableVersion
+) -> DotNetAssemblyTable:
+    """Every ``DNDA`` and ``DNVA`` record in a ``_LIbd.bin`` / ``_LIvi.bin``
+    sidecar, in file order: the assemblies that decoded, and a
+    ``DotNetAssemblyRecordFailure`` for each record that did not follow the
+    documented layout -- an unreadable record is reported, never skipped."""
+    table = DotNetAssemblyTable(links=[], failures=[])
+    starts = sorted(
+        (start, record)
+        for record in DotNetAssemblyRecordKind
+        for start in _record_starts(data, record.ident)
+    )
+    for start, record in starts:
+        try:
+            table.links.append(_decode_dotnet_record(data, start, record, version))
+        except LinkTableError as exc:
+            table.failures.append(
+                DotNetAssemblyRecordFailure(
+                    f"{record.value} record at offset {start}: {exc}"
+                )
+            )
+    return table
+
+
+def read_dotnet_assemblies(
+    sidecar_path: Path, version: LinkTableVersion
+) -> DotNetAssemblyTable:
+    """``decode_dotnet_assemblies`` over a link-table sidecar file."""
+    return decode_dotnet_assemblies(sidecar_path.read_bytes(), version)
 
 
 def read_shared_variable_links(

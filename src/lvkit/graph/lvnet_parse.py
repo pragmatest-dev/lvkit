@@ -47,6 +47,7 @@ from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
+    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -810,6 +811,7 @@ class ParsedDependency:
     qualified: str
     path: str | None = None
     interface: tuple[ParsedDependencyTerminal, ...] = field(default_factory=tuple)
+    unreadable: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1827,6 +1829,24 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 f"line {line_no}: unrecognized 'uses :' kind {kind!r} "
                 f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
             )
+        unreadable_prefix = f'({_LVNET_ASSEMBLY_UNREADABLE} "'
+        if kind == DependencyKind.ASSEMBLY.value and rest.startswith(
+            unreadable_prefix
+        ):
+            start = len(unreadable_prefix) - 1
+            end = _scan_quoted_literal(rest, start)
+            if rest[end:] != ")":
+                raise LvnetParseError(
+                    f"line {line_no}: expected '(unreadable \"<reason>\")': {line!r}"
+                )
+            entries.append(
+                ParsedDependency(
+                    kind=kind,
+                    qualified="",
+                    unreadable=_unescape_lvnet_string(rest[start:end]),
+                )
+            )
+            continue
         sep_idx = rest.find(_LVNET_DEP_PATH_SEP)
         if sep_idx == -1:
             qualified, path = rest.strip(), None
@@ -2918,6 +2938,7 @@ def netlist_signature(
                 d.kind,
                 d.qualified,
                 d.path,
+                d.unreadable,
                 tuple(
                     (
                         t.direction,
@@ -2947,6 +2968,7 @@ def netlist_signature(
             d.kind.value,
             d.qualified,
             d.path,
+            d.unreadable,
             _dependency_interface_signature(d.interface, ambiguous),
         )
         for d in module.dependencies
