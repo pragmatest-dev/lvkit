@@ -43,8 +43,17 @@ def _mark_project(root: Path) -> None:
     (root / ".git").mkdir(parents=True, exist_ok=True)
 
 
+def _make_dirs(path: Path) -> None:
+    """Create ``path`` (and parents); skip the test when the OS cannot hold a path
+    this long (Windows without long-path support rejects paths past MAX_PATH)."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        pytest.skip(f"this OS cannot create a path this long: {e}")
+
+
 def _touch_vi(path: Path) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _make_dirs(path.parent)
     path.write_bytes(b"")
     return path
 
@@ -300,7 +309,7 @@ class TestIndexCacheUnaffectedByViSlot:
         proj = tmp_path / "proj"
         _mark_project(proj)
         deep_vi = proj / _deep_rel(_DEEP)
-        deep_vi.parent.mkdir(parents=True, exist_ok=True)
+        _make_dirs(deep_vi.parent)
         deep_vi.write_bytes(
             (_CORPUS / "29" / "Test LVKit" / "Lib1" / "Class" / "Do.vi").read_bytes()
         )

@@ -202,6 +202,8 @@ def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
         ["git", "-C", _MC_REPO, "show", f"{_MC_REF_BEFORE}:{_MC_DIR}/Create.vi"],
         capture_output=True,
     )
+    if blob.returncode != 0 or not blob.stdout:
+        pytest.skip(f"commit {_MC_REF_BEFORE} not in the local sample clone")
     vi.write_bytes(blob.stdout)
 
     g = InMemoryVIGraph()

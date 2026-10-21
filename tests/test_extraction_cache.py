@@ -510,9 +510,21 @@ class TestGlobalHomeGuard:
         observed Windows cache tree (#78)."""
         from lvkit import project_store
 
-        home = tmp_path / "home"
-        (home / ".lvkit").mkdir(parents=True)  # stands in for the global ~/.lvkit
-        monkeypatch.setattr(project_store, "global_home", lambda: home / ".lvkit")
+        # A temp dir that already sits under a real `.lvkit` (the machine's own
+        # ~/.lvkit, as on Windows where %TEMP% is under the user profile) makes
+        # that store the global home for this scenario; otherwise stand one up.
+        outer_stores = [
+            a / ".lvkit" for a in tmp_path.parents if (a / ".lvkit").is_dir()
+        ]
+        if len(outer_stores) > 1:
+            pytest.skip("temp dir sits under more than one .lvkit store")
+        if outer_stores:
+            home, global_store = tmp_path, outer_stores[0]
+        else:
+            home = tmp_path / "home"
+            global_store = home / ".lvkit"
+            global_store.mkdir(parents=True)
+        monkeypatch.setattr(project_store, "global_home", lambda: global_store)
 
         repo = home / "repo"  # a real git repo nested under the home
         (repo / ".git").mkdir(parents=True)

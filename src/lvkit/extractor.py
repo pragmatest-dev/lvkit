@@ -134,7 +134,7 @@ def _replace_unless_same(src: Path, dst: Path) -> None:
             return
     except OSError:
         pass
-    os.replace(src, dst)
+    staging.replace(src, dst)
 
 
 def _publish(stage: Path, output_dir: Path, meta_name: str) -> None:
@@ -158,7 +158,7 @@ def _publish(stage: Path, output_dir: Path, meta_name: str) -> None:
     for path in (p for p in produced if p.name != meta_name):
         _replace_unless_same(path, output_dir / path.name)
     if (stage / meta_name).exists():
-        os.replace(stage / meta_name, output_dir / meta_name)
+        staging.replace(stage / meta_name, output_dir / meta_name)
 
 
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
@@ -169,7 +169,7 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
     try:
         tmp.write_bytes(data)
         path.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(tmp, path)
+        staging.replace(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)

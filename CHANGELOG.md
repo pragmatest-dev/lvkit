@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: generated code on Windows** — a polymorphic wrapper under a path like `\user.lib` compiles, and a pattern wired into Match Pattern follows LabVIEW's pattern syntax (a `\` separator no longer breaks it); concurrent extraction and piped CLI output work on Windows, and CI now runs the tests on Windows (#165).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

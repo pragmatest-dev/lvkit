@@ -46,6 +46,25 @@ _RUN_PREFIX = "r-"
 _LOCK_SUFFIX = ".lock"
 
 
+# Windows refuses to replace a file another process or thread holds open (a
+# sharing violation, surfaced as PermissionError) until that reader closes it —
+# a moment later. POSIX never refuses, so the retry only ever runs on Windows.
+_REPLACE_ATTEMPTS = 100
+_REPLACE_RETRY_SECONDS = 0.02
+
+
+def replace(src: Path, dst: Path) -> None:
+    """``os.replace`` that waits out a reader holding ``dst`` open (Windows)."""
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_RETRY_SECONDS)
+
+
 def _try_lock(fh: IO[bytes]) -> bool:
     """Take a non-blocking exclusive lock on ``fh``; False when another handle
     already holds it."""

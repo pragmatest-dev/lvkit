@@ -191,7 +191,7 @@ def _note_owner(owner: Path) -> None:
         f.parent.mkdir(parents=True, exist_ok=True)
         tmp = staging.temp_path(global_cache_root())
         tmp.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
-        os.replace(tmp, f)
+        staging.replace(tmp, f)
     except OSError:
         pass
 

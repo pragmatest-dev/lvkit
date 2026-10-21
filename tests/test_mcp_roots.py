@@ -9,6 +9,7 @@ capability).
 """
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,6 +23,13 @@ from lvkit.mcp.server import (
     _resolve_target,
     _uri_to_path,
     _win_to_wsl_path,
+)
+
+# The Windows-to-WSL mapping applies only when the server is not a native
+# Windows process (`_win_to_wsl_path` returns the path unchanged when
+# os.name == "nt").
+maps_windows_paths = pytest.mark.skipif(
+    os.name == "nt", reason="Windows-to-WSL path mapping is off on native Windows"
 )
 
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -58,6 +66,7 @@ def test_uri_to_path_posix():
     assert _uri_to_path("file:///home/ryanf/repo") == Path("/home/ryanf/repo")
 
 
+@maps_windows_paths
 def test_uri_to_path_windows_drive():
     # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x;
     # on a non-Windows (WSL) host that maps onto the /mnt mount.
@@ -69,14 +78,17 @@ def test_uri_to_path_windows_drive():
 # ---- _win_to_wsl_path (Windows client -> WSL-hosted server) -----------------
 
 
+@maps_windows_paths
 def test_win_to_wsl_drive_forward_slash():
     assert _win_to_wsl_path("C:/Users/ryanf/repo") == "/mnt/c/Users/ryanf/repo"
 
 
+@maps_windows_paths
 def test_win_to_wsl_drive_backslash():
     assert _win_to_wsl_path("D:\\work\\my repo") == "/mnt/d/work/my repo"
 
 
+@maps_windows_paths
 def test_win_to_wsl_unc_wsl_localhost():
     # A WSL folder opened FROM Windows arrives as a \\wsl.localhost\ UNC path.
     assert (
@@ -169,6 +181,7 @@ def test_resolve_target_absolute_passthrough(tmp_path):
     assert asyncio.run(_resolve_target(abs_p, ctx)) == abs_p
 
 
+@maps_windows_paths
 def test_resolve_target_windows_abs_maps_to_wsl(tmp_path):
     # A Windows client can pass an explicit C:\ path; on a WSL host it must map
     # to /mnt/... and be treated as absolute (C:\ is NOT is_absolute() on Linux).

@@ -80,6 +80,21 @@ jobs:
       - name: Pytest
         run: uv run pytest -q -m "not needs_samples"
 
+  # The same unit suite on Windows: path separators, drive letters, text
+  # encodings and symlink rights differ there, and none of that is exercised on
+  # Linux. Corpus-backed tests skip (the sample corpus is not pulled in CI).
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      - name: Pytest
+        run: uv run pytest -q -m "not needs_samples"
+
   # The web (browser / Pyodide) extension renders VIs in WebAssembly instead of a
   # native binary. That is only safe if the wasm render is byte-identical to the
   # native one — this guard renders a feature-diverse set of fixtures both ways
