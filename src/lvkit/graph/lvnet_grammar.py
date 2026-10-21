@@ -68,6 +68,9 @@ _LVNET_CLUSTER_OPEN = "Cluster{"
 # "<reason>")`` for a node whose library link could not be read.
 _LVNET_NETWORK_PUBLISHED = "network-published"
 _LVNET_LIBRARY_UNREADABLE = "library unreadable"
+# A ``uses :`` ``assembly`` entry for a .NET assembly link record that could not
+# be read: ``assembly (unreadable "<reason>")``.
+_LVNET_ASSEMBLY_UNREADABLE = "unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 # The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
 # ``caption hidden "<text>"`` when the caption is set but not shown.

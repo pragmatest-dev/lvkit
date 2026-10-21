@@ -33,6 +33,7 @@ from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
+    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -1930,6 +1931,12 @@ def render_lvnet_uses(
         qualified_width = (max(under_cap_q) if under_cap_q else 0) + 1
     for dep in dependencies:
         kind_part = _lvnet_capped_pad(dep.kind.value, kind_width, _LVNET_DEP_KIND_CAP)
+        if dep.unreadable is not None:
+            lines.append(
+                f"    {kind_part}({_LVNET_ASSEMBLY_UNREADABLE} "
+                f"{lvnet_literal_token(dep.unreadable)})"
+            )
+            continue
         if dep.path is not None:
             qualified_part = _lvnet_capped_pad(
                 dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP

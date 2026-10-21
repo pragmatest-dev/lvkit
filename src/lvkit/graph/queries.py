@@ -40,6 +40,7 @@ from .models import (
     SubVICall,
     TerminalRef,
     VIContext,
+    VIDotNetAssemblies,
     VIHealth,
     VIMetadata,
     VINode,
@@ -107,6 +108,7 @@ class QueryMixin:
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
+    _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _layouts: dict[str, Layout]
     _search_paths: list[Path]
     _vilib_root: Path | None
@@ -1095,6 +1097,12 @@ class QueryMixin:
         ``get_vi_properties``."""
         vi_name = self.resolve_vi_name(vi_name)
         return self._vi_health.get(vi_name, VIHealth())
+
+    def get_dotnet_assemblies(self, vi_name: str) -> VIDotNetAssemblies:
+        """The .NET assemblies the VI calls, and the link records that could not
+        be read."""
+        vi_name = self.resolve_vi_name(vi_name)
+        return self._vi_dotnet_assemblies.get(vi_name, VIDotNetAssemblies())
 
     def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
         """The VI's OWN front-panel layout (every control, not just the

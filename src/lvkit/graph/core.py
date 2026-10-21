@@ -30,6 +30,7 @@ from .models import (
     PolyInfo,
     SharedVariableNode,
     StructureNode,
+    VIDotNetAssemblies,
     VIHealth,
     VIMetadata,
     VINode,
@@ -227,6 +228,8 @@ class InMemoryVIGraph(
         # Compile-health (emergent state, not a user setting) -- a SIBLING
         # facet to _vi_properties, never nested inside it.
         self._vi_health: dict[str, VIHealth] = {}
+        # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
+        self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
         # Optional disk roots for <vilib> / <userlib> / <instrlib> path tokens
         self._vilib_root: Path | None = None
         self._userlib_root: Path | None = None
@@ -292,6 +295,7 @@ class InMemoryVIGraph(
         self._vi_metadata.clear()
         self._vi_properties.clear()
         self._vi_health.clear()
+        self._vi_dotnet_assemblies.clear()
         self._layouts.clear()
         self._parse_cache = None
 
@@ -323,6 +327,7 @@ class InMemoryVIGraph(
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,
+            dotnet_type=parsed_type.dotnet_type,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external

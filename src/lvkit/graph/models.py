@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ..dotnet_types import DotNetAssembly
 from ..models import (
     CaseFrame,
     ClusterField,
@@ -1073,6 +1074,16 @@ class VIMetadata:
     owning_libraries: list[str] = field(default_factory=list)
     # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
     description: str | None = None
+
+
+@dataclass
+class VIDotNetAssemblies:
+    """The .NET assemblies a VI calls (from its ``DNVA`` / ``DNDA`` link records)
+    and why any such record could not be read. A sibling facet of ``VIMetadata``,
+    keyed by VI like it."""
+
+    assemblies: list[DotNetAssembly] = field(default_factory=list)
+    unreadable: list[str] = field(default_factory=list)
 
 
 # ============================================================

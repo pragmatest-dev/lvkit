@@ -684,8 +684,10 @@ class DependencyKind(str, Enum):
     dependency's qualified identity file extension (``.vi`` -> subVI,
     ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed
     input; except ``global``, a Global VI that a global variable node refers
-    to (also a ``.vi`` file), and ``library``, the project library (``.lvlib``) a
-    Shared Variable node refers to. See ``_dependency_kind_for``/
+    to (also a ``.vi`` file), ``library``, the project library (``.lvlib``) a
+    Shared Variable node refers to, and ``assembly``, a .NET assembly the VI calls
+    (no file: its qualified identity is the assembly's name, version, culture and
+    public key token). See ``_dependency_kind_for``/
     ``_build_dependency_manifest``.
     """
 
@@ -694,6 +696,7 @@ class DependencyKind(str, Enum):
     CLASS = "class"
     GLOBAL = "global"
     SHARED_VARIABLE_LIBRARY = "library"
+    ASSEMBLY = "assembly"
 
     @classmethod
     def for_node_type(cls, node_type: NodeType) -> DependencyKind:
@@ -750,6 +753,10 @@ class NetlistDependency:
     qualified: str
     path: str | None
     interface: list[ConnectorPaneTerminal] = field(default_factory=list)
+    # Why a link record could not be read (``assembly`` only): the entry then
+    # names no assembly (``qualified`` is empty) and lvnet spells it
+    # ``assembly (unreadable "<reason>")``.
+    unreadable: str | None = None
 
 
 @dataclass

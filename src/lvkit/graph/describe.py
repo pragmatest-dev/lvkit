@@ -164,12 +164,23 @@ def describe_vi(
     global_vi_names, library_names = _collect_variable_dependencies(
         graph, top_nodes, vi_name
     )
-    if subvi_names or global_vi_names or library_names:
+    dotnet = graph.get_dotnet_assemblies(vi_name)
+    if (
+        subvi_names
+        or global_vi_names
+        or library_names
+        or dotnet.assemblies
+        or dotnet.unreadable
+    ):
         lines.append("## Dependencies")
         for name in sorted(global_vi_names):
             lines.append(f"  {name} (Global VI)")
         for name in sorted(library_names):
             lines.append(f"  {name} (Shared Variable library)")
+        for assembly in dotnet.assemblies:
+            lines.append(f"  {assembly.qualified} (.NET assembly)")
+        for reason in dotnet.unreadable:
+            lines.append(f"  (.NET assembly link unreadable: {reason})")
         for name in sorted(subvi_names):
             desc = _get_subvi_description(graph, name)
             ports = _subvi_ports(graph, name)

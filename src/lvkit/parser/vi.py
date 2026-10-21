@@ -15,8 +15,10 @@ import struct
 import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
+from dataclasses import replace
 from pathlib import Path
 
+from lvkit.dotnet_types import DotNetType, DotNetTypeError
 from lvkit.extractor import extract_vi_xml
 from lvkit.models import LVType, LVTypeKind
 
@@ -54,10 +56,17 @@ from .layout import (
     build_layout_from_root,
 )
 from .link_table import (
+    DotNetAssemblyLink,
+    DotNetAssemblyRecordFailure,
+    DotNetAssemblyRecordKind,
+    DotNetAssemblyTable,
     IUseLink,
+    LinkTableError,
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableTable,
+    decode_dotnet_assemblies,
+    dotnet_assembly_from_name_parts,
     qualified_link_name,
     read_iuse_links,
     read_shared_variable_links,
@@ -328,6 +337,7 @@ def _parse_metadata(
     shared_variable_table = SharedVariableTable(links=[], failures=[])
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
     version_elem = main_root.find(".//LVSR/Section/Version")
+    dotnet_table = _read_dotnet_assemblies(main_root, main_xml)
     if libd_bin.exists() and version_elem is not None:
         link_version = LinkTableVersion.from_lvsr(version_elem)
         if main_root.find(".//LIbd//BDHP/IUVI") is None:
@@ -388,6 +398,8 @@ def _parse_metadata(
             for uid in link.node_uids
         },
         shared_variable_failures=shared_variable_table.failures,
+        dotnet_assemblies=sorted({link.assembly for link in dotnet_table.links}),
+        dotnet_assembly_failures=dotnet_table.failures,
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
@@ -1056,6 +1068,9 @@ def _process_element_terminals(
         parsed_type = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
+            dotnet_type = _dotnet_item_type(elem, dco, dco_uid)
+            if dotnet_type is not None:
+                lv_type = replace(lv_type, dotnet_type=dotnet_type)
             parsed_type = _lvtype_to_parsed(lv_type)
 
         # Extract terminal label from dco or terminal element. An XNode's
@@ -1257,6 +1272,100 @@ def _resolve_qualified_name(
     return qualified_link_name(
         strings, int(elem.get("LinkSaveFlag", "0")), caller_library
     )
+
+
+_DOTNET_ITEM_INFO = "dnetItemInfo"
+
+
+def _private_data_holders(elem: ET.Element) -> dict[str, ET.Element]:
+    """The uid -> element of every DCO a node's own lists define with a
+    ``privDataList`` (the node's children and their children, not the sub-diagrams
+    nested under it)."""
+    return {
+        c.get("uid", ""): c
+        for child in elem
+        for c in (child, *child)
+        if c.get("uid") and c.find("privDataList") is not None
+    }
+
+
+def _dotnet_item_type(
+    elem: ET.Element, dco: ET.Element | None, dco_uid: str | None
+) -> DotNetType | None:
+    """The .NET type a .NET node's terminal passes: the ``DotNetItemType`` of the
+    ``dnetItemInfo`` in the ``privDataList`` of the terminal's DCO. The DCO is
+    defined either in the terminal's own ``<dco>`` or, when that is a bare uid
+    reference, in one of the node's lists. ``None`` for a terminal of any other
+    node, or when the recorded name is not readable (logged)."""
+    holder = dco if dco is not None and dco.find("privDataList") is not None else None
+    if holder is None and dco_uid and dco is not None and len(dco) == 0:
+        holder = _private_data_holders(elem).get(dco_uid)
+    if holder is None:
+        return None
+    for info in holder.iterfind("privDataList//*"):
+        if _DOTNET_ITEM_INFO not in (info.tag, info.get("class")):
+            continue
+        item_type = info.find("DotNetItemType")
+        if item_type is None or not item_type.text:
+            continue
+        try:
+            return DotNetType.from_item_type(item_type.text)
+        except DotNetTypeError as exc:
+            logger.warning("terminal %s of node %s: %s", dco_uid, elem.get("uid"), exc)
+            return None
+    return None
+
+
+def _xml_dotnet_assembly(
+    elem: ET.Element, record: DotNetAssemblyRecordKind
+) -> DotNetAssemblyLink:
+    """The assembly a decoded ``DNDA`` / ``DNVA`` element names, in the same shape
+    the raw sidecar decoder yields."""
+    parts = [s.text or "" for s in elem.findall("LinkSaveQualName/String")]
+    return DotNetAssemblyLink(
+        assembly=dotnet_assembly_from_name_parts(parts),
+        node_uids=tuple(
+            int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
+        ),
+        record=record,
+    )
+
+
+def _read_dotnet_assemblies(
+    main_root: ET.Element, main_xml: Path
+) -> DotNetAssemblyTable:
+    """Every .NET assembly record of the VI: those pylabview decoded into the main
+    XML, and those left in the ``_LIbd.bin`` / ``_LIvi.bin`` sidecars."""
+    table = DotNetAssemblyTable(links=[], failures=[])
+    for record in DotNetAssemblyRecordKind:
+        for elem in main_root.iter(record.value):
+            try:
+                table.links.append(_xml_dotnet_assembly(elem, record))
+            except LinkTableError as exc:
+                table.failures.append(
+                    DotNetAssemblyRecordFailure(f"{record.value} record: {exc}")
+                )
+    version_elem = main_root.find(".//LVSR/Section/Version")
+    for suffix in ("_LIbd.bin", "_LIvi.bin"):
+        sidecar = main_xml.with_name(main_xml.stem + suffix)
+        if not sidecar.exists():
+            continue
+        data = sidecar.read_bytes()
+        if version_elem is None:
+            if any(record.ident in data for record in DotNetAssemblyRecordKind):
+                table.failures.append(
+                    DotNetAssemblyRecordFailure(
+                        f"{sidecar.name} holds a .NET assembly record but the VI "
+                        "records no version to read it with"
+                    )
+                )
+            continue
+        sidecar_table = decode_dotnet_assemblies(
+            data, LinkTableVersion.from_lvsr(version_elem)
+        )
+        table.links.extend(sidecar_table.links)
+        table.failures.extend(sidecar_table.failures)
+    return table
 
 
 def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
