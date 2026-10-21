@@ -32,7 +32,6 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
-from lvkit.terminal_collector import get_collector
 from lvkit.type_names import ROOT_CLASS, derive_python_name
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
@@ -938,14 +937,6 @@ def {func_name}(*args, **kwargs) -> Any:
                 "  - Or run `lvkit setup --no-skills` to create a"
                 " .lvkit/ store for manual mappings."
             )
-
-    # Save terminal observations for incremental collection
-    collector = get_collector()
-    if collector.data.get("observations"):
-        collector.save()
-        obs_count = len(collector.data["observations"])
-        print(f"\nTerminal observations collected for {obs_count} VI(s)")
-        print(f"  Saved to: {collector.pending_file}")
 
     return {
         "vilib": vilib_count,

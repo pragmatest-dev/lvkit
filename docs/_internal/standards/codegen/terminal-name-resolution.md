@@ -33,4 +33,4 @@ else:
 
 ## VILib Auto-Update
 
-When caller wires vilib terminals not yet in JSON, `auto_update_terminals()` adds them during code generation.
+When a caller wires vilib terminals not yet in JSON, `auto_update_terminals()` learns them in memory for the current run; the bundled JSON is never written.

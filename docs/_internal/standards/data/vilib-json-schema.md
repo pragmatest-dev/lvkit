@@ -38,7 +38,7 @@ Files in `src/lvkit/data/vilib/*.json` define LabVIEW standard library VIs.
 
 PDF extraction provides `name`, `description`, `python_param`.
 
-`index` and `direction` are auto-discovered by `auto_update_terminals()` when code generation encounters wired terminals. Don't add manually.
+`index` and `direction` are learned in memory by `auto_update_terminals()` when code generation encounters wired terminals; the bundled files are read-only at runtime, so add confirmed values to the JSON by hand.
 
 ## Source
 
