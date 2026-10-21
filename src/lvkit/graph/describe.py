@@ -763,7 +763,10 @@ def _collect_structures(
                     constants,
                     node.stop_condition_terminal,
                 )
-                structures.append(f"{kind} (stops when {gated})" if gated else kind)
+                verb = (
+                    "continues while" if node.stop_condition_inverted else "stops when"
+                )
+                structures.append(f"{kind} ({verb} {gated})" if gated else kind)
             case SequenceNode():
                 structures.append(
                     f"{node.kind_word} sequence ({_frame_count(len(node.frames))})"

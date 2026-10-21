@@ -79,6 +79,7 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 
@@ -101,11 +102,14 @@ from .lvnet_grammar import (
     _LVNET_ENUM_OPEN,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
+    _LVNET_LOOP_CONDITION_TERMINAL,
+    _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_RING_OPEN,
     _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
+    _LVNET_UNWIRED,
 )
 from .lvnet_parse import (
     _FRAME_ONLY_SCOPE_KINDS,
@@ -155,6 +159,7 @@ from .netlist import (
     NetRef,
 )
 from .netlist_models import (
+    LoopCondition,
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
@@ -851,14 +856,25 @@ def _reconstruct_constant(
     )
 
 
+def _uninitialized_register() -> DefaultValue:
+    """The ``init`` of a register whose initializer is unwired: it takes the
+    value it held when the VI last ran, so the text names no value."""
+    return DefaultValue(literal="?", type_descriptor="?")
+
+
 def _reconstruct_feedback(
     item: ParsedFeedback, registry: dict[str, _HandleTarget], fresh_uid: _UidSource
 ) -> NetlistFeedback:
-    if item.attribute == "? iterations":
+    depth = item.attribute.split(", ")[0]
+    if depth == "? iterations":
         delay = None
     else:
-        delay = int(item.attribute.split()[0])
-    init = _parse_source_token(item.init, registry)
+        delay = int(depth.split()[0])
+    init = (
+        _uninitialized_register()
+        if item.init is None
+        else _parse_source_token(item.init, registry)
+    )
     recur = (
         _require_netref(_parse_source_token(item.each, registry), f"{item.net} each")
         if item.each is not None
@@ -876,7 +892,11 @@ def _reconstruct_feedback(
 def _reconstruct_shift_register(
     sr: ParsedShiftRegister, registry: dict[str, _HandleTarget]
 ) -> MuMerge:
-    init = _parse_source_token(sr.init, registry)
+    init = (
+        _uninitialized_register()
+        if sr.init is None
+        else _parse_source_token(sr.init, registry)
+    )
     recur = (
         _require_netref(_parse_source_token(sr.each, registry), f"{sr.net} each")
         if sr.each is not None
@@ -945,6 +965,19 @@ def _structure_uid_from_net(net: str) -> str | None:
     return uid if uid.isdigit() else None
 
 
+_LOOP_DRIVE_RE = re.compile(
+    rf"^loop_(\d+){re.escape(_LVNET_TERMINAL_SEP)}"
+    rf"({_LVNET_LOOP_COUNT_TERMINAL}|{_LVNET_LOOP_CONDITION_TERMINAL})$"
+)
+
+
+def _loop_drive(net: str) -> tuple[str, str] | None:
+    """``(loop uid, terminal)`` for a loop's own drive line (``loop_<uid>::N`` or
+    ``loop_<uid>::condition``), else ``None``."""
+    m = _LOOP_DRIVE_RE.match(net)
+    return (m.group(1), m.group(2)) if m is not None else None
+
+
 def _reconstruct_scope(
     item: ParsedScope,
     registry: dict[str, _HandleTarget],
@@ -1011,6 +1044,37 @@ def _reconstruct_scope(
             _reconstruct_shift_register(sr, registry) for sr in item.shift_registers
         ]
         eta_list = [_reconstruct_tunnel(t, registry) for t in item.tunnels]
+        condition_mode = (
+            LoopCondition(item.condition_mode)
+            if item.condition_mode is not None
+            else None
+        )
+        count: NetRef | None = None
+        selector: NetRef | None = None
+        has_condition_line = False
+        drive_uids: list[str] = []
+        for d in item.drives:
+            drive = _loop_drive(d.net)
+            if drive is None:
+                raise LvnetReconstructError(
+                    f"unrecognized drive line in a {item.kind} body: {d.net!r}"
+                )
+            drive_uids.append(drive[0])
+            if drive[1] == _LVNET_LOOP_COUNT_TERMINAL:
+                count = _require_netref(
+                    _parse_source_token(d.source, registry), f"{d.net} drive"
+                )
+            else:
+                has_condition_line = True
+                if d.source != _LVNET_UNWIRED:
+                    selector = _require_netref(
+                        _parse_source_token(d.source, registry), f"{d.net} drive"
+                    )
+        if (condition_mode is not None) != has_condition_line:
+            raise LvnetReconstructError(
+                f"a {item.kind} with a conditional terminal needs exactly one "
+                f"'{_LVNET_LOOP_CONDITION_TERMINAL}' line, and one without has none"
+            )
         loop_uid = item.uid
         if loop_uid is None:
             loop_uid = next(
@@ -1019,14 +1083,16 @@ def _reconstruct_scope(
                     for net in (*(m.net for m in mu_list), *(m.net for m in eta_list))
                     if (uid := _structure_uid_from_net(net)) is not None
                 ),
-                None,
+                drive_uids[0] if drive_uids else None,
             )
         return NetlistScope(
             uid=loop_uid if loop_uid is not None else fresh_uid.next("loop"),
             kind=kind,
-            selector=None,
+            selector=selector,
             frames=[frame],
             outputs=[*mu_list, *eta_list],
+            condition_mode=condition_mode,
+            count=count,
         )
 
     if item.kind in ("flat-sequence", "stacked-sequence"):

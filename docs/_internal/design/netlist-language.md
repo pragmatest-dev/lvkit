@@ -489,8 +489,8 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` | single implicit body (index `i`, count `N`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
-| While Loop | `while-loop :` | single implicit body (stop/continue on `cond`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the wire into the count terminal is the first line of the block, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| While Loop | `while-loop (stop if true) :` / `while-loop (continue if true) :` | single implicit body; the header always says how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case |
@@ -551,6 +551,8 @@ case/select structure only — sequence/disabled/event frames keep their plain
 in their own header text.
 
 ### Border constructs
+
+An unwired shift-register initializer is written `shift-register loop_146::shift0 (uninitialized) :` with no `init` line (the register keeps the value it held when the VI last ran); a Feedback Node is `feedback-node fb0 (1 iteration, uninitialized) :`. `init` is absent exactly when the attribute is present; a mismatch is a parse error. Header settings share one parenthesis, comma-separated; `(id <uid>)` stays separate.
 
 ```
 shift-register loop_879::shift0 :

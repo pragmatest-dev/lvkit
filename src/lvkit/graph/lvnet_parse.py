@@ -69,6 +69,7 @@ from .lvnet_grammar import (
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
+    _LVNET_UNINITIALIZED,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
@@ -76,6 +77,7 @@ from .lvnet_grammar import (
 )
 from .netlist import (
     ConnectorPaneTerminal,
+    DefaultValue,
     DependencyKind,
     EtaMerge,
     GammaMerge,
@@ -89,21 +91,26 @@ from .netlist import (
     NetlistModule,
     NetlistScope,
 )
+from .netlist_models import LoopCondition
 from .render_lvnet import (
     _assign_lvnet_handles,
     _is_void_type,
+    _loop_condition_drives,
+    _loop_count_drives,
     _lv_type_comparison_shape,
     _lvnet_ambiguous_named_types,
     _lvnet_case_header,
     _lvnet_component,
     _lvnet_default_token,
     _lvnet_default_trailing,
+    _lvnet_loop_keyword,
     _lvnet_net_separator,
     _lvnet_requirement_trailing,
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
     _sequence_frame_drives,
+    lvnet_feedback_attribute,
     lvnet_literal_token,
 )
 
@@ -680,11 +687,13 @@ class ParsedDrive:
 
 @dataclass(frozen=True)
 class ParsedShiftRegister:
-    """``shift-register <net> :`` + its ``init``/``each`` lines (§8)."""
+    """``shift-register <net> :`` + its ``init``/``each`` lines (§8); an
+    ``(uninitialized)`` register has no ``init`` line (``init`` is ``None``)."""
 
     net: str
-    init: str
+    init: str | None
     each: str | None
+    uninitialized: bool = False
 
 
 @dataclass(frozen=True)
@@ -705,8 +714,11 @@ class ParsedFeedback:
     (§7)."""
 
     net: str
-    attribute: str  # e.g. "1 iteration", "3 iterations", "? iterations"
-    init: str
+    # The parenthesised settings, e.g. "1 iteration", "3 iterations, uninitialized",
+    # "? iterations"; an ``uninitialized`` one has no ``init`` line (``init`` is
+    # ``None``).
+    attribute: str
+    init: str | None
     each: str | None
 
 
@@ -760,7 +772,12 @@ class ParsedScope:
     body: tuple[ParsedBodyItem, ...] = ()  # loop only
     shift_registers: tuple[ParsedShiftRegister, ...] = ()  # loop only
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
-    drives: tuple[ParsedDrive, ...] = ()  # in-place-element only
+    # Drive lines of a structure with a single implicit body: a loop's count /
+    # conditional-terminal wires, an In Place Element's border inputs.
+    drives: tuple[ParsedDrive, ...] = ()
+    # Loop only: how the conditional terminal reads its Boolean (a
+    # ``LoopCondition`` value); ``None`` for a For Loop with none.
+    condition_mode: str | None = None
     # Phase 4: the header's own OPTIONAL trailing ``(id <uid>)`` annotation
     # (``_LVNET_SCOPE_ID_PREFIX``, verbose-only) -- the structure's real BD
     # uid, recovered by ``_split_scope_header_id`` BEFORE this scope's own
@@ -1277,9 +1294,14 @@ def _parse_feedback(
         )
     net = rest[:open_paren]
     attribute = rest[open_paren + 2 : -1]
+    uninitialized = attribute.endswith(f", {_LVNET_UNINITIALIZED}")
     child_indent = indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=True)
-    assert init is not None
+    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
+    if uninitialized and init is not None:
+        raise LvnetParseError(
+            f"line {line_no}: an uninitialized feedback-node has no 'init' line "
+            f"(§7): {content!r}"
+        )
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
     return ParsedFeedback(net=net, attribute=attribute, init=init, each=each)
 
@@ -1294,11 +1316,21 @@ def _parse_shift_register(
             f"(§8): {content!r}"
         )
     net = rest[: -len(_LVNET_BLOCK_OPEN)]
+    uninit_suffix = f" ({_LVNET_UNINITIALIZED})"
+    uninitialized = net.endswith(uninit_suffix)
+    if uninitialized:
+        net = net[: -len(uninit_suffix)]
     child_indent = body_indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=True)
-    assert init is not None
+    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
+    if uninitialized and init is not None:
+        raise LvnetParseError(
+            f"line {line_no}: an uninitialized shift-register has no 'init' line "
+            f"(§8): {content!r}"
+        )
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
-    return ParsedShiftRegister(net=net, init=init, each=each)
+    return ParsedShiftRegister(
+        net=net, init=init, each=each, uninitialized=uninitialized
+    )
 
 
 def _parse_tunnel(
@@ -1366,20 +1398,43 @@ def _split_scope_header_id(content: str) -> tuple[str, str | None]:
     return body[:open_idx] + _LVNET_BLOCK_OPEN, uid
 
 
+_LOOP_HEADER_RE = re.compile(
+    rf"^(?P<kind>for-loop|while-loop)(?: \((?P<mode>[^()]*)\))?{_LVNET_BLOCK_OPEN}$"
+)
+
+
+def _split_loop_header(content: str, line_no: int) -> tuple[str, str | None] | None:
+    """A loop header's ``(kind, condition mode)``, or ``None`` when ``content`` is
+    not a loop header. The mode is the parenthesised ``stop if true`` / ``continue
+    if true``; a While Loop must carry one."""
+    m = _LOOP_HEADER_RE.match(content)
+    if m is None:
+        return None
+    kind, mode = m.group("kind"), m.group("mode")
+    if mode is not None and mode not in {c.value for c in LoopCondition}:
+        raise LvnetParseError(
+            f"line {line_no}: a loop header's setting must be '(stop if true)' or "
+            f"'(continue if true)' (§8): {content!r}"
+        )
+    if kind == "while-loop" and mode is None:
+        raise LvnetParseError(
+            f"line {line_no}: a while-loop header must say '(stop if true)' or "
+            f"'(continue if true)' (§8): {content!r}"
+        )
+    return kind, mode
+
+
 def _parse_loop_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
+    cursor: _Cursor,
+    indent: int,
+    kind: str,
+    condition_mode: str | None,
+    uid: str | None,
 ) -> ParsedScope:
-    kind = "while-loop" if content == f"while-loop{_LVNET_BLOCK_OPEN}" else "for-loop"
     body_indent = indent + _LVNET_INDENT_WIDTH
     body, drives = _parse_items(
         cursor, body_indent, stop_prefixes=("shift-register ", "tunnel ")
     )
-    if drives:
-        raise LvnetParseError(
-            f"line {line_no}: a {kind} body must not contain bare "
-            f"'net = source' drive lines (those belong to a case frame, "
-            f"§8): {drives!r}"
-        )
     shift_registers: list[ParsedShiftRegister] = []
     tunnels: list[ParsedTunnel] = []
     while True:
@@ -1405,6 +1460,8 @@ def _parse_loop_scope(
         body=tuple(body),
         shift_registers=tuple(shift_registers),
         tunnels=tuple(tunnels),
+        drives=tuple(drives),
+        condition_mode=condition_mode,
         uid=uid,
     )
 
@@ -1685,11 +1742,11 @@ def _parse_one_item_or_drive(
     # AS IF that annotation never existed, and stays correct unchanged once
     # it's peeled off here (see ``_split_scope_header_id``'s own docstring).
     scope_content, scope_uid = _split_scope_header_id(content)
-    if scope_content in (
-        f"for-loop{_LVNET_BLOCK_OPEN}",
-        f"while-loop{_LVNET_BLOCK_OPEN}",
-    ):
-        return _parse_loop_scope(cursor, indent, scope_content, line_no, scope_uid)
+    loop_header = _split_loop_header(scope_content, line_no)
+    if loop_header is not None:
+        return _parse_loop_scope(
+            cursor, indent, loop_header[0], loop_header[1], scope_uid
+        )
     if scope_content.startswith("case ") and scope_content.endswith(_LVNET_BLOCK_OPEN):
         return _parse_case_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content in _SEQUENCE_SCOPE_HEADERS:
@@ -2583,13 +2640,13 @@ def _module_constant_signature(const: NetlistConstant, handles: _LvnetHandles) -
 
 
 def _module_feedback_signature(fb: NetlistFeedback, handles: _LvnetHandles) -> tuple:
-    if fb.delay is None:
-        attr = "? iterations"
-    else:
-        attr = f"{fb.delay} iteration" + ("" if fb.delay == 1 else "s")
-    init_str = _render_lvnet_source(fb.init, handles)
+    init_str = (
+        None
+        if isinstance(fb.init, DefaultValue)
+        else _render_lvnet_source(fb.init, handles)
+    )
     each_str = _render_lvnet_source(fb.recur, handles) if fb.recur is not None else None
-    return ("feedback", fb.net, attr, init_str, each_str)
+    return ("feedback", fb.net, lvnet_feedback_attribute(fb), init_str, each_str)
 
 
 def _module_case_scope_signature(
@@ -2623,14 +2680,18 @@ def _module_case_scope_signature(
 def _module_loop_scope_signature(
     scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
-    kind_word = "while-loop" if scope.kind == "while" else "for-loop"
+    kind_word = _lvnet_loop_keyword(scope)
     body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
-    shift_regs: list[tuple[str, str, str | None]] = []
+    shift_regs: list[tuple[str, str | None, str | None]] = []
     tunnels: list[tuple[str, str, str, str | None]] = []
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
-            init_str = _render_lvnet_source(merge.init, handles)
+            init_str = (
+                None
+                if isinstance(merge.init, DefaultValue)
+                else _render_lvnet_source(merge.init, handles)
+            )
             each_str = (
                 _render_lvnet_source(merge.recur, handles)
                 if merge.recur is not None
@@ -2649,7 +2710,22 @@ def _module_loop_scope_signature(
             )
             net = _lvnet_net_separator(merge.net)
             tunnels.append((net, mode_word, value_str, condition_str))
-    return ("scope", kind_word, None, body_sig, tuple(shift_regs), tuple(tunnels))
+    condition_mode = (
+        scope.condition_mode.value if scope.condition_mode is not None else None
+    )
+    drives = (
+        *_loop_count_drives(scope, handles),
+        *_loop_condition_drives(scope, handles),
+    )
+    return (
+        "scope",
+        kind_word,
+        condition_mode,
+        body_sig,
+        tuple(shift_regs),
+        tuple(tunnels),
+        drives,
+    )
 
 
 def _module_frame_only_scope_signature(
@@ -2865,7 +2941,16 @@ def _parsed_item_signature(
             )
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
         tunnels = tuple((t.net, t.mode, t.source, t.condition) for t in item.tunnels)
-        return ("scope", item.kind, None, body_sig, shift_regs, tunnels)
+        drives = tuple((d.net, d.source) for d in item.drives)
+        return (
+            "scope",
+            item.kind,
+            item.condition_mode,
+            body_sig,
+            shift_regs,
+            tunnels,
+            drives,
+        )
     if isinstance(item, ParsedNode):
         terminals = tuple(
             (

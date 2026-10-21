@@ -52,6 +52,8 @@ from .lvnet_grammar import (
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LIBRARY_UNREADABLE,
+    _LVNET_LOOP_CONDITION_TERMINAL,
+    _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_NAME_CAP,
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
@@ -68,6 +70,8 @@ from .lvnet_grammar import (
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
+    _LVNET_UNINITIALIZED,
+    _LVNET_UNWIRED,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
@@ -1256,6 +1260,68 @@ def _lvnet_scope_id_suffix(uid: str, *, verbose: bool) -> str:
     return f"{_LVNET_SCOPE_ID_PREFIX}{uid})" if verbose else ""
 
 
+def _lvnet_loop_net(scope: NetlistScope, terminal: str) -> str:
+    """A loop's own terminal as a net name: ``loop_<uid>::<terminal>``."""
+    return f"loop_{scope.uid}{_LVNET_TERMINAL_SEP}{terminal}"
+
+
+def _loop_count_drives(
+    scope: NetlistScope, handles: _LvnetHandles
+) -> list[tuple[str, str]]:
+    """The ``(net, source)`` line for a For Loop's count wire
+    (``loop_<uid>::N = <source>``); none when nothing is wired to it."""
+    if scope.count is None:
+        return []
+    return [
+        (
+            _lvnet_loop_net(scope, _LVNET_LOOP_COUNT_TERMINAL),
+            _render_lvnet_source(scope.count, handles),
+        )
+    ]
+
+
+def _loop_condition_drives(
+    scope: NetlistScope, handles: _LvnetHandles
+) -> list[tuple[str, str]]:
+    """The ``(net, source)`` line for the wire on a loop's conditional terminal
+    (``loop_<uid>::condition = <source>``, ``?`` when it is unwired); none for a
+    loop with no conditional terminal."""
+    if scope.condition_mode is None:
+        return []
+    source = (
+        _render_lvnet_source(scope.selector, handles)
+        if scope.selector is not None
+        else _LVNET_UNWIRED
+    )
+    return [(_lvnet_loop_net(scope, _LVNET_LOOP_CONDITION_TERMINAL), source)]
+
+
+def _lvnet_loop_keyword(scope: NetlistScope) -> str:
+    return "while-loop" if scope.kind == "while" else "for-loop"
+
+
+def _lvnet_loop_header_words(scope: NetlistScope) -> str:
+    """The loop keyword and, when the loop has a conditional terminal, how it
+    reads its Boolean: ``while-loop (stop if true)``."""
+    keyword = _lvnet_loop_keyword(scope)
+    if scope.condition_mode is None:
+        return keyword
+    return f"{keyword} ({scope.condition_mode.value})"
+
+
+def lvnet_feedback_attribute(feedback: NetlistFeedback) -> str:
+    """The parenthesised settings of a ``feedback-node`` header, comma-joined: the
+    iteration depth (``1 iteration``, ``3 iterations``, ``? iterations`` when the
+    depth did not parse) and ``uninitialized`` when the initializer is unwired."""
+    if feedback.delay is None:
+        depth = "? iterations"
+    else:
+        depth = f"{feedback.delay} iteration" + ("" if feedback.delay == 1 else "s")
+    if isinstance(feedback.init, DefaultValue):
+        return f"{depth}, {_LVNET_UNINITIALIZED}"
+    return depth
+
+
 def _render_lvnet_loop_scope(
     scope: NetlistScope,
     indent: str,
@@ -1264,36 +1330,47 @@ def _render_lvnet_loop_scope(
     *,
     verbose: bool,
 ) -> None:
-    """``for-loop :`` / ``while-loop :`` (§8) -- a single implicit body,
-    followed by its border constructs (``shift-register``/``tunnel``, §8) at
+    """``for-loop :`` / ``while-loop (stop if true) :`` (§8) -- a single implicit
+    body, followed by its border constructs (``shift-register``/``tunnel``, §8) at
     the SAME indent as the body's own items (the golden shows
     ``shift-register loop_42::shift0 :`` as a sibling of ``subVI
     TestCase_Init_1``, not nested deeper).
 
-    A while-loop's stop-condition net (``scope.selector``) is NOT rendered
-    -- §8's own syntax table shows bare ``while-loop :`` with no selector
-    annotation, and no other CLOSED construct documents where that net
-    would go; see the implementation report's open-items list.
+    A loop's own wires are drive lines in its block: the For Loop's count wire
+    first (``loop_<uid>::N = <source>``, an input of the loop), the wire on the
+    conditional terminal after the body (``loop_<uid>::condition = <source>``).
+    The header says how the conditional terminal reads its Boolean (``(stop if
+    true)`` / ``(continue if true)``) and is absent on a For Loop with no
+    conditional terminal.
 
     ``merge.net`` (``MuMerge``/``EtaMerge``) is the model's OWN stored
     string (shared verbatim with other consumers, e.g. ``netlist_to_dict``,
     which must keep its ``.`` separator) -- ``_lvnet_net_separator`` reformats
     it to ``::`` for THIS render only, never mutating the stored field (§9).
     """
-    header_kw = "while-loop" if scope.kind == "while" else "for-loop"
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
-    lines.append(f"{indent}{header_kw}{id_suffix}{_LVNET_BLOCK_OPEN}")
+    header = _lvnet_loop_header_words(scope)
+    lines.append(f"{indent}{header}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
+    for net, source in _loop_count_drives(scope, handles):
+        lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source}")
     _render_lvnet_items(
         scope.frames[0].body, body_indent, lines, handles, verbose=verbose
     )
+    for net, source in _loop_condition_drives(scope, handles):
+        lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source}")
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = _lvnet_net_separator(merge.net)
-            lines.append(f"{body_indent}shift-register {net}{_LVNET_BLOCK_OPEN}")
+            uninitialized = isinstance(merge.init, DefaultValue)
+            attribute = f" ({_LVNET_UNINITIALIZED})" if uninitialized else ""
+            lines.append(
+                f"{body_indent}shift-register {net}{attribute}{_LVNET_BLOCK_OPEN}"
+            )
             kv_indent = body_indent + _LVNET_INDENT
-            init_str = _render_lvnet_source(merge.init, handles)
-            lines.append(f"{kv_indent}init{_LVNET_DRIVER_OP}{init_str}")
+            if not isinstance(merge.init, DefaultValue):
+                init_str = _render_lvnet_source(merge.init, handles)
+                lines.append(f"{kv_indent}init{_LVNET_DRIVER_OP}{init_str}")
             if merge.recur is not None:
                 recur_str = _render_lvnet_source(merge.recur, handles)
                 lines.append(f"{kv_indent}each{_LVNET_DRIVER_OP}{recur_str}")
@@ -1575,15 +1652,15 @@ def _render_lvnet_feedback(
     rendered ``(? iterations)`` (the file's established "genuinely unknown"
     ``?``), never a fabricated count. ``each`` is omitted when ``recur`` is
     ``None`` (never written to -- a real, faithful state per the model's own
-    docstring), mirroring ``shift-register``'s optional ``each`` line.
+    docstring), mirroring ``shift-register``'s optional ``each`` line. A Feedback
+    Node whose initializer is unwired is ``(1 iteration, uninitialized)`` and has
+    no ``init`` line: it starts from the value it held when the VI last ran.
     """
-    if feedback.delay is None:
-        attr = "? iterations"
-    else:
-        attr = f"{feedback.delay} iteration" + ("" if feedback.delay == 1 else "s")
+    attr = lvnet_feedback_attribute(feedback)
     lines.append(f"{indent}feedback-node {feedback.net} ({attr}){_LVNET_BLOCK_OPEN}")
-    init_str = _render_lvnet_source(feedback.init, handles)
-    lines.append(f"{indent + _LVNET_INDENT}init{_LVNET_DRIVER_OP}{init_str}")
+    if not isinstance(feedback.init, DefaultValue):
+        init_str = _render_lvnet_source(feedback.init, handles)
+        lines.append(f"{indent + _LVNET_INDENT}init{_LVNET_DRIVER_OP}{init_str}")
     if feedback.recur is not None:
         recur_str = _render_lvnet_source(feedback.recur, handles)
         lines.append(f"{indent + _LVNET_INDENT}each{_LVNET_DRIVER_OP}{recur_str}")

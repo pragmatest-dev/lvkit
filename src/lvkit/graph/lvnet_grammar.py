@@ -69,6 +69,19 @@ _LVNET_CLUSTER_OPEN = "Cluster{"
 _LVNET_NETWORK_PUBLISHED = "network-published"
 _LVNET_LIBRARY_UNREADABLE = "library unreadable"
 
+# The attribute word of a shift register or Feedback Node whose initializer is
+# unwired: ``shift-register loop_146::shift0 (uninitialized) :`` /
+# ``feedback-node fb0 (1 iteration, uninitialized) :``. Such a register has no
+# ``init`` line (it keeps the value it held when the VI last ran).
+_LVNET_UNINITIALIZED = "uninitialized"
+# The terminal names of a loop's drive lines: ``loop_<uid>::N`` (a For Loop's
+# count wire) and ``loop_<uid>::condition`` (the wire on its conditional
+# terminal).
+_LVNET_LOOP_COUNT_TERMINAL = "N"
+_LVNET_LOOP_CONDITION_TERMINAL = "condition"
+# The unwired mark in a drive position that has no value to show.
+_LVNET_UNWIRED = "?"
+
 # A sequence local's drive position holds ``(sequence local unreadable
 # "<reason>")`` instead of a source when its wiring is not one LabVIEW allows.
 _LVNET_SEQUENCE_LOCAL_UNREADABLE = "sequence local unreadable"

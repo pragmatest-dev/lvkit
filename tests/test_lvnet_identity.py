@@ -461,6 +461,14 @@ def _compare_scope(
 
     if a.kind == "case":
         _compare_net(a.selector, b.selector, f"{path}.selector", errors, ctx)
+    if a.kind in ("for", "while"):
+        if a.condition_mode != b.condition_mode:
+            errors.append(
+                f"{path}: loop condition mode mismatch: "
+                f"{a.condition_mode!r} vs {b.condition_mode!r}"
+            )
+        _compare_net(a.selector, b.selector, f"{path}.condition", errors, ctx)
+        _compare_net(a.count, b.count, f"{path}.count", errors, ctx)
 
     if len(a.frames) != len(b.frames):
         errors.append(

@@ -487,10 +487,16 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
                     assert stripped.endswith(":"), (
                         f"feedback-node header must open a block: {stripped!r}"
                     )
-                    assert next_line.startswith("init ="), (
-                        f"feedback-node must be followed by its init line, "
-                        f"got {next_line!r}"
-                    )
+                    if "uninitialized" in stripped:
+                        assert not next_line.startswith("init ="), (
+                            f"an uninitialized feedback-node has no init line, "
+                            f"got {next_line!r}"
+                        )
+                    else:
+                        assert next_line.startswith("init ="), (
+                            f"feedback-node must be followed by its init line, "
+                            f"got {next_line!r}"
+                        )
                 else:
                     assert " : " in stripped, (
                         f"{kw!r} header missing its more-specific-type: {stripped!r}"
@@ -562,7 +568,8 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     """A real split Feedback Node (1-iteration): renders
     `feedback-node <net> (<N> iteration[s]) :` (a state register -- no
     more-specific-type; the count is a parenthetical attribute; the handle IS
-    its own `fbK` net, §7), then `init =`/`each =` -- never a TODO."""
+    its own `fbK` net, §7), then `each =` (this node's initializer is unwired,
+    so it is `uninitialized` and has no `init =`) -- never a TODO."""
     if not _FEEDBACK_VI.exists():
         pytest.skip("lv-flex-channel-examples sample corpus not present")
     graph, vi_name = load_vi_by_path(
@@ -580,9 +587,8 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     idx = next(
         i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node ")
     )
-    assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
-    assert lines[idx + 1].strip() == "init = 0.0"
-    assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
+    assert lines[idx].strip() == "feedback-node fb0 (1 iteration, uninitialized) :"
+    assert lines[idx + 1].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
 
 
 @pytest.mark.needs_samples

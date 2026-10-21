@@ -43,6 +43,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.constants import TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
@@ -79,6 +80,7 @@ from .netlist_models import (
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
+    LoopCondition,
     MuMerge,
     NetlistBoundaryInput,
     NetlistComponent,
@@ -1957,6 +1959,45 @@ def _build_loop_outputs_gn(
     return merges
 
 
+def _loop_condition_mode_gn(node: LoopNode) -> LoopCondition | None:
+    """How the loop's conditional terminal reads its Boolean: every While Loop
+    has one; a For Loop has one only when it shows a conditional terminal (the
+    heap's ``loopTestDCO``, whose terminal is ``stop_condition_terminal``)."""
+    if node.loop_type != "whileLoop" and node.stop_condition_terminal is None:
+        return None
+    if node.stop_condition_inverted:
+        return LoopCondition.CONTINUE_IF_TRUE
+    return LoopCondition.STOP_IF_TRUE
+
+
+def _loop_count_ref_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetRef | None:
+    """The wire into a For Loop's count terminal (N), or ``None`` when nothing is
+    wired to it."""
+    count_outer = next(
+        (
+            t
+            for t in node.terminals
+            if isinstance(t, TunnelTerminal)
+            and t.tunnel_type == TUNNEL_CLASS_LMAX
+            and t.boundary == "outer"
+        ),
+        None,
+    )
+    return _selector_ref_gn(
+        graph,
+        ctx,
+        vi_name,
+        build_ctx,
+        count_outer.id if count_outer is not None else None,
+    )
+
+
 def _build_loop_scope_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -2015,6 +2056,8 @@ def _build_loop_scope_gn(
         frames=[frame],
         parallel=node.parallel,
         parallel_static_workers=node.parallel_static_workers,
+        condition_mode=_loop_condition_mode_gn(node),
+        count=_loop_count_ref_gn(graph, ctx, vi_name, node, build_ctx),
         tunnels=tunnel_info,
         outputs=outputs,
     )

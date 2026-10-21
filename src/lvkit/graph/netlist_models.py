@@ -205,6 +205,15 @@ class NetlistOutput:
     lv_type: LVType | None = None
 
 
+class LoopCondition(str, Enum):
+    """How a loop's conditional terminal reads its Boolean: a While Loop (and a
+    For Loop that shows a conditional terminal) either stops or continues on
+    True. The value is the text lvnet writes in the loop header."""
+
+    STOP_IF_TRUE = "stop if true"
+    CONTINUE_IF_TRUE = "continue if true"
+
+
 class NetlistInstanceKind(str, Enum):
     """Which §7 node-kind keyword an INSTANCE renders as in ``render_lvnet``
     -- an explicit discriminator off the ``GraphNode``
@@ -516,6 +525,7 @@ class NetlistScope:
 
     uid: str
     kind: str  # "case"|"for"|"while"|"sequence"|"disabled"|"event"|"inplace"
+    # A case's selector; a loop's conditional-terminal wire (None when unwired).
     selector: NetRef | None
     frames: list[NetlistFrame]
     # Sequence-only (kind == "sequence") sub-kind: the EXPLICIT flat-vs-
@@ -538,6 +548,12 @@ class NetlistScope:
     # ``scope_header`` never reads these.
     parallel: bool = False
     parallel_static_workers: int | None = None
+    # Loop-only: how the conditional terminal reads its Boolean. ``None`` for a
+    # For Loop with no conditional terminal (and for every non-loop scope).
+    condition_mode: LoopCondition | None = None
+    # For-Loop-only: the wire into the count terminal (N); ``None`` when
+    # nothing is wired (an auto-indexing input tunnel then sets the count).
+    count: NetRef | None = None
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
     # One merge per structural value-merge point on this scope: a case
     # (kind == "case") carries one ``GammaMerge`` per output tunnel (see
