@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from lvkit.parser.vi import _process_element_terminals
+from lvkit.parser.vi import _inline_dco_definitions, _process_element_terminals
 
 # Delete From Array as saved: each dco is defined once on the node (delDCO,
 # dcoAgg, ...) and the termList holds only bare <dco uid=.../> references.
@@ -31,9 +31,9 @@ _DELETE_FROM_ARRAY = """
 
 def test_unwired_terminals_take_direction_from_the_node_level_dco() -> None:
     terminal_info: dict = {}
-    _process_element_terminals(
-        ET.fromstring(_DELETE_FROM_ARRAY), set(), set(), None, terminal_info, {}
-    )
+    node = ET.fromstring(_DELETE_FROM_ARRAY)
+    _inline_dco_definitions(node)
+    _process_element_terminals(node, set(), set(), None, terminal_info, {})
     directions = {
         uid: ("out" if info.is_output else "in") for uid, info in terminal_info.items()
     }

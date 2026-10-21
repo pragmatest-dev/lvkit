@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ..models import ClusterField, EnumValue, LVType, LVTypeKind
+from .heap_types import decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
 
@@ -98,27 +99,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                 # The FlatTypeID is the position in the section
                 flat_to_typedef[i] = (underlying_type, typedef_name)
 
-        # Parse VICC elements to get path info for typedefs
-        # Maps ctl_filename -> path_tokens (match by filename, not type_id)
-        vicc_paths: dict[str, list[str]] = {}
-        for vicc in root.findall(".//LIvi//VICC"):
-            path_ref = vicc.find("LinkSavePathRef")
-            if path_ref is None:
-                continue
-
-            path_parts = [s.text for s in path_ref.findall("String") if s.text]
-            if not path_parts:
-                continue
-
-            # Check if this is a .ctl file
-            filename = path_parts[-1]
-            if not filename.endswith(".ctl"):
-                continue
-
-            # Remove special markers like <vilib>, <userlib>
-            clean_parts = [p for p in path_parts if not p.startswith("<")]
-            if clean_parts:
-                vicc_paths[filename] = clean_parts
+        vicc_paths = _typedef_ctl_paths(root)
 
         # Now update type_map: heap -> consolidated -> flat -> full type info
         for heap_id, cons_id in heap_to_consolidated.items():
@@ -135,30 +116,76 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
             if flat_id in flat_to_typedef:
                 _, ctl_filename = flat_to_typedef[flat_id]
                 if ctl_filename and heap_id in type_map:
-                    # Build qualified name from VICC path info
-                    if ctl_filename in vicc_paths:
-                        path_tokens = vicc_paths[ctl_filename]
-                        type_map[heap_id].typedef_path = build_relative_path(
-                            path_tokens
-                        )
-                        owner_chain = [
-                            t
-                            for t in path_tokens[:-1]
-                            if t.endswith(
-                                (".llb", ".lvlib", ".lvclass"),
-                            )
-                        ]
-                        type_map[heap_id].typedef_name = build_qualified_name(
-                            owner_chain,
-                            ctl_filename,
-                        )
-                    else:
-                        type_map[heap_id].typedef_name = ctl_filename
+                    _apply_typedef_identity(type_map[heap_id], ctl_filename, vicc_paths)
 
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
 
+    if not type_map:
+        type_map = _parse_pre_lv9_heap_types(xml_path)
+
     return type_map
+
+
+def _typedef_ctl_paths(root: ET.Element) -> dict[str, list[str]]:
+    """Map each ``.ctl`` filename to its path tokens, from the VI's VICC link
+    records (matched by filename, not type id; ``<vilib>``-style markers dropped).
+    """
+    vicc_paths: dict[str, list[str]] = {}
+    for vicc in root.findall(".//LIvi//VICC"):
+        path_ref = vicc.find("LinkSavePathRef")
+        if path_ref is None:
+            continue
+
+        path_parts = [s.text for s in path_ref.findall("String") if s.text]
+        if not path_parts:
+            continue
+
+        filename = path_parts[-1]
+        if not filename.endswith(".ctl"):
+            continue
+
+        clean_parts = [p for p in path_parts if not p.startswith("<")]
+        if clean_parts:
+            vicc_paths[filename] = clean_parts
+    return vicc_paths
+
+
+def _apply_typedef_identity(
+    lv_type: LVType,
+    ctl_filename: str,
+    vicc_paths: dict[str, list[str]],
+) -> None:
+    """Stamp a typedef's qualified name (and relative path, when its link record
+    gives one) onto ``lv_type``."""
+    if ctl_filename not in vicc_paths:
+        lv_type.typedef_name = ctl_filename
+        return
+    path_tokens = vicc_paths[ctl_filename]
+    lv_type.typedef_path = build_relative_path(path_tokens)
+    owner_chain = [
+        t for t in path_tokens[:-1] if t.endswith((".llb", ".lvlib", ".lvclass"))
+    ]
+    lv_type.typedef_name = build_qualified_name(owner_chain, ctl_filename)
+
+
+def _parse_pre_lv9_heap_types(xml_path: Path | str) -> dict[int, LVType]:
+    """The heap ``TypeID`` map of a pre-LV9 VI, decoded from its ``DTHP`` sidecar
+    (see ``heap_types``); ``{}`` when the VI has none. A typedef whose ``.ctl`` has
+    a link record gains the same qualified name / path an LV9+ typedef gets."""
+    sidecar = heap_sidecar_path(xml_path)
+    if not sidecar.exists():
+        return {}
+    heap_types = decode_heap_types(sidecar.read_bytes())
+    try:
+        vicc_paths = _typedef_ctl_paths(ET.parse(xml_path).getroot())
+    except ET.ParseError:
+        return heap_types
+    for lv_type in heap_types.values():
+        ctl_filename = (lv_type.typedef_name or "").rsplit(":", 1)[-1]
+        if ctl_filename in vicc_paths:
+            _apply_typedef_identity(lv_type, ctl_filename, vicc_paths)
+    return heap_types
 
 
 def _field_label(ref_td: ET.Element | None, default_name: str) -> str:

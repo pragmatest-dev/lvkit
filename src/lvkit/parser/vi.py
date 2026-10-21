@@ -155,28 +155,6 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 _NODE_DCO_MAP: dict[str, dict[str, int]] = _load_node_dco_maps()
 
 
-def _dco_flags_element(
-    node: ET.Element, dco: ET.Element, dco_uid: str | None
-) -> ET.Element | None:
-    """The ``<objFlags>`` of a terminal's dco.
-
-    Some node classes (aDelete, aReshape, ...) define each dco once on the node
-    under a named tag (``delDCO``, ``dcoAgg``, ``dcoList`` ...) and list only a
-    bare ``<dco uid=.../>`` back-reference in the terminal. The flags, and so
-    the terminal's direction, then live on that definition.
-    """
-    own = dco.find("objFlags")
-    if own is not None or not dco_uid:
-        return own
-    for candidate in node.iter():
-        if candidate is dco or candidate.get("uid") != dco_uid:
-            continue
-        flags = candidate.find("objFlags")
-        if flags is not None:
-            return flags
-    return None
-
-
 def parse_vi(
     vi_path: Path | str | None = None,
     *,
@@ -469,7 +447,7 @@ def _parse_block_diagram(
     """
     tree = ET.parse(bd_xml)
     root = tree.getroot()
-    _inline_structure_tunnel_dcos(root)
+    _inline_dco_definitions(root)
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
@@ -694,34 +672,56 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
-def _inline_structure_tunnel_dcos(root: ET.Element) -> None:
-    """Give a structure's border terminals their tunnel definition inline.
+# Direct children of a node or structure whose items define terminal DCOs.
+_DCO_LIST_TAGS = ("tunnelList", "dcoList")
 
-    A structure normally defines each tunnel as the ``<dco class=...>`` of its
-    border ``<term>``. A VI saved in the older form instead lists the tunnels in
-    the structure's own ``<tunnelList>`` and leaves each border ``<term>`` a bare
-    ``<dco uid=.../>`` back-reference. Replace such a back-reference with a
-    ``<dco>`` carrying the listed tunnel's class and content, so every reader of
-    the diagram sees one form."""
-    for structure in root.iter():
-        tunnel_list = structure.find("tunnelList")
-        term_list = structure.find("termList")
-        if tunnel_list is None or term_list is None:
+
+def _is_named_dco_definition(child: ET.Element) -> bool:
+    """Whether a direct child of a node is one DCO defined under its own tag
+    (``delDCO``, ``caseSelDCO``, ``dcoAgg`` ...), as opposed to the terminal
+    list or a list item (``SL__arrayElement``)."""
+    return (
+        child.tag not in ("termList", "SL__arrayElement")
+        and bool(child.get("uid"))
+        and bool(child.get("class"))
+    )
+
+
+def _inline_dco_definitions(root: ET.Element) -> None:
+    """Give a node's or structure's terminals their DCO definition inline.
+
+    A node normally defines each DCO (tunnel, case selector, by-name
+    Bundle/Unbundle aggregate, drawer, Delete From Array's array/length/index
+    ...) as the ``<dco class=...>`` of its ``<term>``. A VI saved in the older
+    form instead defines them on the node itself -- as direct children under
+    names such as ``delDCO``, ``srcDCO``, ``caseSelDCO`` or ``dcoAgg``, or as
+    items of its ``<tunnelList>`` / ``<dcoList>`` -- and leaves each ``<term>``
+    a bare ``<dco uid=.../>`` back-reference. Replace such a back-reference with
+    a ``<dco>`` carrying the definition's class and content (its flags, and so
+    the terminal's direction, its type), so every reader of the diagram sees one
+    form."""
+    for node in root.iter():
+        term_list = node.find("termList")
+        if term_list is None:
             continue
-        tunnels = {
-            t.get("uid"): t
-            for t in tunnel_list.findall("SL__arrayElement")
-            if t.get("uid") and t.get("class")
-        }
+        definitions: dict[str | None, ET.Element] = {}
+        for list_tag in _DCO_LIST_TAGS:
+            listed = node.find(list_tag)
+            if listed is not None:
+                for item in listed.findall("SL__arrayElement"):
+                    definitions[item.get("uid")] = item
+        for child in node:
+            if _is_named_dco_definition(child):
+                definitions[child.get("uid")] = child
         for term in term_list.findall("SL__arrayElement"):
             dco = term.find("dco")
             if dco is None or dco.get("class") is not None:
                 continue
-            tunnel = tunnels.get(dco.get("uid"))
-            if tunnel is None:
+            definition = definitions.get(dco.get("uid"))
+            if definition is None or not definition.get("class"):
                 continue
-            dco.set("class", tunnel.get("class", ""))
-            dco.extend(tunnel)
+            dco.set("class", definition.get("class", ""))
+            dco.extend(definition)
 
 
 def _iter_diagram_elements(root: ET.Element) -> Iterator[ET.Element]:
@@ -1067,7 +1067,7 @@ def _process_element_terminals(
             # input (safe_int(None) == 0 == input).
             if dco is not None:
                 is_output = is_output_terminal(
-                    safe_int(_dco_flags_element(elem, dco, dco_uid))
+                    safe_int(dco.find("objFlags"))
                 )
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
