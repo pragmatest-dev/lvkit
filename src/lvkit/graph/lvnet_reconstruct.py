@@ -159,7 +159,7 @@ from .netlist_models import (
     SequenceLocalDrive,
     SequenceLocalUnreadable,
 )
-from .render_lvnet import _lvnet_type_inline, lvnet_name_token
+from .render_lvnet import _lvnet_type_inline, lvnet_control_name_token
 
 
 class LvnetReconstructError(ValueError):
@@ -414,8 +414,15 @@ def _parse_source_token(
         return NetRef(
             node=None, terminal="", occurrence=None, bare=text, constant_uid=target.uid
         )
-    # A boundary control's own display name, or a bare structural net
-    # (`fbK`) -- both render via the same "node is None" fallback.
+    if target is not None and target.is_boundary:
+        return NetRef(
+            node=None,
+            terminal=target.name,
+            occurrence=None,
+            bare=target.name,
+            boundary=True,
+        )
+    # A bare structural net (`fbK`) renders via the "node is None" fallback.
     return NetRef(node=None, terminal="", occurrence=None, bare=text)
 
 
@@ -1239,11 +1246,13 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
     _index_handles(parsed.body, registry)
 
     for terminal in parsed.boundary:
-        token = lvnet_name_token(terminal.name)
-        if token.startswith('"'):
-            registry[token] = _HandleTarget(
+        token = lvnet_control_name_token(terminal.name)
+        registry.setdefault(
+            token,
+            _HandleTarget(
                 name=terminal.name, uid="", is_constant=False, is_boundary=True
-            )
+            ),
+        )
 
     body = _reconstruct_items(parsed.body, registry, types_dict, memo, fresh_uid)
 

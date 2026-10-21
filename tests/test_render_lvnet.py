@@ -613,10 +613,10 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
 
     stripped_lines = [ln.strip() for ln in text.splitlines()]
     for expected in (
-        'local-variable Running_1974 : write = "False"',
-        'local-variable Running_1728 : write = "False"',
-        'local-variable Running_2013 : write = "False"',
-        'local-variable Running_2003 : write = "False"',
+        "local-variable Running_1974 : write = False",
+        "local-variable Running_1728 : write = False",
+        "local-variable Running_2013 : write = False",
+        "local-variable Running_2003 : write = False",
         "local-variable Running_1480 : read",
         "local-variable Gen_Params_1109 : read",
         "local-variable Running_1402 : read",

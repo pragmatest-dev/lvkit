@@ -56,11 +56,14 @@ from .lvnet_grammar import (
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
+    _LVNET_RESERVED_CONTROL_NAMES,
+    _LVNET_RESERVED_CONTROL_PREFIXES,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
+    _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
@@ -70,6 +73,7 @@ from .lvnet_grammar import (
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
 )
+from .lvnet_scalar import lvnet_typed_scalar
 from .models import Constant
 from .netlist_models import (
     ConnectorPaneTerminal,
@@ -133,6 +137,9 @@ class _TermLine:
     name: str
     type: str
     trailing: str | None
+    # A front-panel control/indicator row: its name is also read as a net
+    # reference, so it is quoted when it would read as a literal (§4).
+    control: bool = False
 
 
 def _lvnet_capped_pad(text: str, width: int, cap: int) -> str:
@@ -182,7 +189,13 @@ def _render_term_group(entries: list[_TermLine], indent: str) -> list[str]:
     # Alignment uses the SAME display form (widths from the quoted name), so
     # render and reconstruct-render stay byte-identical. An ordinary name has
     # no unsafe char and renders bare, unchanged.
-    display = [(e, lvnet_name_token(e.name)) for e in entries]
+    display = [
+        (
+            e,
+            lvnet_control_name_token(e.name) if e.control else lvnet_name_token(e.name),
+        )
+        for e in entries
+    ]
     under_cap_names = [len(n) for _e, n in display if len(n) <= _LVNET_NAME_CAP]
     name_width = (max(under_cap_names) if under_cap_names else 0) + 1
     needs_type_pad = any(e.trailing is not None for e in entries)
@@ -964,7 +977,7 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
     # through unconditionally is safe and keeps one call site for every
     # ``bare`` shape (net name, structure net, or literal).
     if source.boundary:
-        return lvnet_name_token(source.bare)
+        return lvnet_control_name_token(source.bare)
     literal = source.lvnet_value if source.lvnet_value is not None else source.bare
     return _lvnet_net_separator(literal)
 
@@ -1654,6 +1667,38 @@ def lvnet_name_token(name: str) -> str:
     return lvnet_literal_token(name)
 
 
+def _lvnet_name_reads_as_literal(name: str) -> bool:
+    """Whether a front-panel control NAME would read as something other than
+    a net where a net is expected (§4): a Boolean / Not-a-Path / number
+    literal, the ``default`` keyword, the ``?`` unwired mark, a ``Path(...)``
+    or parenthesised form, a ``read <control>`` line, a rendered structure or
+    Feedback Node net, or any name holding the ``::`` terminal separator."""
+    if name in _LVNET_RESERVED_CONTROL_NAMES:
+        return True
+    if name.startswith(_LVNET_RESERVED_CONTROL_PREFIXES):
+        return True
+    if _LVNET_TERMINAL_SEP in name:
+        return True
+    if _LVNET_STRUCTURE_NET_TEXT_RE.match(name):
+        return True
+    try:
+        float(name)
+    except ValueError:
+        return False
+    return True
+
+
+def lvnet_control_name_token(name: str) -> str:
+    """One front-panel control / indicator NAME in the lvnet grammar. It is a
+    ``lvnet_name_token`` that is also quoted when the bare spelling would read
+    as a literal or reserved form wherever the control's net is referenced
+    (``_lvnet_name_reads_as_literal``) -- so a control literally named
+    ``True`` renders ``"True"`` and is never read as the Boolean constant."""
+    if _lvnet_name_reads_as_literal(name):
+        return lvnet_literal_token(name)
+    return lvnet_name_token(name)
+
+
 def lvnet_literal_token(value: ScalarValue) -> str:
     """THE single lvnet §4/§10 literal-value TOKEN renderer for a raw
     ``ScalarValue`` -- a connector-pane control's own authored default
@@ -1714,7 +1759,7 @@ def _lvnet_const_value_str(c: Constant) -> str:
         return formatted
     if c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
         return _lvnet_escape_controls(str(c.value))
-    return lvnet_literal_token(c.value)
+    return lvnet_literal_token(lvnet_typed_scalar(c.value, c.lv_type))
 
 
 def _lvnet_escape_controls(text: str) -> str:
@@ -1859,6 +1904,7 @@ def _render_lvnet_front_panel(
             inp.name,
             _lvnet_type_label(inp.type_descriptor, inp.lv_type),
             _lvnet_boundary_trailing(pane, verbose=verbose),
+            control=True,
         )
         for inp, pane in zip(module.inputs, input_panes, strict=True)
     ] + [
@@ -1867,6 +1913,7 @@ def _render_lvnet_front_panel(
             o.name,
             _lvnet_type_label(o.type_descriptor, o.lv_type),
             _lvnet_boundary_trailing(pane, verbose=verbose),
+            control=True,
         )
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
@@ -1881,6 +1928,7 @@ def _render_lvnet_front_panel(
             pane.name,
             _lvnet_type_label(pane.type, pane.lv_type),
             _lvnet_boundary_trailing(pane, verbose=verbose),
+            control=True,
         )
         for pane in off_pane_panes
     ]
@@ -2069,7 +2117,8 @@ def render_lvnet(
             _render_lvnet_source(o.source, handles) if o.source is not None else "?"
         )
         lines.append(
-            f"{body_indent}{lvnet_name_token(o.name)}{_LVNET_DRIVER_OP}{source_str}"
+            f"{body_indent}{lvnet_control_name_token(o.name)}"
+            f"{_LVNET_DRIVER_OP}{source_str}"
         )
 
     if verbose:

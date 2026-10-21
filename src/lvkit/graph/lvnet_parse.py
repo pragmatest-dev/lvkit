@@ -1645,9 +1645,29 @@ def _parse_event_scope(
     return ParsedScope(kind="event-structure", frames=tuple(frames), uid=uid)
 
 
+def _parse_drive_line(content: str, line_no: int) -> ParsedDrive | None:
+    """A ``<net> = <source>`` drive line, or ``None`` when ``content`` is not
+    one. A line with a top-level `` = `` and no top-level `` : `` before it is a
+    drive line whatever its first word is -- a node, constant or variable line
+    always carries its `` : `` first, and a net name is bare or quoted, so a
+    control named ``case x`` still drives as ``case x = <source>``."""
+    sep = _find_first_top_level(content, _LVNET_DRIVER_OP)
+    if sep == -1:
+        return None
+    type_sep = _find_first_top_level(content, _LVNET_TYPE_SEP)
+    if type_sep != -1 and type_sep < sep:
+        return None
+    source = content[sep + len(_LVNET_DRIVER_OP) :]
+    _validate_if_quoted(source, line_no)
+    return ParsedDrive(net=_unquote_name_token(content[:sep]), source=source)
+
+
 def _parse_one_item_or_drive(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedBodyItem | ParsedDrive:
+    drive = _parse_drive_line(content, line_no)
+    if drive is not None:
+        return drive
     if content.startswith("local-variable "):
         return _parse_local_variable(content, line_no)
     if content.startswith("global-variable "):
@@ -1680,16 +1700,6 @@ def _parse_one_item_or_drive(
         return _parse_event_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content == _INPLACE_SCOPE_HEADER:
         return _parse_inplace_scope(cursor, indent, scope_content, line_no, scope_uid)
-    sep = _find_first_top_level(content, _LVNET_DRIVER_OP)
-    if sep != -1:
-        # FIRST top-level occurrence: a net name is bare (never contains " = ")
-        # or quoted (``lvnet_name_token``), so it's always the real operator
-        # regardless of what a (possibly quoted, md §4/§10) literal source
-        # afterward contains.
-        net = _unquote_name_token(content[:sep])
-        source = content[sep + len(_LVNET_DRIVER_OP) :]
-        _validate_if_quoted(source, line_no)
-        return ParsedDrive(net=net, source=source)
     raise LvnetParseError(f"line {line_no}: unrecognized body line: {content!r}")
 
 

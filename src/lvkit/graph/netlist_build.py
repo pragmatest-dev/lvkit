@@ -46,6 +46,7 @@ from ..models import (
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
+from .lvnet_scalar import lvnet_typed_scalar
 from .models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -286,7 +287,7 @@ def _pane_terminal(
         direction=direction,
         index=None if off_pane else t.index,
         wiring_requirement=requirement_state(t, direction),
-        default=t.default_value,
+        default=lvnet_typed_scalar(t.default_value, t.lv_type),
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,

@@ -270,6 +270,27 @@ row (on-pane and off-pane), the sink side of its boundary-output drive line
 a quoted front-panel name declared in `front-panel :`, in which case it is that
 control's net.
 
+**Quoting a front-panel control name.** A control or indicator name is also a net
+reference (`= Running`, `Running = case_139::out0`), so it is double-quoted, in its
+`front-panel :` row, as a source and as a drive-line sink, when its bare spelling
+would read as something else there: a Boolean literal (`True`, `False`), the
+Not-a-Path literal (`NotAPath`), a number (`5`, `-1.5`), `default`, `?`, a name that
+opens with `Path(`, `(`, `read `, `shift-register ` or `tunnel `, a name that spells
+a structure net (`case_951::out1`, `loop_146::i`) or a Feedback Node net (`fb0`), or
+a name holding `::`. A control named `True` is written `"True"`, so it is never the
+Boolean constant. A node terminal's name (`in   0 : DBL`) follows the name-safety rule
+above only.
+
+**A Boolean or numeric value is read back by its type.** The text a VI stores for a
+`TF` control's default or a `TF` constant (`True`) is written as the literal `True`,
+not the string `"True"`; an integer, enum or ring ordinal and a float are written as
+numbers. A string value stays a quoted string. This holds for a constant, a
+front-panel default and a `uses :` interface default alike.
+
+**Parse order.** A line with a top-level ` = ` and no top-level ` : ` before it is a
+drive line, whatever its first word; a node, constant or variable line carries its
+` : ` first.
+
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most
 universal target-left pattern in text languages. **Not `<=`** (reads as ≤, HDL

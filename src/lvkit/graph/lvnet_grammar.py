@@ -76,6 +76,24 @@ _LVNET_SEQUENCE_LOCAL_UNREADABLE = "sequence local unreadable"
 # be read: ``assembly (unreadable "<reason>")``.
 _LVNET_ASSEMBLY_UNREADABLE = "unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
+# The words a front-panel control name must not spell BARE (§4): each reads as
+# a literal or reserved form wherever a net name is read -- a Boolean literal,
+# the Not-a-Path literal, the unwired-driver mark, the unwired-default
+# keyword.
+_LVNET_RESERVED_CONTROL_NAMES = frozenset(
+    {"True", "False", "NotAPath", "default", "?"}
+)
+# A control name that opens with one of these reads as the construct the
+# prefix introduces: a ``Path(...)`` literal, a ``(default <Type>)`` or other
+# parenthesised form, the ``read <control>`` line, and the border constructs a
+# loop body hands back to its own parser.
+_LVNET_RESERVED_CONTROL_PREFIXES = (
+    "Path(",
+    "(",
+    "read ",
+    "shift-register ",
+    "tunnel ",
+)
 # The §5 boundary-row front-panel caption clause: ``caption "<text>"``, or
 # ``caption hidden "<text>"`` when the caption is set but not shown.
 _LVNET_CAPTION_KEYWORD = "caption"
@@ -154,6 +172,13 @@ _LVNET_SCOPE_ID_PREFIX = " (id "
 # all and never match.
 _LVNET_STRUCTURE_NET_RE = re.compile(
     r"^((?:case|loop|sequence|disabled|event|inplace)_\d+)\.(.+)$"
+)
+
+# A front-panel control name that spells a RENDERED structure net
+# (``case_UID::outK``, ``loop_UID::i``, ...) or a Feedback Node net (``fbK``)
+# would be read back as that net, so it renders quoted.
+_LVNET_STRUCTURE_NET_TEXT_RE = re.compile(
+    r"^(?:(?:case|loop|sequence|disabled|event|inplace)_\d+::|fb\d+$)"
 )
 
 # ``LOCAL_VARIABLE`` (now designed, §7 revised again): a read/write TAP on a
