@@ -281,7 +281,9 @@ class TdPool:
         return LVType(
             kind=LVTypeKind.CLUSTER,
             underlying_type="Cluster",
-            fields=fields or None,
+            # A cluster that lists no members is empty (``[]``); one whose
+            # members could not be resolved has no known fields (None).
+            fields=fields if fields or not refs else None,
         ), _name_at(body, 2 + fcount * 2)
 
     def _decode_refnum(self, body: bytes) -> tuple[LVType, str | None]:

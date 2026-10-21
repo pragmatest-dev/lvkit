@@ -17,7 +17,8 @@ subclasses are the single source of truth for node structure.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from typing import Literal
@@ -148,6 +149,9 @@ class LVType:
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
     element_type: LVType | None = None
+    # A Map's value type (``element_type`` is its key type); None for every
+    # other type.
+    value_type: LVType | None = None
     dimensions: int | None = None
     typedef_path: str | None = None
     typedef_name: str | None = None
@@ -163,6 +167,11 @@ class LVType:
     # built-in today); a LabVIEW class fills it from its ``.lvclass``.
     # ``compare=False`` — presentation, never type identity/coercion.
     wire_style: WireStyle | None = field(default=None, compare=False)
+    # For a class instance whose ``.lvclass`` is loaded: the private-data fields
+    # of each level of its hierarchy, oldest ancestor first (a flattened object
+    # holds one cluster per level). None when the class is not loaded.
+    # ``compare=False`` -- what a value of the type is read with, not its identity.
+    class_levels: list[list[ClusterField]] | None = field(default=None, compare=False)
 
     def _refnum_leaf(self) -> bool:
         """Whether this type, or the element type of its arrays, is a refnum."""
@@ -219,9 +228,7 @@ class LVType:
         if self.kind == LVTypeKind.PRIMITIVE:
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
-            inner = (
-                self.element_type.to_python(names) if self.element_type else "Any"
-            )
+            inner = self.element_type.to_python(names) if self.element_type else "Any"
             result = f"list[{inner}]"
             for _ in range((self.dimensions or 1) - 1):
                 result = f"list[{result}]"
@@ -387,10 +394,21 @@ class LVType:
                         return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"
+            if self.underlying_type == "Set":
+                return f"set{{{_member_descriptor(self.element_type, expand_named)}}}"
+            if self.underlying_type == "Map":
+                key = _member_descriptor(self.element_type, expand_named)
+                value = _member_descriptor(self.value_type, expand_named)
+                return f"map{{{key}: {value}}}"
             return _SCALAR_TYPE_DESCRIPTOR.get(
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
+
+
+def _member_descriptor(member: LVType | None, expand_named: bool) -> str:
+    """A Set or Map member's descriptor; ``?`` when its type is not known."""
+    return member.type_descriptor(expand_named=expand_named) if member else "?"
 
 
 class WireLineStyle(IntEnum):
@@ -1082,3 +1100,40 @@ def _strip_typedef_stem(typedef_name: str) -> str:
     type's own name are kept verbatim (mirrors the stripping convention in
     ``graph/construction.py``'s ``_format_lv_type_for_display``)."""
     return typedef_name.rsplit(":", 1)[-1].replace(".ctl", "")
+
+
+def leading_element(value: object) -> object:
+    """The first element of a decoded array value, however many dimensions it
+    has: a multi-dimensional array's value is lists nested one level per
+    dimension (see ``parser.vi._decode_element``), so this walks down the first
+    entry of each. ``None`` when an empty array is reached; a value that is not a
+    list (a scalar, or a cluster's dict) is returned as is."""
+    while isinstance(value, list):
+        value = value[0] if value else None
+    return value
+
+
+def unique_names(names: Iterable[str]) -> list[str]:
+    """``names`` with each repeat made distinct by a `` (2)``, `` (3)`` suffix, in
+    order -- a cluster may hold several fields with the same label, and a value
+    keyed by field name needs one key per field."""
+    seen: Counter[str] = Counter()
+    result = []
+    for name in names:
+        seen[name] += 1
+        result.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
+    return result
+
+
+def contains_class_instance(lv_type: LVType | None) -> bool:
+    """Whether ``lv_type`` is, or holds in a field, element, key or value, a class
+    instance (a refnum naming a class)."""
+    if lv_type is None:
+        return False
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
+        return True
+    return (
+        contains_class_instance(lv_type.element_type)
+        or contains_class_instance(lv_type.value_type)
+        or any(contains_class_instance(f.type) for f in lv_type.fields or [])
+    )

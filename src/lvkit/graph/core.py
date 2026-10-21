@@ -7,13 +7,20 @@ and module-level helper functions.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, LVType, LVTypeKind, WireStyle
+from ..models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    WireStyle,
+    contains_class_instance,
+)
 from ..parser.models import ParsedType, ParsedVI
 
 if TYPE_CHECKING:
@@ -357,6 +364,90 @@ class InMemoryVIGraph(
             lv_type.wire_style = self.get_class_wire_style(parsed_type.classname)
 
         return lv_type
+
+    def with_class_levels(
+        self, lv_type: LVType | None, caller_vi_key: str | None = None
+    ) -> LVType | None:
+        """``lv_type`` with every class instance in it (itself, or in a field,
+        element, key or value) carrying its class's private-data fields, so a
+        stored value of the type reads its private data; the fields of those
+        levels get the same treatment, so a class held in another class's private
+        data reads its own. A class already being stamped further up (its private
+        data holds itself, directly or through another class) is left without
+        levels: that inner instance shows its name and keeps its exact extent.
+        Types without a loaded class come back unchanged; a changed one is a
+        copy, never an edit of a type shared with the parser."""
+        return self._stamp_class_levels(lv_type, caller_vi_key, ())
+
+    def _stamp_class_levels(
+        self,
+        lv_type: LVType | None,
+        caller_vi_key: str | None,
+        enclosing: tuple[str, ...],
+    ) -> LVType | None:
+        if lv_type is None:
+            return None
+        replacements: dict[str, object] = {}
+        if lv_type.underlying_type == "Refnum" and lv_type.classname:
+            class_key = self._dep_key_for_ref(lv_type.classname, caller_vi_key)
+            levels = self.get_class_private_levels(lv_type.classname, caller_vi_key)
+            if (
+                class_key is not None
+                and class_key not in enclosing
+                and levels is not None
+            ):
+                inner = (*enclosing, class_key)
+                replacements["class_levels"] = [
+                    [self._stamp_field(f, caller_vi_key, inner) for f in level]
+                    for level in levels
+                ]
+        if lv_type.element_type is not None:
+            element = self._stamp_class_levels(
+                lv_type.element_type, caller_vi_key, enclosing
+            )
+            if element is not lv_type.element_type:
+                replacements["element_type"] = element
+        if lv_type.value_type is not None:
+            value = self._stamp_class_levels(
+                lv_type.value_type, caller_vi_key, enclosing
+            )
+            if value is not lv_type.value_type:
+                replacements["value_type"] = value
+        if lv_type.fields and contains_class_instance(lv_type):
+            replacements["fields"] = [
+                self._stamp_field(f, caller_vi_key, enclosing) for f in lv_type.fields
+            ]
+        return dataclasses.replace(lv_type, **replacements) if replacements else lv_type
+
+    def _stamp_field(
+        self, field: ClusterField, caller_vi_key: str | None, enclosing: tuple[str, ...]
+    ) -> ClusterField:
+        if field.type is None:
+            return field
+        stamped = self._stamp_class_levels(field.type, caller_vi_key, enclosing)
+        return (
+            field if stamped is field.type else dataclasses.replace(field, type=stamped)
+        )
+
+    def get_class_private_levels(
+        self, classname: str, caller_vi_key: str | None = None
+    ) -> list[list[ClusterField]] | None:
+        """The private-data fields of each level of a class's hierarchy, oldest
+        ancestor first -- the clusters a flattened instance holds, one per level.
+        None when the class, or an ancestor other than LabVIEW Object, is not
+        loaded (its bytes are then skipped by their stored count)."""
+        node_key = self._dep_key_for_ref(classname, caller_vi_key)
+        levels: list[list[ClusterField]] = []
+        while node_key is not None:
+            if not self._dep_graph.has_node(node_key) or node_key in self._stubs:
+                return None
+            data = self._dep_graph.nodes[node_key]
+            levels.append(list(data.get("fields") or []))
+            parent_raw = data.get("parent_class")
+            node_key = self._parent_class_key(node_key)
+            if node_key is None and parent_raw and parent_raw != "LabVIEW Object":
+                return None
+        return levels[::-1] or None
 
     def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None:
         """PATH key of the one dependency of ``caller_vi_key`` that the NAME

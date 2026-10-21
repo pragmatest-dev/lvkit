@@ -205,6 +205,19 @@ def _control_ring_type(lv_type: LVType | None, ctrl: Any) -> LVType | None:
     return _ring_type(lv_type, ctrl.enum_values, ctrl.ring_values)
 
 
+def _default_for(ctrl: ParsedFPControl | None, lv_type: LVType | None) -> str | None:
+    """A control's default value. A default holding a class instance is read again
+    with the class's private-data fields, which are known only once the class is
+    loaded (``lv_type`` carries them); every other default is as the parse read it."""
+    if ctrl is None:
+        return None
+    if ctrl.default_raw is not None and lv_type is not None:
+        value, _, _ = _decode_element(ctrl.default_raw, lv_type)
+        if value is not None:
+            return value
+    return ctrl.default_value
+
+
 def decode_constant(
     const: ParsedConstant,
     lv_type: LVType | None = None,
@@ -335,6 +348,9 @@ class ConstructionMixin:
             _parsed_type: ParsedType | None,
         ) -> LVType | None: ...
         def resolve_vi_name(self, _vi_name: str) -> str: ...
+        def with_class_levels(
+            self, _lv_type: LVType | None, _caller_vi_key: str | None = None
+        ) -> LVType | None: ...
 
     @staticmethod
     def _enrich_nmux_terminals(
@@ -491,6 +507,7 @@ class ConstructionMixin:
                 lv_type = control_type_to_lvtype(control_type_str)
 
             lv_type = _control_ring_type(lv_type, ctrl)
+            lv_type = self.with_class_levels(lv_type, vi_key)
 
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
@@ -506,7 +523,7 @@ class ConstructionMixin:
                 caption_visible=ctrl.caption_visible if ctrl else False,
                 fp_dco_uid=fp_term.fp_dco_uid,
                 control_type=ctrl.control_type if ctrl else None,
-                default_value=ctrl.default_value if ctrl else None,
+                default_value=_default_for(ctrl, lv_type),
                 enum_values=ctrl.enum_values if ctrl else [],
             )
             vi_terminals.append(terminal)
@@ -580,6 +597,7 @@ class ConstructionMixin:
             if term_info and term_info.parsed_type:
                 lv_type = self._enrich_type(term_info.parsed_type)
             lv_type = _ring_type(lv_type, const.ring_labels, const.ring_values)
+            lv_type = self.with_class_levels(lv_type, vi_key)
 
             _, decoded_value, display_value = decode_constant(const, lv_type=lv_type)
 
@@ -1215,6 +1233,7 @@ class ConstructionMixin:
         if lv_type is None:
             lv_type = control_type_to_lvtype(ctrl.control_type)
         lv_type = _control_ring_type(lv_type, ctrl)
+        lv_type = self.with_class_levels(lv_type, vi_key)
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
@@ -1227,7 +1246,7 @@ class ConstructionMixin:
             caption_visible=ctrl.caption_visible,
             fp_dco_uid=ctrl.uid,
             control_type=ctrl.control_type,
-            default_value=ctrl.default_value,
+            default_value=_default_for(ctrl, lv_type),
             enum_values=ctrl.enum_values,
         )
 

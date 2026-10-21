@@ -565,6 +565,10 @@ class ParsedFPControl:
     # None for an unresolved control or a VI whose VCTP was unreadable.
     lv_type: LVType | None = None
     default_value: str | None = None
+    # The stored bytes of ``default_value``, kept only when ``lv_type`` holds a
+    # class instance: a class's private data is decoded once the class is loaded,
+    # which happens after this parse (see ``graph.core._enrich_type``).
+    default_raw: bytes | None = None
     # A developer-set CAPTION (partID 82, see extract_caption) -- a display-
     # only alias, distinct from `name` (the LABEL, partID 16). Most controls
     # have none: a caption is something a developer sets deliberately, for a

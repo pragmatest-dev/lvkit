@@ -31,6 +31,7 @@ from lvkit.models import (
     Tunnel,
     TunnelTerminal,
     TypeNamer,
+    unique_names,
 )
 
 from .ast_utils import parameter_names, to_function_name, to_var_name
@@ -511,9 +512,7 @@ class CodeGenContext:
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
             type_ref = named.type_ref()
-            imported = (
-                self.import_resolver.type_import(type_ref) if type_ref else None
-            )
+            imported = self.import_resolver.type_import(type_ref) if type_ref else None
             if imported is not None:
                 target.add(imported.statement)
 
@@ -823,7 +822,10 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         return None
     # Values in field order; a field absent from the parsed dict falls back to
     # None (LabVIEW's cluster default fills every field, so this is defensive).
-    ordered = [(f.name, _python_literal(value.get(f.name))) for f in fields]
+    keys = unique_names(f.name for f in fields)
+    ordered = [
+        (f.name, _python_literal(value.get(key))) for f, key in zip(fields, keys)
+    ]
     if anon:
         elts = ", ".join(v for _name, v in ordered)
         trailing = "," if len(ordered) == 1 else ""
