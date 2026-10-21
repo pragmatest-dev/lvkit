@@ -113,7 +113,7 @@
         {
           "index": 6,
           "direction": "in",
-          "name": "length (0)",
+          "name": "write buffer (empty)",
           "type": "Array"
         },
         {

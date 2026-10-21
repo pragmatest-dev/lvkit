@@ -130,7 +130,7 @@
         {
           "index": 4,
           "direction": "out",
-          "name": "current notification",
+          "name": "latest notification",
           "type": "String"
         },
         {
@@ -328,7 +328,7 @@
         {
           "index": 3,
           "direction": "out",
-          "name": "canceled notifcation",
+          "name": "canceled notification",
           "type": "String"
         },
         {

@@ -3,6 +3,9 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: terminal names landed on the wrong terminals** of 38 functions (Search and Replace String, VISA, TCP, Write to Text File, …) and of Insert Into Array — names now follow the slot the VI stores and are withheld when a node does not match its definition (#168).
+- **Resized array functions are named per dimension and set** (Index Array, Replace Array Subset, Array Subset, Insert Into Array, Delete From Array), and Replace Array Subset generates for any array rank with unwired indices starting at 0.
+- **Fix: an unwired node output could read as an input** when its definition sits on the node rather than in its terminal list (Delete From Array and similar).
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

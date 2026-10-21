@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -71,8 +72,17 @@ from .models import (
     WireEnd,
 )
 from .queries import AmbiguousVIReferenceError
+from .terminal_layout import array_rank
+from .terminal_names import NodeSlot, catalog_terminal_names
 
 logger = logging.getLogger(__name__)
+
+
+def _array_rank_lookup(
+    types_by_index: dict[int, LVType | None],
+) -> Callable[[int], int | None]:
+    """Dimension count of the array on a node terminal, by terminal index."""
+    return lambda index: array_rank(types_by_index.get(index))
 
 # All node types that represent a SubVI call (dynamic or static). Single source
 # of truth lives with the SubVI build handler; callByRefNode is included for node
@@ -682,6 +692,10 @@ class ConstructionMixin:
             # Get known terminal layout for index matching.
             # Same system for all node types: primitives, node_types, vilib SubVIs.
             known_terminals = None
+            # Primitive and node-type entries define every terminal of the
+            # node; vi.lib entries list only the terminals callers were seen
+            # using.
+            terminals_are_complete = True
             if isinstance(node, ParserPrimitiveNode) and node.prim_res_id:
                 prim_resolved = resolve_primitive(prim_id=node.prim_res_id)
                 if prim_resolved and prim_resolved.terminals:
@@ -705,6 +719,7 @@ class ConstructionMixin:
                     vilib_vi = vilib_r.resolve_by_name(subvi_name)
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals
+                    terminals_are_complete = False
 
             # Collect terminals, then resolve unknown indices by elimination
             raw_terms: list[tuple[str, Any, LVType | None]] = []
@@ -730,11 +745,20 @@ class ConstructionMixin:
             # <title> tooltip, and describe (real "x"/"y"/"difference" instead
             # of "terminal N"); the caller almost never labels a primitive's
             # terminals, so without this they are anonymous.
-            known_names: dict[int, str] = {}
-            if known_terminals:
-                for kt in known_terminals:
-                    if kt.name and kt.index is not None:
-                        known_names[kt.index] = kt.name
+            # Names are used only when every terminal of this node fits the
+            # definition (see graph/terminal_names.py); otherwise each terminal
+            # keeps its bare index.
+            known_names = catalog_terminal_names(
+                [
+                    NodeSlot(t_info.index, "out" if t_info.is_output else "in")
+                    for _, t_info, _ in raw_terms
+                ],
+                known_terminals or [],
+                lists_every_terminal=terminals_are_complete,
+                rank_of=_array_rank_lookup(
+                    {t_info.index: lv_type for _, t_info, lv_type in raw_terms}
+                ),
+            )
 
             # Snapshot of term_lookup keys before this node registers any of
             # its own (raw_terms below, plus — for structures — the tunnel/
@@ -752,7 +776,10 @@ class ConstructionMixin:
                     index=t_info.index,
                     direction="output" if t_info.is_output else "input",
                     name=t_info.name,
-                    display_name=t_info.name or known_names.get(t_info.index),
+                    display_name=t_info.name
+                    or known_names.get(
+                        (t_info.index, "out" if t_info.is_output else "in")
+                    ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
                     dco_uid=t_info.dco_uid,

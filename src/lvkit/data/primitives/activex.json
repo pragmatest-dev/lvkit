@@ -25,7 +25,7 @@
         {
           "index": 3,
           "direction": "in",
-          "name": "",
+          "name": "open new instance (false)",
           "type": "Boolean"
         },
         {

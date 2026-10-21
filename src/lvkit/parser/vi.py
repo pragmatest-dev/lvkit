@@ -146,6 +146,28 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 _NODE_DCO_MAP: dict[str, dict[str, int]] = _load_node_dco_maps()
 
 
+def _dco_flags_element(
+    node: ET.Element, dco: ET.Element, dco_uid: str | None
+) -> ET.Element | None:
+    """The ``<objFlags>`` of a terminal's dco.
+
+    Some node classes (aDelete, aReshape, ...) define each dco once on the node
+    under a named tag (``delDCO``, ``dcoAgg``, ``dcoList`` ...) and list only a
+    bare ``<dco uid=.../>`` back-reference in the terminal. The flags, and so
+    the terminal's direction, then live on that definition.
+    """
+    own = dco.find("objFlags")
+    if own is not None or not dco_uid:
+        return own
+    for candidate in node.iter():
+        if candidate is dco or candidate.get("uid") != dco_uid:
+            continue
+        flags = candidate.find("objFlags")
+        if flags is not None:
+            return flags
+    return None
+
+
 def parse_vi(
     vi_path: Path | str | None = None,
     *,
@@ -1022,7 +1044,9 @@ def _process_element_terminals(
             # flags — consulting the available data beats silently defaulting to
             # input (safe_int(None) == 0 == input).
             if dco is not None:
-                is_output = is_output_terminal(safe_int(dco.find("objFlags")))
+                is_output = is_output_terminal(
+                    safe_int(_dco_flags_element(elem, dco, dco_uid))
+                )
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
 

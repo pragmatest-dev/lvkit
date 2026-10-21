@@ -10,10 +10,8 @@ default instead of crashing.
 Source-declared one-dimensional arrays use separate output/index rows. Other
 ranks use the expression template, with an empty-array default for subarrays.
 
-Terminals (from the JSON entry):
-  in_0 = array
-  out index 1 = element
-  in_2 = index
+Terminals (from the node-type entry, laid out by ``terminal_roles``):
+  in 0 = array, then per set: an element output and its index input
 """
 
 from __future__ import annotations
@@ -29,6 +27,7 @@ from ...context import CodeGenContext
 from ...elementwise import LV_IMPORT
 from ...fragment import CodeFragment
 from ..base import CodeGenError
+from ..terminal_roles import laid_out_roles
 from . import register_op, register_op_fragment
 
 
@@ -44,31 +43,32 @@ def generate_1d_index_array(
     """
     if node.node_type != "aIndx" or not node.terminals:
         return None
-    # Roles come from the connector index (0 = array, then output/index pairs at
-    # 2k+1 / 2k+2), never from the terminal list's order.
-    terms = sorted(node.terminals, key=lambda t: t.index)
-    array = terms[0]
+    array = next((t for t in node.terminals if t.index == 0), None)
     if (
-        array.index != 0
+        array is None
         or array.direction != "input"
         or array.lv_type is None
         or array.lv_type.kind != LVTypeKind.ARRAY
         or array.lv_type.dimensions != 1
     ):
         return None
-    if [t.index for t in terms] != list(range(len(terms))):
-        raise CodeGenError("1D Index Array terminal indices are not contiguous", node)
-    rows = terms[1:]
+    # Roles come from the entry's layout for this node's array type: after the
+    # array, one set per element output, each with its index input.
+    try:
+        roles = laid_out_roles(node, "aIndx")
+    except CodeGenError as error:
+        raise CodeGenError(
+            "1D Index Array requires output/index terminal pairs", node
+        ) from error
+    outputs = [term for _, term in roles.get(1, [])]
+    indices = [term for _, term in roles.get(2, [])]
     if (
-        not rows
-        or len(rows) % 2
-        or any(
-            rows[i].direction != "output" or rows[i + 1].direction != "input"
-            for i in range(0, len(rows), 2)
-        )
+        len(outputs) != len(indices)
+        or any(t.direction != "output" for t in outputs)
+        or any(t.direction != "input" for t in indices)
     ):
         raise CodeGenError("1D Index Array requires output/index terminal pairs", node)
-    if any(t.lv_type is None or t.lv_type.kind == LVTypeKind.ARRAY for t in rows[::2]):
+    if any(t.lv_type is None or t.lv_type.kind == LVTypeKind.ARRAY for t in outputs):
         raise CodeGenError("1D Index Array requires typed scalar outputs", node)
 
     statements: list[ast.stmt] = []
@@ -84,7 +84,7 @@ def generate_1d_index_array(
         )
     )
     previous_index: str | None = None
-    for position, (output, index) in enumerate(zip(rows[::2], rows[1::2])):
+    for position, (output, index) in enumerate(zip(outputs, indices)):
         expr = ctx.resolve(index.id)
         if expr is None:
             if ctx.is_wired(index.id):

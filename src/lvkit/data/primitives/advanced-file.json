@@ -361,25 +361,25 @@
           "type": "Boolean"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "created path",
           "type": "Path"
         },
         {
-          "index": 3,
+          "index": 7,
           "direction": "in",
           "name": "prompt (Create Folder)",
           "type": "String"
         },
         {
-          "index": 4,
+          "index": 8,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 5,
+          "index": 11,
           "direction": "in",
           "name": "path (use dialog)",
           "type": "Path"
@@ -734,7 +734,7 @@
         {
           "index": 4,
           "direction": "out",
-          "name": "",
+          "name": "sector size (bytes)",
           "type": "NumUInt32"
         },
         {
@@ -744,13 +744,13 @@
           "type": "Path"
         },
         {
-          "index": 6,
+          "index": 8,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 7,
+          "index": 11,
           "direction": "in",
           "name": "path",
           "type": "Path"
@@ -876,26 +876,26 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 6,
           "direction": "in",
           "name": "size (in bytes)",
           "type": "NumInt64"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "in",
           "name": "file",
           "type": "Path"
@@ -914,37 +914,37 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "path out",
           "type": "Path"
         },
         {
-          "index": 2,
+          "index": 7,
           "direction": "in",
           "name": "permissions",
           "type": "NumInt16"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 9,
           "direction": "in",
           "name": "new group",
           "type": "String"
         },
         {
-          "index": 5,
+          "index": 10,
           "direction": "in",
           "name": "new owner",
           "type": "String"
         },
         {
-          "index": 6,
+          "index": 11,
           "direction": "in",
           "name": "path",
           "type": "Path"

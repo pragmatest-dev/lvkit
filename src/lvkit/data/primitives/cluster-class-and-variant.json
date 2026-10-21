@@ -12,7 +12,7 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "component element",
+          "name": "element",
           "type": "Void"
         }
       ],

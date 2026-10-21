@@ -118,26 +118,26 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
-          "index": 2,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 10,
           "direction": "in",
           "name": "abort (F)",
           "type": "Boolean"
         },
         {
-          "index": 4,
+          "index": 11,
           "direction": "in",
           "name": "connection ID",
           "type": "Refnum",
@@ -157,38 +157,38 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "bytes written",
           "type": "NumInt32"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 9,
           "direction": "in",
           "name": "timeout ms (25000)",
           "type": "NumInt32"
         },
         {
-          "index": 5,
+          "index": 10,
           "direction": "in",
           "name": "data in",
           "type": "String"
         },
         {
-          "index": 6,
+          "index": 11,
           "direction": "in",
           "name": "connection ID",
           "type": "Refnum",
@@ -208,38 +208,38 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
-          "index": 2,
+          "index": 6,
           "direction": "in",
           "name": "local port",
           "type": "NumUInt16"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 9,
           "direction": "in",
           "name": "timeout ms (60000)",
           "type": "NumInt32"
         },
         {
-          "index": 5,
+          "index": 10,
           "direction": "in",
           "name": "remote port or service name",
           "type": "NumUInt16"
         },
         {
-          "index": 6,
+          "index": 11,
           "direction": "in",
           "name": "address",
           "type": "String"
@@ -258,44 +258,44 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "data out",
           "type": "String"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
-          "index": 3,
+          "index": 7,
           "direction": "in",
           "name": "mode (standard)",
           "type": "Enum16"
         },
         {
-          "index": 4,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 5,
+          "index": 9,
           "direction": "in",
           "name": "timeout ms (25000)",
           "type": "NumInt32"
         },
         {
-          "index": 6,
+          "index": 10,
           "direction": "in",
           "name": "bytes to read",
           "type": "NumInt32"
         },
         {
-          "index": 7,
+          "index": 11,
           "direction": "in",
           "name": "connection ID",
           "type": "Refnum",
