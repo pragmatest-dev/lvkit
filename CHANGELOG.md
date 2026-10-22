@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: an Invoke Node's method row no longer shows an input** — only its return value output is a terminal (#183).
+- **Fix: error cases in LabVIEW 9 VIs read `No Error` / `Error`** — the No Error frame no longer reads `Error -2147483648..0`, and neither frame is marked default (#187).
 - **Fix: Flatten To JSON terminals are numbered by the slots the VI stores** — its error, enable and JSON string terminals were misnumbered, so generated Python passed the wrong terminal (#184).
 - **Fix: Boolean and error case frames are labelled by what they store** — an error frame that stores a value never takes a Default marker, a frame that stores no value is Default, and a LabVIEW 8/9 two-frame error case reads `No Error` then `Error` (#187).
 - **Fix: describe quotes a string case frame once and escapes control characters** — a string frame that is also the default reads `"TestCase", Default`, the VI's own control gating a case is named by its label, and a control character in a frame value is escaped as lvnet does (#186).

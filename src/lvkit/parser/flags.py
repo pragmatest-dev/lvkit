@@ -9,6 +9,21 @@ TERMINAL_IS_OUTPUT = 0x1  # Bit 0: terminal is output (vs input)
 # Compound Arithmetic (and similar) nodes: bit 16 set on a terminal's DCO
 # means "invert this terminal" (Not before an input, Not after the output).
 TERMINAL_DCO_INVERTED = 0x00010000  # Bit 16: terminal value is inverted
+# Invoke Nodes: bit 16 on an ``invokeItem`` DCO marks the method row (its
+# return value). LabVIEW stores that row as an output DCO and an input DCO; only
+# the output is a terminal on the node.
+INVOKE_ITEM_METHOD_ROW = 0x00010000  # Bit 16 on an invokeItem DCO
+
+
+def is_method_row_input(dco_class: str | None, flags: int) -> bool:
+    """Whether a DCO is the input half of an Invoke Node's method row, which
+    has no terminal on the node (the return value is an output only)."""
+    return (
+        dco_class == "invokeItem"
+        and bool(flags & INVOKE_ITEM_METHOD_ROW)
+        and not is_output_terminal(flags)
+    )
+
 
 # Front panel control flags
 FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)

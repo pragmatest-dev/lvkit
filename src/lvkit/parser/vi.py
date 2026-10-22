@@ -58,7 +58,12 @@ from .constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
-from .flags import is_indicator, is_inverted_terminal, is_output_terminal
+from .flags import (
+    is_indicator,
+    is_inverted_terminal,
+    is_method_row_input,
+    is_output_terminal,
+)
 from .flat_type import descriptor_type, read_descriptors, read_var_size
 from .fp_heap_type import (
     _direct_fields,
@@ -1097,9 +1102,10 @@ def _process_element_terminals(
             # flags — consulting the available data beats silently defaulting to
             # input (safe_int(None) == 0 == input).
             if dco is not None:
-                is_output = is_output_terminal(
-                    safe_int(dco.find("objFlags"))
-                )
+                dco_flags = safe_int(dco.find("objFlags"))
+                if is_method_row_input(dco.get("class"), dco_flags):
+                    continue
+                is_output = is_output_terminal(dco_flags)
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
 
@@ -2417,7 +2423,6 @@ _UNIT_INTEGER_TYPES = frozenset(
         TD_FULL_TYPE.UnitUInt32.name,
     }
 )
-
 
 
 def _quad_to_float(raw: bytes | memoryview) -> float:
