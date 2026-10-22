@@ -252,7 +252,9 @@ def warm_index_for_vi(
     of only from a whole-repo ``build_index``. The row is keyed by path with a
     ``content_sha`` (``store.save`` deletes+inserts), so a later query reuses it
     when unchanged; ``impact_score`` stays 0 until a full/refresh pass recomputes
-    it across the whole call graph (it needs the global inverse).
+    it across the whole call graph (it needs the global inverse). The same pass
+    resolves each SubVI call's ``callee_path``, so this write keeps the stored
+    ones (``callees_resolved=False``).
 
     Best-effort by contract: warming must NEVER break the command that triggered
     it (e.g. a read-only project dir), so any failure is swallowed.
@@ -260,7 +262,11 @@ def warm_index_for_vi(
     try:
         p = vi_path.resolve()
         root = cache_paths._project_root_for(p) or p.parent
-        store_save(root, [project_vi_facts(graph, vi_name, p, root)])
+        store_save(
+            root,
+            [project_vi_facts(graph, vi_name, p, root)],
+            callees_resolved=False,
+        )
     except Exception:
         return  # progressive warming is best-effort — never fail the caller
     _warm_typedefs(graph, [root])
@@ -309,7 +315,7 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
                 continue  # one bad VI must not sink the rest
         for root, facts in by_root.items():
             try:
-                store_save(root, facts)
+                store_save(root, facts, callees_resolved=False)
             except Exception:
                 pass
     except Exception:

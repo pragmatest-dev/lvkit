@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the index forgot which VI a SubVI call goes to after `describe`, `render`, `generate`, `docs` or `diff`** — each of these (and MCP `read_vi`/`render`) adds the VIs it loads to the project index, and that cleared the `callee_path` an index refresh had found, so a later query showed no callee for those calls and missed those callers (MCP `query` does not refresh while the session's index is loaded, nor does `lvkit query --no-refresh`). The found callee is now kept until the next refresh.
 
 ## [0.8.11] - 2026-10-21
 - **Fix: Required and Optional connector-pane terminals are detected** — the wiring rule is read from the VI's own connector pane, so describe, lvnet, diff, render and generated Python show Required inputs and Optional terminals correctly (#173).
