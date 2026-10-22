@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Flatten To JSON terminals are numbered by the slots the VI stores** — its error, enable and JSON string terminals were misnumbered, so generated Python passed the wrong terminal (#184).
 
 ## [0.8.11] - 2026-10-21
 - **Fix: Required and Optional connector-pane terminals are detected** — the wiring rule is read from the VI's own connector pane, so describe, lvnet, diff, render and generated Python show Required inputs and Optional terminals correctly (#173).
