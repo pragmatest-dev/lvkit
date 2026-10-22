@@ -319,6 +319,8 @@ def lvnet_type_ref(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "?"
+    if lv_type.dotnet_type is not None:
+        return lv_type.type_descriptor(expand_named=False)
     name = lvnet_named_stem(lv_type)
     if name is not None:
         return name
@@ -426,6 +428,8 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
     ``refnum{Error}`` element stays ``"Error"``), matching the comparison
     shape's ``full=full`` on those two containers.
     """
+    if lv_type.dotnet_type is not None:
+        return lv_type.type_descriptor(expand_named=False)
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         dims = lv_type.dimensions or 1
         return "[" * dims + _lvnet_type_inline(lv_type.element_type) + "]" * dims

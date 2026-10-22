@@ -6,6 +6,7 @@ lvkit follows semantic versioning.
 - **Fix: Flatten To JSON terminals are numbered by the slots the VI stores** — its error, enable and JSON string terminals were misnumbered, so generated Python passed the wrong terminal (#184).
 - **Fix: Boolean and error case frames are labelled by what they store** — an error frame that stores a value never takes a Default marker, a frame that stores no value is Default, and a LabVIEW 8/9 two-frame error case reads `No Error` then `Error` (#187).
 - **Fix: describe quotes a string case frame once and escapes control characters** — a string frame that is also the default reads `"TestCase", Default`, the VI's own control gating a case is named by its label, and a control character in a frame value is escaped as lvnet does (#186).
+- **Fix: an array of .NET objects names its .NET type in lvnet** — it shows `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}` like a scalar .NET refnum instead of `[DotNet refnum]` (#183).
 
 ## [0.8.11] - 2026-10-21
 - **Fix: Required and Optional connector-pane terminals are detected** — the wiring rule is read from the VI's own connector pane, so describe, lvnet, diff, render and generated Python show Required inputs and Optional terminals correctly (#173).
