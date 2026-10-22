@@ -121,7 +121,7 @@ def test_selector_from_a_constant_is_named_by_its_value() -> None:
     constant = Constant(id=f"{_VI}::14945", value=False)
     ctx = VIContext(name=_VI)
     named = _resolve_selector(
-        graph, ctx, {constant.id: constant}, case.selector_terminal
+        graph, ctx, _VI, {constant.id: constant}, case.selector_terminal
     )
     assert named is not None
     assert "::" not in named
@@ -138,7 +138,7 @@ def test_selector_from_a_local_variable_is_named_by_its_control() -> None:
     )
     graph, case = _selector_graph(local, local.id)
     ctx = VIContext(name=_VI)
-    named = _resolve_selector(graph, ctx, {}, case.selector_terminal)
+    named = _resolve_selector(graph, ctx, _VI, {}, case.selector_terminal)
     assert named == "Init (local variable)"
 
 
@@ -147,7 +147,7 @@ def test_unwired_selector_names_nothing() -> None:
     case = _case(None, [])
     register_nodes(graph, [case], vi_name=_VI)
     assert (
-        _resolve_selector(graph, VIContext(name=_VI), {}, case.selector_terminal)
+        _resolve_selector(graph, VIContext(name=_VI), _VI, {}, case.selector_terminal)
         is None
     )
 
@@ -200,18 +200,6 @@ def test_named_output_is_node_dot_terminal() -> None:
     )
     named = _name_traced_source(InMemoryVIGraph(), _traced(node, term), {})
     assert named == "Wait on Notification.timed_out"
-
-
-def test_described_vi_front_panel_terminal_is_named_by_its_label() -> None:
-    term = Terminal(
-        id=f"{_VI}::146",
-        index=0,
-        direction="output",
-        display_name="error in (no error)",
-    )
-    own_vi = VINode(id=_VI, vi_path=_VI, name="Item Indent.vi", terminals=[term])
-    named = _name_traced_source(InMemoryVIGraph(), _traced(own_vi, term), {})
-    assert named == "error in (no error)"
 
 
 def test_subvi_output_keeps_the_call_name_and_terminal() -> None:

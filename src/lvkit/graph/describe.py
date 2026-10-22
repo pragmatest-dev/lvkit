@@ -212,6 +212,7 @@ def describe_vi(
     structures = _collect_structures(
         graph,
         ctx,
+        vi_name,
         top_nodes,
         {c.id: c for c in ctx.constants},
     )
@@ -662,14 +663,6 @@ def _border_name(
     return f"{_structure_word(owner)} {kind}"
 
 
-def _is_vi_definition_node(node: AnyGraphNode) -> bool:
-    """Whether a node is a VI's own definition rather than a SubVI call of it
-    (a call node's id differs from its VI path, as in ``describe_vi``'s
-    qualified-name check). A wire from the described VI reaches a definition
-    node only through that VI's own front-panel terminals."""
-    return isinstance(node, VINode) and node.id == node.vi_path
-
-
 def _name_traced_source(
     graph: InMemoryVIGraph,
     traced: TracedSource,
@@ -683,9 +676,6 @@ def _name_traced_source(
     if traced.owner is not None and traced.term is not None:
         if isinstance(traced.owner, StructureNode):
             return _border_name(traced.owner, traced.term, traced.border)
-        if _is_vi_definition_node(traced.owner):
-            # The described VI's own front-panel terminal: named by its label.
-            return _terminal_display_name(traced.term)
         return _node_output_name(traced.owner, traced.term)
     if traced.element_net is not None:
         node = graph.get_graph_node(src.node_id)
@@ -703,6 +693,7 @@ def _name_traced_source(
 def _resolve_selector(
     graph: InMemoryVIGraph,
     ctx: VIContext,
+    vi_name: str,
     constants: dict[str, Constant],
     selector_terminal: str | None,
 ) -> str | None:
@@ -712,7 +703,7 @@ def _resolve_selector(
     VI's constants by node id. ``None`` when nothing is wired."""
     if not selector_terminal:
         return None
-    traced = trace_source_gn(graph, ctx, ctx.name, selector_terminal)
+    traced = trace_source_gn(graph, ctx, vi_name, selector_terminal)
     if traced is None:
         return None
     return _name_traced_source(graph, traced, constants)
@@ -721,6 +712,7 @@ def _resolve_selector(
 def _collect_structures(
     graph: InMemoryVIGraph,
     ctx: VIContext,
+    vi_name: str,
     nodes: list[AnyGraphNode],
     constants: dict[str, Constant],
 ) -> list[str]:
@@ -741,6 +733,7 @@ def _collect_structures(
                 gated = _resolve_selector(
                     graph,
                     ctx,
+                    vi_name,
                     constants,
                     node.selector_terminal,
                 )
@@ -748,11 +741,12 @@ def _collect_structures(
                 structures.append(
                     f"Case structure ({_frame_count(len(node.frames))}{sel})"
                 )
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(frame.selector_value, []),
                         constants,
                     ):
@@ -762,6 +756,7 @@ def _collect_structures(
                 gated = _resolve_selector(
                     graph,
                     ctx,
+                    vi_name,
                     constants,
                     node.stop_condition_terminal,
                 )
@@ -775,22 +770,24 @@ def _collect_structures(
                         structures.append(
                             f"  \\ Sequence local {k} unreadable: {link.unreadable}"
                         )
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(str(frame.index), []),
                         constants,
                     ):
                         structures.append(f"  \\ {s}")
             case EventStructureNode():
                 structures.append(f"Event structure ({_frame_count(len(node.frames))})")
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for i in range(len(node.frames)):
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(str(i), []),
                         constants,
                     ):
@@ -799,11 +796,12 @@ def _collect_structures(
                 structures.append(
                     f"Disable structure ({_frame_count(len(node.frames))})"
                 )
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(frame.selector_value, []),
                         constants,
                     ):
@@ -815,7 +813,8 @@ def _collect_structures(
             for s in _collect_structures(
                 graph,
                 ctx,
-                _body_child_nodes(graph, node, ctx.name),
+                vi_name,
+                _body_child_nodes(graph, node, vi_name),
                 constants,
             )
         )
