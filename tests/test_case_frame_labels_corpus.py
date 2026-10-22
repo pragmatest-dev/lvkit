@@ -223,7 +223,7 @@ def test_pre_2010_dIdx_is_a_global_ordinal() -> None:
         assert elem.find("SelectRangeArray32") is None
         sizes[uid] = (
             int(elem.findtext("dIdx") or 0),
-            len(elem.find("diagramList") or []),
+            len(elem.findall("diagramList/*")),
         )
     assert sizes == {
         "5": (18, 20),
@@ -239,6 +239,6 @@ def test_control_characters_are_stored_as_codes() -> None:
     bytes); the stored label shows it as one backslash code, ``\\00``, so the
     stored text does not keep the byte count and cannot be compared."""
     elem = _case_element(_CONTROL_CHAR_VI, "1555")
-    elements = [e.text for e in elem.find("SelectStringArray") or []]
+    elements = [e.text for e in elem.findall("SelectStringArray/*")]
     assert elements == ["0000", "08"]
     assert elem.findtext("selString/textRec/text") == '" "\\00" "'

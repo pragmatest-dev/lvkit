@@ -188,11 +188,16 @@ def _frame_ranges(
     return bool(point), ranges
 
 
-def _is_fully_described(selector_type: SelectorKind | None, num_frames: int) -> bool:
+def _is_fully_described(
+    selector_type: SelectorKind | None, num_frames: int, values_in_heap: bool
+) -> bool:
     """Whether every selector value has its own frame, so no frame can be the
-    default: a Boolean case, or an error case with just No Error and Error."""
+    default: a Boolean case, or a two-frame error case whose values live only
+    in the dataspace table (LabVIEW 8/9), which is No Error and Error by
+    position. An error case that stores its values in the heap lists them per
+    frame, so a frame without one is the default."""
     return selector_type == SelectorKind.BOOLEAN or (
-        selector_type == SelectorKind.ERROR and num_frames == 2
+        selector_type == SelectorKind.ERROR and num_frames == 2 and not values_in_heap
     )
 
 
@@ -377,7 +382,9 @@ def _extract_one_case_structure(
         in (SelectorKind.INTEGER, SelectorKind.STRING, SelectorKind.ENUM)
     ):
         default_diag_idx = 0
-    if default_diag_idx is None and not _is_fully_described(selector_type, num_frames):
+    if default_diag_idx is None and not _is_fully_described(
+        selector_type, num_frames, values_in_heap
+    ):
         handled = set(ranges_by_diag) | no_error_diags
         missing = [i for i in range(num_frames) if i not in handled]
         if missing:
