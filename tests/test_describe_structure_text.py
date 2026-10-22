@@ -23,6 +23,7 @@ from lvkit.graph.models import (
     LoopNode,
     SequenceNode,
     VIContext,
+    VINode,
     WireEnd,
 )
 from lvkit.graph.models import PrimitiveNode as GraphPrimitiveNode
@@ -201,6 +202,36 @@ def test_named_output_is_node_dot_terminal() -> None:
     assert named == "Wait on Notification.timed_out"
 
 
+def test_described_vi_front_panel_terminal_is_named_by_its_label() -> None:
+    term = Terminal(
+        id=f"{_VI}::146",
+        index=0,
+        direction="output",
+        display_name="error in (no error)",
+    )
+    own_vi = VINode(id=_VI, vi_path=_VI, name="Item Indent.vi", terminals=[term])
+    named = _name_traced_source(InMemoryVIGraph(), _traced(own_vi, term), {})
+    assert named == "error in (no error)"
+
+
+def test_subvi_output_keeps_the_call_name_and_terminal() -> None:
+    call_id = "Caller.vi::50"
+    term = Terminal(
+        id=f"{call_id}::51",
+        index=2,
+        direction="output",
+        display_name="Found?",
+    )
+    call = VINode(
+        id=call_id,
+        vi_path="Check If Line Exists.vi",
+        name="Check If Line Exists.vi",
+        terminals=[term],
+    )
+    named = _name_traced_source(InMemoryVIGraph(), _traced(call, term), {})
+    assert named == "Check If Line Exists.vi.Found?"
+
+
 # --- real VIs ------------------------------------------------------------------
 
 
@@ -258,6 +289,17 @@ def test_case_selector_wired_from_a_constant_is_named_by_value() -> None:
     assert 'gated on "False"' in text
     assert "selector:" not in text
     assert ".vi::" not in text
+
+
+@pytest.mark.needs_samples
+def test_case_selector_wired_from_the_vis_own_control_is_named_by_label() -> None:
+    text = _describe(
+        _SAMPLES / "JKI-VI-Tester" / "source",
+        "Utilities/Tree_Control_VIs/Item Indent.vi",
+        _SAMPLES / "JKI-VI-Tester" / "source",
+    )
+    assert "gated on error in (no error)" in text
+    assert "Item Indent.vi.error" not in text
 
 
 @pytest.mark.needs_samples

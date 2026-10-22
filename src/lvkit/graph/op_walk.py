@@ -454,18 +454,37 @@ def selector_frame_values(
     return (sv,)  # an already-display token
 
 
-def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
+def _double_quote(text: str) -> str:
+    """Plain double quoting of one selector value (no escaping)."""
+    return f'"{text}"'
+
+
+def selector_values_quoted_one_by_one(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> bool:
+    """Whether a frame's label quotes each of its string values itself (a string
+    selector that stores values). Every other label is one unquoted text."""
+    return _is_string_selector(frame, lv_type) and bool(
+        selector_frame_values(frame, lv_type, is_error)
+    )
+
+
+def _selector_label(
+    frame: CaseFrame,
+    lv_type: LVType | None,
+    is_error: bool,
+    quote_value: Callable[[str], str] = _double_quote,
+) -> str:
     """The faithful case-selector text for one frame, by selector type:
     ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
-    integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
-    A default frame that also matches values lists them first
-    (``0, Default``).
+    integer → value(s)/range(s); string → each value through ``quote_value``;
+    boolean → ``True``/``False``. A default frame that also matches values lists
+    them first (``0, Default``).
     """
     values = selector_frame_values(frame, lv_type, is_error)
-    shown = (
-        [f'"{v}"' for v in values] if _is_string_selector(frame, lv_type) else values
-    )
-    listed = ", ".join(shown)
+    if _is_string_selector(frame, lv_type):
+        values = [quote_value(v) for v in values]
+    listed = ", ".join(values)
     if not frame.is_default:
         return listed
     if not listed:

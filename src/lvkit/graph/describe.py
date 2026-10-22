@@ -48,7 +48,7 @@ from .models import (
 from .netlist_build import (
     StructureBorder,
     TracedSource,
-    case_frame_label_gn,
+    case_selector_type_gn,
     sequence_local_read_gn,
     trace_source_gn,
 )
@@ -56,11 +56,13 @@ from .node_kinds import EdgeRel
 from .op_walk import (
     _const_value_str,
     _render_ports,
+    _selector_label,
     _subvi_ports,
     _terminal_display_name,
+    selector_values_quoted_one_by_one,
 )
 from .queries import collect_class_context
-from .render_lvnet import _quoted_frame_label, lvnet_literal_token
+from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
     condition_name,
@@ -660,6 +662,14 @@ def _border_name(
     return f"{_structure_word(owner)} {kind}"
 
 
+def _is_vi_definition_node(node: AnyGraphNode) -> bool:
+    """Whether a node is a VI's own definition rather than a SubVI call of it
+    (a call node's id differs from its VI path, as in ``describe_vi``'s
+    qualified-name check). A wire from the described VI reaches a definition
+    node only through that VI's own front-panel terminals."""
+    return isinstance(node, VINode) and node.id == node.vi_path
+
+
 def _name_traced_source(
     graph: InMemoryVIGraph,
     traced: TracedSource,
@@ -673,6 +683,9 @@ def _name_traced_source(
     if traced.owner is not None and traced.term is not None:
         if isinstance(traced.owner, StructureNode):
             return _border_name(traced.owner, traced.term, traced.border)
+        if _is_vi_definition_node(traced.owner):
+            # The described VI's own front-panel terminal: named by its label.
+            return _terminal_display_name(traced.term)
         return _node_output_name(traced.owner, traced.term)
     if traced.element_net is not None:
         node = graph.get_graph_node(src.node_id)
@@ -843,8 +856,14 @@ def _frame_constants(
 def _case_frame_header(node: CaseStructureNode, frame: CaseFrame) -> str:
     """A case frame's header text: the same label lvnet and JSON show for it
     (enum item names, ``No Error``/``Error``, integer ranges, quoted strings),
-    which carries its own Default marker where one applies."""
-    return _quoted_frame_label(case_frame_label_gn(node, frame))
+    which carries its own Default marker where one applies. Quoting is lvnet's
+    (``lvnet_literal_token``): a string selector quotes each of its values, any
+    other label is quoted once as a whole."""
+    lv_type, is_error = case_selector_type_gn(node)
+    label = _selector_label(frame, lv_type, is_error, quote_value=lvnet_literal_token)
+    if selector_values_quoted_one_by_one(frame, lv_type, is_error):
+        return label
+    return lvnet_literal_token(label)
 
 
 def _describe_frame_body(
