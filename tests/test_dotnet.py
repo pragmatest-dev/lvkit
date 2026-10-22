@@ -24,6 +24,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
 from lvkit.graph.netlist_json import netlist_to_dict
+from lvkit.graph.render_lvnet import lvnet_type_ref
 from lvkit.load_mode import LoadMode
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser import vi as vi_parser
@@ -596,3 +597,13 @@ def test_a_sidecar_record_without_a_version_is_reported(tmp_path: Path) -> None:
     )
     assert table.links == []
     assert "records no version" in table.failures[0].reason
+
+
+def test_dotnet_type_names_only_an_array_in_lvnet() -> None:
+    plain_enum = LVType(kind=LVTypeKind.ENUM, underlying_type="EnumU16")
+    dotnet_enum = LVType(
+        kind=LVTypeKind.ENUM,
+        underlying_type="EnumU16",
+        dotnet_type="MccDaq.DaqDeviceInterface, MccDaq",
+    )
+    assert lvnet_type_ref(dotnet_enum) == lvnet_type_ref(plain_enum)

@@ -429,18 +429,25 @@ def selector_frame_values(
 ) -> tuple[str, ...]:
     """The values one case frame's label lists, unquoted and in order -- empty
     for a default frame that matches no value of its own. Error-cluster frames
-    list their one label (``No Error``/``Error``/``Error 3..10``)."""
+    list their labels (``No Error``/``Error``/``Error 3..10``; a No Error frame
+    that also stores codes lists ``No Error, Error 3..10``)."""
     sv = str(frame.selector_value)
     if is_error:
         # The error-cluster case switches on the status boolean: 0 = no error,
         # anything else is an error (LabVIEW: "No Error" / "Error", plus code
         # ranges like "Error 3..10" since 2019). A frame that stores status 1
         # alone is "Error"; a frame that stores no value is the default.
+        status = 0 if frame.is_no_error else 1
+        codes = [
+            r
+            for r in frame.selector_ranges
+            if not (r.is_single and r.start == status)
+        ]
+        listed = [f"Error {_format_ranges(codes, str)}"] if codes else []
         if frame.is_no_error:
-            return ("No Error",)
-        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
-        if codes:
-            return (f"Error {_format_ranges(codes, str)}",)
+            return ("No Error", *listed)
+        if listed:
+            return tuple(listed)
         if frame.selector_ranges:
             return ("Error",)
         return ()

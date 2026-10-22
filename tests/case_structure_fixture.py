@@ -19,7 +19,7 @@ from lvkit.graph.describe import describe_vi
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.graph.netlist_json import netlist_to_dict
 
-Selector = Literal["boolean", "error", "integer", "string"]
+Selector = Literal["boolean", "enum", "error", "integer", "string"]
 
 _CASE_UID = 600
 _SELECTOR_TERM_UID = 601
@@ -34,10 +34,12 @@ class FrameSpec:
 
     ``ranges`` are integer / error-code / Boolean values as inclusive
     ``(start, end)`` pairs; ``strings`` are the values of a string selector.
-    A frame with neither is a frame that stores no value.
+    A frame with neither is a frame that stores no value. ``no_error_point``
+    adds the single open-ended point an error case stores for its No Error frame.
     """
 
     ranges: tuple[tuple[int, int], ...] = ()
+    no_error_point: bool = False
     strings: tuple[str, ...] = ()
 
 
@@ -60,8 +62,13 @@ _SCALAR_TYPE_NAMES: dict[str, str] = {
 _ERROR_CLUSTER_ID = 3
 
 
-def _type_table(selector: Selector) -> tuple[int, str, list[str]]:
+def _type_table(
+    selector: Selector, enum_items: tuple[str, ...]
+) -> tuple[int, str, list[str]]:
     """``(selector type id, its name, the VCTP section's flat type entries)``."""
+    if selector == "enum":
+        labels = "".join(f"<EnumLabel>{item}</EnumLabel>" for item in enum_items)
+        return 0, "EnumU16", [f'<TypeDesc Type="EnumU16">{labels}</TypeDesc>']
     if selector == "error":
         return (
             _ERROR_CLUSTER_ID,
@@ -79,8 +86,8 @@ def _type_table(selector: Selector) -> tuple[int, str, list[str]]:
     return 0, name, [f'<TypeDesc Type="{name}" />']
 
 
-def _main_xml(selector: Selector) -> str:
-    type_id, type_name, flats = _type_table(selector)
+def _main_xml(selector: Selector, enum_items: tuple[str, ...]) -> str:
+    type_id, type_name, flats = _type_table(selector, enum_items)
     top_level = (
         f'<TypeDesc Index="{type_id}" FlatTypeID="{type_id}" />'
         f"<!-- Heap TypeID {type_id} = Consolidated TypeID {type_id}: {type_name} -->"
@@ -94,11 +101,12 @@ def _main_xml(selector: Selector) -> str:
     )
 
 
-def _range_xml(start: int, end: int, diag: int) -> str:
+def _range_xml(start: int, end: int, diag: int, *, open_end: bool = False) -> str:
     return (
         '<SL__arrayElement class="SelectorRange">'
         f"<start>{start}</start><end>{end}</end>"
-        "<startRangeType>0</startRangeType><endRangeType>0</endRangeType>"
+        f"<startRangeType>0</startRangeType><endRangeType>{3 if open_end else 0}"
+        "</endRangeType>"
         f"<diagramIdx>{diag}</diagramIdx></SL__arrayElement>"
     )
 
@@ -120,6 +128,8 @@ def _selector_xml(
                 ranges.append(_range_xml(len(strings), len(strings), diag))
                 strings.append(value.encode("utf-8").hex().upper())
         else:
+            if frame.no_error_point:
+                ranges.append(_range_xml(0, 0, diag, open_end=True))
             ranges.extend(_range_xml(s, e, diag) for s, e in frame.ranges)
     range_xml = f"<SelectRangeArray32>{''.join(ranges)}</SelectRangeArray32>"
     string_xml = "".join(f"<SL__arrayElement>{h}</SL__arrayElement>" for h in strings)
@@ -133,7 +143,7 @@ def _bd_xml(
     default_frame: int | None,
     stored_values: bool,
 ) -> str:
-    type_id, _, _ = _type_table(selector)
+    type_id, _, _ = _type_table(selector, ())
     diags = "".join(
         f'<SL__arrayElement class="diag" uid="{_DIAG_UID_BASE + _DIAG_UID_STEP * i}">'
         '<zPlaneList elements="0" /><nodeList elements="0" />'
@@ -177,14 +187,16 @@ def case_structure_views(
     *,
     default_frame: int | None,
     stored_values: bool = True,
+    enum_items: tuple[str, ...] = (),
 ) -> CaseViews:
     """Build the one-case VI in ``tmp_path`` and return its describe, lvnet and
     JSON text.
 
     ``stored_values=False`` writes a LabVIEW 8/9 save: no ``SelectRangeArray32``
     and no ``SelectStringArray``, so the frames carry no values of their own.
+    ``enum_items`` are the item names of an ``"enum"`` selector.
     """
-    (tmp_path / "Case.xml").write_text(_main_xml(selector))
+    (tmp_path / "Case.xml").write_text(_main_xml(selector, enum_items))
     bd_xml = tmp_path / "Case_BDHb.xml"
     bd_xml.write_text(
         _bd_xml(

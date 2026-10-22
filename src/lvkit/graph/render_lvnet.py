@@ -306,6 +306,14 @@ def lvnet_named_stem(lv_type: LVType) -> str | None:
     return None
 
 
+def _dotnet_array_type(lv_type: LVType) -> str | None:
+    """An array of .NET objects names its .NET type (its element type is the
+    generic refnum); ``None`` for every other type."""
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.dotnet_type is not None:
+        return lv_type.type_descriptor(expand_named=False)
+    return None
+
+
 def lvnet_type_ref(lv_type: LVType | None) -> str:
     """One type REFERENCE inside the §10 lossless grammar -- a cluster
     field's type, an array's element, a refnum's inner type: a NAMED type
@@ -319,8 +327,8 @@ def lvnet_type_ref(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "?"
-    if lv_type.dotnet_type is not None:
-        return lv_type.type_descriptor(expand_named=False)
+    if (dotnet_array := _dotnet_array_type(lv_type)) is not None:
+        return dotnet_array
     name = lvnet_named_stem(lv_type)
     if name is not None:
         return name
@@ -428,8 +436,8 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
     ``refnum{Error}`` element stays ``"Error"``), matching the comparison
     shape's ``full=full`` on those two containers.
     """
-    if lv_type.dotnet_type is not None:
-        return lv_type.type_descriptor(expand_named=False)
+    if (dotnet_array := _dotnet_array_type(lv_type)) is not None:
+        return dotnet_array
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         dims = lv_type.dimensions or 1
         return "[" * dims + _lvnet_type_inline(lv_type.element_type) + "]" * dims

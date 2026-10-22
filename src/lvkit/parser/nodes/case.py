@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from enum import Enum, IntEnum
+from enum import IntEnum
 
 from lvkit.lv_type_codes import (
     TD_FULL_TYPE,
@@ -59,12 +59,6 @@ class RangeEndType(IntEnum):
     SINGLE = 0
     BOUNDED = 1
     OPEN = 3
-
-
-class _SymbolicFrame(Enum):
-    """A frame whose range entries carry no literal value of their own."""
-
-    NO_ERROR = "no_error"  # error cluster, status False (one open-ended point)
 
 
 def _objflags_bit(elem: ET.Element, bit: int) -> bool:
@@ -170,21 +164,21 @@ def _apply_last_frame_default(cs: ParsedCaseStructure) -> None:
 
 def _frame_ranges(
     entries: list[tuple[int, int, RangeEndType, RangeEndType]],
-) -> list[SelectorRange] | _SymbolicFrame:
+) -> tuple[bool, list[SelectorRange]]:
     """One frame's ``(start, end, startRangeType, endRangeType)`` entries as
-    selector ranges, or the symbolic frame they spell.
+    ``(is_no_error, selector ranges)``.
 
     An ``OPEN`` end is unbounded: it becomes ``open_start``/``open_end`` and its
     stored number (filler) is never surfaced. A range open on both sides is the
     whole domain (the error cluster's second frame, labeled ``Error ..``). A
-    single entry open on one side whose filler equals its bounded end is the
-    error cluster's "No Error" point.
+    single-valued entry open on one side is the error cluster's "No Error"
+    point: it marks the frame and is not one of its ranges, so any entries
+    beside it are the frame's error codes.
     """
-    if len(entries) == 1:
-        s, e, st, et = entries[0]
-        if s == e and RangeEndType.OPEN in (st, et):
-            return _SymbolicFrame.NO_ERROR
-    return [
+    point = [
+        e for e in entries if e[0] == e[1] and RangeEndType.OPEN in (e[2], e[3])
+    ]
+    ranges = [
         SelectorRange(
             start=s,
             end=e,
@@ -192,7 +186,17 @@ def _frame_ranges(
             open_end=et == RangeEndType.OPEN,
         )
         for s, e, st, et in entries
+        if (s, e, st, et) not in point
     ]
+    return bool(point), ranges
+
+
+def _is_fully_described(selector_type: SelectorKind | None, num_frames: int) -> bool:
+    """Whether every selector value has its own frame, so no frame can be the
+    default: a Boolean case, or an error case with just No Error and Error."""
+    return selector_type == SelectorKind.BOOLEAN or (
+        selector_type == SelectorKind.ERROR and num_frames == 2
+    )
 
 
 def _extract_one_case_structure(
@@ -335,10 +339,10 @@ def _extract_one_case_structure(
             )
 
     for diag_idx, entries in raw_ranges_by_diag.items():
-        frame_ranges = _frame_ranges(entries)
-        if frame_ranges is _SymbolicFrame.NO_ERROR:
+        is_no_error_point, frame_ranges = _frame_ranges(entries)
+        if is_no_error_point:
             no_error_diags.add(diag_idx)
-        else:
+        if frame_ranges:
             ranges_by_diag[diag_idx] = frame_ranges
 
     # For string selectors, the start values in SelectRangeArray32 are
@@ -376,7 +380,7 @@ def _extract_one_case_structure(
         in (SelectorKind.INTEGER, SelectorKind.STRING, SelectorKind.ENUM)
     ):
         default_diag_idx = 0
-    if default_diag_idx is None:
+    if default_diag_idx is None and not _is_fully_described(selector_type, num_frames):
         handled = set(ranges_by_diag) | no_error_diags
         missing = [i for i in range(num_frames) if i not in handled]
         if missing:
@@ -415,6 +419,15 @@ def _extract_one_case_structure(
                     # literal end); faithful display is built later from
                     # ``selector_ranges`` against the resolved selector type.
                     resolved_selector = str(sv)
+            elif (
+                selector_type == SelectorKind.BOOLEAN
+                and not values_in_heap
+                and num_frames == 2
+            ):
+                # An old Boolean case stores no values: frame 0 is False and
+                # frame 1 is True.
+                boolean_value = idx == 1
+                resolved_selector = str(boolean_value)
             elif (
                 selector_type == SelectorKind.ERROR
                 and not values_in_heap

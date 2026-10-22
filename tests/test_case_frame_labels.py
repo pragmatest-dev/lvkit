@@ -101,16 +101,35 @@ def test_labview_8_9_two_frame_error_reads_no_error_then_error(
         tmp_path,
         "error",
         [VALUELESS, VALUELESS],
-        default_frame=0,
+        default_frame=None,
         stored_values=False,
     )
     _assert_lines(
         views,
         describe=['Frame "No Error":', 'Frame "Error":'],
-        lvnet=['frame "No Error", default :', 'frame "Error" :'],
+        lvnet=['frame "No Error" :', 'frame "Error" :'],
         json_labels=["No Error", "Error"],
     )
     assert "(default)" not in views.describe
+
+
+def test_pre_2010_boolean_case_storing_no_default_reads_false_then_true(
+    tmp_path: Path,
+) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "boolean",
+        [VALUELESS, VALUELESS],
+        default_frame=None,
+        stored_values=False,
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "False":', 'Frame "True":'],
+        lvnet=['frame "False" :', 'frame "True" :'],
+        json_labels=["False", "True"],
+    )
+    assert "Default" not in views.describe
 
 
 def test_boolean_default_frame_with_its_value_takes_no_marker(tmp_path: Path) -> None:
@@ -158,4 +177,101 @@ def test_integer_valueless_default_reads_default(tmp_path: Path) -> None:
         describe=['Frame "0":', 'Frame "Default":'],
         lvnet=['frame "0" :', "frame default :"],
         json_labels=["0", "Default"],
+    )
+
+
+def test_enum_frames_read_their_item_names(tmp_path: Path) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "enum",
+        [FrameSpec(ranges=((0, 0),)), FrameSpec(ranges=((1, 1),))],
+        default_frame=None,
+        enum_items=("Red", "Green"),
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "Red":', 'Frame "Green":'],
+        lvnet=['frame "Red" :', 'frame "Green" :'],
+        json_labels=["Red", "Green"],
+    )
+
+
+def test_enum_default_frame_with_a_value_reads_item_then_default(
+    tmp_path: Path,
+) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "enum",
+        [FrameSpec(ranges=((0, 0),)), FrameSpec(ranges=((1, 1),))],
+        default_frame=1,
+        enum_items=("Red", "Green"),
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "Red":', 'Frame "Green, Default":'],
+        lvnet=['frame "Red" :', 'frame "Green", default :'],
+        json_labels=["Red", "Green, Default"],
+    )
+
+
+def test_enum_valueless_default_reads_default(tmp_path: Path) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "enum",
+        [FrameSpec(ranges=((0, 0),)), VALUELESS],
+        default_frame=1,
+        enum_items=("Red", "Green"),
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "Red":', 'Frame "Default":'],
+        lvnet=['frame "Red" :', "frame default :"],
+        json_labels=["Red", "Default"],
+    )
+
+
+def test_no_error_frame_listing_a_code_reads_no_error_then_the_code(
+    tmp_path: Path,
+) -> None:
+    no_error_and_code = FrameSpec(ranges=((0, 0), (18, 18)))
+    views = case_structure_views(
+        tmp_path, "error", [no_error_and_code, VALUELESS], default_frame=1
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "No Error, Error 18":', 'Frame "Default":'],
+        lvnet=['frame "No Error", "Error 18" :', "frame default :"],
+        json_labels=["No Error, Error 18", "Default"],
+    )
+
+
+def test_open_ended_no_error_frame_listing_codes_reads_no_error_then_codes(
+    tmp_path: Path,
+) -> None:
+    no_error_and_codes = FrameSpec(no_error_point=True, ranges=((18, 18), (20, 25)))
+    views = case_structure_views(
+        tmp_path, "error", [no_error_and_codes, VALUELESS], default_frame=1
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "No Error, Error 18, 20..25":', 'Frame "Default":'],
+        lvnet=['frame "No Error", "Error 18, 20..25" :', "frame default :"],
+        json_labels=["No Error, Error 18, 20..25", "Default"],
+    )
+
+
+def test_open_ended_no_error_frame_alone_still_reads_no_error(
+    tmp_path: Path,
+) -> None:
+    views = case_structure_views(
+        tmp_path,
+        "error",
+        [FrameSpec(no_error_point=True), ERROR],
+        default_frame=1,
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "No Error":', 'Frame "Error":'],
+        lvnet=['frame "No Error" :', 'frame "Error", default :'],
+        json_labels=["No Error", "Error"],
     )

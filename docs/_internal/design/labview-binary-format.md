@@ -583,6 +583,14 @@ is 0) over a fixed corpus list (`tests/test_case_frame_labels_corpus.py`):
 - Stored labels quote enum item names and strings (`"Up", Default`), pad with a
   space, and write a control character as a backslash code.
 
+## Boolean and two-frame error case structures have NO default frame; only an error case with error-code frames has one (`Default`)
+
+- **Boolean:** NI: "You cannot specify a default subdiagram if you wire a Boolean control to the case selector" (labview help, *specifying-a-default-subdiagram-for-case-structures*). Frames are `True`/`False`, never a Default marker.
+- **Error, two frames (`No Error` / `Error`):** fully described (status Boolean), so no default. Never infer one (no "first frame without a value" fallback, no frame-0 rule).
+- **Error with error-code frames (LV 2019+):** NI: "If you add more error cases without customizing the selector label of the Error case, the Error case changes to Default". The file stores it: `Enumerate Compute Nodes.vi` (measurement-plugin-labview) case uid 496 has `SelectDefaultCase 01`, no range on frame 1, saved label ` Default `. Label that frame `Default`; a frame storing status 1 reads `Error`, never `Error, Default`.
+- **The No Error frame can also list codes** (`No Error, Error 18`, NI help *handling-errors-using-case-structures*).
+- Rule of thumb: mark a Boolean/error frame default ONLY when the VI stores it.
+
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->
 
