@@ -2085,7 +2085,7 @@ class LoadingMixin:
         Skips VIs already in the bundled JSON with complete terminals.
         Safe to call repeatedly — overwrites stale entries.
         """
-        from ..project_store import find_project_store
+        from ..project_store import find_project_store, write_json_atomic
         from ..vilib_resolver import get_resolver as get_vilib_resolver
 
         store = find_project_store()
@@ -2168,9 +2168,7 @@ class LoadingMixin:
         if not replaced:
             entries.append(entry)
 
-        category_file.write_text(
-            json.dumps({"entries": entries}, indent=2), encoding="utf-8"
-        )
+        write_json_atomic(category_file, {"entries": entries})
 
         # Update _index.json
         index_file = vilib_dir / "_index.json"
@@ -2185,7 +2183,7 @@ class LoadingMixin:
         categories: dict[str, str] = index_data.get("categories", {})
         categories[category] = f"{category}.json"
         index_data["categories"] = categories
-        index_file.write_text(json.dumps(index_data, indent=2), encoding="utf-8")
+        write_json_atomic(index_file, index_data)
 
     def _find_file(
         self,

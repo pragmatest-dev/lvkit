@@ -27,6 +27,7 @@ resolve workflows in their own LLM-enabled editor.
 from __future__ import annotations
 
 import json
+import os
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -157,6 +158,19 @@ def init_project_store(root: Path) -> Path:
             )
 
     return store
+
+
+def write_json_atomic(path: Path, data: object) -> None:
+    """Write ``data`` as JSON to ``path`` so a concurrent reader sees the old
+    or the new file, never an empty or half-written one: the text goes to a
+    sibling file named for this process, then ``os.replace`` swaps it in."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 # ============================================================

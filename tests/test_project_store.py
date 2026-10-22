@@ -10,7 +10,11 @@ import pytest
 
 from lvkit import primitive_resolver, vilib_resolver
 from lvkit.primitive_resolver import PrimitiveResolver
-from lvkit.project_store import find_project_store, init_project_store
+from lvkit.project_store import (
+    find_project_store,
+    init_project_store,
+    write_json_atomic,
+)
 from lvkit.vilib_resolver import VILibResolver
 
 # ============================================================
@@ -920,3 +924,24 @@ def test_mcp_discover_returns_none_outside_project(tmp_path: Path) -> None:
     finally:
         primitive_resolver.reset_resolver(project_data_dir=None)
         vilib_resolver.reset_resolver(project_data_dir=None)
+
+
+def test_write_json_atomic_replaces_the_file_and_leaves_no_temp(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "_index.json"
+    target.write_text("{}", encoding="utf-8")
+    write_json_atomic(target, {"categories": {"NI": "NI.json"}})
+    assert json.loads(target.read_text(encoding="utf-8")) == {
+        "categories": {"NI": "NI.json"}
+    }
+    assert [p.name for p in tmp_path.iterdir()] == ["_index.json"]
+
+
+def test_write_json_atomic_failure_keeps_the_old_file(tmp_path: Path) -> None:
+    target = tmp_path / "_index.json"
+    target.write_text('{"keep": 1}', encoding="utf-8")
+    with pytest.raises(TypeError):
+        write_json_atomic(target, {"bad": object()})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"keep": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["_index.json"]
