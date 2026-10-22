@@ -415,6 +415,17 @@ def _extract_one_case_structure(
                     # literal end); faithful display is built later from
                     # ``selector_ranges`` against the resolved selector type.
                     resolved_selector = str(sv)
+            elif (
+                selector_type == SelectorKind.ERROR
+                and not values_in_heap
+                and num_frames == 2
+            ):
+                # A LabVIEW 8/9 two-frame error case stores no values: by
+                # position, frame 0 is "No Error" and frame 1 is "Error" (status
+                # 1), the same way an old Boolean case reads False then True.
+                is_no_error = idx == 0
+                resolved_selector = str(idx)
+                ranges = [] if is_no_error else [SelectorRange(start=1, end=1)]
 
             frame = _extract_frame(
                 diag_elem,

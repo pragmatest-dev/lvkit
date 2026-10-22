@@ -434,21 +434,23 @@ def selector_frame_values(
     if is_error:
         # The error-cluster case switches on the status boolean: 0 = no error,
         # anything else is an error (LabVIEW: "No Error" / "Error", plus code
-        # ranges like "Error 3..10" since 2019). The Error frame is often the
-        # structure's default -- LabVIEW still labels it "Error", not "Default".
+        # ranges like "Error 3..10" since 2019). A frame that stores status 1
+        # alone is "Error"; a frame that stores no value is the default.
         if frame.is_no_error:
             return ("No Error",)
         codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
         if codes:
             return (f"Error {_format_ranges(codes, str)}",)
-        return ("Error",)
+        if frame.selector_ranges:
+            return ("Error",)
+        return ()
     values = _selector_values(frame, lv_type)
     if values:
         return tuple(values)
-    if frame.is_default:
-        return ()
     if frame.boolean_value is not None:
         return (str(frame.boolean_value),)
+    if frame.is_default:
+        return ()
     return (sv,)  # an already-display token
 
 
@@ -464,10 +466,16 @@ def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) ->
         [f'"{v}"' for v in values] if _is_string_selector(frame, lv_type) else values
     )
     listed = ", ".join(shown)
-    if is_error or not frame.is_default:
+    if not frame.is_default:
         return listed
-    # A default frame can also carry explicit values ("0, Default").
-    return f"{listed}, {_DEFAULT_LABEL}" if listed else _DEFAULT_LABEL
+    if not listed:
+        return _DEFAULT_LABEL
+    # A Boolean or error frame that stores a value is fully described -- every
+    # value has a frame -- so it takes no Default marker. Any other default frame
+    # can also carry explicit values ("0, Default").
+    if is_error or frame.boolean_value is not None:
+        return listed
+    return f"{listed}, {_DEFAULT_LABEL}"
 
 
 # ============================================================

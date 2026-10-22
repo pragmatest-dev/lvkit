@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Fix: Flatten To JSON terminals are numbered by the slots the VI stores** — its error, enable and JSON string terminals were misnumbered, so generated Python passed the wrong terminal (#184).
+- **Fix: Boolean and error case frames are labelled by what they store** — an error frame that stores a value never takes a Default marker, a frame that stores no value is Default, and a LabVIEW 8/9 two-frame error case reads `No Error` then `Error` (#187).
 
 ## [0.8.11] - 2026-10-21
 - **Fix: Required and Optional connector-pane terminals are detected** — the wiring rule is read from the VI's own connector pane, so describe, lvnet, diff, render and generated Python show Required inputs and Optional terminals correctly (#173).

@@ -49,7 +49,6 @@ from .netlist_build import (
     StructureBorder,
     TracedSource,
     case_frame_label_gn,
-    case_selector_type_gn,
     sequence_local_read_gn,
     trace_source_gn,
 )
@@ -844,11 +843,8 @@ def _frame_constants(
 def _case_frame_header(node: CaseStructureNode, frame: CaseFrame) -> str:
     """A case frame's header text: the same label lvnet and JSON show for it
     (enum item names, ``No Error``/``Error``, integer ranges, quoted strings),
-    marked ``(default)`` when it is the default frame and the label does not
-    already say so."""
-    label = _quoted_frame_label(case_frame_label_gn(node, frame))
-    _, is_error = case_selector_type_gn(node)
-    return f"{label} (default)" if frame.is_default and is_error else label
+    which carries its own Default marker where one applies."""
+    return _quoted_frame_label(case_frame_label_gn(node, frame))
 
 
 def _describe_frame_body(

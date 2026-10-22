@@ -148,8 +148,11 @@ def test_selector_label_error_no_error_and_error():
     no_error = _frame("0", [(0, 0)], is_no_error=True)
     assert _selector_label(no_error, t, True) == "No Error"
     assert _selector_label(_frame("1", [(1, 1)]), t, True) == "Error"
-    # Error frame that is the structure's default is still "Error", not "Default"
-    assert _selector_label(_frame("Default", is_default=True), t, True) == "Error"
+    # An error frame that stores status 1 and is the structure's default reads
+    # "Error" (no Default marker); a default frame that stores no value is
+    # "Default".
+    assert _selector_label(_frame("1", [(1, 1)], is_default=True), t, True) == "Error"
+    assert _selector_label(_frame("Default", is_default=True), t, True) == "Default"
 
 
 # --------------------------------------------------------------------------- #
