@@ -19,7 +19,7 @@
     },
     "virtualWorkspaces": {
       "supported": true,
-      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders VI files (.vi, .vim, .vit) in the browser via lvkit compiled to WebAssembly (Pyodide, loaded from a CDN) — no local disk or executable needed. Diff and the MCP server remain desktop-only."
+      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders VI files (.vi, .vim, .vit) in the browser via lvkit compiled to WebAssembly (Pyodide, loaded from a CDN) — no local disk or executable needed. The MCP server remains desktop-only."
     }
   },
   "categories": ["Visualization", "SCM Providers", "Other"],

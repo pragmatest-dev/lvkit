@@ -67,12 +67,12 @@ function toBase64(bytes) {
 // target keeps installing this fixed wheel. Bump LVKIT_WHEEL *only* when src/lvkit
 // changes (and publish that lvkit to PyPI); it MUST name a version that exists on
 // PyPI. networkx/pylabview are likewise pinned to match the render (uv.lock).
-// The file kinds that hold a VI (matches package.json's selectors).
-const VI_FILE_RE = /\.vi[mt]?$/i;
-
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
 const LVKIT_WHEEL = "lvkit==0.8.12";
 const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2", LVKIT_WHEEL];
+
+// The file kinds that hold a VI (matches package.json's selectors).
+const VI_FILE_RE = /\.vi[mt]?$/i;
 
 // The web extension runs ONLY in hosted editors (vscode.dev, GitLab Web IDE,
 // Cursor, Gitpod, Codespaces) — all online — so we load Pyodide + wheels straight
