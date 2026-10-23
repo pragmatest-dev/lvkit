@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.utils import clean_labview_string
+from lvkit.parser.xml_trees import parsed_xml
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import FP_TERMINAL_CLASS
@@ -80,7 +81,7 @@ def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
     keyed by DCO uid: its ``typeDesc`` (the actual LabVIEW type) and its
     control/indicator flag (``objFlags`` bit 0).
     """
-    root = ET.parse(fp_xml_path).getroot()
+    root = parsed_xml(fp_xml_path)
 
     info: dict[str, FpDcoInfo] = {}
     for dco in root.findall(".//*[@class='fPDCO']"):
@@ -280,8 +281,7 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ParsedConnectorPane | None:
     Returns:
         ParsedConnectorPane with slot assignments, or None if not found
     """
-    tree = ET.parse(fp_xml_path)
-    root = tree.getroot()
+    root = parsed_xml(fp_xml_path)
 
     con_pane = root.find(".//conPane[@class='conPane']")
     if con_pane is None:
@@ -344,7 +344,7 @@ def parse_connector_pane_types(
     if not connected_indices:
         return {}
 
-    func_td = _resolve_own_connector_pane_function(ET.parse(main_xml_path).getroot())
+    func_td = _resolve_own_connector_pane_function(parsed_xml(main_xml_path))
     if func_td is None:
         return {}
     children = func_td.findall("TypeDesc")
@@ -455,7 +455,7 @@ def parse_connector_pane_labels(main_xml_path: Path | str) -> dict[int, str]:
         referenced type carries a non-empty Label.
     """
     try:
-        root = ET.parse(main_xml_path).getroot()
+        root = parsed_xml(main_xml_path)
     except (ET.ParseError, OSError):
         return {}
 

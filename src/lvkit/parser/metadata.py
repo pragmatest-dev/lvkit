@@ -11,6 +11,7 @@ from typing import Any
 from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
 
 from lvkit.models import vi_kind_label
+from lvkit.parser.xml_trees import parsed_xml
 from lvkit.text_encoding import decode_labview_text
 
 from .models import ParsedDependencyRef
@@ -138,8 +139,7 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     Returns:
         Dict with version info, SubVI names, type descriptors, library info, etc.
     """
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+    root = parsed_xml(xml_path)
 
     metadata: dict[str, Any] = {}
 

@@ -147,6 +147,7 @@ from .utils import (
     safe_int,
     strip_surrounding_quotes,
 )
+from .xml_trees import parsed_xml, xml_scope
 
 # A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
 # bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
@@ -185,6 +186,7 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 _NODE_DCO_MAP: dict[str, dict[str, int]] = _load_node_dco_maps()
 
 
+@xml_scope()
 def parse_vi(
     vi_path: Path | str | None = None,
     *,
@@ -337,8 +339,7 @@ def _parse_metadata(
     if not main_xml.exists():
         return ParsedVIMetadata(source_path=source_path)
 
-    main_tree = ET.parse(main_xml)
-    main_root = main_tree.getroot()
+    main_root = parsed_xml(main_xml)
 
     # Extract qualified name from LVIN or LVSR
     qualified_name: str | None = None
@@ -448,7 +449,7 @@ def _parse_selector_tables(
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
         return [], 0
-    root = ET.parse(main_xml).getroot()
+    root = parsed_xml(main_xml)
     tm80 = root.find("TM80/Section")
     shift = 0
     if tm80 is not None and (raw := tm80.get("IndexShift")) is not None:
@@ -475,8 +476,7 @@ def _parse_block_diagram(
     SAME parsed ``root`` (no second read) and return it alongside — the parser
     owning both semantics and positions from one pass.
     """
-    tree = ET.parse(bd_xml)
-    root = tree.getroot()
+    root = parsed_xml(bd_xml)
     _inline_dco_definitions(root)
 
     nodes = _extract_nodes(root)
@@ -561,8 +561,7 @@ def _parse_front_panel(
     if not fp_xml_path.exists():
         return ParsedFrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
 
-    tree = ET.parse(fp_xml_path)
-    root = tree.getroot()
+    root = parsed_xml(fp_xml_path)
 
     # Build indicator UIDs from block diagram for accurate is_indicator detection
     indicator_dco_uids: set[str] = set()
@@ -857,7 +856,7 @@ def _resolve_bound_control_types(
     fp_path = Path(fp_xml)
     if not fp_path.exists():
         return
-    fp_root = ET.parse(fp_path).getroot()
+    fp_root = parsed_xml(fp_path)
     for bound_node in bound:
         ddo = fp_root.find(f".//*[@uid='{bound_node.bound_control_uid}']")
         if ddo is not None:

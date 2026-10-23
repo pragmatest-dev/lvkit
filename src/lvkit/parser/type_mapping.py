@@ -15,6 +15,7 @@ from .constants import CORRUPT_STUB_FORMAT
 from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
+from .xml_trees import parsed_xml
 
 
 class TypeMap(dict[int, LVType]):
@@ -72,8 +73,7 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
     # Second pass: parse VCTP to get TypeDef details
     # Chain: Heap TypeID -> Consolidated ID -> FlatTypeID -> VCTP TypeDesc
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        root = parsed_xml(xml_path)
 
         # Build consolidated -> flat mapping from TopLevel
         consolidated_to_flat: dict[int, int] = {}
@@ -191,7 +191,7 @@ def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
         return HeapTypes()
     heap = decode_heap_types(sidecar.read_bytes())
     try:
-        vicc_paths = _typedef_ctl_paths(ET.parse(xml_path).getroot())
+        vicc_paths = _typedef_ctl_paths(parsed_xml(xml_path))
     except ET.ParseError:
         return heap
     for lv_type in heap.types.values():
@@ -257,8 +257,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
         Dict mapping FlatTypeID → LVType with fields/element_type populated
     """
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        root = parsed_xml(xml_path)
     except ET.ParseError:
         return {}
 
