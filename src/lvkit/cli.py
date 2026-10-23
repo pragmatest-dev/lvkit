@@ -31,6 +31,7 @@ from .project_store import (
     install_codex_skills,
     install_copilot_skills,
 )
+from .vi_files import VI_EXTENSIONS, strip_vi_extension
 
 
 def _add_load_mode_arg(parser: argparse.ArgumentParser) -> None:
@@ -361,7 +362,7 @@ def main() -> int:
     )
     desc_parser.add_argument(
         "input_path",
-        help="Path to a .vi file, or a .ctl control",
+        help="Path to a .vi/.vim/.vit file, or a .ctl control",
     )
     desc_parser.add_argument(
         "--search-path",
@@ -724,8 +725,8 @@ def main() -> int:
     render_parser.add_argument(
         "input_path",
         help=(
-            "Path to a .vi file (or _BDHb.xml heap) or a .ctl control, OR a "
-            "directory — a directory renders every .vi and .ctl under it into "
+            "Path to a .vi/.vim/.vit file (or _BDHb.xml heap) or a .ctl control, OR a "
+            "directory — a directory renders every VI file and .ctl under it into "
             "the cache (a fast 'warm' pass; already-fresh files are skipped)."
         ),
     )
@@ -1580,7 +1581,7 @@ def cmd_render(args: argparse.Namespace) -> int:
 
 
 # The file kinds ``lvkit render`` draws: a VI's block diagram, a control's front panel.
-_RENDERABLE = (".vi", ".ctl")
+_RENDERABLE = (*VI_EXTENSIONS, ".ctl")
 
 
 def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
@@ -2220,7 +2221,7 @@ def _dataflow_label(gnode, kind: str) -> str:
         if frames:
             return f"Case [{len(frames)} frames]"
         return name or "Structure"
-    return name.replace(".vi", "") or "?"
+    return strip_vi_extension(name) or "?"
 
 
 def _dataflow_tooltip(gnode, kind: str, nid: str) -> str:

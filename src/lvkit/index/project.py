@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..cache_paths import _project_root_for
+from ..vi_files import is_vi_file
 
 
 def resolve_project_files(target: Path | str) -> tuple[Path, list[Path], list[Path]]:
@@ -40,7 +41,7 @@ def resolve_project_files(target: Path | str) -> tuple[Path, list[Path], list[Pa
     vi_paths: list[Path] = []
     ctl_paths: list[Path] = []
     for p in root.rglob("*"):
-        if p.suffix == ".vi":
+        if is_vi_file(p):
             vi_paths.append(p)
         elif p.suffix == ".ctl" and p.is_file():
             ctl_paths.append(p)

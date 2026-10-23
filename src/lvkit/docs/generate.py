@@ -22,6 +22,7 @@ from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
 from lvkit.structure import parse_lvclass, parse_lvlib
+from lvkit.vi_files import is_vi_file, rglob_vi_files
 
 logger = logging.getLogger(__name__)
 
@@ -85,11 +86,11 @@ def _collect_class_vis(class_path: Path) -> list[Path]:
 
 
 def _collect_directory_vis(dir_path: Path) -> list[Path]:
-    """Collect all .vi files recursively from a directory."""
+    """Collect all VI files recursively from a directory."""
     if not dir_path.is_dir():
         raise ValueError(f"Not a directory: {dir_path}")
 
-    return sorted(p.resolve() for p in dir_path.rglob("*.vi") if p.is_file())
+    return [p.resolve() for p in rglob_vi_files(dir_path) if p.is_file()]
 
 
 def _generate_typedef_pages(
@@ -331,7 +332,7 @@ def generate_documents(
     print("[TIMING] Starting VI discovery...")
     t0 = time.time()
     ctl_paths: list[Path] = []
-    if library_path_obj.suffix == ".vi":
+    if is_vi_file(library_path_obj):
         doc_type = "vi"
         doc_title = library_path_obj.stem
         vi_paths = [library_path_obj]

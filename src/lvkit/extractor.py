@@ -47,6 +47,7 @@ from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
     normalize_extracted_xml,
 )
+from lvkit.vi_files import is_vi_file  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -519,7 +520,7 @@ def extract_llb(llb_path: Path) -> Path:
                 bldata = block.getData(section_num=snum)
                 with zipfile.ZipFile(io.BytesIO(bldata.read())) as zf:
                     for member in zf.namelist():
-                        if member.lower().endswith(".vi"):
+                        if is_vi_file(member):
                             member_name = _UNSAFE_CHARS.sub("-", Path(member).name)
                             _atomic_write_bytes(
                                 cache_dir / member_name, zf.read(member)

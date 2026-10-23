@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import re
 
+from lvkit.vi_files import strip_vi_extension
+
 
 class NamingMixin:
     """Mixin providing VI/class name -> filename/grouping conversions."""
@@ -50,7 +52,7 @@ class NamingMixin:
             name = vi_name
 
         # Remove .vi extension
-        name = name.replace(".vi", "").replace(".VI", "")
+        name = strip_vi_extension(name)
 
         # Remove __ogtk suffix
         name = name.replace("__ogtk", "")
@@ -72,7 +74,7 @@ class NamingMixin:
         # Handle qualified names (Library.lvlib:VI.vi)
         safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
         # Remove .vi extension if present
-        safe_name = safe_name.replace(".vi", "").replace(".VI", "")
+        safe_name = strip_vi_extension(safe_name)
         # Replace spaces and other unsafe characters with underscores
         safe_name = safe_name.replace(" ", "_").replace("(", "_").replace(")", "_")
         safe_name = (

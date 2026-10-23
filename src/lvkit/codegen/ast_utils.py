@@ -9,6 +9,7 @@ import logging
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.vi_files import strip_vi_extension
 
 logger = logging.getLogger(__name__)
 
@@ -366,7 +367,7 @@ def to_function_name(vi_name: str) -> str:
     # Strip class/library prefix (e.g., "TestCase.lvclass:X.vi" → "X")
     if ":" in vi_name:
         vi_name = vi_name.split(":")[-1]
-    name = vi_name.replace(".vi", "").replace(".VI", "")
+    name = strip_vi_extension(vi_name)
     return to_var_name(name)
 
 
@@ -388,7 +389,7 @@ def to_module_name(vi_name: str) -> str:
     # Strip library prefix
     if ":" in vi_name:
         vi_name = vi_name.split(":")[-1]
-    vi_name = vi_name.replace(".vi", "").replace(".VI", "")
+    vi_name = strip_vi_extension(vi_name)
     result = vi_name.lower().replace(" ", "_").replace("-", "_")
     result = "".join(c for c in result if c.isalnum() or c == "_")
     if result and not result[0].isalpha() and result[0] != "_":

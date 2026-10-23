@@ -29,6 +29,13 @@ from lvkit.models import (
 from lvkit.parser.metadata import _decode_pth0_components
 
 from .type_names import ROOT_CLASS
+from .vi_files import (
+    VI_EXTENSIONS,
+    glob_vi_files,
+    is_vi_file,
+    rglob_vi_files,
+    strip_vi_extension,
+)
 
 
 @dataclass
@@ -218,7 +225,7 @@ def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
         Tuple of (accessor_type, field_name) or (None, None) if not an accessor.
     """
     # Check if this is a known non-accessor method (e.g., setUp, tearDown)
-    base_name = method_name.replace(".vi", "").replace(".VI", "")
+    base_name = strip_vi_extension(method_name)
     if base_name in NON_ACCESSOR_METHODS:
         return (None, None)
 
@@ -417,7 +424,7 @@ def _parse_private_data_fields(lvclass_path: Path) -> list[LVPrivateDataField]:
         if fields:
             return fields
 
-    for vi_path in sorted(class_dir.glob("*.vi")):
+    for vi_path in glob_vi_files(class_dir):
         try:
             _bd_xml, _fp_xml, main_xml = extract_vi_xml(vi_path)
         except RuntimeError:
@@ -682,7 +689,7 @@ def _parse_items(
         if item_type == "Folder":
             # Recurse into folders (private, protected, etc.)
             _parse_items(item, methods, private_data_ctl)
-        elif item_type == "VI" and item_name.endswith(".vi"):
+        elif item_type == "VI" and is_vi_file(item_name):
             # Get method properties
             scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
             static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
@@ -718,7 +725,7 @@ def _parse_items(
 
             methods.append(
                 LVMethod(
-                    name=item_name.replace(".vi", ""),
+                    name=strip_vi_extension(item_name),
                     vi_path=item_url,
                     scope=SCOPE_MAP.get(scope_val, "public"),
                     is_static=is_static,
@@ -1286,7 +1293,7 @@ def get_project_libraries(project: LVProject) -> list[tuple[str, Path]]:
 # so the extension — not the XML ``Type`` — is the faithful member kind (this is
 # why ``get_project_vis`` overcounts VIs vs. the project's real ``.vi`` list).
 _LVPROJ_MEMBER_KINDS = {
-    "vi": "VI",
+    **{ext.lstrip("."): "VI" for ext in VI_EXTENSIONS},
     "ctl": "Control",
     "lvclass": "LVClass",
     "lvlib": "Library",
@@ -1425,7 +1432,7 @@ def discover_project_structure(root_path: Path | str) -> dict[str, Any]:
     # Find standalone VIs (not in class directories)
     class_dirs = {Path(cls["path"]).parent for cls in structure["classes"]}
 
-    for vi_path in root_path.rglob("*.vi"):
+    for vi_path in rglob_vi_files(root_path):
         rel_path = vi_path.relative_to(root_path)
         # Check if VI is standalone (not in a class or referenced by library)
         if rel_path.parent not in class_dirs:
@@ -1528,7 +1535,7 @@ def generate_python_structure_plan(structure: dict[str, Any]) -> str:
                 lines.append("Functions:")
                 for member in lib["members"]:
                     if member["type"] == "VI":
-                        name = member["name"].replace(".vi", "")
+                        name = strip_vi_extension(member["name"])
                         func_name = _to_python_identifier(name)
                         lines.append(f"  - {func_name}()")
         lines.append("")

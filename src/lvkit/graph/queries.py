@@ -18,6 +18,7 @@ import networkx as nx
 from ..models import ClusterField, FPTerminal, Terminal
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
+from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .interface_order import ordered_interface
@@ -279,7 +280,7 @@ class QueryMixin:
             index: dict[str, Path] = {}
             for root in self._search_paths:
                 try:
-                    for found in sorted(root.rglob("*.vi")):
+                    for found in rglob_vi_files(root):
                         index.setdefault(found.name, found)
                 except OSError:
                     continue

@@ -103,6 +103,7 @@ from .link_table import (
 )
 from .metadata import (
     _decode_pth0_components,
+    parse_instance_files,
     parse_link_path_refs,
     parse_vipi_from_livi,
 )
@@ -434,6 +435,7 @@ def _parse_metadata(
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
+        instance_files=parse_instance_files(main_root),
     )
 
 

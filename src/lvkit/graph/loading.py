@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
 
+from ..embedded_instances import read_instance_sources
 from ..extractor import extract_llb, extract_vi_xml
 from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
@@ -43,6 +44,7 @@ from ..structure import (
     parse_lvproj,
     private_data_field_to_cluster_field,
 )
+from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
 from .models import (
     ExecSystem,
     ExecutionProps,
@@ -320,8 +322,8 @@ class LoadingMixin:
             self.load_llb(vi_path, mode, search_paths)
             return
 
-        # Handle .vi files by extracting first
-        if vi_path.suffix.lower() == ".vi":
+        # Handle VI files (.vi/.vim/.vit) by extracting first
+        if is_vi_file(vi_path):
             bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
         elif vi_path.name.endswith("_BDHb.xml"):
             bd_xml = vi_path
@@ -332,7 +334,10 @@ class LoadingMixin:
             if not main_xml.exists():
                 main_xml = None
         else:
-            raise ValueError(f"Expected .vi or *_BDHb.xml file: {vi_path}")
+            raise ValueError(
+                f"Expected a VI file ({', '.join(VI_EXTENSIONS)}) or *_BDHb.xml file: "
+                f"{vi_path}"
+            )
 
         # Early return only if already loaded AT >= the requested depth. A VI
         # first seen as a leaf (child NONE) must still UPGRADE when loaded in its
@@ -341,7 +346,7 @@ class LoadingMixin:
         # resolved path, so probe _loaded_vis with that. A raw ``*_BDHb.xml`` has
         # no source path here, so it falls through to _load_vi_recursive, which
         # computes and dedups on the real vi_key.
-        if vi_path.suffix.lower() == ".vi":
+        if is_vi_file(vi_path):
             probe_key = str(vi_path.resolve())
             if probe_key in self._loaded_vis and _mode_covers(
                 self._dep_load_mode.get(probe_key), mode
@@ -360,7 +365,7 @@ class LoadingMixin:
         # source_dir is the directory of the actual .vi file, not the extracted
         # BD XML (which may be in a temp cache dir). SubVI and type-dependency
         # resolution uses this to find siblings of the original source file.
-        source_dir = vi_path.parent if vi_path.suffix.lower() == ".vi" else None
+        source_dir = vi_path.parent if is_vi_file(vi_path) else None
         loaded_key = self._load_vi_recursive(
             bd_xml,
             fp_xml,
@@ -368,7 +373,7 @@ class LoadingMixin:
             search_paths=search_paths,
             visited=set(),
             source_dir=source_dir,
-            source_override=(vi_path if vi_path.suffix.lower() == ".vi" else None),
+            source_override=(vi_path if is_vi_file(vi_path) else None),
             mode=mode,
         )
 
@@ -537,7 +542,7 @@ class LoadingMixin:
                             caller=lib_key,
                             rel=EdgeRel.OWNS,
                         )
-                elif member_suffix == ".vi":
+                elif is_vi_file(member_name):
                     member_qname = lib_qname + ":" + member_name
                     vi_path = lvlib_path.parent / member.url
                     if not vi_path.exists():
@@ -571,15 +576,15 @@ class LoadingMixin:
                         )
                 else:
                     # A member the library XML declares Type="VI" but whose URL
-                    # is neither .vi nor .ctl -- a source-metadata anomaly, not
+                    # is neither a VI file nor .ctl -- a source-metadata anomaly, not
                     # a code entity. No node, no stub (a stub means "a VI we
                     # expect to resolve later", which is wrong here): warn and
                     # move on rather than sending a non-VI file to load_vi
                     # (which raises ValueError and would abort the whole load).
                     logger.warning(
                         'library %s declares member %r as Type="VI" but its '
-                        "URL %r is not a loadable .vi or .ctl file — skipping "
-                        "it.",
+                        "URL %r is not a loadable VI (.vi/.vim/.vit) or .ctl "
+                        "file — skipping it.",
                         lvlib_path.name,
                         member.name,
                         member.url,
@@ -1159,7 +1164,7 @@ class LoadingMixin:
 
         # Sorted: load order decides which same-named file claims a name first
         # when SubVI deps resolve, so filesystem order made loads irreproducible.
-        vi_paths = sorted(dir_path.rglob("*.vi"))
+        vi_paths = rglob_vi_files(dir_path)
 
         # Above a size threshold, pre-parse (XML -> ParsedVI) across a process
         # pool -- profiling showed parse_vi dominates a whole-directory load
@@ -1208,7 +1213,7 @@ class LoadingMixin:
         if search_paths is None:
             search_paths = [cache_dir]
 
-        for vi_path in cache_dir.glob("*.vi"):
+        for vi_path in glob_vi_files(cache_dir):
             try:
                 self.load_vi(vi_path, mode, search_paths)
             except (RuntimeError, ValueError):
@@ -1441,6 +1446,10 @@ class LoadingMixin:
             else {}
         )
 
+        # Each malleable-VI call's recorded instance name -> the qualified name
+        # of the file it is an instance of (filled while loading dependencies).
+        instance_qnames: dict[str, str] = {}
+
         # Load all dependencies through the single generic walker. NONE stops
         # here — the target VI only, no dependencies at all.
         if mode is not LoadMode.NONE and main_xml and main_xml.exists():
@@ -1479,11 +1488,28 @@ class LoadingMixin:
             for r in metadata.link_path_refs:
                 link_index.setdefault(r.name, []).append(r)
 
+            # A malleable-VI call is recorded as an embedded instance named by a
+            # GUID; the file it is an instance of is what the call is to.
+            instance_sources = read_instance_sources(
+                main_xml.parent, metadata.instance_files
+            )
+
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
             # loaded VI SET non-deterministic across runs (146 vs 109 on the
             # JKI Programmatic API tree). Deterministic order → reproducible docs.
             for qname in sorted(all_dep_qnames):
+                instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
+                if instance_source is not None:
+                    dep_ref_map[qname] = instance_source
+                    instance_qnames[qname] = self._load_instance_dependency(
+                        instance_source,
+                        caller_file,
+                        search_paths,
+                        caller_qname=vi_key,
+                        mode=mode,
+                    )
+                    continue
                 dep_ref = dep_ref_map.get(qname) or self._pick_link_ref(
                     link_index.get(qname.rsplit(":", 1)[-1]), caller_file
                 )
@@ -1522,7 +1548,10 @@ class LoadingMixin:
                 vi_key,
                 unqualified_name,
                 type_map,
-                iuse_to_qname=metadata.iuse_to_qualified_name,
+                iuse_to_qname={
+                    uid: instance_qnames.get(qname, qname)
+                    for uid, qname in metadata.iuse_to_qualified_name.items()
+                },
                 iuse_to_qpath=iuse_to_qpath,
                 iuse_refs=metadata.iuse_refs,
                 shared_variable_links=metadata.shared_variable_links,
@@ -1720,7 +1749,7 @@ class LoadingMixin:
                 resolved = redirected if redirected.exists() else None
 
         if resolved is None:
-            if leaf.endswith(".vi"):
+            if is_vi_file(leaf):
                 resolved = self._find_subvi(leaf, search_paths, caller_file.parent)
             else:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
@@ -1755,6 +1784,33 @@ class LoadingMixin:
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = _redirect_member_beside_container(cand, leaf)
         return cand.resolve()
+
+    def _load_instance_dependency(
+        self,
+        source: ParsedDependencyRef,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None,
+        mode: LoadMode,
+    ) -> str:
+        """Load the file a malleable-VI call is an instance of, as an ordinary
+        SubVI of the caller. Returns the qualified name the call's node should
+        carry: the loaded file's own, else the one the instance records."""
+        qualified_name = source.qualified_name or source.name
+        self._load_dependency(
+            qualified_name,
+            source,
+            caller_file,
+            search_paths,
+            caller_qname=caller_qname,
+            mode=mode,
+        )
+        target = self._resolve_dependency_path(
+            qualified_name, source, caller_file, search_paths
+        )
+        if target is not None:
+            return self._vi_display_names.get(str(target.resolve()), qualified_name)
+        return qualified_name
 
     def _load_dependency(
         self,
@@ -1859,7 +1915,7 @@ class LoadingMixin:
             return
 
         # Dispatch by extension to the matching public loader.
-        if leaf.endswith(".vi"):
+        if is_vi_file(leaf):
             self._leaf_load_vi(
                 resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
             )
@@ -2239,8 +2295,8 @@ class LoadingMixin:
         alt_name = None
         if "__" in vi_name:
             base, _lib = vi_name.rsplit("__", 1)
-            if _lib.endswith(".vi"):
-                alt_name = base + ".vi"
+            if is_vi_file(_lib):
+                alt_name = base + Path(vi_name).suffix
 
         for search_path in search_paths:
             if len(path_parts) > 1:
