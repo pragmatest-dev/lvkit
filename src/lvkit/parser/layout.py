@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..extractor import extract_vi_xml
+from ..vi_files import is_vi_file
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
 from .utils import extract_caption, extract_label_strict
 
@@ -1578,7 +1579,8 @@ def _icon_for_heap(bd: Path) -> Path | None:
 
 
 def build_layout(vi_or_bd: Path) -> Layout:
-    """Build a ``Layout`` from a ``.vi`` file or a ``_BDHb.xml`` heap path.
+    """Build a ``Layout`` from a VI file (``.vi``/``.vim``/``.vit``) or a
+    ``_BDHb.xml`` heap path.
 
     Thin I/O wrapper: it does the read (extract for a ``.vi``, ``ET.parse`` the
     heap, locate the icon + resource map) and hands the parsed root to
@@ -1586,7 +1588,7 @@ def build_layout(vi_or_bd: Path) -> Layout:
     graph is already being built — that reuses its single parse instead of
     reading the heap a second time.
     """
-    if vi_or_bd.suffix.lower() == ".vi":
+    if is_vi_file(vi_or_bd):
         bd_path, _, _ = extract_vi_xml(vi_or_bd)
         bd = Path(bd_path)
     else:

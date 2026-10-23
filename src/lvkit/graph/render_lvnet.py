@@ -28,6 +28,7 @@ from ..models import (
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
+from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
 from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
@@ -804,11 +805,9 @@ def _lvnet_handle_base(name: str) -> str:
     transform (e.g. ``"Foo Bar.vi"`` and literal ``"Foo_Bar"``) still get
     distinct handles with no shared numbering group needed.
     """
-    base = name
-    for ext in (".vi", ".ctl"):
-        if base.endswith(ext):
-            base = base[: -len(ext)]
-            break
+    base = strip_vi_extension(name)
+    if base == name and base.endswith(".ctl"):
+        base = base[: -len(".ctl")]
     # Every WHITESPACE character -- a space, and crucially a NEWLINE/tab/CR that
     # a multi-line String constant's own display value can carry -- becomes
     # ``_``, so the handle is always a single-line grammar-safe token. A raw

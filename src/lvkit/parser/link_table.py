@@ -93,6 +93,12 @@ Taken from a reported sample (``DNDA ... 06 "MccDaq" 07 "3.0.0.0" 07 "neutral"
 does not have those four parts, or that runs past the table, is a
 ``DotNetAssemblyRecordFailure``.
 
+A malleable VI's instance (the VI file LabVIEW embeds in each caller, see
+``lvkit.embedded_instances``) opens its ``LIvi`` table with an ``IVOV``
+(instance-to-owner) record; the first ``VIVI`` record after it names the VI the
+instance is an instance of. A ``VIVI`` record starts with the same name and path
+as an ``IUVI`` record, which is all that is read of it.
+
 Record layout (pylabview ``LVlinkinfo.py``: ``LinkObjIUseToVILink`` ->
 ``HeapToVILinkSaveInfo`` -> ``OffsetLinkSaveInfo`` -> ``TypedLinkSaveInfo`` ->
 ``BasicLinkSaveInfo``). Every offset below counts from the start of the sidecar;
@@ -134,6 +140,8 @@ from lvkit.text_encoding import decode_labview_text
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_IVOV_IDENT = b"IVOV"
+_VIVI_IDENT = b"VIVI"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -626,6 +634,39 @@ def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
         except LinkTableError as exc:
             raise LinkTableError(f"IUVI record at offset {start}: {exc}") from exc
     return records
+
+
+@dataclass(frozen=True)
+class InstanceSourceLink:
+    """The VI a malleable-VI instance is an instance of: its qualified name parts
+    and recorded path (relative to the instance)."""
+
+    name_parts: tuple[str, ...]
+    path_tokens: tuple[str, ...]
+
+
+def decode_instance_source(
+    data: bytes, version: LinkTableVersion
+) -> InstanceSourceLink | None:
+    """The VI an instance is an instance of, from the instance's raw ``_LIvi.bin``
+    sidecar: the first ``VIVI`` record after its ``IVOV`` record. ``None`` when
+    the table has no ``IVOV`` record (the VI is not an instance) or no ``VIVI``
+    record after it."""
+    owner_starts = _record_starts(data, _IVOV_IDENT)
+    if not owner_starts:
+        return None
+    source_starts = [
+        start for start in _record_starts(data, _VIVI_IDENT) if start > owner_starts[0]
+    ]
+    if not source_starts:
+        return None
+    try:
+        head = _read_basic_head(_Reader(data, source_starts[0] + 4), version)
+    except LinkTableError as exc:
+        raise LinkTableError(
+            f"VIVI record at offset {source_starts[0]}: {exc}"
+        ) from exc
+    return InstanceSourceLink(head.name_parts, head.path_tokens)
 
 
 def read_iuse_links(libd_path: Path, version: LinkTableVersion) -> list[IUseLink]:

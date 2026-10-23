@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.vi_files import is_vi_file
 
 from ..models import (
     CaseFrame,
@@ -2324,7 +2325,8 @@ def _dependency_kind_for(
 ) -> DependencyKind:
     """The §7 ``uses :`` kind word for one dependency's fully-qualified
     identity. The file extension is authoritative WHEN PRESENT (``.vi`` /
-    ``.ctl`` / ``.lvclass``); otherwise the kind comes from ``source_hint`` --
+    ``.vim`` / ``.vit`` / ``.ctl`` / ``.lvclass``); otherwise the kind comes from
+    ``source_hint`` --
     which of the VI's own dependency TABLES the qname was drawn from (its
     SubVI call table vs its referenced-type map), the real data-driven
     classification rather than a filename guess. Some genuine dependencies
@@ -2333,7 +2335,7 @@ def _dependency_kind_for(
     extension nor a hint is a SubVI (the only kind reached by a call), never
     an error."""
     leaf = qualified.rsplit(":", 1)[-1]
-    if leaf.endswith(".vi"):
+    if is_vi_file(leaf):
         return DependencyKind.SUBVI
     if leaf.endswith(".ctl"):
         return DependencyKind.TYPEDEF
@@ -2470,7 +2472,7 @@ def _build_dependency_manifest(
         if (
             ":" not in qname
             and resolved is not None
-            and resolved.suffix.lower() == ".vi"
+            and is_vi_file(resolved)
         ):
             owner = class_qname_by_dir.get(str(resolved.parent))
             if owner:
@@ -2486,7 +2488,7 @@ def _build_dependency_manifest(
         elif nt in (NodeType.LIBRARY, NodeType.CLASS):
             hint = DependencyKind.CLASS
         elif qname in subvi_qname_by_subpath.values() or (
-            resolved is not None and resolved.suffix.lower() == ".vi"
+            resolved is not None and is_vi_file(resolved)
         ):
             hint = DependencyKind.SUBVI
         kind = _dependency_kind_for(qname, hint)

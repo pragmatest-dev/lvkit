@@ -13,6 +13,7 @@ from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
 from lvkit.models import vi_kind_label
 from lvkit.parser.xml_trees import parsed_xml
 from lvkit.text_encoding import decode_labview_text
+from lvkit.vi_files import is_vi_file
 
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
@@ -512,6 +513,15 @@ def _decode_pth0_components(
     return tokens, idx
 
 
+def parse_instance_files(root: ET.Element) -> list[str]:
+    """The sidecar file of each ``VINS`` section of a VI's main XML, in section
+    order (empty when the VI has no ``VINS`` block)."""
+    sections = sorted(
+        root.findall("VINS/Section"), key=lambda s: int(s.get("Index", "0"))
+    )
+    return [f for s in sections if (f := s.get("File"))]
+
+
 def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
     """A recorded PATH for EVERY file a link binary references, from its ``PTH0``
     path records. LabVIEW stores a ``PTH0`` for each dependency it tracks (it is
@@ -520,7 +530,8 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
     ``_LIfp.bin`` (front panel). Each ``PTH0``'s components ARE the path
     (caller-relative; a leading empty pops one level, per
     ``ParsedDependencyRef.resolve_against``) and its LAST component is the
-    referenced file's leaf (``*.vi`` / ``*.lvclass`` / ``*.ctl`` / ``*.lvlib``).
+    referenced file's leaf (``*.vi`` / ``*.vim`` / ``*.vit`` / ``*.lvclass`` /
+    ``*.ctl`` / ``*.lvlib``).
 
     Recovering these gives the loader a recorded path for the referenced CLASSES
     and TYPEDEFS too — not just SubVIs — so the whole dependency closure resolves
@@ -538,7 +549,7 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
         if not tokens:
             continue
         leaf = tokens[-1]
-        if not leaf.endswith((".vi", ".lvclass", ".ctl", ".lvlib")):
+        if not (is_vi_file(leaf) or leaf.endswith((".lvclass", ".ctl", ".lvlib"))):
             continue
         key = (leaf, *tokens)
         if key in seen:
@@ -615,7 +626,7 @@ def parse_vipi_from_livi(livi_path: Path) -> list[str]:
                 text = decode_labview_text(raw)
             names.append(text.strip())
 
-        method = next((n for n in names if n.endswith(".vi")), None)
+        method = next((n for n in names if is_vi_file(n)), None)
         if method:
             names_out.append(method)
 

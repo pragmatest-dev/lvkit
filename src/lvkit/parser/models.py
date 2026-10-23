@@ -765,6 +765,11 @@ class ParsedVIMetadata:
     # instead of a name-search (path-driven closure, web == desktop). SEPARATE
     # from ``dependency_refs`` so it never adds a dep, only supplies a path.
     link_path_refs: list[ParsedDependencyRef] = field(default_factory=list)
+    # The sidecar files of the VI's ``VINS`` block, in section order: section 0
+    # (the list of embedded instance names), then one file per embedded instance
+    # (the private VI file LabVIEW saves for each call of a malleable VI). Empty
+    # when the VI has no ``VINS`` block. See ``lvkit.embedded_instances``.
+    instance_files: list[str] = field(default_factory=list)
 
 
 @dataclass

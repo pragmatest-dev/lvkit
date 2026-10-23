@@ -15,6 +15,7 @@ from lvkit.primitive_resolver import (
     TerminalResolutionNeeded,
     get_resolver,
 )
+from lvkit.vi_files import strip_vi_extension
 
 from ..ast_utils import (
     build_assign,
@@ -348,8 +349,7 @@ def _build_input_map(
             ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
             if ut == "Refnum" and node.prim_id in (8010, 8011, 8003, 8005):
                 vi_short = (
-                    (ctx.vi_name or "output")
-                    .replace(".vi", "")
+                    strip_vi_extension(ctx.vi_name or "output")
                     .replace(":", "_")
                     .replace(".", "_")
                 )

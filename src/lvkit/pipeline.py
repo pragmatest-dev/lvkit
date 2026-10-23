@@ -33,6 +33,7 @@ from lvkit.graph.node_kinds import NodeType
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import ROOT_CLASS, derive_python_name
+from lvkit.vi_files import strip_vi_extension
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -586,6 +587,8 @@ def generate_python(
             mode,
             search_paths=search_path_list,
         )
+    elif input_path.suffix.lower() == ".ctl":
+        graph.load_typedef(input_path, search_paths=search_path_list or None)
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
             str(input_path),
@@ -637,7 +640,7 @@ def generate_python(
     for vi_name in order:
         if vi_name in poly_groups:
             continue
-        name_no_ext = vi_name.replace(".vi", "").replace(".VI", "")
+        name_no_ext = strip_vi_extension(vi_name)
         if "(" in name_no_ext and ")" in name_no_ext:
             # Extract base: "Filter (Array)__sfx" -> "Filter__sfx"
             paren_start = name_no_ext.index("(")

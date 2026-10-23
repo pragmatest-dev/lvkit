@@ -19,6 +19,7 @@ from ..models import (
     TunnelTerminal,
 )
 from ..parser.node_types import get_display_name
+from ..vi_files import is_vi_file, strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
 from .models import (
@@ -244,7 +245,7 @@ def _format_signature(ctx: VIContext) -> str:
     for out in ctx.outputs:
         outputs.append(f"{out.name}: {_terminal_type_label(out)}")
 
-    func_name = ctx.name.replace(".vi", "").replace(" ", "_").lower()
+    func_name = strip_vi_extension(ctx.name).replace(" ", "_").lower()
     params = ", ".join(inputs)
     ret = ", ".join(outputs) if outputs else "None"
 
@@ -581,7 +582,7 @@ def _describe_class_context(
         {
             t.split(":")[-1]
             for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-            if e.get("rel") == EdgeRel.OWNS and t.endswith(".vi")
+            if e.get("rel") == EdgeRel.OWNS and is_vi_file(t)
         }
     )
 
