@@ -363,6 +363,11 @@ class TestCacheFreshness:
 # ── real extraction: cold miss extracts, warm hit does not ──────────────────
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 class TestRealExtraction:
     SAMPLE = Path(

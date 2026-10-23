@@ -20,7 +20,7 @@ from lvkit.models import LVTypeKind
 
 from .conftest import SAMPLES_ROOT
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 _ICON_API = SAMPLES_ROOT / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API"
 _CLUSTER_CTL = _ICON_API / "API_Test Settings.ctl"  # uses Alignment.ctl (nested)

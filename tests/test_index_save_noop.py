@@ -108,6 +108,11 @@ _SAMPLE = Path(
 )
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 def test_second_describe_writes_nothing_under_the_cache(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

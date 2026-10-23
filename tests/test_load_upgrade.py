@@ -19,7 +19,7 @@ from lvkit.index.build import build_index
 from lvkit.index.model import NodeKind
 from lvkit.index.project import resolve_project
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 _TESTCASE = (
     Path(__file__).resolve().parent.parent

@@ -16,7 +16,7 @@ from lvkit.graph import InMemoryVIGraph, LoadMode
 from lvkit.index import store
 from lvkit.index.build import warm_index_for_vi
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 _TESTCASE = (
     Path(__file__).resolve().parent.parent

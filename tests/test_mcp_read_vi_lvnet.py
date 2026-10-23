@@ -19,7 +19,7 @@ import pytest
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.mcp import server as srv
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _GOLDEN_VI = _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi"

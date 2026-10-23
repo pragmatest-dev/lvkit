@@ -16,7 +16,7 @@ import pytest
 from lvkit.index import sql
 from lvkit.index.store import db_path
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 SAMPLE = Path(
     ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/TrackDroppedFrames_FP.vi"
