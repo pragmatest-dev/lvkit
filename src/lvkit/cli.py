@@ -1268,8 +1268,9 @@ def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
     ``lvnet`` text surface) instead of the raw binary blob — the ``lvkit setup
     --git-textconv`` mode.
 
-    Appends ``*.vi diff=lvkit`` to the repo's ``.gitattributes`` (creating it
-    if missing; a no-op if the line is already present) and sets the
+    Appends a ``diff=lvkit`` line for each VI file extension to the repo's
+    ``.gitattributes`` (creating it if missing; a no-op for lines already
+    present) and sets the
     ``diff.lvkit.textconv``/``diff.lvkit.cachetextconv`` git config in the
     repo ``root`` belongs to. Requires ``root`` to be inside a git repo —
     reports a clear error and a non-zero exit otherwise (this is a git-only
@@ -1292,14 +1293,16 @@ def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
     repo_root = Path(repo_toplevel.stdout.strip())
 
     attrs_path = repo_root / ".gitattributes"
-    attrs_line = "*.vi diff=lvkit"
     existing = attrs_path.read_text(encoding="utf-8") if attrs_path.is_file() else ""
-    if attrs_line in existing.splitlines():
-        print(f"{attrs_path}: already has `{attrs_line}`")
-    else:
+    for ext in VI_EXTENSIONS:
+        attrs_line = f"*{ext} diff=lvkit"
+        if attrs_line in existing.splitlines():
+            print(f"{attrs_path}: already has `{attrs_line}`")
+            continue
         if existing and not existing.endswith("\n"):
             existing += "\n"
-        attrs_path.write_text(existing + attrs_line + "\n", encoding="utf-8")
+        existing += attrs_line + "\n"
+        attrs_path.write_text(existing, encoding="utf-8")
         print(f"{attrs_path}: added `{attrs_line}`")
 
     textconv_cmd = f"lvkit describe --format {fmt}"
@@ -1323,8 +1326,8 @@ def _setup_git_textconv(root: Path, fmt: str = "lvnet") -> int:
         print(f"git config {key} {value!r}")
 
     print(
-        "\nGit textconv configured. `git diff`/`git show` on .vi files now "
-        "render lvkit's netlist text."
+        "\nGit textconv configured. `git diff`/`git show` on VI files "
+        "(.vi, .vim, .vit) now render lvkit's netlist text."
     )
     return 0
 

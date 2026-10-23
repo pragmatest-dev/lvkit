@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **String To IP and IP To String generate Python** — both look up the address or host name through the operating system, as NI documents them.
+- **`lvkit setup --git-textconv` covers `.vim` and `.vit`** — `git diff`/`git show` render their netlist text like a `.vi`.
 - **Fix: `.vim` (malleable VI) and `.vit` (VI template) files load like `.vi` files** — describe, lvnet, JSON, render, generate, project indexing and `.lvlib` members all accept them; a call to a malleable VI shows the VI's own terminal names instead of a bare box; `generate` works on a `.ctl` (#99).
 - **Faster VI loading** — each of a VI's XML files is parsed once instead of several times; a large VI tree loads about a third faster once extracted.
 - **Fix: a two-frame error case with an error-code frame keeps its Default frame** — its frame with no value read `""` instead of `Default` (#187).

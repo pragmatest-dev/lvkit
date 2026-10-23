@@ -15,11 +15,11 @@
     "untrustedWorkspaces": {
       "supported": "limited",
       "restrictedConfigurations": ["lvkit.path"],
-      "description": "In an untrusted workspace LVKit renders and diffs .vi files with its own bundled lvkit binary; the `lvkit.path` override (which would run an executable the workspace names) is ignored."
+      "description": "In an untrusted workspace LVKit renders and diffs VI files (.vi, .vim, .vit) with its own bundled lvkit binary; the `lvkit.path` override (which would run an executable the workspace names) is ignored."
     },
     "virtualWorkspaces": {
       "supported": true,
-      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders .vi files in the browser via lvkit compiled to WebAssembly (Pyodide, loaded from a CDN) — no local disk or executable needed. Diff and the MCP server remain desktop-only."
+      "description": "In a virtual workspace (a hosted/web editor such as vscode.dev, GitHub Codespaces web, GitLab Web IDE, or Cursor) LVKit renders VI files (.vi, .vim, .vit) in the browser via lvkit compiled to WebAssembly (Pyodide, loaded from a CDN) — no local disk or executable needed. The MCP server remains desktop-only."
     }
   },
   "categories": ["Visualization", "SCM Providers", "Other"],
@@ -29,7 +29,7 @@
   "browser": "./dist/web/extension.js",
   "contributes": {
     "languages": [
-      { "id": "labview-vi", "aliases": ["LabVIEW VI"], "extensions": [".vi"] },
+      { "id": "labview-vi", "aliases": ["LabVIEW VI"], "extensions": [".vi", ".vim", ".vit"] },
       { "id": "labview-class", "aliases": ["LabVIEW Class"], "extensions": [".lvclass"] },
       { "id": "labview-library", "aliases": ["LabVIEW Library"], "extensions": [".lvlib"] },
       { "id": "labview-project", "aliases": ["LabVIEW Project"], "extensions": [".lvproj"] }
@@ -70,13 +70,13 @@
       {
         "viewType": "lvkit.viPreview",
         "displayName": "LVKit VI Preview",
-        "selector": [{ "filenamePattern": "*.vi" }],
+        "selector": [{ "filenamePattern": "*.vi" }, { "filenamePattern": "*.vim" }, { "filenamePattern": "*.vit" }],
         "priority": "default"
       },
       {
         "viewType": "lvkit.viText",
         "displayName": "LVKit VI Text (lvnet)",
-        "selector": [{ "filenamePattern": "*.vi" }],
+        "selector": [{ "filenamePattern": "*.vi" }, { "filenamePattern": "*.vim" }, { "filenamePattern": "*.vit" }],
         "priority": "option"
       }
     ],
@@ -95,10 +95,10 @@
         { "command": "lvkit.diffVI", "when": "scmProvider == git", "group": "navigation@1" }
       ],
       "explorer/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi", "group": "navigation@1" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname =~ /^\\.vi[mt]?$/", "group": "navigation@1" }
       ],
       "editor/title/context": [
-        { "command": "lvkit.diffVI", "when": "resourceExtname == .vi" }
+        { "command": "lvkit.diffVI", "when": "resourceExtname =~ /^\\.vi[mt]?$/" }
       ]
     }
   },

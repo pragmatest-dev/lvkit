@@ -8,6 +8,10 @@ lockstep with the `lvkit` library it ships** — so a **0.6.2** extension bundle
 extension.) Every entry below is **dated** so you can line a release up against
 the [`lvkit` library changelog](../../CHANGELOG.md).
 
+## [Unreleased]
+
+- **Opens, renders and diffs `.vim` (malleable VI) and `.vit` (VI template) files** like `.vi`, in the desktop and web extensions.
+
 ## [0.6.3] — 2026-08-19
 
 - **Bundles `lvkit` 0.6.3** — VI icons now render in **color** (the renderer was
