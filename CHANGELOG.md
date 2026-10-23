@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Faster VI loading** — each of a VI's XML files is parsed once instead of several times; a large VI tree loads about a third faster once extracted.
 - **Fix: a two-frame error case with an error-code frame keeps its Default frame** — its frame with no value read `""` instead of `Default` (#187).
 
 ## [0.8.12] - 2026-10-22
