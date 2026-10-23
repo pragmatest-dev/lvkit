@@ -12,18 +12,27 @@
         {
           "index": 1,
           "direction": "in",
-          "name": "dot notation? (F)",
-          "type": "Boolean"
+          "name": "dot_notation",
+          "type": "Boolean",
+          "default_value": "False"
         },
         {
           "index": 2,
           "direction": "in",
-          "name": "net address",
+          "name": "net_address",
           "type": "NumUInt32"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "python_code": {
+        "_import": "from lvkit.runtime import tcp as _tcp",
+        "name": "_tcp.ip_to_string(in_2, in_1)"
+      },
+      "imports": [
+        "from lvkit.runtime import tcp as _tcp"
+      ],
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/ip-to-string.html"
     },
     "1711": {
       "name": "String To IP",
@@ -31,7 +40,7 @@
         {
           "index": 0,
           "direction": "out",
-          "name": "net address",
+          "name": "net_address",
           "type": "NumUInt32"
         },
         {
@@ -41,8 +50,16 @@
           "type": "String"
         }
       ],
-      "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "python_code": {
+        "_import": "from lvkit.runtime import tcp as _tcp",
+        "net_address": "_tcp.string_to_ip(in_1)"
+      },
+      "imports": [
+        "from lvkit.runtime import tcp as _tcp"
+      ],
+      "inline": true,
+      "verified": true,
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/string-to-ip.html"
     },
     "1712": {
       "name": "TCP Wait On Listener",
