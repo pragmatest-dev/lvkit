@@ -103,6 +103,11 @@ def test_a_missing_control_raises(tmp_path: Path) -> None:
         render_ctl_body(tmp_path / "Nope.ctl", fmt="svg")
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CTL.exists(), reason="icon-editor sample absent")
 def test_a_real_control_renders_as_svg_and_html():

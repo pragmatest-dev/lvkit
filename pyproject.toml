@@ -118,9 +118,12 @@ testpaths = ["tests"]
 # Parallel by default (pytest-xdist across all cores) and skip the slow
 # full-corpus acceptance tests — run those explicitly with `-m slow`, and
 # override parallelism with `-p no:xdist` / `-n0` when you need serial output.
-addopts = "-n auto -m 'not slow'"
+# `--dist loadgroup` keeps tests that share an `xdist_group` mark on one worker,
+# so a large corpus VI loads once for all of them (tests/corpus_graphs.py).
+addopts = "-n auto --dist loadgroup -m 'not slow'"
 markers = [
     "needs_samples: test reads the local-only sample VI corpus (.lvkit/cache/samples). Auto-skipped when the corpus is absent; pull it with scripts/pull_samples.sh.",
+    "cold_cache: corpus test that needs an empty cache of its own instead of the cache its worker's corpus tests share (it checks extraction, index or cache behaviour).",
     "slow: full-corpus acceptance/integration test (e.g. indexing the whole sample set); excluded from the default run, opt in with `-m slow`.",
     "functional: generates a corpus VI, EXECUTES the generated Python, and asserts its real output matches the VI's logic. Run/skip as a block with `-m functional` / `-m 'not functional'`.",
 ]

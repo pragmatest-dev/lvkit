@@ -210,6 +210,11 @@ def test_resolve_target_unmatched_relative_unchanged(tmp_path):
 # ---- end-to-end: a real tool honors the client root when project is omitted --
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 def test_project_tool_defaults_to_client_root():
     """`query` with no `project` indexes the folder the client opened."""

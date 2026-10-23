@@ -599,6 +599,11 @@ _JKI_ROOT = _SAMPLES / "JKI-VI-Tester"
 _TESTCASE_DIR = _JKI_ROOT / "source" / "Classes" / "TestCase"
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 def test_histogram_over_real_facts_matches_independent_count():
     """On a real class dir: the SQL error-indicator histogram equals an

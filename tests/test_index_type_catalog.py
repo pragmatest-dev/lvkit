@@ -150,6 +150,11 @@ def test_the_views_answer_structure_questions(tmp_path: Path) -> None:
 _TESTCASE_DIR = SAMPLES_ROOT / "JKI-VI-Tester" / "source" / "Classes" / "TestCase"
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _TESTCASE_DIR.exists(), reason="JKI sample absent")
 def test_a_real_directory_is_indexed_with_types(tmp_path):

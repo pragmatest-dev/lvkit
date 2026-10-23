@@ -20,7 +20,7 @@ import pytest
 
 from lvkit.mcp import server as srv
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 # A standalone VI for the deep single-VI tools.
 SAMPLE = Path(

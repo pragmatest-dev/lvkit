@@ -42,7 +42,7 @@ from lvkit.index.store import save as save_index
 from lvkit.index.store import save_lvproj_members
 from lvkit.structure import parse_lvclass
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
 JKI_ROOT = SAMPLES / "JKI-VI-Tester"

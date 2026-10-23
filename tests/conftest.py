@@ -53,14 +53,32 @@ def _sanitize_git_env(monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
 
+@pytest.fixture(scope="session")
+def _corpus_cache_dir(tmp_path_factory):
+    """One cache per test worker, shared by its corpus tests. Extraction is
+    keyed by each VI's content hash, so a VI one test extracted is reused by the
+    next instead of re-running pylabview."""
+    return tmp_path_factory.mktemp("lvkit-corpus-cache")
+
+
 @pytest.fixture(autouse=True)
-def _hermetic_cache(tmp_path_factory, monkeypatch):
-    """Point the extraction cache at a per-test tmp dir so no test ever writes
-    to the real ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``), and each test
-    starts with a cold cache. ``monkeypatch.setenv`` mutates ``os.environ`` in
-    process, so subprocess-based CLI tests inherit ``LVKIT_CACHE_DIR`` too.
-    Also clears the module-level extraction roots (mirrors a fresh process)."""
-    cache_dir = tmp_path_factory.mktemp("lvkit-cache")
+def _hermetic_cache(request, tmp_path_factory, monkeypatch):
+    """Point the cache at a tmp dir so no test ever writes to the real
+    ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``). A corpus test
+    (``needs_samples``) shares its worker's cache; every other test, and a
+    corpus test marked ``cold_cache``, starts with an empty one.
+    ``monkeypatch.setenv`` mutates ``os.environ`` in process, so subprocess-based
+    CLI tests inherit ``LVKIT_CACHE_DIR`` too. Also clears the module-level
+    extraction roots (mirrors a fresh process)."""
+    node = request.node
+    shared = node.get_closest_marker("needs_samples") and not node.get_closest_marker(
+        "cold_cache"
+    )
+    cache_dir = (
+        request.getfixturevalue("_corpus_cache_dir")
+        if shared
+        else tmp_path_factory.mktemp("lvkit-cache")
+    )
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(cache_dir))
 
     from lvkit import cache_paths, staging

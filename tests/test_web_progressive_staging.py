@@ -41,6 +41,11 @@ def test_progressive_matches_single_pass_issue29(tmp_path: Path) -> None:
     )
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 def test_progressive_stages_inherited_class_methods(tmp_path: Path) -> None:
     """The case the regression actually lived in: Apply Body Text calls 6 class
