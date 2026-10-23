@@ -67,6 +67,9 @@ function toBase64(bytes) {
 // target keeps installing this fixed wheel. Bump LVKIT_WHEEL *only* when src/lvkit
 // changes (and publish that lvkit to PyPI); it MUST name a version that exists on
 // PyPI. networkx/pylabview are likewise pinned to match the render (uv.lock).
+// The file kinds that hold a VI (matches package.json's selectors).
+const VI_FILE_RE = /\.vi[mt]?$/i;
+
 const CDN_PYODIDE = "https://cdn.jsdelivr.net/pyodide/v314.0.5/full/";
 const LVKIT_WHEEL = "lvkit==0.8.12";
 const CDN_WHEELS = ["networkx==3.4.2", "pylabview==0.1.2", LVKIT_WHEEL];
@@ -173,7 +176,7 @@ function getEngine() {
 // typedef's file has to be present too, or the graph degrades to a stub and the
 // wasm render diverges from the native one (see check-web-parity.sh). Pyodide has
 // no access to the workspace FS, so before a render we mirror the VI's MINIMAL
-// dependency closure (not the whole workspace, and not .vi-only) into Pyodide
+// dependency closure (not the whole workspace, and not VI-file-only) into Pyodide
 // under /proj, preserving relative layout — then render /proj/<the VI>.
 //
 // This works WITH the graph loader, not around it: each pass MINIMAL-loads the
@@ -183,7 +186,7 @@ function getEngine() {
 // so the first pass (only the opened VI staged) already names its direct deps;
 // we fetch those in PARALLEL and the next pass, now able to open them, walks a
 // level deeper. The set is exactly the MINIMAL closure the desktop loader would
-// touch (.vi/.ctl/.lvclass/.lvlib), so /proj ends byte-parity with desktop.
+// touch (.vi/.vim/.vit/.ctl/.lvclass/.lvlib), so /proj ends byte-parity with desktop.
 // Bounded so a pathological project can't stage forever; the opened VI is always
 // staged even if the cap trips (it just renders with fewer clickable SubVIs /
 // possibly-stubbed types).
@@ -241,7 +244,7 @@ async function stageDependencyClosure(uri, engine) {
     }
 
     // PARALLEL: every newly-wanted file is read off the workspace FS at once —
-    // this is the whole point (the old walk read one .vi at a time, which is
+    // this is the whole point (the old walk read one VI file at a time, which is
     // what made staging take 1-8 minutes over a remote VFS).
     const reads = await Promise.all(
       wanted.map((rel) =>
@@ -337,7 +340,7 @@ async function resolveDiffSides(target) {
     tab &&
     tab.original &&
     tab.modified &&
-    /\.vi$/i.test(tab.modified.path || "") &&
+    VI_FILE_RE.test(tab.modified.path || "") &&
     (tab.modified.toString() === target.toString() ||
       tab.original.toString() === target.toString())
   ) {
@@ -355,7 +358,7 @@ async function resolveDiffSides(target) {
   const head = await headGitUri(target);
   if (!head) {
     throw new Error(
-      "Git extension unavailable — open the committed version of this .vi to diff it."
+      "Git extension unavailable — open the committed version of this VI to diff it."
     );
   }
   log("diff: working-tree file → compare vs HEAD");
@@ -364,8 +367,8 @@ async function resolveDiffSides(target) {
 
 async function diffVI(arg) {
   const target = arg && (arg.resourceUri || arg);
-  if (!target || !/\.vi$/i.test(target.path || "")) {
-    vscode.window.showErrorMessage("lvkit: no .vi selected.");
+  if (!target || !VI_FILE_RE.test(target.path || "")) {
+    vscode.window.showErrorMessage("lvkit: no VI file selected.");
     return;
   }
   const name = target.path.split("/").pop();
@@ -414,6 +417,7 @@ async function diffVI(arg) {
           await engine.ready;
           const html = await engine.run({
             type: "diff",
+            ext: (name.match(VI_FILE_RE) || [".vi"])[0].toLowerCase(),
             beforeB64: toBase64(beforeBytes),
             afterB64: toBase64(afterBytes),
             beforeRef: sides.before.ref || "",
@@ -661,11 +665,13 @@ def _probe(vi_path):
         __version__,
     ) or ""
 
-def _diff(before, after, before_ref, after_ref):
-    Path("/tmp/before.vi").write_bytes(bytes(before.to_py()))
-    Path("/tmp/after.vi").write_bytes(bytes(after.to_py()))
+def _diff(before, after, before_ref, after_ref, ext):
+    b = Path("/tmp/before" + ext)
+    a = Path("/tmp/after" + ext)
+    b.write_bytes(bytes(before.to_py()))
+    a.write_bytes(bytes(after.to_py()))
     return cached_diff(
-        Path("/tmp/before.vi"), Path("/tmp/after.vi"),
+        b, a,
         fmt="html",
         options=diff_options_tag("html", False, before_ref or None, after_ref or None),
         version=__version__,
@@ -725,7 +731,7 @@ window.addEventListener("message", ev => {
       api.postMessage({ type: "result", id: m.id, html });
     } else if (m.type === "diff") {
       const t0 = performance.now();
-      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "");
+      const html = diffFn(u8(m.beforeB64), u8(m.afterB64), m.beforeRef || "", m.afterRef || "", m.ext || ".vi");
       log("diffed via wasm in " + (performance.now() - t0).toFixed(0) + " ms");
       api.postMessage({ type: "result", id: m.id, html });
     } else if (m.type === "probe") {

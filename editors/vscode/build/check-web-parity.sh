@@ -38,6 +38,21 @@ if [ -d "$ICON_DIR" ]; then
   )
 fi
 
+# LOCAL-ONLY VI-file-kind coverage: a malleable VI (.vim), a VI template (.vit)
+# and a caller of a .vim (its closure stages the .vim like a .vi). They live in
+# gitignored sample corpora, so append them only when on disk.
+VIM_DIR=".lvkit/cache/samples/measurement-plugin-labview/Source/Runtime/Clients/Session Management V1/Session Reservation"
+VIT_FILE=".lvkit/cache/samples/JKI-VI-Tester/source/Templates/TestCase/testExample.vit"
+if [ -d "$VIM_DIR" ]; then
+  FIXTURES+=(
+    "$VIM_DIR/Create Annotations.vim"            # malleable VI
+    "$VIM_DIR/Create Reservation Annotations.vi" # caller of a .vim
+  )
+fi
+if [ -f "$VIT_FILE" ]; then
+  FIXTURES+=("$VIT_FILE")                        # VI template
+fi
+
 OUT="$(mktemp -d)"
 # Case-INSENSITIVE char class: the id embeds the source PATH slug, which
 # preserves case (JKI-VI-Tester, Test LVKit). Must stay identical to
