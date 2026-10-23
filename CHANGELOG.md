@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a two-frame error case with an error-code frame keeps its Default frame** — its frame with no value read `""` instead of `Default` (#187).
 
 ## [0.8.12] - 2026-10-22
 - **Fix: an Invoke Node's method row no longer shows an input** — only its return value output is a terminal (#183).

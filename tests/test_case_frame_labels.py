@@ -54,6 +54,21 @@ def test_two_frame_error_default_on_error_frame_is_not_marked(tmp_path: Path) ->
     assert "(default)" not in views.describe
 
 
+def test_two_frame_error_with_stored_values_and_no_default_reads_no_error_then_error(
+    tmp_path: Path,
+) -> None:
+    views = case_structure_views(
+        tmp_path, "error", [NO_ERROR, ERROR], default_frame=None
+    )
+    _assert_lines(
+        views,
+        describe=['Frame "No Error":', 'Frame "Error":'],
+        lvnet=['frame "No Error" :', 'frame "Error" :'],
+        json_labels=["No Error", "Error"],
+    )
+    assert "default" not in views.lvnet
+
+
 def test_error_codes_with_valueless_default_between_no_error_and_code(
     tmp_path: Path,
 ) -> None:

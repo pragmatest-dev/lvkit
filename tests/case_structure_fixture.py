@@ -155,7 +155,14 @@ def _bd_xml(
         for i in range(len(frames))
     )
     values = _selector_xml(selector, frames, stored_values)
-    default = "FF" if default_frame is None else f"{default_frame:02X}"
+    # LabVIEW leaves SelectDefaultCase out when the default is frame 0.
+    default = (
+        "<SelectDefaultCase>FF</SelectDefaultCase>"
+        if default_frame is None
+        else ""
+        if default_frame == 0
+        else f"<SelectDefaultCase>{default_frame:02X}</SelectDefaultCase>"
+    )
     case = (
         f'<SL__arrayElement class="caseStruct" uid="{_CASE_UID}">'
         '<termList elements="1">'
@@ -167,7 +174,7 @@ def _bd_xml(
         "</SL__arrayElement></termList>"
         f'<diagramList elements="{len(frames)}">{diags}</diagramList>'
         f"{values}"
-        f"<SelectDefaultCase>{default}</SelectDefaultCase>"
+        f"{default}"
         "</SL__arrayElement>"
     )
     return (
