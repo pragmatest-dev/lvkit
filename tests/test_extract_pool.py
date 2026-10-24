@@ -73,14 +73,16 @@ def test_pool_extracts_the_same_files_as_serial(
         extract_vi_xml(vi)
     serial = _cache_listing(tmp_path / "cache")
 
-    shutil.rmtree(tmp_path / "cache")
+    # A second, empty cache: the first holds this process's staging lock open,
+    # which Windows won't let a test delete.
+    monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "pool-cache"))
     with ExtractionPool() as pool:
         pool.prefetch(vis)
         for vi in vis:
             pool.wait(vi)
         assert pool._executor is not None
     assert all(cached_extraction(vi) is not None for vi in vis)
-    assert _cache_listing(tmp_path / "cache") == serial
+    assert _cache_listing(tmp_path / "pool-cache") == serial
 
 
 def test_cached_extraction_matches_extract_vi_xml(vis: list[Path]) -> None:
