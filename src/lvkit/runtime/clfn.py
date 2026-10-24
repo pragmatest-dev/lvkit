@@ -194,6 +194,16 @@ def _read_array(handle: int, element: str, dimensions: int) -> list[Any]:
 # ----------------------------------------------------------- spec <-> memory
 
 
+def _member(value: Any, index: int, name: str) -> Any:
+    """Member ``index`` of a cluster value: by position for a tuple or list, by
+    the dictionary's ordered values, else by attribute ``name``."""
+    if isinstance(value, (tuple, list)):
+        return value[index]
+    if isinstance(value, dict):
+        return list(value.values())[index]
+    return getattr(value, name)
+
+
 def _to_c(spec: Spec, value: Any, keep: list[Any]) -> Any:
     """``value`` as ctypes takes it for a field or cell of ``spec``."""
     if isinstance(spec, str):
@@ -206,7 +216,7 @@ def _to_c(spec: Spec, value: Any, keep: list[Any]) -> Any:
         return _new_array_handle(value, spec[1], spec[2], keep)
     members = _ctype(spec)()
     for i, (name, sub) in enumerate(spec[2]):
-        member = value[i] if isinstance(value, (tuple, list)) else getattr(value, name)
+        member = _member(value, i, name)
         setattr(members, f"f{i}", _to_c(sub, member, keep))
     return members
 

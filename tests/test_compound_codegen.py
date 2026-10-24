@@ -1033,3 +1033,41 @@ class TestArrayBuildWithArrayInputs:
         )
         output_var = fragment.bindings["term_out"]
         assert result[output_var] == [1, 2, 3, 4]
+
+
+class TestArrayBuildKeepsConcatenationApartFromAdd:
+    """Build Array of several arrays and scalars is one list display, so the
+    rewrite that broadcasts arithmetic over arrays cannot read it as an Add."""
+
+    def test_arrays_and_scalars_in_terminal_order(self):
+        array = LVType(
+            kind=LVTypeKind.ARRAY,
+            element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8"),
+        )
+        scalar = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8")
+        ctx = make_ctx("a", "b", "c", "d", "out")
+        for name, var in (("a", "head"), ("b", "body"), ("c", "tag"), ("d", "tail")):
+            ctx.bind(name, var)
+        op = PrimitiveNode(
+            id="build",
+            vi_path="test.vi",
+            name="Build Array",
+            node_type="aBuild",
+            terminals=[
+                Terminal(id="a", index=0, direction="input", lv_type=array),
+                Terminal(id="b", index=1, direction="input", lv_type=array),
+                Terminal(id="c", index=2, direction="input", lv_type=scalar),
+                Terminal(id="d", index=3, direction="input", lv_type=array),
+                Terminal(id="out", index=4, direction="output", lv_type=array),
+            ],
+        )
+
+        fragment = compound.generate_array_build(op, ctx)
+
+        statement = fragment.statements[0]
+        ast.fix_missing_locations(statement)
+        assert ast.unparse(statement).endswith("= [*head, *body, tag, *tail]")
+        module = ast.Module(body=[statement], type_ignores=[])
+        scope = {"head": [1, 2], "body": [3], "tag": 9, "tail": [4, 5]}
+        exec(compile(module, "<test>", "exec"), {}, scope)  # noqa: S102
+        assert scope[fragment.bindings["out"]] == [1, 2, 3, 9, 4, 5]

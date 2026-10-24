@@ -23,6 +23,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path as _Path
 from typing import Literal
 
+from . import flat as _flat
+
 
 def load_array(
     module_file: str,
@@ -368,7 +370,7 @@ def array_subset(arr, index, length):
     i = int(index)
     if length is None:
         return arr[i:]
-    return arr[i:i + int(length)]
+    return arr[i : i + int(length)]
 
 
 def replace_array_subset(arr, new, offsets, new_rank: int):
@@ -518,105 +520,51 @@ def rotate(x, n, bits):
     return ((x << n) | (x >> (bits - n))) & mask
 
 
-# Integer type spec -> (byte width, signed). Type Cast (below) speaks these.
-_INT_SPEC = {
-    "i8": (1, True), "u8": (1, False),
-    "i16": (2, True), "u16": (2, False),
-    "i32": (4, True), "u32": (4, False),
-    "i64": (8, True), "u64": (8, False),
-}
+def type_cast(x, src, dst):
+    """LabVIEW Type Cast: reinterpret x's flat bytes as the destination type (see
+    ``lvkit.runtime.flat`` for the type specs and the flattened format). Pairs it
+    cannot flatten raise NotImplementedError (loud, never silently wrong)."""
+    return _flat.type_cast(x, src, dst)
 
 
-def _flatten_bytes(x, spec: str) -> bytes:
-    """Flatten a value to LabVIEW's big-endian FLAT byte form (no length prefix,
-    which is what Type Cast uses — unlike Flatten To String). Supports strings,
-    scalar integers, and 1-D integer arrays; raises for anything else."""
-    if spec == "str":
-        return x.encode("latin-1") if isinstance(x, str) else bytes(x)
-    if spec in _INT_SPEC:
-        width, signed = _INT_SPEC[spec]
-        return int(x).to_bytes(width, "big", signed=signed)
-    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[spec[:-2]]
-        return b"".join(int(e).to_bytes(width, "big", signed=signed) for e in x)
-    raise NotImplementedError(f"Type Cast cannot flatten spec {spec!r}")
+def swap_bytes(x, spec):
+    """LabVIEW Swap Bytes of an integer, an array of integers or a cluster."""
+    return _flat.swap_bytes(x, spec)
 
 
-def _unflatten_bytes(b: bytes, spec: str):
-    """Interpret big-endian flat bytes as the target type spec (inverse of
-    _flatten_bytes). Supports strings, scalar integers, and 1-D integer arrays."""
-    if spec == "str":
-        return b.decode("latin-1")
-    if spec in _INT_SPEC:
-        width, signed = _INT_SPEC[spec]
-        return int.from_bytes(b[:width], "big", signed=signed)
-    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[spec[:-2]]
-        return [
-            int.from_bytes(b[i:i + width], "big", signed=signed)
-            for i in range(0, len(b) - len(b) % width, width)
-        ]
-    raise NotImplementedError(f"Type Cast cannot unflatten spec {spec!r}")
-
-
-def type_cast(x, src: str, dst: str):
-    """LabVIEW Type Cast: reinterpret x's flat bytes as the destination type.
-    Flattens x (big-endian, no length prefix) then reads those bytes back as
-    dst. Supported specs: 'str', scalar ints ('u32', 'i16', …) and 1-D integer
-    arrays ('u32[]', …); other type pairs raise NotImplementedError (loud, never
-    silently wrong)."""
-    return _unflatten_bytes(_flatten_bytes(x, src), dst)
+def swap_words(x, spec):
+    """LabVIEW Swap Words of an integer, an array of integers or a cluster."""
+    return _flat.swap_words(x, spec)
 
 
 # LabVIEW's 3 byte-order codes -> Python's from_bytes/to_bytes literal.
 _BYTE_ORDER: dict[int, Literal["little", "big"]] = {
-    0: "big", 1: _sys.byteorder, 2: "little"
+    0: "big",
+    1: _sys.byteorder,
+    2: "little",
 }
 
 
 def unflatten_from_string(
-    binary_string, dst: str, byte_order: int = 0, includes_size: bool = True
+    binary_string, dst, byte_order: int = 0, includes_size: bool = True
 ):
     """LabVIEW Unflatten From String: parse ``binary_string`` (LabVIEW's
     Flatten To String format) as ``dst``'s type, returning
     ``(value, rest_of_the_binary_string)``. Unlike Type Cast, a String/array
     target carries a 4-byte length PREFIX when ``includes_size`` is True (the
-    default — matching Flatten To String's own output format), and
+    default -- matching Flatten To String's own output format), and
     ``byte_order`` selects big-endian/native/little-endian (LabVIEW's 0/1/2).
-    Supported specs: 'str', scalar ints, and 1-D integer arrays (same set Type
-    Cast supports); other type pairs raise NotImplementedError (loud, never
-    silently wrong -- clusters/refnums/floats await a fuller flat-format
-    implementation, same as Type Cast)."""
-    order = _BYTE_ORDER[byte_order]
+    The type specs are those of ``lvkit.runtime.flat``; other specs raise
+    NotImplementedError (loud, never silently wrong)."""
     data = (
         binary_string.encode("latin-1")
         if isinstance(binary_string, str)
         else bytes(binary_string)
     )
-    if dst == "str":
-        if includes_size:
-            n = int.from_bytes(data[:4], order)
-            value, rest = data[4 : 4 + n], data[4 + n :]
-        else:
-            value, rest = data, b""
-        return value.decode("latin-1"), rest.decode("latin-1")
-    if dst in _INT_SPEC:
-        width, signed = _INT_SPEC[dst]
-        value = int.from_bytes(data[:width], order, signed=signed)
-        return value, data[width:].decode("latin-1")
-    if dst.endswith("[]") and dst[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[dst[:-2]]
-        if includes_size:
-            count = int.from_bytes(data[:4], order)
-            body, rest = data[4 : 4 + count * width], data[4 + count * width :]
-        else:
-            body, rest = data, b""
-        value = [
-            int.from_bytes(body[i : i + width], order, signed=signed)
-            for i in range(0, len(body) - len(body) % width, width)
-        ]
-        return value, rest.decode("latin-1")
-    raise NotImplementedError(f"Unflatten From String cannot unflatten spec {dst!r}")
+    value, end = _flat.unflatten_at(
+        data, 0, dst, _BYTE_ORDER[byte_order], includes_size
+    )
+    return value, data[end:].decode("latin-1")
 
 
 def replace_fields(

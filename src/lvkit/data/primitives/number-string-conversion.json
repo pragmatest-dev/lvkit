@@ -53,10 +53,8 @@
           "type": "Array"
         }
       ],
-      "python_code": {
-        "hex_string": "['%0*X' % (in_1, b) for b in in_2]"
-      },
-      "note": "polymorphic: scalar number->hex string, or array->array of hex strings; width pads digits.",
+      "op": "NUMBER_TO_HEX_STRING",
+      "note": "polymorphic: scalar number->hex string, or array->array of hex strings; width pads digits. Emitted via the NUMBER_TO_HEX_STRING op handler, which reads whether the input is an array from its terminal type.",
       "verified": false
     },
     "1182": {

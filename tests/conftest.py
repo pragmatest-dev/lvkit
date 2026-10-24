@@ -8,6 +8,8 @@ import pytest
 
 from lvkit.codegen.context import CodeGenContext
 
+from .clfn_generated import generated_vi  # noqa: F401  (a fixture)
+from .fake_kernel32 import kernel32  # noqa: F401  (a fixture)
 from .helpers import make_ctx, make_graph_with_terminals
 
 # The sample VI corpus is local-only (gitignored, pulled via
