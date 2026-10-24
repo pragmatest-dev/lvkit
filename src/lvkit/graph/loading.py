@@ -11,12 +11,15 @@ import json
 import logging
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
+from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import networkx as nx
 
 from ..embedded_instances import read_instance_sources
+from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb, extract_vi_xml
 from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
@@ -69,6 +72,30 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from ..parser.layout import Layout
     from .core import InMemoryVIGraph
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _with_extraction_pool(method: _F) -> _F:
+    """Run a public load entry point with the graph's extraction pool open.
+
+    The outermost entry point opens the pool and closes it on exit; entry points
+    nested inside it (a class load calling ``load_vi`` per member) reuse it.
+    """
+
+    @wraps(method)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        if self._extract_pool is not None:
+            return method(self, *args, **kwargs)
+        with ExtractionPool() as pool:
+            self._extract_pool = pool
+            try:
+                return method(self, *args, **kwargs)
+            finally:
+                self._extract_pool = None
+
+    return cast("_F", wrapper)
 
 
 # LoadMode is defined in the light ``lvkit.load_mode`` leaf module (imported
@@ -261,6 +288,7 @@ class LoadingMixin:
     _layouts: dict[str, Layout]
     _want_layout: bool
     _parse_cache: dict[str, ParsedVI] | None
+    _extract_pool: ExtractionPool | None
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -285,6 +313,7 @@ class LoadingMixin:
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
 
+    @_with_extraction_pool
     def load_vi(
         self,
         vi_path: Path | str,
@@ -322,7 +351,7 @@ class LoadingMixin:
 
         # Handle VI files (.vi/.vim/.vit) by extracting first
         if is_vi_file(vi_path):
-            bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+            bd_xml, fp_xml, main_xml = self._extract(vi_path)
         elif vi_path.name.endswith("_BDHb.xml"):
             bd_xml = vi_path
             fp_xml = vi_path.with_name(vi_path.name.replace("_BDHb.xml", "_FPHb.xml"))
@@ -473,6 +502,7 @@ class LoadingMixin:
             else:
                 self._dep_graph.add_edge(caller, key)
 
+    @_with_extraction_pool
     def load_lvlib(
         self,
         lvlib_path: Path | str,
@@ -669,6 +699,7 @@ class LoadingMixin:
 
         return lib_key
 
+    @_with_extraction_pool
     def load_lvclass(
         self,
         lvclass_path: Path | str,
@@ -1148,6 +1179,7 @@ class LoadingMixin:
                     key, NodeType.VI, vi_name, vi_name, path_tokens=None, caller=None
                 )
 
+    @_with_extraction_pool
     def load_directory(
         self,
         dir_path: Path | str,
@@ -1174,7 +1206,7 @@ class LoadingMixin:
         # loads (rendering) skip this: parallel_parse_directory always parses
         # layout=False.
         if len(vi_paths) >= PARALLEL_THRESHOLD and not self._want_layout:
-            self._parse_cache = parallel_parse_directory(vi_paths)
+            self._parse_cache = parallel_parse_directory(vi_paths, self._extract_pool)
 
         try:
             for vi_path in vi_paths:
@@ -1186,6 +1218,7 @@ class LoadingMixin:
         finally:
             self._parse_cache = None
 
+    @_with_extraction_pool
     def load_llb(
         self,
         llb_path: Path | str,
@@ -1268,6 +1301,69 @@ class LoadingMixin:
             if resolved is not None and resolved.exists():
                 return ref
         return candidates[0]
+
+    def _recorded_dep_ref(
+        self,
+        qname: str,
+        dep_ref_map: dict[str, ParsedDependencyRef],
+        link_index: dict[str, list[ParsedDependencyRef]],
+        caller_file: Path,
+    ) -> ParsedDependencyRef | None:
+        """The recorded path ref for a dependency: its own LinkSavePathRef, else
+        the best link-table ref for its leaf filename."""
+        return dep_ref_map.get(qname) or self._pick_link_ref(
+            link_index.get(qname.rsplit(":", 1)[-1]), caller_file
+        )
+
+    def _prefetch_dependencies(
+        self,
+        qnames: list[str],
+        instance_sources: dict[str, ParsedDependencyRef],
+        dep_ref_map: dict[str, ParsedDependencyRef],
+        link_index: dict[str, list[ParsedDependencyRef]],
+        caller_file: Path,
+        search_paths: list[Path],
+    ) -> dict[str, Path | None]:
+        """Start extracting, in the pool, the SubVI and ``.ctl`` files this VI's
+        dependency walk is about to load that are not in the graph yet; the walk
+        then waits for its file in ``_extract`` and builds the graph in its own
+        sorted order. Returns each resolved file by the qualified name
+        ``_load_dependency`` is called with, so the walk does not resolve it
+        again."""
+        pool = self._extract_pool
+        if pool is None or not pool.enabled:
+            return {}
+        resolved_paths: dict[str, Path | None] = {}
+        files: list[Path] = []
+        for qname in qnames:
+            source = instance_sources.get(qname.rsplit(":", 1)[-1])
+            if source is not None:
+                name, ref = source.qualified_name or source.name, source
+            else:
+                name = qname
+                ref = self._recorded_dep_ref(
+                    qname, dep_ref_map, link_index, caller_file
+                )
+            leaf = name.rsplit(":", 1)[-1]
+            if not (is_vi_file(leaf) or leaf.endswith(".ctl")):
+                continue
+            resolved = self._resolve_dependency_path(
+                name, ref, caller_file, search_paths
+            )
+            resolved_paths[name] = resolved
+            if resolved is not None and not self._dep_graph.has_node(
+                str(resolved.resolve())
+            ):
+                files.append(resolved)
+        pool.prefetch(files)
+        return resolved_paths
+
+    def _extract(self, path: Path) -> tuple[Path, Path | None, Path | None]:
+        """``extract_vi_xml`` for a file the pool may be extracting: wait for
+        that extraction first, so this call finds it cached."""
+        if self._extract_pool is not None:
+            self._extract_pool.wait(path)
+        return extract_vi_xml(path)
 
     def _already_handled(
         self, vi_key: str, visited: set[str], mode: LoadMode
@@ -1511,6 +1607,14 @@ class LoadingMixin:
             # file claims a name first, so a hash-ordered set here made the
             # loaded VI SET non-deterministic across runs (146 vs 109 on the
             # JKI Programmatic API tree). Deterministic order → reproducible docs.
+            resolved_paths = self._prefetch_dependencies(
+                sorted(all_dep_qnames),
+                instance_sources,
+                dep_ref_map,
+                link_index,
+                caller_file,
+                search_paths,
+            )
             for qname in sorted(all_dep_qnames):
                 instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
                 if instance_source is not None:
@@ -1521,10 +1625,11 @@ class LoadingMixin:
                         search_paths,
                         caller_qname=vi_key,
                         mode=mode,
+                        resolved_paths=resolved_paths,
                     )
                     continue
-                dep_ref = dep_ref_map.get(qname) or self._pick_link_ref(
-                    link_index.get(qname.rsplit(":", 1)[-1]), caller_file
+                dep_ref = self._recorded_dep_ref(
+                    qname, dep_ref_map, link_index, caller_file
                 )
                 self._load_dependency(
                     qname,
@@ -1533,6 +1638,7 @@ class LoadingMixin:
                     search_paths,
                     caller_qname=vi_key,
                     mode=mode,
+                    resolved_paths=resolved_paths,
                 )
 
             # Resolve SubVI CALLEES (incl. dynamic-dispatch methods absent from
@@ -1603,7 +1709,7 @@ class LoadingMixin:
         # failure" contract for those too (load_typedef and lvkit.list_deps
         # rely on it).
         try:
-            bd_xml, fp_xml, main_xml = extract_vi_xml(ctl_path)
+            bd_xml, fp_xml, main_xml = self._extract(ctl_path)
             if not (main_xml and main_xml.exists()):
                 return None, {}, None
             type_map = parse_type_map_rich(main_xml)
@@ -1633,6 +1739,7 @@ class LoadingMixin:
         ctls = sorted(class_dir.glob("*.ctl"))
         return ctls[0] if len(ctls) == 1 else None
 
+    @_with_extraction_pool
     def load_typedef(
         self,
         ctl_path: Path | str,
@@ -1805,6 +1912,7 @@ class LoadingMixin:
         search_paths: list[Path],
         caller_qname: str | None,
         mode: LoadMode,
+        resolved_paths: dict[str, Path | None] | None = None,
     ) -> str:
         """Load the file a malleable-VI call is an instance of, as an ordinary
         SubVI of the caller. Returns the qualified name the call's node should
@@ -1817,6 +1925,7 @@ class LoadingMixin:
             search_paths,
             caller_qname=caller_qname,
             mode=mode,
+            resolved_paths=resolved_paths,
         )
         target = self._resolve_dependency_path(
             qualified_name, source, caller_file, search_paths
@@ -1833,6 +1942,7 @@ class LoadingMixin:
         search_paths: list[Path],
         caller_qname: str | None = None,
         mode: LoadMode = LoadMode.FULL,
+        resolved_paths: dict[str, Path | None] | None = None,
     ) -> None:
         """Load one dependency by its LabVIEW qualified name and optional path ref.
 
@@ -1842,14 +1952,19 @@ class LoadingMixin:
         Uses the recorded LinkSavePathRef for resolution (exact path, no scanning).
         Falls back to name-based search only when no path ref is available or the
         recorded path doesn't exist on disk (e.g. <userlib> refs without a root).
+        ``resolved_paths`` holds files the caller already resolved by qualified
+        name (see ``_prefetch_dependencies``).
 
         LabVIEW's one-qname-per-memory invariant means the dep_graph node check
         at the top is the definitive dedup — resolution only runs on first visit.
         """
         leaf = qualified_name.rsplit(":", 1)[-1]
-        resolved = self._resolve_dependency_path(
-            qualified_name, dep_ref, caller_file, search_paths
-        )
+        if resolved_paths is not None and qualified_name in resolved_paths:
+            resolved = resolved_paths[qualified_name]
+        else:
+            resolved = self._resolve_dependency_path(
+                qualified_name, dep_ref, caller_file, search_paths
+            )
 
         # PATH is the identity (finishes #26). The dep-graph key is ALWAYS the
         # resolved file path — never the qname or the bare name. A built copy
@@ -2000,7 +2115,7 @@ class LoadingMixin:
         the SubVI is stubbed PATH-keyed so it upgrades by identity later.
         """
         try:
-            bd_xml, fp_xml, main_xml = extract_vi_xml(resolved)
+            bd_xml, fp_xml, main_xml = self._extract(resolved)
             child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
             loaded_name = self._load_vi_recursive(
                 bd_xml,

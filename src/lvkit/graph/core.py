@@ -25,6 +25,7 @@ from ..parser.models import ParsedType, ParsedVI
 from ..type_names import ROOT_CLASS
 
 if TYPE_CHECKING:
+    from ..extract_pool import ExtractionPool
     from ..parser.layout import Layout
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .models import (
@@ -254,6 +255,9 @@ class InMemoryVIGraph(
         # falls back to its own parse_vi() call on any miss, so this is purely
         # an optional cache, never a correctness dependency.
         self._parse_cache: dict[str, ParsedVI] | None = None
+        # The process pool extracting this load's VIs ahead of the loader (see
+        # extract_pool.py); set by the outermost load entry point, None outside.
+        self._extract_pool: ExtractionPool | None = None
 
     def set_library_roots(
         self,

@@ -83,6 +83,11 @@ def set_extraction_roots(*, vilib_root: Path | None, userlib_root: Path | None) 
     _userlib_root = userlib_root.resolve() if userlib_root is not None else None
 
 
+def extraction_roots() -> tuple[Path | None, Path | None]:
+    """The run's ``(vilib_root, userlib_root)`` as last set (None when unset)."""
+    return _vilib_root, _userlib_root
+
+
 def clear_extraction_roots() -> None:
     """Forget the run's library roots (fall back to project/adhoc)."""
     global _vilib_root, _userlib_root
