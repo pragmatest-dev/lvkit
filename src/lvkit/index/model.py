@@ -478,6 +478,11 @@ class VIFacts:
     # each with the type_id it resolved to when this VI was built. See
     # TypedefVersionFact.
     typedef_versions: list[TypedefVersionFact] = field(default_factory=list)
+    # Whether this VI's dependencies were walked when it was projected. False for
+    # a VI a load pulled in only as a SubVI (connector pane, no dependency
+    # edges): its empty ``typedef_paths``/``typedef_versions`` then mean "not
+    # looked at", not "none". Not persisted.
+    dependencies_walked: bool = True
     # The ``TypeFact`` bodies a fresh build produced. NOT persisted on the VI: a
     # type is stored once, shared by every owner (``types`` table). Empty on a VI
     # loaded from the store, whose ``type_ids`` already name rows that exist.
