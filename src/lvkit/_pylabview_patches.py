@@ -25,8 +25,11 @@ import). It is idempotent.
 
 from __future__ import annotations
 
+import re
 import warnings
 from decimal import Decimal
+from typing import Any
+from xml.etree import ElementTree
 
 from .heap_text import encode_default_data
 
@@ -398,5 +401,38 @@ def install_pylabview_patches() -> None:
     _lv_datatype.newTDObject = _new_td_object
     # The VCTP block reads its descriptors through its own star-imported name.
     _lv_block.newTDObject = _new_td_object
+
+    # (10) Two per-call hot spots on large VIs (perf). Each is called millions
+    # of times on a VI with big constant data, and each rebuilt its lookup on
+    # every call: ``TDObject.fullType`` built a set of every TD_FULL_TYPE value,
+    # and LVxml's ``_escape_cdata`` (installed on ElementTree) scanned the text
+    # once per control character. Build the set once; find control characters
+    # with one compiled pattern. Same results for every input.
+    _full_type_values = frozenset(item.value for item in _lv_datatype.TD_FULL_TYPE)
+    _full_type_enum = _lv_datatype.TD_FULL_TYPE
+
+    def _full_type(self):  # type: ignore[no-untyped-def]
+        if self.otype not in _full_type_values:
+            return self.otype
+        return _full_type_enum(self.otype)
+
+    _full_type.__wrapped__ = _lv_datatype.TDObject.fullType  # type: ignore[attr-defined]
+    _lv_datatype.TDObject.fullType = _full_type
+
+    # pylabview's version returns ElementTree's own escape for text with no
+    # control character (tab and newline excepted); take that path directly and
+    # leave every other input to pylabview's version.
+    _cdata_controls = re.compile("[\x00-\x08\x0b-\x1f]")
+    _et: Any = ElementTree  # its private escaping hooks aren't in the stubs
+    _lv_escape_cdata = _et._escape_cdata
+    _std_escape_cdata = _et._original_escape_cdata
+
+    def _escape_cdata(text):  # type: ignore[no-untyped-def]
+        if isinstance(text, str) and _cdata_controls.search(text) is None:
+            return _std_escape_cdata(text)
+        return _lv_escape_cdata(text)
+
+    _escape_cdata.__wrapped__ = _lv_escape_cdata  # type: ignore[attr-defined]
+    _et._escape_cdata = _escape_cdata
 
     _installed = True
