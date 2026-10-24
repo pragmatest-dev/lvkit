@@ -451,6 +451,8 @@ class _Prior:
     impact_score: int
     callers_count: int
     class_fact: ClassFact | None
+    typedef_paths: list[str]
+    typedef_versions: list[TypedefVersionFact]
 
 
 def facts_digest(f: VIFacts) -> str:
@@ -460,6 +462,7 @@ def facts_digest(f: VIFacts) -> str:
     payload = asdict(f)
     del payload["impact_score"]
     del payload["callers_count"]
+    del payload["dependencies_walked"]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
@@ -498,6 +501,22 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         if cf_row is not None
         else None
     )
+    typedef_paths = [
+        r[0]
+        for r in conn.execute(
+            "SELECT typedef_path FROM typedef_uses WHERE vi_path = ? "
+            "ORDER BY typedef_path",
+            (path,),
+        )
+    ]
+    typedef_versions = [
+        TypedefVersionFact(r[0], r[1])
+        for r in conn.execute(
+            "SELECT typedef_path, type_id FROM vi_typedef_versions "
+            "WHERE vi_path = ? ORDER BY typedef_path",
+            (path,),
+        )
+    ]
     return _Prior(
         content_sha=row[0],
         facts_digest=row[1],
@@ -506,6 +525,8 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         impact_score=row[4],
         callers_count=row[5],
         class_fact=class_fact,
+        typedef_paths=typedef_paths,
+        typedef_versions=typedef_versions,
     )
 
 
@@ -575,10 +596,12 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
     row, a partial load never downgrades a fuller one:
 
     * ``library`` / ``class_fact``: an incoming NULL keeps the stored value.
-    * ``typedef_paths`` / ``typedef_versions`` are NOT merged: they record which
-      controls the VI could read at its last save, and ``sync_index`` compares
-      them with the controls' current shape to decide a rebuild, so the latest
-      load's value is the truth.
+    * ``typedef_paths`` / ``typedef_versions`` record which controls the VI could
+      read at its last save, and ``sync_index`` compares them with the controls'
+      current shape to decide a rebuild, so the latest load that walked the VI's
+      dependencies replaces them. A load that did not walk them
+      (``dependencies_walked`` False) knows nothing about them, so the stored
+      lists stay.
     * a stub never replaces a loaded VI.
     * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
       stored ones stay.
@@ -594,6 +617,12 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             f,
             library=f.library if f.library is not None else prior.library,
             class_fact=_coalesce_class_fact(prior.class_fact, f.class_fact),
+            typedef_paths=(
+                f.typedef_paths if f.dependencies_walked else prior.typedef_paths
+            ),
+            typedef_versions=(
+                f.typedef_versions if f.dependencies_walked else prior.typedef_versions
+            ),
             impact_score=prior.impact_score,
             callers_count=prior.callers_count,
         )

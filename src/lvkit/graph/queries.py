@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, Terminal
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
@@ -105,6 +106,7 @@ class QueryMixin:
     _name_to_keys: dict[str, list[str]]
     _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
+    _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
@@ -391,6 +393,14 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.successors(vi_name))
+
+    def dependencies_walked(self, vi_name: str) -> bool:
+        """Whether this VI's own dependencies (SubVIs, classes, typedefs) were
+        loaded, so ``get_vi_dependencies`` is its full dependency list. False
+        for a VI loaded at ``LoadMode.NONE`` (connector pane only) and for one
+        this graph never loaded."""
+        mode = self._dep_load_mode.get(self.resolve_vi_name(vi_name))
+        return mode is not None and mode is not LoadMode.NONE
 
     def type_key(self, ref: str, caller_vi_key: str) -> str | None:
         """The dependency key (file path) of the loaded class or typedef that

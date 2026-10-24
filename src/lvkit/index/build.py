@@ -701,6 +701,7 @@ def project_vi_facts(
         type_ids=sorted(catalog.types),
         typedef_paths=typedef_paths,
         typedef_versions=typedef_versions,
+        dependencies_walked=graph.dependencies_walked(vi_name),
         types=list(catalog.types.values()),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time
