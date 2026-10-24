@@ -63,7 +63,7 @@ def test_init_project_store_creates_layout(tmp_path: Path) -> None:
     assert store == tmp_path / ".lvkit"
     assert store.is_dir()
     assert (store / "README.md").exists()
-    assert "cleanroom" in (store / "README.md").read_text().lower()
+    assert "cleanroom" in (store / "README.md").read_text(encoding="utf-8").lower()
     for sub in ("vilib", "openg", "drivers"):
         assert (store / sub / "_index.json").exists()
 
@@ -74,7 +74,7 @@ def test_init_project_store_idempotent(tmp_path: Path) -> None:
     custom = "MY CUSTOM README"
     (store / "README.md").write_text(custom)
     init_project_store(tmp_path)
-    assert (store / "README.md").read_text() == custom
+    assert (store / "README.md").read_text(encoding="utf-8") == custom
 
 
 # ============================================================
@@ -361,7 +361,7 @@ def test_install_claude_skills_creates_all_user_facing(tmp_path: Path) -> None:
         path = tmp_path / ".claude" / "skills" / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
         # Frontmatter present
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert text.startswith("---\n")
         assert f"name: {skill}" in text
 
@@ -396,8 +396,8 @@ def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
     edited.write_text("LOCAL EDIT\n")
 
     install_claude_skills(tmp_path, force=True)
-    assert "LOCAL EDIT" not in edited.read_text()
-    assert "name: lvkit-convert" in edited.read_text()
+    assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
+    assert "name: lvkit-convert" in edited.read_text(encoding="utf-8")
 
 
 def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
@@ -434,7 +434,9 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
             f"{skill} was written despite a conflict in another skill"
         )
     # The conflicting file is preserved.
-    assert (skills_dir / "lvkit-convert" / "SKILL.md").read_text() == "LOCAL EDIT\n"
+    assert (skills_dir / "lvkit-convert" / "SKILL.md").read_text(
+        encoding="utf-8"
+    ) == "LOCAL EDIT\n"
 
 
 # ============================================================
@@ -494,7 +496,9 @@ def test_install_copilot_skills_frontmatter_and_marker(tmp_path: Path) -> None:
     description = _yaml_get(_split_frontmatter(template)[0], "description")
     assert description is not None
 
-    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text()
+    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text(
+        encoding="utf-8"
+    )
     expected_head = (
         "---\n"
         "name: lvkit-describe\n"
@@ -514,10 +518,14 @@ def test_install_copilot_skills_keep_slash_references(tmp_path: Path) -> None:
     from lvkit.project_store import install_copilot_skills
 
     install_copilot_skills(tmp_path)
-    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text()
+    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text(
+        encoding="utf-8"
+    )
     assert "`/lvkit-query`" in text
     for skill in _LVKIT_SKILLS:
-        body = (tmp_path / ".github/skills" / skill / "SKILL.md").read_text()
+        body = (tmp_path / ".github/skills" / skill / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
         assert "$lvkit" not in body
 
 
@@ -570,10 +578,10 @@ def test_install_copilot_skills_keeps_unmanaged_prompt_files(tmp_path: Path) -> 
 
     install_copilot_skills(tmp_path)
 
-    assert edited.read_text() == "my own prompt\n"
-    assert foreign.read_text() == "foreign\n"
+    assert edited.read_text(encoding="utf-8") == "my own prompt\n"
+    assert foreign.read_text(encoding="utf-8") == "foreign\n"
     assert not managed.exists()
-    assert user_router.read_text() == "hand written\n"
+    assert user_router.read_text(encoding="utf-8") == "hand written\n"
 
 
 def test_install_copilot_skills_idempotent(tmp_path: Path) -> None:
@@ -581,10 +589,14 @@ def test_install_copilot_skills_idempotent(tmp_path: Path) -> None:
     from lvkit.project_store import install_copilot_skills
 
     install_copilot_skills(tmp_path)
-    before = {p: p.read_text() for p in tmp_path.rglob("*") if p.is_file()}
+    before = {
+        p: p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file()
+    }
     second = install_copilot_skills(tmp_path)
     assert second == []
-    assert before == {p: p.read_text() for p in tmp_path.rglob("*") if p.is_file()}
+    assert before == {
+        p: p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file()
+    }
 
 
 def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
@@ -617,8 +629,8 @@ def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
     edited.write_text("LOCAL EDIT\n")
 
     install_copilot_skills(tmp_path, force=True)
-    assert "LOCAL EDIT" not in edited.read_text()
-    assert edited.read_text().startswith("---\nname: lvkit-convert\n")
+    assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
+    assert edited.read_text(encoding="utf-8").startswith("---\nname: lvkit-convert\n")
 
 
 # ============================================================
@@ -637,7 +649,7 @@ def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
     for skill in _LVKIT_SKILLS:
         path = skills_dir / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert text.startswith("---\n")
         assert f"name: {skill}" in text
         assert "description:" in text
@@ -647,12 +659,12 @@ def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
         assert "lvkit llm-generate" not in text
         assert "lvkit check" not in text
 
-    convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text()
+    convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text(encoding="utf-8")
     assert "$lvkit-query" in convert
     assert "$lvkit-resolve" in convert
     assert "$lvkit-document" in convert
 
-    resolve = (skills_dir / "lvkit-resolve" / "SKILL.md").read_text()
+    resolve = (skills_dir / "lvkit-resolve" / "SKILL.md").read_text(encoding="utf-8")
     assert "lvkit setup" in resolve
     assert "Shell compatibility" in resolve
     assert "PowerShell" in resolve
@@ -682,7 +694,7 @@ def test_install_codex_skills_atomic_on_conflict(tmp_path: Path) -> None:
     for skill in _LVKIT_SKILLS:
         path = skills_dir / skill / "SKILL.md"
         if skill == "lvkit-convert":
-            assert path.read_text() == "LOCAL EDIT\n"
+            assert path.read_text(encoding="utf-8") == "LOCAL EDIT\n"
         else:
             assert not path.exists()
 
@@ -696,7 +708,7 @@ def test_install_codex_skills_force_overwrites(tmp_path: Path) -> None:
     edited.write_text("LOCAL EDIT\n")
 
     install_codex_skills(tmp_path, force=True)
-    text = edited.read_text()
+    text = edited.read_text(encoding="utf-8")
     assert "LOCAL EDIT" not in text
     assert "name: lvkit-convert" in text
 
