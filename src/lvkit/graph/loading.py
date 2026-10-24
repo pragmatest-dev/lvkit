@@ -1409,7 +1409,7 @@ class LoadingMixin:
 
         type_map = metadata.type_map
 
-        # Parse VI metadata for polymorphic info and library membership
+        # Polymorphic info, library membership and VI Properties, from parse_vi
         poly_metadata = vi.file_metadata
         if poly_metadata is not None:
             if poly_metadata.get("is_polymorphic"):
