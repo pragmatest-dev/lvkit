@@ -1399,11 +1399,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
             print(f"Error: {e}", file=sys.stderr)
             return 1
         if copilot_written:
-            print(f"Installed {len(copilot_written)} Copilot file(s):")
+            print(f"Installed {len(copilot_written)} Copilot skill(s):")
             for p in copilot_written:
                 print(f"  {p}")
         else:
-            print("Copilot files already up to date.")
+            print("Copilot skills already up to date.")
     if "codex" in editors:
         try:
             codex_written = install_codex_skills(root, force=force)

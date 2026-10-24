@@ -114,17 +114,17 @@ The CLI works standalone from any terminal or CI script. For deeper integration,
 
 **VS Code extension** — [**LVKit** on the Marketplace](https://marketplace.visualstudio.com/items?itemName=pragmatest.lvkit). Opening a `.vi` renders its block diagram inline instead of the "binary file" placeholder, and clicking a SubVI opens it. **Open Visual Diff** — right-click a changed `.vi` in Source Control, the Explorer, or the editor tab — shows a before/after block-diagram diff for code review. It ships a bundled lvkit, so it works with no separate install; point the `lvkit.path` setting at a project venv or a PATH install to use your own instead. `.vi` files only today.
 
-**AI agent skills** — install lvkit's built-in workflows into Claude Code, GitHub Copilot, or OpenAI Codex so your AI agent can describe VIs, convert them, and resolve unknowns without you writing prompts. All five workflows call the CLI under the hood — no MCP server required.
+**AI agent skills** — install lvkit's built-in workflows into Claude Code, GitHub Copilot, or OpenAI Codex so your AI agent can describe VIs, convert them, and resolve unknowns without you writing prompts. All seven workflows call the CLI under the hood — no MCP server required.
 
 ```bash
 lvkit setup           # auto-detect from project layout
 lvkit setup claude    # installs .claude/skills/lvkit-*
-lvkit setup copilot   # installs .github/prompts/ + router instruction
+lvkit setup copilot   # installs .github/skills/lvkit-*
 lvkit setup codex     # installs .agents/skills/lvkit-*
 lvkit setup all       # Claude Code, Copilot, and Codex
 ```
 
-Five workflows ship: `lvkit-describe`, `lvkit-convert`, `lvkit-resolve-primitive`, `lvkit-resolve-vilib`, `lvkit-idiomatic`.
+Seven workflows ship: `lvkit`, `lvkit-describe`, `lvkit-query`, `lvkit-convert`, `lvkit-document`, `lvkit-review`, `lvkit-resolve`.
 
 **MCP server** — for interactive IDE sessions where your AI agent needs to load a graph, walk wires, and ask follow-up questions across multiple VIs:
 
