@@ -53,12 +53,11 @@ class ExtFuncParam:
     kind: ParamKind
     c_type: str | None = None
     reason: str = ""  # why an UNSUPPORTED parameter is
+    dimensions: int = 0  # an array handle's number of dimensions
 
 
 # Parameter kinds the generated Python cannot pass: each carries its ``reason``.
-UNPASSABLE_KINDS = frozenset(
-    {ParamKind.UNSUPPORTED, ParamKind.STRING_HANDLE, ParamKind.ARRAY_HANDLE}
-)
+UNPASSABLE_KINDS = frozenset({ParamKind.UNSUPPORTED})
 
 
 @dataclass(frozen=True)
@@ -94,6 +93,39 @@ NUMERIC_C_TYPES = {
 }
 # A 64-bit integer flagged ``Prop1="1"`` is LabVIEW's pointer-sized integer.
 _POINTER_SIZED = {"int64": "intptr", "uint64": "uintptr"}
+
+
+# An element's size in bytes, for the element types of an array handle.
+_ELEMENT_BYTES = {
+    "int8": 1,
+    "uint8": 1,
+    "int16": 2,
+    "uint16": 2,
+    "int32": 4,
+    "uint32": 4,
+    "float32": 4,
+    "int64": 8,
+    "uint64": 8,
+    "float64": 8,
+    "intptr": 8,
+    "uintptr": 8,
+}
+
+
+def array_handle_problem(c_type: str) -> str | None:
+    """Why an array handle of ``c_type`` elements cannot be passed, or None.
+
+    NI: "LabVIEW stores arrays as handles ... that contain the size of each
+    dimension of the array in 32-bit integers followed by the data ... a few
+    bytes of padding might follow the dimension size so that the first element
+    of the data is correctly aligned." The padding is not given, so an element
+    wider than the 4-byte dimension size has no settled data offset."""
+    if _ELEMENT_BYTES.get(c_type, 8) > 4:
+        return (
+            f"a LabVIEW array handle of {c_type} elements (NI does not say how "
+            "many bytes of padding precede its data)"
+        )
+    return None
 
 
 def _number(td: ET.Element | None) -> str | None:
@@ -133,9 +165,17 @@ def _param(
             return ExtFuncParam(ParamKind.NO_VALUE)
         return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
     if kind_name == "String":
-        return ExtFuncParam(ParamKind.STRING_HANDLE, reason="a LabVIEW string handle")
+        return ExtFuncParam(ParamKind.STRING_HANDLE)
     if kind_name == "Array":
-        return ExtFuncParam(ParamKind.ARRAY_HANDLE, reason="a LabVIEW array handle")
+        element = _number(_child(td, flat))
+        dimensions = len(td.findall("Dimension"))
+        if element is None or dimensions < 1:
+            return ExtFuncParam(
+                ParamKind.UNSUPPORTED, reason="a LabVIEW array handle of non-numbers"
+            )
+        if problem := array_handle_problem(element):
+            return ExtFuncParam(ParamKind.UNSUPPORTED, reason=problem)
+        return ExtFuncParam(ParamKind.ARRAY_HANDLE, element, dimensions=dimensions)
     return ExtFuncParam(ParamKind.UNSUPPORTED, reason=f"a {kind_name} parameter")
 
 

@@ -15,84 +15,105 @@ error wires are the exception model's job (``codegen/error_handler.py``).
 from __future__ import annotations
 
 import ast
+from typing import Any
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.parser.extfunc_prototype import (
-    NUMERIC_C_TYPES,
     UNPASSABLE_KINDS,
     ExtFuncCall,
-    ExtFuncParam,
     ParamKind,
 )
 
 from ..ast_utils import build_multi_assign, parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from .ext_func_adapt import adapt_spec
 from .primitive import _emit_unknown
 
 _CLFN_IMPORT = "from lvkit.runtime import clfn as _clfn"
 _FLOAT_TYPES = ("float32", "float64")
 
 
-def _default(param: ExtFuncParam) -> ast.expr:
-    """The value an unwired input has."""
-    if param.kind == ParamKind.C_STRING:
+def _default(kind: str, spec: Any) -> ast.expr:
+    """The value an unwired input has: its type's default."""
+    if kind == ParamKind.C_STRING.value or kind == ParamKind.STRING_HANDLE.value:
         return ast.Constant(value="")
-    if param.kind == ParamKind.ARRAY_DATA:
+    if kind in (ParamKind.ARRAY_DATA.value, ParamKind.ARRAY_HANDLE.value):
         return ast.List(elts=[], ctx=ast.Load())
-    return ast.Constant(value=0.0 if param.c_type in _FLOAT_TYPES else 0)
+    if kind == ParamKind.ADAPT_TO_TYPE.value:
+        return ast.Constant(value=None)  # a wire type the function receives as is
+    return _spec_default(spec)
 
 
-def _adapted(node: PrimitiveNode, row: int, call: ExtFuncCall) -> ExtFuncParam:
-    """An Adapt to Type parameter as a pointer to its wire type, when that type
-    is a number; otherwise an unsupported parameter."""
-    output_id = call.row_terminal_ids[row][1]
-    terminal = next((t for t in node.terminals if t.id == output_id), None)
-    wire_type = (
-        terminal.lv_type.underlying_type if terminal and terminal.lv_type else None
-    )
-    c_type = NUMERIC_C_TYPES.get(wire_type or "")
-    if c_type is None:
-        return ExtFuncParam(
-            ParamKind.UNSUPPORTED,
-            reason=f"an Adapt to Type parameter of type {wire_type or 'unknown'}",
-        )
-    return ExtFuncParam(ParamKind.POINTER, c_type)
+def _spec_default(spec: Any) -> ast.expr:
+    if spec == "bool":
+        return ast.Constant(value=False)
+    if isinstance(spec, str):
+        return ast.Constant(value=0.0 if spec in _FLOAT_TYPES else 0)
+    if spec[0] == "string":
+        return ast.Constant(value="")
+    if spec[0] == "array":
+        return ast.List(elts=[], ctx=ast.Load())
+    return ast.Tuple(elts=[_spec_default(sub) for _, sub in spec[2]], ctx=ast.Load())
 
 
-def _parameters(
+def _entry(
+    node: PrimitiveNode, row: int, call: ExtFuncCall
+) -> tuple[tuple[str, Any], str]:
+    """Row ``row``'s ``(kind, spec)`` as ``lvkit.runtime.clfn`` takes it, and why
+    it has none ('' when it has)."""
+    param = call.params[row]
+    if param.kind == ParamKind.ADAPT_TO_TYPE:
+        output_id = call.row_terminal_ids[row][1]
+        terminal = next((t for t in node.terminals if t.id == output_id), None)
+        spec, why = adapt_spec(terminal.lv_type if terminal else None)
+        if spec is None:
+            return ("unsupported", None), f"an Adapt to Type parameter {why}"
+        return (ParamKind.POINTER.value, spec), ""
+    if param.kind in UNPASSABLE_KINDS:
+        return ("unsupported", None), param.reason
+    if param.kind == ParamKind.ARRAY_HANDLE:
+        return (param.kind.value, ("array", param.c_type, param.dimensions)), ""
+    return (param.kind.value, param.c_type), ""
+
+
+def _signature(
     node: PrimitiveNode, call: ExtFuncCall
-) -> tuple[list[ExtFuncParam], str | None]:
-    """The call's parameters with Adapt to Type settled, and why the node cannot
-    be generated (None when it can)."""
+) -> tuple[list[tuple[str, Any]], str | None]:
+    """The call's ``(kind, spec)`` per row, and why the node cannot be generated
+    (None when it can)."""
     if call.calling_convention not in ("stdcall", "c"):
         return [], f"its calling convention is {call.calling_convention}"
     if not call.params or len(call.params) != len(call.row_terminal_ids):
         return [], "its prototype could not be read"
-    params = [
-        _adapted(node, row, call) if p.kind == ParamKind.ADAPT_TO_TYPE else p
-        for row, p in enumerate(call.params)
-    ]
-    for index, param in enumerate(params):
-        if param.kind in UNPASSABLE_KINDS:
-            where = "the return value is" if index == 0 else f"parameter {index} is"
-            return params, f"{where} {param.reason}"
-    return params, None
+    entries: list[tuple[str, Any]] = []
+    for row in range(len(call.params)):
+        entry, why = _entry(node, row, call)
+        if why:
+            where = "the return value is" if row == 0 else f"parameter {row} is"
+            return entries, f"{where} {why}"
+        entries.append(entry)
+    return entries, None
+
+
+def _constant(value: Any) -> ast.expr:
+    """``value`` (strings, numbers, booleans, None, nested tuples) as an AST."""
+    if isinstance(value, tuple):
+        return ast.Tuple(elts=[_constant(v) for v in value], ctx=ast.Load())
+    return ast.Constant(value=value)
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """Lower a Call Library Function Node to a ``clfn.call_library_function``
-    call."""
+    """Lower a Call Library Function Node to a call into the runtime."""
     call = node.ext_func
     if call is None:
         return _emit_unknown(node, None, ctx)
-    params, reason = _parameters(node, call)
+    entries, reason = _signature(node, call)
     if reason is not None:
         return _emit_unknown(node, None, ctx, reason=reason)
 
-    path_var = (
-        ctx.resolve(call.path_in_terminal_id) if call.path_in_terminal_id else None
-    )
+    path_id = call.path_in_terminal_id
+    path_var = ctx.resolve(path_id) if path_id else None
     if path_var:
         library: ast.expr = ast.Call(
             func=ast.Name(id="str", ctx=ast.Load()),
@@ -106,21 +127,6 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             node, None, ctx, reason="it records no library and its path in is unwired"
         )
 
-    args: list[ast.expr] = []
-    for (input_id, _), param in zip(call.row_terminal_ids[1:], params[1:]):
-        var = ctx.resolve(input_id) if input_id else None
-        args.append(parse_expr(var) if var else _default(param))
-
-    signature = ast.Tuple(
-        elts=[
-            ast.Tuple(
-                elts=[ast.Constant(value=p.kind.value), ast.Constant(value=p.c_type)],
-                ctx=ast.Load(),
-            )
-            for p in params
-        ],
-        ctx=ast.Load(),
-    )
     invocation = ast.Call(
         func=ast.Attribute(
             value=ast.Name(id="_clfn", ctx=ast.Load()),
@@ -131,12 +137,35 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             library,
             ast.Constant(value=call.function),
             ast.Constant(value=call.calling_convention),
-            signature,
-            ast.List(elts=args, ctx=ast.Load()),
+            _constant(tuple(entries)),
+            ast.List(elts=_arguments(call, entries, ctx), ctx=ast.Load()),
         ],
         keywords=[],
     )
+    return _bind(node, call, invocation, {_CLFN_IMPORT}, ctx)
 
+
+def _arguments(
+    call: ExtFuncCall, entries: list[tuple[str, Any]], ctx: CodeGenContext
+) -> list[ast.expr]:
+    """The input value of every parameter row (the return value has none); an
+    unwired input is its type's default."""
+    arguments: list[ast.expr] = []
+    for (input_id, _), (kind, spec) in zip(call.row_terminal_ids[1:], entries[1:]):
+        var = ctx.resolve(input_id) if input_id else None
+        arguments.append(parse_expr(var) if var else _default(kind, spec))
+    return arguments
+
+
+def _bind(
+    node: PrimitiveNode,
+    call: ExtFuncCall,
+    invocation: ast.expr,
+    imports: set[str],
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """``return, out1, out2 = <invocation>``: every row's output terminal bound
+    to its value."""
     by_id = {t.id: t for t in node.terminals}
     targets: list[str] = []
     bindings: dict[str, str] = {}
@@ -153,5 +182,5 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     return CodeFragment(
         statements=[build_multi_assign(targets, invocation)],
         bindings=bindings,
-        imports={_CLFN_IMPORT},
+        imports=imports,
     )
