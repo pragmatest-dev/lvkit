@@ -26,6 +26,7 @@ this can only make a load faster, never break it.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import multiprocessing as mp
 import os
@@ -33,6 +34,7 @@ import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+from ..extract_pool import ExtractionPool
 from ..extractor import extract_vi_xml
 from ..parser import ParsedVI, parse_vi
 
@@ -75,9 +77,13 @@ def _parse_batch(items: list[_ParseItem]) -> dict[str, ParsedVI]:
 
 def parallel_parse_directory(
     vi_paths: list[Path],
+    extract_pool: ExtractionPool | None = None,
     max_workers: int | None = None,
 ) -> dict[str, ParsedVI]:
     """Pre-parse every ``.vi`` in ``vi_paths`` across a process pool.
+
+    The VIs not extracted yet are extracted first, in parallel, by
+    ``extract_pool`` (a private one when none is given).
 
     Returns a dict keyed by ``str(bd_xml)`` for every VI that parsed cleanly.
     Never raises: a partial or empty dict on any failure (extraction miss,
@@ -96,13 +102,17 @@ def parallel_parse_directory(
         return {}
 
     resolved: list[_ParseItem] = []
-    for vi_path in vi_paths:
-        try:
-            bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
-        except Exception:
-            # Extraction failure -- let the serial path hit (and report) it.
-            continue
-        resolved.append((vi_path, bd_xml, fp_xml, main_xml))
+    with contextlib.ExitStack() as stack:
+        pool = extract_pool or stack.enter_context(ExtractionPool())
+        pool.prefetch(vi_paths)
+        for vi_path in vi_paths:
+            pool.wait(vi_path)
+            try:
+                bd_xml, fp_xml, main_xml = extract_vi_xml(vi_path)
+            except Exception:
+                # Extraction failure -- let the serial path hit (and report) it.
+                continue
+            resolved.append((vi_path, bd_xml, fp_xml, main_xml))
 
     if not resolved:
         return {}

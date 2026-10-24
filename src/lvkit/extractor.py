@@ -12,7 +12,7 @@ import sys
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 # Import the patch layer BEFORE pylabview: its module-level code installs the
 # compile-time SyntaxWarning filter (and holds the runtime monkeypatches) ahead
@@ -264,6 +264,79 @@ def _extract_in_process(vi_path: Path, output_dir: Path, artifact_stem: str) -> 
             normalize_extracted_xml(path, target_encoding)
 
 
+class _ArtifactSlot(NamedTuple):
+    """Where one VI's extracted artifacts live."""
+
+    output_dir: Path
+    artifact_stem: str
+    bd_xml: Path
+    fp_xml: Path
+    main_xml: Path
+    meta_path: Path
+
+
+def _artifact_slot(vi_path: Path, output_dir: Path | None) -> _ArtifactSlot:
+    """The artifact paths for the resolved ``vi_path``.
+
+    A caller-supplied ``output_dir`` is caller-owned, so keep the real source stem
+    in the artifact names there. The MANAGED cache (``output_dir`` is None) uses a
+    FIXED short stem instead: a long source filename would otherwise overflow
+    the cache path once a ``_BDHb.xml`` suffix is appended — the second Windows
+    MAX_PATH axis, paired with the bounded per-VI slot dir (cache_paths._vi_slot).
+    The real source name/path is preserved for callers: the graph loader keys
+    every node on the source path (never on this stem), and the ``source`` field
+    of the ``.meta.json`` records the real owner-relative path.
+    """
+    managed = output_dir is None
+    if output_dir is None:
+        output_dir = _cache_target(vi_path)
+    stem = MANAGED_ARTIFACT_STEM if managed else vi_path.stem
+    return _ArtifactSlot(
+        output_dir,
+        stem,
+        output_dir / f"{stem}_BDHb.xml",
+        output_dir / f"{stem}_FPHb.xml",
+        output_dir / f"{stem}.xml",
+        output_dir / f"{stem}.meta.json",
+    )
+
+
+def _cache_hit(
+    vi_path: Path, slot: _ArtifactSlot
+) -> tuple[Path, Path | None, Path | None] | None:
+    """The cached ``(bd_xml, fp_xml, main_xml)`` when the XML is present and the
+    recorded content-hash (or mtime/size fast-path) still matches the VI, else
+    None. The extraction-code compatibility check is the <extraction_fingerprint>
+    level of the cache PATH (see cache_paths.kind_fingerprint): an extraction-code
+    change lands in a DIFFERENT <fp> dir, so a stale slice is never even looked at
+    here — this meta only has to catch a VI-content or text-encoding change. Bumps
+    the slice's mtime on a hit so the access-TTL sweep keeps the build in active
+    use and only retires ones the user has upgraded away from.
+    """
+    if not slot.bd_xml.exists() or not meta_fresh(
+        vi_path,
+        slot.meta_path,
+        extra={"text_encoding": labview_text_encoding()},
+    ):
+        return None
+    touch_if_stale(slot.bd_xml, slot.meta_path)
+    return (
+        slot.bd_xml,
+        slot.fp_xml if slot.fp_xml.exists() else None,
+        slot.main_xml if slot.main_xml.exists() else None,
+    )
+
+
+def cached_extraction(
+    vi_path: Path | str,
+) -> tuple[Path, Path | None, Path | None] | None:
+    """``(bd_xml, fp_xml, main_xml)`` when ``vi_path`` is already extracted into
+    the managed cache and still valid — exactly the case in which
+    :func:`extract_vi_xml` returns without extracting — else None."""
+    vi_path = Path(vi_path).resolve()
+    return _cache_hit(vi_path, _artifact_slot(vi_path, None))
+
+
 def extract_vi_xml(
     vi_path: Path | str,
     output_dir: Path | None = None,
@@ -291,48 +364,14 @@ def extract_vi_xml(
         RuntimeError: If extraction fails.
     """
     vi_path = Path(vi_path).resolve()
+    slot = _artifact_slot(vi_path, output_dir)
+    output_dir, artifact_stem = slot.output_dir, slot.artifact_stem
+    bd_xml, meta_path = slot.bd_xml, slot.meta_path
 
-    # A caller-supplied output_dir is caller-owned, so keep the real source stem
-    # in the artifact names there. The MANAGED cache (output_dir is None) uses a
-    # FIXED short stem instead: a long source filename would otherwise overflow
-    # the cache path once a ``_BDHb.xml`` suffix is appended — the second Windows
-    # MAX_PATH axis, paired with the bounded per-VI slot dir (cache_paths._vi_slot).
-    # The real source name/path is preserved for callers: the graph loader keys
-    # every node on the source path (never on this stem), and the ``source`` field
-    # of the ``.meta.json`` records the real owner-relative path.
-    managed = output_dir is None
-    if managed:
-        output_dir = _cache_target(vi_path)
-
-    artifact_stem = MANAGED_ARTIFACT_STEM if managed else vi_path.stem
-    bd_xml = output_dir / f"{artifact_stem}_BDHb.xml"
-    fp_xml = output_dir / f"{artifact_stem}_FPHb.xml"
-    main_xml = output_dir / f"{artifact_stem}.xml"
-    meta_path = output_dir / f"{artifact_stem}.meta.json"
-
-    # Cache hit: XML present and the recorded content-hash (or mtime/size
-    # fast-path) still matches the VI. The extraction-code compatibility check is
-    # now the <extraction_fingerprint> level of the cache PATH (see
-    # cache_paths.kind_fingerprint): an extraction-code change lands in a DIFFERENT
-    # <fp> dir, so a stale slice is never even looked at here — this meta only has
-    # to catch a VI-content or text-encoding change. Bump the slice's mtime on the
-    # hit so the access-TTL sweep keeps the build in active use and only retires
-    # ones the user has upgraded away from.
-    if (
-        not force
-        and bd_xml.exists()
-        and meta_fresh(
-            vi_path,
-            meta_path,
-            extra={"text_encoding": labview_text_encoding()},
-        )
-    ):
-        touch_if_stale(bd_xml, meta_path)
-        return (
-            bd_xml,
-            fp_xml if fp_xml.exists() else None,
-            main_xml if main_xml.exists() else None,
-        )
+    if not force:
+        hit = _cache_hit(vi_path, slot)
+        if hit is not None:
+            return hit
 
     # Cache miss. Extract into a PRIVATE work dir inside this process's single
     # staging directory (see :mod:`lvkit.staging`), then publish it into the cache
@@ -388,8 +427,8 @@ def extract_vi_xml(
 
     return (
         bd_xml,
-        fp_xml if fp_xml.exists() else None,
-        main_xml if main_xml.exists() else None,
+        slot.fp_xml if slot.fp_xml.exists() else None,
+        slot.main_xml if slot.main_xml.exists() else None,
     )
 
 
