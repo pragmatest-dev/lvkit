@@ -242,11 +242,11 @@ def generate_array_build(
 ) -> CodeFragment:
     """Generate code for array building (aBuild).
 
-    LabVIEW's Build Array concatenates/appends inputs:
-    - Array inputs are concatenated directly (a + b)
-    - Scalar inputs are wrapped in a list ([x]) before concatenation
-
-    This produces `existing + [new_element]` rather than `[existing, new_element]`.
+    LabVIEW's Build Array concatenates/appends inputs: an array input contributes
+    its elements and a scalar input is one element, in terminal order. That is
+    one list display, ``[*existing, new_element]``. (A ``+`` between two arrays
+    would read as LabVIEW's element-wise Add to the rewrite that broadcasts
+    arithmetic over arrays, which has no way to tell the two apart.)
     """
     terminals = node.terminals
 
@@ -267,26 +267,19 @@ def generate_array_build(
             input_names.append(val)
             is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
             if is_array:
-                # Concatenate array-typed inputs directly
-                parts.append(parse_expr(val))
+                # An array input contributes its elements
+                parts.append(ast.Starred(value=parse_expr(val), ctx=ast.Load()))
             else:
-                # Wrap scalar/cluster inputs as a single-element list
-                parts.append(ast.List(elts=[parse_expr(val)], ctx=ast.Load()))
+                # A scalar or cluster input is one element
+                parts.append(parse_expr(val))
         else:
-            parts.append(ast.List(elts=[ast.Constant(value=None)], ctx=ast.Load()))
+            parts.append(ast.Constant(value=None))
 
     var_name = ctx.make_output_var(
         _make_array_var_name(input_names), node.id, terminal_id=output_id
     )
 
-    if not parts:
-        expr: ast.expr = ast.List(elts=[], ctx=ast.Load())
-    elif len(parts) == 1:
-        expr = parts[0]
-    else:
-        expr = parts[0]
-        for part in parts[1:]:
-            expr = ast.BinOp(left=expr, op=ast.Add(), right=part)
+    expr: ast.expr = ast.List(elts=parts, ctx=ast.Load())
 
     stmt = build_assign(var_name, expr)
 

@@ -659,38 +659,40 @@
       "terminals": [
         {
           "name": "is warning? (False)",
-          "index": 1,
+          "index": 4,
           "direction": "in",
+          "type": "Boolean",
           "python_param": "is_warning_false"
         },
         {
           "name": "show call chain? (False)",
-          "index": 2,
+          "index": 5,
           "direction": "in",
+          "type": "Boolean",
           "python_param": "show_call_chain_false"
         },
         {
-          "name": "error code (0)",
+          "name": "error in (no error)",
           "index": 6,
           "direction": "in",
-          "type": "NumInt32",
-          "python_param": "error_code_0",
-          "default_value": "0"
+          "type": "Cluster",
+          "python_param": "error_in_no_error"
         },
         {
           "name": "error message (\"\")",
-          "index": 9,
+          "index": 8,
           "direction": "in",
           "type": "String",
           "python_param": "error_message",
           "default_value": "''"
         },
         {
-          "name": "error in (no error)",
-          "index": 8,
+          "name": "error code (0)",
+          "index": 9,
           "direction": "in",
-          "type": "Cluster",
-          "python_param": "error_in_no_error"
+          "type": "NumInt32",
+          "python_param": "error_code_0",
+          "default_value": "0"
         },
         {
           "name": "error out",

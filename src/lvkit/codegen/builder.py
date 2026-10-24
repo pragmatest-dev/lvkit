@@ -367,22 +367,15 @@ def _generate_parallel_tier(
         )
         inner_stmts.append(func_def)
 
-        if bound_vars:
-            # _fN = _executor.submit(_branch_N)
-            inner_stmts.append(
-                ast.Assign(
-                    targets=[ast.Name(id=future_var, ctx=ast.Store())],
-                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-                )
+        # _fN = _executor.submit(_branch_N); every branch is awaited after the
+        # block so an error it raises reaches the caller.
+        inner_stmts.append(
+            ast.Assign(
+                targets=[ast.Name(id=future_var, ctx=ast.Store())],
+                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
             )
-            branch_info.append((future_var, bound_vars))
-        else:
-            # Fire-and-forget: _executor.submit(_branch_N)
-            inner_stmts.append(
-                ast.Expr(
-                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-                )
-            )
+        )
+        branch_info.append((future_var, bound_vars))
 
     # Always merge bindings — even when all ops produce zero statements.
     # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
@@ -431,14 +424,18 @@ def _generate_parallel_tier(
             args=[],
             keywords=[],
         )
-        if len(bound_vars) == 1:
+        result_stmt: ast.stmt
+        if not bound_vars:
+            result_stmt = ast.Expr(value=result_expr)
+        elif len(bound_vars) == 1:
             target = ast.Name(id=bound_vars[0], ctx=ast.Store())
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
         else:
             target = ast.Tuple(
                 elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
                 ctx=ast.Store(),
             )
-        result_stmt = ast.Assign(targets=[target], value=result_expr)
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
 
         if ctx.use_held_error_model:
             # Wrap in try/except: _held_error = _held_error or e
@@ -729,7 +726,6 @@ def build_imports(
     return imports
 
 
-
 def annotated_terminals(vi_context: VIContext) -> list[Terminal]:
     """The terminals whose types the module annotates: the parameters and the
     result fields. An error cluster is an exception, so it is neither."""
@@ -823,9 +819,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(
-        vi_context.inputs, vi_context.off_pane_inputs, spell=spell
-    )
+    args = build_args(vi_context.inputs, vi_context.off_pane_inputs, spell=spell)
 
     # Build return annotation
     returns = None

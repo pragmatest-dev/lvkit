@@ -17,8 +17,9 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.load_mode import LoadMode
-from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam, ParamKind
+from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from tests.helpers import build_graph
 
 _C_LIBRARY = ctypes.util.find_library("c") or (
@@ -29,7 +30,9 @@ _M_LIBRARY = ctypes.util.find_library("m") or (
 )
 
 
-def _type(name: str) -> LVType:
+def _type(name: str | LVType) -> LVType:
+    if isinstance(name, LVType):
+        return name
     return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=name)
 
 
@@ -37,7 +40,7 @@ def _vi(
     library: str | None,
     function: str,
     params: list[ExtFuncParam],
-    wire_types: list[str],
+    wire_types: list[str | LVType],
     controls: dict[int, str],
     indicators: dict[int, str],
 ) -> tuple[Any, str]:
@@ -256,3 +259,186 @@ def test_corpus_vi_generates_python_that_compiles(vi_path: Path, function: str) 
     source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     compile(source, vi_path.name, "exec")
     assert f"'{function}', 'stdcall'" in source
+
+
+_TIMESPEC = LVType(
+    kind=LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[
+        ClusterField(name="seconds", type=_type("NumInt64")),
+        ClusterField(name="nanoseconds", type=_type("NumInt64")),
+    ],
+)
+
+
+@pytest.mark.skipif(
+    _C_LIBRARY is None or sys.platform == "win32", reason="needs clock_gettime"
+)
+def test_adapt_to_type_cluster_is_a_pointer_to_a_structure_of_its_fields() -> None:
+    """clock_gettime(clockid, struct timespec *) fills the cluster {int64 seconds;
+    int64 nanoseconds} the node's Adapt to Type parameter is wired to."""
+    clfn_test, source = _vi(
+        _C_LIBRARY,
+        "clock_gettime",
+        [_NUMBER, _NUMBER, ExtFuncParam(ParamKind.ADAPT_TO_TYPE)],
+        ["NumInt32", "NumInt32", _TIMESPEC],
+        controls={1: "clock"},
+        indicators={0: "status", 2: "now"},
+    )
+    result = clfn_test(0)  # CLOCK_REALTIME
+    assert result.status == 0
+    seconds, nanoseconds = result.now
+    assert seconds > 1_600_000_000 and 0 <= nanoseconds < 1_000_000_000
+    assert (
+        "('cluster', False, (('seconds', 'int64'), ('nanoseconds', 'int64')))" in source
+    )
+
+
+def test_adapt_spec_of_every_wire_type() -> None:
+    from lvkit.codegen.nodes.ext_func_adapt import adapt_spec
+
+    string = _type("String")
+    boolean = _type("Boolean")
+    numbers = LVType(
+        kind=LVTypeKind.ARRAY, element_type=_type("NumInt16"), dimensions=2
+    )
+    nested = LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="Point.ctl",
+        fields=[
+            ClusterField(name="x", type=_type("NumFloat32")),
+            ClusterField(name="label", type=string),
+            ClusterField(name="on", type=boolean),
+            ClusterField(name="samples", type=numbers),
+        ],
+    )
+    outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(name="count", type=_type("NumUInt32")),
+            ClusterField(name="point", type=nested),
+        ],
+    )
+    assert adapt_spec(_type("NumUInt64")) == ("uint64", "")
+    assert adapt_spec(boolean) == ("bool", "")
+    assert adapt_spec(outer) == (
+        (
+            "cluster",
+            False,
+            (
+                ("count", "uint32"),
+                (
+                    "point",
+                    (
+                        "cluster",
+                        True,
+                        (
+                            ("x", "float32"),
+                            ("label", ("string",)),
+                            ("on", "bool"),
+                            ("samples", ("array", "int16", 2)),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        "",
+    )
+    # A top-level string or array depends on a Data Format setting that is not
+    # decoded; a path is opaque; an array of doubles has no settled data offset.
+    for lv_type in (string, numbers, _type("Path")):
+        spec, why = adapt_spec(lv_type)
+        assert spec is None and "Data Format" in why
+    holder = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(
+                name="data",
+                type=LVType(
+                    kind=LVTypeKind.ARRAY,
+                    element_type=_type("NumFloat64"),
+                    dimensions=1,
+                ),
+            )
+        ],
+    )
+    spec, why = adapt_spec(holder)
+    assert spec is None and "padding" in why
+
+
+def test_labview_library_function_runs_its_python_equivalent(tmp_path: Path) -> None:
+    """A node that names the library LabVIEW lowers to the Python the table lists
+    for the function: FGetInfo fills the 552-byte record of a file."""
+    clfn_test, source = _vi(
+        "LabVIEW",
+        "FGetInfo",
+        [
+            _NUMBER,
+            ExtFuncParam(ParamKind.ADAPT_TO_TYPE),
+            ExtFuncParam(ParamKind.ARRAY_DATA, "uint8"),
+        ],
+        ["NumInt32", "Path", "Array"],
+        controls={1: "file", 2: "record"},
+        indicators={0: "error", 2: "info"},
+    )
+    assert "_lv_manager.get_info(file, record)" in source
+    assert "_clfn" not in source
+    target = tmp_path / "data.bin"
+    target.write_bytes(b"abc")
+    result = clfn_test(str(target), [0] * 552)
+    assert result.error == 0
+    assert int.from_bytes(bytes(result.info[12:16]), sys.byteorder, signed=True) == 3
+    assert clfn_test(str(tmp_path / "nope"), [0] * 552).error == 7
+
+
+def test_labview_library_function_the_table_lacks_fails_loudly() -> None:
+    with pytest.raises(PrimitiveResolutionNeeded) as raised:
+        _vi(
+            "LabVIEW",
+            "FNoSuchFunction",
+            [_NUMBER],
+            ["NumInt32"],
+            controls={},
+            indicators={0: "error"},
+        )
+    assert "LabVIEW's function FNoSuchFunction has no Python equivalent" in str(
+        raised.value
+    )
+
+
+_OPENG = Path(".lvkit/cache/samples/OpenG/extracted")
+_OPENG_LIBRARIES = _OPENG / "File Group 0/user.lib/_OpenG.lib"
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize(
+    "vi_path,call",
+    [
+        pytest.param(
+            _OPENG_LIBRARIES
+            / "largefile/largefile.llb/LFU Create File Handle__ogtk.vi",
+            "_lv_manager.new_ref_num(",
+            id="FNewRefNum",
+        ),
+        pytest.param(
+            _OPENG_LIBRARIES
+            / "largefile/largefile.llb/LFU Retrieve File Handle__ogtk.vi",
+            "_lv_manager.ref_num_to_fd(",
+            id="FRefNumToFD",
+        ),
+        pytest.param(
+            _OPENG_LIBRARIES / "file/file.llb/File Info__ogtk.vi",
+            "_lv_manager.get_info(",
+            id="FGetInfo_FSetInfo",
+        ),
+    ],
+)
+def test_corpus_vi_calling_labview_functions_generates_python_that_compiles(
+    vi_path: Path, call: str
+) -> None:
+    if not vi_path.exists():
+        pytest.skip(f"sample corpus VI not present: {vi_path}")
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.FULL, search_paths=[_OPENG])
+    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    compile(source, vi_path.name, "exec")
+    assert call in source

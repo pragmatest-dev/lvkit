@@ -28,6 +28,7 @@ from lvkit.parser.extfunc_prototype import (
     ExtFuncParam,
     ExtFuncThread,
     ParamKind,
+    array_handle_problem,
 )
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.unresolved import UnresolvedItem, _item_key, format_unresolved_report
@@ -162,7 +163,10 @@ _MAIN_XML = """<?xml version='1.0' encoding='utf-8'?>
   <VCTP>
     <Section Index="0" Format="inline">
       <TypeDesc Type="NumInt32" Format="inline"{return_label} />
-      <TypeDesc Type="String" Format="inline" Label="name" />
+      <TypeDesc Type="Array" Format="inline" Label="name">
+        <Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />
+        <TypeDesc TypeID="9" />
+      </TypeDesc>
       <TypeDesc Type="NumInt32" Format="inline" Label="count" />
       <TypeDesc Type="Cluster" Format="inline">
         <TypeDesc TypeID="0" />
@@ -174,6 +178,7 @@ _MAIN_XML = """<?xml version='1.0' encoding='utf-8'?>
       <TypeDesc Type="NumInt32" Format="inline" Label="error in (no error)" />
       <TypeDesc Type="NumInt32" Format="inline" Label="error out" />
       <TypeDesc Type="NumInt32" Format="inline" Label="retries" />
+      <TypeDesc Type="NumFloat64" Format="inline" />
       <TopLevel>
         <TypeDesc Index="1" FlatTypeID="3" />
         <TypeDesc Index="2" FlatTypeID="4" />
@@ -260,7 +265,8 @@ def test_generate_names_the_node(tmp_path: Path) -> None:
         build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     assert str(raised.value) == (
         "Call Library Function Node lib.dll:DoWork has no code generation yet: "
-        "parameter 1 is a LabVIEW string handle.\n"
+        "parameter 1 is a LabVIEW array handle of float64 elements (NI does not say how"
+        " many bytes of padding precede its data).\n"
         "  In VI: Clfn.vi\n"
         "  Terminals:\n"
         "    - index=0 direction=input type=Path UNWIRED name=path in\n"
@@ -357,8 +363,8 @@ def test_the_call_the_node_makes(tmp_path: Path) -> None:
         return f"{vi_name}::{uid}"
 
     # No <callType> is stdcall; the prototype's rows are the return value (an
-    # I32), ``name`` (a LabVIEW string handle: not passed to C code here) and
-    # ``count`` (an I32).
+    # I32), ``name`` (a LabVIEW array handle of doubles: its data offset is not
+    # settled) and ``count`` (an I32).
     assert node.ext_func == ExtFuncCall(
         library="lib.dll",
         function="DoWork",
@@ -373,7 +379,7 @@ def test_the_call_the_node_makes(tmp_path: Path) -> None:
         thread=ExtFuncThread.UI_THREAD,
         params=(
             ExtFuncParam(ParamKind.VALUE, "int32"),
-            ExtFuncParam(ParamKind.STRING_HANDLE, reason="a LabVIEW string handle"),
+            ExtFuncParam(ParamKind.UNSUPPORTED, reason=array_handle_problem("float64")),
             ExtFuncParam(ParamKind.VALUE, "int32"),
         ),
     )

@@ -118,9 +118,9 @@ def _resolve_output_tunnels(
             bindings[ot.outer_uid] = next(iter(distinct))
             continue
 
-        var = ctx.output_tunnel_var_name(
-            ot.outer_uid, node.id
-        ) or ctx.make_output_var("case_output", ot.outer_uid)
+        var = ctx.output_tunnel_var_name(ot.outer_uid, node.id) or ctx.make_output_var(
+            "case_output", ot.outer_uid
+        )
         for fv in ot.inner_by_frame:
             body = body_by_frame.get(fv)
             if body is None:
@@ -227,7 +227,6 @@ def _generate_if_else(
     if true_frame:
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(true_frame), []), ctx)
         if_body = inner_fragment.statements
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((true_frame, if_body))
 
@@ -236,7 +235,6 @@ def _generate_if_else(
     if else_frame:
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(else_frame), []), ctx)
         else_body = inner_fragment.statements
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((else_frame, else_body))
 
@@ -307,7 +305,6 @@ def _generate_match_case(
 
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
         frame_bodies.append((frame, inner_fragment.statements))
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
 
     output_bindings, pre_decls = _resolve_output_tunnels(node, frame_bodies, ctx)

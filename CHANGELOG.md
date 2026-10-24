@@ -3,6 +3,8 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Type Cast, Swap Bytes and Swap Words work on clusters, arrays, floats and Booleans, in LabVIEW's flattened-data format** — so OpenG's File Info and large-file VIs run end to end on real files; Build Array no longer reads as an element-wise Add (#185).
+- **Call Library Function Node code generation covers LabVIEW string and array handles, Adapt to Type clusters, and LabVIEW's own file functions** — `FNewRefNum`, `FRefNumToFD`, `FGetInfo` and `FSetInfo` become Python, and `Is Path and Not Empty` resolves by the file name callers record (#185).
 - **Call Library Function Node: terminals, drawing and Python generation** — each parameter shows its input and output side with its name, the node draws as stacked rows, the return value is an output only, and `generate` emits a ctypes call to the library (#185).
 - **Fix: the project index keeps a VI's typedef links when another render loads it only as a SubVI** — the result no longer depends on which command ran last.
 - **Faster first load** — extracting a VI is about a third faster (up to 3.5× for a VI with large constant data), and a VI's SubVIs or a directory's VIs extract in parallel worker processes.
