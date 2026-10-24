@@ -9,6 +9,7 @@ import dataclasses
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 from ..models import ClusterField, EnumValue, LVType, LVTypeKind
 from .constants import CORRUPT_STUB_FORMAT
@@ -21,9 +22,17 @@ from .xml_trees import parsed_xml
 class TypeMap(dict[int, LVType]):
     """A VI's TypeID -> type table. ``pool_failure`` says why a pre-LV9 VI's heap
     type pool could not be read to its end (None when it could, and for every
-    VI that has a VCTP)."""
+    VI that has a VCTP). ``labels`` maps a TypeID to the label its type
+    descriptor carries (``path in``, ``error out``), for the TypeIDs that have
+    one. ``flat_ids`` maps a TypeID to its FlatTypeID (the position of its type
+    descriptor in the VCTP)."""
 
     pool_failure: str | None = None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.labels: dict[int, str] = {}
+        self.flat_ids: dict[int, int] = {}
 
 
 def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
@@ -85,6 +94,7 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
 
         # Parse full type info from VCTP (includes cluster fields, array elements)
         vctp_types = parse_vctp_types(xml_path)
+        flat_descs = flat_type_descs(root)
 
         # Build flat -> typedef info from VCTP Section TypeDescs
         flat_to_typedef: dict[int, tuple[str | None, str | None]] = {}
@@ -116,6 +126,11 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
             flat_id = consolidated_to_flat.get(cons_id)
             if flat_id is None:
                 continue
+
+            type_map.flat_ids[heap_id] = flat_id
+            label = _field_label(flat_descs.get(flat_id), "")
+            if label:
+                type_map.labels[heap_id] = label
 
             # Use VCTP result directly — it has the full type info
             if flat_id in vctp_types:
@@ -200,6 +215,16 @@ def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
     return heap
 
 
+def flat_type_descs(root: ET.Element) -> dict[int, ET.Element]:
+    """Every VCTP top-level TypeDesc by its FlatTypeID (its position across the
+    VCTP sections)."""
+    flat_types: dict[int, ET.Element] = {}
+    for section in root.findall(".//VCTP/Section"):
+        for type_desc in section.findall("TypeDesc"):
+            flat_types[len(flat_types)] = type_desc
+    return flat_types
+
+
 def _field_label(ref_td: ET.Element | None, default_name: str) -> str:
     """Resolve a cluster field's display name from its own TypeDesc.
 
@@ -262,13 +287,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
         return {}
 
     # First pass: collect all TypeDescs by FlatTypeID
-    flat_types: dict[int, ET.Element] = {}
-    flat_id = 0
-
-    for section in root.findall(".//VCTP/Section"):
-        for type_desc in section.findall("TypeDesc"):
-            flat_types[flat_id] = type_desc
-            flat_id += 1
+    flat_types = flat_type_descs(root)
 
     # Second pass: build LVTypes with resolved references
     resolved: dict[int, LVType] = {}

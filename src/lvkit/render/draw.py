@@ -9,6 +9,7 @@ node glyphs only — see DESIGN.md's phasing).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from ..graph.models import (
@@ -25,6 +26,7 @@ from ..models import FPTerminal, LVType, LVTypeKind, Terminal
 from ..primitive_resolver import get_resolver as get_prim_resolver
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .backend import Backend, Point
+from .ext_func_prototype import ext_func_prototype
 from .glyph import (
     BundleByNameGlyph,
     BundleGlyph,
@@ -44,6 +46,7 @@ from .glyph import (
     fit_wrapped,
     wrap_label,
 )
+from .glyphs.nodes.terminal_frame import draw_terminal_frame
 from .glyphs.terminals.factory import border_terminal_glyph
 from .nodes import _CLUSTER_MUX_TYPES, mux_display_name, mux_doc_url
 from .scene import (
@@ -850,6 +853,25 @@ def _pane_stub_points(edge: Point, side: str, final_perp: float) -> list[Point]:
     return [edge, (ex, y_out), (final_perp, y_out), (final_perp, y_end)]
 
 
+_PROTOTYPE_WRAP_W = 260.0  # the width a prototype wraps to, before the panel grows
+
+
+def _wrap_at_commas(text: str, backend: Backend) -> list[str]:
+    """``text`` as lines no wider than ``_PROTOTYPE_WRAP_W`` where it can be,
+    broken after its commas. A piece wider than that stays whole on its own
+    line: nothing is truncated."""
+    lines: list[str] = []
+    for piece in re.split(r"(?<=,) ", text):
+        if lines and (
+            backend.measure_text(lines[-1] + " " + piece, _PANE_TYPE_SIZE)
+            <= _PROTOTYPE_WRAP_W
+        ):
+            lines[-1] += " " + piece
+        else:
+            lines.append(piece)
+    return lines
+
+
 def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> None:
     """Draw one node's hidden, hover-revealed connector panel: a labeled map
     of the node's own glyph with every terminal at its TRUE position (see
@@ -996,11 +1018,20 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
         else []
     )
 
+    # A Call Library Function Node's C prototype, under the title in the
+    # secondary text style, wrapped at its commas to the panel's width.
+    prototype = (
+        ext_func_prototype(node.node) if isinstance(node.node, PrimitiveNode) else None
+    )
+    prototype_lines = _wrap_at_commas(prototype, backend) if prototype else []
+    if prototype_lines:
+        widest = max(backend.measure_text(t, _PANE_TYPE_SIZE) for t in prototype_lines)
+        inner_w = max(inner_w, widest)
+
     # With a description, reserve an extra gap below it (holding a divider that
     # separates the prose from the icon/terminals diagram below).
-    header_h = (
-        11.0 + len(desc_lines) * _PANE_DESC_LH + (_PANE_PAD if desc_lines else 0.0)
-    )
+    text_lines = len(desc_lines) + len(prototype_lines)
+    header_h = 11.0 + text_lines * _PANE_DESC_LH + (_PANE_PAD if text_lines else 0.0)
     panel_w = inner_w + 2 * _PANE_PAD
     panel_h = header_h + _PANE_PAD + diagram_h + _PANE_PAD
 
@@ -1041,8 +1072,16 @@ def _draw_connector_panel(node: RenderNode, backend: Backend, theme: Theme) -> N
             _PANE_DESC_SIZE,
             fill=theme.text,
         )
+    for i, proto_line in enumerate(prototype_lines, start=len(desc_lines)):
+        backend.text(
+            cx,
+            _PANE_PAD + 18.0 + i * _PANE_DESC_LH,
+            proto_line,
+            _PANE_TYPE_SIZE,
+            fill=theme.pane_type_text,
+        )
     # Divider between the description prose and the icon/terminals diagram.
-    if desc_lines:
+    if desc_lines or prototype_lines:
         sep_y = header_h + _PANE_PAD / 2.0
         backend.line(
             _PANE_PAD,
@@ -1523,18 +1562,7 @@ def draw_fp_terminal(
     # indicator. Direction is carried by the wire-port arrow, never by border
     # weight, so both lines stay thin (a heavy single outline just fights the
     # centered type label).
-    backend.rect(x1, y1, x2, y2, fill=theme.fp_panel, stroke=color, stroke_width=1.0)
-    inset = min(1.6, (x2 - x1) / 4, (y2 - y1) / 4)
-    if inset > 0.3:
-        backend.rect(
-            x1 + inset,
-            y1 + inset,
-            x2 - inset,
-            y2 - inset,
-            fill="none",
-            stroke=color,
-            stroke_width=1.0,
-        )
+    inset = draw_terminal_frame(backend, bounds, color, theme)
 
     label = terminal.name or ""
     if label and label_visible:

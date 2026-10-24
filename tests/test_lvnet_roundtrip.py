@@ -214,6 +214,25 @@ _ROUND_TRIP_CASES = [
         Path(".lvkit/cache/samples/JKI-EasyXML"),
         id="Link_XML_Start_Tags_open_range_frames",
     ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Tests"
+        / "Tests.Runtime"
+        / "Measurement Server"
+        / "Helpers"
+        / "Write Environment Variable.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Write_Environment_Variable_call_library_function_node",
+    ),
+    pytest.param(
+        Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
+        / "largefile"
+        / "largefile.llb"
+        / "LF Write File (SGL)__ogtk.vi",
+        Path(".lvkit/cache/samples/OpenG/extracted"),
+        id="LF_Write_File_SGL_call_library_function_node",
+    ),
 ]
 
 

@@ -35,8 +35,12 @@ from .vilib_resolver import get_resolver as get_vilib_resolver
 class UnresolvedItem:
     """One distinct resolution gap, aggregated across every VI it appears in."""
 
-    kind: str  # "unknown_primitive" | "unmapped_vilib" | "terminal_mapping"
-    identifier: str  # primResID for a primitive; VI filename otherwise
+    # "unknown_primitive" | "placeholder_primitive" | "unsupported_node" |
+    # "unmapped_vilib" | "terminal_mapping"
+    kind: str
+    # primResID for a primitive; the node kind for an unsupported node; VI
+    # filename otherwise
+    identifier: str
     name: str  # human-readable name
     vi_names: list[str] = field(default_factory=list)  # VIs where it occurs
     count: int = 0  # total occurrences across all VIs
@@ -72,6 +76,10 @@ def _load_graph(
 def _item_key(exc: Exception) -> tuple[str, str, str]:
     """(kind, identifier, name) for an appended resolution exception."""
     if isinstance(exc, PrimitiveResolutionNeeded):
+        # A node with no primResID (a Call Library Function Node) is named by
+        # its kind: there is no primitives.json entry to add.
+        if exc.node_kind:
+            return ("unsupported_node", exc.node_kind, exc.prim_name or "unknown")
         # A placeholder is a KNOWN primitive with no implementation (tagged at
         # the emit site); a fully-unknown primResID is not in primitives.json.
         kind = (
@@ -166,12 +174,14 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
     _labels = {
         "unknown_primitive": "Unknown primitives (not in primitives.json)",
         "placeholder_primitive": "Placeholder primitives (known, no implementation)",
+        "unsupported_node": "Nodes with no code generation yet",
         "unmapped_vilib": "Unmapped vi.lib VIs",
         "terminal_mapping": "Terminal-mapping gaps",
     }
     _order = (
         "unknown_primitive",
         "placeholder_primitive",
+        "unsupported_node",
         "unmapped_vilib",
         "terminal_mapping",
     )
@@ -185,6 +195,7 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
         f"{len(items)} distinct gap(s): "
         f"{_n('unknown_primitive')} unknown primitive(s), "
         f"{_n('placeholder_primitive')} placeholder primitive(s), "
+        f"{_n('unsupported_node')} node(s) with no code generation, "
         f"{_n('unmapped_vilib')} unmapped vi.lib VI(s), "
         f"{_n('terminal_mapping')} terminal-mapping gap(s).",
     ]
@@ -194,11 +205,12 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
             continue
         lines += ["", f"## {_labels[kind]}"]
         for it in group:
-            head = (
-                f"[prim {it.identifier}] {it.name}"
-                if kind in ("unknown_primitive", "placeholder_primitive")
-                else it.name
-            )
+            if kind in ("unknown_primitive", "placeholder_primitive"):
+                head = f"[prim {it.identifier}] {it.name}"
+            elif kind == "unsupported_node":
+                head = f"{it.identifier} {it.name}"
+            else:
+                head = it.name
             where = f" — {it.count}x in {len(it.vi_names)} VI(s)"
             lines.append(f"- {head}{where}")
             for vi in it.vi_names[:8]:

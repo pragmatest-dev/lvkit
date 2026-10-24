@@ -2353,11 +2353,14 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     classes the generic sweep exists to catch), reached instead via
     _extract_nodes's `_is_generic_operation_node` sweep (has class+bounds+
     termList, not in any allowlist) -- confirmed end to end against real
-    corpus FPGA VIs, not just by this handler's registration."""
+    corpus FPGA VIs, not just by this handler's registration.
+
+    "extFunc" (a Call Library Function Node) is reached the same way; its
+    handler only supplies the display name."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode"}
+    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode", "extFunc"}
     unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "

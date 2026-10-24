@@ -58,6 +58,8 @@ from .constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
+from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
+from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
     is_indicator,
     is_inverted_terminal,
@@ -495,6 +497,7 @@ def _parse_block_diagram(
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
+    resolve_ext_func_calls(nodes, main_xml, type_map)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
@@ -1023,9 +1026,19 @@ def _process_element_terminals(
         f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
     )
 
+    ext_func_roles = (
+        extfunc_terminal_roles(elem, type_map)
+        if elem_class == NODE_CLASS_EXT_FUNC
+        else {}
+    )
+
     for list_position, term in enumerate(term_list):
         term_uid = term.get("uid")
         if not term_uid:
+            continue
+
+        ext_func_role = ext_func_roles.get(term_uid)
+        if ext_func_role is not None and ext_func_role.dropped:
             continue
 
         dco = term.find("dco")
@@ -1099,7 +1112,9 @@ def _process_element_terminals(
             parm_index = list_position
 
         # Determine direction from wire connectivity
-        if term_uid in wire_sources:
+        if ext_func_role is not None:
+            is_output = ext_func_role.is_output
+        elif term_uid in wire_sources:
             is_output = True
         elif term_uid in wire_sinks:
             is_output = False
@@ -1169,6 +1184,8 @@ def _process_element_terminals(
             term_name = extract_label(term)
         if not term_name and dco is not None:
             term_name = extract_xtunnel_name(dco)
+        if ext_func_role is not None and ext_func_role.name:
+            term_name = ext_func_role.name
 
         # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
         # terminal's DCO objFlags. This bit only means "invert" for

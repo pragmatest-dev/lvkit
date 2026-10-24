@@ -38,6 +38,7 @@ from . import (
     constant,
     disable,
     event,
+    ext_func,
     first_call,
     formula,
     global_variable,
@@ -120,6 +121,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "mux": nmux.generate,
     "demux": nmux.generate,
     "printf": printf.generate,
+    "extFunc": ext_func.generate,
 }
 
 

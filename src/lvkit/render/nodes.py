@@ -92,6 +92,7 @@ from .glyph import (
     ErrorClusterGlyph,
     EventDataGlyph,
     EventRegNodeGlyph,
+    ExtFuncGlyph,
     FeedbackNodeGlyph,
     FormulaNodeGlyph,
     GlobalVariableGlyph,
@@ -1220,6 +1221,8 @@ class OriginalGlyphResolver:
             return _property_node_glyph(node)
         if node.node_type == "invokeNode":
             return _invoke_node_glyph(node)
+        if node.node_type == "extFunc":
+            return ExtFuncGlyph.from_node(node)
         if node.node_type == "eventRegNode":
             return _event_reg_node_glyph(node)
         if node.node_type == "xNode":

@@ -356,7 +356,8 @@ async def unresolved(
     one-at-a-time ``PrimitiveResolutionNeeded``/``VILibResolutionNeeded`` the
     conversion loop raises. Use before converting a large library to triage the
     gaps up front. Returns a list of ``{kind, identifier, name, count,
-    vi_names}`` (kind ∈ ``unknown_primitive``/``unmapped_vilib``/
+    vi_names}`` (kind ∈ ``unknown_primitive``/``placeholder_primitive``/
+    ``unsupported_node``/``unmapped_vilib``/
     ``terminal_mapping``). Empty list means no gaps. ``target`` may be relative
     to the client's workspace root."""
     target = await _facade._resolve_target(target, ctx)

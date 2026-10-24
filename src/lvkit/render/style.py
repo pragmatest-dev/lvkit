@@ -59,6 +59,16 @@ class Theme:
     xnode_fill: str = "#ffffff"  # row background (never prim_fill's tan)
     xnode_header_fill: str = "#efb8ff"  # header band fill
     xnode_stroke: str = "#9f008e"  # border + row dividers
+    # A Call Library Function Node (colours measured from LabVIEW's own node
+    # pixels): the top band is orange when the node runs in the UI thread. The
+    # any-thread yellow is LabVIEW's pale-yellow primitive fill, measured on a
+    # primitive -- no any-thread Call Library Function Node was available to
+    # measure.
+    ext_func_ui_fill: str = "#ffad00"
+    ext_func_any_fill: str = "#ffffcc"
+    ext_func_line: str = "#000000"  # border, row lines, divider, mark
+    ext_func_cell: str = "#ffffff"  # a cell with a terminal
+    ext_func_empty_cell: str = "#cecece"  # a cell without one
     term_fill: str = "#fff3e2"
     const_fill: str = "#ffffff"  # numeric/string constant box background
     const_text: str = "#1a1a1a"  # label text on const_fill
