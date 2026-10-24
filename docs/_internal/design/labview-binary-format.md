@@ -1503,3 +1503,44 @@ to any depth; a class already being stamped further up (its private data holds
 itself, directly or through another class) is left without levels, so that
 inner instance shows its name and keeps its exact extent. The only corpus value with stored private data is that one (every other class object in
 the corpus is the class's default, a one-level object at version 0).
+
+## A Call Library Function Node row is ONE `extFuncArg` DCO owned by the input terminal; the output terminal is a bare reference to it (issue #185)
+
+A Call Library Function Node (`class="extFunc"`) stores the path pair and the
+error pair as ordinary `hGrowCItem` DCOs (positions 0-3), then one `extFuncArg`
+DCO per function row — the return value first, then each parameter. The DCO sits
+on the row's LEFT `<term>`; its own `<termList elements="2">` names the row's two
+terminals in order (input side, output side), and the right `<term>` holds only
+`<dco uid=.../>`, a bare reference to that DCO with no flags of its own. So the
+direction of a row terminal comes from its position in that pair list, not from
+the DCO's `objFlags` bit 0.
+
+The return-value row is the `extFuncArg` whose `objFlags` has bit 16
+(`0x10000`): 46/46 corpus nodes, always the first row, and no other row ever
+carries the bit. Its input terminal is never wired (46/46) and the node does not
+have it (NI's page for the node: the top terminal is unused).
+
+The node's `<funcTD>` (hex heap TypeID) is a Cluster whose fields are the C
+prototype, one per row in the same order (46/46 nodes; same count as
+`<paramInfo>`). The field names are the parameter names (`varName`, `hFile`).
+The return value's field is sometimes unnamed, sometimes `return`, `return
+type` or `error code`. The field TYPES are C-level (`PtrTo`, `ArrayDataPtr`);
+the DCO's `typeDesc` is the LabVIEW wire type (`Array`, `NumUInt32`) and is the
+one the terminal shows.
+
+The function's name is `<nodeName>`; its library is `<libPath>`, a `PTH0` path
+(`kernel32.dll`, or `LabVIEW` for LabVIEW's own functions). A node whose
+`libPath` is the empty path (`PTH0` with zero components) takes its library from
+the wired path input at run time. Three of the 46 corpus nodes sit inside an
+XNode's implementation diagram (Match Regular Expression) and are not on the
+VI's own diagram.
+
+Terminal names come from the type each DCO references: heap TypeID -> consolidated
+TypeID -> FlatTypeID -> that type descriptor's `Label`. The path and error
+terminals reference labelled types (`path in`, `path out`, `error in (no
+error)`, `error out`; the two LabVIEW-library nodes with a reference use
+`reference` / `reference out`); all 184 path and error terminals of the 46 corpus
+nodes carry one. A row's `extFuncArg` DCO references a labelled type for 192 of
+its 216 rows (the 24 without are return values); the label differs from the
+prototype's field name for 34 of those (`bytesRead` against an unnamed field,
+`file path` against `path`).

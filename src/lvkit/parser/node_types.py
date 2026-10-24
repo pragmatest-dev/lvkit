@@ -17,6 +17,7 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
+from .extfunc import extfunc_function_name
 from .flags import is_output_terminal
 from .layout import _rect
 from .models import ParsedNode
@@ -1253,9 +1254,7 @@ class XNodeHandler(NodeTypeHandler):
         # The method name (when present) is ALSO recorded as a row-name pair
         # elsewhere in the same blob -- exclude it, it's the header/method
         # row (drawn separately), never one of the node's own param rows.
-        row_names = [
-            n for n in _xnode_state_row_names(state_data) if n != method_name
-        ]
+        row_names = [n for n in _xnode_state_row_names(state_data) if n != method_name]
         resource_name = _xnode_state_resource_name(state_data)
         # An "Invoke Method" node's leading StateData string IS its method
         # name (unpaired, read above) -- it is ALSO, by construction, the one
@@ -1799,6 +1798,20 @@ class FormulaNodeHandler(NodeTypeHandler):
         return FormulaNode(**common, script=script)
 
 
+class ExtFuncHandler(NodeTypeHandler):
+    """Handler for a Call Library Function Node (class="extFunc"): named
+    ``<library file>:<function>`` from the node's recorded library path and
+    function name."""
+
+    xml_class = "extFunc"
+    display_name = "Call Library Function Node"
+
+    def parse(self, elem: ET.Element) -> ParsedNode:
+        common = self._extract_common(elem)
+        common["name"] = extfunc_function_name(elem) or common["name"]
+        return ParsedNode(**common)
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -1883,6 +1896,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
     DecomposeRecomposeStructureHandler(),
+    ExtFuncHandler(),
     # Built-in primitives with specialized XML classes.
     # aDelete/aIndx/subset resolve by XML class via the node_types section of
     # primitives.json, so they carry NO primResID. Their old numeric IDs were

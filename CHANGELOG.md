@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Call Library Function Node terminals** — each parameter shows its input and output side with its name, the return value is an output only, and `generate` names the node instead of "primitive 0" (#185).
 - **Fix: the project index keeps a VI's typedef links when another render loads it only as a SubVI** — the result no longer depends on which command ran last.
 - **Faster first load** — extracting a VI is about a third faster (up to 3.5× for a VI with large constant data), and a VI's SubVIs or a directory's VIs extract in parallel worker processes.
 - **Fix: `lvkit setup copilot` installs Copilot skills, not prompt files** — VS Code no longer asks to migrate them, and lvkit's earlier prompt files and router are removed (#196).

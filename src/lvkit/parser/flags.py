@@ -25,6 +25,18 @@ def is_method_row_input(dco_class: str | None, flags: int) -> bool:
     )
 
 
+# Call Library Function Nodes: bit 16 on an ``extFuncArg`` DCO marks the
+# return-value row. LabVIEW stores every row as an input terminal and an output
+# terminal; the return value's input terminal is never wired and the node draws
+# only its output.
+EXT_FUNC_ARG_RETURN_VALUE = 0x00010000  # Bit 16 on an extFuncArg DCO
+
+
+def is_ext_func_return_value(dco_class: str | None, flags: int) -> bool:
+    """Whether a DCO is a Call Library Function Node's return-value row."""
+    return dco_class == "extFuncArg" and bool(flags & EXT_FUNC_ARG_RETURN_VALUE)
+
+
 # Front panel control flags
 FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)
 

@@ -9,6 +9,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
+from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
     ResolvedPrimitive,
@@ -125,7 +126,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         )
         if prim_id is None and not is_generic_unknown:
             return CodeFragment.empty()
-        return _emit_unknown(node, prim_id or 0, ctx)
+        return _emit_unknown(node, prim_id, ctx)
 
     # Generator-owned op handler: a neutral ``op`` tag in the data maps to a
     # Python emission template here (codegen/nodes/ops/), keeping target-language
@@ -179,7 +180,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
     if is_unknown:
         # Unknown primitive - emit explicit error
-        return _emit_unknown(node, prim_id or 0, ctx)
+        return _emit_unknown(node, prim_id, ctx)
 
     # Resolve input values from context (use resolved terminals for names)
     input_map = _build_input_map(node, ctx, resolved)
@@ -886,7 +887,7 @@ def _emit_placeholder(
 
 
 def _emit_unknown(
-    node: PrimitiveNode, prim_id: int, ctx: CodeGenContext
+    node: PrimitiveNode, prim_id: int | None, ctx: CodeGenContext
 ) -> CodeFragment:
     """Handle an unknown primitive.
 
@@ -915,6 +916,10 @@ def _emit_unknown(
         "vi_name": ctx.vi_name,
         "qualified_vi_name": ctx.qualified_vi_name,
     }
+    if prim_id is None:
+        kwargs["node_kind"] = (
+            get_display_name(node.node_type) if node.node_type else "Node"
+        )
 
     if ctx.unresolved_sink is not None:
         # Batch-collection mode (`lvkit unresolved`): record the gap and keep
