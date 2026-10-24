@@ -1222,7 +1222,7 @@ class OriginalGlyphResolver:
         if node.node_type == "invokeNode":
             return _invoke_node_glyph(node)
         if node.node_type == "extFunc":
-            return ExtFuncGlyph(rows=tuple(node.ext_func_rows))
+            return ExtFuncGlyph.from_node(node)
         if node.node_type == "eventRegNode":
             return _event_reg_node_glyph(node)
         if node.node_type == "xNode":

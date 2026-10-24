@@ -23,7 +23,12 @@ from lvkit.graph.models import GraphNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.parser.extfunc import extfunc_function_name
-from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam, ParamKind
+from lvkit.parser.extfunc_prototype import (
+    ExtFuncCall,
+    ExtFuncParam,
+    ExtFuncThread,
+    ParamKind,
+)
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.unresolved import UnresolvedItem, _item_key, format_unresolved_report
 from tests.test_lvnet_identity import _assert_graph_identity
@@ -365,9 +370,52 @@ def test_the_call_the_node_makes(tmp_path: Path) -> None:
             (term("36"), term("38")),
         ),
         func_td=29,
+        thread=ExtFuncThread.UI_THREAD,
         params=(
             ExtFuncParam(ParamKind.VALUE, "int32"),
-            ExtFuncParam(ParamKind.UNSUPPORTED, reason="a LabVIEW string handle"),
+            ExtFuncParam(ParamKind.STRING_HANDLE, reason="a LabVIEW string handle"),
             ExtFuncParam(ParamKind.VALUE, "int32"),
         ),
+    )
+
+
+def test_c_prototype_of_every_parameter_kind() -> None:
+    from lvkit.graph.models import PrimitiveNode
+    from lvkit.models import Terminal
+    from lvkit.render.ext_func_prototype import ext_func_prototype
+
+    params = (
+        ExtFuncParam(ParamKind.NO_VALUE),
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+        ExtFuncParam(ParamKind.POINTER, "int16"),
+        ExtFuncParam(ParamKind.C_STRING),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "float64"),
+        ExtFuncParam(ParamKind.STRING_HANDLE),
+        ExtFuncParam(ParamKind.ARRAY_HANDLE),
+        ExtFuncParam(ParamKind.ADAPT_TO_TYPE),
+    )
+    rows = tuple(
+        (None if row == 0 else f"in{row}", f"out{row}") for row in range(len(params))
+    )
+    names = {"in1": "size", "in2": "count"}
+    node = PrimitiveNode(
+        id="n",
+        vi_path="x.vi",
+        node_type="extFunc",
+        terminals=[
+            Terminal(id=i, index=k, direction="input", name=names.get(i))
+            for k, i in enumerate(r[0] for r in rows[1:])
+        ],
+        ext_func=ExtFuncCall(
+            library="lib",
+            function="Run",
+            calling_convention="c",
+            path_in_terminal_id=None,
+            row_terminal_ids=rows,
+            params=params,
+        ),
+    )
+    assert ext_func_prototype(node) == (
+        "void Run(uintptr_t size, int16_t *count, char *arg3, double *arg4,"
+        " LStrHandle arg5, void *arg6, void *arg7);"
     )

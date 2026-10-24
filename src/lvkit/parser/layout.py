@@ -959,9 +959,8 @@ class _LayoutBuilder:
                 off_x = (nb[2] - nb[0] - (emax_x - emin_x)) / 2 - emin_x
                 off_y = (nb[3] - nb[1] - (emax_y - emin_y)) / 2 - emin_y
 
-        mirrored_bounds = (
-            extfunc_mirrored_bounds(elem) if elem.get("class") == "extFunc" else {}
-        )
+        is_ext_func = elem.get("class") == "extFunc"
+        mirrored_bounds = extfunc_mirrored_bounds(elem) if is_ext_func else {}
         for term in tl.findall("SL__arrayElement"):
             cls = term.get("class")
             if cls == "fPTerm":
@@ -1032,6 +1031,11 @@ class _LayoutBuilder:
                     oy + tb[3] + off_y,
                 )
                 cx, cy = (abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2
+                if elem.get("class") == "extFunc" and (node_box := _rect(elem)):
+                    # A Call Library Function Node's wires meet the node's edge:
+                    # an input's at the left, an output's at the right.
+                    on_left = cx < ox + (node_box[2] - node_box[0]) / 2
+                    cx = abs_tb[0] if on_left else abs_tb[2]
                 if term_uid:
                     # The terminal's own border-box rect (used for N/SR/
                     # tunnel/selector glyphs). A nested constant's ddo box,
@@ -1046,7 +1050,7 @@ class _LayoutBuilder:
                     # terminal (no attached constant), so the structure-border
                     # lookup by the graph's chosen uid finds geometry.
                     if cb is None:
-                        for u in self._collect_uids(term):
+                        for u in self._alias_uids(term, is_ext_func):
                             self.node_bounds.setdefault(u, abs_tb)
             if cb is not None:
                 abs_cb = (
@@ -1147,8 +1151,16 @@ class _LayoutBuilder:
                     cx, cy = cx + hx, cy + hy
                 except ValueError:
                     pass
-            for u in self._collect_uids(term):
+            for u in self._alias_uids(term, is_ext_func):
                 self.terminal_centers.setdefault(u, (cx, cy))
+
+    def _alias_uids(self, term: ET.Element, is_ext_func: bool) -> set[str]:
+        """The uids that resolve to ``term``'s geometry. A Call Library Function
+        Node row's input terminal lists its output terminal in its DCO's own
+        ``termList``, but the two are separate terminals at opposite edges: each
+        keeps only its own uid."""
+        own = term.get("uid")
+        return {own} if is_ext_func and own else self._collect_uids(term)
 
     # -- structure border DCOs (loop N/i/cond, case selector) --------------
     def _border_dcos(

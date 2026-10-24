@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 
 from .type_mapping import TypeMap, flat_type_descs
 
@@ -30,7 +30,18 @@ class ParamKind(str, Enum):
     # graph (see ``codegen.nodes.ext_func``).
     ADAPT_TO_TYPE = "adapt_to_type"
     NO_VALUE = "no_value"  # a function with no return value
+    STRING_HANDLE = "string_handle"  # a LabVIEW string handle
+    ARRAY_HANDLE = "array_handle"  # a LabVIEW array handle
     UNSUPPORTED = "unsupported"
+
+
+class ExtFuncThread(IntEnum):
+    """The node's ``<threadInfo>`` (absent is 0): where the call runs. NI's
+    dialog default is the UI thread; "Run in any thread" is the reentrant
+    setting."""
+
+    UI_THREAD = 0
+    ANY_THREAD = 1
 
 
 @dataclass(frozen=True)
@@ -42,6 +53,12 @@ class ExtFuncParam:
     kind: ParamKind
     c_type: str | None = None
     reason: str = ""  # why an UNSUPPORTED parameter is
+
+
+# Parameter kinds the generated Python cannot pass: each carries its ``reason``.
+UNPASSABLE_KINDS = frozenset(
+    {ParamKind.UNSUPPORTED, ParamKind.STRING_HANDLE, ParamKind.ARRAY_HANDLE}
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +76,7 @@ class ExtFuncCall:
     path_in_terminal_id: str | None
     row_terminal_ids: tuple[tuple[str | None, str], ...]
     func_td: int | None = None
+    thread: ExtFuncThread | None = None
     params: tuple[ExtFuncParam, ...] = field(default=())
 
 
@@ -114,13 +132,11 @@ def _param(
         if is_return:
             return ExtFuncParam(ParamKind.NO_VALUE)
         return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
-    reasons = {
-        "String": "a LabVIEW string handle",
-        "Array": "a LabVIEW array handle",
-    }
-    return ExtFuncParam(
-        ParamKind.UNSUPPORTED, reason=reasons.get(kind_name, f"a {kind_name} parameter")
-    )
+    if kind_name == "String":
+        return ExtFuncParam(ParamKind.STRING_HANDLE, reason="a LabVIEW string handle")
+    if kind_name == "Array":
+        return ExtFuncParam(ParamKind.ARRAY_HANDLE, reason="a LabVIEW array handle")
+    return ExtFuncParam(ParamKind.UNSUPPORTED, reason=f"a {kind_name} parameter")
 
 
 def extfunc_params(

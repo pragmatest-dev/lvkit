@@ -207,7 +207,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 ]
         elif isinstance(node, ExtFuncNode):
             prim_kwargs["ext_func_rows"] = [
-                (r.top, r.bottom, r.has_input, r.has_output) for r in node.rows
+                (r.top, r.bottom, r.has_input, r.has_output, r.fixed) for r in node.rows
             ]
             prim_kwargs["ext_func"] = replace(
                 node.call,

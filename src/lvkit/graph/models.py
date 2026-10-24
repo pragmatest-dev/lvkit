@@ -184,9 +184,10 @@ class PrimitiveNode(GraphNode):
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
     # Call Library Function Node only: its drawn rows top to bottom, each
-    # ``(top, bottom, has_input, has_output)`` with the span as a fraction of
-    # the node's height (parser.extfunc.ExtFuncRow).
-    ext_func_rows: list[tuple[float, float, bool, bool]] = []
+    # ``(top, bottom, has_input, has_output, fixed)`` with the span as a fraction
+    # of the node's height (parser.extfunc.ExtFuncRow); ``fixed`` marks the path
+    # and error rows.
+    ext_func_rows: list[tuple[float, float, bool, bool, bool]] = []
     # Call Library Function Node only: the call it makes, with its terminal ids
     # qualified like ``terminals[i].id``.
     ext_func: ExtFuncCall | None = None

@@ -1558,3 +1558,9 @@ passes a scalar by reference). The `extFuncParam` `Tag0000` byte is 00/01 and do
 change how a parameter is passed. Error in/out: NI says the node does not run when an
 error enters it, and reports error 7 for a library path that does not exist and error 1097
 for an exception in the called code.
+
+**Absent field = value 0 (2026-10-24):** in extFunc node XML, an optional scalar like `callType` or `threadInfo` is omitted when 0 and written (e.g. `01`) otherwise; read absent as 0, not as "unknown".
+
+`<threadInfo>` is 0 (absent) for "Run in UI thread" and `01` for "Run in any thread"
+(28 of the 46 corpus nodes have `01`). LabVIEW draws the node's top band orange for the
+UI thread and pale yellow for any thread.

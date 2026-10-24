@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from ..models import LVType, LVTypeKind
 from .extfunc_bounds import EXT_FUNC_ARG_CLASS, extfunc_mirrored_bounds, row_pairs
-from .extfunc_prototype import ExtFuncCall
+from .extfunc_prototype import ExtFuncCall, ExtFuncThread
 from .flags import is_ext_func_return_value, is_output_terminal
 from .metadata import _decode_pth0_components
 from .type_mapping import TypeMap
@@ -96,6 +96,14 @@ def _row_terminal_ids(elem: ET.Element) -> tuple[tuple[str | None, str], ...]:
     return tuple(rows)
 
 
+def _thread(elem: ET.Element) -> ExtFuncThread | None:
+    value = int(elem.findtext("threadInfo") or "0", 16)
+    try:
+        return ExtFuncThread(value)
+    except ValueError:
+        return None
+
+
 def extfunc_call(elem: ET.Element) -> ExtFuncCall:
     """The node's call, without its parameter types (see ``extfunc_params``).
 
@@ -122,6 +130,7 @@ def extfunc_call(elem: ET.Element) -> ExtFuncCall:
         path_in_terminal_id=path_in,
         row_terminal_ids=_row_terminal_ids(elem),
         func_td=int(func_td, 16) if func_td else None,
+        thread=_thread(elem),
     )
 
 
@@ -134,6 +143,9 @@ class ExtFuncRow:
     bottom: float
     has_input: bool
     has_output: bool
+    # A path or error row (the node's own DCOs), as opposed to a parameter or
+    # return-value row.
+    fixed: bool = False
 
 
 def extfunc_rows(elem: ET.Element) -> list[ExtFuncRow]:
@@ -142,7 +154,7 @@ def extfunc_rows(elem: ET.Element) -> list[ExtFuncRow]:
     node is drawn over)."""
     roles = extfunc_terminal_roles(elem, None)
     mirrored = extfunc_mirrored_bounds(elem)
-    spans: list[tuple[int, int, bool]] = []  # (top, bottom, is_output)
+    spans: list[tuple[int, int, bool, bool]] = []  # top, bottom, output, fixed
     for term in elem.findall("./termList/SL__arrayElement"):
         uid = term.get("uid") or ""
         role = roles.get(uid)
@@ -155,21 +167,28 @@ def extfunc_rows(elem: ET.Element) -> list[ExtFuncRow]:
             top, _, bottom, _ = mirrored[uid]
         else:
             continue
-        spans.append((top, bottom, role.is_output))
+        dco = term.find("dco")
+        fixed = dco is not None and dco.get("class") == PATH_ERROR_DCO_CLASS
+        spans.append((top, bottom, role.is_output, fixed))
     if not spans:
         return []
-    extent_top = min(top for top, _, _ in spans)
-    extent = max(bottom for _, bottom, _ in spans) - extent_top
+    extent_top = min(top for top, _, _, _ in spans)
+    extent = max(bottom for _, bottom, _, _ in spans) - extent_top
     if extent <= 0:
         return []
     sides: dict[tuple[int, int], list[bool]] = {}
-    for top, bottom, is_output in spans:
-        sides.setdefault((top, bottom), [False, False])[1 if is_output else 0] = True
+    for top, bottom, is_output, fixed in spans:
+        present = sides.setdefault((top, bottom), [False, False, fixed])
+        present[1 if is_output else 0] = True
     return [
         ExtFuncRow(
-            (top - extent_top) / extent, (bottom - extent_top) / extent, *present
+            (top - extent_top) / extent,
+            (bottom - extent_top) / extent,
+            has_input,
+            has_output,
+            fixed,
         )
-        for (top, bottom), present in sorted(sides.items())
+        for (top, bottom), (has_input, has_output, fixed) in sorted(sides.items())
     ]
 
 

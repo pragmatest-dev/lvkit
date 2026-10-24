@@ -19,6 +19,7 @@ import ast
 from lvkit.graph.models import PrimitiveNode
 from lvkit.parser.extfunc_prototype import (
     NUMERIC_C_TYPES,
+    UNPASSABLE_KINDS,
     ExtFuncCall,
     ExtFuncParam,
     ParamKind,
@@ -73,7 +74,7 @@ def _parameters(
         for row, p in enumerate(call.params)
     ]
     for index, param in enumerate(params):
-        if param.kind == ParamKind.UNSUPPORTED:
+        if param.kind in UNPASSABLE_KINDS:
             where = "the return value is" if index == 0 else f"parameter {index} is"
             return params, f"{where} {param.reason}"
     return params, None
