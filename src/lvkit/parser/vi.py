@@ -76,6 +76,7 @@ from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
     parse_connector_pane_labels,
+    parse_connector_pane_types,
 )
 from .image_resources import resource_sections, resources_for_heap
 from .layout import (
@@ -105,6 +106,7 @@ from .metadata import (
     _decode_pth0_components,
     parse_instance_files,
     parse_link_path_refs,
+    parse_vi_metadata,
     parse_vipi_from_livi,
 )
 from .models import (
@@ -319,12 +321,22 @@ def parse_vi(
             unresolved_uids,
         )
 
+    # Both read the main XML this scope already holds.
+    main_path = Path(main_xml) if main_xml is not None else None
+    wiring_rules: dict[int, int] = {}
+    file_metadata = None
+    if main_path is not None and main_path.exists():
+        file_metadata = parse_vi_metadata(main_path)
+        if connector_pane:
+            wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(
         metadata=metadata,
         block_diagram=block_diagram,
         front_panel=front_panel,
         connector_pane=connector_pane,
         layout=bd_layout,
+        wiring_rules=wiring_rules,
+        file_metadata=file_metadata,
     )
 
 

@@ -1,4 +1,5 @@
-"""Each of a VI's XML files is parsed once per ``parse_vi``."""
+"""Each of a VI's XML files is parsed once per ``parse_vi``, and a VI already
+loaded is not parsed again."""
 
 from __future__ import annotations
 
@@ -8,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.graph import InMemoryVIGraph, loading
+from lvkit.load_mode import LoadMode
 from lvkit.parser import parse_vi, xml_trees
 from lvkit.parser.xml_trees import parsed_xml, xml_scope
 from tests.case_structure_fixture import FrameSpec, case_structure_views
@@ -67,3 +70,55 @@ def test_a_scope_ends_with_its_block(
     with xml_scope():
         assert parsed_xml(xml) is not first
     assert parse_counts[xml.resolve()] == 2
+
+
+def _case_vi(tmp_path: Path) -> tuple[Path, Path]:
+    case_structure_views(
+        tmp_path, "integer", [FrameSpec(ranges=((1, 1),))], default_frame=0
+    )
+    return tmp_path / "Case_BDHb.xml", tmp_path / "Case.xml"
+
+
+def test_parse_vi_carries_the_main_xml_products(tmp_path: Path) -> None:
+    bd_xml, main_xml = _case_vi(tmp_path)
+    vi = parse_vi(bd_xml=bd_xml, main_xml=main_xml)
+    assert vi.file_metadata is not None
+    assert vi.file_metadata["name"] == "Case.vi"
+    assert vi.wiring_rules == {}
+    assert parse_vi(bd_xml=bd_xml).file_metadata is None
+
+
+def test_loading_a_vi_parses_its_main_xml_once(
+    tmp_path: Path, parse_counts: Counter[Path]
+) -> None:
+    bd_xml, main_xml = _case_vi(tmp_path)
+    parse_counts.clear()
+    InMemoryVIGraph().load_vi(bd_xml, LoadMode.NONE)
+    assert parse_counts[main_xml.resolve()] == 1
+
+
+def test_a_loaded_vi_is_not_parsed_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bd_xml, main_xml = _case_vi(tmp_path)
+    source = tmp_path / "Case.vi"
+    parsed: list[Path] = []
+    real_parse_vi = loading.parse_vi
+
+    def counting_parse_vi(*args, **kwargs):
+        parsed.append(kwargs["bd_xml"])
+        return real_parse_vi(*args, **kwargs)
+
+    monkeypatch.setattr(loading, "parse_vi", counting_parse_vi)
+    graph = InMemoryVIGraph()
+
+    def load(visited: set[str]) -> str | None:
+        return graph._load_vi_recursive(  # noqa: SLF001
+            bd_xml, None, main_xml, [], visited, source_override=source
+        )
+
+    key = str(source.resolve())
+    assert load(set()) == key
+    assert load({key}) is None
+    assert load(set()) == key
+    assert parsed == [bd_xml]

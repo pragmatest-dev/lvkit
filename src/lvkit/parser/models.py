@@ -897,3 +897,9 @@ class ParsedVI:
     # parse_vi(..., layout=True) — the geometry half of the parse. None for
     # codegen, which needs no positions and pays nothing. See parser/layout.py.
     layout: Layout | None = None
+    # Connector-pane slot index -> wiring rule (``ParsedWiringRule`` value),
+    # read from the main XML; empty without a connected connector pane.
+    wiring_rules: dict[int, int] = field(default_factory=dict)
+    # ``parse_vi_metadata``'s result for the main XML (polymorphic info, library
+    # membership, VI Properties); None when the VI has no main XML.
+    file_metadata: dict[str, Any] | None = None
