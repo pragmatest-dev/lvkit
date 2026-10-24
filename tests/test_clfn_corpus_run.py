@@ -8,9 +8,11 @@ here:
   library): File Info, LFU Create File Handle, LFU Retrieve File Handle.
 - Calls ``kernel32.dll`` (Windows only). OpenG's large-file VIs run end to end
   through ``tests/fake_kernel32.py``, a stand-in built on ordinary file
-  descriptors that follows Microsoft's documentation of each function; the
-  Windows-only calls of the other two VIs are checked to reach the library
-  (error 7 here, the real effect on Windows).
+  descriptors that follows Microsoft's documentation of each function; so does
+  Read Discovery Service Key File (success, missing file, failed open). The
+  Windows-only calls of Write Environment Variable and Get Client Machine
+  Details are checked to reach the library (error 7 here, the real effect on
+  Windows).
 - Blocked: the 12 protobuf VIs (their SubVI ``Get Server DLL Path.vi`` is not in
   the corpus) and the 3 VIs whose node is inside a Match Regular Expression
   XNode (an XNode has no code generation).
@@ -302,27 +304,15 @@ def test_get_client_machine_details(generated_vi) -> None:
         assert (raised.value.code, raised.value.source) == (7, "kernel32.dll")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=UnboundLocalError,
-    reason=(
-        "Not the Call Library Function Nodes (CreateFileA, GetFileSizeEx, ReadFile "
-        "and CloseHandle run): this VI wires Error Cluster From Error Code with "
-        "error in at 6, error message at 8 and error code at 9 (by their types), "
-        "but the vi.lib data has the code at 6, the message at 9 and error in at "
-        "8, so the generated error frames read a variable no frame set."
-    ),
+_KEY_FILE_VI = (
+    _PLUGIN / "Source/Runtime/Clients/Discovery V1/Read Discovery Service Key File.vi"
 )
+
+
 def test_read_discovery_service_key_file(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
-    module = generated_vi(
-        _vi(
-            _PLUGIN
-            / "Source/Runtime/Clients/Discovery V1/Read Discovery Service Key File.vi"
-        ),
-        _PLUGIN,
-    )
+    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
     key_file = tmp_path / "key.json"
     key_file.write_text('{"insecurePort": "31763"}')
 
@@ -330,3 +320,30 @@ def test_read_discovery_service_key_file(
 
     assert result.key_json == '{"insecurePort": "31763"}'
     assert kernel32.files == {}  # the file was closed
+
+
+def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
+    generated_vi, kernel32: Kernel32, tmp_path: Path
+) -> None:
+    """CreateFileA answers INVALID_HANDLE_VALUE, so GetFileSizeEx fails and the
+    VI reports its own error 5054 through Error Cluster From Error Code."""
+    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
+    with pytest.raises(LabVIEWError) as raised:
+        module.read_discovery_service_key_file(key_file_path=tmp_path / "nope.json")
+    assert raised.value.code == 5054
+    assert raised.value.message == "Failed to get the discovery service key file size."
+
+
+def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
+    generated_vi, kernel32: Kernel32, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CreateFileA answering 0 is the case the VI reports as error 5053."""
+    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
+    monkeypatch.setattr(kernel32, "CreateFileA", lambda *args: 0)
+    with pytest.raises(LabVIEWError) as raised:
+        module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")
+    assert raised.value.code == 5053
+    assert raised.value.message == (
+        "Failed to read the discovery service key file.\n"
+        "Ensure that the discovery service is running."
+    )
