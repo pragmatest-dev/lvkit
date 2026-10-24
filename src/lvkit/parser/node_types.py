@@ -17,7 +17,7 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
-from .extfunc import extfunc_function_name
+from .extfunc import ExtFuncRow, extfunc_function_name, extfunc_rows
 from .flags import is_output_terminal
 from .layout import _rect
 from .models import ParsedNode
@@ -1798,6 +1798,14 @@ class FormulaNodeHandler(NodeTypeHandler):
         return FormulaNode(**common, script=script)
 
 
+@dataclass
+class ExtFuncNode(ParsedNode):
+    """A Call Library Function Node (class="extFunc"): ``rows`` are the drawn
+    rows top to bottom (see ``extfunc.extfunc_rows``)."""
+
+    rows: list[ExtFuncRow] = field(default_factory=list)
+
+
 class ExtFuncHandler(NodeTypeHandler):
     """Handler for a Call Library Function Node (class="extFunc"): named
     ``<library file>:<function>`` from the node's recorded library path and
@@ -1806,10 +1814,10 @@ class ExtFuncHandler(NodeTypeHandler):
     xml_class = "extFunc"
     display_name = "Call Library Function Node"
 
-    def parse(self, elem: ET.Element) -> ParsedNode:
+    def parse(self, elem: ET.Element) -> ExtFuncNode:
         common = self._extract_common(elem)
         common["name"] = extfunc_function_name(elem) or common["name"]
-        return ParsedNode(**common)
+        return ExtFuncNode(**common, rows=extfunc_rows(elem))
 
 
 class GenericHandler(NodeTypeHandler):

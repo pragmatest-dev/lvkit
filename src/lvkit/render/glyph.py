@@ -54,6 +54,7 @@ from .glyphs.nodes.convert import ConvertGlyph
 from .glyphs.nodes.error_cluster import ErrorClusterGlyph
 from .glyphs.nodes.event_data import EventDataGlyph
 from .glyphs.nodes.event_reg_node import EventRegNodeGlyph
+from .glyphs.nodes.ext_func import ExtFuncGlyph
 from .glyphs.nodes.feedback_node import FeedbackNodeGlyph, InitCell
 from .glyphs.nodes.formula_node import FormulaNodeGlyph
 from .glyphs.nodes.global_variable import GlobalVariableGlyph
@@ -103,6 +104,7 @@ __all__ = [
     "IconImageGlyph",
     "InPlaceElementGlyph",
     "InlineSvgGlyph",
+    "ExtFuncGlyph",
     "InvokeNodeGlyph",
     "LabelGlyph",
     "LocalVariableGlyph",

@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
 from ..models import LVType, LVTypeKind
+from .extfunc_bounds import EXT_FUNC_ARG_CLASS, extfunc_mirrored_bounds
 from .flags import is_ext_func_return_value, is_output_terminal
 from .metadata import _decode_pth0_components
 from .type_mapping import TypeMap
@@ -22,7 +23,6 @@ from .type_resolution import type_id_number
 from .utils import clean_labview_string, safe_int
 
 NODE_CLASS_EXT_FUNC = "extFunc"
-EXT_FUNC_ARG_CLASS = "extFuncArg"
 PATH_ERROR_DCO_CLASS = "hGrowCItem"
 RETURN_VALUE_NAME = "return value"
 # A parameter's output side is named like its input side plus this suffix.
@@ -81,6 +81,54 @@ def _row_name(
     if not name or name == f"field_{row}":
         return RETURN_VALUE_NAME if is_return else None
     return name
+
+
+@dataclass(frozen=True)
+class ExtFuncRow:
+    """One drawn row of a Call Library Function Node: its vertical span as a
+    fraction of the node's height and which sides carry a terminal."""
+
+    top: float
+    bottom: float
+    has_input: bool
+    has_output: bool
+
+
+def extfunc_rows(elem: ET.Element) -> list[ExtFuncRow]:
+    """The node's rows, top to bottom, from its terminals' ``<termBounds>``,
+    as fractions of the vertical extent those terminals span (the extent the
+    node is drawn over)."""
+    roles = extfunc_terminal_roles(elem, None)
+    mirrored = extfunc_mirrored_bounds(elem)
+    spans: list[tuple[int, int, bool]] = []  # (top, bottom, is_output)
+    for term in elem.findall("./termList/SL__arrayElement"):
+        uid = term.get("uid") or ""
+        role = roles.get(uid)
+        if role is None or role.dropped:
+            continue
+        text = term.findtext(".//termBounds")
+        if text:
+            top, _, bottom, _ = (int(v) for v in text.strip("()").split(","))
+        elif uid in mirrored:
+            top, _, bottom, _ = mirrored[uid]
+        else:
+            continue
+        spans.append((top, bottom, role.is_output))
+    if not spans:
+        return []
+    extent_top = min(top for top, _, _ in spans)
+    extent = max(bottom for _, bottom, _ in spans) - extent_top
+    if extent <= 0:
+        return []
+    sides: dict[tuple[int, int], list[bool]] = {}
+    for top, bottom, is_output in spans:
+        sides.setdefault((top, bottom), [False, False])[1 if is_output else 0] = True
+    return [
+        ExtFuncRow(
+            (top - extent_top) / extent, (bottom - extent_top) / extent, *present
+        )
+        for (top, bottom), present in sorted(sides.items())
+    ]
 
 
 def extfunc_terminal_roles(

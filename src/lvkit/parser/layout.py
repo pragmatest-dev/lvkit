@@ -30,6 +30,7 @@ from pathlib import Path
 
 from ..extractor import extract_vi_xml
 from ..vi_files import is_vi_file
+from .extfunc_bounds import extfunc_mirrored_bounds
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
 from .utils import extract_caption, extract_label_strict
 
@@ -958,6 +959,9 @@ class _LayoutBuilder:
                 off_x = (nb[2] - nb[0] - (emax_x - emin_x)) / 2 - emin_x
                 off_y = (nb[3] - nb[1] - (emax_y - emin_y)) / 2 - emin_y
 
+        mirrored_bounds = (
+            extfunc_mirrored_bounds(elem) if elem.get("class") == "extFunc" else {}
+        )
         for term in tl.findall("SL__arrayElement"):
             cls = term.get("class")
             if cls == "fPTerm":
@@ -1009,6 +1013,9 @@ class _LayoutBuilder:
             # termBounds is nested at varying depth (directly under a "term",
             # or under its dco/parm/overridableParm child) — search any depth.
             tb = _rect(term, ".//termBounds")
+            if tb is None and term_uid in mirrored_bounds:
+                top, left, bottom, right = mirrored_bounds[term_uid]
+                tb = (float(left), float(top), float(right), float(bottom))
             ddo = term.find(".//ddo")
             # A constant attached directly to this terminal (bDConstDCO) has
             # NO termBounds of its own — only its nested ddo carries a box. Use

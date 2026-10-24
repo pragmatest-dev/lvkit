@@ -18,6 +18,7 @@ from lvkit.parser.link_table import SharedVariableRecordFailure
 from lvkit.parser.node_types import (
     CpdArithNode,
     EventRegNode,
+    ExtFuncNode,
     InvokeNode,
     PropertyNode,
     SharedVariableAccess,
@@ -203,6 +204,10 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                 prim_kwargs["event_row_terminal_ids"] = [
                     ctx.qid(uid) for uid in node.event_row_terminal_uids
                 ]
+        elif isinstance(node, ExtFuncNode):
+            prim_kwargs["ext_func_rows"] = [
+                (r.top, r.bottom, r.has_input, r.has_output) for r in node.rows
+            ]
         elif isinstance(node, XNodeNode):
             # An XNode (#107) carries no object_method_id/bound-control
             # concept -- just its own real class + (for "Invoke Method")
