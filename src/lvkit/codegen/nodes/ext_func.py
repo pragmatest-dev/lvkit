@@ -7,6 +7,11 @@ every parameter's value after the call; each output terminal binds to its
 row's value. An unwired input is the parameter type's default. The library is
 the wired ``path in`` when there is one, else the library the node records.
 
+A node that names the library ``LabVIEW`` calls one of LabVIEW's own functions,
+which no library on disk provides: it lowers to the Python equivalent that
+``data/labview_manager.json`` lists for that function, called with the same
+arguments and returning the same values.
+
 The node's error terminals are not bound, like every other node here: a library
 that cannot be loaded or called raises ``LabVIEWError`` (NI error 7 / 1097), and
 error wires are the exception model's job (``codegen/error_handler.py``).
@@ -18,6 +23,7 @@ import ast
 from typing import Any
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.manager_functions import LABVIEW_LIBRARY, manager_functions
 from lvkit.parser.extfunc_prototype import (
     UNPASSABLE_KINDS,
     ExtFuncCall,
@@ -108,6 +114,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     call = node.ext_func
     if call is None:
         return _emit_unknown(node, None, ctx)
+    if call.library == LABVIEW_LIBRARY:
+        return _generate_manager_call(node, call, ctx)
     entries, reason = _signature(node, call)
     if reason is not None:
         return _emit_unknown(node, None, ctx, reason=reason)
@@ -143,6 +151,38 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         keywords=[],
     )
     return _bind(node, call, invocation, {_CLFN_IMPORT}, ctx)
+
+
+def _generate_manager_call(
+    node: PrimitiveNode, call: ExtFuncCall, ctx: CodeGenContext
+) -> CodeFragment:
+    """One of LabVIEW's own functions, as the Python that
+    ``data/labview_manager.json`` names for it."""
+    function = manager_functions().get(call.function)
+    if function is None:
+        return _emit_unknown(
+            node,
+            None,
+            ctx,
+            reason=f"LabVIEW's function {call.function} has no Python equivalent",
+        )
+    if len(function.parameters) != len(call.row_terminal_ids) - 1:
+        return _emit_unknown(
+            node,
+            None,
+            ctx,
+            reason=(
+                f"it has {len(call.row_terminal_ids) - 1} parameters but NI's "
+                f"{call.function} has {len(function.parameters)}"
+            ),
+        )
+    entries = [(p.kind.value, p.c_type) for p in call.params]
+    invocation = ast.Call(
+        func=parse_expr(function.python),
+        args=_arguments(call, entries, ctx),
+        keywords=[],
+    )
+    return _bind(node, call, invocation, {function.import_statement}, ctx)
 
 
 def _arguments(

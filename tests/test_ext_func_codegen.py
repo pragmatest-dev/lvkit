@@ -19,6 +19,7 @@ from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.load_mode import LoadMode
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam, ParamKind
+from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from tests.helpers import build_graph
 
 _C_LIBRARY = ctypes.util.find_library("c") or (
@@ -363,3 +364,81 @@ def test_adapt_spec_of_every_wire_type() -> None:
     )
     spec, why = adapt_spec(holder)
     assert spec is None and "padding" in why
+
+
+def test_labview_library_function_runs_its_python_equivalent(tmp_path: Path) -> None:
+    """A node that names the library LabVIEW lowers to the Python the table lists
+    for the function: FGetInfo fills the 552-byte record of a file."""
+    clfn_test, source = _vi(
+        "LabVIEW",
+        "FGetInfo",
+        [
+            _NUMBER,
+            ExtFuncParam(ParamKind.ADAPT_TO_TYPE),
+            ExtFuncParam(ParamKind.ARRAY_DATA, "uint8"),
+        ],
+        ["NumInt32", "Path", "Array"],
+        controls={1: "file", 2: "record"},
+        indicators={0: "error", 2: "info"},
+    )
+    assert "_lv_manager.get_info(file, record)" in source
+    assert "_clfn" not in source
+    target = tmp_path / "data.bin"
+    target.write_bytes(b"abc")
+    result = clfn_test(str(target), [0] * 552)
+    assert result.error == 0
+    assert int.from_bytes(bytes(result.info[12:16]), sys.byteorder, signed=True) == 3
+    assert clfn_test(str(tmp_path / "nope"), [0] * 552).error == 7
+
+
+def test_labview_library_function_the_table_lacks_fails_loudly() -> None:
+    with pytest.raises(PrimitiveResolutionNeeded) as raised:
+        _vi(
+            "LabVIEW",
+            "FNoSuchFunction",
+            [_NUMBER],
+            ["NumInt32"],
+            controls={},
+            indicators={0: "error"},
+        )
+    assert "LabVIEW's function FNoSuchFunction has no Python equivalent" in str(
+        raised.value
+    )
+
+
+_OPENG = Path(".lvkit/cache/samples/OpenG/extracted")
+_OPENG_LIBRARIES = _OPENG / "File Group 0/user.lib/_OpenG.lib"
+
+
+@pytest.mark.needs_samples
+@pytest.mark.parametrize(
+    "vi_path,call",
+    [
+        pytest.param(
+            _OPENG_LIBRARIES
+            / "largefile/largefile.llb/LFU Create File Handle__ogtk.vi",
+            "_lv_manager.new_ref_num(",
+            id="FNewRefNum",
+        ),
+        pytest.param(
+            _OPENG_LIBRARIES
+            / "largefile/largefile.llb/LFU Retrieve File Handle__ogtk.vi",
+            "_lv_manager.ref_num_to_fd(",
+            id="FRefNumToFD",
+        ),
+        pytest.param(
+            _OPENG_LIBRARIES / "file/file.llb/File Info__ogtk.vi",
+            "_lv_manager.get_info(",
+            id="FGetInfo_FSetInfo",
+        ),
+    ],
+)
+def test_corpus_vi_calling_labview_functions_generates_python_that_compiles(
+    vi_path: Path, call: str
+) -> None:
+    if not vi_path.exists():
+        pytest.skip(f"sample corpus VI not present: {vi_path}")
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.FULL, search_paths=[_OPENG])
+    source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
+    compile(source, vi_path.name, "exec")
+    assert call in source
