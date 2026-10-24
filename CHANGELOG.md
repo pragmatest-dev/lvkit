@@ -2,6 +2,7 @@
 
 lvkit follows semantic versioning.
 
+- **Faster first load** — extracting a VI is about a third faster, and up to 3.5× faster for a VI with large constant data.
 ## [Unreleased]
 - **String To IP and IP To String generate Python** — both look up the address or host name through the operating system, as NI documents them.
 - **`lvkit setup --git-textconv` covers `.vim` and `.vit`** — `git diff`/`git show` render their netlist text like a `.vi`.
