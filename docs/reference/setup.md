@@ -15,7 +15,7 @@ lvkit setup [directory] [{claude,copilot,codex,all}] [options]
 | Argument | Description |
 |----------|-------------|
 | `directory` | Directory in which to create `.lvkit/`. Must already exist — `setup` does not create it. Defaults to the current directory. |
-| `{claude,copilot,codex,all}` | Which AI agent to install skills for. `all` installs Claude Code, Copilot, and Codex skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md` for Copilot, and `AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/` for Codex. |
+| `{claude,copilot,codex,all}` | Which AI agent to install skills for. `all` installs Claude Code, Copilot, and Codex skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/skills/` / `.github/prompts/` / `.github/agents.md` for Copilot, and `AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/` for Codex. |
 
 ## Options
 

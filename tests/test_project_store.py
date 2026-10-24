@@ -720,6 +720,19 @@ def test_detect_ai_editors_recognizes_codex_markers(
     assert _detect_ai_editors(tmp_path) == ["codex"]
 
 
+@pytest.mark.parametrize("folder", ["instructions", "skills", "prompts"])
+def test_detect_ai_editors_recognizes_copilot_folders(
+    tmp_path: Path,
+    folder: str,
+) -> None:
+    """Each .github folder Copilot reads enables Copilot auto-detection, so a
+    project whose only Copilot files are lvkit's skills is still re-installed."""
+    from lvkit.cli import _detect_ai_editors
+
+    (tmp_path / ".github" / folder).mkdir(parents=True)
+    assert _detect_ai_editors(tmp_path) == ["copilot"]
+
+
 def test_detect_ai_editors_can_return_all_agents(tmp_path: Path) -> None:
     """Auto-detection installs every agent configured in a mixed project."""
     from lvkit.cli import _detect_ai_editors

@@ -30,7 +30,7 @@ lvkit caches unpacked VIs in `~/.lvkit/cache` (override with `LVKIT_CACHE_DIR`);
 
 `lvkit setup` creates a `.lvkit/` resolution store and installs AI agent skills:
 
-- Auto-detects Claude Code (`CLAUDE.md` / `.claude/`), Copilot (`.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md`), and Codex (`AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/`)
+- Auto-detects Claude Code (`CLAUDE.md` / `.claude/`), Copilot (`.github/copilot-instructions.md` / `.github/instructions/` / `.github/skills/` / `.github/prompts/` / `.github/agents.md`), and Codex (`AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/`)
 - Pass `claude`, `copilot`, `codex`, or `all` to be explicit
 - Use `--no-skills` to create the `.lvkit/` store without installing any skills
 
