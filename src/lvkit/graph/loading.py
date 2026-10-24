@@ -28,9 +28,7 @@ from ..parser import (
     ParsedFrontPanel,
     ParsedVI,
     ParsedVIMetadata,
-    parse_connector_pane_types,
     parse_vi,
-    parse_vi_metadata,
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.type_mapping import parse_type_map_rich
@@ -1271,6 +1269,23 @@ class LoadingMixin:
                 return ref
         return candidates[0]
 
+    def _already_handled(
+        self, vi_key: str, visited: set[str], mode: LoadMode
+    ) -> tuple[bool, str | None]:
+        """Whether ``vi_key`` needs no load, and what the load returns then:
+        ``None`` for a VI already visited in this load, else ``vi_key`` for one
+        already loaded at a depth covering ``mode``. A VI loaded shallower is
+        not handled: it falls through to re-walk its dependencies at the deeper
+        mode (adds the missing SubVI loads + call edges); the graph-node build
+        is guarded so it runs once and the node/metadata adds are idempotent."""
+        if vi_key in visited:
+            return True, None
+        if vi_key in self._loaded_vis and _mode_covers(
+            self._dep_load_mode.get(vi_key), mode
+        ):
+            return True, vi_key
+        return False, None
+
     def _load_vi_recursive(
         self,
         bd_xml: Path,
@@ -1302,6 +1317,15 @@ class LoadingMixin:
         # for free, since the cache isn't popped. Any miss (VI outside the
         # pre-parsed set, layout wanted, or the pre-parse pass never ran)
         # falls straight through to the normal serial parse.
+        # A pinned ``source_override`` fixes the identity before parsing, so a
+        # VI that is already visited or loaded is skipped without being parsed.
+        vi_key = (
+            str(source_override.resolve()) if source_override is not None else None
+        )
+        if vi_key is not None:
+            handled, result = self._already_handled(vi_key, visited, mode)
+            if handled:
+                return result
         cached_vi = self._parse_cache.get(str(bd_xml)) if self._parse_cache else None
         vi = (
             cached_vi
@@ -1367,19 +1391,11 @@ class LoadingMixin:
             source_file = caller_file
         else:
             source_file = bd_xml
-        vi_key = str(source_file.resolve())
-
-        if vi_key in visited:
-            return None
-
-        # Already loaded at a >= depth → done. Otherwise fall through to UPGRADE:
-        # re-walk this VI's dependencies at the deeper mode (adds the missing
-        # SubVI loads + call edges). The graph-node build below is guarded so it
-        # runs once; the node/metadata adds are idempotent.
-        if vi_key in self._loaded_vis and _mode_covers(
-            self._dep_load_mode.get(vi_key), mode
-        ):
-            return vi_key
+        if vi_key is None:
+            vi_key = str(source_file.resolve())
+            handled, result = self._already_handled(vi_key, visited, mode)
+            if handled:
+                return result
 
         visited.add(vi_key)
 
@@ -1389,16 +1405,13 @@ class LoadingMixin:
         if vi.layout is not None:
             self._layouts[vi_key] = vi.layout
 
-        # Parse wiring rules from main XML
-        wiring_rules: dict[int, int] = {}
-        if main_xml and main_xml.exists() and conpane:
-            wiring_rules = parse_connector_pane_types(main_xml, conpane)
+        wiring_rules = vi.wiring_rules
 
         type_map = metadata.type_map
 
-        # Parse VI metadata for polymorphic info and library membership
-        if main_xml and main_xml.exists():
-            poly_metadata = parse_vi_metadata(main_xml)
+        # Polymorphic info, library membership and VI Properties, from parse_vi
+        poly_metadata = vi.file_metadata
+        if poly_metadata is not None:
             if poly_metadata.get("is_polymorphic"):
                 self._poly_info[vi_key] = PolyInfo(
                     variants=poly_metadata.get("poly_variants", []),
