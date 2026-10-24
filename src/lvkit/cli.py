@@ -641,7 +641,8 @@ def main() -> int:
             "AI agent to install skills for: claude, copilot, codex, or all. "
             "Omit to auto-detect from project layout (CLAUDE.md / .claude/ "
             "for Claude Code; .github/copilot-instructions.md / "
-            ".github/instructions/ / .github/agents.md for Copilot; "
+            ".github/instructions/ / .github/skills/ / .github/prompts/ / "
+            ".github/agents.md for Copilot; "
             "AGENTS.md / AGENTS.override.md / .agents/ / .codex/ for Codex)."
         ),
     )
@@ -1249,6 +1250,8 @@ def _detect_ai_editors(root: Path) -> list[str]:
     if (
         (root / ".github" / "copilot-instructions.md").is_file()
         or (root / ".github" / "instructions").is_dir()
+        or (root / ".github" / "skills").is_dir()
+        or (root / ".github" / "prompts").is_dir()
         or (root / ".github" / "agents.md").is_file()
     ):
         editors.append("copilot")
@@ -1399,11 +1402,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
             print(f"Error: {e}", file=sys.stderr)
             return 1
         if copilot_written:
-            print(f"Installed {len(copilot_written)} Copilot file(s):")
+            print(f"Installed {len(copilot_written)} Copilot skill(s):")
             for p in copilot_written:
                 print(f"  {p}")
         else:
-            print("Copilot files already up to date.")
+            print("Copilot skills already up to date.")
     if "codex" in editors:
         try:
             codex_written = install_codex_skills(root, force=force)
