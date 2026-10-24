@@ -1612,13 +1612,16 @@
       "category": "Comparison",
       "description": "Returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, this VI returns FALSE.",
       "vi_path": null,
+      "match_names": ["Is Path and Not Empty"],
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "python_code": "{is_path_and_not_empty} = {path} is not None and len(str({path})) > 0",
+      "inline": true,
+      "status": "complete",
       "terminals": [
         {
           "name": "path",
-          "index": null,
+          "index": 4,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -1628,7 +1631,7 @@
         },
         {
           "name": "Is Path and Not Empty?",
-          "index": null,
+          "index": 1,
           "direction": "out",
           "type": null,
           "enum_values": null,
