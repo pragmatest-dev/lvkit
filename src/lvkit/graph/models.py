@@ -30,6 +30,7 @@ from ..models import (
     UnwritableValue,
     VIKind,
 )
+from ..parser.extfunc_prototype import ExtFuncCall
 from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
 
@@ -186,6 +187,9 @@ class PrimitiveNode(GraphNode):
     # ``(top, bottom, has_input, has_output)`` with the span as a fraction of
     # the node's height (parser.extfunc.ExtFuncRow).
     ext_func_rows: list[tuple[float, float, bool, bool]] = []
+    # Call Library Function Node only: the call it makes, with its terminal ids
+    # qualified like ``terminals[i].id``.
+    ext_func: ExtFuncCall | None = None
     # Property node only: qualified terminal ids from the parser's dcoList,
     # ``properties[i]`` correlates to the terminal whose id is
     # ``property_value_terminal_ids[i]`` -- LabVIEW's real dcoList/permDCOList

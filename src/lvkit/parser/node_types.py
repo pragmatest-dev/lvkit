@@ -17,7 +17,13 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
-from .extfunc import ExtFuncRow, extfunc_function_name, extfunc_rows
+from .extfunc import (
+    ExtFuncRow,
+    extfunc_call,
+    extfunc_function_name,
+    extfunc_rows,
+)
+from .extfunc_prototype import ExtFuncCall
 from .flags import is_output_terminal
 from .layout import _rect
 from .models import ParsedNode
@@ -1804,6 +1810,9 @@ class ExtFuncNode(ParsedNode):
     rows top to bottom (see ``extfunc.extfunc_rows``)."""
 
     rows: list[ExtFuncRow] = field(default_factory=list)
+    call: ExtFuncCall = field(
+        default_factory=lambda: ExtFuncCall(None, "", "", None, ())
+    )
 
 
 class ExtFuncHandler(NodeTypeHandler):
@@ -1817,7 +1826,7 @@ class ExtFuncHandler(NodeTypeHandler):
     def parse(self, elem: ET.Element) -> ExtFuncNode:
         common = self._extract_common(elem)
         common["name"] = extfunc_function_name(elem) or common["name"]
-        return ExtFuncNode(**common, rows=extfunc_rows(elem))
+        return ExtFuncNode(**common, rows=extfunc_rows(elem), call=extfunc_call(elem))
 
 
 class GenericHandler(NodeTypeHandler):

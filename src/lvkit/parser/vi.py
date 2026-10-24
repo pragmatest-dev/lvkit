@@ -59,6 +59,7 @@ from .constants import (
     TERMINAL_CONTAINER_CLASSES,
 )
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
+from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
     is_indicator,
     is_inverted_terminal,
@@ -496,6 +497,7 @@ def _parse_block_diagram(
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
+    resolve_ext_func_calls(nodes, main_xml, type_map)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)

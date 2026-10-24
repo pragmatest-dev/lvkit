@@ -23,6 +23,7 @@ from lvkit.graph.models import GraphNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.parser.extfunc import extfunc_function_name
+from lvkit.parser.extfunc_prototype import ExtFuncCall, ExtFuncParam, ParamKind
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.unresolved import UnresolvedItem, _item_key, format_unresolved_report
 from tests.test_lvnet_identity import _assert_graph_identity
@@ -253,7 +254,8 @@ def test_generate_names_the_node(tmp_path: Path) -> None:
     with pytest.raises(PrimitiveResolutionNeeded) as raised:
         build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     assert str(raised.value) == (
-        "Call Library Function Node lib.dll:DoWork has no code generation yet.\n"
+        "Call Library Function Node lib.dll:DoWork has no code generation yet: "
+        "parameter 1 is a LabVIEW string handle.\n"
         "  In VI: Clfn.vi\n"
         "  Terminals:\n"
         "    - index=0 direction=input type=Path UNWIRED name=path in\n"
@@ -340,3 +342,32 @@ def test_function_name_without_a_library_path_is_the_function() -> None:
         "<libPath>505448300000000400020000</libPath></SL__arrayElement>"
     )
     assert extfunc_function_name(elem) == "Run"
+
+
+def test_the_call_the_node_makes(tmp_path: Path) -> None:
+    graph, vi_name = _load(tmp_path)
+    node = _clfn(graph, vi_name)
+
+    def term(uid: str) -> str:
+        return f"{vi_name}::{uid}"
+
+    # No <callType> is stdcall; the prototype's rows are the return value (an
+    # I32), ``name`` (a LabVIEW string handle: not passed to C code here) and
+    # ``count`` (an I32).
+    assert node.ext_func == ExtFuncCall(
+        library="lib.dll",
+        function="DoWork",
+        calling_convention="stdcall",
+        path_in_terminal_id=term("21"),
+        row_terminal_ids=(
+            (None, term("32")),
+            (term("33"), term("35")),
+            (term("36"), term("38")),
+        ),
+        func_td=29,
+        params=(
+            ExtFuncParam(ParamKind.VALUE, "int32"),
+            ExtFuncParam(ParamKind.UNSUPPORTED, reason="a LabVIEW string handle"),
+            ExtFuncParam(ParamKind.VALUE, "int32"),
+        ),
+    )

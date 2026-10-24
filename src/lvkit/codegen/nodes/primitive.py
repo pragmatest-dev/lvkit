@@ -881,13 +881,14 @@ def _emit_placeholder(
         bindings[term.id] = var_name
     if len(statements) == 1:
         statements.append(ast.Pass())
-    return CodeFragment(
-        statements=statements, bindings=bindings, imports={LV_IMPORT}
-    )
+    return CodeFragment(statements=statements, bindings=bindings, imports={LV_IMPORT})
 
 
 def _emit_unknown(
-    node: PrimitiveNode, prim_id: int | None, ctx: CodeGenContext
+    node: PrimitiveNode,
+    prim_id: int | None,
+    ctx: CodeGenContext,
+    reason: str | None = None,
 ) -> CodeFragment:
     """Handle an unknown primitive.
 
@@ -916,6 +917,8 @@ def _emit_unknown(
         "vi_name": ctx.vi_name,
         "qualified_vi_name": ctx.qualified_vi_name,
     }
+    if reason is not None:
+        kwargs["reason"] = reason
     if prim_id is None:
         kwargs["node_kind"] = (
             get_display_name(node.node_type) if node.node_type else "Node"

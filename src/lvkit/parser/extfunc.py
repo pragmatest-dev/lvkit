@@ -15,7 +15,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
 from ..models import LVType, LVTypeKind
-from .extfunc_bounds import EXT_FUNC_ARG_CLASS, extfunc_mirrored_bounds
+from .extfunc_bounds import EXT_FUNC_ARG_CLASS, extfunc_mirrored_bounds, row_pairs
+from .extfunc_prototype import ExtFuncCall
 from .flags import is_ext_func_return_value, is_output_terminal
 from .metadata import _decode_pth0_components
 from .type_mapping import TypeMap
@@ -24,6 +25,7 @@ from .utils import clean_labview_string, safe_int
 
 NODE_CLASS_EXT_FUNC = "extFunc"
 PATH_ERROR_DCO_CLASS = "hGrowCItem"
+_CALLING_CONVENTIONS = {0: "stdcall", 1: "c"}
 RETURN_VALUE_NAME = "return value"
 # A parameter's output side is named like its input side plus this suffix.
 OUTPUT_SUFFIX = " output"
@@ -81,6 +83,46 @@ def _row_name(
     if not name or name == f"field_{row}":
         return RETURN_VALUE_NAME if is_return else None
     return name
+
+
+def _row_terminal_ids(elem: ET.Element) -> tuple[tuple[str | None, str], ...]:
+    """Each row's (input, output) terminal uids; the return value row has no
+    input terminal."""
+    rows: list[tuple[str | None, str]] = []
+    for dco, input_uid, output_uid in row_pairs(elem):
+        flags = safe_int(dco.find("objFlags"))
+        is_return = is_ext_func_return_value(dco.get("class"), flags)
+        rows.append((None if is_return else input_uid, output_uid))
+    return tuple(rows)
+
+
+def extfunc_call(elem: ET.Element) -> ExtFuncCall:
+    """The node's call, without its parameter types (see ``extfunc_params``).
+
+    The calling convention is the node's ``<callType>``: absent is stdcall (every
+    kernel32 node in the corpus), ``01`` is C."""
+    lib_path = bytes.fromhex(elem.findtext("libPath") or "")
+    components, _ = _decode_pth0_components(lib_path, 0, len(lib_path))
+    call_type = int(elem.findtext("callType") or "0", 16)
+    path_in = next(
+        (
+            term.get("uid")
+            for term in elem.findall("./termList/SL__arrayElement")
+            if (dco := term.find("dco")) is not None
+            and dco.get("class") == PATH_ERROR_DCO_CLASS
+            and not is_output_terminal(safe_int(dco.find("objFlags")))
+        ),
+        None,
+    )
+    func_td = elem.findtext("funcTD")
+    return ExtFuncCall(
+        library=components[-1] if components else None,
+        function=clean_labview_string(elem.findtext("nodeName")),
+        calling_convention=_CALLING_CONVENTIONS.get(call_type, f"unknown({call_type})"),
+        path_in_terminal_id=path_in,
+        row_terminal_ids=_row_terminal_ids(elem),
+        func_td=int(func_td, 16) if func_td else None,
+    )
 
 
 @dataclass(frozen=True)

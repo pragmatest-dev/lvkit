@@ -1544,3 +1544,17 @@ nodes carry one. A row's `extFuncArg` DCO references a labelled type for 192 of
 its 216 rows (the 24 without are return values); the label differs from the
 prototype's field name for 34 of those (`bytesRead` against an unnamed field,
 `file path` against `path`).
+
+How the call is recorded. `<callType>` is absent for stdcall and `01` for C (all 27
+kernel32 nodes in the corpus have none, which are `__stdcall` functions; the 19 others
+have `01`; NI's dialog lists stdcall first and C second). An empty `PTH0` in `<libPath>`
+means the library comes from the `path in` terminal. The funcTD cluster's field types are
+the C types: `NumInt32`..`NumUInt64`/`NumFloat32`/`NumFloat64` by value (a 64-bit integer
+with `Prop1="1"` is the pointer-sized integer), `PtrTo` a number (NI's "pass pointer to
+value"), `CString` (a C string pointer), `ArrayDataPtr` with one `Dimension` (a pointer to
+the elements), `String` with `Prop1="0xFFFFFFFF"` and `Array` (a LabVIEW string and array
+handle), and `Void` (the return value of a function with none, else Adapt to Type: NI
+passes a scalar by reference). The `extFuncParam` `Tag0000` byte is 00/01 and does not
+change how a parameter is passed. Error in/out: NI says the node does not run when an
+error enters it, and reports error 7 for a library path that does not exist and error 1097
+for an exception in the called code.

@@ -29,9 +29,11 @@ class PrimitiveResolutionNeeded(Exception):
         vi_name: str | None = None,
         qualified_vi_name: str | None = None,
         node_kind: str | None = None,
+        reason: str | None = None,
     ):
         self.prim_id = "" if prim_id is None else str(prim_id)
         self.node_kind = node_kind
+        self.reason = reason
         self.prim_name = prim_name
         self.terminals = terminals
         self.vi_name = vi_name
@@ -45,13 +47,13 @@ class PrimitiveResolutionNeeded(Exception):
     def _format_message(self) -> str:
         if self.prim_id:
             msg = (
-                f"Primitive resolution needed for {self.prim_id}"
-                f" ({self.prim_name}).\n"
+                f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
             )
         else:
+            because = f": {self.reason}" if self.reason else ""
             msg = (
                 f"{self.node_kind or 'Node'} {self.prim_name}"
-                " has no code generation yet.\n"
+                f" has no code generation yet{because}.\n"
             )
         if self.qualified_vi_name:
             msg += f"  In VI: {self.qualified_vi_name}\n"

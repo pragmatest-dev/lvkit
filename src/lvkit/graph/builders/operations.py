@@ -11,6 +11,7 @@ Dispatch: NODE_BUILD_HANDLERS keyed by node_type, else DEFAULT_NODE_BUILD_HANDLE
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import Any
 
 from lvkit.models import Terminal
@@ -208,6 +209,18 @@ class PrimitiveBuildHandler(NodeBuildHandler):
             prim_kwargs["ext_func_rows"] = [
                 (r.top, r.bottom, r.has_input, r.has_output) for r in node.rows
             ]
+            prim_kwargs["ext_func"] = replace(
+                node.call,
+                path_in_terminal_id=(
+                    ctx.qid(node.call.path_in_terminal_id)
+                    if node.call.path_in_terminal_id
+                    else None
+                ),
+                row_terminal_ids=tuple(
+                    (ctx.qid(input_uid) if input_uid else None, ctx.qid(output_uid))
+                    for input_uid, output_uid in node.call.row_terminal_ids
+                ),
+            )
         elif isinstance(node, XNodeNode):
             # An XNode (#107) carries no object_method_id/bound-control
             # concept -- just its own real class + (for "Invoke Method")
