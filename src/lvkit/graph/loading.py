@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import networkx as nx
 
-from ..cache_paths import sha256_file
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb, extract_vi_xml
@@ -2508,10 +2507,9 @@ class LoadingMixin:
         """The file a caller's recorded VI is, when it is not at its recorded
         path: a VI of the recorded file name in the search paths whose own
         owning libraries (its ``LIBN`` chain) are the recorded qualified name's.
-        A same-named VI of another library or class is not it. Several files of
-        different content that carry that qualified name raise
-        ``AmbiguousVIReferenceError``; copies of the same bytes are one VI;
-        none gives ``None``."""
+        A same-named VI of another library or class is not it. Several files
+        that carry that qualified name raise ``AmbiguousVIReferenceError``; none
+        gives ``None``."""
         *owners, leaf = qualified_name.split(":")
         found: dict[Path, Path] = {}
         for candidate in self._subvi_candidates(leaf, search_paths, caller_dir):
@@ -2527,19 +2525,14 @@ class LoadingMixin:
             chain = parse_vi_metadata(main_xml).get("owning_libraries", [])
             if list(chain) == owners:
                 found[real] = candidate
-        # Copies with the same bytes are one VI; the nearest-sorted copy stands
-        # for them. Files that differ are different VIs of one qualified name.
-        by_content: dict[str, list[Path]] = {}
-        for real, candidate in sorted(found.items()):
-            by_content.setdefault(sha256_file(real), []).append(candidate)
-        if len(by_content) > 1:
+        if len(found) > 1:
             raise AmbiguousVIReferenceError(
                 f"Ambiguous VI reference -- {qualified_name!r} is not at the path "
-                "its caller records and matches several different files of that "
-                f"qualified name: {sorted(str(p) for p in found)}. Put the one it "
-                "calls on the recorded path."
+                "its caller records and matches several files of that qualified "
+                f"name: {sorted(str(p) for p in found)}. Put the one it calls on "
+                "the recorded path."
             )
-        return next(iter(by_content.values()), [None])[0]
+        return next(iter(found.values()), None)
 
     def _find_subvi(
         self,

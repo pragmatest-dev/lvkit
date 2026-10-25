@@ -141,13 +141,12 @@ class _Tree:
         qualified: str,
         owners: list[str],
         calls: list[_Call] | None = None,
-        content: bytes = b"",
     ) -> Path:
         """A VI at ``root/rel`` with the given call nodes."""
         calls = calls or []
         path = self.root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
+        path.write_bytes(b"")
         slot = self.root / "_xml" / rel.replace("/", "__").replace(".", "_")
         slot.mkdir(parents=True)
         (slot / "vi_BDHb.xml").write_text(_bd(calls))
@@ -200,7 +199,7 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [_static(["TestSuite.lvclass", "skip.vi"], ["", "Moved", "skip.vi"])],
     )
     built.vi("Dup1/dup.vi", "dup.vi", [])
-    built.vi("Dup2/dup.vi", "dup.vi", [], content=b"another file")
+    built.vi("Dup2/dup.vi", "dup.vi", [])
     built.vi(
         "caller_dup.vi",
         "caller_dup.vi",
@@ -403,9 +402,9 @@ def test_a_moved_callee_with_two_matching_files_is_ambiguous(tree: _Tree) -> Non
         _load(tree, "caller_dup.vi")
 
 
-def test_copies_of_one_file_are_one_moved_callee(tree: _Tree) -> None:
-    graph, key = _load(tree, "caller_same.vi")
-    assert _call(graph, key).callee_key == _key(tree, "Same1/same.vi")
+def test_copies_of_one_file_are_still_two_matching_files(tree: _Tree) -> None:
+    with pytest.raises(AmbiguousVIReferenceError, match="same.vi"):
+        _load(tree, "caller_same.vi")
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(
