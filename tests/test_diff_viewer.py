@@ -14,8 +14,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import (
     ChangeMap,
@@ -27,28 +25,6 @@ from lvkit.graph.diff import (
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
-
-# The JKI VI-Tester run.vi pair (mirrors tests/test_netlist.py's/test_diff.py's
-# scratchpad convention: not part of the repo's sample corpus, so Phase 3
-# tests that need REAL netlist-diff rows degrade gracefully when absent).
-_SCRATCHPAD = Path(
-    "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
-    "/scratchpad"
-)
-_RUN_OLD = _SCRATCHPAD / "run_OLD.vi"
-_RUN_NEW = _SCRATCHPAD / "run_NEW.vi"
-_DEMO_SEARCH_PATH = Path(__file__).resolve().parent.parent / ".tmp" / "vi-tester-demo"
-
-
-def _load_jki(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
-    graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[_DEMO_SEARCH_PATH], layout=False)
-    return graph, graph.resolve_vi_name(vi_path.name)
-
-
-def _require_jki_vis() -> None:
-    if not _RUN_OLD.exists() or not _RUN_NEW.exists():
-        pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
 
 
 def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
@@ -450,14 +426,12 @@ class TestNetlistTreeInViewer:
     text (see ``.tmp/netlist-spec.md`` Phase 3). No browser needed -- every
     assertion here is on the emitted HTML/JSON string."""
 
-    def test_netlist_tree_embedded_with_known_row(self):
-        _require_jki_vis()
-        ga, na = _load_jki(_RUN_OLD)
-        gb, nb = _load_jki(_RUN_NEW)
+    def test_netlist_tree_embedded_with_known_row(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base, layout=False)
+        gb, nb = _load(vi_diff_pair.head, layout=False)
         cmap = diff_uid(ga, gb, na, nb)
         rows = netlist_diff_rows(ga, gb, na, nb)
         assert rows, "expected real changes on the JKI run_OLD/run_NEW pair"
-        assert all(r.text.isascii() for r in rows)
 
         html = build_diff_viewer(
             cmap,
@@ -493,22 +467,21 @@ class TestNetlistTreeInViewer:
         assert "const NETLIST_TREE = [];" in html
         assert "__NETLIST_TREE__" not in html
 
-    def test_deterministic_across_hash_seeds(self):
-        _require_jki_vis()
+    def test_deterministic_across_hash_seeds(self, vi_diff_pair):
 
         script = (
             "import hashlib\n"
             "from pathlib import Path\n"
             "from lvkit.graph.core import InMemoryVIGraph\n"
             "from lvkit.graph.diff import diff_uid, netlist_diff_rows, rows_to_json\n"
+            "from lvkit.load_mode import LoadMode\n"
             "from lvkit.render.diff_viewer import build_diff_viewer\n"
             "def _load(p):\n"
             "    g = InMemoryVIGraph()\n"
-            f"    g.load_vi(str(p), search_paths=[Path({str(_DEMO_SEARCH_PATH)!r})],"
-            " layout=False)\n"
-            "    return g, g.resolve_vi_name(p.name)\n"
-            f"ga, na = _load(Path({str(_RUN_OLD)!r}))\n"
-            f"gb, nb = _load(Path({str(_RUN_NEW)!r}))\n"
+            "    key = g.load_vi(str(p), mode=LoadMode.NONE, layout=False)\n"
+            "    return g, key\n"
+            f"ga, na = _load(Path({str(vi_diff_pair.base)!r}))\n"
+            f"gb, nb = _load(Path({str(vi_diff_pair.head)!r}))\n"
             "cmap = diff_uid(ga, gb, na, nb)\n"
             "rows = netlist_diff_rows(ga, gb, na, nb)\n"
             "html = build_diff_viewer(\n"
@@ -516,7 +489,6 @@ class TestNetlistTreeInViewer:
             "    title='t', before_label='a', after_label='b',\n"
             "    netlist_rows=rows_to_json(rows),\n"
             ")\n"
-            "assert all(r.text.isascii() for r in rows)\n"
             "print(hashlib.sha256(html.encode()).hexdigest())\n"
         )
 

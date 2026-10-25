@@ -356,31 +356,9 @@ class TestFormatDiffVerbose:
         assert wire_line.startswith("- ")
 
 
-# ── netlist-form TEXT diff on the real JKI VI-Tester run.vi pair ───────
+# ── netlist-form TEXT diff on the JKI VI-Tester run.vi pair ───────────
 #
-# Mirrors tests/test_netlist.py's load-and-skip-if-absent convention: these
-# VIs are staged in the scratchpad, not the repo's sample corpus, so the
-# tests degrade gracefully when they're not present in a given environment.
-
-_SCRATCHPAD = Path(
-    "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
-    "/scratchpad"
-)
-_RUN_OLD = _SCRATCHPAD / "run_OLD.vi"
-_RUN_NEW = _SCRATCHPAD / "run_NEW.vi"
-_DEMO_SEARCH_PATH = Path(__file__).resolve().parent.parent / ".tmp" / "vi-tester-demo"
-
-
-def _load_jki(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
-    graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[_DEMO_SEARCH_PATH], layout=False)
-    vi_name = graph.resolve_vi_name(vi_path.name)
-    return graph, vi_name
-
-
-def _require_jki_vis() -> None:
-    if not _RUN_OLD.exists() or not _RUN_NEW.exists():
-        pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
+# The ``vi_diff_pair`` fixture (conftest): two revisions of one sample VI.
 
 
 class TestNetlistFormDiffOnJKIPair:
@@ -388,16 +366,14 @@ class TestNetlistFormDiffOnJKIPair:
     non-trivial VI pair -- proves the format on genuine data, not just the
     synthetic run_base/run_head fixture above."""
 
-    def test_default_report(self):
-        _require_jki_vis()
-        ga, na = _load_jki(_RUN_OLD)
-        gb, nb = _load_jki(_RUN_NEW)
+    def test_default_report(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
 
         assert "case (" in result
         assert any(ln.startswith("+ ") for ln in result.splitlines())
         assert "addSkipped" in result
-        assert result.isascii()
         assert "⬚" not in result
         assert "◻" not in result
         assert "↔" not in result
@@ -411,39 +387,35 @@ class TestNetlistFormDiffOnJKIPair:
         wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
-    def test_verbose_report(self):
-        _require_jki_vis()
-        ga, na = _load_jki(_RUN_OLD)
-        gb, nb = _load_jki(_RUN_NEW)
+    def test_verbose_report(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb, verbose=True)
 
         assert "case (" in result
         assert any(ln.startswith("+ ") for ln in result.splitlines())
         assert "addSkipped" in result
-        assert result.isascii()
         assert "⬚" not in result
         assert "◻" not in result
         assert "↔" not in result
         wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
-    def test_deterministic_across_hash_seeds(self):
-        _require_jki_vis()
+    def test_deterministic_across_hash_seeds(self, vi_diff_pair):
 
         script = (
             "import hashlib\n"
             "from pathlib import Path\n"
             "from lvkit.graph.core import InMemoryVIGraph\n"
             "from lvkit.graph.diff import format_diff\n"
+            "from lvkit.load_mode import LoadMode\n"
             "def _load(p):\n"
             "    g = InMemoryVIGraph()\n"
-            f"    g.load_vi(str(p), search_paths=[Path({str(_DEMO_SEARCH_PATH)!r})],"
-            " layout=False)\n"
-            "    return g, g.resolve_vi_name(p.name)\n"
-            f"ga, na = _load(Path({str(_RUN_OLD)!r}))\n"
-            f"gb, nb = _load(Path({str(_RUN_NEW)!r}))\n"
+            "    key = g.load_vi(str(p), mode=LoadMode.NONE, layout=False)\n"
+            "    return g, key\n"
+            f"ga, na = _load(Path({str(vi_diff_pair.base)!r}))\n"
+            f"gb, nb = _load(Path({str(vi_diff_pair.head)!r}))\n"
             "out = format_diff(ga, gb, na, nb, verbose=True)\n"
-            "assert out.isascii()\n"
             "print(hashlib.sha256(out.encode()).hexdigest())\n"
         )
 

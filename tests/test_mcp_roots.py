@@ -63,15 +63,15 @@ def _ctx_for(*paths: Path, unsupported: bool = False) -> Any:
 
 
 def test_uri_to_path_posix():
-    assert _uri_to_path("file:///home/ryanf/repo") == Path("/home/ryanf/repo")
+    assert _uri_to_path("file:///home/user/repo") == Path("/home/user/repo")
 
 
 @maps_windows_paths
 def test_uri_to_path_windows_drive():
     # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x;
     # on a non-Windows (WSL) host that maps onto the /mnt mount.
-    assert _uri_to_path("file:///C:/Users/ryanf/repo") == Path(
-        "/mnt/c/Users/ryanf/repo"
+    assert _uri_to_path("file:///C:/Users/user/repo") == Path(
+        "/mnt/c/Users/user/repo"
     )
 
 
@@ -80,7 +80,7 @@ def test_uri_to_path_windows_drive():
 
 @maps_windows_paths
 def test_win_to_wsl_drive_forward_slash():
-    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "/mnt/c/Users/ryanf/repo"
+    assert _win_to_wsl_path("C:/Users/user/repo") == "/mnt/c/Users/user/repo"
 
 
 @maps_windows_paths
@@ -92,19 +92,19 @@ def test_win_to_wsl_drive_backslash():
 def test_win_to_wsl_unc_wsl_localhost():
     # A WSL folder opened FROM Windows arrives as a \\wsl.localhost\ UNC path.
     assert (
-        _win_to_wsl_path("\\\\wsl.localhost\\Ubuntu\\home\\ryanf\\repo")
-        == "/home/ryanf/repo"
+        _win_to_wsl_path("\\\\wsl.localhost\\Ubuntu\\home\\user\\repo")
+        == "/home/user/repo"
     )
 
 
 def test_win_to_wsl_posix_is_noop():
-    assert _win_to_wsl_path("/home/ryanf/repo") == "/home/ryanf/repo"
+    assert _win_to_wsl_path("/home/user/repo") == "/home/user/repo"
 
 
 def test_win_to_wsl_native_windows_is_noop(monkeypatch: pytest.MonkeyPatch):
     # On a native Windows process the path is already correct — never remap.
     monkeypatch.setattr(mcp_server.os, "name", "nt")
-    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "C:/Users/ryanf/repo"
+    assert _win_to_wsl_path("C:/Users/user/repo") == "C:/Users/user/repo"
 
 
 def test_uri_to_path_percent_encoded():
