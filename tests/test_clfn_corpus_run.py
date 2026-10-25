@@ -20,6 +20,8 @@ here:
 
 from __future__ import annotations
 
+import ctypes
+import getpass
 import inspect
 import os
 import socket
@@ -69,11 +71,20 @@ def test_file_info_reads_a_files_information(generated_vi, tmp_path: Path) -> No
     assert info.data_size == 6
     assert info.res_size == 0
     assert info.bfolder is False
-    assert info.permissions == 0o640
+    # NI: permissions are "system specific file access rights"; the runtime
+    # reports the file's st_mode permission bits, which on Windows only carry
+    # the read-only flag.
+    assert info.permissions == stat.S_IMODE(target.stat().st_mode)
     assert info.modification_date == 1_700_000_000 + _REFERENCE_TO_UNIX
     assert info.location == (0, 0)
-    assert info.owner == target.owner()
-    assert info.group == target.group()
+    if sys.platform == "win32":
+        # NI documents owner and group of a file with no Windows meaning, and
+        # Windows has no POSIX owner or group: the runtime reports them empty.
+        assert (info.owner, info.group) == ("", "")
+    else:
+        assert info.permissions == 0o640
+        assert info.owner == target.owner()
+        assert info.group == target.group()
 
 
 def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) -> None:
@@ -277,8 +288,18 @@ def test_write_environment_variable(generated_vi, name: str, value: str) -> None
         _PLUGIN,
     )
     if sys.platform == "win32":
+        # SetEnvironmentVariableA changes the process environment block, which
+        # os.environ (a snapshot from interpreter start) never sees: read it back
+        # through the Windows API, and remove the variable afterwards.
         module.write_environment_variable(name=name, value=value)
-        assert os.environ.get(name) == (value or None)
+        try:
+            buffer = ctypes.create_unicode_buffer(256)
+            length = ctypes.windll.kernel32.GetEnvironmentVariableW(
+                name, buffer, len(buffer)
+            )
+            assert (buffer.value if length else None) == (value or None)
+        finally:
+            ctypes.windll.kernel32.SetEnvironmentVariableW(name, None)
     else:
         # kernel32.dll is Windows only: the generated call reaches the library.
         with pytest.raises(LabVIEWError) as raised:
@@ -298,6 +319,7 @@ def test_get_client_machine_details(generated_vi) -> None:
     if sys.platform == "win32":
         details = module.get_client_machine_details()
         assert details.hostname.lower() == socket.gethostname().lower()[:15]
+        assert details.username == getpass.getuser()
     else:
         with pytest.raises(LabVIEWError) as raised:
             module.get_client_machine_details()

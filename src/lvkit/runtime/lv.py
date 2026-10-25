@@ -24,6 +24,7 @@ from pathlib import Path as _Path
 from typing import Literal
 
 from . import flat as _flat
+from .default_properties import DEFAULT_PROPERTIES as _DEFAULT_PROPERTIES
 
 
 def load_array(
@@ -607,8 +608,9 @@ class DefaultReference:
     NI documents the default for the Application class (the current
     application instance) and the VI class (the VI containing the node). The
     object names its class and the VI that owns the node. A property that was
-    written can be read back; any other property or method raises
-    ``UnavailableReferenceMember`` naming the class and the member.
+    written can be read back, and a property that NI documents a value for
+    (``default_properties``) reads that value; any other property or method
+    raises ``UnavailableReferenceMember`` naming the class and the member.
     """
 
     def __init__(self, class_name: str, owner: str):
@@ -616,6 +618,9 @@ class DefaultReference:
         self.__dict__["owner"] = owner
 
     def __getattr__(self, name: str):
+        documented = _DEFAULT_PROPERTIES.get(self.class_name, {}).get(name)
+        if documented is not None:
+            return documented.read()
         raise UnavailableReferenceMember(
             f"default {self.class_name} reference of {self.owner!r} has no"
             f" value for {name!r}"
