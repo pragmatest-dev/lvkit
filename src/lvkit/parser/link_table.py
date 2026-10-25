@@ -632,55 +632,59 @@ def _require_supported(version: LinkTableVersion) -> None:
         )
 
 
-def _read_dyn_uids(
-    data: bytes, pos: int, extra: int
-) -> tuple[tuple[int, ...], int] | None:
-    """The call uid list a ``DyOM`` record ends with, read ``extra`` bytes after
-    the aligned end of its API content, and the position after it; ``None``
-    unless the list is followed by the next list item or the end of the table."""
-    r = _Reader(data, pos)
-    try:
-        r.align(4)
-        r.take(extra)
-        uids = _read_node_uids(r)
-    except LinkTableError:
-        return None
-    ends_item = data[r.pos : r.pos + 2] == _NEXT_LINK_ITEM or r.pos >= len(data) - 2
-    return (uids, r.pos) if ends_item else None
+def _dyn_extra_bytes(version: LinkTableVersion) -> int:
+    """Bytes a ``DyOM`` record holds between its 4-aligned end of API content and
+    its call uid list that pylabview's layout does not name. Fixed per saving
+    version, as measured on the cached sidecars (every record of a version has
+    the same size; values vary and their meaning is unknown): none up to 16, 4
+    bytes in LabVIEW 17-19, 8 bytes from LabVIEW 20."""
+    if version.at_least(20, 0, 0, 0):
+        return 8
+    if version.at_least(17, 0, 0, 0):
+        return 4
+    return 0
 
 
 def _decode_dyn_record(
     data: bytes, ident_pos: int, version: LinkTableVersion
 ) -> DynamicDispatchLink:
-    """A ``DyOM`` record (pylabview ``LinkObjDynInfoToUDClassAPILink``): the
-    basic head, the class API cache (library version, three flag bytes, a
-    length-prefixed content string), then the call uid list. LabVIEW 17-19 VIs
-    carry 4 more bytes and LabVIEW 20 and later 8 (varying flags) between the
-    content and the uid list; the list is read where the table's next item or
-    its end follows it."""
+    """A ``DyOM`` record, field by field as pylabview ``parseUDClassHeapAPISaveInfo``
+    reads it:
+
+    1. ``BasicLinkSaveInfo``: qualified name, path, flag.
+    2. (>= 8.0.0.3) ``UDClassAPILinkCache``, 4-aligned: library version (u64), is
+       internal (u8), bool 2 (u8, >= 8.1.0.2), call parent nodes (u8, >= 9.0.0.2),
+       API content (u32 length + bytes).
+    3. Pad to a 4-byte boundary.
+    4. ``_dyn_extra_bytes`` bytes pylabview does not read.
+    5. ``LinkOffsetList``: u32 count, then the uids.
+
+    The record must end where the table's next item starts (or at its end); a
+    record that does not is an error."""
     r = _Reader(data, ident_pos + len(_DYOM_IDENT))
     head = _read_basic_head(r, version)
     if not version.at_least(8, 0, 0, 3):
         raise LinkTableError("DyOM record of a VI older than 8.0")
     r.align(4)
     r.take(8)  # library version
-    r.take(2 if version.at_least(8, 1, 0, 2) else 1)
+    r.take(2 if version.at_least(8, 1, 0, 2) else 1)  # is internal (+ bool 2)
     if version.at_least(9, 0, 0, 2):
-        r.take(1)  # call-parent nodes
+        r.take(1)  # call parent nodes
     content = r.u32()
     if content > _MAX_STRING:
         raise LinkTableError(f"API content of {content} bytes")
     r.take(content)
-    for extra in (0, 4, 8):
-        read = _read_dyn_uids(data, r.pos, extra)
-        if read is not None:
-            return DynamicDispatchLink(
-                name_parts=head.name_parts,
-                path_tokens=head.path_tokens,
-                link_flag=head.link_flag,
-                node_uids=read[0],
-            )
-    raise LinkTableError("no call uid list ends the record")
+    r.align(4)
+    r.take(_dyn_extra_bytes(version))
+    uids = _read_node_uids(r)
+    if data[r.pos : r.pos + 2] != _NEXT_LINK_ITEM and r.pos < len(data) - 2:
+        raise LinkTableError("the call uid list does not end the record")
+    return DynamicDispatchLink(
+        name_parts=head.name_parts,
+        path_tokens=head.path_tokens,
+        link_flag=head.link_flag,
+        node_uids=uids,
+    )
 
 
 def decode_dyn_links(

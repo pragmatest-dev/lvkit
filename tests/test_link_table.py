@@ -642,10 +642,19 @@ def _dyn_record(extra: int, uids: list[int]) -> bytes:
     return bytes(buf)
 
 
-@pytest.mark.parametrize("extra", [0, 4, 8])
-def test_dyn_link_reads_the_method_class_path_and_call_uids(extra: int) -> None:
+@pytest.mark.parametrize(
+    ("major", "extra"), [(16, 0), (17, 4), (19, 4), (20, 8), (21, 8)]
+)
+def test_dyn_link_reads_the_method_class_path_and_call_uids(
+    major: int, extra: int
+) -> None:
     data = _dyn_record(extra, [365, 1024])
-    (link,) = decode_dyn_links(data, LinkTableVersion(20, 0, 0, 4))
+    (link,) = decode_dyn_links(data, LinkTableVersion(major, 0, 0, 4))
     assert link.name_parts == ("Cls.lvclass", "\x01\x05id.vi")
     assert link.path_tokens == ("", "Classes", "Cls.lvclass")
     assert link.node_uids == (365, 1024)
+
+
+def test_dyn_link_with_the_wrong_version_size_is_an_error() -> None:
+    with pytest.raises(LinkTableError):
+        decode_dyn_links(_dyn_record(8, [365]), LinkTableVersion(17, 0, 0, 4))
