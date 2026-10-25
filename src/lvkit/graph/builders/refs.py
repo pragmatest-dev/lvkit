@@ -403,6 +403,7 @@ class StatVIRefHandler(RefBuildHandler):
             value=vi_ref_name,
             lv_type=vi_ref_type,
             raw_value=vi_ref_name,
+            referenced_vi_key=ctx.iuse_to_callee_key.get(node.uid),
             label=vi_ref_name,
             terminals=[
                 Terminal(

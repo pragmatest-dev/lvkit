@@ -30,6 +30,8 @@ class GraphBuildContext:
     event_by_uid: dict[str, Any]
     iuse_to_qname: dict[str, str]  # iUse uid -> qualified callee name
     iuse_to_qpath: dict[str, str]  # iUse uid -> qualified on-disk path
+    iuse_to_callee_key: dict[str, str]  # iUse uid -> identity of the VI it calls
+    poly_to_callee_key: dict[str, str]  # polymorphic call uid -> its polymorphic VI
     # uid of every node referring to another VI -> that VI's recorded name + path
     iuse_refs: dict[str, ParsedDependencyRef]
     # uid of every Shared Variable node -> the link-table record of its variable

@@ -50,6 +50,9 @@ class SubVINode(ParsedNode):
 
     vi_path: str | None = None
     poly_variant_name: str | None = None  # Resolved variant for polyIUse
+    # Dynamic-dispatch call: uid of its ``dynLink`` child, the id the block-diagram
+    # link table's ``DyOM`` record lists the call under.
+    dyn_link_uid: str | None = None
 
 
 @dataclass
@@ -388,6 +391,12 @@ class PolySubVIHandler(NodeTypeHandler):
         return None
 
 
+def _dyn_link_uid(elem: ET.Element) -> str | None:
+    """The uid of a dispatch call's own ``dynLink`` child."""
+    link = elem.find("dynLink")
+    return link.get("uid") if link is not None else None
+
+
 class DynamicDispatchHandler(NodeTypeHandler):
     """Handler for dynamic dispatch VI nodes (class="dynIUse").
 
@@ -401,7 +410,7 @@ class DynamicDispatchHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
-        return SubVINode(**common)
+        return SubVINode(**common, dyn_link_uid=_dyn_link_uid(elem))
 
 
 class CallParentHandler(NodeTypeHandler):
@@ -416,7 +425,7 @@ class CallParentHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
-        return SubVINode(**common)
+        return SubVINode(**common, dyn_link_uid=_dyn_link_uid(elem))
 
 
 class CallByRefHandler(NodeTypeHandler):

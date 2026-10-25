@@ -733,6 +733,15 @@ class ParsedVIMetadata:
     # the VI's block-diagram link table; ``iuse_to_qualified_name`` is this map's
     # qualified names.
     iuse_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # ``dynLink`` uid of every dynamic-dispatch call -> the class method its
+    # ``DyOM`` record names and the path it records.
+    dyn_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # Heap uid of every node that calls the VI itself (a recursive call), from the
+    # link-table record that names no VI.
+    self_call_uids: list[str] = field(default_factory=list)
+    # Heap uid of every polymorphic call -> the polymorphic VI its ``PUPV`` record
+    # names; ``iuse_refs`` holds, for the same uid, the variant it resolves to.
+    poly_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
     # Heap uid of every Shared Variable node -> the ``HpVL`` record of the
     # variable it reads or writes (library, kind, persistent ID), from the same
     # link table. A node whose variable has no record read here is absent.

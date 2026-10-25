@@ -298,7 +298,7 @@ def _prepare_vi_documentation_data(
         "variant_params": variant_params,
         "icon_path": icon_path,
         "diagram_svg": diagram_svg,
-        # {diagram data-node id -> target subVI name}; the page turns this into
+        # {diagram data-node id -> target subVI key}; the page turns this into
         # click-to-navigate links (navigation lives in the doc layer).
         "subvi_nodes": subvi_nodes,
         "owning_class": owning_class,

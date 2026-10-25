@@ -140,6 +140,7 @@ from lvkit.text_encoding import decode_labview_text
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
 # Every list item in the link table is introduced by this 2-byte "next link"
@@ -189,6 +190,18 @@ class LinkTableVersion:
 # The oldest layout this module reads: the heap-to-VI link record introduced
 # with 8.2.0.3 (it ends in the uid list and a second path).
 _OLDEST_SUPPORTED = (8, 2, 0, 3)
+
+
+@dataclass(frozen=True)
+class DynamicDispatchLink:
+    """One ``DyOM`` record: the class method a dynamic-dispatch call names (class
+    qualified name, then method name) with the path of the class file, and the
+    ``dynLink`` uid of every call it belongs to."""
+
+    name_parts: tuple[str, ...]
+    path_tokens: tuple[str, ...]
+    link_flag: int
+    node_uids: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -617,6 +630,83 @@ def _require_supported(version: LinkTableVersion) -> None:
             f"link table of a {version.major}.{version.minor} VI is older "
             "than the oldest supported layout (8.2)"
         )
+
+
+def _dyn_extra_bytes(version: LinkTableVersion) -> int:
+    """Bytes a ``DyOM`` record holds between its 4-aligned end of API content and
+    its call uid list that pylabview's layout does not name. Fixed per saving
+    version, as measured on the cached sidecars (every record of a version has
+    the same size; values vary and their meaning is unknown): none up to 16, 4
+    bytes in LabVIEW 17-19, 8 bytes from LabVIEW 20."""
+    if version.at_least(20, 0, 0, 0):
+        return 8
+    if version.at_least(17, 0, 0, 0):
+        return 4
+    return 0
+
+
+def _decode_dyn_record(
+    data: bytes, ident_pos: int, version: LinkTableVersion
+) -> DynamicDispatchLink:
+    """A ``DyOM`` record, field by field as pylabview ``parseUDClassHeapAPISaveInfo``
+    reads it:
+
+    1. ``BasicLinkSaveInfo``: qualified name, path, flag.
+    2. (>= 8.0.0.3) ``UDClassAPILinkCache``, 4-aligned: library version (u64), is
+       internal (u8), bool 2 (u8, >= 8.1.0.2), call parent nodes (u8, >= 9.0.0.2),
+       API content (u32 length + bytes).
+    3. Pad to a 4-byte boundary.
+    4. ``_dyn_extra_bytes`` bytes pylabview does not read.
+    5. ``LinkOffsetList``: u32 count, then the uids.
+
+    The record must end where the table's next item starts (or at its end); a
+    record that does not is an error."""
+    r = _Reader(data, ident_pos + len(_DYOM_IDENT))
+    head = _read_basic_head(r, version)
+    if not version.at_least(8, 0, 0, 3):
+        raise LinkTableError("DyOM record of a VI older than 8.0")
+    r.align(4)
+    r.take(8)  # library version
+    r.take(2 if version.at_least(8, 1, 0, 2) else 1)  # is internal (+ bool 2)
+    if version.at_least(9, 0, 0, 2):
+        r.take(1)  # call parent nodes
+    content = r.u32()
+    if content > _MAX_STRING:
+        raise LinkTableError(f"API content of {content} bytes")
+    r.take(content)
+    r.align(4)
+    r.take(_dyn_extra_bytes(version))
+    uids = _read_node_uids(r)
+    if data[r.pos : r.pos + 2] != _NEXT_LINK_ITEM and r.pos < len(data) - 2:
+        raise LinkTableError("the call uid list does not end the record")
+    return DynamicDispatchLink(
+        name_parts=head.name_parts,
+        path_tokens=head.path_tokens,
+        link_flag=head.link_flag,
+        node_uids=uids,
+    )
+
+
+def decode_dyn_links(
+    data: bytes, version: LinkTableVersion
+) -> list[DynamicDispatchLink]:
+    """Every ``DyOM`` record in a ``_LIbd.bin`` sidecar, in file order. An
+    unreadable record raises ``LinkTableError``, never skipped."""
+    records: list[DynamicDispatchLink] = []
+    for start in _record_starts(data, _DYOM_IDENT):
+        _require_supported(version)
+        try:
+            records.append(_decode_dyn_record(data, start, version))
+        except LinkTableError as exc:
+            raise LinkTableError(f"DyOM record at offset {start}: {exc}") from exc
+    return records
+
+
+def read_dyn_links(
+    libd_path: Path, version: LinkTableVersion
+) -> list[DynamicDispatchLink]:
+    """``decode_dyn_links`` over a ``_LIbd.bin`` file."""
+    return decode_dyn_links(libd_path.read_bytes(), version)
 
 
 def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:

@@ -247,6 +247,22 @@ class PrimitiveBuildHandler(NodeBuildHandler):
         )
 
 
+def callee_keys(
+    node_type: str | None,
+    uid: str,
+    iuse_to_callee_key: dict[str, str],
+    poly_to_callee_key: dict[str, str],
+) -> tuple[str | None, str | None]:
+    """``(callee_key, variant_key)`` of a SubVI call node (see ``VINode``).
+
+    The caller's link table names, for a polymorphic call, the polymorphic VI
+    and the variant the call resolves to; for any other call, the VI it calls."""
+    recorded = iuse_to_callee_key.get(uid)
+    if node_type == "polyIUse":
+        return poly_to_callee_key.get(uid), recorded
+    return recorded, None
+
+
 class SubVIBuildHandler(NodeBuildHandler):
     """SubVI call (iUse/poly/dyn/callParent/callByRef) → VINode."""
 
@@ -254,23 +270,22 @@ class SubVIBuildHandler(NodeBuildHandler):
         poly_variant = None
         if isinstance(node, SubVINode) and node.poly_variant_name:
             poly_variant = node.poly_variant_name
-        # Persist the callee's FULLY QUALIFIED NAME (e.g.
-        # "TestCase.lvclass:CallTestMethod.vi"). ``iuse_to_qname`` is parsed from
-        # the caller's OWN LIbd/BDHP (same source as ``subvi_qualified_names``),
-        # so it is already class-qualified, load-mode-independent, and
-        # deterministic. For a DYNAMIC-DISPATCH call it is the DECLARING PARENT
-        # class's method (e.g. "TestResult.lvclass:addError.vi") — the honest
-        # static edge, since the runtime override isn't statically knowable.
+        # ``qualified_name`` is the callee's FULLY QUALIFIED NAME (e.g.
+        # "TestCase.lvclass:CallTestMethod.vi"), for display. ``iuse_to_qname`` is
+        # parsed from the caller's OWN LIbd/BDHP (same source as
+        # ``subvi_qualified_names``), so it is already class-qualified,
+        # load-mode-independent, and deterministic. For a DYNAMIC-DISPATCH call it
+        # is the DECLARING PARENT class's method (e.g.
+        # "TestResult.lvclass:addError.vi") — the honest static edge, since the
+        # runtime override isn't statically knowable. Falls back to the bare
+        # node_name only when the iUse map has no entry.
         #
-        # KEEP IT AS THE QNAME — do NOT resolve it to the callee's vi_key here.
-        # VI identity is now the file PATH, so resolve_vi_name returns a PATH;
-        # stamping that made qualified_name a path AND, when a name/qname mapped
-        # to several on-disk copies (source-vs-built, base-vs-override), picked
-        # one copy load-order-dependently — a count that flipped by filesystem.
-        # The index resolves this qname to a concrete callee_path on its own
-        # (deterministically, keyed on path). Falls back to the bare node_name
-        # only when the iUse map has no entry.
+        # The callee's identity is ``callee_key``: the file path the loader
+        # resolved from THIS caller's own recorded link for the call.
         qualified_name = ctx.iuse_to_qname.get(node.uid) or node_name
+        callee_key, variant_key = callee_keys(
+            node.node_type, node.uid, ctx.iuse_to_callee_key, ctx.poly_to_callee_key
+        )
         return VINode(
             id=q_node_uid,
             vi_path=ctx.vi_name,
@@ -283,6 +298,8 @@ class SubVIBuildHandler(NodeBuildHandler):
             poly_variant_name=poly_variant,
             qualified_path=ctx.iuse_to_qpath.get(node.uid),
             qualified_name=qualified_name,
+            callee_key=callee_key,
+            variant_key=variant_key,
         )
 
 

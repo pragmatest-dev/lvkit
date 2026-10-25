@@ -73,7 +73,6 @@ from .models import (
     VINode,
     WireEnd,
 )
-from .queries import AmbiguousVIReferenceError
 from .terminal_layout import array_rank
 from .terminal_names import NodeSlot, catalog_terminal_names
 
@@ -101,33 +100,6 @@ _STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
         "callParentDynIUse",
     }
 )
-
-# Dynamic-dispatch calls: the callee is a class method, so the owning class is
-# the dispatch object's type (carried on the call's class-typed terminals)
-# rather than a statically-linked path.
-_DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset(
-    {
-        "dynIUse",
-        "callParentDynIUse",
-    }
-)
-
-
-def _dispatch_class_names(terminals: list[Terminal]) -> list[str]:
-    """Distinct owning-class names (``X.lvclass``) carried on a dynamic-dispatch
-    call's terminals — the object type wired to the dispatch input/output. The
-    generic root ("LabVIEW Object", which has no ``.lvclass`` suffix) is skipped,
-    so only concrete classes are returned, MOST-SPECIFIC first as they appear.
-    Used only by the best-effort ``resolve_dispatch_qnames`` FALLBACK, which
-    takes the first loaded candidate — i.e. the most-derived wired class, NOT
-    necessarily the declaring parent the primary iUse path records."""
-    out: list[str] = []
-    for t in terminals:
-        lt = getattr(t, "lv_type", None)
-        cls = getattr(lt, "classname", None) if lt is not None else None
-        if cls and cls.endswith(".lvclass") and cls not in out:
-            out.append(cls)
-    return out
 
 
 def _string_display_value(raw_bytes: bytes) -> str | None:
@@ -436,6 +408,8 @@ class ConstructionMixin:
         type_map: dict[int, LVType] | None = None,
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
+        iuse_to_callee_key: dict[str, str] | None = None,
+        poly_to_callee_key: dict[str, str] | None = None,
         iuse_refs: dict[str, ParsedDependencyRef] | None = None,
         shared_variable_links: dict[str, SharedVariableLink] | None = None,
         shared_variable_failures: list[SharedVariableRecordFailure] | None = None,
@@ -448,8 +422,11 @@ class ConstructionMixin:
         iuse_to_qpath maps an iUse uid to its fully qualified on-disk path
         (e.g. "<vilib>/Utility/error.llb/Foo.vi"). Used to populate
         VINode.qualified_path so resolution diagnostics can point at the
-        real source file. iuse_refs maps the uid of every node that refers to
-        another VI (a subVI call, a global variable) to that VI's recorded
+        real source file. iuse_to_callee_key maps an iUse uid to the identity
+        of the VI it calls (see VINode.callee_key); poly_to_callee_key maps a
+        polymorphic call's uid to its polymorphic VI. iuse_refs maps the uid of
+        every node that refers to another VI (a subVI call, a global variable)
+        to that VI's recorded
         qualified name and path. shared_variable_links maps the uid of every
         Shared Variable node to the link-table record of its variable;
         shared_variable_failures are the records that could not be decoded.
@@ -700,6 +677,8 @@ class ConstructionMixin:
             event_by_uid=event_by_uid,
             iuse_to_qname=iuse_to_qname or {},
             iuse_to_qpath=iuse_to_qpath,
+            iuse_to_callee_key=iuse_to_callee_key or {},
+            poly_to_callee_key=poly_to_callee_key or {},
             iuse_refs=iuse_refs or {},
             shared_variable_links=shared_variable_links or {},
             shared_variable_failures=shared_variable_failures or [],
@@ -1193,11 +1172,9 @@ class ConstructionMixin:
         # terminals are in the graph. Create edges so types propagate — and copy
         # each callee's connector-pane control label onto the call terminal so
         # hovers read real names, not "terminal N". Runs whenever there are SubVI
-        # call nodes: ``_connect_subvi_calls`` resolves the callee from the call
-        # node's own name (``gnode.name``), using ``iuse_to_qname`` only as a
-        # fallback for placeholder-named iUse nodes — so an EMPTY iuse map (e.g. a
-        # class method whose LIvi records no iUse→qname entry) must NOT skip it.
-        self._connect_subvi_calls(vi_key, vi_node_uids, iuse_to_qname or {})
+        # call nodes: ``_connect_subvi_calls`` finds each callee by the call
+        # node's recorded ``callee_key``.
+        self._connect_subvi_calls(vi_key, vi_node_uids)
 
         # === 8. Propagate types through wires and re-match indices ===
         # Now follows edges ACROSS VI boundaries too.
@@ -1269,62 +1246,10 @@ class ConstructionMixin:
             enum_values=ctrl.enum_values,
         )
 
-    def resolve_dispatch_qnames(self) -> None:
-        """FALLBACK class-qualification for dynamic-dispatch calls the caller's
-        binary didn't already name.
-
-        The PRIMARY path is ``SubVIBuildHandler``, which stamps
-        ``qualified_name`` from the caller's recorded ``iuse_to_qname`` — for a
-        dispatch call that is the DECLARING PARENT class's method (e.g.
-        ``TestResult.lvclass:addError.vi``), the honest static edge and
-        deterministic across platforms. This pass only touches calls that path
-        left BARE (guard: ``qualified_name == name`` — no iUse entry): it infers
-        the class from the dispatch object's static type on the call's
-        terminals, which lands only after every VI is loaded and types propagate
-        (the object may come from another dispatch — a cross-VI fixpoint), so it
-        runs ONCE after loading.
-
-        NOTE the two paths use DIFFERENT contracts: the primary records the
-        declaring parent; this fallback is best-effort — it stamps the
-        most-specific wired class (``_dispatch_class_names``), which may be a
-        child override. Idempotent."""
-        g = self._graph
-        for _nid, data in g.nodes(data=True):
-            gnode = data.get("node")
-            if (
-                not isinstance(gnode, VINode)
-                or gnode.node_type not in _DYNAMIC_DISPATCH_NODE_TYPES
-                or not gnode.name
-                or gnode.qualified_name != gnode.name
-            ):
-                continue
-            for cls in _dispatch_class_names(gnode.terminals):
-                candidate_qname = f"{cls}:{gnode.name}"
-                # resolve_vi_name returns the callee's vi_key (path); we only use
-                # it to confirm that class's method VI is actually loaded, then
-                # stamp the class-qualified NAME (not the path) for display.
-                # This is a best-effort PROBE over candidate classes (the loop
-                # tries each wired type and keeps the first real hit) -- when
-                # ``candidate_qname`` isn't registered under that exact qname,
-                # resolve_vi_name falls back to a bare-leaf lookup that can be
-                # genuinely ambiguous against another same-named override
-                # elsewhere in the tree; treat that the same as "not this
-                # class" (not a match) rather than letting it abort the whole
-                # load, since the NEXT candidate class (or no match at all) is
-                # an equally valid, non-guessing outcome here.
-                try:
-                    cand_key = self.resolve_vi_name(candidate_qname)
-                except AmbiguousVIReferenceError:
-                    continue
-                if cand_key and cand_key in g:
-                    gnode.qualified_name = candidate_qname
-                    break
-
     def _connect_subvi_calls(
         self,
         vi_key: str,
         vi_node_uids: set[str],
-        iuse_to_qname: dict[str, str],
     ) -> None:
         """Create dataflow edges from SubVI call terminals to callee FP terminals.
 
@@ -1337,119 +1262,112 @@ class ConstructionMixin:
             gnode = g.nodes.get(nid, {}).get("node")
             if not isinstance(gnode, VINode) or gnode.id == vi_key:
                 continue
-            # callByRefNode excluded — callee is runtime-determined, no static
-            # enrichment possible. Only iUse/polyIUse/dynIUse/callParentDynIUse.
-            if gnode.node_type not in _STATIC_SUBVI_CALL_NODE_TYPES:
+            self._connect_subvi_call(gnode)
+
+    def _connect_subvi_call(self, gnode: VINode) -> None:
+        """Connect one SubVI call to the VI it calls (``VINode.interface_key``)
+        and copy the callee's description, ownership chain, terminal names and
+        types onto the call."""
+        g = self._graph
+        nid = gnode.id
+        # callByRefNode excluded — callee is runtime-determined, no static
+        # enrichment possible. Only iUse/polyIUse/dynIUse/callParentDynIUse.
+        if gnode.node_type not in _STATIC_SUBVI_CALL_NODE_TYPES:
+            return
+
+        # The callee is the VI the caller recorded for this call. A call that
+        # records none gets no edge.
+        callee_name = gnode.interface_key
+        if callee_name is None or callee_name not in g:
+            return
+
+        callee_node = g.nodes[callee_name].get("node")
+        if not isinstance(callee_node, VINode):
+            return
+
+        # A SubVI call node has no documentation of its own — carry the
+        # callee VI's description onto it so its hover help panel shows what
+        # the SubVI does (same enrich-from-callee pattern as terminal names).
+        if not gnode.description and callee_node.description:
+            gnode.description = callee_node.description
+        # ...and the callee's OWNERSHIP CHAIN (from the callee's own <LIBN>),
+        # so a SubVI-CALL label can show ``Class.lvclass:method`` — the whole
+        # point of qualifying two classes' same-named methods.
+        if not gnode.owning_libraries and callee_node.owning_libraries:
+            gnode.owning_libraries = list(callee_node.owning_libraries)
+
+        # Build callee terminal lookup: (index, direction) → Terminal
+        callee_term_map: dict[tuple[int, str], Any] = {}
+        for t in callee_node.terminals:
+            if t.index is not None and t.index >= 0:
+                callee_term_map[(t.index, t.direction)] = t
+
+        # Connect matching terminals and enrich caller from callee
+        matched_callee: set[str] = set()
+        # First pass: match terminals with known indices
+        for call_term in gnode.terminals:
+            if call_term.index is None or call_term.index < 0:
                 continue
-
-            # Resolve callee VI name. A dynamic-dispatch call left BARE here
-            # (no iUse entry yet -- resolve_dispatch_qnames' static-type
-            # fixpoint hasn't run; it needs every VI in the hierarchy loaded
-            # first, which is what THIS pass is part of) can be genuinely
-            # ambiguous against another same-named override elsewhere in the
-            # tree (dynamic dispatch means literally every class's override
-            # is named e.g. "run.vi"). This pass is best-effort dataflow
-            # wiring, not identity resolution -- skip creating the edge
-            # rather than guess; resolve_dispatch_qnames' later fixpoint (or
-            # a static iUse qname) is what actually disambiguates it.
-            raw_uid = nid.split("::")[-1] if "::" in nid else nid
-            callee_qname = iuse_to_qname.get(raw_uid, gnode.name or "")
-            try:
-                callee_name = self.resolve_vi_name(callee_qname)
-            except AmbiguousVIReferenceError:
-                continue
-            if not callee_name or callee_name not in g:
-                continue
-
-            callee_node = g.nodes[callee_name].get("node")
-            if not isinstance(callee_node, VINode):
-                continue
-
-            # A SubVI call node has no documentation of its own — carry the
-            # callee VI's description onto it so its hover help panel shows what
-            # the SubVI does (same enrich-from-callee pattern as terminal names).
-            if not gnode.description and callee_node.description:
-                gnode.description = callee_node.description
-            # (No qualified_name back-fill: SubVIBuildHandler always sets it to
-            # ``iuse_to_qname or node_name``, so it is never None here — the old
-            # ``if not gnode.qualified_name`` branch was unreachable.)
-            # ...and the callee's OWNERSHIP CHAIN (from the callee's own <LIBN>),
-            # so a SubVI-CALL label can show ``Class.lvclass:method`` — the whole
-            # point of qualifying two classes' same-named methods.
-            if not gnode.owning_libraries and callee_node.owning_libraries:
-                gnode.owning_libraries = list(callee_node.owning_libraries)
-
-            # Build callee terminal lookup: (index, direction) → Terminal
-            callee_term_map: dict[tuple[int, str], Any] = {}
-            for t in callee_node.terminals:
-                if t.index is not None and t.index >= 0:
-                    callee_term_map[(t.index, t.direction)] = t
-
-            # Connect matching terminals and enrich caller from callee
-            matched_callee: set[str] = set()
-            # First pass: match terminals with known indices
-            for call_term in gnode.terminals:
-                if call_term.index is None or call_term.index < 0:
-                    continue
-                callee_key = (call_term.index, call_term.direction)
-                callee_t = callee_term_map.get(callee_key)
-                if callee_t:
-                    matched_callee.add(callee_t.id)
-
-            for call_term in gnode.terminals:
-                callee_t = None
-                if call_term.index is not None and call_term.index >= 0:
-                    callee_t = callee_term_map.get(
-                        (call_term.index, call_term.direction)
-                    )
-                else:
-                    # idx=-1: match by elimination — find unmatched callee
-                    # terminal with same direction
-                    unmatched = [
-                        t
-                        for (_, d), t in callee_term_map.items()
-                        if d == call_term.direction and t.id not in matched_callee
-                    ]
-                    if len(unmatched) == 1:
-                        callee_t = unmatched[0]
-                        call_term.index = callee_t.index
-
-                if not callee_t:
-                    continue
+            callee_key = (call_term.index, call_term.direction)
+            callee_t = callee_term_map.get(callee_key)
+            if callee_t:
                 matched_callee.add(callee_t.id)
 
-                # Enrich: copy name and type from callee FP terminal
-                if not call_term.name and callee_t.name:
-                    call_term.name = callee_t.name
-                if not call_term.lv_type and callee_t.lv_type:
-                    call_term.lv_type = callee_t.lv_type
-                elif (
-                    call_term.lv_type
-                    and callee_t.lv_type
-                    and not call_term.lv_type.fields
-                    and callee_t.lv_type.fields
-                ):
-                    call_term.lv_type.fields = callee_t.lv_type.fields
+        for call_term in gnode.terminals:
+            callee_t = None
+            if call_term.index is not None and call_term.index >= 0:
+                callee_t = callee_term_map.get(
+                    (call_term.index, call_term.direction)
+                )
+            else:
+                # idx=-1: match by elimination — find unmatched callee
+                # terminal with same direction
+                unmatched = [
+                    t
+                    for (_, d), t in callee_term_map.items()
+                    if d == call_term.direction and t.id not in matched_callee
+                ]
+                if len(unmatched) == 1:
+                    callee_t = unmatched[0]
+                    call_term.index = callee_t.index
 
-                # Create dataflow edge
-                src_we = WireEnd(
-                    terminal_id=call_term.id,
-                    node_id=nid,
-                    index=call_term.index,
-                    name=call_term.name,
-                    parent_kind=_graph_node_to_op_kind(gnode),
-                )
-                dst_we = WireEnd(
-                    terminal_id=callee_t.id,
-                    node_id=callee_name,
-                    index=call_term.index,
-                    name=callee_t.name,
-                    parent_kind=_graph_node_to_op_kind(callee_node),
-                )
-                if call_term.direction == "input":
-                    g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
-                else:
-                    g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
+            if not callee_t:
+                continue
+            matched_callee.add(callee_t.id)
+
+            # Enrich: copy name and type from callee FP terminal
+            if not call_term.name and callee_t.name:
+                call_term.name = callee_t.name
+            if not call_term.lv_type and callee_t.lv_type:
+                call_term.lv_type = callee_t.lv_type
+            elif (
+                call_term.lv_type
+                and callee_t.lv_type
+                and not call_term.lv_type.fields
+                and callee_t.lv_type.fields
+            ):
+                call_term.lv_type.fields = callee_t.lv_type.fields
+
+            # Create dataflow edge
+            src_we = WireEnd(
+                terminal_id=call_term.id,
+                node_id=nid,
+                index=call_term.index,
+                name=call_term.name,
+                parent_kind=_graph_node_to_op_kind(gnode),
+            )
+            dst_we = WireEnd(
+                terminal_id=callee_t.id,
+                node_id=callee_name,
+                index=call_term.index,
+                name=callee_t.name,
+                parent_kind=_graph_node_to_op_kind(callee_node),
+            )
+            if call_term.direction == "input":
+                g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
+            else:
+                g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
+
 
     @staticmethod
     def _resolve_terminal_indices(

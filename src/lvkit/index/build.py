@@ -645,6 +645,7 @@ def project_vi_facts(
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=_node_callee_key(gn),
+            callee_key=gn.callee_key if isinstance(gn, VINode) else None,
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             network_path=(

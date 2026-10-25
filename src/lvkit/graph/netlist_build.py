@@ -1194,13 +1194,12 @@ def _ordered_real_terminals_gn(
     real = [t for t in graph.enriched_terminals(node, vi_name) if _is_real_terminal(t)]
     if not (isinstance(node, VINode) and node.id != node.vi_path and node.name):
         return real
-    # Resolve the CALLEE by its own qualified identity (``node.qualified_name``,
-    # e.g. "TestSuite.lvclass:run.vi"), never by ``node.name`` -- the bare
-    # filename ("run.vi") collides across every same-named override in a
-    # dynamic-dispatch class hierarchy (``node.vi_path`` is the CALLER's key, not
-    # the callee's -- see ``GraphNode.vi``/``SubVIBuildHandler``).
-    resolved = graph.resolve_vi_name(node.qualified_name or node.name)
-    callee = graph.get_graph_node(resolved)
+    # The CALLEE is the VI the caller recorded for this call (``callee_key``),
+    # never found by name: the bare filename ("run.vi") collides across every
+    # same-named override in a dynamic-dispatch class hierarchy
+    # (``node.vi_path`` is the CALLER's key, not the callee's).
+    callee_key = graph.loaded_callee_key(node)
+    callee = graph.get_graph_node(callee_key) if callee_key is not None else None
     pattern_id = callee.connector_pattern_id if isinstance(callee, VINode) else None
     ins = [t for t in real if t.direction == "input"]
     outs = [t for t in real if t.direction == "output"]
@@ -2261,12 +2260,14 @@ def _build_components_gn(
             continue
         if _is_subvi_call_gn(node):
             assert isinstance(node, VINode)
-            key = node.qualified_name or node.name
-            assert key is not None
-            if key not in seen_subvi:
-                seen_subvi.add(key)
-                subvi_order.append(key)
-                subvi_reps[key] = node
+            # A call's identity is the VI it calls; two files that carry one
+            # qualified name are two components.
+            identity = node.interface_key or node.qualified_name or node.name
+            assert identity is not None
+            if identity not in seen_subvi:
+                seen_subvi.add(identity)
+                subvi_order.append(identity)
+                subvi_reps[identity] = node
             continue
         if not _is_primitive_component_gn(graph, node):
             continue
@@ -2275,12 +2276,15 @@ def _build_components_gn(
         groups.setdefault(key, []).append((node, ins, outs))
 
     components: list[NetlistComponent] = []
-    for key in subvi_order:
-        ports = _subvi_ports(graph, key)
+    for identity in subvi_order:
+        rep = subvi_reps[identity]
+        assert isinstance(rep, VINode)
+        key = rep.qualified_name or rep.name
+        assert key is not None
+        ports = _subvi_ports(graph, key, graph.loaded_callee_key(rep))
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
-            rep = subvi_reps[key]
             ins, outs = _synthesize_ports_gn(graph.enriched_terminals(rep, vi_name))
         components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
@@ -2292,7 +2296,7 @@ def _build_components_gn(
 
 
 def _dependency_interface(
-    graph: InMemoryVIGraph, kind: DependencyKind, qname: str
+    graph: InMemoryVIGraph, kind: DependencyKind, dep_key: str
 ) -> list[ConnectorPaneTerminal]:
     """The §7a verbose-only inline interface for one ``uses :`` entry: a
     ``subVI`` dependency's OWN connector-pane terminals (inputs then
@@ -2307,14 +2311,12 @@ def _dependency_interface(
 
     ``class``/``typedef`` dependencies get no interface (a connector pane is
     a VI-only concept) -- ``[]``. A ``subVI`` dependency that isn't
-    resolvable in the loaded graph (``graph.resolve_vi_name(qname)`` falls
-    through to a name with no ``VINode``) also yields ``[]``: ``get_inputs``/
+    loaded in the graph (``dep_key`` is a stub) also yields ``[]``: ``get_inputs``/
     ``get_outputs`` already return ``[]`` for a ``vi_name`` absent from the
     graph, so this is never fabricated, only genuinely absent.
     """
     if kind != DependencyKind.SUBVI:
         return []
-    dep_key = graph.resolve_vi_name(qname)
     return [_pane_terminal(t, "input") for t in graph.get_inputs(dep_key)] + [
         _pane_terminal(t, "output") for t in graph.get_outputs(dep_key)
     ]
@@ -2497,7 +2499,7 @@ def _build_dependency_manifest(
                 kind=kind,
                 qualified=qname,
                 path=project_relative_display(resolved, rel_base),
-                interface=_dependency_interface(graph, kind, qname),
+                interface=_dependency_interface(graph, kind, key),
             )
         )
     return sorted(

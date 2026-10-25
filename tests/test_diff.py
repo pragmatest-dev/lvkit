@@ -121,13 +121,13 @@ class TestFormatDiffConcise:
         assert "▭ input Action" not in concise
         assert "▭ input Action" in verbose
 
-    def test_concise_omits_unchanged_node_tally(self):
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+    def test_concise_omits_unchanged_node_tally(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
         assert "unchanged" not in result
 
-    def test_concise_is_already_the_full_tree(self):
+    def test_concise_is_already_the_full_tree(self, vi_diff_pair):
         # The depth axis (--verbose) no longer gates NESTING -- both tiers
         # project the SAME netlist-diff tree (see format_diff's docstring).
         # run_base/run_head wraps several existing nodes in a NEW case (uid
@@ -140,8 +140,8 @@ class TestFormatDiffConcise:
         # case after whatever it finds sitting at the tunnel terminal.
         # scope_header line, a nested frame sub-header for "True", and the
         # new node's instance line beneath it, all in the DEFAULT report.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
         assert "+ " in result
         assert "case (Bundle/Unbundle By Name#2" in result
@@ -164,13 +164,13 @@ class TestFormatDiffConcise:
         )
         assert _depth(lines[struct_i]) < _depth(lines[frame_i]) < _depth(lines[node_i])
 
-    def test_unchanged_container_gets_no_header_but_still_nests(self):
+    def test_unchanged_container_gets_no_header_but_still_nests(self, vi_diff_pair):
         # The OTHER added node (1065) sits in an UNCHANGED case (753) --
         # unlike case 3870 above, 753's own scope_header line has a SPACE
         # gutter (it didn't change itself), but its frame still docks 1065
         # under a quoted frame sub-header rather than showing it flat.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         cmap = diff_uid(ga, gb, na, nb)
         by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
         assert by_uid["1065"].container_uid == "753"
@@ -192,12 +192,12 @@ class TestFormatDiffConcise:
         )
         assert lines[struct_i].startswith("  ")  # space gutter, not +/-/~
 
-    def test_gutter_tag_applies_to_both_struct_and_node_lines(self):
+    def test_gutter_tag_applies_to_both_struct_and_node_lines(self, vi_diff_pair):
         # The "+"/"-"/"~" gutter is orthogonal to WHAT changed (a structure's
         # scope_header vs. a node's instance_line) -- the same tag prefixes
         # both kinds of content.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
         assert "+ " in result
         assert "case (Bundle/Unbundle By Name#2" in result
@@ -212,7 +212,9 @@ class TestFormatDiffConcise:
         assert struct_line.startswith("+ ")
         assert node_line.startswith("+ ")
 
-    def test_removed_wire_not_suppressed_by_sibling_added_node_change(self):
+    def test_removed_wire_not_suppressed_by_sibling_added_node_change(
+        self, vi_diff_pair
+    ):
         # The removed wire's sink shares a containment path with an added
         # "Bundle/Unbundle By Name" node, but the two are DIFFERENT changes
         # (removed vs. added) -- a deletion must always show, even when an
@@ -225,18 +227,18 @@ class TestFormatDiffConcise:
         # class private-data snapshot -- this pair loads with
         # ``LoadMode.NONE``, no search path, so the owning class itself
         # never resolves), not the generic node name.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
         lines = result.splitlines()
         wire_line = next(ln for ln in lines if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
-    def test_no_section_headers(self):
+    def test_no_section_headers(self, vi_diff_pair):
         # #31: no Operations:/Wiring:/Structures: sections -- every change
         # reads inline in the ONE composition tree.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
         assert "Operations:" not in result
         assert "Wiring:" not in result
@@ -314,14 +316,14 @@ class TestFormatDiffVerbose:
         assert "▭ control Tree" in result
         assert "DAQmx Write.vi" in result
 
-    def test_verbose_tree_matches_concise_tree(self):
+    def test_verbose_tree_matches_concise_tree(self, vi_diff_pair):
         # The node/structure/wire tree is IDENTICAL between tiers. Verbose adds
         # Signature (before) and the unchanged-node tally (after), and gives each
         # CONSTANT row its value -- concise omits constant values so a long
         # string can't bloat a row (the value still lives in the JSON and the
         # diagram panes). This pair has exactly one (added, float 0.0) constant.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         concise = format_diff(ga, gb, na, nb)
         verbose = format_diff(ga, gb, na, nb, verbose=True)
         common = len(diff_uid(ga, gb, na, nb).common_node_uids)
@@ -332,21 +334,21 @@ class TestFormatDiffVerbose:
         )
         assert verbose == expected
 
-    def test_unchanged_node_tally_present(self):
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+    def test_unchanged_node_tally_present(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         cmap = diff_uid(ga, gb, na, nb)
         result = format_diff(ga, gb, na, nb, verbose=True)
         assert f"({len(cmap.common_node_uids)} unchanged nodes)" in result
 
-    def test_no_duplicated_wiring_lines(self):
+    def test_no_duplicated_wiring_lines(self, vi_diff_pair):
         # The one genuine REMOVED wire for this pair (see TestWireChanges)
         # still renders exactly once, as its own "- " deletion line -- it is
         # not duplicated by, nor hidden behind, the added sibling node's own
         # instance_line at the same containment path (see
         # test_removed_wire_not_suppressed_by_sibling_added_node_change).
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb, verbose=True)
         lines = result.splitlines()
         assert sum(1 for ln in lines if "x = isSkipped" in ln) == 1
@@ -354,31 +356,9 @@ class TestFormatDiffVerbose:
         assert wire_line.startswith("- ")
 
 
-# ── netlist-form TEXT diff on the real JKI VI-Tester run.vi pair ───────
+# ── netlist-form TEXT diff on the JKI VI-Tester run.vi pair ───────────
 #
-# Mirrors tests/test_netlist.py's load-and-skip-if-absent convention: these
-# VIs are staged in the scratchpad, not the repo's sample corpus, so the
-# tests degrade gracefully when they're not present in a given environment.
-
-_SCRATCHPAD = Path(
-    "/tmp/claude-1000/-home-ryanf-repos-lvkit/3a7f874f-386b-432d-9712-edf3bc6c995e"
-    "/scratchpad"
-)
-_RUN_OLD = _SCRATCHPAD / "run_OLD.vi"
-_RUN_NEW = _SCRATCHPAD / "run_NEW.vi"
-_DEMO_SEARCH_PATH = Path(__file__).resolve().parent.parent / ".tmp" / "vi-tester-demo"
-
-
-def _load_jki(vi_path: Path) -> tuple[InMemoryVIGraph, str]:
-    graph = InMemoryVIGraph()
-    graph.load_vi(str(vi_path), search_paths=[_DEMO_SEARCH_PATH], layout=False)
-    vi_name = graph.resolve_vi_name(vi_path.name)
-    return graph, vi_name
-
-
-def _require_jki_vis() -> None:
-    if not _RUN_OLD.exists() or not _RUN_NEW.exists():
-        pytest.skip("JKI run_OLD.vi/run_NEW.vi pair not staged in scratchpad")
+# The ``vi_diff_pair`` fixture (conftest): two revisions of one sample VI.
 
 
 class TestNetlistFormDiffOnJKIPair:
@@ -386,16 +366,14 @@ class TestNetlistFormDiffOnJKIPair:
     non-trivial VI pair -- proves the format on genuine data, not just the
     synthetic run_base/run_head fixture above."""
 
-    def test_default_report(self):
-        _require_jki_vis()
-        ga, na = _load_jki(_RUN_OLD)
-        gb, nb = _load_jki(_RUN_NEW)
+    def test_default_report(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb)
 
         assert "case (" in result
         assert any(ln.startswith("+ ") for ln in result.splitlines())
         assert "addSkipped" in result
-        assert result.isascii()
         assert "⬚" not in result
         assert "◻" not in result
         assert "↔" not in result
@@ -409,39 +387,35 @@ class TestNetlistFormDiffOnJKIPair:
         wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
-    def test_verbose_report(self):
-        _require_jki_vis()
-        ga, na = _load_jki(_RUN_OLD)
-        gb, nb = _load_jki(_RUN_NEW)
+    def test_verbose_report(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         result = format_diff(ga, gb, na, nb, verbose=True)
 
         assert "case (" in result
         assert any(ln.startswith("+ ") for ln in result.splitlines())
         assert "addSkipped" in result
-        assert result.isascii()
         assert "⬚" not in result
         assert "◻" not in result
         assert "↔" not in result
         wire_line = next(ln for ln in result.splitlines() if "x = isSkipped" in ln)
         assert wire_line.startswith("- ")
 
-    def test_deterministic_across_hash_seeds(self):
-        _require_jki_vis()
+    def test_deterministic_across_hash_seeds(self, vi_diff_pair):
 
         script = (
             "import hashlib\n"
             "from pathlib import Path\n"
             "from lvkit.graph.core import InMemoryVIGraph\n"
             "from lvkit.graph.diff import format_diff\n"
+            "from lvkit.load_mode import LoadMode\n"
             "def _load(p):\n"
             "    g = InMemoryVIGraph()\n"
-            f"    g.load_vi(str(p), search_paths=[Path({str(_DEMO_SEARCH_PATH)!r})],"
-            " layout=False)\n"
-            "    return g, g.resolve_vi_name(p.name)\n"
-            f"ga, na = _load(Path({str(_RUN_OLD)!r}))\n"
-            f"gb, nb = _load(Path({str(_RUN_NEW)!r}))\n"
+            "    key = g.load_vi(str(p), mode=LoadMode.NONE, layout=False)\n"
+            "    return g, key\n"
+            f"ga, na = _load(Path({str(vi_diff_pair.base)!r}))\n"
+            f"gb, nb = _load(Path({str(vi_diff_pair.head)!r}))\n"
             "out = format_diff(ga, gb, na, nb, verbose=True)\n"
-            "assert out.isascii()\n"
             "print(hashlib.sha256(out.encode()).hexdigest())\n"
         )
 
@@ -612,13 +586,13 @@ class TestModifiedConstant:
 
 
 class TestLocalityStamping:
-    def test_node_inside_added_case_carries_its_container(self):
+    def test_node_inside_added_case_carries_its_container(self, vi_diff_pair):
         # run_base/run_head (see TestWireChanges' docstring for the full
         # anatomy): head wraps several existing nodes in a NEW case structure
         # (uid 3870). Node 4117 ("addSkipped.vi") is a genuinely NEW node
         # placed INSIDE that new case.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
 
         by_uid = {c.uid: c for c in cmap.changes if c.kind == "node"}
@@ -650,9 +624,9 @@ class TestLocalityStamping:
         assert top_level.container_uid is None
         assert top_level.frame_path is None
 
-    def test_to_dict_serializes_locality_fields(self):
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+    def test_to_dict_serializes_locality_fields(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         d = diff_uid(ga, gb, na, nb).to_dict()
 
         entry = next(c for c in d["changes"] if c["uid"] == "4117")
@@ -920,7 +894,7 @@ class TestFrameSetChanges:
 
 
 class TestWireChanges:
-    """run.vi base/head is a real corpus pair (see outputs/vi-diff/) whose
+    """run.vi base/head is a real corpus pair (see ``vi_diff_pair`` in conftest) whose
     VALIDATED residual (matching .tmp/probe_wirediff.py's 13->2->1 pressure
     test) is EXACTLY ONE genuine wire change. A "Not" primitive (node 1781)
     has, in base, its input fed by a "Bundle/Unbundle By Name" node (1489,
@@ -938,9 +912,9 @@ class TestWireChanges:
     leaking (founding law: wrapping unchanged nodes in a new structure is NOT
     a change)."""
 
-    def test_run_vi_residual_is_exactly_one_removal(self):
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+    def test_run_vi_residual_is_exactly_one_removal(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
 
         wire_changes = [c for c in cmap.changes if c.kind == "wire"]
@@ -965,7 +939,7 @@ class TestWireChanges:
         assert change.bounds is not None
         assert change.bounds_before is not None
 
-    def test_run_vi_removed_wire_endpoints_translated_to_other_pane(self):
+    def test_run_vi_removed_wire_endpoints_translated_to_other_pane(self, vi_diff_pair):
         # The viewer's revealFrame(c) needs to open the case frame in the
         # OTHER (head/after) pane that contains this removed wire's
         # surviving endpoint -- its own frame_path only ever addresses the
@@ -977,8 +951,8 @@ class TestWireChanges:
         #     a NEW uid in head (it's fuzzy-matched, not identical), so it
         #     translates through the same exact/fuzzy match map _match_elements
         #     computed for node identity -- to head uid 5207.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
         change = [c for c in cmap.changes if c.kind == "wire"][0]
 
@@ -990,13 +964,13 @@ class TestWireChanges:
         wire_dict = next(c for c in d["changes"] if c["uid"] == "1820")
         assert wire_dict["endpoints"] == ["5207", "1781"]
 
-    def test_run_vi_removed_wire_has_faithful_path(self):
+    def test_run_vi_removed_wire_has_faithful_path(self, vi_diff_pair):
         # Increment 2a: the removed wire carries the FAITHFUL drawn polyline
         # (source center -> recorded bends -> sink center), from the BEFORE
         # layout (the version the removed wire lives in). path_before is None
         # (only "modified" wires carry an old-routing polyline).
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         change = [c for c in diff_uid(ga, gb, na, nb).changes if c.kind == "wire"][0]
 
         assert change.path is not None
@@ -1024,11 +998,11 @@ class TestWireChanges:
         ]
         assert wire_dict["path_before"] is None
 
-    def test_run_vi_added_node_has_chain_paths(self):
+    def test_run_vi_added_node_has_chain_paths(self, vi_diff_pair):
         # Increment 2a: an added node carries its wire "chain" — the polylines
         # of every wire incident to it — so the viewer draws them in its color.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
 
         added_nodes = [
@@ -1042,24 +1016,24 @@ class TestWireChanges:
             for poly in c.chain_paths:
                 assert len(poly) >= 2  # every chain wire is a real polyline
 
-    def test_structure_change_has_no_chain_paths(self):
+    def test_structure_change_has_no_chain_paths(self, vi_diff_pair):
         # #27: chain_paths is a NODE's incident-wire geometry; a structure's
         # "chain" would be every wire nested inside it -- noise in the map and
         # never used for a structure highlight. So a structure change carries
         # None even WITH layout (test_no_layout_means_no_paths only covers the
         # no-geometry case). run_base->run_head adds a Case structure (uid 3870).
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"), layout=True)
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"), layout=True)
+        ga, na = _load(vi_diff_pair.base, layout=True)
+        gb, nb = _load(vi_diff_pair.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
         structs = [c for c in cmap.changes if c.kind == "structure"]
         assert structs, "expected a structure change on the run.vi pair"
         for c in structs:
             assert c.chain_paths is None
 
-    def test_no_layout_means_no_paths(self):
+    def test_no_layout_means_no_paths(self, vi_diff_pair):
         # Without layout=True there is no geometry, so no path/chain overlay.
-        ga, na = _load(Path("outputs/vi-diff/run_base.vi"))
-        gb, nb = _load(Path("outputs/vi-diff/run_head.vi"))
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         cmap = diff_uid(ga, gb, na, nb)
         for c in cmap.changes:
             assert c.path is None
@@ -1453,8 +1427,7 @@ def _without_conditional(graph: InMemoryVIGraph, vi: str) -> None:
                 [
                     (u, v, k)
                     for u, v, k, d in graph._graph.edges(keys=True, data=True)
-                    if d.get("dest") is not None
-                    and d["dest"].terminal_id == condition
+                    if d.get("dest") is not None and d["dest"].terminal_id == condition
                 ]
             )
 

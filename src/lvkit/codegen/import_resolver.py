@@ -39,7 +39,7 @@ class ImportResolver:
 
     def __init__(
         self,
-        function_import: Callable[[str], NameImport],
+        function_import: Callable[[str, str | None], NameImport],
         module_import: Callable[[str], ModuleImport],
         type_import: Callable[[str], NameImport | None],
         node_import: Callable[[str], NameImport],
@@ -49,11 +49,13 @@ class ImportResolver:
         self._type_import = type_import
         self._node_import = node_import
 
-    def function(self, vi_name: str) -> NameImport:
+    def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;
         an empty statement when the VI is the module being generated (a VI that
-        calls itself defines the function it calls)."""
-        return self._function_import(vi_name)
+        calls itself defines the function it calls). The VI is identified by
+        ``callee_key`` (its graph key); ``vi_name`` finds it only when there is
+        none."""
+        return self._function_import(vi_name, callee_key)
 
     def module(self, vi_name: str) -> ModuleImport:
         return self._module_import(vi_name)

@@ -82,9 +82,8 @@ def build_call_graph(vis: Iterable[VIFacts]) -> nx.DiGraph:
 
     The call graph is a slice of the block-diagram nodes: each ``kind='vi'``
     node is a SubVI call site whose ``callee_path`` was resolved to an in-repo
-    VI at merge time (:func:`resolve_node_callee_paths`, via the same
-    path / qualified-name / unambiguous-leaf resolver — an ambiguous bare leaf
-    or an external callee stays ``None`` and contributes no edge). Multiple call
+    VI at merge time (:func:`resolve_node_callee_paths` — an external callee
+    stays ``None`` and contributes no edge). Multiple call
     sites to the same callee collapse to one edge. Requires ``callee_path`` to
     be populated first — the merge order in ``build.py`` guarantees it.
     """
@@ -99,19 +98,15 @@ def build_call_graph(vis: Iterable[VIFacts]) -> nx.DiGraph:
     return graph
 
 
-# The node kinds that refer to another VI by qualified name: a SubVI call and a
-# global variable (its Global VI).
-_VI_REFERENCING_KINDS = (NodeKind.VI, NodeKind.GLOBAL_VARIABLE)
-
-
 def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
     """Fill each ``kind='vi'`` / ``kind='global_variable'`` node's
-    ``callee_path`` by resolving its ``qualified_name`` to an in-repo VI path.
+    ``callee_path`` with the in-repo VI it refers to.
 
-    Uses the SAME path / exact-qualified-name / unambiguous-leaf resolver as
-    :func:`build_call_graph` (:func:`_resolve_callee`), so an external callee or
-    an ambiguous bare leaf resolves to ``None`` rather than a guess. Mutates the
-    facts in place at merge time (needs the whole repo to resolve), exactly like
+    A SubVI call's callee is the file its caller recorded (``callee_key``); it is
+    the call's ``callee_path`` when that file is an indexed VI, else ``None``
+    (an external callee). A global variable's Global VI is found by its
+    ``qualified_name`` (:func:`_resolve_callee`). Mutates the facts in place at
+    merge time (needs the whole repo to resolve), exactly like
     ``_recompute_impact`` fills ``impact_score``. Idempotent.
 
     NOTE this is a per-call-site CONVENIENCE edge on the node spine; the
@@ -126,13 +121,14 @@ def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
     by_path = {f.path for f in facts}
     for f in facts:
         for n in f.nodes:
-            if n.kind in _VI_REFERENCING_KINDS and n.qualified_name:
+            target: str | None = None
+            if n.kind is NodeKind.VI:
+                target = n.callee_key if n.callee_key in by_path else None
+            elif n.kind is NodeKind.GLOBAL_VARIABLE and n.qualified_name:
                 target = _resolve_callee(
                     n.qualified_name, by_path, by_qualified, by_name
                 )
-                n.callee_path = target if target and target != f.path else None
-            else:
-                n.callee_path = None
+            n.callee_path = target if target and target != f.path else None
 
 
 def _resolve_callee(

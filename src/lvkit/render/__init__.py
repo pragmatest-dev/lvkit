@@ -570,7 +570,7 @@ def render_vi_with_subvis(
     *,
     theme: Theme = DEFAULT_THEME,
 ) -> tuple[str | None, dict[str, str]]:
-    """Render one VI, and also return the ``data-node`` id -> target VI name map
+    """Render one VI, and also return the ``data-node`` id -> target VI key map
     for the subVI-call nodes on its diagram.
 
     The renderer stays navigation-free; this just surfaces WHICH drawn nodes are
@@ -581,12 +581,12 @@ def render_vi_with_subvis(
     scene = build_scene(graph, vi_name)
     if scene is None:
         return None, {}
-    # Prefer the fully-qualified callee name (e.g. "TestCase.lvclass:run.vi")
-    # so a consumer can identify the exact VI; fall back to the bare name.
+    # The target is the callee's key: the loaded VI the call names, which is the
+    # key of that VI's own page.
     subvis: dict[str, str] = {}
     for rn in scene.nodes:
         if isinstance(rn.node, VINode):
-            target = rn.node.qualified_name or rn.node.name
+            target = graph.loaded_callee_key(rn.node)
             if target:
                 # Key by the DOCUMENT-LOCAL dom_id — the same value emitted as
                 # ``data-node`` — so the docs NAV map matches the SVG (and neither

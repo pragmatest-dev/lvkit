@@ -127,6 +127,15 @@ class VINode(GraphNode):
     # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
     # Set on SubVI call nodes when the parser captured a path ref.
     qualified_path: str | None = None
+    # On a SubVI call node, the identity of the VI it calls: that file's resolved
+    # path, or the path the caller recorded for it when the file is absent. For
+    # a polymorphic call it is the polymorphic VI (None when the caller records
+    # none). None also when the caller records no path for the call (a call by
+    # reference, a ``<vilib>`` call with no configured root). Never a name.
+    callee_key: str | None = None
+    # On a polymorphic call node, the identity of the variant the call resolves
+    # to (same form as ``callee_key``); None on every other node.
+    variant_key: str | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the
@@ -138,6 +147,13 @@ class VINode(GraphNode):
     # node (``graph/loading.py::load_typedef``) -- both graph citizens carry
     # their own front panel the same way.
     front_panel: ParsedFrontPanel | None = None
+
+    @property
+    def interface_key(self) -> str | None:
+        """On a SubVI call node, the file whose connector pane the call's
+        terminals are: the variant a polymorphic call resolves to, else the
+        callee."""
+        return self.variant_key or self.callee_key
 
 
 class PrimitiveNode(GraphNode):
@@ -413,6 +429,9 @@ class ConstantNode(GraphNode):
     value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
+    # A static VI reference: the identity of the VI it refers to (same form as
+    # ``VINode.callee_key``); None for every other constant.
+    referenced_vi_key: str | None = None
     # Human-readable DISPLAY form of a string constant, decoded with the LabVIEW
     # codepage (a repr'd literal, like ``value``) — render/describe show this so
     # CJK/localized text stays readable, while ``value`` is byte-faithful latin-1
@@ -679,6 +698,7 @@ class Constant(BaseModel):
     # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
     display_format: str | None = None
     raw_value: str | None = None
+    referenced_vi_key: str | None = None
     unwritable: UnwritableValue | None = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:

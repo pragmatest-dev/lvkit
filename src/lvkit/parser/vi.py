@@ -93,6 +93,7 @@ from .link_table import (
     DotNetAssemblyRecordFailure,
     DotNetAssemblyRecordKind,
     DotNetAssemblyTable,
+    DynamicDispatchLink,
     IUseLink,
     LinkTableError,
     LinkTableVersion,
@@ -101,6 +102,7 @@ from .link_table import (
     decode_dotnet_assemblies,
     dotnet_assembly_from_name_parts,
     qualified_link_name,
+    read_dyn_links,
     read_iuse_links,
     read_shared_variable_links,
 )
@@ -380,6 +382,7 @@ def _parse_metadata(
     # block-diagram link table only as the raw ``_LIbd.bin`` sidecar -- read
     # that instead.
     libd_links: list[IUseLink] = []
+    dyn_links: list[DynamicDispatchLink] = []
     shared_variable_table = SharedVariableTable(links=[], failures=[])
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
     version_elem = main_root.find(".//LVSR/Section/Version")
@@ -388,6 +391,8 @@ def _parse_metadata(
         link_version = LinkTableVersion.from_lvsr(version_elem)
         if main_root.find(".//LIbd//BDHP/IUVI") is None:
             libd_links = read_iuse_links(libd_bin, link_version)
+        if main_root.find(".//LIbd//BDHP/DyOM") is None:
+            dyn_links = read_dyn_links(libd_bin, link_version)
         # pylabview has no decoder for the Shared Variable records, so they are
         # only ever in the sidecar.
         shared_variable_table = read_shared_variable_links(libd_bin, link_version)
@@ -396,7 +401,11 @@ def _parse_metadata(
         iuse_refs,
         dependency_refs,
     ) = _extract_subvi_info(
-        main_root, qualified_name, libd_links, shared_variable_table.links
+        main_root,
+        qualified_name,
+        libd_links,
+        shared_variable_table.links,
+        dyn_links,
     )
     iuse_to_qualified_name = {
         uid: ref.qualified_name for uid, ref in iuse_refs.items() if ref.qualified_name
@@ -438,6 +447,11 @@ def _parse_metadata(
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
         iuse_refs=iuse_refs,
+        self_call_uids=_extract_self_call_uids(main_root, libd_links),
+        dyn_refs=_extract_dyn_refs(
+            main_root, _caller_library(qualified_name), dyn_links
+        ),
+        poly_refs=_extract_poly_refs(main_root, _caller_library(qualified_name)),
         shared_variable_links={
             str(uid): link
             for link in shared_variable_table.links
@@ -1473,7 +1487,8 @@ def _read_dotnet_assemblies(
 def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     """The link record a decoded ``BDHP`` element (``IUVI``/``PUPV``) holds, in
     the same shape the raw ``_LIbd.bin`` decoder yields. ``None`` when it has no
-    ``LinkSavePathRef``."""
+    ``LinkSavePathRef``, or a path with a name but no tokens. A record with
+    neither name nor path is kept: it is the VI's link to itself."""
     path_ref = elem.find("LinkSavePathRef")
     if path_ref is None:
         return None
@@ -1482,12 +1497,13 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     path_tokens = tuple(
         s.text if s.text is not None else "" for s in path_ref.findall("String")
     )
-    if not path_tokens:
+    name_parts = tuple(
+        s.text for s in elem.findall("LinkSaveQualName/String") if s.text
+    )
+    if not path_tokens and name_parts:
         return None
     return IUseLink(
-        name_parts=tuple(
-            s.text for s in elem.findall("LinkSaveQualName/String") if s.text
-        ),
+        name_parts=name_parts,
         path_tokens=path_tokens,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
@@ -1496,11 +1512,97 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
 
 
+def _caller_library(qualified_name: str | None) -> str | None:
+    """The library a VI's qualified name starts with, for same-library refs."""
+    if qualified_name and ":" in qualified_name:
+        return qualified_name.split(":")[0]
+    return None
+
+
+def _link_dependency_ref(
+    link: IUseLink | DynamicDispatchLink, caller_library: str | None
+) -> ParsedDependencyRef | None:
+    """The VI a block-diagram link record refers to, with the path it records;
+    None when the record names no VI."""
+    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    if not qname:
+        return None
+    return ParsedDependencyRef(
+        name=qname.rsplit(":", 1)[-1],
+        path_tokens=list(link.path_tokens),
+        qualified_name=qname,
+    )
+
+
+def _extract_self_call_uids(
+    main_root: ET.Element, libd_links: Sequence[IUseLink]
+) -> list[str]:
+    """Heap uid of every node that calls the VI itself: the nodes the VI's
+    block-diagram link table lists under a record that names no VI and has no path
+    (the link to itself a recursive call carries)."""
+    links = [
+        link
+        for elem in main_root.findall(".//LIbd//BDHP/IUVI")
+        if (link := _xml_iuse_link(elem)) is not None
+    ]
+    links.extend(libd_links)
+    return sorted(
+        str(uid)
+        for link in links
+        if not link.name_parts and not link.path_tokens
+        for uid in link.node_uids
+    )
+
+
+def _extract_dyn_refs(
+    main_root: ET.Element,
+    caller_library: str | None,
+    dyn_links: Sequence[DynamicDispatchLink] = (),
+) -> dict[str, ParsedDependencyRef]:
+    """``dynLink`` uid of every dynamic-dispatch call -> the class method its
+    ``DyOM`` record names (qualified ``Class.lvclass:method.vi``) with the path
+    of the class file the method sits beside. The record lists the calls it
+    belongs to in ``APILinkCacheList``."""
+    dyn_refs: dict[str, ParsedDependencyRef] = {}
+    for elem in main_root.findall(".//LIbd//BDHP/DyOM"):
+        link = _xml_iuse_link(elem)
+        ref = _link_dependency_ref(link, caller_library) if link else None
+        if ref is None:
+            continue
+        for offset in elem.findall("APILinkCacheList/Offset"):
+            if offset.text:
+                dyn_refs[str(int(offset.text, 16))] = ref
+    for raw in dyn_links:
+        ref = _link_dependency_ref(raw, caller_library)
+        for uid in raw.node_uids:
+            if ref is not None:
+                dyn_refs[str(uid)] = ref
+    return dyn_refs
+
+
+def _extract_poly_refs(
+    main_root: ET.Element, caller_library: str | None
+) -> dict[str, ParsedDependencyRef]:
+    """Heap uid of every polymorphic call -> the polymorphic VI the call's
+    ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
+    call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
+    poly_refs: dict[str, ParsedDependencyRef] = {}
+    for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
+        link = _xml_iuse_link(elem)
+        ref = _link_dependency_ref(link, caller_library) if link else None
+        if link is None or ref is None:
+            continue
+        for uid in link.node_uids:
+            poly_refs[str(uid)] = ref
+    return poly_refs
+
+
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
     libd_links: Sequence[IUseLink] = (),
     shared_variable_links: Sequence[SharedVariableLink] = (),
+    dyn_links: Sequence[DynamicDispatchLink] = (),
 ) -> tuple[list[str], dict[str, ParsedDependencyRef], list[ParsedDependencyRef]]:
     """Extract SubVI qualified names, iUse uid -> referenced VI, and dependency
     path refs.
@@ -1518,9 +1620,7 @@ def _extract_subvi_info(
     dependency_refs: list[ParsedDependencyRef] = []
 
     # Get caller's library for qualifying same-library references
-    caller_library = None
-    if caller_qualified_name and ":" in caller_qualified_name:
-        caller_library = caller_qualified_name.split(":")[0]
+    caller_library = _caller_library(caller_qualified_name)
 
     # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
@@ -1543,7 +1643,7 @@ def _extract_subvi_info(
         "BSVR",
         "SVVI",  # statVIRef link types
     )
-    _BDHP_LINK_TAGS = ("IUVI", "PUPV")  # block-diagram iUse path refs
+    _BDHP_LINK_TAGS = ("IUVI", "PUPV", "DyOM")  # block-diagram iUse path refs
     scopes: list[tuple[str, tuple[str, ...]]] = [
         (".//LIvi//{tag}", _LIVI_LINK_TAGS),
         (".//LIbd//BDHP/{tag}", _BDHP_LINK_TAGS),
@@ -1582,6 +1682,14 @@ def _extract_subvi_info(
         if qname:
             _add_dependency(qname, link.path_tokens)
 
+    # The class method each raw dynamic-dispatch record names is a dependency.
+    for dyn in dyn_links:
+        qname = qualified_link_name(
+            list(dyn.name_parts), dyn.link_flag, caller_library
+        )
+        if qname:
+            _add_dependency(qname, dyn.path_tokens)
+
     # The project library each Shared Variable belongs to.
     for sv_link in shared_variable_links:
         _add_dependency(sv_link.library_qualified_name, ())
@@ -1604,16 +1712,9 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
-        )
-        if not qname:
+        ref = _link_dependency_ref(link, caller_library)
+        if ref is None:
             continue
-        ref = ParsedDependencyRef(
-            name=qname.rsplit(":", 1)[-1],
-            path_tokens=list(link.path_tokens),
-            qualified_name=qname,
-        )
         for uid in link.node_uids:
             iuse_refs[str(uid)] = ref
 
