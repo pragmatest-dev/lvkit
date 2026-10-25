@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: an unwired Application Property Node reads `User Name`** — generated code runs the account name instead of stopping at an unavailable property; the CLFN corpus tests now check the Windows environment and file-information results the Windows way (#185).
 - **Type Cast, Swap Bytes and Swap Words work on clusters, arrays, floats and Booleans, in LabVIEW's flattened-data format** — so OpenG's File Info and large-file VIs run end to end on real files; Build Array no longer reads as an element-wise Add (#185).
 - **Call Library Function Node code generation covers LabVIEW string and array handles, Adapt to Type clusters, and LabVIEW's own file functions** — `FNewRefNum`, `FRefNumToFD`, `FGetInfo` and `FSetInfo` become Python, and `Is Path and Not Empty` resolves by the file name callers record (#185).
 - **Call Library Function Node: terminals, drawing and Python generation** — each parameter shows its input and output side with its name, the node draws as stacked rows, the return value is an output only, and `generate` emits a ctypes call to the library (#185).
