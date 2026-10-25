@@ -509,7 +509,7 @@ class CodeGenContext:
             and lv_type.underlying_type == "VIRefnum"
             and isinstance(const.value, str)
         ):
-            return self.import_function(const.value)
+            return self.import_function(const.value, const.referenced_vi_key)
         if const.unwritable is not None:
             self.add_import(LV_IMPORT)
             return data_file_expression(

@@ -73,7 +73,13 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
         return _generate_inline(node, ctx, vilib_vi)
 
-    func_name = ctx.import_function(subvi_name, node.callee_key)
+    # The module of the VI the call names. A polymorphic call whose polymorphic
+    # VI the caller does not record calls the variant it resolves to.
+    callee_name, callee_key = subvi_name, node.callee_key
+    if callee_key is None and node.variant_key is not None:
+        callee_key = node.variant_key
+        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
 
     # Gather input arguments with proper names

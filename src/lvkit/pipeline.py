@@ -27,7 +27,7 @@ from lvkit.codegen.ast_utils import (
 )
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.type_module import build_type_module
-from lvkit.graph import InMemoryVIGraph
+from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.project_store import find_project_store
@@ -220,27 +220,37 @@ def create_import_resolver(
 
     caller_dir = caller_path.parent
 
-    def locate(subvi_name: str, callee_key: str | None = None) -> Path:
-        """The output file of a generated VI: the one generated for
-        ``callee_key``, else the one ``subvi_name`` resolves to."""
-        qualified = callee_key if callee_key is not None else subvi_name
-        if graph and callee_key is None:
-            resolved_name = graph.resolve_vi_name(subvi_name)
-            if resolved_name:
-                qualified = resolved_name
-
+    def locate_by_name(vi_name: str) -> Path:
+        """The output file of a VI known only by name: a vi.lib VI, or a VI
+        reference constant (which names its VI by name). A call of a project VI
+        is never found this way -- it is found by its key, and a call that has
+        none stops code generation first."""
+        names_graph: InMemoryVIGraph | None = graph
+        qualified = vi_name
+        if graph is not None:
+            try:
+                qualified = graph.resolve_vi_name(vi_name) or vi_name
+            except AmbiguousVIReferenceError:
+                names_graph = None
         if qualified in vi_paths:
             return vi_paths[qualified]
-        if callee_key is None and subvi_name in vi_paths:
-            return vi_paths[subvi_name]
+        if vi_name in vi_paths:
+            return vi_paths[vi_name]
         dep_path, _ = get_output_path(
             output_dir,
             qualified,
             create_dirs=False,
-            graph=graph,
+            graph=names_graph,
             vilib_resolver=vilib_resolver,
         )
         return dep_path
+
+    def locate(subvi_name: str, callee_key: str | None) -> Path:
+        """The output file of the VI a call names: the one generated for
+        ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
+        if callee_key is not None and callee_key in vi_paths:
+            return vi_paths[callee_key]
+        return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
         """``(dots, package, module)``: the relative import of ``dep_path`` from
@@ -277,7 +287,7 @@ def create_import_resolver(
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
     def module_import(global_vi_name: str) -> ModuleImport:
-        dots, package, module = relative(locate(global_vi_name))
+        dots, package, module = relative(locate_by_name(global_vi_name))
         alias = f"{module}_global"
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 

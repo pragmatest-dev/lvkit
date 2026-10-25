@@ -58,7 +58,6 @@ from ..type_defaults import get_default_for_type
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders import (
     DEFAULT_NODE_BUILD_HANDLER,
-    DYNAMIC_DISPATCH_NODE_TYPES,
     NODE_BUILD_HANDLERS,
     REF_BUILD_HANDLERS,
     STRUCTURE_BUILD_HANDLERS,
@@ -74,7 +73,6 @@ from .models import (
     VINode,
     WireEnd,
 )
-from .queries import AmbiguousVIReferenceError
 from .terminal_layout import array_rank
 from .terminal_names import NodeSlot, catalog_terminal_names
 
@@ -102,23 +100,6 @@ _STATIC_SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
         "callParentDynIUse",
     }
 )
-
-
-def _dispatch_class_names(terminals: list[Terminal]) -> list[str]:
-    """Distinct owning-class names (``X.lvclass``) carried on a dynamic-dispatch
-    call's terminals — the object type wired to the dispatch input/output. The
-    generic root ("LabVIEW Object", which has no ``.lvclass`` suffix) is skipped,
-    so only concrete classes are returned, MOST-SPECIFIC first as they appear.
-    Used only by the best-effort ``resolve_dispatch_qnames`` FALLBACK, which
-    takes the first loaded candidate — i.e. the most-derived wired class, NOT
-    necessarily the declaring parent the primary iUse path records."""
-    out: list[str] = []
-    for t in terminals:
-        lt = getattr(t, "lv_type", None)
-        cls = getattr(lt, "classname", None) if lt is not None else None
-        if cls and cls.endswith(".lvclass") and cls not in out:
-            out.append(cls)
-    return out
 
 
 def _string_display_value(raw_bytes: bytes) -> str | None:
@@ -1264,62 +1245,6 @@ class ConstructionMixin:
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
         )
-
-    def resolve_dispatch_qnames(self) -> None:
-        """FALLBACK class-qualification for dynamic-dispatch calls the caller's
-        binary didn't already name, and for which no callee was recorded.
-
-        The PRIMARY path is ``SubVIBuildHandler``, which stamps ``callee_key``
-        and ``qualified_name`` from the caller's recorded link -- for a dispatch
-        call the DECLARING PARENT class's method (e.g.
-        ``TestResult.lvclass:addError.vi``), the honest static edge and
-        deterministic across platforms. This pass only touches calls that path
-        left BARE (guard: ``qualified_name == name`` or no ``callee_key``): it
-        infers the class from the dispatch object's static type on the call's
-        terminals, which lands only after every VI is loaded and types propagate
-        (the object may come from another dispatch -- a cross-VI fixpoint), so it
-        runs ONCE after loading.
-
-        NOTE the two paths use DIFFERENT contracts: the primary records the
-        declaring parent; this fallback is best-effort -- it stamps the
-        most-specific wired class (``_dispatch_class_names``), which may be a
-        child override, and the callee found by that qualified name. Idempotent."""
-        g = self._graph
-        callers: set[str] = set()
-        for _nid, data in list(g.nodes(data=True)):
-            gnode = data.get("node")
-            if (
-                not isinstance(gnode, VINode)
-                or gnode.node_type not in DYNAMIC_DISPATCH_NODE_TYPES
-                or not gnode.name
-                or (gnode.qualified_name != gnode.name and gnode.callee_key is not None)
-            ):
-                continue
-            for cls in _dispatch_class_names(gnode.terminals):
-                candidate_qname = f"{cls}:{gnode.name}"
-                # This is a best-effort PROBE over candidate classes (the loop
-                # tries each wired type and keeps the first real hit). When
-                # ``candidate_qname`` isn't registered under that exact qname,
-                # resolve_vi_name falls back to a bare-leaf lookup that can be
-                # genuinely ambiguous against another same-named override
-                # elsewhere in the tree; treat that the same as "not this
-                # class" (not a match) rather than letting it abort the whole
-                # load, since the NEXT candidate class (or no match at all) is
-                # an equally valid, non-guessing outcome here.
-                try:
-                    cand_key = self.resolve_vi_name(candidate_qname)
-                except AmbiguousVIReferenceError:
-                    continue
-                if cand_key and cand_key in g:
-                    if gnode.qualified_name == gnode.name:
-                        gnode.qualified_name = candidate_qname
-                    if gnode.callee_key is None:
-                        gnode.callee_key = cand_key
-                        self._connect_subvi_call(gnode)
-                        callers.add(gnode.vi_path)
-                    break
-        for caller in sorted(callers):
-            self._propagate_types_and_rematch(g, self._vi_nodes[caller])
 
     def _connect_subvi_calls(
         self,

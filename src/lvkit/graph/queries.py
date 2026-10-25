@@ -22,6 +22,7 @@ from ..type_names import ROOT_CLASS
 from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
 from .loading import _redirect_member_beside_container
 from .models import (
@@ -83,13 +84,6 @@ def _real_member_path(path: Path) -> Path | None:
         return path  # no interior container — a normal file path
     sibling = Path(*flat)
     return sibling if sibling.is_file() else None
-
-
-class AmbiguousVIReferenceError(Exception):
-    """A bare name/qname lookup (``resolve_vi_name``) matched two or more
-    on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
-    not duplicate copies of the same VI. Raised by ``_pick_vi_key`` instead of
-    silently guessing one -- resolve by full source path instead."""
 
 
 class QueryMixin:
@@ -286,7 +280,11 @@ class QueryMixin:
                     candidate = root / rel
                     if candidate.is_file():
                         return candidate
-        loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
+        try:
+            loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
+        except AmbiguousVIReferenceError:
+            # Several VIs share the name: no icon rather than a wrong one.
+            return None
         if loaded is not None:
             return loaded
         if self._vi_file_index is None:
@@ -299,6 +297,14 @@ class QueryMixin:
                     continue
             self._vi_file_index = index
         return self._vi_file_index.get(vi_name)
+
+    def is_library_file(self, path: Path) -> bool:
+        """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
+        root (the user's own library install, not their project)."""
+        return any(
+            root is not None and path.is_relative_to(root)
+            for root in (self._vilib_root, self._userlib_root, self._instrlib_root)
+        )
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
@@ -832,6 +838,7 @@ class QueryMixin:
                     lv_type=gnode.lv_type,
                     display_format=gnode.display_format,
                     raw_value=gnode.raw_value,
+                    referenced_vi_key=gnode.referenced_vi_key,
                     unwritable=gnode.unwritable,
                     label=gnode.label,
                     parent=gnode.parent,

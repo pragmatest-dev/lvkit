@@ -16,6 +16,7 @@ from lvkit.parser.link_table import (
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableRecordKind,
+    decode_dyn_links,
     decode_iuse_links,
     decode_shared_variable_links,
     qualified_link_name,
@@ -610,3 +611,41 @@ def test_an_hpvr_name_without_a_library_after_the_target_is_a_failure() -> None:
     )
     table = decode_shared_variable_links(data, V20)
     assert "lacks a library and a variable" in table.failures[0].reason
+
+
+def _dyn_record(extra: int, uids: list[int]) -> bytes:
+    """A raw ``DyOM`` record after a list-item marker, then the next item's."""
+    buf = bytearray(b"\x00\x02DyOM")
+
+    def align(n: int) -> None:
+        while len(buf) % n:
+            buf.append(0)
+
+    align(4)
+    buf += struct.pack(">I", 2)
+    for part in (b"Cls.lvclass", b"\x01\x05id.vi"):
+        buf += bytes([len(part)]) + part
+    align(2)
+    components = [b"", b"Classes", b"Cls.lvclass"]
+    body = struct.pack(">HH", 1, len(components)) + b"".join(
+        bytes([len(c)]) + c for c in components
+    )
+    buf += b"PTH0" + struct.pack(">I", len(body)) + body
+    buf += struct.pack(">I", 0)  # flag
+    align(4)
+    buf += struct.pack(">Q", 0x0001000000000009) + bytes([0, 1, 0])
+    buf += struct.pack(">I", 2) + b"\x00\x01"  # API content
+    align(4)
+    buf += b"\x00" * extra
+    buf += struct.pack(">I", len(uids)) + b"".join(struct.pack(">I", u) for u in uids)
+    buf += b"\x00\x02IUVI"
+    return bytes(buf)
+
+
+@pytest.mark.parametrize("extra", [0, 4, 8])
+def test_dyn_link_reads_the_method_class_path_and_call_uids(extra: int) -> None:
+    data = _dyn_record(extra, [365, 1024])
+    (link,) = decode_dyn_links(data, LinkTableVersion(20, 0, 0, 4))
+    assert link.name_parts == ("Cls.lvclass", "\x01\x05id.vi")
+    assert link.path_tokens == ("", "Classes", "Cls.lvclass")
+    assert link.node_uids == (365, 1024)

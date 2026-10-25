@@ -7,7 +7,6 @@ keyed by node_type, so _add_vi_to_graph dispatches instead of inlining an
 from .context import GraphBuildContext
 from .operations import (
     DEFAULT_NODE_BUILD_HANDLER,
-    DYNAMIC_DISPATCH_NODE_TYPES,
     NODE_BUILD_HANDLERS,
     SUBVI_CALL_NODE_TYPES,
     NodeBuildHandler,
@@ -23,7 +22,6 @@ __all__ = [
     "DEFAULT_NODE_BUILD_HANDLER",
     "NodeBuildHandler",
     "SUBVI_CALL_NODE_TYPES",
-    "DYNAMIC_DISPATCH_NODE_TYPES",
     "REF_BUILD_HANDLERS",
     "RefBuildHandler",
 ]

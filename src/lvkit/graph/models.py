@@ -429,6 +429,9 @@ class ConstantNode(GraphNode):
     value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
+    # A static VI reference: the identity of the VI it refers to (same form as
+    # ``VINode.callee_key``); None for every other constant.
+    referenced_vi_key: str | None = None
     # Human-readable DISPLAY form of a string constant, decoded with the LabVIEW
     # codepage (a repr'd literal, like ``value``) — render/describe show this so
     # CJK/localized text stays readable, while ``value`` is byte-faithful latin-1
@@ -695,6 +698,7 @@ class Constant(BaseModel):
     # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
     display_format: str | None = None
     raw_value: str | None = None
+    referenced_vi_key: str | None = None
     unwritable: UnwritableValue | None = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:

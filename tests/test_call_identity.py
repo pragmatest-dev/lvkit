@@ -12,16 +12,18 @@ import sys
 import types
 from dataclasses import dataclass, field
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import pytest
 
 from lvkit.extract_pool import ExtractionPool
-from lvkit.graph import InMemoryVIGraph
+from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
-from lvkit.graph.models import VINode
+from lvkit.graph.models import ConstantNode, VINode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
+from lvkit.render import render_vi_with_subvis
 
 _FIRST_CALL_UID = 10
 
@@ -37,6 +39,8 @@ class _Call:
     label: str | None = None
     records: list[tuple[str, list[str], list[str], int]] = field(default_factory=list)
     livi: tuple[list[str], list[str]] | None = None
+    livi_tag: str = "VIPI"
+    dyn: tuple[list[str], list[str]] | None = None
 
 
 def _static(names: list[str], path: list[str], label: str | None = None) -> _Call:
@@ -44,7 +48,9 @@ def _static(names: list[str], path: list[str], label: str | None = None) -> _Cal
 
 
 def _strings(items: list[str]) -> str:
-    return "".join(f"<String>{i}</String>" if i else "<String />" for i in items)
+    return "".join(
+        f"<String>{escape(i)}</String>" if i else "<String />" for i in items
+    )
 
 
 def _record(tag: str, names: list[str], path: list[str], flag: int, uid: int) -> str:
@@ -57,6 +63,23 @@ def _record(tag: str, names: list[str], path: list[str], flag: int, uid: int) ->
     )
 
 
+_FIRST_DYN_LINK_UID = 500
+
+
+def _dyn_record(names: list[str], path: list[str], index: int) -> str:
+    """A ``DyOM`` record as pylabview decodes it: the method name carries two
+    leading control bytes, and the call is listed by its ``dynLink`` uid."""
+    method = f"<![CDATA[&#x01;&#x05;{names[1]}]]>"
+    qual = f"<String>{names[0]}</String><String>{method}</String>"
+    return (
+        '<DyOM LinkSaveFlag="0">'
+        f"<LinkSaveQualName>{qual}</LinkSaveQualName>"
+        f'<LinkSavePathRef Ident="PTH0" TpVal="1">{_strings(path)}</LinkSavePathRef>'
+        f"<APILinkCacheList><Offset>0x{_FIRST_DYN_LINK_UID + index:04X}</Offset>"
+        "</APILinkCacheList></DyOM>"
+    )
+
+
 def _node(call: _Call, uid: int) -> str:
     label = (
         f"<label><partID>16</partID><textRec><text>{call.label}</text></textRec>"
@@ -64,9 +87,14 @@ def _node(call: _Call, uid: int) -> str:
         if call.label
         else ""
     )
+    dyn_link = (
+        f'<dynLink class="dynLink" uid="{_FIRST_DYN_LINK_UID + uid - 10}" />'
+        if call.dyn
+        else ""
+    )
     return (
         f'<SL__arrayElement class="{call.node_class}" uid="{uid}">{label}'
-        "<termList></termList></SL__arrayElement>"
+        f"<termList></termList>{dyn_link}</SL__arrayElement>"
     )
 
 
@@ -85,9 +113,9 @@ def _main(qualified: str, owners: list[str], calls: list[_Call]) -> str:
         _record(tag, names, path, flag, _FIRST_CALL_UID + i)
         for i, call in enumerate(calls)
         for tag, names, path, flag in call.records
-    )
+    ) + "".join(_dyn_record(*call.dyn, i) for i, call in enumerate(calls) if call.dyn)
     livi_links = "".join(
-        _record("VIPI", *call.livi, 0, _FIRST_CALL_UID + i)
+        _record(call.livi_tag, *call.livi, 0, _FIRST_CALL_UID + i)
         for i, call in enumerate(calls)
         if call.livi
     )
@@ -113,12 +141,13 @@ class _Tree:
         qualified: str,
         owners: list[str],
         calls: list[_Call] | None = None,
+        content: bytes = b"",
     ) -> Path:
         """A VI at ``root/rel`` with the given call nodes."""
         calls = calls or []
         path = self.root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"")
+        path.write_bytes(content)
         slot = self.root / "_xml" / rel.replace("/", "__").replace(".", "_")
         slot.mkdir(parents=True)
         (slot / "vi_BDHb.xml").write_text(_bd(calls))
@@ -162,21 +191,70 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [],
         [_static(["Gone.lvclass", "gone.vi"], ["", "Gone", "gone.vi"])],
     )
+    # Callers whose recorded path no longer holds the file: found by file name,
+    # accepted only when the file's own owning libraries match the record.
+    built.vi(
+        "caller_moved.vi",
+        "caller_moved.vi",
+        [],
+        [_static(["TestSuite.lvclass", "skip.vi"], ["", "Moved", "skip.vi"])],
+    )
+    built.vi("Dup1/dup.vi", "dup.vi", [])
+    built.vi("Dup2/dup.vi", "dup.vi", [], content=b"another file")
+    built.vi(
+        "caller_dup.vi",
+        "caller_dup.vi",
+        [],
+        [_static(["dup.vi"], ["", "Gone", "dup.vi"])],
+    )
+    built.vi(
+        "twins/caller_pair.vi",
+        "caller_pair.vi",
+        [],
+        [
+            _static(["twin.vi"], ["", "One", "twin.vi"]),
+            _static(["twin.vi"], ["", "Two", "twin.vi"]),
+        ],
+    )
+    built.vi("Same1/same.vi", "same.vi", [])
+    built.vi("Same2/same.vi", "same.vi", [])
+    built.vi(
+        "caller_same.vi",
+        "caller_same.vi",
+        [],
+        [_static(["same.vi"], ["", "Gone", "same.vi"])],
+    )
     # Two files that carry one qualified name (a source VI and a copy of it), each
     # called by its own caller.
-    built.vi("One/twin.vi", "twin.vi", [])
-    built.vi("Two/twin.vi", "twin.vi", [])
+    built.vi("twins/One/twin.vi", "twin.vi", [])
+    built.vi("twins/Two/twin.vi", "twin.vi", [])
     built.vi(
-        "caller_one.vi",
+        "twins/caller_one.vi",
         "caller_one.vi",
         [],
         [_static(["twin.vi"], ["", "One", "twin.vi"])],
     )
     built.vi(
-        "caller_two.vi",
+        "twins/caller_two.vi",
         "caller_two.vi",
         [],
         [_static(["twin.vi"], ["", "Two", "twin.vi"])],
+    )
+    # A static VI reference: labelled with the full qualified name, recorded
+    # without the caller's own library.
+    built.vi("Lib/target.vi", "Lib.lvlib:target.vi", ["Lib.lvlib"])
+    built.vi(
+        "Lib/ref_holder.vi",
+        "Lib.lvlib:ref_holder.vi",
+        ["Lib.lvlib"],
+        [
+            _Call(
+                node_class="statVIRef",
+                label="Lib.lvlib:target.vi",
+                livi=(["target.vi"], ["", "target.vi"]),
+                livi_tag="BSVR",
+            )
+        ],
     )
     # A recursive call: a record that names no VI and has no path.
     built.vi("recur.vi", "recur.vi", [], [_Call(records=[("IUVI", [], [], 1)])])
@@ -198,9 +276,12 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
             )
         ],
     )
-    # A dynamic-dispatch call the block-diagram link table does not record: its
-    # file is the dependency of that name the VI-level table lists.
-    built.vi("Cls/method.vi", "Cls.lvclass:method.vi", ["Cls.lvclass"])
+    # Dynamic-dispatch calls: two classes' methods named alike, each call listed
+    # under its own ``dynLink`` by the record naming its class and method.
+    built.vi("Classes/TestCase/id.vi", "TestCase.lvclass:id.vi", ["TestCase.lvclass"])
+    built.vi(
+        "Classes/TestSuite/id.vi", "TestSuite.lvclass:id.vi", ["TestSuite.lvclass"]
+    )
     built.vi(
         "caller_dispatch.vi",
         "caller_dispatch.vi",
@@ -208,8 +289,32 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [
             _Call(
                 node_class="dynIUse",
-                label="method.vi",
-                livi=(["Cls.lvclass", "method.vi"], ["", "Cls", "method.vi"]),
+                label="id.vi",
+                dyn=(
+                    ["TestCase.lvclass", "id.vi"],
+                    ["", "Classes", "TestCase", "TestCase.lvclass"],
+                ),
+            ),
+            _Call(
+                node_class="dynIUse",
+                label="id.vi",
+                dyn=(
+                    ["TestSuite.lvclass", "id.vi"],
+                    ["", "Classes", "TestSuite", "TestSuite.lvclass"],
+                ),
+            ),
+        ],
+    )
+    # A call-parent node whose record names a class under an unconfigured <vilib>.
+    built.vi(
+        "caller_parent.vi",
+        "caller_parent.vi",
+        [],
+        [
+            _Call(
+                node_class="callParentDynIUse",
+                label="id.vi",
+                dyn=(["Lib.lvclass", "id.vi"], ["<vilib>", "NI", "Lib.lvclass"]),
             )
         ],
     )
@@ -223,10 +328,14 @@ def _load(tree: _Tree, name: str, mode: LoadMode = LoadMode.MINIMAL):
     return graph, key
 
 
-def _call(graph: InMemoryVIGraph, key: str) -> VINode:
-    (call,) = [
+def _calls(graph: InMemoryVIGraph, key: str) -> list[VINode]:
+    return [
         n for n in graph.iter_nodes(key) if isinstance(n, VINode) and n.id != n.vi_path
     ]
+
+
+def _call(graph: InMemoryVIGraph, key: str) -> VINode:
+    (call,) = _calls(graph, key)
     return call
 
 
@@ -259,15 +368,15 @@ def test_two_files_with_one_qualified_name_are_told_apart_by_path(
     tree: _Tree,
 ) -> None:
     graph = InMemoryVIGraph()
-    one_key = graph.load_vi(tree.root / "caller_one.vi", LoadMode.MINIMAL)
-    two_key = graph.load_vi(tree.root / "caller_two.vi", LoadMode.MINIMAL)
+    one_key = graph.load_vi(tree.root / "twins/caller_one.vi", LoadMode.MINIMAL)
+    two_key = graph.load_vi(tree.root / "twins/caller_two.vi", LoadMode.MINIMAL)
     assert one_key is not None and two_key is not None
     one, two = _call(graph, one_key), _call(graph, two_key)
     assert one.qualified_name == two.qualified_name == "twin.vi"
-    assert one.callee_key == _key(tree, "One/twin.vi")
-    assert two.callee_key == _key(tree, "Two/twin.vi")
-    assert graph.loaded_callee_key(one) == _key(tree, "One/twin.vi")
-    assert graph.loaded_callee_key(two) == _key(tree, "Two/twin.vi")
+    assert one.callee_key == _key(tree, "twins/One/twin.vi")
+    assert two.callee_key == _key(tree, "twins/Two/twin.vi")
+    assert graph.loaded_callee_key(one) == _key(tree, "twins/One/twin.vi")
+    assert graph.loaded_callee_key(two) == _key(tree, "twins/Two/twin.vi")
 
 
 def test_a_unique_name_call_names_its_file(tree: _Tree) -> None:
@@ -284,6 +393,21 @@ def test_an_absent_callee_gets_the_path_its_caller_recorded(tree: _Tree) -> None
     assert graph.loaded_callee_key(call) is None
 
 
+def test_a_moved_callee_is_the_file_whose_owning_library_matches(tree: _Tree) -> None:
+    graph, key = _load(tree, "caller_moved.vi")
+    assert _call(graph, key).callee_key == _key(tree, "TestSuite/skip.vi")
+
+
+def test_a_moved_callee_with_two_matching_files_is_ambiguous(tree: _Tree) -> None:
+    with pytest.raises(AmbiguousVIReferenceError, match="dup.vi"):
+        _load(tree, "caller_dup.vi")
+
+
+def test_copies_of_one_file_are_one_moved_callee(tree: _Tree) -> None:
+    graph, key = _load(tree, "caller_same.vi")
+    assert _call(graph, key).callee_key == _key(tree, "Same1/same.vi")
+
+
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(
     tree: _Tree,
 ) -> None:
@@ -291,6 +415,13 @@ def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(
     assert _call(graph, key).callee_key is None
     graph.load_vi(tree.root / "caller_case.vi", LoadMode.MINIMAL)
     assert _call(graph, key).callee_key == _key(tree, "TestCase/skip.vi")
+
+
+def test_a_static_vi_reference_names_the_vi_its_caller_records(tree: _Tree) -> None:
+    graph, key = _load(tree, "Lib/ref_holder.vi")
+    (ref,) = [n for n in graph.iter_nodes(key) if isinstance(n, ConstantNode)]
+    assert ref.value == "Lib.lvlib:target.vi"
+    assert ref.referenced_vi_key == _key(tree, "Lib/target.vi")
 
 
 def test_a_recursive_call_names_its_own_vi(tree: _Tree) -> None:
@@ -310,12 +441,26 @@ def test_a_polymorphic_call_names_the_polymorphic_vi_and_its_variant(
     assert graph.loaded_callee_key(call) == _key(tree, "Poly/poly_int.vi")
 
 
-def test_a_dispatch_call_names_the_dependency_of_its_method_name(
+def test_each_dispatch_call_names_the_method_its_own_record_lists(
     tree: _Tree,
 ) -> None:
     graph, key = _load(tree, "caller_dispatch.vi")
-    call = _call(graph, key)
-    assert call.callee_key == _key(tree, "Cls/method.vi")
+    case, suite = sorted(_calls(graph, key), key=lambda n: n.id)
+    assert (case.qualified_name, suite.qualified_name) == (
+        "TestCase.lvclass:id.vi",
+        "TestSuite.lvclass:id.vi",
+    )
+    assert case.callee_key == _key(tree, "Classes/TestCase/id.vi")
+    assert suite.callee_key == _key(tree, "Classes/TestSuite/id.vi")
+
+
+def test_a_call_parent_record_under_an_unconfigured_root_names_no_file(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "caller_parent.vi")
+    (call,) = _calls(graph, key)
+    assert call.qualified_name == "Lib.lvclass:id.vi"
+    assert call.callee_key is None
 
 
 def test_lvnet_and_describe_list_each_callee_with_its_own_path(tree: _Tree) -> None:
@@ -390,10 +535,41 @@ def test_callers_of_two_files_with_one_name_import_two_modules(
     tree: _Tree, tmp_path: Path
 ) -> None:
     out = tmp_path / "gen" / "twins"
-    generate_python(tree.root, out, search_paths=[tree.root])
+    generate_python(tree.root / "twins", out, search_paths=[tree.root])
     imports = {}
     for caller in ("caller_one", "caller_two"):
         source = next(out.rglob(f"{caller}.py")).read_text()
         (line,) = [ln for ln in source.splitlines() if ln.startswith("from .")]
         imports[caller] = line.split(" import ")[0]
     assert imports["caller_one"] != imports["caller_two"]
+
+
+def test_calls_to_two_files_with_one_qualified_name_are_two_components(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "twins/caller_pair.vi")
+    first, second = sorted(_calls(graph, key), key=lambda n: n.id)
+    # One caller cannot link two files of one qualified name, so name the second
+    # file on the node directly.
+    first.callee_key = _key(tree, "twins/One/twin.vi")
+    second.callee_key = _key(tree, "twins/Two/twin.vi")
+    names = [c.name for c in build_netlist_from_graph(graph, key).components]
+    assert names == ["twin.vi", "twin.vi (2)"]
+
+
+@pytest.mark.needs_samples
+def test_the_docs_diagram_links_each_call_to_its_own_vi_page() -> None:
+    root = Path(".lvkit/cache/samples/measurement-plugin-labview")
+    vi = root / "Source/Runtime/Clients/Session Management V1/Session Reservation"
+    graph = InMemoryVIGraph()
+    key = graph.load_vi(
+        vi / "Unreserve Sessions.vi", LoadMode.MINIMAL, search_paths=[root]
+    )
+    assert key is not None
+    svg, targets = render_vi_with_subvis(graph, key)
+    assert svg is not None and targets
+    assert set(targets.values()) <= set(graph.list_vis())
+    calls = {graph.loaded_callee_key(n) for n in _calls(graph, key) if n.callee_key} - {
+        None
+    }
+    assert set(targets.values()) == calls

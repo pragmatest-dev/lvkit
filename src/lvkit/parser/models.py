@@ -733,6 +733,9 @@ class ParsedVIMetadata:
     # the VI's block-diagram link table; ``iuse_to_qualified_name`` is this map's
     # qualified names.
     iuse_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # ``dynLink`` uid of every dynamic-dispatch call -> the class method its
+    # ``DyOM`` record names and the path it records.
+    dyn_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
     # Heap uid of every node that calls the VI itself (a recursive call), from the
     # link-table record that names no VI.
     self_call_uids: list[str] = field(default_factory=list)

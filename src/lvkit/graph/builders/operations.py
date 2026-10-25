@@ -56,14 +56,6 @@ SUBVI_CALL_NODE_TYPES: frozenset[str] = frozenset(
 )
 
 
-# Dynamic-dispatch calls: the callee is a class method, so the owning class is
-# the dispatch object's type (carried on the call's class-typed terminals)
-# rather than a statically-linked path.
-DYNAMIC_DISPATCH_NODE_TYPES: frozenset[str] = frozenset(
-    {"dynIUse", "callParentDynIUse"}
-)
-
-
 class NodeBuildHandler(ABC):
     """Builds one kind of operation graph node from a parsed node + its already
     built ordinary terminals."""

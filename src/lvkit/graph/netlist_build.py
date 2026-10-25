@@ -2260,12 +2260,14 @@ def _build_components_gn(
             continue
         if _is_subvi_call_gn(node):
             assert isinstance(node, VINode)
-            key = node.qualified_name or node.name
-            assert key is not None
-            if key not in seen_subvi:
-                seen_subvi.add(key)
-                subvi_order.append(key)
-                subvi_reps[key] = node
+            # A call's identity is the VI it calls; two files that carry one
+            # qualified name are two components.
+            identity = node.interface_key or node.qualified_name or node.name
+            assert identity is not None
+            if identity not in seen_subvi:
+                seen_subvi.add(identity)
+                subvi_order.append(identity)
+                subvi_reps[identity] = node
             continue
         if not _is_primitive_component_gn(graph, node):
             continue
@@ -2274,9 +2276,11 @@ def _build_components_gn(
         groups.setdefault(key, []).append((node, ins, outs))
 
     components: list[NetlistComponent] = []
-    for key in subvi_order:
-        rep = subvi_reps[key]
+    for identity in subvi_order:
+        rep = subvi_reps[identity]
         assert isinstance(rep, VINode)
+        key = rep.qualified_name or rep.name
+        assert key is not None
         ports = _subvi_ports(graph, key, graph.loaded_callee_key(rep))
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports

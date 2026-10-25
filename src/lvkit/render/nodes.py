@@ -576,6 +576,13 @@ def resolve_subvi_source(
     if not name:
         return None
 
+    # The file the caller records for the call, when it is on disk.
+    recorded = node.interface_key
+    if recorded is not None and Path(recorded).is_file():
+        return SubVISource(
+            Path(recorded), project_local=not graph.is_library_file(Path(recorded))
+        )
+
     # Caller-RELATIVE path resolution first: a SubVI's qualified_path is a
     # LabVIEW LinkSavePathRef token string whose leading empties (leading '/'s)
     # are '..' hops from the CALLER file, then the rest append. A same-library/
