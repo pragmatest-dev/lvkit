@@ -438,6 +438,13 @@ def _parse_metadata(
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
         iuse_refs=iuse_refs,
+        self_call_uids=_extract_self_call_uids(main_root, libd_links),
+        poly_refs=_extract_poly_refs(
+            main_root,
+            qualified_name.split(":")[0]
+            if qualified_name and ":" in qualified_name
+            else None,
+        ),
         shared_variable_links={
             str(uid): link
             for link in shared_variable_table.links
@@ -1473,7 +1480,8 @@ def _read_dotnet_assemblies(
 def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     """The link record a decoded ``BDHP`` element (``IUVI``/``PUPV``) holds, in
     the same shape the raw ``_LIbd.bin`` decoder yields. ``None`` when it has no
-    ``LinkSavePathRef``."""
+    ``LinkSavePathRef``, or a path with a name but no tokens. A record with
+    neither name nor path is kept: it is the VI's link to itself."""
     path_ref = elem.find("LinkSavePathRef")
     if path_ref is None:
         return None
@@ -1482,18 +1490,71 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     path_tokens = tuple(
         s.text if s.text is not None else "" for s in path_ref.findall("String")
     )
-    if not path_tokens:
+    name_parts = tuple(
+        s.text for s in elem.findall("LinkSaveQualName/String") if s.text
+    )
+    if not path_tokens and name_parts:
         return None
     return IUseLink(
-        name_parts=tuple(
-            s.text for s in elem.findall("LinkSaveQualName/String") if s.text
-        ),
+        name_parts=name_parts,
         path_tokens=path_tokens,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
             int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
         ),
     )
+
+
+def _link_dependency_ref(
+    link: IUseLink, caller_library: str | None
+) -> ParsedDependencyRef | None:
+    """The VI a block-diagram link record refers to, with the path it records;
+    None when the record names no VI."""
+    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    if not qname:
+        return None
+    return ParsedDependencyRef(
+        name=qname.rsplit(":", 1)[-1],
+        path_tokens=list(link.path_tokens),
+        qualified_name=qname,
+    )
+
+
+def _extract_self_call_uids(
+    main_root: ET.Element, libd_links: Sequence[IUseLink]
+) -> list[str]:
+    """Heap uid of every node that calls the VI itself: the nodes the VI's
+    block-diagram link table lists under a record that names no VI and has no path
+    (the link to itself a recursive call carries)."""
+    links = [
+        link
+        for elem in main_root.findall(".//LIbd//BDHP/IUVI")
+        if (link := _xml_iuse_link(elem)) is not None
+    ]
+    links.extend(libd_links)
+    return sorted(
+        str(uid)
+        for link in links
+        if not link.name_parts and not link.path_tokens
+        for uid in link.node_uids
+    )
+
+
+def _extract_poly_refs(
+    main_root: ET.Element, caller_library: str | None
+) -> dict[str, ParsedDependencyRef]:
+    """Heap uid of every polymorphic call -> the polymorphic VI the call's
+    ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
+    call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
+    poly_refs: dict[str, ParsedDependencyRef] = {}
+    for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
+        link = _xml_iuse_link(elem)
+        ref = _link_dependency_ref(link, caller_library) if link else None
+        if link is None or ref is None:
+            continue
+        for uid in link.node_uids:
+            poly_refs[str(uid)] = ref
+    return poly_refs
 
 
 def _extract_subvi_info(
@@ -1604,16 +1665,9 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
-        )
-        if not qname:
+        ref = _link_dependency_ref(link, caller_library)
+        if ref is None:
             continue
-        ref = ParsedDependencyRef(
-            name=qname.rsplit(":", 1)[-1],
-            path_tokens=list(link.path_tokens),
-            qualified_name=qname,
-        )
         for uid in link.node_uids:
             iuse_refs[str(uid)] = ref
 

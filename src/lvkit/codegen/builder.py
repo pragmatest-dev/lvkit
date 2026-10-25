@@ -549,7 +549,11 @@ def topological_sort_tiered(
         for term in op.terminals:
             if term.direction != "input":
                 continue
-            # Trace through graph edges to find producing operation
+            # Trace through graph edges to find producing operation. The trace
+            # stays in the terminal's own VI: a subVI call is connected to the
+            # called VI's terminals, and what feeds those belongs to other VIs.
+            graph = ctx.graph
+            home = graph.terminal_vi(term.id) if graph else None
             visited: set[str] = set()
             current = term.id
             while current not in visited:
@@ -568,6 +572,8 @@ def topological_sort_tiered(
                 src_parent = source.src_parent_id
                 if src_parent in op_by_id and src_parent != op.id:
                     dependencies[op.id].add(src_parent)
+                    break
+                if graph is None or graph.terminal_vi(src_term) != home:
                     break
                 current = src_term
 

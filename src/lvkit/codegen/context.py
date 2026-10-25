@@ -482,11 +482,12 @@ class CodeGenContext:
         if import_stmt:
             self.imports.add(import_stmt)
 
-    def import_function(self, vi_name: str) -> str:
+    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
         """Import the function of a VI and return the name this module calls it
-        by."""
+        by. ``callee_key`` is the VI's identity (a call node's ``callee_key``);
+        a VI named without one (a VI reference constant) is found by name."""
         if isinstance(self.import_resolver, ImportResolver):
-            imported = self.import_resolver.function(vi_name)
+            imported = self.import_resolver.function(vi_name, callee_key)
             self.add_import(imported.statement)
             return imported.name
         function = to_function_name(vi_name)

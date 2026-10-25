@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     name TEXT,
     prim_id INTEGER,
     qualified_name TEXT,
+    callee_key TEXT,
     callee_path TEXT,
     object_name TEXT,
     method_name TEXT,
@@ -771,9 +772,9 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
     )
     conn.executemany(
         "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
-        "qualified_name, callee_path, object_name, method_name, "
+        "qualified_name, callee_key, callee_path, object_name, method_name, "
         "network_path, library_unreadable, parent_uid, frame) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             (
                 f.path,
@@ -783,6 +784,7 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
                 n.name,
                 n.prim_id,
                 n.qualified_name,
+                n.callee_key,
                 n.callee_path,
                 n.object_name,
                 n.method_name,
@@ -1059,7 +1061,7 @@ def load(project_root: Path) -> list[VIFacts]:
         nodes_by_vi: dict[str, list[NodeFact]] = {}
         for row in conn.execute(
             "SELECT vi_path, uid, kind, name, prim_id, qualified_name, "
-            "callee_path, object_name, method_name, network_path, "
+            "callee_key, callee_path, object_name, method_name, network_path, "
             "library_unreadable, parent_uid, frame "
             "FROM nodes ORDER BY vi_path, ord"
         ):
@@ -1070,6 +1072,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 name,
                 prim_id,
                 qualified_name,
+                callee_key,
                 callee_path,
                 object_name,
                 method_name,
@@ -1085,6 +1088,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     name=name,
                     prim_id=prim_id,
                     qualified_name=qualified_name,
+                    callee_key=callee_key,
                     callee_path=callee_path,
                     object_name=object_name,
                     method_name=method_name,

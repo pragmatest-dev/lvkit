@@ -220,18 +220,18 @@ def create_import_resolver(
 
     caller_dir = caller_path.parent
 
-    def locate(subvi_name: str) -> Path:
-        """The output file of a generated VI."""
-        # Resolve to qualified name for library lookup
-        qualified = subvi_name
-        if graph:
+    def locate(subvi_name: str, callee_key: str | None = None) -> Path:
+        """The output file of a generated VI: the one generated for
+        ``callee_key``, else the one ``subvi_name`` resolves to."""
+        qualified = callee_key if callee_key is not None else subvi_name
+        if graph and callee_key is None:
             resolved_name = graph.resolve_vi_name(subvi_name)
             if resolved_name:
                 qualified = resolved_name
 
         if qualified in vi_paths:
             return vi_paths[qualified]
-        if subvi_name in vi_paths:
+        if callee_key is None and subvi_name in vi_paths:
             return vi_paths[subvi_name]
         dep_path, _ = get_output_path(
             output_dir,
@@ -265,8 +265,8 @@ def create_import_resolver(
             taken.add(spelled[identity])
         return spelled[identity]
 
-    def function_import(subvi_name: str) -> NameImport:
-        located = locate(subvi_name)
+    def function_import(subvi_name: str, callee_key: str | None) -> NameImport:
+        located = locate(subvi_name, callee_key)
         derived = to_function_name(subvi_name)
         if located == caller_path:
             return NameImport("", derived)

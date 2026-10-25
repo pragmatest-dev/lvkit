@@ -46,6 +46,7 @@ from ..structure import (
     private_data_field_to_cluster_field,
 )
 from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
+from .builders.operations import DYNAMIC_DISPATCH_NODE_TYPES, callee_keys
 from .models import (
     ExecSystem,
     ExecutionProps,
@@ -60,6 +61,7 @@ from .models import (
     VIDotNetAssemblies,
     VIHealth,
     VIMetadata,
+    VINode,
     VIProperties,
     WindowProps,
 )
@@ -304,11 +306,16 @@ class LoadingMixin:
             type_map: dict[int, LVType] | None = None,
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
+            iuse_to_callee_key: dict[str, str] | None = None,
+            poly_to_callee_key: dict[str, str] | None = None,
             iuse_refs: dict[str, ParsedDependencyRef] | None = None,
             shared_variable_links: dict[str, SharedVariableLink] | None = None,
             shared_variable_failures: list[SharedVariableRecordFailure] | None = None,
         ) -> None: ...
         def resolve_dispatch_qnames(self) -> None: ...
+        def class_method(
+            self, class_key: str, method: str
+        ) -> tuple[str, str] | None: ...
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
@@ -1558,6 +1565,15 @@ class LoadingMixin:
         # Each malleable-VI call's recorded instance name -> the qualified name
         # of the file it is an instance of (filled while loading dependencies).
         instance_qnames: dict[str, str] = {}
+        # Each dependency's identity (see ``_load_dependency``) by the qualified
+        # name the caller's link table records for it.
+        dep_keys: dict[str, str] = {}
+        # Each call's callee, by the heap uid of the call node: the file its
+        # link-table record names (a polymorphic call's record names a variant;
+        # its polymorphic VI is under ``poly_to_callee_key``). Empty when the
+        # dependencies are not loaded (``LoadMode.NONE``).
+        iuse_to_callee_key: dict[str, str] = {}
+        poly_to_callee_key: dict[str, str] = {}
 
         # Load all dependencies through the single generic walker. NONE stops
         # here — the target VI only, no dependencies at all.
@@ -1619,19 +1635,23 @@ class LoadingMixin:
                 instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
                 if instance_source is not None:
                     dep_ref_map[qname] = instance_source
-                    instance_qnames[qname] = self._load_instance_dependency(
-                        instance_source,
-                        caller_file,
-                        search_paths,
-                        caller_qname=vi_key,
-                        mode=mode,
-                        resolved_paths=resolved_paths,
+                    instance_qnames[qname], instance_key = (
+                        self._load_instance_dependency(
+                            instance_source,
+                            caller_file,
+                            search_paths,
+                            caller_qname=vi_key,
+                            mode=mode,
+                            resolved_paths=resolved_paths,
+                        )
                     )
+                    if instance_key is not None:
+                        dep_keys[qname] = instance_key
                     continue
                 dep_ref = self._recorded_dep_ref(
                     qname, dep_ref_map, link_index, caller_file
                 )
-                self._load_dependency(
+                dep_key = self._load_dependency(
                     qname,
                     dep_ref,
                     caller_file,
@@ -1640,11 +1660,47 @@ class LoadingMixin:
                     mode=mode,
                     resolved_paths=resolved_paths,
                 )
+                if dep_key is not None:
+                    dep_keys[qname] = dep_key
 
             # Resolve SubVI CALLEES (incl. dynamic-dispatch methods absent from
             # _LIbd.bin) to their files via the now-loaded class member lists —
             # AFTER the class deps above are in the graph. See the method.
-            self._load_subvi_method_deps(vi_key, metadata, search_paths, mode)
+            method_keys = self._load_subvi_method_deps(
+                vi_key, metadata, search_paths, mode
+            )
+            iuse_to_callee_key = {
+                uid: dep_keys[qname]
+                for uid, qname in metadata.iuse_to_qualified_name.items()
+                if qname in dep_keys
+            }
+            poly_to_callee_key = {
+                uid: dep_keys[ref.qualified_name]
+                for uid, ref in metadata.poly_refs.items()
+                if ref.qualified_name in dep_keys
+            }
+            # A recursive call's link record names no file: it calls this VI.
+            for uid in metadata.self_call_uids:
+                iuse_to_callee_key[uid] = vi_key
+            # A dynamic-dispatch call the block-diagram link table records no
+            # file for calls the one dependency of its caller that has the
+            # method's name, else the method its caller's class hierarchy
+            # declares.
+            deps_by_leaf: dict[str, set[str]] = {}
+            for qname, dep_key in dep_keys.items():
+                deps_by_leaf.setdefault(qname.rsplit(":", 1)[-1], set()).add(dep_key)
+            for pnode in bd.nodes:
+                if (
+                    pnode.node_type not in DYNAMIC_DISPATCH_NODE_TYPES
+                    or pnode.uid in iuse_to_callee_key
+                    or not pnode.name
+                ):
+                    continue
+                same_leaf = deps_by_leaf.get(pnode.name, set())
+                if len(same_leaf) == 1:
+                    iuse_to_callee_key[pnode.uid] = next(iter(same_leaf))
+                elif pnode.name in method_keys:
+                    iuse_to_callee_key[pnode.uid] = method_keys[pnode.name]
 
         # Build map of iUse uid → fully qualified on-disk path for diagnostics.
         iuse_to_qpath: dict[str, str] = {}
@@ -1672,12 +1728,39 @@ class LoadingMixin:
                     for uid, qname in metadata.iuse_to_qualified_name.items()
                 },
                 iuse_to_qpath=iuse_to_qpath,
+                iuse_to_callee_key=iuse_to_callee_key,
+                poly_to_callee_key=poly_to_callee_key,
                 iuse_refs=metadata.iuse_refs,
                 shared_variable_links=metadata.shared_variable_links,
                 shared_variable_failures=metadata.shared_variable_failures,
             )
+        else:
+            self._stamp_callee_keys(vi_key, iuse_to_callee_key, poly_to_callee_key)
 
         return vi_key
+
+    def _stamp_callee_keys(
+        self,
+        vi_key: str,
+        iuse_to_callee_key: dict[str, str],
+        poly_to_callee_key: dict[str, str],
+    ) -> None:
+        """Give the call nodes of a VI that was already built -- first loaded
+        with no dependencies -- the callees its dependency walk has now found."""
+        for node_id in sorted(self._vi_nodes[vi_key]):
+            node = self._graph.nodes[node_id].get("node")
+            if not isinstance(node, VINode) or node.id == node.vi_path:
+                continue
+            callee_key, variant_key = callee_keys(
+                node.node_type,
+                node_id.rsplit("::", 1)[-1],
+                iuse_to_callee_key,
+                poly_to_callee_key,
+            )
+            if callee_key is not None:
+                node.callee_key = callee_key
+            if variant_key is not None:
+                node.variant_key = variant_key
 
     def _ctl_root(
         self,
@@ -1913,12 +1996,13 @@ class LoadingMixin:
         caller_qname: str | None,
         mode: LoadMode,
         resolved_paths: dict[str, Path | None] | None = None,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """Load the file a malleable-VI call is an instance of, as an ordinary
         SubVI of the caller. Returns the qualified name the call's node should
-        carry: the loaded file's own, else the one the instance records."""
+        carry (the loaded file's own, else the one the instance records) and
+        the file's identity (see ``_load_dependency``)."""
         qualified_name = source.qualified_name or source.name
-        self._load_dependency(
+        key = self._load_dependency(
             qualified_name,
             source,
             caller_file,
@@ -1931,8 +2015,11 @@ class LoadingMixin:
             qualified_name, source, caller_file, search_paths
         )
         if target is not None:
-            return self._vi_display_names.get(str(target.resolve()), qualified_name)
-        return qualified_name
+            return (
+                self._vi_display_names.get(str(target.resolve()), qualified_name),
+                key,
+            )
+        return qualified_name, key
 
     def _load_dependency(
         self,
@@ -1943,8 +2030,12 @@ class LoadingMixin:
         caller_qname: str | None = None,
         mode: LoadMode = LoadMode.FULL,
         resolved_paths: dict[str, Path | None] | None = None,
-    ) -> None:
+    ) -> str | None:
         """Load one dependency by its LabVIEW qualified name and optional path ref.
+        Returns the dependency's identity: its resolved file path, else the
+        path its caller recorded for it (the key of the node the load edged
+        to). None when the dependency has no local path (a ``<vilib>`` ref
+        with no configured root).
 
         Single entry point for all dependency loading: SubVI calls, class refs,
         typedef refs, and library refs all funnel through here.
@@ -1979,7 +2070,7 @@ class LoadingMixin:
                 # A fields-only class placeholder can be UPGRADED by a resolvable
                 # ref — fall through to a full load; otherwise it's done.
                 if not self._dep_graph.nodes[dep_key].get("fields_only"):
-                    return
+                    return dep_key
             # else fall through to the dispatch below, which loads and keys by
             # this same path (idempotently).
         else:
@@ -2004,7 +2095,7 @@ class LoadingMixin:
                         )
                     if caller_qname:
                         self._dep_graph.add_edge(caller_qname, found_key)
-                    return
+                    return found_key
             # Before stubbing: a SIBLING reference may already have resolved this
             # same file by path (e.g. a type_map's BARE ``typedef_name`` —
             # ``Parameters.ctl`` — duplicating the VICC-linked, path-resolved
@@ -2017,7 +2108,7 @@ class LoadingMixin:
             if existing is not None and existing not in self._stubs:
                 if caller_qname:
                     self._dep_graph.add_edge(caller_qname, existing)
-                return
+                return existing
             node_type = (
                 NodeType.CLASS
                 if leaf.endswith(".lvclass")
@@ -2040,12 +2131,15 @@ class LoadingMixin:
                 path_tokens=path_tokens,
                 caller=caller_qname,
             )
-            return
+            return str(computed) if computed is not None else None
 
         # Dispatch by extension to the matching public loader.
         if is_vi_file(leaf):
-            self._leaf_load_vi(
-                resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
+            return (
+                self._leaf_load_vi(
+                    resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
+                )
+                or dep_key
             )
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
@@ -2065,12 +2159,14 @@ class LoadingMixin:
             # node that shadows the real (populated) one.
             if qualified_name != loaded_key:
                 self._qualified_aliases[qualified_name] = loaded_key
+            return loaded_key
         elif leaf.endswith(".lvlib"):
             lib_key = self.load_lvlib(resolved, mode, search_paths=search_paths)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, lib_key)
             if qualified_name != lib_key:
                 self._qualified_aliases[qualified_name] = lib_key
+            return lib_key
         elif leaf.endswith(".ctl"):
             ctl_key = self.load_typedef(
                 resolved,
@@ -2081,6 +2177,7 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller_qname, ctl_key)
             if qualified_name != ctl_key:
                 self._qualified_aliases[qualified_name] = ctl_key
+            return ctl_key
         else:
             # Unknown extension — stub rather than guess, but key by the resolved
             # file path (it exists here) so it is identified consistently.
@@ -2096,6 +2193,7 @@ class LoadingMixin:
                 path_tokens=path_tokens,
                 caller=caller_qname,
             )
+            return unknown_key
 
     def _leaf_load_vi(
         self,
@@ -2160,7 +2258,7 @@ class LoadingMixin:
         metadata: ParsedVIMetadata,
         search_paths: list[Path],
         mode: LoadMode,
-    ) -> None:
+    ) -> dict[str, str]:
         """Resolve the VI's class-method SubVI CALLEES — including the dispatch
         methods the ``_LIbd.bin`` IUVI table omits — to their files by MEMBER-LIST
         membership over the classes this VI already depends on, and edge each to
@@ -2174,12 +2272,14 @@ class LoadingMixin:
         UNRESOLVED on purpose: MINIMAL does not follow into it (its ``dynLink``
         carries no static path, only the wire's class resolves it), so the render
         draws a named box and a later click loads it as its own root.
+
+        Returns each resolved callee's identity (its file path) by method name.
         """
         called: set[str] = set(metadata.subvi_method_names)
         for qname in metadata.iuse_to_qualified_name.values():
             called.add(qname.rsplit(":", 1)[-1])
         if not called:
-            return
+            return {}
 
         # Most-derived class first, then by path: when a method is OVERRIDDEN
         # (declared in a child and its parent, both loaded), the child's copy is
@@ -2192,11 +2292,14 @@ class LoadingMixin:
             ),
             key=lambda s: (-len(self._dep_graph.nodes[s].get("ancestors", [])), s),
         )
+        method_keys: dict[str, str] = {}
         for name in sorted(called):
-            if self._resolve_method_in_hierarchy(
+            method_key = self._resolve_method_in_hierarchy(
                 name, class_keys, vi_key, search_paths, mode
-            ):
-                continue
+            )
+            if method_key is not None:
+                method_keys[name] = method_key
+        return method_keys
 
     def _resolve_method_in_hierarchy(
         self,
@@ -2205,30 +2308,26 @@ class LoadingMixin:
         vi_key: str,
         search_paths: list[Path],
         mode: LoadMode,
-    ) -> bool:
+    ) -> str | None:
         """Resolve one callee against each class dep AND its ANCESTOR chain (a
         dispatch method not declared on the wire's class is INHERITED from a
         parent — that owner's file is the icon to show), then leaf-load + edge it.
         The ancestor hop follows the parent's recorded ``parent_key`` — a direct
-        path link, never a name-search. Returns whether it resolved."""
+        path link, never a name-search. Returns the callee's identity (its file
+        path), or None when it did not resolve."""
         for cls_key in class_keys:
-            k: str | None = cls_key
-            seen: set[str] = set()
-            while k is not None and k not in seen and self._dep_graph.has_node(k):
-                seen.add(k)
-                path_str = self._dep_graph.nodes[k].get("method_paths", {}).get(name)
-                if path_str is not None:
-                    self._leaf_load_vi(
-                        Path(path_str),
-                        f"{Path(k).name}:{name}",
-                        vi_key,
-                        None,
-                        search_paths,
-                        mode,
-                    )
-                    return True
-                k = self._dep_graph.nodes[k].get("parent_key")
-        return False
+            found = self.class_method(cls_key, name)
+            if found is not None:
+                owner_key, path_str = found
+                return self._leaf_load_vi(
+                    Path(path_str),
+                    f"{Path(owner_key).name}:{name}",
+                    vi_key,
+                    None,
+                    search_paths,
+                    mode,
+                ) or str(Path(path_str).resolve())
+        return None
 
     def _stub_subvi(
         self,

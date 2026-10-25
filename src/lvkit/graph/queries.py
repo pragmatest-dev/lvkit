@@ -171,6 +171,17 @@ class QueryMixin:
                 return self._pick_vi_key(keys)
         return vi_name
 
+    def loaded_callee_key(self, node: VINode) -> str | None:
+        """The ``vi_key`` of the VI whose connector pane a SubVI call node shows
+        (``VINode.interface_key``), when that VI is loaded in the graph; None
+        when it is absent (a stub, or a load that did not reach it) or the call
+        records no path.
+
+        The one way a call node finds its callee: the identity the caller
+        recorded for the call, never a lookup by the callee's name."""
+        key = node.interface_key
+        return key if key is not None and key in self._vi_nodes else None
+
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
         bare filename) for titles/headers. DISPLAY ONLY — never a lookup key. The
@@ -416,6 +427,21 @@ class QueryMixin:
         ):
             return None
         return key
+
+    def class_method(self, class_key: str, method: str) -> tuple[str, str] | None:
+        """``(owner_key, path)`` of the file that declares ``method`` for the
+        class at ``class_key``: the class's own, else the nearest ancestor's,
+        following each class's recorded parent key. ``None`` when no class of
+        the chain lists it."""
+        key: str | None = class_key
+        seen: set[str] = set()
+        while key is not None and key not in seen and self._dep_graph.has_node(key):
+            seen.add(key)
+            path = self._dep_graph.nodes[key].get("method_paths", {}).get(method)
+            if path is not None:
+                return key, path
+            key = self._dep_graph.nodes[key].get("parent_key")
+        return None
 
     def node_type(self, key: str) -> NodeType:
         """What the dependency node at ``key`` is: a VI, class, library or

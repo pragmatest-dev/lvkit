@@ -386,9 +386,9 @@ _AMBIGUOUS_TYPE_CASES = [
         / "Tests"
         / "Tests.Runtime"
         / "Measurement Server"
-        / "Reserve Sessions"
-        / "test_CallReserveSessionsWithEmptyPin_ErrorReturned.vi",
-        id="Data_names_two_structures",
+        / "Discovery"
+        / "test_ResolveService_UpdateClusterId_ResolveServiceWorksWithoutError.vi",
+        id="Discovery_test_names_two_structures",
     ),
     pytest.param(
         _MEASUREMENT_PLUGIN_ROOT

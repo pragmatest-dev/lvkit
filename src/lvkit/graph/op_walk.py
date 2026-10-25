@@ -527,26 +527,19 @@ class ComponentPort:
 def _subvi_ports(
     graph: InMemoryVIGraph,
     name: str,
+    callee_key: str | None,
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     """Typed (inputs, outputs) port list for a called SubVI.
 
-    Loaded VIs use their resolved front-panel signature; unloaded vilib
-    refs fall back to the resolver's terminal layout. Returns ``None`` when
-    neither is available -- callers decide how to render that (bare name,
-    or an empty-port declaration), never fabricate ports.
+    ``callee_key`` is the loaded callee's ``vi_key`` (see
+    ``InMemoryVIGraph.loaded_callee_key``): its resolved front-panel signature
+    is used. Without one, an unloaded vilib ref falls back to the resolver's
+    terminal layout (looked up by ``name``). Returns ``None`` when neither is
+    available -- callers decide how to render that (bare name, or an empty-port
+    declaration), never fabricate ports.
     """
-    loaded = set(graph.list_vis())
-    qname = name
-    if qname not in loaded:
-        try:
-            resolved = graph.resolve_vi_name(name)
-        except (KeyError, ValueError):
-            resolved = None
-        if resolved in loaded:
-            qname = resolved  # type: ignore[assignment]
-
-    if qname in loaded:
-        sctx = graph.get_vi_context(qname)
+    if callee_key is not None:
+        sctx = graph.get_vi_context(callee_key)
         ins = [
             ComponentPort(
                 name=t.name or str(t.index),

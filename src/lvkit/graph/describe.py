@@ -175,13 +175,13 @@ def describe_vi(
     # Same shape verbose or not -- verbose only deepens Properties/Health/
     # pane detail above; it never swaps this section out.
     top_nodes = graph.top_level_nodes(vi_name)
-    subvi_names = _collect_subvi_names(graph, top_nodes, vi_name)
+    subvi_callees = _collect_subvi_callees(graph, top_nodes, vi_name)
     global_vi_names, library_names = _collect_variable_dependencies(
         graph, top_nodes, vi_name
     )
     dotnet = graph.get_dotnet_assemblies(vi_name)
     if (
-        subvi_names
+        subvi_callees
         or global_vi_names
         or library_names
         or dotnet.assemblies
@@ -196,9 +196,9 @@ def describe_vi(
             lines.append(f"  {assembly.qualified} (.NET assembly)")
         for reason in dotnet.unreadable:
             lines.append(f"  (.NET unreadable: {reason})")
-        for name in sorted(subvi_names):
+        for name, callee_key in sorted(subvi_callees.items()):
             desc = _get_subvi_description(graph, name)
-            ports = _subvi_ports(graph, name)
+            ports = _subvi_ports(graph, name, callee_key)
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
             if sig:
@@ -316,28 +316,30 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     return line
 
 
-def _collect_subvi_names(
+def _collect_subvi_callees(
     graph: InMemoryVIGraph,
     nodes: list[AnyGraphNode],
     vi_name: str,
-) -> set[str]:
-    """Collect all SubVI callees' QUALIFIED names recursively — the
+) -> dict[str, str | None]:
+    """Collect all SubVI callees recursively: each one's QUALIFIED name — the
     class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
     dynamic-dispatch call reports its declaring parent class rather than a bare
-    ``addError.vi``. resolve_vi_name accepts the qualified form, so the ports /
-    description lookups below still resolve (to the correct copy).
+    ``addError.vi`` — mapped to the ``vi_key`` of the loaded callee the call
+    records (None when that VI is not loaded). A name several calls share keeps
+    the first call's callee, in diagram order.
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
     a structure's frame bodies AND a loop/IPES body alike — in one
     recursion)."""
-    names: set[str] = set()
+    callees: dict[str, str | None] = {}
     for node in nodes:
         if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
-            names.add(node.qualified_name)
-        names.update(
-            _collect_subvi_names(graph, graph.child_nodes(node.id, vi_name), vi_name)
-        )
-    return names
+            callees.setdefault(node.qualified_name, graph.loaded_callee_key(node))
+        for name, key in _collect_subvi_callees(
+            graph, graph.child_nodes(node.id, vi_name), vi_name
+        ).items():
+            callees.setdefault(name, key)
+    return callees
 
 
 def _collect_variable_dependencies(
