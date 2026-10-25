@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -108,3 +111,41 @@ def ctx_with_terminals():
         return make_ctx(*terminal_ids)
 
     return _factory
+
+
+# Two revisions of one VI from the JKI-VI-Tester sample (BSD-3-Clause): the diff
+# tests compare the older one (``_DIFF_BASE_REF``) with the sample's current file.
+_DIFF_REPO = SAMPLES_ROOT / "JKI-VI-Tester"
+_DIFF_VI = "source/Classes/TestCase/run.vi"
+_DIFF_BASE_REF = "92be264"
+
+
+@dataclass(frozen=True)
+class ViDiffPair:
+    """``base`` -> ``head`` copies in a temporary folder; ``root`` holds both."""
+
+    base: Path
+    head: Path
+    root: Path
+
+
+@pytest.fixture(scope="session")
+def vi_diff_pair(tmp_path_factory: pytest.TempPathFactory) -> ViDiffPair:
+    """An older and the current revision of ``TestCase/run.vi``, copied into a
+    temporary folder, so a diff test reads nothing from (and writes nothing to)
+    the repository."""
+    head_src = _DIFF_REPO / _DIFF_VI
+    if not head_src.is_file():
+        pytest.skip(f"{head_src} not present on this machine")
+    shown = subprocess.run(
+        ["git", "-C", str(_DIFF_REPO), "show", f"{_DIFF_BASE_REF}:{_DIFF_VI}"],
+        capture_output=True,
+    )
+    if shown.returncode != 0:
+        pytest.skip(f"{_DIFF_REPO} has no revision {_DIFF_BASE_REF}")
+    root = tmp_path_factory.mktemp("vi_diff_pair")
+    base = root / "run_base.vi"
+    base.write_bytes(shown.stdout)
+    head = root / "run_head.vi"
+    shutil.copyfile(head_src, head)
+    return ViDiffPair(base=base, head=head, root=root)

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -23,12 +22,11 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import diff_to_dict, diff_uid, format_diff
 from lvkit.graph.loading import LoadMode
 
-SAMPLE_SOURCE = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
+from .conftest import ViDiffPair
 
 
 class _Pair:
-    """The VI pair the diff tests compare, in an isolated copy of the one sample
-    folder they need (never the repository's ``outputs/``)."""
+    """The VI pair the diff tests compare (see ``vi_diff_pair`` in conftest)."""
 
     base: Path = Path()
     head: Path = Path()
@@ -39,21 +37,17 @@ PAIR = _Pair()
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _sample_pair(tmp_path_factory: pytest.TempPathFactory) -> None:
-    """Copy the JKI-VI-Tester sources once and point the diff tests at two VIs
-    in the copy; the copy is the only search root they use."""
-    if not SAMPLE_SOURCE.is_dir():
-        return
-    root = tmp_path_factory.mktemp("diff_sample") / "source"
-    shutil.copytree(SAMPLE_SOURCE, root, symlinks=False)
-    PAIR.root = root
-    PAIR.base = root / "Programmatic API" / "Run Tests (TestCase Object).vi"
-    PAIR.head = root / "Programmatic API" / "Run Tests (TestSuite Object).vi"
+def _sample_pair(vi_diff_pair: ViDiffPair) -> None:
+    PAIR.base, PAIR.head, PAIR.root = (
+        vi_diff_pair.base,
+        vi_diff_pair.head,
+        vi_diff_pair.root,
+    )
 
 
 def _require_pair() -> None:
     if not PAIR.base.is_file() or not PAIR.head.is_file():
-        pytest.skip(f"sample VI pair not available under {SAMPLE_SOURCE}")
+        pytest.skip("sample VI pair not available")
 
 
 def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:

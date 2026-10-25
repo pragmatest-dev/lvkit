@@ -2,7 +2,7 @@
 (roadmap #24, increment 2 of the vi-diff-action plan).
 
 Mirrors ``tests/test_diff.py``'s patterns: the ``_load`` helper, the
-``outputs/vi-diff/run_base.vi``/``run_head.vi`` pair (skip if absent), and
+``vi_diff_pair`` fixture (two revisions of one sample VI; skipped if absent), and
 the ``_StubGraph``/``_const`` stub for a pure unit test that needs no sample
 VIs at all.
 """
@@ -27,9 +27,6 @@ from lvkit.graph.diff import (
 from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.diff_viewer import build_diff_viewer
-
-BASE_VI = Path("outputs/vi-diff/run_base.vi")
-HEAD_VI = Path("outputs/vi-diff/run_head.vi")
 
 # The JKI VI-Tester run.vi pair (mirrors tests/test_netlist.py's/test_diff.py's
 # scratchpad convention: not part of the repo's sample corpus, so Phase 3
@@ -61,16 +58,10 @@ def _load(vi_path: Path, *, layout: bool = True) -> tuple[InMemoryVIGraph, str]:
     return graph, vi_name
 
 
-def _require_pair() -> None:
-    if not BASE_VI.exists() or not HEAD_VI.exists():
-        pytest.skip(f"sample VI pair not available: {BASE_VI}, {HEAD_VI}")
-
-
 class TestBuildDiffViewerEndToEnd:
-    def test_html_embeds_svgs_changes_and_counts(self):
-        _require_pair()
-        ga, na = _load(BASE_VI)
-        gb, nb = _load(HEAD_VI)
+    def test_html_embeds_svgs_changes_and_counts(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
 
         before_svg = render_vi(ga, na, interactive=False)
         after_svg = render_vi(gb, nb, interactive=False)
@@ -109,10 +100,9 @@ class TestBuildDiffViewerEndToEnd:
         assert "<script" not in before_svg
         assert "<script" not in after_svg
 
-    def test_labels_and_title_appear(self):
-        _require_pair()
-        ga, na = _load(BASE_VI)
-        gb, nb = _load(HEAD_VI)
+    def test_labels_and_title_appear(self, vi_diff_pair):
+        ga, na = _load(vi_diff_pair.base)
+        gb, nb = _load(vi_diff_pair.head)
         before_svg = render_vi(ga, na, interactive=False)
         after_svg = render_vi(gb, nb, interactive=False)
         assert before_svg is not None and after_svg is not None
