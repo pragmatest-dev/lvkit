@@ -640,6 +640,18 @@ def test_type_cast_raw_bytes_of_integers_floats_and_arrays():
     assert run(cast(DBL, STR), 0.25).encode("latin-1").hex() == "3fd0000000000000"
 
 
+def test_not_of_an_array_is_bitwise_for_integers_and_logical_for_booleans():
+    unsigned = unary(1064, array("NumUInt8"), array("NumUInt8"))
+    assert "[ctypes.c_uint8(~_e0).value for _e0 in x]" in body(unsigned)
+    assert run(unsigned, [0, 1, 255]) == [255, 254, 0]
+    signed = unary(1064, array("NumInt32"), array("NumInt32"))
+    assert "[~_e0 for _e0 in x]" in body(signed)
+    assert run(signed, [0, 5]) == [-1, -6]
+    flags = unary(1064, array("Boolean"), array("Boolean"))
+    assert "[not _e0 for _e0 in x]" in body(flags)
+    assert run(flags, [True, False]) == [False, True]
+
+
 def test_not_of_an_unsigned_integer_wraps_with_ctypes():
     generated = unary(1064, U32, U32)
     assert "ctypes.c_uint32(~x).value" in body(generated)

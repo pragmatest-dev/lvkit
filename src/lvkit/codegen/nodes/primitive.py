@@ -8,7 +8,7 @@ from collections.abc import Mapping
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
@@ -87,10 +87,17 @@ def _int_input_terminal(node: PrimitiveNode) -> Terminal | None:
     for t in node.terminals:
         if t.direction != "input" or t.lv_type is None:
             continue
-        ut = t.lv_type.underlying_type or ""
+        ut = _element_underlying(t.lv_type)
         if ut.startswith("NumInt") or ut.startswith("NumUInt"):
             return t
     return None
+
+
+def _element_underlying(lv_type: LVType) -> str:
+    """The underlying type name of a scalar, or of an array's elements."""
+    while lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        lv_type = lv_type.element_type
+    return lv_type.underlying_type or ""
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -169,7 +176,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     int_in = _int_input_terminal(node)
     if int_in is not None:
         if prim_id == 1064:  # Not -> ~x, masked to width for UNSIGNED ints
-            ut = (int_in.lv_type.underlying_type or "") if int_in.lv_type else ""
+            ut = _element_underlying(int_in.lv_type) if int_in.lv_type else ""
             expr = fixed_width("~in_1", ut) if ut in UNSIGNED_INTEGERS else "~in_1"
             if ut in UNSIGNED_INTEGERS:
                 resolved.imports = [*(resolved.imports or []), "import ctypes"]
