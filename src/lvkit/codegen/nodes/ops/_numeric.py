@@ -36,3 +36,7 @@ def is_real(lv_type: LVType | None) -> bool:
     """A non-complex numeric (integer or floating-point), or an array of one."""
     underlying = _scalar_underlying(lv_type)
     return underlying in _FLOAT or underlying in _INTEGER
+
+
+def is_array(lv_type: LVType | None) -> bool:
+    return lv_type is not None and lv_type.kind == LVTypeKind.ARRAY

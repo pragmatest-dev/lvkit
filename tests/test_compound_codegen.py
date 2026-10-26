@@ -139,10 +139,9 @@ class TestCompoundArithGenerate:
         assert " and " not in code
 
     def test_generate_integer_invert_is_width_masked(self):
-        """A per-input Not on a U32 -> ~ masked to 32 bits (not a signed ~)."""
+        """A per-input Not on a U32 wraps ~ to 32 bits (not a signed ~)."""
         code = self._int_cpd("or", inverted_in=True)
-        assert "4294967295" in code  # 0xFFFFFFFF mask
-        assert "~a" in code
+        assert "ctypes.c_uint32(~a).value" in code
 
     def test_generate_add_multiple_inputs(self):
         """Test generating addition of multiple inputs."""

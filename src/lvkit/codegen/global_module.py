@@ -33,8 +33,7 @@ from .context import (
     _needs_simplenamespace,
     type_namer,
 )
-from .data_files import data_file_expression, holds_array_whole
-from .elementwise import LV_IMPORT
+from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .import_resolver import ImportResolver
 
 
@@ -131,7 +130,7 @@ def build_global_module(
     if needs_namespace:
         body.extend(ast.parse(_SIMPLENAMESPACE_IMPORT).body)
     if needs_runtime:
-        body.extend(ast.parse(LV_IMPORT).body)
+        body.extend(ast.parse(DATA_FILE_IMPORTS).body)
     body.extend(build_type_checking_block(annotation_imports))
     module = ast.Module(body=[*body, *assignments], type_ignores=[])
     ast.fix_missing_locations(module)

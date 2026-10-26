@@ -21,9 +21,16 @@ from lvkit.primitive_resolver import ResolvedPrimitive
 
 from . import register_op
 
+# How one field of the spreadsheet text becomes an element; an empty number field
+# reads as zero.
+_CONVERT = {
+    "int": lambda field: f"int({field} or 0)",
+    "float": lambda field: f"float({field} or 0)",
+}
+
 
 def _element_kind(array_type: LVType | None) -> str:
-    """Map the array's element type to a runtime conversion kind."""
+    """Map the array's element type to the kind of conversion it needs."""
     elem = getattr(array_type, "element_type", None)
     underlying = getattr(elem, "underlying_type", None) or ""
     if underlying.startswith(("NumFloat", "NumComplex")):
@@ -41,4 +48,16 @@ def spreadsheet_string_to_array(
     out_type = out.lv_type if out else None
     ndims = getattr(out_type, "dimensions", None) or 1
     elem = _element_kind(out_type)
-    return f"_lv.spreadsheet_string_to_array(in_3, in_1, {ndims}, {elem!r})"
+    delimiter = "(in_1 or '\\t')"
+    if ndims >= 2:
+        row = f"_row.split({delimiter})"
+        if elem != "str":
+            row = f"[{_CONVERT[elem]('_cell')} for _cell in {row}]"
+        return f"[{row} for _row in in_3.splitlines()]"
+    # One dimension: the delimiter and an end of line both separate elements
+    # (CR LF first, so it counts as one separator).
+    pattern = f"'\\r\\n|\\r|\\n|' + re.escape({delimiter})"
+    fields = f"re.split({pattern}, in_3)"
+    if elem != "str":
+        fields = f"[{_CONVERT[elem]('_field')} for _field in {fields}]"
+    return f"{fields} if in_3 else []"

@@ -21,7 +21,7 @@ from .ast_utils import (
     to_function_name,
 )
 from .context import CodeGenContext
-from .elementwise import LV_IMPORT, arrayify_module
+from .elementwise import arrayify_module
 from .error_handler import (
     build_held_error_check,
     build_held_error_init,
@@ -130,11 +130,6 @@ def build_module(
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
 
-    # Final pass: broadcast numeric operators over array-valued operands that
-    # were inlined (single-use) past the per-node element-wise hook.
-    if arrayify_module(body, frozenset(ctx.array_vars)):
-        ctx.imports.add(LV_IMPORT)
-
     # Raise the first held error where the branches have merged
     if use_error_handling:
         body.append(build_held_error_check())
@@ -143,6 +138,10 @@ def build_module(
     return_stmt = build_return_stmt(vi_context, ctx)
     if return_stmt:
         body.append(return_stmt)
+
+    # Final pass: write numeric operators over array-valued operands that were
+    # inlined (single-use) into a consumer as comprehensions.
+    arrayify_module(body, ctx.array_vars)
 
     # Build module structure
     module = build_module_ast(vi_context, vi_name, body, ctx)

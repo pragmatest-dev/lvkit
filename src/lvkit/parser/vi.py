@@ -2808,8 +2808,8 @@ def _decode_element(
         # 0-255 <-> U+0000-U+00FF) so binary bytes survive losslessly into the
         # generated code. A text codec (locale/UTF-8, errors="replace") corrupts
         # non-ASCII data bytes to U+FFFD irreversibly -- e.g. the 0x80 pad byte in
-        # MD5's string constants. The runtime treats str as latin-1 bytes too (see
-        # _lv.type_cast), so this keeps parse and codegen consistent. Human-
+        # MD5's string constants. Generated flatten / Type Cast code encodes str as
+        # latin-1 bytes too, so this keeps parse and codegen consistent. Human-
         # readable codepage text for DISPLAY is a separate value: ConstantNode
         # carries display_value (see graph/construction.py decode_constant).
         string_val = bytes(data[4 : 4 + str_len]).decode("latin-1")

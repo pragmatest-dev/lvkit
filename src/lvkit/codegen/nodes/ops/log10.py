@@ -17,4 +17,4 @@ def log10(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
             "Logarithm Base 10 supports resolved real numeric scalars and arrays only",
             node,
         )
-    return "_lv.log10(in_1)"
+    return "math.log10(in_1)"

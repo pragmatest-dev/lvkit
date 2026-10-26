@@ -124,71 +124,22 @@ def test_boolean_logic_prims_have_integer_bitwise_variant():
     assert "in_1 or in_2" in str(res.resolve(prim_id=1062).python_code)
 
 
-def test_rotate_resolves_and_matches_ni_docs():
-    """Rotate (1082) resolves via the ROTATE op handler, and lv.rotate reproduces
-    NI's documented examples: 3 rotated left in 8 bits -> 6/12 at y=1/2, 96 at
-    y=-3, identity at y=0, and rotation is modulo the integer width."""
-    from lvkit.runtime import lv
-
+def test_rotate_resolves_to_its_op_handler():
+    """Rotate (1082) resolves via the ROTATE op handler (generated code is
+    covered in test_native_python.py)."""
     assert get_resolver().resolve(prim_id=1082).op == "ROTATE"
-    assert lv.rotate(3, 1, 8) == 6
-    assert lv.rotate(3, 2, 8) == 12
-    assert lv.rotate(3, -3, 8) == 96
-    assert lv.rotate(3, 0, 8) == 3
-    assert lv.rotate(3, 9, 8) == lv.rotate(3, 1, 8)  # y +- width is a no-op
-    assert lv.rotate(0x12345678, 8, 32) == 0x34567812
 
 
-def test_type_cast_resolves_and_reinterprets_bytes():
-    """Type Cast (1166) resolves via the TYPE_CAST op handler, and lv.type_cast
-    reinterprets flat bytes big-endian with no length prefix: a U32 array casts
-    to its raw bytes and round-trips, and an unsupported type raises loudly
-    (never a silently-wrong cast)."""
-    import pytest as _pytest
-
-    from lvkit.runtime import lv
-
+def test_type_cast_resolves_to_its_op_handler():
+    """Type Cast (1166) resolves via the TYPE_CAST op handler (generated code is
+    covered in test_native_python.py)."""
     assert get_resolver().resolve(prim_id=1166).op == "TYPE_CAST"
-    s = lv.type_cast([0x12345678, 0xDEADBEEF], "u32[]", "str")
-    assert s.encode("latin-1").hex() == "12345678deadbeef"
-    assert lv.type_cast(s, "str", "u32[]") == [0x12345678, 0xDEADBEEF]
-    assert lv.type_cast(258, "i16", "str").encode("latin-1").hex() == "0102"
-    # NI's "Flattened Data": a double of 1/4 flattens to 3FD0 0000 0000 0000.
-    assert (
-        lv.type_cast(0.25, "f64", "str").encode("latin-1").hex() == "3fd0000000000000"
-    )
-    with _pytest.raises(NotImplementedError):
-        lv.type_cast(1.0, "ExtendedFloat", "str")
 
 
-def test_unflatten_from_string_resolves_and_parses_flat_format():
+def test_unflatten_from_string_resolves_to_its_op_handler():
     """Unflatten From String (1165) resolves via the UNFLATTEN_FROM_STRING op
-    handler, and lv.unflatten_from_string parses LabVIEW's Flatten To String
-    format (length-prefixed strings/arrays, selectable byte order), returning
-    (value, rest_of_the_binary_string) -- distinct from Type Cast's no-prefix
-    reinterpret. An unsupported target (e.g. a real corpus float/cluster/refnum
-    target) raises loudly, never a silently-wrong value."""
-    import pytest as _pytest
-
-    from lvkit.runtime import lv
-
+    handler (generated code is covered in test_native_python.py)."""
     assert get_resolver().resolve(prim_id=1165).op == "UNFLATTEN_FROM_STRING"
-    # Length-prefixed string (Flatten To String's own output format)
-    flat = len("hi").to_bytes(4, "big").decode("latin-1") + "hi" + "TAIL"
-    value, rest = lv.unflatten_from_string(flat, "str")
-    assert (value, rest) == ("hi", "TAIL")
-    # Scalar int has no size concept; byte_order selects endianness
-    u32_bytes = (300).to_bytes(4, "big").decode("latin-1")
-    value, _rest = lv.unflatten_from_string(u32_bytes, "u32")
-    assert value == 300
-    u16_le_bytes = (5).to_bytes(2, "little").decode("latin-1")
-    value, _ = lv.unflatten_from_string(u16_le_bytes, "u16", 2)
-    assert value == 5
-    # includes_size=False: no prefix, whole string is the value
-    value, rest = lv.unflatten_from_string("rawtext", "str", includes_size=False)
-    assert (value, rest) == ("rawtext", "")
-    with _pytest.raises(NotImplementedError):
-        lv.unflatten_from_string("x", "Cluster")
 
 
 def test_decimal_digit_checks_first_character_ascii_range():
@@ -207,17 +158,10 @@ def test_decimal_digit_checks_first_character_ascii_range():
         assert eval(code, env) is expected, f"{char!r} -> expected {expected}"  # noqa: S307
 
 
-def test_array_size_returns_dimension_vector_for_nd():
-    """Array Size (1809) resolves via the ARRAY_SIZE op handler; lv.array_size
-    returns a scalar element COUNT for a 1-D array but a 1-D vector of
-    per-dimension sizes for a 2-D+ array (LabVIEW's multi-dim Array Size)."""
-    from lvkit.runtime import lv
-
+def test_array_size_resolves_to_its_op_handler():
+    """Array Size (1809) resolves via the ARRAY_SIZE op handler (generated code is
+    covered in test_native_python.py)."""
     assert get_resolver().resolve(prim_id=1809).op == "ARRAY_SIZE"
-    assert lv.array_size([1, 2, 3], 1) == 3
-    assert lv.array_size([[1, 2, 3], [4, 5, 6]], 2) == [2, 3]
-    assert lv.array_size([], 2) == [0, 0]  # empty 2-D array is [rows=0, cols=0]
-    assert lv.array_size([[]], 2) == [1, 0]  # one empty row
 
 
 def test_type_cast_refnum_to_refnum_is_identity():

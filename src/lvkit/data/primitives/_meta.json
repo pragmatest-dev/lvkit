@@ -72,8 +72,7 @@
           "per_dimension_of": 1
         }
       ],
-      "op": "DELETE_FROM_ARRAY",
-      "imports": ["from lvkit.runtime import lv as _lv"]
+      "op": "DELETE_FROM_ARRAY"
     },
     "aIndx": {
       "name": "Index Array",
@@ -105,10 +104,7 @@
           "group": "indexed element"
         }
       ],
-      "op": "INDEX_ARRAY",
-      "imports": [
-        "from lvkit.runtime import lv as _lv"
-      ]
+      "op": "INDEX_ARRAY"
     },
     "aInit": {
       "name": "Initialize Array",
@@ -279,7 +275,7 @@
           "group": "span"
         }
       ],
-      "python_code": "_lv.array_subset(array, index, length)"
+      "op": "ARRAY_SUBSET"
     },
     "cpdArith": {
       "name": "Compound Arithmetic",

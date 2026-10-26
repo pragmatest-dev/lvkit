@@ -142,6 +142,7 @@
         }
       ],
       "op": "DIVIDE",
+      "imports": ["import math"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/divide.html",

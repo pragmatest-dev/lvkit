@@ -23,7 +23,7 @@ def _run(script: str, variables: list[VarSpec], func_name: str = "f", **inputs):
     """Transpile, exec the emitted function, call it, return its output dict."""
     res = transpile(script, variables, func_name=func_name)
     ns: dict = {}
-    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + res.source, ns)
+    exec("\n".join(sorted(res.imports)) + "\n" + res.source, ns)
     return ns[func_name](**inputs)
 
 
@@ -65,7 +65,7 @@ def test_float_to_int_assignment_rounds_ties_to_even():
         VarSpec("k", "NumInt16", "out", False),
     ]
     out = _src("k = a / b;", variables)
-    assert "_lv.i16(" in out  # int target -> width coercion
+    assert "ctypes.c_int16(round(" in out  # int target -> width coercion
     # 7/2 = 3.5 -> round-half-to-even -> 4 (not C's truncate-to-3)
     assert _run("k = a / b;", variables, a=7.0, b=2.0)["k"] == 4
 
@@ -86,8 +86,8 @@ def test_modulo_is_truncated_remainder():
         VarSpec("b", "NumFloat64", "in", False),
     ]
     # LV `%` is the truncated remainder (sign of the dividend) for ints and
-    # floats alike, so it always routes through the helper, not Python `%`.
-    assert "_lv.rem(a, b)" in _src("y = a % b;", variables)
+    # floats alike, so it is math.fmod, not Python's floored `%`.
+    assert "math.fmod(a, b)" in _src("y = a % b;", variables)
     assert _run("y = a % b;", variables, a=7.5, b=2.0)["y"] == 1.5
 
 
@@ -132,7 +132,7 @@ def test_terminal_redeclaration_becomes_assignment():
         VarSpec("a", "NumInt32", "in", False),
     ]
     out = _src("int32 r=0;\nr = a;", variables)
-    assert "int32" not in out  # no C-style declaration
+    assert "int32 r" not in out  # no C-style declaration
     assert _run("int32 r=0;\nr = a;", variables, a=5)["r"] == 5
 
 
