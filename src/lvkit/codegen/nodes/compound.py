@@ -9,7 +9,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.python_numeric import fixed_width
+from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -54,9 +54,6 @@ def _is_integer(term: object) -> bool:
     return ut.startswith("NumInt") or ut.startswith("NumUInt")
 
 
-_UNSIGNED_INTEGERS = frozenset({"NumUInt8", "NumUInt16", "NumUInt32", "NumUInt64"})
-
-
 def _invert_expr(
     expr: ast.expr,
     boolean: bool,
@@ -81,7 +78,7 @@ def _invert_expr(
         return ast.BinOp(left=ast.Constant(value=1), op=ast.Div(), right=expr)
     inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
     underlying = (lv_type.underlying_type or "") if lv_type else ""
-    if underlying in _UNSIGNED_INTEGERS:
+    if underlying in UNSIGNED_INTEGERS:
         ctx.add_import("import ctypes")
         return parse_expr(fixed_width(ast.unparse(inv), underlying))
     return inv

@@ -109,7 +109,7 @@ class Functions:
         registry[full_key] = name
         source = source_for(name)
         self.ctx.formula_helpers.append(ast.parse(source).body[0])
-        for module in ("struct", "ctypes"):
+        for module in ("struct", "ctypes", "math"):
             if f"{module}." in source:
                 self.ctx.add_import(f"import {module}")
         return name
@@ -263,6 +263,83 @@ class Real(Layout):
             else f"{target} = {read}[0]"
         )
         out.add(f"pos += {self.width}")
+
+
+_EXTENDED_FLATTEN = """def {name}(value):
+    value = float(value)
+    if value != value:
+        return b'\\x7f\\xff\\x80' + bytes(13)
+    sign = 0x8000 if math.copysign(1.0, value) < 0 else 0
+    value = abs(value)
+    if value == math.inf:
+        return struct.pack('>H', sign | 0x7FFF) + bytes(14)
+    if value == 0:
+        return struct.pack('>H', sign) + bytes(14)
+    mantissa, exponent = math.frexp(value)
+    fraction = int((mantissa * 2 - 1) * 2**52) << 60
+    head = struct.pack('>H', sign | (exponent - 1 + 16383))
+    return head + fraction.to_bytes(14, 'big')
+"""
+
+_EXTENDED_UNFLATTEN = """def {name}(data, pos):
+    head = struct.unpack_from('>H', data, pos)[0]
+    fraction = int.from_bytes(data[pos + 2:pos + 16], 'big')
+    sign = -1.0 if head & 0x8000 else 1.0
+    exponent = head & 0x7FFF
+    if exponent == 0x7FFF:
+        return (math.nan if fraction else sign * math.inf), pos + 16
+    if exponent == 0:
+        return sign * 0.0, pos + 16
+    try:
+        value = math.ldexp(fraction + (1 << 112), exponent - 16383 - 112)
+    except OverflowError:
+        value = math.inf
+    return sign * value, pos + 16
+"""
+
+
+@dataclass(frozen=True)
+class Extended(Layout):
+    """An extended-precision number, which Python holds as a ``float``; it
+    flattens as the 128-bit IEEE format (NI's "Flattened Data"). A complex one is
+    a Python ``complex`` of two."""
+
+    is_complex: bool = False
+
+    def fixed_size(self) -> int | None:
+        return 32 if self.is_complex else 16
+
+    def _writer(self, fns: Functions) -> str:
+        return fns.named(
+            "flatten",
+            "extended",
+            ("extended",),
+            lambda name: _EXTENDED_FLATTEN.format(name=name),
+        )
+
+    def _reader(self, fns: Functions) -> str:
+        return fns.named(
+            "unflatten",
+            "extended",
+            ("extended",),
+            lambda name: _EXTENDED_UNFLATTEN.format(name=name),
+        )
+
+    def flatten(self, value, prefix, depth, fns):
+        write = self._writer(fns)
+        if self.is_complex:
+            return [Raw(f"{write}({value}.real) + {write}({value}.imag)")]
+        return [Raw(f"{write}({value})")]
+
+    def unflatten(self, target, prefix, out, fns):
+        read = self._reader(fns)
+        if not self.is_complex:
+            out.add(f"{target}, pos = {read}(data, pos)")
+            return
+        real, imaginary = out.temporary("real"), out.temporary("imaginary")
+        out.add(f"{real}, pos = {read}(data, pos)")
+        out.add(f"{imaginary}, pos = {read}(data, pos)")
+        out.add(f"{target} = complex({real}, {imaginary})")
 
 
 @dataclass(frozen=True)
@@ -552,6 +629,8 @@ def layout_of(lv_type: LVType | None) -> Layout:
         return Integer(code, ctype, width)
     if underlying in _FLOAT_CODES:
         return Real(*_FLOAT_CODES[underlying])
+    if underlying in ("NumFloatExt", "NumComplexExt"):
+        return Extended(is_complex=underlying == "NumComplexExt")
     if underlying in _COMPLEX_CODES:
         return Real(*_COMPLEX_CODES[underlying])
     raise UnsupportedLayout(f"a value of type {underlying or lv_type.kind.value!r}")

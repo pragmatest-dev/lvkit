@@ -19,6 +19,10 @@ CTYPES_INTEGER = {
     "NumUInt64": ("c_uint64", 64),
 }
 
+UNSIGNED_INTEGERS = frozenset(
+    name for name in CTYPES_INTEGER if name.startswith("NumUInt")
+)
+
 
 def fixed_width(expression: str, underlying: str) -> str:
     """``expression`` as the fixed-width integer ``underlying`` names: a value

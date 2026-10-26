@@ -17,6 +17,7 @@ from lvkit.primitive_resolver import (
     TerminalResolutionNeeded,
     get_resolver,
 )
+from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 from lvkit.vi_files import strip_vi_extension
 
 from ..ast_utils import (
@@ -24,7 +25,6 @@ from ..ast_utils import (
     parse_expr,
     parse_stmt,
     to_var_name,
-    uint_mask,
 )
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT, arrayify
@@ -169,8 +169,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     int_in = _int_input_terminal(node)
     if int_in is not None:
         if prim_id == 1064:  # Not -> ~x, masked to width for UNSIGNED ints
-            m = uint_mask(int_in.lv_type)
-            expr = f"(~in_1) & 0x{m:X}" if m is not None else "~in_1"
+            ut = (int_in.lv_type.underlying_type or "") if int_in.lv_type else ""
+            expr = fixed_width("~in_1", ut) if ut in UNSIGNED_INTEGERS else "~in_1"
+            if ut in UNSIGNED_INTEGERS:
+                resolved.imports = [*(resolved.imports or []), "import ctypes"]
             if isinstance(resolved.python_code, dict) and resolved.python_code:
                 key = next(iter(resolved.python_code))
                 resolved.python_code = {key: expr}

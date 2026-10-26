@@ -38,7 +38,7 @@ from ...flat import (
 )
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import add_flat_imports, terminal, unsupported_fragment
+from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
 
 def _is_refnum(lt: LVType | None) -> bool:
@@ -62,7 +62,7 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         src = layout_of(src_type)
         dst = layout_of(dst_type)
     except UnsupportedLayout as error:
-        return unsupported_fragment(node, ctx, str(error))
+        raise unsupported_layout_error(node, error) from error
     order = BYTE_ORDER_PREFIX[0]
     fns = Functions(ctx, order)
     flattened = render_parts(src.flatten(value, False, 0, fns), order)

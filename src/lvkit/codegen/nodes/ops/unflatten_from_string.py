@@ -36,7 +36,7 @@ from ...flat import (
 )
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import add_flat_imports, terminal, unsupported_fragment
+from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
 
 def _constant(ctx: CodeGenContext, node: PrimitiveNode, index: int, default):
@@ -72,7 +72,7 @@ def unflatten_from_string(
     try:
         layout = layout_of(value_term.lv_type if value_term else None)
     except UnsupportedLayout as error:
-        return unsupported_fragment(node, ctx, str(error))
+        raise unsupported_layout_error(node, error) from error
     fns = Functions(ctx, order)
     data = ctx.make_output_var("flattened", node.id)
     encoded = parse_expr(f"{text}.encode('latin-1')")

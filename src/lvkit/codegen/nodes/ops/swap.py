@@ -18,7 +18,7 @@ from ...context import CodeGenContext
 from ...flat import BYTE_ORDER_PREFIX, Functions, UnsupportedLayout, layout_of
 from ...fragment import CodeFragment
 from . import register_op_fragment
-from ._flat_node import add_flat_imports, terminal, unsupported_fragment
+from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
 
 def _swap(
@@ -32,7 +32,7 @@ def _swap(
     try:
         layout = layout_of(source.lv_type if source else None)
     except UnsupportedLayout as error:
-        return unsupported_fragment(node, ctx, str(error))
+        raise unsupported_layout_error(node, error) from error
     fns = Functions(ctx, BYTE_ORDER_PREFIX[0])
     expression = layout.swap(value, chunk, width_min, 0, fns)
     variable = ctx.make_output_var("swapped", node.id, terminal_id=result.id)

@@ -10,6 +10,7 @@ import math
 
 import pytest
 
+from lvkit.codegen.errors import CodeGenError
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import Generated, array, generate, node, scalar
 
@@ -475,10 +476,35 @@ def test_type_cast_cluster_both_ways():
     no_lvkit(back)
 
 
-def test_type_cast_of_an_unsupported_type_raises_when_run():
-    generated = cast(scalar("NumFloatExt"), U32)
-    with pytest.raises(NotImplementedError, match="NumFloatExt"):
-        generated.function(1.0)
+def test_type_cast_of_a_type_with_no_flattened_form_stops_generation():
+    with pytest.raises(CodeGenError, match="does not handle.*Variant"):
+        cast(scalar("Variant"), U32)
+
+
+EXTENDED_QUARTER = "3ffd" + "00" * 14
+
+
+def test_extended_precision_is_a_float_in_the_128_bit_format():
+    extended = scalar("NumFloatExt")
+    flatten = cast(extended, STR)
+    assert run(flatten, 0.25).encode("latin-1").hex() == EXTENDED_QUARTER
+    assert run(flatten, -1.5).encode("latin-1").hex() == "bfff8" + "0" * 27
+    assert run(flatten, 0.0).encode("latin-1").hex() == "00" * 16
+    unflatten_text = bytes.fromhex(EXTENDED_QUARTER).decode("latin-1")
+    assert run(cast(STR, extended), unflatten_text) == 0.25
+    for value in (1.0, -3.75, 1e300, 5e-324, math.inf, -math.inf):
+        encoded = flatten.function(value).r
+        assert run(cast(STR, extended), encoded) == value
+    assert math.isnan(run(cast(STR, extended), run(flatten, math.nan)))
+    no_lvkit(flatten)
+
+
+def test_extended_precision_complex_is_two_floats():
+    complex_ext = scalar("NumComplexExt")
+    flatten = cast(complex_ext, STR)
+    encoded = run(flatten, complex(0.25, -1.5))
+    assert len(encoded) == 32
+    assert run(cast(STR, complex_ext), encoded) == complex(0.25, -1.5)
 
 
 def test_unflatten_number_and_rest():
@@ -612,3 +638,12 @@ def test_type_cast_raw_bytes_of_integers_floats_and_arrays():
     assert run(cast(I16, STR), 258).encode("latin-1").hex() == "0102"
     # NI's "Flattened Data": a double of 1/4 flattens to 3FD0 0000 0000 0000.
     assert run(cast(DBL, STR), 0.25).encode("latin-1").hex() == "3fd0000000000000"
+
+
+def test_not_of_an_unsigned_integer_wraps_with_ctypes():
+    generated = unary(1064, U32, U32)
+    assert "ctypes.c_uint32(~x).value" in body(generated)
+    assert run(generated, 5) == 0xFFFFFFFA
+    signed = unary(1064, I32, I32)
+    assert "~x" in body(signed) and "ctypes" not in signed.source
+    assert run(signed, 5) == -6

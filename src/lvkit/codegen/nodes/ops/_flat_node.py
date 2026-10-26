@@ -8,9 +8,8 @@ import ast
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
-from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...fragment import CodeFragment
+from ...errors import CodeGenError
 
 
 def terminal(node: PrimitiveNode, direction: str, index: int) -> Terminal | None:
@@ -29,25 +28,9 @@ def add_flat_imports(ctx: CodeGenContext, statements: list[ast.stmt]) -> None:
             ctx.add_import(f"import {module}")
 
 
-def unsupported_fragment(
-    node: PrimitiveNode, ctx: CodeGenContext, reason: str
-) -> CodeFragment:
-    """A statement that raises ``NotImplementedError`` naming the type, with every
-    wired output bound to ``None``: the rest of the function still generates."""
-    message = f"{node.name or 'This function'} does not handle {reason}"
-    raise_statement = ast.Raise(
-        exc=ast.Call(
-            func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
-            args=[ast.Constant(value=message)],
-            keywords=[],
-        ),
-        cause=None,
+def unsupported_layout_error(node: PrimitiveNode, reason: Exception) -> CodeGenError:
+    """The error that stops generating a VI whose flatten, unflatten or swap node
+    handles a type with no flattened form."""
+    return CodeGenError(
+        f"{node.name or 'This function'} does not handle {reason}", node
     )
-    statements: list[ast.stmt] = [raise_statement]
-    bindings: dict[str, str] = {}
-    for term in node.terminals:
-        if term.direction == "output" and ctx.is_wired(term.id):
-            variable = ctx.make_output_var("unavailable", node.id, terminal_id=term.id)
-            statements.append(build_assign(variable, parse_expr("None")))
-            bindings[term.id] = variable
-    return CodeFragment(statements=statements, bindings=bindings)
