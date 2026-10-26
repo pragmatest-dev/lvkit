@@ -235,7 +235,10 @@ def test_a_disable_structure_generates_its_enabled_subdiagram(tmp_path):
 def test_a_subvi_result_is_not_resolved_through_the_called_vi(tmp_path):
     package = _generate(RECREATE_CLIENT, tmp_path)
     source = _discovery_module(package, "recreate_client").read_text()
-    assert "grpc_client_id_out = create_client_result.grpc_client_id" in source
+    assert (
+        "RecreateClientResult(grpc_client_id_out=create_client_result.grpc_client_id)"
+        in source
+    )
     assert _all_undefined(package) == {}
 
 

@@ -5,7 +5,15 @@ from __future__ import annotations
 import ast
 import keyword
 import logging
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import (
+    AbstractContextManager,
+    ExitStack,
+    contextmanager,
+    nullcontext,
+)
 from dataclasses import dataclass, field
+from typing import Any
 
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
@@ -15,7 +23,6 @@ from lvkit.models import (
     LVType,
     SelectorRange,
     TunnelTerminal,
-    _is_error_cluster,
 )
 
 from ..ast_utils import (
@@ -25,6 +32,12 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..error_path import (
+    is_error_selector,
+    outputs_at_default,
+    skipped_on_error,
+    trace_error_path,
+)
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
@@ -76,6 +89,8 @@ def _resolve_output_tunnels(
     node: CaseStructureNode,
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]],
     ctx: CodeGenContext,
+    frame_scopes: Mapping[object, Callable[[], AbstractContextManager[Any]]]
+    | None = None,
 ) -> tuple[dict[str, str], list[ast.stmt]]:
     """Lower every output tunnel now that all frame bodies exist.
 
@@ -87,20 +102,34 @@ def _resolve_output_tunnels(
     source (``_append_frame_merges``-style), and pre-declared to the type
     default for any frame that doesn't wire it.
 
+    ``frame_scopes`` maps a frame's selector value to the scope its values are
+    read in (the scope its body was generated in).
+
     Returns ``(outer_uid -> variable)`` bindings for every output tunnel and
     the pre-declaration statements for the divergent merges only.
     """
     bindings: dict[str, str] = {}
     divergent: dict[str, str] = {}  # outer_uid -> merge var (needs pre-declare)
-    n_frames = len(node.frames)
+    # The merge is over the frames that have a body: every frame, except when an
+    # error case structure leaves out the error frame its error cannot reach.
+    n_frames = len(frame_bodies)
+    left_out = n_frames < len(node.frames)
     body_by_frame: dict[object, list[ast.stmt]] = {
         frame.selector_value: body for frame, body in frame_bodies
     }
 
     for ot in _output_tunnels(node, ctx):
-        vals: dict[object, str | None] = {
-            fv: ctx.resolve(inner) for fv, inner in ot.inner_by_frame.items()
-        }
+        if left_out:
+            ot.inner_by_frame = {
+                fv: inner
+                for fv, inner in ot.inner_by_frame.items()
+                if fv in body_by_frame
+            }
+        vals: dict[object, str | None] = {}
+        for fv, inner in ot.inner_by_frame.items():
+            scope = (frame_scopes or {}).get(fv, nullcontext)
+            with scope():
+                vals[fv] = ctx.resolve(inner)
         distinct = {v for v in vals.values() if v}
         # Every frame must both HAVE an inner terminal AND resolve it to a real
         # value. A frame whose inner resolves to None is unwired (a `pass`
@@ -148,7 +177,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
 
     ops_by_frame = _ops_by_frame(node, ctx)
 
-    if _is_error_selector_by_type(node, ctx):
+    if is_error_selector(node):
         return _generate_error_case(node, ctx, ops_by_frame)
 
     selector_var = None
@@ -450,32 +479,38 @@ def _fallback_selector(
     return "selector"
 
 
-def _is_error_selector_by_type(
+@dataclass
+class ErrorCaseParts:
+    """The code of an error case structure, by frame.
+
+    The no-error frame runs when nothing upstream raised; ``on_error`` is the
+    error frame, which runs in the handler of the error that was raised. An
+    error frame that leaves the error on the wire ``keeps_error``: the handler
+    ends by raising the error again."""
+
+    pre_decls: list[ast.stmt]
+    no_error: list[ast.stmt]
+    on_error: list[ast.stmt]
+    keeps_error: bool
+    bindings: dict[str, str]
+    imports: set[str]
+
+
+def error_frame_ops(node: CaseStructureNode, ctx: CodeGenContext) -> list[AnyGraphNode]:
+    """The nodes in the error frame of an error case structure."""
+    ops_by_frame = _ops_by_frame(node, ctx)
+    return [
+        op
+        for frame in node.frames
+        if not frame.is_no_error
+        for op in ops_by_frame.get(id(frame), [])
+    ]
+
+
+def _error_frames(
     node: CaseStructureNode,
-    ctx: CodeGenContext,
-) -> bool:
-    """Check if the selector terminal carries an error cluster type."""
-    sel_id = node.selector_terminal
-    if not sel_id or ctx.graph is None:
-        return False
-    for term in node.terminals:
-        if term.id == sel_id and term.lv_type:
-            return _is_error_cluster(term.lv_type)
-    return False
-
-
-def _generate_error_case(
-    node: CaseStructureNode,
-    ctx: CodeGenContext,
-    ops_by_frame: _OpsByFrame,
-) -> CodeFragment:
-    """Generate code for an error-cluster case structure.
-
-    Emits only the no-error frame body (happy path).
-    96% of error frames are empty (45/47 in TestCase.lvclass).
-    """
-    _bind_input_tunnels(node, ctx)
-
+) -> tuple[CaseFrame | None, CaseFrame | None]:
+    """The no-error frame and the error frame of an error case structure."""
     no_error_frame = None
     error_frame = None
     for frame in node.frames:
@@ -483,34 +518,169 @@ def _generate_error_case(
             no_error_frame = frame
         else:
             error_frame = frame
-
     if no_error_frame is None and node.frames:
         no_error_frame = node.frames[0]
+    return no_error_frame, error_frame
 
+
+@contextmanager
+def _frame_inputs_unbound(
+    node: CaseStructureNode, frame: CaseFrame, ctx: CodeGenContext
+) -> Iterator[None]:
+    """Within the block, the inner terminals of ``frame``'s input tunnels hold no
+    value of their own, so a value read through one is read from the wire
+    outside the structure."""
+    assert ctx.graph is not None
+    outer_by_id = {t.id: t for t in node.terminals}
+    saved: dict[str, str | None] = {}
+    for term in node.terminals:
+        if (
+            isinstance(term, TunnelTerminal)
+            and term.boundary == "inner"
+            and term.frame == frame.selector_value
+            and not term.is_error_cluster
+            and term.paired_id in outer_by_id
+            and outer_by_id[term.paired_id].direction == "input"
+        ):
+            saved[term.id] = ctx.graph.get_var_name(term.id)
+            ctx.graph.set_var_name(term.id, None)  # type: ignore[arg-type]
+    try:
+        yield
+    finally:
+        for term_id, name in saved.items():
+            ctx.graph.set_var_name(term_id, name)  # type: ignore[arg-type]
+
+
+def _frame_error_terminals(
+    node: CaseStructureNode, frame: CaseFrame
+) -> tuple[set[str], list[str]]:
+    """The inner terminals the error enters ``frame`` through and the ones it
+    leaves through (its error input and output tunnels)."""
+    outer_by_id = {t.id: t for t in node.terminals}
+    entering: set[str] = set()
+    leaving: list[str] = []
+    for term in node.terminals:
+        if (
+            not isinstance(term, TunnelTerminal)
+            or term.boundary != "inner"
+            or term.frame != frame.selector_value
+            or not term.is_error_cluster
+            or term.paired_id is None
+        ):
+            continue
+        outer = outer_by_id.get(term.paired_id)
+        if outer is None:
+            continue
+        if outer.direction == "input":
+            entering.add(term.id)
+        else:
+            leaving.append(term.id)
+    return entering, leaving
+
+
+def _frame_keeps_error(
+    node: CaseStructureNode,
+    frame: CaseFrame,
+    frame_ops: list[AnyGraphNode],
+    ctx: CodeGenContext,
+) -> bool:
+    """Whether the error leaving ``frame`` is the error that entered it: the
+    frame's error output comes from its error input, directly or through nodes
+    that pass the error on. A frame that wires no error output, or builds a new
+    no-error one, clears the error."""
+    entering, leaving = _frame_error_terminals(node, frame)
+    return bool(trace_error_path(leaving, frame_ops, ctx).roots & entering)
+
+
+def generate_error_case_parts(
+    node: CaseStructureNode,
+    ctx: CodeGenContext,
+    error_var: str | None,
+    error_frame_scope: Callable[[], AbstractContextManager[Any]] | None = None,
+) -> ErrorCaseParts:
+    """Generate the frames of an error case structure.
+
+    The error frame is generated only when ``error_var`` (the name its handler
+    catches the error as) is given, inside ``error_frame_scope`` if there is
+    one. Data output tunnels take the no-error frame's values, and the error
+    frame's where there is one.
+    """
+    ops_by_frame = _ops_by_frame(node, ctx)
+    _bind_input_tunnels(node, ctx)
+
+    no_error_frame, error_frame = _error_frames(node)
     if no_error_frame is None:
-        return CodeFragment.empty()
+        return ErrorCaseParts([], [], [], False, {}, set())
 
     error_ops = ops_by_frame.get(id(error_frame), []) if error_frame else []
-    if error_ops:
-        op_names = ", ".join(_op_display(op) for op in error_ops)
-        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
+    # The nodes of the error frame that take the error do not run: they are
+    # left out, and what they would have produced is the type's default.
+    skipped = (
+        skipped_on_error(error_ops, _frame_error_terminals(node, error_frame)[0], ctx)
+        if error_frame is not None
+        else []
+    )
+
+    def scope() -> AbstractContextManager[Any]:
+        stack = ExitStack()
+        if error_frame is not None and error_frame_scope is not None:
+            stack.enter_context(_frame_inputs_unbound(node, error_frame, ctx))
+            stack.enter_context(error_frame_scope())
+            stack.enter_context(outputs_at_default(skipped, ctx))
+        return stack
 
     no_error_fragment = _generate_frame_body(
         ops_by_frame.get(id(no_error_frame), []), ctx
     )
-    body = list(no_error_fragment.statements)
-    # Only the no-error frame is emitted; the merge resolves each tunnel over
-    # ALL frames' inner values, so a pass-through still aliases correctly.
+    no_error = list(no_error_fragment.statements)
+    frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = [(no_error_frame, no_error)]
+    imports = set(no_error_fragment.imports)
+
+    on_error: list[ast.stmt] = []
+    keeps_error = False
+    if error_frame is not None and error_ops and error_var:
+        saved, ctx.error_var = ctx.error_var, error_var
+        try:
+            with scope():
+                error_fragment = _generate_frame_body(
+                    [op for op in error_ops if op not in skipped], ctx
+                )
+        finally:
+            ctx.error_var = saved
+        on_error = list(error_fragment.statements)
+        imports.update(error_fragment.imports)
+        frame_bodies.append((error_frame, on_error))
+        keeps_error = _frame_keeps_error(node, error_frame, error_ops, ctx)
+    elif error_ops:
+        op_names = ", ".join(_op_display(op) for op in error_ops)
+        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
+
+    # The merge resolves each tunnel over ALL frames' inner values, so a
+    # pass-through still aliases correctly.
+    scopes: dict[object, Callable[[], AbstractContextManager[Any]]] | None = (
+        {error_frame.selector_value: scope} if error_frame is not None else None
+    )
     output_bindings, pre_decls = _resolve_output_tunnels(
-        node, [(no_error_frame, body)], ctx
+        node, frame_bodies, ctx, scopes
     )
     bindings = dict(no_error_fragment.bindings)
     bindings.update(output_bindings)
+    return ErrorCaseParts(pre_decls, no_error, on_error, keeps_error, bindings, imports)
 
+
+def _generate_error_case(
+    node: CaseStructureNode,
+    ctx: CodeGenContext,
+    ops_by_frame: _OpsByFrame,
+) -> CodeFragment:
+    """Generate an error case structure whose error comes from nothing in this
+    diagram: an error from the caller has already been raised, so only the
+    no-error frame runs."""
+    parts = generate_error_case_parts(node, ctx, error_var=None)
     return CodeFragment(
-        statements=pre_decls + body,
-        bindings=bindings,
-        imports=no_error_fragment.imports,
+        statements=parts.pre_decls + parts.no_error,
+        bindings=parts.bindings,
+        imports=parts.imports,
     )
 
 

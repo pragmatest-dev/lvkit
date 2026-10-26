@@ -40,6 +40,7 @@ from .ast_utils import parameter_names, to_function_name, to_var_name
 from .data_files import data_file_expression, holds_array_whole
 from .elementwise import LV_IMPORT
 from .errors import unwritable_value_error
+from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .import_resolver import ImportResolver
 
 
@@ -73,7 +74,11 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
-    use_held_error_model: bool = False
+    # The name of the caught ``LabVIEWError`` while the code of an error handler
+    # (the error frame of an error case structure) is generated: an Unbundle of
+    # the error cluster there reads the caught error. None outside a handler,
+    # where an error cluster is the no-error one.
+    error_var: str | None = None
     # When True, unknown primitives / vi.lib VIs do NOT raise — instead
     # the codegen emits a `raise PrimitiveResolutionNeeded(...)` /
     # `raise VILibResolutionNeeded(...)` statement inline in the generated
@@ -94,9 +99,6 @@ class CodeGenContext:
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
     module_stem: str = ""
-    # Lives on context (not builder) because child() must share it
-    # across the same generation pass.
-    _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     # Variable names bound to array-typed values. A final codegen pass uses
     # this to broadcast operators over operands that turned out to be arrays
@@ -457,7 +459,7 @@ class CodeGenContext:
             imports=self.imports,
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
-            use_held_error_model=self.use_held_error_model,
+            error_var=self.error_var,
             soft_unresolved=self.soft_unresolved,
             unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass
             _allocated_vars=self._allocated_vars,  # Shared — same scope
@@ -481,6 +483,13 @@ class CodeGenContext:
         """Add an import statement (none when empty)."""
         if import_stmt:
             self.imports.add(import_stmt)
+
+    def import_labview_error(self) -> None:
+        """Import ``LabVIEWError`` from the package's ``errors`` module."""
+        if isinstance(self.import_resolver, ImportResolver):
+            self.add_import(self.import_resolver.error_import())
+        else:
+            self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
 
     def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
         """Import the function of a VI and return the name this module calls it

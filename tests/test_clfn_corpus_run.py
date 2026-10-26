@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ctypes
 import getpass
+import importlib
 import inspect
 import os
 import socket
@@ -46,6 +47,12 @@ _PLUGIN = _SAMPLES / "measurement-plugin-labview"
 
 # seconds between 1904-01-01 (LabVIEW's reference time) and 1970-01-01
 _REFERENCE_TO_UNIX = 2082844800
+
+
+def _generated_error(module) -> type[Exception]:
+    """The ``LabVIEWError`` class of the package a module was generated into."""
+    errors = importlib.import_module(module.__name__.split(".")[0] + ".errors")
+    return errors.LabVIEWError
 
 
 def _vi(path: Path) -> Path:
@@ -101,7 +108,7 @@ def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) 
 
 def test_file_info_missing_file_is_error_7(generated_vi, tmp_path: Path) -> None:
     module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
-    with pytest.raises(LabVIEWError) as raised:
+    with pytest.raises(_generated_error(module)) as raised:
         module.file_info__ogtk(file=tmp_path / "nope", file_info=SimpleNamespace())
     assert raised.value.code == 7
 
@@ -149,7 +156,7 @@ def test_an_unknown_file_refnum_is_error_1(generated_vi) -> None:
     retrieve = generated_vi(
         _vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"), _OPENG
     )
-    with pytest.raises(LabVIEWError) as raised:
+    with pytest.raises(_generated_error(retrieve)) as raised:
         retrieve.lfu_retrieve_file_handle__ogtk(file_refnum=987654321)
     assert raised.value.code == 1
 
@@ -257,7 +264,8 @@ def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
     handler = generated_vi(_vi(_LARGEFILE / "LFU Error Handler__ogtk.vi"), _OPENG)
     handler.lfu_error_handler__ogtk(retval=1)  # a succeeded call: nothing to report
     kernel32.last_error = 5
-    with pytest.raises(LabVIEWError) as raised:  # a failed call reports error 6
+    # a failed call reports error 6
+    with pytest.raises(_generated_error(handler)) as raised:
         handler.lfu_error_handler__ogtk(retval=0, prepend_string="test")
     assert raised.value.code == 6
     assert "WinError: test; " in raised.value.source
@@ -267,7 +275,7 @@ def test_a_missing_file_fails_to_open(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
     opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"), _OPENG)
-    with pytest.raises(LabVIEWError):
+    with pytest.raises(_generated_error(opener)):
         opener.lf_open_file__ogtk(file_path=tmp_path / "nope.bin", open_mode_0=_READ)
     assert kernel32.last_error == 2  # ERROR_FILE_NOT_FOUND
 
@@ -344,16 +352,18 @@ def test_read_discovery_service_key_file(
     assert kernel32.files == {}  # the file was closed
 
 
-def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
+def test_read_discovery_service_key_file_of_a_missing_file_clears_error_5054(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
     """CreateFileA answers INVALID_HANDLE_VALUE, so GetFileSizeEx fails and the
-    VI reports its own error 5054 through Error Cluster From Error Code."""
+    VI builds error 5054 through Error Cluster From Error Code. The Clear Errors
+    after the read catches the errors of the code before it, so the call returns
+    an empty key."""
     module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
-    with pytest.raises(LabVIEWError) as raised:
-        module.read_discovery_service_key_file(key_file_path=tmp_path / "nope.json")
-    assert raised.value.code == 5054
-    assert raised.value.message == "Failed to get the discovery service key file size."
+    result = module.read_discovery_service_key_file(
+        key_file_path=tmp_path / "nope.json"
+    )
+    assert result.key_json == ""
 
 
 def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
@@ -362,7 +372,7 @@ def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
     """CreateFileA answering 0 is the case the VI reports as error 5053."""
     module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
     monkeypatch.setattr(kernel32, "CreateFileA", lambda *args: 0)
-    with pytest.raises(LabVIEWError) as raised:
+    with pytest.raises(_generated_error(module)) as raised:
         module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")
     assert raised.value.code == 5053
     assert raised.value.message == (

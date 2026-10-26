@@ -14,7 +14,7 @@ arguments and returning the same values.
 
 The node's error terminals are not bound, like every other node here: a library
 that cannot be loaded or called raises ``LabVIEWError`` (NI error 7 / 1097), and
-error wires are the exception model's job (``codegen/error_handler.py``).
+error wires are exception handling (``codegen/error_wires.py``).
 """
 
 from __future__ import annotations

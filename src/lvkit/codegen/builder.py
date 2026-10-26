@@ -22,17 +22,8 @@ from .ast_utils import (
 )
 from .context import CodeGenContext
 from .elementwise import LV_IMPORT, arrayify_module
-from .error_handler import (
-    ErrorHandlingPattern,
-    build_clear_try_except,
-    build_held_error_check,
-    build_held_error_init,
-    build_labview_error_import,
-    build_merge_try_except,
-    classify_error_node,
-    find_error_path_ops,
-    needs_error_handling,
-)
+from .error_path import ErrorRole, classify_error_node
+from .error_wires import generate_error_handler
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
 from .nodes import generate as generate_node
@@ -42,7 +33,6 @@ def build_module(
     vi_context: VIContext,
     vi_name: str,
     import_resolver: ImportResolver | None = None,
-    has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
     unresolved_sink: list[Exception] | None = None,
@@ -54,8 +44,6 @@ def build_module(
         vi_context: VIContext with inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
         import_resolver: Optional callable (subvi_name) -> import statement string
-        has_parallel_branches: If True, enable held error model for parallel
-                              branch error handling. If None, reads from vi_context.
         graph: The nx.MultiDiGraph. resolve() walks this directly.
         soft_unresolved: When True, unknown primitives / vi.lib VIs are
             emitted as inline `raise PrimitiveResolutionNeeded(...)` /
@@ -113,11 +101,6 @@ def build_module(
         ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
     )
 
-    # Determine if we need error handling infrastructure (graph-driven).
-    # True only if Merge Errors (prim 2147) exists in the VI's node tree.
-    use_error_handling = needs_error_handling(top_nodes, ctx)
-    ctx.use_held_error_model = use_error_handling
-
     # Generate function body
     body: list[ast.stmt] = []
 
@@ -130,10 +113,6 @@ def build_module(
         build_array_input_normalization(parameters, parameter_names(parameters))
     )
 
-    # Add held error initialization if needed
-    if use_error_handling:
-        body.append(build_held_error_init())
-
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
 
@@ -142,17 +121,13 @@ def build_module(
     if arrayify_module(body, frozenset(ctx.array_vars)):
         ctx.imports.add(LV_IMPORT)
 
-    # Add held error check before return if we have error handling
-    if use_error_handling:
-        body.append(build_held_error_check())
-
     # Add return statement
     return_stmt = build_return_stmt(vi_context, ctx)
     if return_stmt:
         body.append(return_stmt)
 
     # Build module structure
-    module = build_module_ast(vi_context, vi_name, body, ctx, use_error_handling)
+    module = build_module_ast(vi_context, vi_name, body, ctx)
 
     # Optimize AST (duplicate imports, dead code)
     module = optimize_module(module)
@@ -167,12 +142,12 @@ def generate_body(
 ) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
-    Uses tiered topological sort to identify parallel groups. Single-op
-    tiers emit sequential code. Multi-op tiers are wrapped in
-    concurrent.futures.ThreadPoolExecutor.
+    Operations are emitted sequentially in dataflow order; independent nodes
+    carry no shared state, and an exception raised by one propagates.
 
-    Statements are tagged with the operation IDs that produced them so
-    Clear Errors can scope its try/except to only the error-path ops.
+    Statements are tagged with the operation IDs that produced them so the
+    nodes that handle an error (Clear Errors, an error case structure, ...) can
+    wrap the statements that produce the error they handle in a ``try``.
 
     Args:
         operations: List of graph nodes to generate code for
@@ -192,330 +167,29 @@ def generate_body(
     # are fetched separately via ctx.child_nodes)
     tiers = topological_sort_tiered(operations, ctx)
 
-    for tier in tiers:
-        # Extract Clear Errors ops from the tier before dispatching
-        clear_ops = [
-            op for op in tier if classify_error_node(op) == ErrorHandlingPattern.CLEAR
-        ]
-        if clear_ops:
-            clear_ids = {op.id for op in clear_ops}
-            remaining = [op for op in tier if op.id not in clear_ids]
-        else:
-            remaining = tier
-
-        # A ThreadPoolExecutor parallel tier is used ONLY when the held-error
-        # model needs per-branch error holding. Otherwise independent nodes are
-        # emitted SEQUENTIALLY in dataflow order: equivalent for by-value LabVIEW
-        # dataflow (independent branches carry no shared mutable state), far more
-        # idiomatic Python, and free of the per-branch return wiring that dropped
-        # cross-branch inlined references (the `product`/UnboundLocal class).
-        if remaining:
-            if ctx.use_held_error_model and len(remaining) > 1:
-                tier_ids = {op.id for op in remaining}
-                stmts = _generate_parallel_tier(remaining, ctx)
-                for s in stmts:
-                    tagged.append((tier_ids, s))
-            else:
-                for node in remaining:
-                    fragment = generate_node(node, ctx)
-                    for s in fragment.statements:
-                        tagged.append(({node.id}, s))
-                    ctx.merge(fragment.bindings)
-                    ctx.imports.update(fragment.imports)
-
-        # Apply Clear Errors wrapping for each extracted clear op
-        for clear_op in clear_ops:
-            _apply_clear_wrapping(
-                clear_op,
-                operations,
-                ctx,
-                tagged,
-            )
-
-    return [stmt for _, stmt in tagged]
-
-
-def _apply_clear_wrapping(
-    clear_op: AnyGraphNode,
-    all_ops: list[AnyGraphNode],
-    ctx: CodeGenContext,
-    tagged: list[tuple[set[str], ast.stmt]],
-) -> None:
-    """Apply scoped Clear Errors wrapping to tagged statements.
-
-    Traces upstream from the Clear Errors' error input to find which
-    operations are on its error wire, then wraps only those statements.
-    Falls back to wrapping everything if no graph is available.
-    """
-    if not tagged:
-        return
-
-    # Clear Errors generates except LabVIEWError — ensure import
-    ctx.imports.add("from lvkit.labview_error import LabVIEWError")
-
-    error_op_ids = find_error_path_ops(clear_op, all_ops, ctx)
-
-    if error_op_ids:
-        # Scoped: wrap only statements from error-path operations. Statements
-        # keep their dataflow order: each run of consecutive error-path
-        # statements gets its own try block at that position, so a statement
-        # that reads a wrapped statement's value still runs after it.
-        result: list[tuple[set[str], ast.stmt]] = []
-        run: list[ast.stmt] = []
-        for op_ids, stmt in tagged:
-            if op_ids & error_op_ids:
-                run.append(stmt)
-                continue
-            if run:
-                result.append(({clear_op.id}, build_clear_try_except(run)))
-                run = []
-            result.append((op_ids, stmt))
-        if run:
-            result.append(({clear_op.id}, build_clear_try_except(run)))
-        tagged.clear()
-        tagged.extend(result)
-    else:
-        # No graph or no upstream found — wrap everything
-        all_stmts = [stmt for _, stmt in tagged]
-        tagged.clear()
-        tagged.append(
-            ({clear_op.id}, build_clear_try_except(all_stmts)),
-        )
-
-
-def _generate_parallel_tier(
-    tier: list[AnyGraphNode], ctx: CodeGenContext
-) -> list[ast.stmt]:
-    """Generate ThreadPoolExecutor block for parallel operations.
-
-    Each branch function returns its produced values as a tuple.
-    Futures capture the returns, and .result() unpacks them into
-    the outer scope after the executor block completes.
-
-    LabVIEW semantics:
-    - By-value data: branches get copies, return new values via future
-    - By-reference data (classes, refnums): shared, mutations visible
-      across branches via closure capture
-    - Shift registers: loop-scoped state, accessible to all branches
-    """
-    ctx.imports.add("import concurrent.futures")
-
-    # Generate fragments for each op
-    fragments = []
-    for node in tier:
+    def emit(node: AnyGraphNode) -> None:
         fragment = generate_node(node, ctx)
-        fragments.append(fragment)
+        for s in fragment.statements:
+            tagged.append(({node.id}, s))
+        ctx.merge(fragment.bindings)
         ctx.imports.update(fragment.imports)
 
-    # Build function defs, submit calls, and future captures
-    inner_stmts: list[ast.stmt] = []
-    # Statements to emit AFTER the with block (future.result() unpacking)
-    post_stmts: list[ast.stmt] = []
-    # Track which fragments produce bindings that need returning
-    branch_info: list[tuple[str, list[str]]] = []  # (future_var, [bound_var_names])
+    for tier in tiers:
+        roles = {op.id: classify_error_node(op, ctx) for op in tier}
+        handlers = [
+            op for op in tier if roles[op.id] not in (ErrorRole.NONE, ErrorRole.MERGE)
+        ]
+        handler_ids = {op.id for op in handlers}
+        for node in tier:
+            if node.id not in handler_ids:
+                emit(node)
+        # A handler wraps the statements that produce the error it handles,
+        # which are all in earlier tiers or earlier in this one.
+        for op in handlers:
+            if not generate_error_handler(op, roles[op.id], operations, ctx, tagged):
+                emit(op)
 
-    for fragment in fragments:
-        stmts = fragment.statements
-        if not stmts:
-            continue
-
-        func_name = f"_branch_{ctx._branch_counter}"
-        future_var = f"_f{ctx._branch_counter}"
-        ctx._branch_counter += 1
-
-        # Collect unique variable names this branch produces.
-        # Include both direct identifiers (e.g., "result") and root
-        # variables from dotted bindings (e.g., "result" from
-        # "result.field") when the root was assigned in this branch.
-        assigned_in_branch = _extract_assigned_names(stmts)
-        raw_vars: list[str] = []
-        for v in fragment.bindings.values():
-            if not v or v in ("None", "True", "False"):
-                continue
-            root = v.split(".")[0] if "." in v else v
-            if root.isidentifier() and root in assigned_in_branch:
-                raw_vars.append(root)
-        bound_vars = list(dict.fromkeys(raw_vars))
-
-        body = list(stmts)
-
-        # Add return statement if branch produces bindings
-        if bound_vars:
-            if len(bound_vars) == 1:
-                return_value = ast.Name(id=bound_vars[0], ctx=ast.Load())
-            else:
-                return_value = ast.Tuple(
-                    elts=[ast.Name(id=v, ctx=ast.Load()) for v in bound_vars],
-                    ctx=ast.Load(),
-                )
-            body.append(ast.Return(value=return_value))
-
-        func_def = ast.FunctionDef(
-            name=func_name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[],
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-            ),
-            body=body,
-            decorator_list=[],
-            returns=None,
-        )
-        inner_stmts.append(func_def)
-
-        # _fN = _executor.submit(_branch_N); every branch is awaited after the
-        # block so an error it raises reaches the caller.
-        inner_stmts.append(
-            ast.Assign(
-                targets=[ast.Name(id=future_var, ctx=ast.Store())],
-                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-            )
-        )
-        branch_info.append((future_var, bound_vars))
-
-    # Always merge bindings — even when all ops produce zero statements.
-    # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
-    # generate no code but carry critical bindings that downstream
-    # tiers depend on for input resolution.
-    for fragment in fragments:
-        ctx.merge(fragment.bindings)
-
-    if not inner_stmts:
-        return []
-
-    # Build the with statement
-    with_stmt = ast.With(
-        items=[
-            ast.withitem(
-                context_expr=ast.Call(
-                    func=ast.Attribute(
-                        value=ast.Attribute(
-                            value=ast.Name(id="concurrent", ctx=ast.Load()),
-                            attr="futures",
-                            ctx=ast.Load(),
-                        ),
-                        attr="ThreadPoolExecutor",
-                        ctx=ast.Load(),
-                    ),
-                    args=[],
-                    keywords=[],
-                ),
-                optional_vars=ast.Name(id="_executor", ctx=ast.Store()),
-            )
-        ],
-        body=inner_stmts,
-    )
-
-    # Build future.result() unpacking after the with block.
-    # When held-error model is active, wrap each .result() call in
-    # try/except so exceptions are captured and the first error is
-    # raised at the merge point (LabVIEW Merge Errors semantics).
-    for future_var, bound_vars in branch_info:
-        result_expr = ast.Call(
-            func=ast.Attribute(
-                value=ast.Name(id=future_var, ctx=ast.Load()),
-                attr="result",
-                ctx=ast.Load(),
-            ),
-            args=[],
-            keywords=[],
-        )
-        result_stmt: ast.stmt
-        if not bound_vars:
-            result_stmt = ast.Expr(value=result_expr)
-        elif len(bound_vars) == 1:
-            target = ast.Name(id=bound_vars[0], ctx=ast.Store())
-            result_stmt = ast.Assign(targets=[target], value=result_expr)
-        else:
-            target = ast.Tuple(
-                elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
-                ctx=ast.Store(),
-            )
-            result_stmt = ast.Assign(targets=[target], value=result_expr)
-
-        if ctx.use_held_error_model:
-            # Wrap in try/except: _held_error = _held_error or e
-            result_var = bound_vars[0] if len(bound_vars) == 1 else None
-            post_stmts.append(build_merge_try_except(result_stmt, result_var))
-        else:
-            post_stmts.append(result_stmt)
-
-    ast.fix_missing_locations(with_stmt)
-    for stmt in post_stmts:
-        ast.fix_missing_locations(stmt)
-
-    return [with_stmt] + post_stmts
-
-
-class _AssignedNameVisitor(ast.NodeVisitor):
-    """Collects Name targets of Assign/AnnAssign (each name of an unpacking
-    target too) anywhere in a statement tree, including inside nested blocks
-    (while/for/if/with/try) -- e.g. a shift-register update assigned inside a
-    while loop's body. Does NOT
-    descend into nested function/lambda defs, which introduce their own
-    scope (a name assigned there is not a name of the enclosing branch)."""
-
-    def __init__(self) -> None:
-        self.names: set[str] = set()
-
-    def _add_target(self, target: ast.expr) -> None:
-        if isinstance(target, ast.Name):
-            self.names.add(target.id)
-        elif isinstance(target, ast.Tuple | ast.List):
-            for element in target.elts:
-                self._add_target(element)
-        elif isinstance(target, ast.Starred):
-            self._add_target(target.value)
-
-    def visit_Assign(self, node: ast.Assign) -> None:
-        for target in node.targets:
-            self._add_target(target)
-        self.generic_visit(node)
-
-    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        if isinstance(node.target, ast.Name):
-            self.names.add(node.target.id)
-        self.generic_visit(node)
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        pass  # New scope -- do not descend.
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        pass  # New scope -- do not descend.
-
-    def visit_Lambda(self, node: ast.Lambda) -> None:
-        pass  # New scope -- do not descend.
-
-
-def _extract_assigned_names(stmts: list[ast.stmt]) -> set[str]:
-    """Extract variable names assigned anywhere in a list of statements.
-
-    Walks into nested blocks (while/for/if/with/try) since a value bound
-    by a node's CodeFragment may be assigned inside a loop body it
-    generated (e.g. a shift-register update) rather than as a top-level
-    statement of the fragment.
-    """
-    visitor = _AssignedNameVisitor()
-    for stmt in stmts:
-        visitor.visit(stmt)
-    return visitor.names
-
-
-def _build_submit(callable_expr: ast.expr) -> ast.Call:
-    """Build _executor.submit(<callable_expr>) AST node."""
-    return ast.Call(
-        func=ast.Attribute(
-            value=ast.Name(id="_executor", ctx=ast.Load()),
-            attr="submit",
-            ctx=ast.Load(),
-        ),
-        args=[callable_expr],
-        keywords=[],
-    )
+    return [stmt for _, stmt in tagged]
 
 
 def topological_sort_tiered(
@@ -662,13 +336,12 @@ def build_module_ast(
     vi_name: str,
     body: list[ast.stmt],
     ctx: CodeGenContext,
-    use_error_handling: bool = False,
 ) -> ast.Module:
     """Build complete module AST."""
     module_body: list[ast.stmt] = []
 
     # Imports
-    module_body.extend(build_imports(vi_context, ctx, use_error_handling))
+    module_body.extend(build_imports(vi_context, ctx))
 
     # Result class
     spell = ctx.type_namer()
@@ -696,7 +369,6 @@ def build_module_ast(
 def build_imports(
     vi_context: VIContext,
     ctx: CodeGenContext,
-    use_error_handling: bool = False,
 ) -> list[ast.stmt]:
     """Build import statements."""
     imports: list[ast.stmt] = []
@@ -715,10 +387,6 @@ def build_imports(
     for imp in common:
         tree = ast.parse(imp)
         imports.extend(tree.body)
-
-    # Add LabVIEWError import if using error handling
-    if use_error_handling:
-        imports.append(build_labview_error_import())
 
     # Context-accumulated imports
     for imp in sorted(ctx.imports):

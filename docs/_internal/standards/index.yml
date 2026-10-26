@@ -3,8 +3,6 @@
 codegen:
   codefragment-pattern:
     description: Node generators return CodeFragment dataclass with statements, bindings, imports
-  held-error-model:
-    description: Parallel branch error handling that preserves LabVIEW semantics
   primitive-hints:
     description: primitives.json format for mapping LabVIEW primitives to Python
   terminal-name-resolution:

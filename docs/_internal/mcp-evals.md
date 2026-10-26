@@ -239,9 +239,9 @@ undiscoverable.
     - *Answered by:* `/lvkit-convert` — understand via `read_vi`, write Python, verify vs the `lvkit generate` oracle (execute both, diff outputs).
     - *Watch for:* a manual list-append where the tunnel auto-indexes (should be `enumerate`/indexed); serializing independent branches; ignoring the `N`-terminal iteration cap.
 
-28. **Convert a VI that has error clusters AND parallel branches — is the held-error model preserved?**
+28. **Convert a VI that has error clusters AND parallel branches — do the errors become exceptions with the first one propagating?**
     - *Answered by:* `/lvkit-convert`.
-    - *Watch for:* one `try/except` around everything (short-circuits branches that still run); dropping the first-error-at-merge semantics.
+    - *Watch for:* a held-error variable or error values passed around; one `try/except` around everything.
 
 29. **Convert a VI whose array wire branches into an in-place-mutating op — does the port avoid the aliasing bug?**
     - *Answered by:* `/lvkit-convert`; execute — mutate one consumer, assert the other's copy is unchanged.

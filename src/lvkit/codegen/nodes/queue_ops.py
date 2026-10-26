@@ -22,8 +22,8 @@ primitives.json (CLAUDE.md's terminal-resolution workflow — never by
 name), and each op emits a call into the small stdlib-only runtime in
 `lvkit.labview_queue`. Error cluster terminals (error_in / error_out) are
 intentionally left unwired here, matching every other primitive handler in
-this package — error propagation is handled by the graph-level error
-model (`codegen/error_handler.py`), not per-primitive.
+this package — an error is an exception, handled where the diagram handles it
+(`codegen/error_wires.py`), not per-primitive.
 """
 
 from __future__ import annotations
