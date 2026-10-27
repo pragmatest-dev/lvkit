@@ -62,12 +62,23 @@ class ExtFuncParam:
 UNPASSABLE_KINDS = frozenset({ParamKind.UNSUPPORTED})
 
 
+class LibraryPathKind(str, Enum):
+    """How the path recorded for a node's library locates it."""
+
+    BY_NAME = "by_name"  # a bare file name: the operating system's search finds it
+    RELATIVE_TO_VI = "relative_to_vi"  # leading empty tokens: from the VI's folder
+    OTHER = "other"  # rooted in a LabVIEW folder or absolute: loaded by its name
+
+
 @dataclass(frozen=True)
 class ExtFuncCall:
     """A Call Library Function Node's call.
 
     ``calling_convention`` is ``stdcall`` or ``c``. ``library`` is None when the
-    node records no library (its path comes from the ``path in`` terminal).
+    node records no library (its path comes from the ``path in`` terminal); else
+    it is the name as typed in the node's setup, wildcards (``vendorlib.*``)
+    included. ``library_path_tokens`` and ``library_path_kind`` are the path
+    LabVIEW recorded for it (see ``extfunc_links``).
     ``row_terminal_ids`` is each row's (input, output) terminal id, the return
     value first; the return value has no input terminal (None)."""
 
@@ -79,6 +90,8 @@ class ExtFuncCall:
     func_td: int | None = None
     thread: ExtFuncThread | None = None
     params: tuple[ExtFuncParam, ...] = field(default=())
+    library_path_tokens: tuple[str, ...] = ()
+    library_path_kind: LibraryPathKind = LibraryPathKind.BY_NAME
 
 
 NUMERIC_C_TYPES = {
