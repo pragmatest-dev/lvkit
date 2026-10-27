@@ -70,6 +70,33 @@ class TestStaleCleanup:
             assert live_dir.exists()
             assert live_lock.exists()
 
+    def test_orphaned_run_warns_once_and_is_removed(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        dead_dir, dead_lock = self._fake_run("r-1-deadbeef")
+        other_dir, other_lock = self._fake_run("r-3-feedface")
+        staging.clean_orphans(_root())
+        err = capsys.readouterr().err
+        assert err.count("a previous lvkit run was stopped before it finished") == 1
+        assert str(dead_dir) in err and "and 1 more" in err
+        assert "terminated by another program" in err
+        assert not dead_dir.exists() and not dead_lock.exists()
+        assert not other_dir.exists() and not other_lock.exists()
+        staging.clean_orphans(_root())
+        assert capsys.readouterr().err == ""
+
+    def test_live_run_and_empty_cache_are_silent(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        staging.clean_orphans(_root())  # no staging folder at all
+        assert not staging.staging_root(_root()).exists()
+        live_dir, live_lock = self._fake_run("r-2-cafef00d")
+        with open(live_lock, "r+b") as holder:
+            assert staging._try_lock(holder)
+            staging.clean_orphans(_root())
+        assert live_dir.exists()
+        assert capsys.readouterr().err == ""
+
     def test_legacy_unlocked_directory_removed_only_when_old(self) -> None:
         root = staging.staging_root(_root())
         root.mkdir(parents=True, exist_ok=True)

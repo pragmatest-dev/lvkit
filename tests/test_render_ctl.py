@@ -127,13 +127,13 @@ def test_with_name_returns_the_same_body_plus_the_typedef_name():
 
     result = render_ctl_body_with_name(_CTL, fmt="svg", theme_mode="light")
     assert result is not None
-    svg, name = result
+    svg, name, _ = result
     assert svg == render_ctl_body(_CTL, fmt="svg", theme_mode="light")
     assert name == "API_Test Settings.ctl"
 
     result_html = render_ctl_body_with_name(_CTL, fmt="html", ref="abc1234")
     assert result_html is not None
-    _, name_html = result_html
+    _, name_html, _ = result_html
     assert name_html == "API_Test Settings.ctl"  # the ref suffix is NOT in name
 
 

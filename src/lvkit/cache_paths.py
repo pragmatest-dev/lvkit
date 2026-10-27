@@ -25,10 +25,11 @@ temp). :func:`classify` returns which. The owned namespaces name the ``<slug>``
 identity ONCE and hang every ``<kind>`` off it, so a project/library reads as a
 single browsable subtree. ``adhoc`` has no identity to name, so it drops the slug
 level and is a flat per-kind pool (``adhoc/<kind>/…``) — path-addressed for
-``extract``, content-addressed for ``render``/``diff`` (see :mod:`output_cache`),
-TTL-swept. ``index`` is projects-only — shared/adhoc VIs are never indexed
-standalone. The ``<slug>`` sits BELOW the namespace so the three namespaces stay
-legibly separated at the top.
+``extract`` (one slot per VI file path), content-addressed for
+``render``/``diff`` (see :mod:`output_cache`), TTL-swept. ``index`` is
+projects-only — shared/adhoc VIs are never indexed standalone. The ``<slug>``
+sits BELOW the namespace so the three namespaces stay legibly separated at
+the top.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ import os
 import shutil
 import threading
 import time
+from collections.abc import Iterable
 from pathlib import Path
 
 from lvkit import staging
@@ -302,9 +304,10 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
         return d, str(rel), "projects"
 
     # adhoc has NO owner (not a project, not a library) -> no identity slug to
-    # name; kind sits right under the namespace and the parent-dir slug is just
-    # the path-addressing key (render/diff override this to a flat content pool).
-    return cache / "adhoc" / kind / fp / _slug(resolved.parent), resolved.name, "adhoc"
+    # name; kind sits right under the namespace and each VI gets its own bounded
+    # slot keyed by its full resolved path, so sibling VIs never share a slot
+    # (render/diff override this to a flat content pool).
+    return cache / "adhoc" / kind / fp / _vi_slot(resolved), resolved.name, "adhoc"
 
 
 def cache_target(vi_path: Path, kind: str) -> Path:
@@ -499,6 +502,8 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
         for k, v in extra.items():
             if meta.get(k) != v:
                 return False
+    if not dependencies_fresh(meta.get("dependencies")):
+        return False
     try:
         st = vi_path.stat()
     except OSError:
@@ -514,6 +519,51 @@ def meta_fresh(vi_path: Path, meta_path: Path, extra: dict | None = None) -> boo
             pass
         return True
     return False
+
+
+def dependency_stamps(paths: Iterable[Path]) -> dict[str, dict[str, object] | None]:
+    """The content stamp (``sha256`` + ``mtime``/``size`` fast-path) of every
+    dependency file in ``paths``, keyed by its path in sorted order; ``None`` for
+    a file that is absent (an unresolved SubVI), so it is a miss if it later
+    appears. Stored in a render/diff meta as ``dependencies``."""
+    stamps: dict[str, dict[str, object] | None] = {}
+    for p in sorted({Path(q) for q in paths}, key=str):
+        try:
+            st = p.stat()
+            stamps[str(p)] = {
+                "sha256": sha256_file(p),
+                "mtime": st.st_mtime,
+                "size": st.st_size,
+            }
+        except OSError:
+            stamps[str(p)] = None
+    return stamps
+
+
+def dependencies_fresh(recorded: object) -> bool:
+    """Whether every dependency recorded by :func:`dependency_stamps` is still
+    as it was: same ``(mtime, size)`` or, failing that, the same content hash;
+    an absent file is still absent. A meta with no record is fresh."""
+    if not isinstance(recorded, dict):
+        return True
+    for raw, stamp in recorded.items():
+        p = Path(raw)
+        try:
+            st = p.stat()
+        except OSError:
+            if stamp is not None:
+                return False
+            continue
+        if not isinstance(stamp, dict):
+            return False
+        if stamp.get("size") == st.st_size and stamp.get("mtime") == st.st_mtime:
+            continue
+        try:
+            if stamp.get("sha256") != sha256_file(p):
+                return False
+        except OSError:
+            return False
+    return True
 
 
 def write_meta(vi_path: Path, meta_path: Path, **extra: object) -> None:

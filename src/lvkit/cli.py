@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 # ``graph.loading``, which pulls networkx); ``project_store`` is stdlib-only. The
 # engine imports (graph, structure, lv_detect, the resolvers) are deferred into
 # the specific commands that build/analyze — see the function-local imports.
-from . import __version__
+from . import __version__, cache_paths, staging
+from .build_options import BuildOptions
 from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
@@ -161,6 +162,22 @@ def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -
         graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
 
 
+def _find_project_store(args: argparse.Namespace) -> Path | None:
+    """The project store directory for this run: ``--project-root`` in either
+    form (the parent of ``.lvkit/``, or ``.lvkit/`` itself), else the nearest
+    ``.lvkit/`` above the working directory; ``None`` when there is none."""
+    project_root = getattr(args, "project_root", None)
+    if project_root:
+        candidate = Path(project_root)
+        # Accept both "project root" and ".lvkit/" itself
+        if candidate.name == ".lvkit" and candidate.is_dir():
+            return candidate
+        if (candidate / ".lvkit").is_dir():
+            return candidate / ".lvkit"
+        return None
+    return find_project_store()
+
+
 def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     """Discover the project store and reset resolver singletons.
 
@@ -172,19 +189,7 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
 
     Returns the project store directory if one was found, else None.
     """
-    project_root = getattr(args, "project_root", None)
-    store: Path | None
-    if project_root:
-        candidate = Path(project_root)
-        # Accept both "project root" and ".lvkit/" itself
-        if candidate.name == ".lvkit" and candidate.is_dir():
-            store = candidate
-        elif (candidate / ".lvkit").is_dir():
-            store = candidate / ".lvkit"
-        else:
-            store = None
-    else:
-        store = find_project_store()
+    store = _find_project_store(args)
 
     from . import primitive_resolver, vilib_resolver
 
@@ -748,7 +753,9 @@ def main() -> int:
         action="store_true",
         help=(
             "Bypass the output cache: rebuild from scratch and refresh the slot "
-            "(use after editing lvkit's renderer without a version bump)."
+            "(use after editing lvkit's renderer without a version bump). "
+            "Together with -o the output file is written directly and the "
+            "cache is not touched: no staging folder, no cache entry."
         ),
     )
     render_parser.add_argument(
@@ -791,6 +798,7 @@ def main() -> int:
     _add_library_root_args(render_parser)
 
     args = parser.parse_args()
+    staging.clean_orphans(cache_paths.global_cache_root())
 
     if args.command == "structure":
         return cmd_structure(args)
@@ -1472,14 +1480,32 @@ def cmd_detect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_options(
+    args: argparse.Namespace,
+    *inputs: Path,
+    roots: tuple[Path | None, Path | None] | None = None,
+) -> BuildOptions:
+    """The build options of a render/diff of ``inputs`` from CLI args: SubVI
+    search paths, vi.lib / user.lib roots (``roots``, else resolved here), load
+    mode and project store. They key the output cache and feed the build."""
+    vilib_root, userlib_root = roots or _parse_library_roots(args)
+    return BuildOptions(
+        search_paths=tuple(_auto_search_paths(args.search_paths, *inputs)),
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        mode=_resolve_load_mode(args, LoadMode.MINIMAL),
+        project_store=_find_project_store(args),
+    )
+
+
 def _render_options_tag(
-    args: argparse.Namespace, theme_mode: str, ref: str | None
+    args: argparse.Namespace, theme_mode: str, ref: str | None, build: BuildOptions
 ) -> str:
     """The output-cache options key from CLI args — delegates to the shared
     ``render_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import render_options_tag
 
-    return render_options_tag(args.format, theme_mode, ref)
+    return render_options_tag(args.format, theme_mode, ref, build)
 
 
 def _theme_mode(args: argparse.Namespace) -> ThemeMode:
@@ -1489,23 +1515,40 @@ def _theme_mode(args: argparse.Namespace) -> ThemeMode:
 
 
 def _render_build_kw(
+    build: BuildOptions, theme_mode: ThemeMode, ref: str | None
+) -> dict[str, object]:
+    """The ``render_body`` build kwargs (library roots, search paths, load mode,
+    theme, title ref). The actual build/import happens inside ``cached_render``
+    on a miss — a cache hit never reaches it."""
+    return {**build.build_kwargs(), "theme_mode": theme_mode, "ref": ref}
+
+
+def _build_render_body(
     args: argparse.Namespace,
     input_path: Path,
+    options: str,
+    build: BuildOptions,
     theme_mode: ThemeMode,
     ref: str | None,
-) -> dict[str, object]:
-    """The ``render_body`` build kwargs from CLI args (library roots, search
-    paths, load mode, theme, title ref). The actual build/import happens inside
-    ``cached_render`` on a miss — a cache hit never reaches it."""
-    vilib_root, userlib_root = _parse_library_roots(args)
-    return {
-        "search_paths": _auto_search_paths(args.search_paths, input_path) or None,
-        "vilib_root": vilib_root,
-        "userlib_root": userlib_root,
-        "mode": _resolve_load_mode(args, LoadMode.MINIMAL),
-        "theme_mode": theme_mode,
-        "ref": ref,
-    }
+) -> str | None:
+    """Build the render body. ``--no-cache`` with ``-o`` builds it and nothing
+    else: the output file is the only thing written (no cache entry, no staging
+    folder). Otherwise the shared cached core builds it and refreshes the slot."""
+    kw = _render_build_kw(build, theme_mode, ref)
+    if args.no_cache and args.output:
+        from .render.body import render_body
+
+        return render_body(input_path, fmt=args.format, **kw)  # type: ignore[arg-type]
+    from .output_cache import cached_render
+
+    return cached_render(
+        input_path,
+        fmt=args.format,
+        options=options,
+        version=__version__,
+        return_cached=False,
+        **kw,
+    )
 
 
 def _emit_render(args: argparse.Namespace, input_path: Path, body: str) -> int:
@@ -1540,7 +1583,8 @@ def cmd_render(args: argparse.Namespace) -> int:
         return _cmd_render_dir(args, input_path)
 
     theme_mode = _theme_mode(args)
-    options = _render_options_tag(args, theme_mode, args.ref)
+    build = _build_options(args, input_path)
+    options = _render_options_tag(args, theme_mode, args.ref, build)
 
     # Fast path: a fresh cached render is served here before ANY miss-path setup.
     # cached_render(return_cached=True) would also skip the heavy render import on a
@@ -1559,18 +1603,11 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     # Miss (or --no-cache): build + store via the shared core. return_cached=False
     # because we already did the one read above (or were told to skip it) — no
-    # double-check. The build ALWAYS refreshes the slot.
-    from .output_cache import cached_render
-
+    # double-check. The build refreshes the slot, except --no-cache with -o.
     _configure_resolvers(args)
     try:
-        body = cached_render(
-            input_path,
-            fmt=args.format,
-            options=options,
-            version=__version__,
-            return_cached=False,
-            **_render_build_kw(args, input_path, theme_mode, args.ref),
+        body = _build_render_body(
+            args, input_path, options, build, theme_mode, args.ref
         )
     except Exception as e:
         print(f"Error: render failed: {e}", file=sys.stderr)
@@ -1596,7 +1633,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     Already-fresh slots are skipped. With -o, also export a mirrored HTML/SVG tree
     there: ``Foo.vi`` -> ``Foo.svg``, ``Foo.ctl`` -> ``Foo.ctl.svg`` (so a VI and a
     control sharing a stem don't collide)."""
-    from .output_cache import cached_render, lookup_render
+    from .output_cache import lookup_render
 
     vis = sorted(
         p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in _RENDERABLE
@@ -1605,7 +1642,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
         print(f"No .vi or .ctl files under {root}")
         return 0
     theme_mode = _theme_mode(args)
-    options = _render_options_tag(args, theme_mode, None)  # no per-VI ref in batch
+    roots = _parse_library_roots(args)  # once for the whole batch
     ext = "html" if args.format == "html" else "svg"
     outdir = Path(args.output) if args.output else None
     _configure_resolvers(args)  # once for the whole batch, not per VI
@@ -1613,6 +1650,9 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     rendered = fresh = failed = 0
     for vi in vis:
         body: str | None = None
+        build = _build_options(args, vi, roots=roots)
+        # no per-VI ref in batch
+        options = _render_options_tag(args, theme_mode, None, build)
         if not args.no_cache:
             body = lookup_render(vi, args.format, options, __version__)
         if body is not None:
@@ -1621,14 +1661,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
             # Own lookup already done above → return_cached=False (no re-read);
             # cached_render builds + refreshes the slot.
             try:
-                body = cached_render(
-                    vi,
-                    fmt=args.format,
-                    options=options,
-                    version=__version__,
-                    return_cached=False,
-                    **_render_build_kw(args, vi, theme_mode, None),
-                )
+                body = _build_render_body(args, vi, options, build, theme_mode, None)
             except Exception as e:
                 # Batch keeps going on a single VI's failure, but never silently —
                 # name the VI + reason so a warm-pass failure is diagnosable.
@@ -1683,28 +1716,26 @@ def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
     return paths
 
 
-def _diff_options_tag(args: argparse.Namespace, fmt: str, verbose: bool) -> str:
+def _diff_options_tag(
+    args: argparse.Namespace, fmt: str, verbose: bool, build: BuildOptions
+) -> str:
     """The diff output-cache options key from CLI args — delegates to the shared
     ``diff_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import diff_options_tag
 
-    return diff_options_tag(fmt, verbose, args.before_ref, args.after_ref)
+    return diff_options_tag(fmt, verbose, args.before_ref, args.after_ref, build)
 
 
 def _diff_build_kw(
-    args: argparse.Namespace, path_a: Path, path_b: Path, verbose: bool
+    args: argparse.Namespace, build: BuildOptions, verbose: bool
 ) -> dict[str, object]:
     """The ``diff_vi_files`` build kwargs from CLI args. The actual build/import
     happens inside ``cached_diff`` on a miss — a cache hit never reaches it."""
-    vilib_root, userlib_root = _parse_library_roots(args)
     return {
+        **build.build_kwargs(),
         "verbose": verbose,
-        "search_paths": _auto_search_paths(args.search_paths, path_a, path_b) or None,
         "before_ref": args.before_ref,
         "after_ref": args.after_ref,
-        "mode": _resolve_load_mode(args, LoadMode.MINIMAL),
-        "vilib_root": vilib_root,
-        "userlib_root": userlib_root,
     }
 
 
@@ -1765,7 +1796,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
         print("Error: --open requires --format html", file=sys.stderr)
         return 1
     verbose = bool(args.verbose or args.long)
-    options = _diff_options_tag(args, fmt, verbose)
+    build = _build_options(args, path_a, path_b)
+    options = _diff_options_tag(args, fmt, verbose, build)
 
     # Fast path: a cached diff is served before any miss-path setup (see cmd_render
     # — the unique saving on a hit is _configure_resolvers + _diff_build_kw, not the
@@ -1790,7 +1822,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             options=options,
             version=__version__,
             return_cached=False,
-            **_diff_build_kw(args, path_a, path_b, verbose),
+            **_diff_build_kw(args, build, verbose),
         )
     except Exception as e:  # same catch as cmd_render — one shared cached_* call
         print(f"Error: diff failed: {e}", file=sys.stderr)

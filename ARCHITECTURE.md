@@ -147,6 +147,15 @@ Caches **rendered output STRINGS** (not graphs), keyed by
 command/job builds its own graph (progressively) and discards it. A repeat render
 of the same VI is an instant cache hit on the stored string.
 
+A stored entry is fresh only when its VI, its options tag (format, theme, title
+ref and the `BuildOptions` in `src/lvkit/build_options.py`: search paths, vi.lib /
+user.lib roots, load mode, project store) AND every dependency file the render
+read (`dependencies` in the meta: the loaded graph's `get_dependency_paths`,
+stamped by `cache_paths.dependency_stamps`, checked in `cache_paths.meta_fresh`)
+still match. `render -o FILE --no-cache` skips the cache entirely
+(`cli._build_render_body`). A VI outside any project/library has its own extract
+slot, `adhoc/extract/<fp>/vi-<hash of its path>` (`cache_paths.classify`).
+
 ## Frontends
 
 - **CLI** (`src/lvkit/cli.py`): each command does `load_vi_by_path(mode)` into a

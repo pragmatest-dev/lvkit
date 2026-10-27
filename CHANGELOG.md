@@ -3,6 +3,10 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: VIs outside a git or LabVIEW project no longer re-extract on every run** — each VI has its own extraction slot, so describe and render of a folder with several VIs stop rewriting hundreds of cache files per run (#131).
+- **Fix: a cached render or diff is rebuilt when a SubVI changed or when `--vilib`, `--userlib`, `--search-path`, `--load-mode`, `--no-auto-vilib` or the project store differ** (#131).
+- **`render -o FILE --no-cache` writes only the output file** — no cache entry and no staging folder, for machines where security software watches the cache folder (#131).
+- **A run that was stopped before it finished is reported** — the next lvkit command warns once and removes the leftover staging folder (#131).
 - **Fix: an unwired Application Property Node reads `User Name`** — generated code runs the account name instead of stopping at an unavailable property; the CLFN corpus tests now check the Windows environment and file-information results the Windows way (#185).
 - **Fix: a SubVI call is tied to the file its caller links, not to any VI with the same name** — two classes' same-named methods, or two libraries' same-named VIs, no longer share terminals, imports or "Ambiguous VI reference" failures in describe, lvnet, the index and `generate`.
 - **Type Cast, Swap Bytes and Swap Words work on clusters, arrays, floats and Booleans, in LabVIEW's flattened-data format** — so OpenG's File Info and large-file VIs run end to end on real files; Build Array no longer reads as an element-wise Add (#185).

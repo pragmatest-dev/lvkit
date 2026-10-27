@@ -32,6 +32,7 @@ class DiffBody(NamedTuple):
     body: str
     before_name: str
     after_name: str
+    dependencies: tuple[Path, ...] = ()
 
 
 def diff_vi_files(
@@ -104,13 +105,19 @@ def diff_vi_files(
     # here so every fmt branch (not just html) can return them for free.
     display_a = graph_a.vi_display_name(name_a)
     display_b = graph_b.vi_display_name(name_b)
+    dependencies = tuple(
+        sorted(
+            graph_a.get_dependency_paths(name_a) | graph_b.get_dependency_paths(name_b),
+            key=str,
+        )
+    )
 
     if fmt == "text":
         body = format_diff(graph_a, graph_b, name_a, name_b, verbose=verbose) or ""
-        return DiffBody(body, display_a, display_b)
+        return DiffBody(body, display_a, display_b, dependencies)
     if fmt == "json":
         body = json.dumps(diff_to_dict(graph_a, graph_b, name_a, name_b), indent=2)
-        return DiffBody(body, display_a, display_b)
+        return DiffBody(body, display_a, display_b, dependencies)
 
     # html — both diagrams render "auto" so the viewer's light/dark toggle can
     # re-theme them (a baked palette couldn't respond to the data-theme flip).
@@ -153,4 +160,4 @@ def diff_vi_files(
         after_label=after_label,
         netlist_rows=rows_to_json(rows),
     )
-    return DiffBody(body, display_a, display_b)
+    return DiffBody(body, display_a, display_b, dependencies)
