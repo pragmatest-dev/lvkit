@@ -61,8 +61,9 @@ def build_module(
             unmapped vi.lib VI) is appended to it as the constructed exception.
             `lvkit unresolved` uses this to batch-collect every gap in one pass.
         data_files: When a dict, every data file the module reads at run time (an
-            array too large to write into the module) is added to it by file name;
-            the caller writes each beside the module. Without it, a VI that needs
+            array too large to write into the module, a library of a Call Library
+            Function Node) is added to it by its path from the module's folder; the
+            caller writes each there. Without it, a VI that needs
             one fails with an error saying so.
 
     Returns:

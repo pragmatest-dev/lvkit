@@ -273,24 +273,24 @@ def test_a_missing_file_fails_to_open(
 
 # ----------------------------------------------- kernel32 on a Windows machine
 
-_WINDOWS_ONLY = pytest.mark.skipif(
-    sys.platform != "win32", reason="calls kernel32.dll through ctypes.WinDLL"
-)
+_WINDOWS = sys.platform == "win32"
 
 
-@_WINDOWS_ONLY
 @pytest.mark.parametrize(
     "name,value", [("LVKIT_CLFN_TEST", "text"), ("LVKIT_CLFN_EMPTY", "")]
 )
 def test_write_environment_variable(generated_vi, name: str, value: str) -> None:
-    module = generated_vi(
-        _vi(
-            _PLUGIN
-            / "Source/Tests/Tests.Runtime/Measurement Server/Helpers"
-            / "Write Environment Variable.vi"
-        ),
-        _PLUGIN,
+    vi = _vi(
+        _PLUGIN
+        / "Source/Tests/Tests.Runtime/Measurement Server/Helpers"
+        / "Write Environment Variable.vi"
     )
+    if not _WINDOWS:
+        # kernel32.dll is Windows only: the module loads it when it is imported.
+        with pytest.raises(OSError, match="kernel32.dll"):
+            generated_vi(vi, _PLUGIN)
+        return
+    module = generated_vi(vi, _PLUGIN)
     # SetEnvironmentVariableA changes the process environment block, which
     # os.environ (a snapshot from interpreter start) never sees: read it back
     # through the Windows API, and remove the variable afterwards.
@@ -305,17 +305,17 @@ def test_write_environment_variable(generated_vi, name: str, value: str) -> None
         ctypes.windll.kernel32.SetEnvironmentVariableW(name, None)
 
 
-@_WINDOWS_ONLY
 def test_get_client_machine_details(generated_vi) -> None:
-    module = generated_vi(
-        _vi(
-            _PLUGIN
-            / "Source/Runtime/Clients/Session Management V1/Session Reservation"
-            / "Get Client Machine Details.vi"
-        ),
-        _PLUGIN,
+    vi = _vi(
+        _PLUGIN
+        / "Source/Runtime/Clients/Session Management V1/Session Reservation"
+        / "Get Client Machine Details.vi"
     )
-    details = module.get_client_machine_details()
+    if not _WINDOWS:
+        with pytest.raises(OSError, match="kernel32.dll"):
+            generated_vi(vi, _PLUGIN)
+        return
+    details = generated_vi(vi, _PLUGIN).get_client_machine_details()
     assert details.hostname.lower() == socket.gethostname().lower()[:15]
     assert details.username == getpass.getuser()
 

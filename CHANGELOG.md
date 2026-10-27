@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Call Library Function Node libraries load as LabVIEW does** — a `stdcall` library loads with `WinDLL` only on Windows (`CDLL` elsewhere), wildcard names (`.*`, `*`, `**`) expand when the module is imported or, for a wired path, when the node runs, and a library inside the project is copied into the generated package with the project libraries it needs and loaded from there (#211).
 - **Call Library Function Nodes generate plain `ctypes` code that imports nothing from lvkit** — the library loads once at module level, string and array handles and Adapt to Type clusters are `ctypes.Structure` classes in the module, and `FGetInfo`/`FSetInfo` are `os.stat`/`os.chmod`/`os.utime`; pointers to a string handle and bare `Ptr` parameters now generate too (#185).
 - **Fix: VIs outside a git or LabVIEW project no longer re-extract on every run** — each VI has its own extraction slot, so describe and render of a folder with several VIs stop rewriting hundreds of cache files per run (#131).
 - **Fix: a cached render or diff is rebuilt when a SubVI changed or when `--vilib`, `--userlib`, `--search-path`, `--load-mode`, `--no-auto-vilib` or the project store differ** (#131).

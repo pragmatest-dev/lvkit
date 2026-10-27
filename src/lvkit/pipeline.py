@@ -7,6 +7,7 @@ Scripts and CLI commands delegate to :func:`generate_python`.
 from __future__ import annotations
 
 import ast
+import os
 import re
 import shutil
 import sys
@@ -229,6 +230,16 @@ def create_import_resolver(
         below_root = folder.relative_to(output_dir).parts
         return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
 
+    def project_file(source: Path) -> str | None:
+        """Where ``source`` sits from the calling module's folder once copied into
+        the package at its project-relative path."""
+        inside = layout.below_root(source) if layout else None
+        if inside is None:
+            return None
+        return Path(
+            os.path.relpath(output_dir.joinpath(*inside), caller_dir)
+        ).as_posix()
+
     def error_import() -> str:
         dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
         return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
@@ -246,6 +257,7 @@ def create_import_resolver(
         package_spec,
         package_modules,
         root_module_import,
+        project_file,
     )
 
 
@@ -277,9 +289,12 @@ def _write_errors_module(package_root: Path) -> None:
 
 
 def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
-    """Write the files a generated module reads at run time beside the module."""
+    """Write the files a generated module reads at run time, each at its path from
+    the module's folder."""
     for name, content in data_files.items():
-        (folder / name).write_bytes(content)
+        target = Path(os.path.normpath(folder / name))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
 
 
 def _generate_polymorphic_module(

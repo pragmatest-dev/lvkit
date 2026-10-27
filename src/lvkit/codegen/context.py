@@ -99,7 +99,8 @@ class CodeGenContext:
     # contexts so a gap nested in a loop/case is still collected.
     unresolved_sink: list[Exception] | None = field(default=None, repr=False)
     # Files the generated module reads at run time (an array too large to write
-    # into the module), by file name; the caller writes them beside the module.
+    # into the module, a library of a Call Library Function Node), by path from
+    # the module's folder; the caller writes each there.
     # None when the caller has nowhere to put them. ``module_stem`` prefixes
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)

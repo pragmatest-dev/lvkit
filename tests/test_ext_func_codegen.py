@@ -192,7 +192,10 @@ def test_corpus_vi_generates_python_that_compiles(vi_path: Path, function: str) 
     )
     source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     compile(source, vi_path.name, "exec")
-    assert "_kernel32_dll = ctypes.WinDLL('kernel32.dll')" in source
+    assert (
+        "_kernel32_dll = getattr(ctypes, 'WinDLL', ctypes.CDLL)('kernel32.dll')"
+        in source
+    )
     assert f"_kernel32_dll[{function!r}]" in source
 
 

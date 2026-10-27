@@ -139,6 +139,11 @@ class ModuleLayout:
                 self.unplaced[key] = unplaced
         self._check_unique()
 
+    def below_root(self, path: Path) -> tuple[str, ...] | None:
+        """The parts of ``path`` below the project folder; None when it is not
+        inside it."""
+        return _below(str(path.resolve()), self._root)
+
     def _tokens_of(self, key: str) -> list[str]:
         """The folders and the file name that place ``key``."""
         recorded = (

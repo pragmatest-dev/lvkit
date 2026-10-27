@@ -28,12 +28,18 @@ def build_vi(
     controls: dict[int, str],
     indicators: dict[int, str],
     convention: str = "c",
+    path_control: str | None = None,
+    call_fields: dict[str, Any] | None = None,
+    load: bool = True,
 ) -> tuple[Any, str]:
     """Generate and load a VI around one Call Library Function Node.
 
     ``params``/``wire_types`` are the prototype rows (return value first).
     ``controls`` maps a row to the control name wired to its input side;
-    ``indicators`` maps a row to the indicator wired to its output side."""
+    ``indicators`` maps a row to the indicator wired to its output side.
+    ``path_control`` is a Path control wired to the node's ``path in`` terminal;
+    ``call_fields`` are further ``ExtFuncCall`` fields (the recorded library path).
+    Without ``load`` the module is only generated (the function returned is None)."""
     rows = [
         (None if row == 0 else f"n:in{row}", f"n:out{row}")
         for row in range(len(params))
@@ -59,6 +65,16 @@ def build_vi(
                 lv_type=lv_type(wire_types[row]),
             )
         )
+    if path_control:
+        terminals.append(
+            Terminal(
+                id="n:path",
+                index=0,
+                direction="input",
+                name="path in",
+                lv_type=lv_type("Path"),
+            )
+        )
     node = PrimitiveNode(
         id="n",
         vi_path="Clfn Test.vi",
@@ -69,9 +85,10 @@ def build_vi(
             library=library,
             function=function,
             calling_convention=convention,
-            path_in_terminal_id=None,
+            path_in_terminal_id="n:path" if path_control else None,
             row_terminal_ids=tuple(rows),
             params=tuple(params),
+            **(call_fields or {}),
         ),
     )
     inputs = [
@@ -86,6 +103,18 @@ def build_vi(
         )
         for i, (row, name) in enumerate(controls.items())
     ]
+    if path_control:
+        inputs.append(
+            FPTerminal(
+                id=f"fp:{path_control}",
+                index=len(inputs),
+                direction="input",
+                name=path_control,
+                is_public=True,
+                is_indicator=False,
+                lv_type=lv_type("Path"),
+            )
+        )
     outputs = [
         FPTerminal(
             id=f"fp:{name}",
@@ -105,11 +134,19 @@ def build_vi(
         Wire.from_terminals(from_terminal_id=f"n:out{row}", to_terminal_id=f"fp:{name}")
         for row, name in indicators.items()
     ]
+    if path_control:
+        wires.append(
+            Wire.from_terminals(
+                from_terminal_id=f"fp:{path_control}", to_terminal_id="n:path"
+            )
+        )
     context = VIContext(
         name="Clfn Test.vi", inputs=inputs, outputs=outputs, data_flow=wires
     )
     graph = build_graph(context, context.name, [node])
     source = build_module(context, context.name, graph=graph)
+    if not load:
+        return None, source
     namespace: dict[str, Any] = {}
     exec(compile(source, context.name, "exec"), namespace)  # noqa: S102
     return namespace["clfn_test"], source

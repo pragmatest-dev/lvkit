@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode
@@ -59,6 +60,7 @@ class ImportResolver:
         package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
+        project_file: Callable[[Path], str | None] | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -68,6 +70,7 @@ class ImportResolver:
         self._package_spec = package_spec
         self._package_modules = package_modules
         self._root_module_import = root_module_import
+        self._project_file = project_file
 
     def function(self, vi_name: str, callee_key: str | None = None) -> NameImport:
         """The import of the VI's function and the name the module calls it by;
@@ -94,6 +97,7 @@ class ImportResolver:
     def error_import(self) -> str:
         """The statement importing ``LabVIEWError`` from the package root."""
         return self._error_import()
+
     @property
     def has_package_modules(self) -> bool:
         """Whether this resolver belongs to a generated package that defines
@@ -139,6 +143,14 @@ class ImportResolver:
             root_import(modules.shared_variables_stem, "shared_variables_module"),
             attributes,
         )
+
+    def project_file(self, source: Path) -> str | None:
+        """Where the file ``source`` sits from the folder of the module being
+        generated once it is copied into the package at its project-relative path
+        (a ``/`` path, ``..`` for each folder up); None when ``source`` is not
+        inside the project."""
+        return self._project_file(source) if self._project_file else None
+
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding
         the file ``key``: the dots, then each package and a dot. A module found by

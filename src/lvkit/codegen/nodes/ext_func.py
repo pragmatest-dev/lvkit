@@ -2,9 +2,10 @@
 
 The node lowers to ``ctypes`` code written out in the module (see
 ``lvkit.parser.extfunc_prototype`` for how the node's prototype is read). The
-library is loaded once at module level (``ctypes.WinDLL`` for ``stdcall``,
-``ctypes.CDLL`` for C) and the function's ``argtypes`` and ``restype`` are set
-there; a library named by a wired ``path in`` is loaded at the call instead. Each
+library named in the node's setup is loaded once at module level and the
+function's ``argtypes`` and ``restype`` are set there; a library named by a wired
+``path in`` is loaded at the call instead (see ``ext_func_library`` for the
+loader, wildcards and library files). Each
 parameter is packed into the C type the prototype names right before the call (a
 LabVIEW string or array handle and an Adapt to Type cluster are ``ctypes``
 structures defined in the module, see ``ext_func_layout``) and read back right
@@ -39,6 +40,7 @@ from ..ast_utils import to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .ext_func_layout import Layout, c_type, parameter_layout
+from .ext_func_library import loader, static_name, wired_name
 from .ext_func_manager import generate_manager_call
 from .ext_func_marshal import Marshalled, default_value, marshal
 from .primitive import _emit_unknown
@@ -150,22 +152,27 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if return_param.kind == ParamKind.NO_VALUE
         else c_type(return_param.c_type or "")
     )
-    loader = "WinDLL" if call.calling_convention == "stdcall" else "CDLL"
+    load = loader(call)
     lines: list[str] = []
+    imports = {"import ctypes"}
     if path_var:
         callee = f"_{function}_call"
+        name, needed = wired_name(path_var, module)
+        imports |= needed
         lines += [
-            f"_{function}_library = ctypes.{loader}(str({path_var}))",
+            f"_{function}_library = {load}({name})",
             f"{callee} = _{function}_library[{call.function!r}]",
             f"{callee}.argtypes = [{argtypes}]",
             f"{callee}.restype = {restype}",
         ]
     else:
         library = call.library or ""
+        name, needed = static_name(ctx, node, call, module)
+        imports |= needed
         library_name = module.declare(
-            ("library", loader, library),
+            ("library", load, name),
             f"_{_library_name(library)}",
-            lambda n: f"{n} = ctypes.{loader}({library!r})",
+            lambda n: f"{n} = {load}({name})",
         )
         callee = module.declare(
             ("function", library_name, call.function, argtypes, restype),
@@ -179,7 +186,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     for m in marshalled:
         lines += m.setup
     arguments = ", ".join(m.passed for m in marshalled)
-    return _bind(node, call, lines, f"{callee}({arguments})", marshalled, ctx)
+    return _bind(node, call, lines, f"{callee}({arguments})", marshalled, ctx, imports)
 
 
 def _bind(
@@ -189,6 +196,7 @@ def _bind(
     invocation: str,
     marshalled: list[Marshalled],
     ctx: CodeGenContext,
+    imports: set[str],
 ) -> CodeFragment:
     """``return = call(...)``, then each row's output terminal bound to its value
     after the call."""
@@ -212,7 +220,6 @@ def _bind(
     for name, m in zip(names[1:], marshalled):
         if name is not None:
             lines.append(f"{name} = {m.result}")
-    imports = {"import ctypes"}
     if any("SimpleNamespace" in line for line in lines):
         imports.add("from types import SimpleNamespace")
     return CodeFragment(
