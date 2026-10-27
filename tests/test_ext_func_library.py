@@ -268,6 +268,10 @@ def test_a_project_library_is_copied_and_loaded_from_its_copy(
     for name in ("vendorlib.dll", "vendorlib_64.dll", "vendorlib.so"):
         (project.libs / name).write_bytes(b"not a library")
     (project.libs / "other.so").write_bytes(b"unrelated")
+    bundle = project.libs / "vendorlib_64.framework"
+    (bundle / "Resources").mkdir(parents=True)
+    (bundle / "vendorlib_64").write_bytes(b"not a library")
+    (bundle / "Resources" / "Info.plist").write_bytes(b"<plist/>")
     vi = project.write_vi("vendorlib**.*", ["", "..", "libs", "vendorlib.dll"], "swap")
 
     out = project.generate(vi)
@@ -276,6 +280,8 @@ def test_a_project_library_is_copied_and_loaded_from_its_copy(
         "vis/libs/vendorlib.dll",
         "vis/libs/vendorlib.so",
         "vis/libs/vendorlib_64.dll",
+        "vis/libs/vendorlib_64.framework/Resources/Info.plist",
+        "vis/libs/vendorlib_64.framework/vendorlib_64",
         "vis/libs/vendorlib_64.so",
     ]
     source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
