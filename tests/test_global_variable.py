@@ -13,6 +13,7 @@ import pytest
 from lvkit.codegen.ast_utils import parameter_names
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.nodes import global_variable as global_variable_codegen
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
@@ -227,11 +228,13 @@ def test_generated_caller_and_global_module_share_state() -> None:
             "specify_path_enum",
             "read_glyphs_from_file",
             "buildcategories",
+            "launch_dynamically_load_graphics",
         ):
             m = types.ModuleType(f"gvpkg.{sub}")
             setattr(m, sub, buildcategories if sub == "buildcategories" else stub)
             sys.modules[m.__name__] = m
             setattr(package, sub, m)
+        _import_generated("errors", ERRORS_MODULE_SOURCE, package)
         caller = _import_generated("loadtemplates", caller_src, package)
         data.all_templates = "Changed by another VI"
         data_in = types.SimpleNamespace(

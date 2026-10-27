@@ -1,8 +1,7 @@
-"""LabVIEW error code descriptions.
+"""LabVIEW error code descriptions, read at generation time.
 
-Provides lookup from numeric error code to human-readable description,
-mirroring LabVIEW's built-in error code database. Used by Error Cluster
-From Error Code and other error-creating operations.
+A generated module never carries this table: where a VI builds an error from a
+constant code, the description is written into the module as a string.
 
 Data extracted from the LabVIEW Programming Reference Manual.
 """
@@ -11,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from ._data import data_dir as _bundled_data_dir
+from .._data import data_dir as _bundled_data_dir
 
 _ERROR_CODES: dict[str, str] | None = None
 
@@ -22,8 +21,6 @@ def _load_codes() -> dict[str, str]:
     Gracefully degrades to an empty dict if the data file is missing
     (matches the rest of the resolver layer — see also
     PrimitiveResolver._load_codegen and VILibResolver._load_vilib_data).
-    A missing file means error descriptions are unavailable but the
-    rest of lvkit keeps working.
     """
     global _ERROR_CODES
     if _ERROR_CODES is None:
@@ -35,14 +32,6 @@ def _load_codes() -> dict[str, str]:
     return _ERROR_CODES or {}
 
 
-def get_error_description(code: int) -> str:
-    """Look up LabVIEW error description by code.
-
-    Returns the description string if found, otherwise a generic
-    fallback message.
-    """
-    codes = _load_codes()
-    desc = codes.get(str(code))
-    if desc:
-        return desc
-    return f"LabVIEW error {code}"
+def describe_error_code(code: int) -> str | None:
+    """NI's description of an error code, or None when the code is not listed."""
+    return _load_codes().get(str(code)) or None

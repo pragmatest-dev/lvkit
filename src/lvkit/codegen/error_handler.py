@@ -1,14 +1,10 @@
-"""Error handling code generation for LabVIEW error semantics.
+"""The held error model: parallel branches that carry an error wire.
 
-This module generates Python code that translates LabVIEW's error cluster
-propagation into Python exceptions. The mapping is graph-driven:
+An error wire that forks makes parallel branches: each runs even when another
+fails, and the first error is raised where they merge. Python exceptions would
+stop the first failing branch's caller at once, so each branch catches its
+LabVIEWError and holds the first one:
 
-- Error passthrough: natural exception propagation (no code needed)
-- Clear Errors: try/except that swallows LabVIEWError
-- Merge Errors: try/except on future.result() that holds first error
-- Error case structure: try/except with handler body
-
-Generated Pattern (Merge Errors at parallel branch merge point):
 ```python
 def my_vi(input_data):
     _held_error = None
@@ -22,7 +18,7 @@ def my_vi(input_data):
             return branch_1_operations()
         _f1 = _executor.submit(_branch_1)
 
-    # Merge point — wrap future.result() calls
+    # Merge point -- wrap future.result() calls
     try:
         branch_0_result = _f0.result()
     except LabVIEWError as e:
@@ -40,150 +36,43 @@ def my_vi(input_data):
 
     return merge_results(branch_0_result, branch_1_result)
 ```
+
+The model is on for a VI that has a Merge Errors anywhere in its node tree; a VI
+without one raises natural exceptions (see ``error_wires``). ``LabVIEWError`` is
+the class of the package's generated ``errors.py``.
 """
 
 from __future__ import annotations
 
 import ast
-from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from lvkit.graph.models import (
-    AnyGraphNode,
-    CaseStructureNode,
-    PrimitiveNode,
-    VINode,
-)
-from lvkit.models import _is_error_cluster
-from lvkit.parser.constants import VI_NAME_MERGE_ERRORS
+from lvkit.graph.models import AnyGraphNode
+
+from .error_path import ErrorRole, classify_error_node
+from .errors_module import LABVIEW_ERROR_NAME
 
 if TYPE_CHECKING:
     from lvkit.codegen.context import CodeGenContext
-
-
-class ErrorHandlingPattern(Enum):
-    """How a node handles an error wire."""
-
-    NONE = auto()
-    MERGE = auto()
-    CLEAR = auto()
-    CASE_HANDLE = auto()
-
-
-def classify_error_node(op: AnyGraphNode) -> ErrorHandlingPattern:
-    """Classify a graph node by its error handling role.
-
-    Checks the node itself — not its downstream connections.
-    This is a structural check based on node identity.
-    """
-    # Merge Errors primitive (prim 2147; not 2401, which is Swap Values -- #59)
-    if isinstance(op, PrimitiveNode) and op.prim_id == 2147:
-        return ErrorHandlingPattern.MERGE
-
-    # Merge Errors, called as the vi.lib WRAPPER VI (SubVI call) instead of the
-    # raw primitive glyph above -- same operation, same semantics, identified
-    # by its exact canonical vi.lib name (see VI_NAME_MERGE_ERRORS).
-    if isinstance(op, VINode) and op.name == VI_NAME_MERGE_ERRORS:
-        return ErrorHandlingPattern.MERGE
-
-    # Clear Errors VI
-    if op.kind == "vi" and op.name and "Clear Errors" in op.name:
-        return ErrorHandlingPattern.CLEAR
-
-    # Error case structure: selector terminal carries error cluster type
-    if isinstance(op, CaseStructureNode) and op.selector_terminal:
-        for term in op.terminals:
-            if term.id == op.selector_terminal and term.lv_type:
-                if _is_error_cluster(term.lv_type):
-                    return ErrorHandlingPattern.CASE_HANDLE
-
-    return ErrorHandlingPattern.NONE
 
 
 def needs_error_handling(
     operations: list[AnyGraphNode],
     ctx: CodeGenContext,
 ) -> bool:
-    """Determine if a VI needs _held_error infrastructure.
-
-    Graph-driven: True only if Merge Errors (prim 2147) exists anywhere in
-    the VI's node tree. Clear Errors and error case structures don't need
-    _held_error — they use different patterns. Recurses into every structure
-    via ``ctx.child_nodes`` (which returns all inner operation-kind nodes
-    across every frame, and [] for a leaf), so one uniform walk covers loops,
-    case/sequence frames, IPES, etc.
+    """Whether a VI needs the held error model: True only if Merge Errors exists
+    anywhere in the VI's node tree. Recurses into every structure via
+    ``ctx.child_nodes`` (which returns all inner operation-kind nodes across
+    every frame, and [] for a leaf), so one uniform walk covers loops, case and
+    sequence frames, IPES, etc.
     """
     for op in operations:
-        if classify_error_node(op) == ErrorHandlingPattern.MERGE:
+        if classify_error_node(op) is ErrorRole.MERGE:
             return True
         children = ctx.child_nodes(op)
         if children and needs_error_handling(children, ctx):
             return True
     return False
-
-
-def find_error_path_ops(
-    clear_op: AnyGraphNode,
-    all_ops: list[AnyGraphNode],
-    ctx: CodeGenContext,
-) -> set[str]:
-    """Find all operation IDs upstream of a Clear Errors on the error wire.
-
-    Traces backward from Clear Errors' error input terminal through
-    error-typed terminals only, collecting the set of operations that
-    are on the error wire being cleared.
-
-    Returns empty set if no graph is available (caller should fall back
-    to wrapping all accumulated statements).
-    """
-    # Build output terminal → operation ID mapping
-    output_to_op: dict[str, str] = {}
-    op_by_id: dict[str, AnyGraphNode] = {}
-    for op in all_ops:
-        op_by_id[op.id] = op
-        for term in op.terminals:
-            if term.direction == "output":
-                output_to_op[term.id] = op.id
-
-    # Find Clear Errors' error input terminal
-    error_input_ids: list[str] = []
-    for term in clear_op.terminals:
-        if term.direction == "input" and term.is_error_cluster:
-            error_input_ids.append(term.id)
-
-    if not error_input_ids:
-        return set()
-
-    # BFS backward through error-typed terminals
-    upstream: set[str] = set()
-    queue = list(error_input_ids)
-    visited: set[str] = set()
-
-    while queue:
-        tid = queue.pop()
-        if tid in visited:
-            continue
-        visited.add(tid)
-
-        source = ctx.get_source(tid)
-        if not source:
-            continue
-
-        src_op_id = output_to_op.get(source.src_terminal)
-        if not src_op_id or src_op_id in upstream:
-            # Source is a VI input or already visited
-            continue
-
-        upstream.add(src_op_id)
-
-        # Continue tracing through this op's error input terminals
-        src_op = op_by_id.get(src_op_id)
-        if src_op:
-            for term in src_op.terminals:
-                if term.direction == "input" and term.is_error_cluster:
-                    queue.append(term.id)
-
-    return upstream
 
 
 def build_held_error_init() -> ast.stmt:
@@ -257,46 +146,11 @@ def build_merge_try_except(
         body=[result_stmt],
         handlers=[
             ast.ExceptHandler(
-                type=ast.Name(id="LabVIEWError", ctx=ast.Load()),
+                type=ast.Name(id=LABVIEW_ERROR_NAME, ctx=ast.Load()),
                 name="e",
                 body=handler_body,
             )
         ],
         orelse=[],
         finalbody=[],
-    )
-
-
-def build_clear_try_except(body: list[ast.stmt]) -> ast.stmt:
-    """Build try/except that swallows LabVIEWError (Clear Errors pattern).
-
-    Generates:
-        try:
-            <body>
-        except LabVIEWError:
-            pass
-    """
-    if not body:
-        body = [ast.Pass()]
-
-    return ast.Try(
-        body=body,
-        handlers=[
-            ast.ExceptHandler(
-                type=ast.Name(id="LabVIEWError", ctx=ast.Load()),
-                name=None,
-                body=[ast.Pass()],
-            )
-        ],
-        orelse=[],
-        finalbody=[],
-    )
-
-
-def build_labview_error_import() -> ast.stmt:
-    """Build import statement for LabVIEWError."""
-    return ast.ImportFrom(
-        module="lvkit.labview_error",
-        names=[ast.alias(name="LabVIEWError", asname=None)],
-        level=0,
     )

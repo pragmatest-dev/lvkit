@@ -63,6 +63,9 @@ VI file
 | `ast_optimizer.py` | Post-processing: remove duplicate/unused imports, eliminate dead code |
 | `dataflow.py` | `DataFlowTracer` — trace wires to find producing operations |
 | `error_handler.py` | Held-error model for parallel branches with error clusters |
+| `error_path.py` | Which nodes handle an error wire, and the nodes upstream of it |
+| `error_wires.py` | `try`/`except` around the code that raises the error a Clear Errors / error case handles |
+| `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
 | `nodes/` | Per-node-type code generators (see below) |
 
 ## Node Handlers (`nodes/`)

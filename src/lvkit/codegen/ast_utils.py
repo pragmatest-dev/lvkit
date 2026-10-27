@@ -114,6 +114,18 @@ def build_assign(target: str, value: ast.expr) -> ast.Assign:
     )
 
 
+def build_assign_attr(owner: str, attr: str, value: ast.expr) -> ast.stmt:
+    """``owner.attr = value``."""
+    return ast.Assign(
+        targets=[
+            ast.Attribute(
+                value=ast.Name(id=owner, ctx=ast.Load()), attr=attr, ctx=ast.Store()
+            )
+        ],
+        value=value,
+    )
+
+
 def build_assign_from_str(target: str, value_expr: str) -> ast.Assign:
     """Build an assignment from string expression."""
     return build_assign(target, parse_expr(value_expr))

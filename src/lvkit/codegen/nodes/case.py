@@ -15,7 +15,6 @@ from lvkit.models import (
     LVType,
     SelectorRange,
     TunnelTerminal,
-    _is_error_cluster,
 )
 
 from ..ast_utils import (
@@ -25,6 +24,7 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..error_path import is_error_selector
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
@@ -148,7 +148,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
 
     ops_by_frame = _ops_by_frame(node, ctx)
 
-    if _is_error_selector_by_type(node, ctx):
+    if is_error_selector(node):
         return _generate_error_case(node, ctx, ops_by_frame)
 
     selector_var = None
@@ -450,30 +450,44 @@ def _fallback_selector(
     return "selector"
 
 
-def _is_error_selector_by_type(
+@dataclass
+class ErrorCaseParts:
+    """The code of an error case structure, by frame.
+
+    The no-error frame runs when nothing upstream raised; ``on_error`` is the
+    error frame, which runs in the handler of the error that was raised."""
+
+    pre_decls: list[ast.stmt]
+    no_error: list[ast.stmt]
+    on_error: list[ast.stmt]
+    bindings: dict[str, str]
+    imports: set[str]
+
+
+def error_frame_ops(node: CaseStructureNode, ctx: CodeGenContext) -> list[AnyGraphNode]:
+    """The nodes in the error frame of an error case structure."""
+    ops_by_frame = _ops_by_frame(node, ctx)
+    return [
+        op
+        for frame in node.frames
+        if not frame.is_no_error
+        for op in ops_by_frame.get(id(frame), [])
+    ]
+
+
+def generate_error_case_parts(
     node: CaseStructureNode,
     ctx: CodeGenContext,
-) -> bool:
-    """Check if the selector terminal carries an error cluster type."""
-    sel_id = node.selector_terminal
-    if not sel_id or ctx.graph is None:
-        return False
-    for term in node.terminals:
-        if term.id == sel_id and term.lv_type:
-            return _is_error_cluster(term.lv_type)
-    return False
+    error_var: str | None,
+) -> ErrorCaseParts:
+    """Generate the frames of an error case structure.
 
-
-def _generate_error_case(
-    node: CaseStructureNode,
-    ctx: CodeGenContext,
-    ops_by_frame: _OpsByFrame,
-) -> CodeFragment:
-    """Generate code for an error-cluster case structure.
-
-    Emits only the no-error frame body (happy path).
-    96% of error frames are empty (45/47 in TestCase.lvclass).
+    The error frame is generated only when ``error_var`` (the name its handler
+    catches the error as) is given: an Unbundle of the error in it reads that
+    error. The merge of the case's output tunnels is over every frame's inner
+    values.
     """
+    ops_by_frame = _ops_by_frame(node, ctx)
     _bind_input_tunnels(node, ctx)
 
     no_error_frame = None
@@ -483,34 +497,52 @@ def _generate_error_case(
             no_error_frame = frame
         else:
             error_frame = frame
-
     if no_error_frame is None and node.frames:
         no_error_frame = node.frames[0]
-
     if no_error_frame is None:
-        return CodeFragment.empty()
+        return ErrorCaseParts([], [], [], {}, set())
 
     error_ops = ops_by_frame.get(id(error_frame), []) if error_frame else []
-    if error_ops:
-        op_names = ", ".join(_op_display(op) for op in error_ops)
-        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
-
     no_error_fragment = _generate_frame_body(
         ops_by_frame.get(id(no_error_frame), []), ctx
     )
-    body = list(no_error_fragment.statements)
-    # Only the no-error frame is emitted; the merge resolves each tunnel over
-    # ALL frames' inner values, so a pass-through still aliases correctly.
-    output_bindings, pre_decls = _resolve_output_tunnels(
-        node, [(no_error_frame, body)], ctx
-    )
+    no_error = list(no_error_fragment.statements)
+    frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = [(no_error_frame, no_error)]
+    imports = set(no_error_fragment.imports)
+
+    on_error: list[ast.stmt] = []
+    if error_frame is not None and error_ops and error_var:
+        saved, ctx.error_var = ctx.error_var, error_var
+        try:
+            error_fragment = _generate_frame_body(error_ops, ctx)
+        finally:
+            ctx.error_var = saved
+        on_error = list(error_fragment.statements)
+        imports.update(error_fragment.imports)
+        frame_bodies.append((error_frame, on_error))
+    elif error_ops:
+        op_names = ", ".join(_op_display(op) for op in error_ops)
+        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
+
+    output_bindings, pre_decls = _resolve_output_tunnels(node, frame_bodies, ctx)
     bindings = dict(no_error_fragment.bindings)
     bindings.update(output_bindings)
+    return ErrorCaseParts(pre_decls, no_error, on_error, bindings, imports)
 
+
+def _generate_error_case(
+    node: CaseStructureNode,
+    ctx: CodeGenContext,
+    ops_by_frame: _OpsByFrame,
+) -> CodeFragment:
+    """Generate an error case structure whose error comes from nothing in this
+    diagram: an error from the caller has already been raised, so only the
+    no-error frame runs."""
+    parts = generate_error_case_parts(node, ctx, error_var=None)
     return CodeFragment(
-        statements=pre_decls + body,
-        bindings=bindings,
-        imports=no_error_fragment.imports,
+        statements=parts.pre_decls + parts.no_error,
+        bindings=parts.bindings,
+        imports=parts.imports,
     )
 
 

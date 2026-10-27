@@ -25,6 +25,12 @@ from lvkit.codegen.ast_utils import (
     to_module_name,
     unique_names,
 )
+from lvkit.codegen.error_path import is_error_wire_vi
+from lvkit.codegen.errors_module import (
+    ERRORS_MODULE_NAME,
+    ERRORS_MODULE_SOURCE,
+    LABVIEW_ERROR_NAME,
+)
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
@@ -314,7 +320,13 @@ def create_import_resolver(
             return None
         return node_import(key)
 
-    return ImportResolver(function_import, module_import, type_import, node_import)
+    def error_import() -> str:
+        dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
+        return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
+
+    return ImportResolver(
+        function_import, module_import, type_import, node_import, error_import
+    )
 
 
 def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
@@ -329,6 +341,19 @@ def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
 # ---------------------------------------------------------------------------
 # Polymorphic module generation
 # ---------------------------------------------------------------------------
+
+
+def _write_errors_module(package_root: Path) -> None:
+    """Write ``errors.py`` at the package root when a generated module imports
+    ``LabVIEWError`` from it."""
+    needle = f"import {LABVIEW_ERROR_NAME}"
+    if any(
+        needle in module.read_text(encoding="utf-8")
+        for module in sorted(package_root.rglob("*.py"))
+    ):
+        (package_root / f"{ERRORS_MODULE_NAME}.py").write_text(
+            ERRORS_MODULE_SOURCE, encoding="utf-8"
+        )
 
 
 def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
@@ -638,7 +663,9 @@ def generate_python(
         for key in order
         if (folder := to_library_name(key, graph=graph, vilib_resolver=vilib_resolver))
     }
-    module_names = unique_module_stems(order, graph, reserved=library_folders)
+    module_names = unique_module_stems(
+        order, graph, reserved={*library_folders, ERRORS_MODULE_NAME}
+    )
 
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
@@ -702,7 +729,7 @@ def generate_python(
 
         print(f"  [{i}/{len(order)}] {vi_name}")
 
-        if has_inline:
+        if has_inline or is_error_wire_vi(vi_name, vilib_resolver):
             # Skip - inlined at call sites by AST builder
             print("         -> (inlined at call sites)")
             continue
@@ -939,6 +966,8 @@ def {func_name}(*args, **kwargs) -> Any:
         # Write class file
         class_path.write_text(class_code, encoding="utf-8")
         print(f"\nGenerated class wrapper: {class_path.name}")
+
+    _write_errors_module(output_dir_resolved)
 
     print(f"\nOutput: {output_dir_resolved}")
 
