@@ -14,17 +14,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "visa_resource_name"
         },
         {
           "name": "timeout",
-          "direction": "input",
+          "direction": "in",
           "python_param": "open_timeout"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ]
@@ -41,22 +41,22 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "write buffer",
-          "direction": "input",
+          "direction": "in",
           "python_param": "write_buffer"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         },
         {
           "name": "return count",
-          "direction": "output",
+          "direction": "out",
           "python_param": "return_count"
         }
       ],
@@ -76,22 +76,22 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "byte count",
-          "direction": "input",
+          "direction": "in",
           "python_param": "byte_count"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         },
         {
           "name": "read buffer",
-          "direction": "output",
+          "direction": "out",
           "python_param": "read_buffer"
         }
       ],
@@ -111,7 +111,7 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         }
       ]
@@ -128,12 +128,12 @@
       "terminals": [
         {
           "name": "expression",
-          "direction": "input",
+          "direction": "in",
           "python_param": "expression"
         },
         {
           "name": "find list",
-          "direction": "output",
+          "direction": "out",
           "python_param": "find_list"
         }
       ]
@@ -150,17 +150,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "file path",
-          "direction": "input",
+          "direction": "in",
           "python_param": "file_path"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -180,17 +180,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "file path",
-          "direction": "input",
+          "direction": "in",
           "python_param": "file_path"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -210,12 +210,12 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -235,12 +235,12 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -260,12 +260,12 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -285,17 +285,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         },
         {
           "name": "status byte",
-          "direction": "output",
+          "direction": "out",
           "python_param": "status_byte"
         }
       ],
@@ -315,12 +315,12 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -340,17 +340,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "mask",
-          "direction": "input",
+          "direction": "in",
           "python_param": "mask"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -370,17 +370,17 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "timeout value (ms)",
-          "direction": "input",
+          "direction": "in",
           "python_param": "timeout_value"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -400,32 +400,32 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "baud rate",
-          "direction": "input",
+          "direction": "in",
           "python_param": "baud_rate"
         },
         {
           "name": "data bits",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data_bits"
         },
         {
           "name": "parity",
-          "direction": "input",
+          "direction": "in",
           "python_param": "parity"
         },
         {
           "name": "stop bits",
-          "direction": "input",
+          "direction": "in",
           "python_param": "stop_bits"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -445,22 +445,22 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "mask",
-          "direction": "input",
+          "direction": "in",
           "python_param": "mask"
         },
         {
           "name": "size",
-          "direction": "input",
+          "direction": "in",
           "python_param": "size"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -480,22 +480,22 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "event type",
-          "direction": "input",
+          "direction": "in",
           "python_param": "event_type"
         },
         {
           "name": "mechanism",
-          "direction": "input",
+          "direction": "in",
           "python_param": "mechanism"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],
@@ -515,22 +515,22 @@
       "terminals": [
         {
           "name": "VISA resource name",
-          "direction": "input",
+          "direction": "in",
           "python_param": "instr"
         },
         {
           "name": "event type",
-          "direction": "input",
+          "direction": "in",
           "python_param": "event_type"
         },
         {
           "name": "mechanism",
-          "direction": "input",
+          "direction": "in",
           "python_param": "mechanism"
         },
         {
           "name": "VISA resource name out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "instr_out"
         }
       ],

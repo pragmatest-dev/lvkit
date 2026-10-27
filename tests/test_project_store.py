@@ -10,7 +10,11 @@ import pytest
 
 from lvkit import primitive_resolver, vilib_resolver
 from lvkit.primitive_resolver import PrimitiveResolver
-from lvkit.project_store import find_project_store, init_project_store
+from lvkit.project_store import (
+    find_project_store,
+    init_project_store,
+    write_json_atomic,
+)
 from lvkit.vilib_resolver import VILibResolver
 
 # ============================================================
@@ -59,7 +63,7 @@ def test_init_project_store_creates_layout(tmp_path: Path) -> None:
     assert store == tmp_path / ".lvkit"
     assert store.is_dir()
     assert (store / "README.md").exists()
-    assert "cleanroom" in (store / "README.md").read_text().lower()
+    assert "cleanroom" in (store / "README.md").read_text(encoding="utf-8").lower()
     for sub in ("vilib", "openg", "drivers"):
         assert (store / sub / "_index.json").exists()
 
@@ -70,7 +74,7 @@ def test_init_project_store_idempotent(tmp_path: Path) -> None:
     custom = "MY CUSTOM README"
     (store / "README.md").write_text(custom)
     init_project_store(tmp_path)
-    assert (store / "README.md").read_text() == custom
+    assert (store / "README.md").read_text(encoding="utf-8") == custom
 
 
 # ============================================================
@@ -278,7 +282,7 @@ def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "Not a directory" not in result.stderr
     assert (tmp_path / ".lvkit").is_dir()
-    assert (tmp_path / ".github" / "prompts").is_dir()  # copilot skills, in CWD
+    assert (tmp_path / ".github" / "skills").is_dir()  # copilot skills, in CWD
 
 
 def test_cli_setup_codex_choice_is_not_a_directory(tmp_path: Path) -> None:
@@ -357,7 +361,7 @@ def test_install_claude_skills_creates_all_user_facing(tmp_path: Path) -> None:
         path = tmp_path / ".claude" / "skills" / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
         # Frontmatter present
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert text.startswith("---\n")
         assert f"name: {skill}" in text
 
@@ -392,8 +396,8 @@ def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
     edited.write_text("LOCAL EDIT\n")
 
     install_claude_skills(tmp_path, force=True)
-    assert "LOCAL EDIT" not in edited.read_text()
-    assert "name: lvkit-convert" in edited.read_text()
+    assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
+    assert "name: lvkit-convert" in edited.read_text(encoding="utf-8")
 
 
 def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
@@ -430,11 +434,13 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
             f"{skill} was written despite a conflict in another skill"
         )
     # The conflicting file is preserved.
-    assert (skills_dir / "lvkit-convert" / "SKILL.md").read_text() == "LOCAL EDIT\n"
+    assert (skills_dir / "lvkit-convert" / "SKILL.md").read_text(
+        encoding="utf-8"
+    ) == "LOCAL EDIT\n"
 
 
 # ============================================================
-# Copilot install: 7 prompts + 1 router instruction
+# Copilot install: 7 Agent Skills under .github/skills
 # ============================================================
 
 
@@ -449,155 +455,182 @@ _LVKIT_SKILLS = (
 )
 
 
-def test_install_copilot_skills_writes_prompts_and_router(tmp_path: Path) -> None:
-    """install_copilot_skills writes 7 prompts + 1 router file."""
+def _managed_marker() -> str:
+    from lvkit.project_store import _COPILOT_MANAGED_MARKER
+
+    return _COPILOT_MANAGED_MARKER
+
+
+def test_install_copilot_skills_writes_skill_files(tmp_path: Path) -> None:
+    """One .github/skills/<name>/SKILL.md per template, and nothing else."""
     from lvkit.project_store import install_copilot_skills
 
     written = install_copilot_skills(tmp_path)
-    # 5 prompts + 1 router. Asserted as a composition rather than a
-    # bare integer so a future 6th skill is a clear test failure with
-    # an explanatory message instead of an opaque "expected 6, got 7".
-    assert len(written) == len(_LVKIT_SKILLS) + 1, (
-        f"expected {len(_LVKIT_SKILLS)} prompts + 1 router = "
-        f"{len(_LVKIT_SKILLS) + 1}, got {len(written)} files"
+
+    expected = [
+        tmp_path / ".github" / "skills" / skill / "SKILL.md" for skill in _LVKIT_SKILLS
+    ]
+    assert written == expected
+    assert sorted(
+        p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file()
+    ) == sorted(p.relative_to(tmp_path).as_posix() for p in expected)
+
+
+def test_install_copilot_skills_frontmatter_and_marker(tmp_path: Path) -> None:
+    """Frontmatter keeps name + quoted description only; marker follows it."""
+    from importlib.resources import files
+
+    from lvkit.project_store import (
+        _split_frontmatter,
+        _yaml_get,
+        _yaml_quote,
+        install_copilot_skills,
     )
 
-    # Each user-facing skill has its own prompt file
-    prompts_dir = tmp_path / ".github" / "prompts"
+    install_copilot_skills(tmp_path)
+    template = (
+        files("lvkit.skill_templates")
+        .joinpath("lvkit-describe", "SKILL.md")
+        .read_text(encoding="utf-8")
+    )
+    description = _yaml_get(_split_frontmatter(template)[0], "description")
+    assert description is not None
+
+    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    expected_head = (
+        "---\n"
+        "name: lvkit-describe\n"
+        f"description: {_yaml_quote(description)}\n"
+        "---\n"
+        f"{_managed_marker()}\n"
+        "\n"
+        "# Describe VI\n"
+    )
+    assert text.startswith(expected_head)
+    assert "allowed-tools" not in text
+    assert "disable-model-invocation" not in text
+
+
+def test_install_copilot_skills_keep_slash_references(tmp_path: Path) -> None:
+    """Cross-skill references stay `/lvkit-x`; none become `$lvkit-x`."""
+    from lvkit.project_store import install_copilot_skills
+
+    install_copilot_skills(tmp_path)
+    text = (tmp_path / ".github/skills/lvkit-describe/SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "`/lvkit-query`" in text
     for skill in _LVKIT_SKILLS:
-        path = prompts_dir / f"{skill}.prompt.md"
-        assert path.is_file(), f"missing {path}"
-        text = path.read_text()
-        # Copilot prompt frontmatter shape
-        assert text.startswith("---\n")
-        assert "mode: agent" in text
-        assert "description:" in text
-        # Body is from the original SKILL.md (frontmatter rewritten)
-        assert "allowed-tools:" not in text  # Claude-only field, stripped
-        assert f"name: {skill}" not in text  # Claude-only field, stripped
-
-    # Single router instruction
-    router = tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
-    assert router.is_file()
-    router_text = router.read_text()
-    assert router_text.startswith("---\n")
-    assert 'applyTo: "**"' in router_text
-    # Router lists every prompt
-    for skill in _LVKIT_SKILLS:
-        assert f"`/{skill}`" in router_text
+        body = (tmp_path / ".github/skills" / skill / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert "$lvkit" not in body
 
 
-def test_install_copilot_skills_prompt_bodies_use_lvkit_prefix(
+def test_install_copilot_skills_no_router(tmp_path: Path) -> None:
+    """Skills load by description, so no router instruction is installed."""
+    from lvkit.project_store import install_copilot_skills
+
+    install_copilot_skills(tmp_path)
+    assert not (tmp_path / ".github" / "instructions").exists()
+    assert not (tmp_path / ".github" / "prompts").exists()
+
+
+def test_install_copilot_skills_removes_managed_prompts_and_router(
     tmp_path: Path,
 ) -> None:
-    """Prompt bodies must reference other skills with lvkit- prefix.
-
-    Regression test for the rename: a maintainer who edits a SKILL.md
-    body and forgets to update a slash command (e.g. leaves
-    `/resolve` instead of `/lvkit-resolve`) would ship a prompt that
-    tells Copilot to invoke a skill that doesn't exist. Catch this at
-    test time.
-    """
-    import re
-
+    """Prompt files and router carrying the marker are deleted."""
     from lvkit.project_store import install_copilot_skills
 
-    install_copilot_skills(tmp_path)
-    prompts_dir = tmp_path / ".github" / "prompts"
-
-    # Bare names that would be wrong if found inline.
-    bare_skill_names = {
-        "describe",
-        "query",
-        "convert",
-        "document",
-        "review",
-        "resolve",
-    }
-
+    prompts = tmp_path / ".github" / "prompts"
+    prompts.mkdir(parents=True)
+    managed = f"---\nmode: agent\n---\n{_managed_marker()}\n\nbody\n"
     for skill in _LVKIT_SKILLS:
-        body = (prompts_dir / f"{skill}.prompt.md").read_text()
-        # Find every /<token> that looks like a skill ref. Allow
-        # lvkit-prefixed names AND CLI subcommands like /describe used
-        # as bash command flags (those should be `lvkit describe` —
-        # we look for the leading slash specifically).
-        for match in re.finditer(r"(?<![\w/])/([a-z][a-z-]+)\b", body):
-            referenced = match.group(1)
-            if referenced in bare_skill_names:
-                raise AssertionError(
-                    f"{skill}.prompt.md references bare skill name "
-                    f"/{referenced} (line: {body[match.start() : match.end() + 40]!r})"
-                    f" — should be /lvkit-{referenced.removeprefix('lvkit-')}"
-                )
-
-
-def test_install_copilot_skills_router_uses_workflow_order(tmp_path: Path) -> None:
-    """Router lists prompts in logical workflow order, not alphabetical."""
-    from lvkit.project_store import install_copilot_skills
+        (prompts / f"{skill}.prompt.md").write_text(managed)
+    instructions = tmp_path / ".github" / "instructions"
+    instructions.mkdir()
+    router = instructions / "lvkit.instructions.md"
+    router.write_text(f'---\napplyTo: "**"\n---\n{_managed_marker()}\n')
 
     install_copilot_skills(tmp_path)
-    router_text = (
-        tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
-    ).read_text()
 
-    expected_order = [
-        "/lvkit",
-        "/lvkit-describe",
-        "/lvkit-query",
-        "/lvkit-convert",
-        "/lvkit-document",
-        "/lvkit-review",
-        "/lvkit-resolve",
-    ]
-    positions = [router_text.find(name) for name in expected_order]
-    assert all(p >= 0 for p in positions), "missing prompt reference(s)"
-    assert positions == sorted(positions), (
-        f"prompts out of order in router: {positions}"
-    )
+    assert not prompts.exists()
+    assert not router.exists()
+
+
+def test_install_copilot_skills_keeps_unmanaged_prompt_files(tmp_path: Path) -> None:
+    """User-edited lvkit prompts and foreign prompts survive; dir is kept."""
+    from lvkit.project_store import install_copilot_skills
+
+    prompts = tmp_path / ".github" / "prompts"
+    prompts.mkdir(parents=True)
+    edited = prompts / "lvkit-convert.prompt.md"
+    edited.write_text("my own prompt\n")
+    foreign = prompts / "review.prompt.md"
+    foreign.write_text("foreign\n")
+    managed = prompts / "lvkit-describe.prompt.md"
+    managed.write_text(f"{_managed_marker()}\n")
+    user_router = tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
+    user_router.parent.mkdir()
+    user_router.write_text("hand written\n")
+
+    install_copilot_skills(tmp_path)
+
+    assert edited.read_text(encoding="utf-8") == "my own prompt\n"
+    assert foreign.read_text(encoding="utf-8") == "foreign\n"
+    assert not managed.exists()
+    assert user_router.read_text(encoding="utf-8") == "hand written\n"
 
 
 def test_install_copilot_skills_idempotent(tmp_path: Path) -> None:
-    """Re-running with no template changes returns empty list."""
+    """Re-running with no template changes writes nothing and changes nothing."""
     from lvkit.project_store import install_copilot_skills
 
     install_copilot_skills(tmp_path)
+    before = {
+        p: p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file()
+    }
     second = install_copilot_skills(tmp_path)
     assert second == []
+    assert before == {
+        p: p.read_text(encoding="utf-8") for p in tmp_path.rglob("*") if p.is_file()
+    }
 
 
 def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
-    """A locally-edited prompt aborts the whole install."""
+    """A locally-edited skill aborts the whole install, deleting nothing."""
     from lvkit.project_store import install_copilot_skills
 
-    # Pre-create a conflicting prompt file before the install.
-    prompts_dir = tmp_path / ".github" / "prompts"
-    prompts_dir.mkdir(parents=True)
-    (prompts_dir / "lvkit-convert.prompt.md").write_text("LOCAL EDIT\n")
+    skills_dir = tmp_path / ".github" / "skills"
+    (skills_dir / "lvkit-convert").mkdir(parents=True)
+    (skills_dir / "lvkit-convert" / "SKILL.md").write_text("LOCAL EDIT\n")
+    prompts = tmp_path / ".github" / "prompts"
+    prompts.mkdir()
+    managed = prompts / "lvkit-describe.prompt.md"
+    managed.write_text(f"{_managed_marker()}\n")
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_copilot_skills(tmp_path)
 
-    # Other prompts and the router must not have been written.
     for skill in _LVKIT_SKILLS:
-        if skill == "lvkit-convert":
-            continue
-        path = prompts_dir / f"{skill}.prompt.md"
-        assert not path.exists(), f"{skill} prompt was written despite the conflict"
-    router = tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
-    assert not router.exists()
+        if skill != "lvkit-convert":
+            assert not (skills_dir / skill / "SKILL.md").exists()
+    assert managed.exists()
 
 
 def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
-    """--force overwrites locally edited prompts."""
+    """--force overwrites locally edited skills."""
     from lvkit.project_store import install_copilot_skills
 
     install_copilot_skills(tmp_path)
-    edited = tmp_path / ".github" / "prompts" / "lvkit-convert.prompt.md"
+    edited = tmp_path / ".github" / "skills" / "lvkit-convert" / "SKILL.md"
     edited.write_text("LOCAL EDIT\n")
 
     install_copilot_skills(tmp_path, force=True)
-    assert "LOCAL EDIT" not in edited.read_text()
-    assert "mode: agent" in edited.read_text()
+    assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
+    assert edited.read_text(encoding="utf-8").startswith("---\nname: lvkit-convert\n")
 
 
 # ============================================================
@@ -616,7 +649,7 @@ def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
     for skill in _LVKIT_SKILLS:
         path = skills_dir / skill / "SKILL.md"
         assert path.is_file(), f"missing {path}"
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert text.startswith("---\n")
         assert f"name: {skill}" in text
         assert "description:" in text
@@ -626,12 +659,12 @@ def test_install_codex_skills_writes_agent_skills(tmp_path: Path) -> None:
         assert "lvkit llm-generate" not in text
         assert "lvkit check" not in text
 
-    convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text()
+    convert = (skills_dir / "lvkit-convert" / "SKILL.md").read_text(encoding="utf-8")
     assert "$lvkit-query" in convert
     assert "$lvkit-resolve" in convert
     assert "$lvkit-document" in convert
 
-    resolve = (skills_dir / "lvkit-resolve" / "SKILL.md").read_text()
+    resolve = (skills_dir / "lvkit-resolve" / "SKILL.md").read_text(encoding="utf-8")
     assert "lvkit setup" in resolve
     assert "Shell compatibility" in resolve
     assert "PowerShell" in resolve
@@ -661,7 +694,7 @@ def test_install_codex_skills_atomic_on_conflict(tmp_path: Path) -> None:
     for skill in _LVKIT_SKILLS:
         path = skills_dir / skill / "SKILL.md"
         if skill == "lvkit-convert":
-            assert path.read_text() == "LOCAL EDIT\n"
+            assert path.read_text(encoding="utf-8") == "LOCAL EDIT\n"
         else:
             assert not path.exists()
 
@@ -675,7 +708,7 @@ def test_install_codex_skills_force_overwrites(tmp_path: Path) -> None:
     edited.write_text("LOCAL EDIT\n")
 
     install_codex_skills(tmp_path, force=True)
-    text = edited.read_text()
+    text = edited.read_text(encoding="utf-8")
     assert "LOCAL EDIT" not in text
     assert "name: lvkit-convert" in text
 
@@ -697,6 +730,19 @@ def test_detect_ai_editors_recognizes_codex_markers(
     else:
         path.write_text("# Codex instructions\n")
     assert _detect_ai_editors(tmp_path) == ["codex"]
+
+
+@pytest.mark.parametrize("folder", ["instructions", "skills", "prompts"])
+def test_detect_ai_editors_recognizes_copilot_folders(
+    tmp_path: Path,
+    folder: str,
+) -> None:
+    """Each .github folder Copilot reads enables Copilot auto-detection, so a
+    project whose only Copilot files are lvkit's skills is still re-installed."""
+    from lvkit.cli import _detect_ai_editors
+
+    (tmp_path / ".github" / folder).mkdir(parents=True)
+    assert _detect_ai_editors(tmp_path) == ["copilot"]
 
 
 def test_detect_ai_editors_can_return_all_agents(tmp_path: Path) -> None:
@@ -772,11 +818,10 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
         check=True,
     )
     assert "Installed 7 Claude Code skill(s)" in result.stdout
-    assert "Installed 8 Copilot file(s)" in result.stdout  # 7 prompts + router
+    assert "Installed 7 Copilot skill(s)" in result.stdout
     assert "Installed 7 Codex skill(s)" in result.stdout
     assert (tmp_path / ".claude" / "skills" / "lvkit-resolve" / "SKILL.md").is_file()
-    assert (tmp_path / ".github" / "prompts" / "lvkit-convert.prompt.md").is_file()
-    assert (tmp_path / ".github" / "instructions" / "lvkit.instructions.md").is_file()
+    assert (tmp_path / ".github" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
 
 
@@ -920,3 +965,24 @@ def test_mcp_discover_returns_none_outside_project(tmp_path: Path) -> None:
     finally:
         primitive_resolver.reset_resolver(project_data_dir=None)
         vilib_resolver.reset_resolver(project_data_dir=None)
+
+
+def test_write_json_atomic_replaces_the_file_and_leaves_no_temp(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "_index.json"
+    target.write_text("{}", encoding="utf-8")
+    write_json_atomic(target, {"categories": {"NI": "NI.json"}})
+    assert json.loads(target.read_text(encoding="utf-8")) == {
+        "categories": {"NI": "NI.json"}
+    }
+    assert [p.name for p in tmp_path.iterdir()] == ["_index.json"]
+
+
+def test_write_json_atomic_failure_keeps_the_old_file(tmp_path: Path) -> None:
+    target = tmp_path / "_index.json"
+    target.write_text('{"keep": 1}', encoding="utf-8")
+    with pytest.raises(TypeError):
+        write_json_atomic(target, {"bad": object()})
+    assert json.loads(target.read_text(encoding="utf-8")) == {"keep": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["_index.json"]

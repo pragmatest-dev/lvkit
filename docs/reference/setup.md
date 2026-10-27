@@ -15,7 +15,7 @@ lvkit setup [directory] [{claude,copilot,codex,all}] [options]
 | Argument | Description |
 |----------|-------------|
 | `directory` | Directory in which to create `.lvkit/`. Must already exist — `setup` does not create it. Defaults to the current directory. |
-| `{claude,copilot,codex,all}` | Which AI agent to install skills for. `all` installs Claude Code, Copilot, and Codex skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/agents.md` for Copilot, and `AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/` for Codex. |
+| `{claude,copilot,codex,all}` | Which AI agent to install skills for. `all` installs Claude Code, Copilot, and Codex skill sets. Omit to auto-detect from project layout: `CLAUDE.md` / `.claude/` for Claude Code, `.github/copilot-instructions.md` / `.github/instructions/` / `.github/skills/` / `.github/prompts/` / `.github/agents.md` for Copilot, and `AGENTS.md` / `AGENTS.override.md` / `.agents/` / `.codex/` for Codex. |
 
 ## Options
 
@@ -37,12 +37,14 @@ lvkit setup
 
 ```text
 Initialized .lvkit/ store at /home/you/project/.lvkit
-Installed 5 Claude Code skill(s):
+Installed 7 Claude Code skill(s):
+  /home/you/project/.claude/skills/lvkit/SKILL.md
   /home/you/project/.claude/skills/lvkit-describe/SKILL.md
+  /home/you/project/.claude/skills/lvkit-query/SKILL.md
   /home/you/project/.claude/skills/lvkit-convert/SKILL.md
-  /home/you/project/.claude/skills/lvkit-resolve-primitive/SKILL.md
-  /home/you/project/.claude/skills/lvkit-resolve-vilib/SKILL.md
-  /home/you/project/.claude/skills/lvkit-idiomatic/SKILL.md
+  /home/you/project/.claude/skills/lvkit-document/SKILL.md
+  /home/you/project/.claude/skills/lvkit-review/SKILL.md
+  /home/you/project/.claude/skills/lvkit-resolve/SKILL.md
 ```
 
 This auto-detects the project's AI agent from its layout, creates `.lvkit/` in
@@ -64,7 +66,7 @@ For the ChatGPT desktop app, Codex CLI, or the Codex IDE extension:
 lvkit setup codex
 ```
 
-This installs the same five workflows under
+This installs the same seven workflows under
 `.agents/skills/<name>/SKILL.md`. ChatGPT and Codex can activate them
 implicitly from their descriptions. In the ChatGPT desktop app, type `@` to
 select a skill. In Codex CLI or the IDE extension, use `$lvkit-describe`,
@@ -80,7 +82,7 @@ or modify `AGENTS.md` or `.codex/config.toml`.
   layouts into `.lvkit/vilib/` as they run (see
   [SubVI & vi.lib resolution](subvi-resolution.md)); `.lvkit/primitives.json`
   doesn't exist until something writes it — by hand, or via the
-  `lvkit-resolve-primitive` skill this command can install.
+  `lvkit-resolve` skill this command can install.
 - `setup` is safe to re-run: an existing `.lvkit/` store and its README are
   left untouched, and skill files that already match the installed template
   are skipped rather than treated as conflicts.
@@ -89,11 +91,14 @@ or modify `AGENTS.md` or `.codex/config.toml`.
   conflict. Re-run with `--force` to overwrite them — use it when
   reinstalling after a skill update.
 - Claude Code skills install one file per skill to
-  `.claude/skills/<name>/SKILL.md`: `lvkit-describe`, `lvkit-convert`,
-  `lvkit-resolve-primitive`, `lvkit-resolve-vilib`, `lvkit-idiomatic`. Copilot
-  gets the same five workflows as `.github/prompts/<name>.prompt.md` slash
-  commands, plus a single `.github/instructions/lvkit.instructions.md` router
-  that auto-loads into every chat and suggests the right one. Codex gets one
+  `.claude/skills/<name>/SKILL.md`: `lvkit`, `lvkit-describe`, `lvkit-query`,
+  `lvkit-convert`, `lvkit-document`, `lvkit-review`, `lvkit-resolve`. Copilot
+  gets the same seven workflows as Agent Skills in
+  `.github/skills/<name>/SKILL.md`; VS Code loads them by description and
+  also offers each as a `/<name>` slash command. `setup copilot` deletes
+  `.github/prompts/lvkit*.prompt.md` files and
+  `.github/instructions/lvkit.instructions.md` when they carry the
+  lvkit-managed marker, and leaves files you wrote or edited alone. Codex gets one
   Agent Skill per workflow in `.agents/skills/<name>/SKILL.md`; its native
   skill discovery provides both automatic and explicit invocation.
 - Neither a local LabVIEW install nor a prior [`detect`](detect.md) run is

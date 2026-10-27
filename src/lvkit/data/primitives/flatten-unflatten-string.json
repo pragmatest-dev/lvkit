@@ -60,13 +60,13 @@
       "name": "Flatten To XML",
       "terminals": [
         {
-          "index": 0,
+          "index": 2,
           "direction": "out",
           "name": "xml string",
           "type": "String"
         },
         {
-          "index": 1,
+          "index": 6,
           "direction": "in",
           "name": "anything",
           "type": "Cluster"
@@ -85,25 +85,25 @@
           "type": "Cluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 2,
+          "index": 6,
           "direction": "in",
           "name": "enable LabVIEW extensions? (T)",
           "type": "Boolean"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "out",
           "name": "JSON string",
           "type": "String"
         },
         {
-          "index": 4,
+          "index": 11,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"
@@ -128,43 +128,43 @@
           "type": "Cluster"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 4,
           "direction": "in",
           "name": "path",
           "type": "Array"
         },
         {
-          "index": 4,
+          "index": 5,
           "direction": "in",
           "name": "default null elements? (F)",
           "type": "Boolean"
         },
         {
-          "index": 5,
+          "index": 6,
           "direction": "in",
           "name": "enable LabVIEW extensions? (T)",
           "type": "Boolean"
         },
         {
-          "index": 6,
+          "index": 7,
           "direction": "in",
           "name": "strict validation? (F)",
           "type": "Boolean"
         },
         {
-          "index": 7,
+          "index": 8,
           "direction": "out",
           "name": "value",
           "type": "Cluster"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"

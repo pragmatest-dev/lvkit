@@ -6,12 +6,11 @@ prototype input — general flat-format (de)serialization. This handler emits
 spec from the data input (index 0) and the DEST spec from the output (index 2,
 whose type mirrors the type-prototype input at index 1).
 
-The runtime supports the well-defined numeric cases — strings, scalar integers,
-and 1-D integer arrays (big-endian, no length prefix) — which cover the
-byte<->word reinterprets in the MD5 / binary-string VIs. Other type pairs
-(clusters, variants, floats) produce a spec the runtime rejects with a loud
-NotImplementedError rather than emitting silently-wrong bytes; they await a
-fuller flat-format implementation.
+The runtime flattens and unflattens strings, integers, floats, Booleans, arrays
+and clusters of those in LabVIEW's flattened-data format (``runtime/flat.py``).
+Other types (variants, extended-precision numbers, paths) produce a spec the
+runtime rejects with a loud NotImplementedError rather than emitting
+silently-wrong bytes.
 
 Terminals (from the primitives.json entry):
   in  index 0 = x (data to reinterpret)
@@ -22,36 +21,70 @@ Terminals (from the primitives.json entry):
 from __future__ import annotations
 
 from lvkit.graph.models import PrimitiveNode
-from lvkit.models import LVType, LVTypeKind
+from lvkit.lv_type_codes import is_string_type_name
+from lvkit.models import LVType, LVTypeKind, unique_names
 from lvkit.primitive_resolver import ResolvedPrimitive
+from lvkit.runtime.flat import INTEGERS
 
+from ...ast_utils import to_var_name
 from . import register_op
 
 _INT_SPEC = {
-    "NumInt8": "i8", "NumUInt8": "u8",
-    "NumInt16": "i16", "NumUInt16": "u16",
-    "NumInt32": "i32", "NumUInt32": "u32",
-    "NumInt64": "i64", "NumUInt64": "u64",
+    "NumInt8": "i8",
+    "NumUInt8": "u8",
+    "NumInt16": "i16",
+    "NumUInt16": "u16",
+    "NumInt32": "i32",
+    "NumUInt32": "u32",
+    "NumInt64": "i64",
+    "NumUInt64": "u64",
+    "NumFloat32": "f32",
+    "NumFloat64": "f64",
 }
 
 
-def _spec(lt: LVType | None) -> str:
-    """A `_lv.type_cast` type spec for a terminal type. Supported: 'str', scalar
-    ints, and 1-D integer arrays ('u32[]', …). Anything else yields a descriptive
-    spec the runtime rejects loudly (never a silently-wrong cast)."""
+# Refnum kinds that do not flatten as a 32-bit integer. NI's "Flattened Data"
+# lists their type codes (0xE, 0xF, 0x15 flatten as a string; 0x1A, 0x1C and 0x1D
+# as several); in the refnum type enumeration the first three are VISA, IVI and
+# User Defined Tag, and 0x1D is User Defined Tag Flatten (0x1A and 0x1C are
+# unused there).
+_STRING_REFNUMS = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"})
+
+
+def _spec(lt: LVType | None) -> str | tuple:
+    """A `_lv.type_cast` type spec for a terminal type (``lvkit.runtime.flat``):
+    'str', scalar ints, floats ('f32', 'f64') and Booleans ('bool'), arrays
+    ('u32[]' for a 1-D array of integers, else ``("array", element, dims)``) and
+    clusters (``("cluster", named, ((attribute, spec), ...))``). Anything else
+    yields a descriptive spec the runtime rejects loudly (never a silently-wrong
+    cast)."""
     if lt is None:
         return "unknown"
     if lt.kind == LVTypeKind.ARRAY:
-        elem = getattr(lt.element_type, "underlying_type", None)
-        return f"{_INT_SPEC[elem]}[]" if elem in _INT_SPEC else "array"
+        element = _spec(lt.element_type)
+        dimensions = lt.dimensions or 1
+        if dimensions == 1 and isinstance(element, str) and element in INTEGERS:
+            return f"{element}[]"
+        return ("array", element, dimensions)
+    if lt.kind == LVTypeKind.CLUSTER and lt.fields:
+        names = unique_names(f.name for f in lt.fields)
+        members = tuple(
+            (to_var_name(name), _spec(field.type))
+            for field, name in zip(lt.fields, names)
+        )
+        return ("cluster", bool(lt.typedef_name or lt.classname), members)
     underlying = lt.underlying_type or ""
-    if underlying == "String":
+    if underlying == "Refnum" and lt.ref_type not in _STRING_REFNUMS:
+        return "refnum"
+    if is_string_type_name(underlying):
         return "str"
-    # A LabVIEW unit type (UnitUInt16, UnitFloat64, …) is the underlying numeric
+    if underlying == "Boolean":
+        return "bool"
+    # A LabVIEW unit type (UnitUInt16, UnitFloat64, ...) is the underlying numeric
     # value plus a physical unit; units are meaningless in Python, so cast on the
     # underlying number (Unit -> Num maps onto the numeric specs).
     if underlying.startswith("Unit"):
-        underlying = "Num" + underlying[len("Unit"):]
+        underlying = "Num" + underlying[len("Unit") :]
     return _INT_SPEC.get(underlying, underlying or "unknown")
 
 

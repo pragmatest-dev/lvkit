@@ -27,7 +27,9 @@ _SRC = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 )
 def test_titled_render_uses_the_opened_vis_own_identity(cls: str) -> None:
     vi = _SRC / "Classes" / cls / "run.vi"
-    svg, title = render_vi_file_titled(vi, search_paths=[_SRC], mode=LoadMode.MINIMAL)
+    svg, title, _ = render_vi_file_titled(
+        vi, search_paths=[_SRC], mode=LoadMode.MINIMAL
+    )
     assert svg, "expected a rendered diagram"
     # The title is the qualified name of the VI actually opened — this class's
     # own run.vi, never another class's run.vi picked by a bare-name collision.

@@ -142,7 +142,7 @@ def test_rotate_resolves_and_matches_ni_docs():
 def test_type_cast_resolves_and_reinterprets_bytes():
     """Type Cast (1166) resolves via the TYPE_CAST op handler, and lv.type_cast
     reinterprets flat bytes big-endian with no length prefix: a U32 array casts
-    to its raw bytes and round-trips, and an unsupported pair raises loudly
+    to its raw bytes and round-trips, and an unsupported type raises loudly
     (never a silently-wrong cast)."""
     import pytest as _pytest
 
@@ -153,8 +153,12 @@ def test_type_cast_resolves_and_reinterprets_bytes():
     assert s.encode("latin-1").hex() == "12345678deadbeef"
     assert lv.type_cast(s, "str", "u32[]") == [0x12345678, 0xDEADBEEF]
     assert lv.type_cast(258, "i16", "str").encode("latin-1").hex() == "0102"
+    # NI's "Flattened Data": a double of 1/4 flattens to 3FD0 0000 0000 0000.
+    assert (
+        lv.type_cast(0.25, "f64", "str").encode("latin-1").hex() == "3fd0000000000000"
+    )
     with _pytest.raises(NotImplementedError):
-        lv.type_cast(1.0, "f64", "str")
+        lv.type_cast(1.0, "ExtendedFloat", "str")
 
 
 def test_unflatten_from_string_resolves_and_parses_flat_format():
@@ -277,6 +281,7 @@ def test_1116_is_not_equal_to_zero():
     assert r.python_code == {"result": "in_1 != 0"}
 
     from lvkit._data import load_primitives
+
     entry = load_primitives()["primitives"]["1116"]
     assert entry.get("verified") is False
     assert entry["python_code"] == {"result": "in_1 != 0"}

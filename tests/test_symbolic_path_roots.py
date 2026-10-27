@@ -30,7 +30,8 @@ def test_configured_vilib_root_still_resolves(tmp_path: Path):
 
 def test_caller_relative_path_is_unchanged():
     ref = ParsedDependencyRef(name="B.vi", path_tokens=["", "Support", "B.vi"])
-    assert ref.resolve_against(CALLER) == Path("/proj/Providers/Support/B.vi")
+    # resolve_against returns an absolute path (on Windows that carries a drive).
+    assert ref.resolve_against(CALLER) == Path("/proj/Providers/Support/B.vi").resolve()
 
 
 @pytest.mark.parametrize(

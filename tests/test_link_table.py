@@ -16,6 +16,7 @@ from lvkit.parser.link_table import (
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableRecordKind,
+    decode_dyn_links,
     decode_iuse_links,
     decode_shared_variable_links,
     qualified_link_name,
@@ -98,14 +99,18 @@ def build_hpvl_record(
     variable_type: str,
     name_parts: list[bytes] | None = None,
     network_path: str | None = None,
-    layout_flag: int | None = None,
+    guid_values: tuple[int, int] = (2, 3),
+    layout_byte: int = 1,
+    raw_tail: bytes | None = None,
     ident: bytes = b"HpVL",
 ) -> bytes:
     """One ``HpVL`` record laid out as LabVIEW 25.0 writes it (see the
     ``parser/link_table.py`` module docstring), placed at absolute ``offset`` in
     the sidecar. Returns the bytes from the ``00 02`` item marker through the
     record's end. A ``network_path`` gives the network-published layout, none the
-    single-process one; ``layout_flag`` forces the byte after the marker."""
+    single-process one (opened by ``layout_byte``); ``guid_values`` are the two
+    ``u16`` after the second GUID; ``raw_tail`` replaces everything after them
+    up to the record's trailer."""
     buf = bytearray(b"\x00\x02" + ident)
 
     def pad(boundary: int) -> None:
@@ -130,15 +135,16 @@ def build_hpvl_record(
     for uid in node_uids:
         buf += struct.pack(">I", uid)
     buf += _string32("{6F4D119C-CAB7-415A-A879-AFA62CFCD56D}")
-    buf += bytes.fromhex("00020003")
-    if layout_flag is not None:
-        buf += bytes([layout_flag])
+    buf += struct.pack(">HH", *guid_values)
+    if raw_tail is not None:
+        buf += raw_tail
     elif network_path is None:
-        buf += bytes.fromhex("0100000001")
-    if network_path is not None:
+        buf += bytes([layout_byte]) + struct.pack(">I", 1)
+        buf += _string32(variable_type)
+    else:
         buf += _string32(network_path)
         buf += bytes.fromhex("ffffffff000000010000000200000001")
-    buf += _string32(variable_type)
+        buf += _string32(variable_type)
     buf += bytes.fromhex("000000000003")
     return bytes(buf)
 
@@ -275,6 +281,8 @@ def test_decodes_a_shared_variable_record_with_every_uid() -> None:
             target="My Computer",
             node_uids=(1033, 1112, 977),
             second_guid="{6F4D119C-CAB7-415A-A879-AFA62CFCD56D}",
+            second_guid_values=(2, 3),
+            layout_byte=1,
             layout_values=(1,),
         )
     ]
@@ -363,17 +371,9 @@ def test_an_unknown_shared_variable_type_is_a_failure_not_skipped() -> None:
     table = decode_shared_variable_links(_record(variable_type="Elsewhere"), V20)
     assert table.links == []
     (failure,) = table.failures
-    assert "unknown Shared Variable type" in failure.reason
+    assert "fits neither Shared Variable layout" in failure.reason
+    assert "'Elsewhere' where 'Global' was expected" in failure.reason
     assert failure.offset == 2
-    assert failure.node_uids == (1, 2)
-
-
-def test_an_unknown_layout_flag_is_a_failure_naming_its_nodes() -> None:
-    table = decode_shared_variable_links(_record(layout_flag=7), V20)
-    assert table.links == []
-    (failure,) = table.failures
-    assert "unknown layout flag 0x07" in failure.reason
-    assert failure.reason.startswith("HpVL record at offset 2:")
     assert failure.node_uids == (1, 2)
 
 
@@ -383,7 +383,90 @@ def test_a_type_that_disagrees_with_the_layout_is_a_failure() -> None:
     for data in (single_as_network, network_as_single):
         table = decode_shared_variable_links(data, V20)
         assert table.links == []
-        assert "does not match layout flag" in table.failures[0].reason
+        assert "fits neither Shared Variable layout" in table.failures[0].reason
+
+
+# The layout byte and the two u16 after the second GUID, as a LabVIEW 2025 project
+# writes them: the first u16 differs per record, the second per VI.
+SV_SINGLE_TAIL = bytes.fromhex("0000000001") + _string32("Global")
+
+
+@pytest.mark.parametrize(
+    ("guid_values", "layout_byte"),
+    [((3, 2), 0), ((2, 3), 0), ((1, 2), 1), ((11, 6), 0)],
+)
+def test_a_single_process_record_is_decided_by_its_type_not_its_flag_byte(
+    guid_values: tuple[int, int], layout_byte: int
+) -> None:
+    data = _record(guid_values=guid_values, layout_byte=layout_byte)
+    table = decode_shared_variable_links(data, V20)
+    assert table.failures == []
+    (link,) = table.links
+    assert link.kind is SharedVariableKind.SINGLE_PROCESS
+    assert link.network_path is None
+    assert link.second_guid_values == guid_values
+    assert link.layout_byte == layout_byte
+    assert link.layout_values == (1,)
+
+
+def test_a_garbage_tail_is_a_typed_failure() -> None:
+    data = _record(raw_tail=b"\x00\x00\x00\x00\x52\x54\x43\x00" * 3)
+    table = decode_shared_variable_links(data, V20)
+    assert table.links == []
+    (failure,) = table.failures
+    assert "fits neither Shared Variable layout" in failure.reason
+    assert failure.node_uids == (1, 2)
+
+
+def test_consecutive_records_with_a_flag_byte_of_zero_each_decode() -> None:
+    first = _record(offset=0, variable=b"One", guid_values=(1, 3), layout_byte=0)
+    second = _record(
+        offset=len(first), variable=b"Two", guid_values=(2, 3), layout_byte=0
+    )
+    next_record = b"\x00\x02VRTC" + b"\x00" * 40
+    table = decode_shared_variable_links(first + second + next_record, V20)
+    assert table.failures == []
+    assert [link.variable_name for link in table.links] == ["One", "Two"]
+    assert [link.second_guid_values for link in table.links] == [(1, 3), (2, 3)]
+
+
+def _splice_fixture_tail(guid_values: bytes, tail: bytes) -> bytes:
+    """The committed single-process sidecar with everything after its second GUID
+    replaced by ``guid_values`` and ``tail`` (and its trailer kept)."""
+    libd, version = _sidecar(SV_SAMPLE)
+    data = libd.read_bytes()
+    guid = b"{6F4D119C-CAB7-415A-A879-AFA62CFCD56D}"
+    head_end = data.index(guid) + len(guid)
+    old = bytes.fromhex("000200030100000001") + _string32("Global")
+    assert data[head_end : head_end + len(old)] == old
+    return data[:head_end] + guid_values + tail + data[head_end + len(old) :]
+
+
+@pytest.mark.parametrize("guid_values", ["00030002", "00020003"])
+def test_the_committed_record_with_a_zero_flag_byte_is_single_process(
+    guid_values: str,
+) -> None:
+    _, version = _sidecar(SV_SAMPLE)
+    data = _splice_fixture_tail(bytes.fromhex(guid_values), SV_SINGLE_TAIL)
+    table = decode_shared_variable_links(data, version)
+    assert table.failures == []
+    (link,) = table.links
+    assert link.kind is SharedVariableKind.SINGLE_PROCESS
+    assert link.library_parts == ("SV Sample.lvlib",)
+    assert link.node_uids == (1033, 1112, 977)
+    assert link.second_guid_values == tuple(
+        struct.unpack(">HH", bytes.fromhex(guid_values))
+    )
+    assert link.layout_byte == 0
+
+
+def test_the_committed_record_with_a_garbage_tail_is_a_failure() -> None:
+    _, version = _sidecar(SV_SAMPLE)
+    data = _splice_fixture_tail(bytes.fromhex("00020003"), b"\xde\xad\xbe\xef" * 6)
+    table = decode_shared_variable_links(data, version)
+    assert table.links == []
+    (failure,) = table.failures
+    assert failure.node_uids == (1033, 1112, 977)
 
 
 def test_a_truncated_shared_variable_record_is_a_failure() -> None:
@@ -435,6 +518,8 @@ def test_real_sidecar_names_the_library_and_every_node_of_the_variable() -> None
         target="My Computer",
         node_uids=(1033, 1112, 977),
         second_guid="{6F4D119C-CAB7-415A-A879-AFA62CFCD56D}",
+        second_guid_values=(2, 3),
+        layout_byte=1,
         layout_values=(1,),
     )
     # the same ID the project records for the variable
@@ -458,6 +543,7 @@ def test_real_network_sidecar_names_the_library_and_the_network_path() -> None:
         node_uids=(1112, 977, 1033),
         network_path=r"\\.\SV Sample\Value",
         second_guid="{A042DD0E-A89E-4630-9BDE-FFF8596DAC40}",
+        second_guid_values=(2, 3),
         layout_values=(0xFFFFFFFF, 1, 2, 1),
     )
 
@@ -525,3 +611,50 @@ def test_an_hpvr_name_without_a_library_after_the_target_is_a_failure() -> None:
     )
     table = decode_shared_variable_links(data, V20)
     assert "lacks a library and a variable" in table.failures[0].reason
+
+
+def _dyn_record(extra: int, uids: list[int]) -> bytes:
+    """A raw ``DyOM`` record after a list-item marker, then the next item's."""
+    buf = bytearray(b"\x00\x02DyOM")
+
+    def align(n: int) -> None:
+        while len(buf) % n:
+            buf.append(0)
+
+    align(4)
+    buf += struct.pack(">I", 2)
+    for part in (b"Cls.lvclass", b"\x01\x05id.vi"):
+        buf += bytes([len(part)]) + part
+    align(2)
+    components = [b"", b"Classes", b"Cls.lvclass"]
+    body = struct.pack(">HH", 1, len(components)) + b"".join(
+        bytes([len(c)]) + c for c in components
+    )
+    buf += b"PTH0" + struct.pack(">I", len(body)) + body
+    buf += struct.pack(">I", 0)  # flag
+    align(4)
+    buf += struct.pack(">Q", 0x0001000000000009) + bytes([0, 1, 0])
+    buf += struct.pack(">I", 2) + b"\x00\x01"  # API content
+    align(4)
+    buf += b"\x00" * extra
+    buf += struct.pack(">I", len(uids)) + b"".join(struct.pack(">I", u) for u in uids)
+    buf += b"\x00\x02IUVI"
+    return bytes(buf)
+
+
+@pytest.mark.parametrize(
+    ("major", "extra"), [(16, 0), (17, 4), (19, 4), (20, 8), (21, 8)]
+)
+def test_dyn_link_reads_the_method_class_path_and_call_uids(
+    major: int, extra: int
+) -> None:
+    data = _dyn_record(extra, [365, 1024])
+    (link,) = decode_dyn_links(data, LinkTableVersion(major, 0, 0, 4))
+    assert link.name_parts == ("Cls.lvclass", "\x01\x05id.vi")
+    assert link.path_tokens == ("", "Classes", "Cls.lvclass")
+    assert link.node_uids == (365, 1024)
+
+
+def test_dyn_link_with_the_wrong_version_size_is_an_error() -> None:
+    with pytest.raises(LinkTableError):
+        decode_dyn_links(_dyn_record(8, [365]), LinkTableVersion(17, 0, 0, 4))

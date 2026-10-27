@@ -151,13 +151,57 @@ Flat sequence frames act like implicit subVIs. ALL nodes inside a frame execute 
 
 **How to apply:** When generating code for a flat sequence frame, emit code for EVERY node in the frame, not just the ones in the wired dataflow chain. Unwired nodes (like Wait) must still appear in the generated Python for the frame.
 
-## "Pre-LV9 (LV8.2) VIs have no VCTP; connector-pane types live in the CONP block (decoded, #11 DONE); non-interface controls fall back to FP-heap reconstruction"
+## "Pre-LV9 (LV8.2) VIs have no VCTP; the diagram and front-panel type pool is the DTHP block, the connector-pane types are the CONP block (both decoded)"
 <!-- was memory: project_pre_lv9_no_vctp_trec -->
 
 **Pre-LV9 VIs (LabVIEW 8.2) have no `<VCTP>` block.** pylabview reads types only
 from VCTP, so it resolves nothing for them. But the types ARE recoverable
-clean-room (#11 DONE — 148 unresolved connector-pane terminals -> 0):
+clean-room. Three sources, by what they cover:
 
+0. **DTHP block = the diagram + front-panel type pool (every `TypeID(N)` a
+   terminal, constant or control names).** In an LV9+ VI, `DTHP` holds only a
+   `TypeDescSlice` into VCTP. In an LV8.2 VI it IS the pool, laid out like VCTP;
+   pylabview misreads it as the LV9 slice and leaves it raw, so the extractor
+   writes `*_DTHP.bin` (an LV9+ VI parses to XML and has no sidecar). Layout:
+   `u32 count`, `count` TDs (the TD framing of item 1 below), then
+   `u16 ntop` + `ntop x u16` TD-index. **Heap `TypeID(N)` = flat TD
+   `top[N-1]`** (`parser/heap_types.py`; TD decode shared with CONP in
+   `parser/td_pool.py`). Wired into `parse_type_map_rich`, which every view reads,
+   so the pool is single-sourced: VCTP first; no VCTP and a `DTHP` sidecar -> this.
+   *Evidence:* (a) all 232 `DTHP.bin` sidecars in the corpus (62 distinct VIs --
+   exactly the 62 corpus files with no `VCTP` ident, i.e. every LV8.2 VI) satisfy
+   `2 + 2*ntop == bytes after the TD list` and every `top` entry `< count`;
+   (b) apart from `TypeID(0)`, no diagram or front-panel `TypeID` exceeds `ntop`
+   (e.g. `Error Cluster From Error Code`: ids up to 150, `ntop` = 152); (c) all 231
+   front-panel terminals of the 62 VIs resolve through DTHP to a type equal to
+   the one CONP -- an independent block -- gives (cluster field names, enum
+   labels, typedef names, refnum classes included); (d) a by-name Unbundle's
+   field wires carry the types of the fields its drawer indices select.
+   `TypeID(0)` is "no type" (a local variable), as in LV9+. Measured on the 62
+   VIs: untyped diagram terminals 3236 -> 232 of 3440 (the remainder are terminals
+   the file itself gives no `typeDesc`, ~6.7% -- 62 LV9+ OpenG VIs measure 5.5%); arrays
+   with no element type 16 -> 0.
+   Extra TD facts the pool needed (verified on the 232 sidecars): an array body is
+   `u16 ndims`, `ndims x u32` size, `u16` element ref, label (the CONP decoder had
+   read the element at the wrong offset); an enum's label list is padded to an
+   even offset before the terminal label; a typedef (`0xf1`) body is `u32 flag`,
+   `u32 n` + `n` pstr qualified name (owning libraries then the `.ctl`), then the
+   inner TD as a nested `[u16 len][flags][type][body]` running to the end of the
+   body; string, path, picture and substring bodies start with a `u32` before the
+   label; `0x53` (variant) is label-only; a Queue/Notifier/User Event/Data Value/
+   FIFO/DataLog refnum body is `u16 kind`, `u16 n`, `n x u16` element TD ref.
+   A pre-LV9 structure defines its DCOs on itself -- by-name Bundle/Unbundle
+   drawers (with their field index `<i>`) in `dcoList`, the aggregate as `dcoAgg`,
+   a case selector as `caseSelDCO`, tunnels in `tunnelList` -- and each border
+   `<term>` holds a bare `<dco uid/>`; `_inline_dco_definitions` copies the
+   definition into the term so every reader sees the LV9+ form. (Without it every
+   drawer read as field 0 and every case selector as unwired: 42 `case ? :`
+   headers in 27 of the 62 VIs, 0 after.)
+   A node such as Delete From Array or Reshape Array does the same with named
+   direct children (`delDCO`, `srcDCO`, `lenDCO`, `dcoAgg`, `dcoList`); the same
+   copy gives its terminals their direction flags and types.
+   `TM80` is NOT this pool: it is the data-space type map (same framing, other
+   numbering), which only the case-selector tables read.
 1. **CONP block = the connector-pane type pool** (the authoritative source). Same
    bottom-up TypeDesc format as VCTP, sidecarred by the extractor as
    `*_CONP.bin` (pylabview leaves it raw: "we do not know how to parse complex
@@ -169,11 +213,14 @@ clean-room (#11 DONE — 148 unresolved connector-pane terminals -> 0):
    CONP stub (types moved to VCTP), so the decoder is a no-op there. Wired into
    `extract_fp_terminals` as a slot-correlated overlay (commits 632e509, e7ac326).
 2. **CONP is INTERFACE-ONLY.** A front-panel control not wired to the connector
-   pane (~37/2192 in JKI) is NOT in CONP -> use the **FP-heap DDO reconstruction**
+   pane (~37/2192 in JKI) is NOT in CONP -> its type comes from DTHP (item 0); the
+   **FP-heap DDO reconstruction**
    (`parser/fp_heap_type.py`, commit 11caa50): structure + enum labels from the
    heap subtree (ring items in a `multiLabel <buf>`, cluster fields via
    `<ddoList>`), but no field NAMES (pre-LV9 label text is a dropped text-pool
-   ref). Precedence: VCTP (LV9+) > CONP (LV8.2 interface) > FP-heap (private/fallback).
+   ref). Precedence: VCTP (LV9+) > DTHP pool (LV8.2 diagram and front panel); a connector-pane
+   terminal's CONP type overrides its DTHP type (same structure, plus the terminal's
+   name); FP-heap reconstruction only when neither yields a type.
 
 **Dead-end corrected:** `TRec` blocks are GEOMETRY (72-byte terminal records),
 NOT the type pool — an early wrong guess. Field names are NOT in the FP heap for
@@ -237,21 +284,28 @@ parts -- the library's name parts then the variable's name -- an empty path, lin
 flag, type id, link reference); then the item type (`NI_Variable_Variable`), the
 target (`My Computer`), the variable's persistent ID (a braced GUID, the same one
 the `.lvproj` records as `varPersistentID:{...}`), the node uid list, a second GUID
-(role not established), the 4 bytes `00 02 00 03` (role not established), then
-a layout that depends on the **byte right after those 4**: `01` (a
-single-process variable) is its own flag byte, followed by a u32 (seen as 1);
-`00` (a network-published variable) is the high byte of the **network path's**
-u32 length -- a string of fewer than 16 MB always starts with `00` -- so the path
-(`\\.\SV Sample\Value`; `\\.\` is the local machine) is read from that byte
-on, followed by four u32 (seen as `ffffffff 1 2 1`, roles not established).
-Both end with the variable type string: `Global` for a **single-process**
-variable (LabVIEW's recorded name for it) and `Network` for a network-published
-one. Any other byte is an unseen layout, and a type that disagrees with the
-layout is an inconsistent record; the decoder reports either as a
+(role not established), two u16 values (role not established), then one of two
+layouts. **No byte selects the layout**: the decoder reads the single-process
+layout first and keeps it only if its type string reads `Global`; otherwise it
+reads the network-published layout and keeps it only if its type string reads
+`Network`.
+
+- single process: a u8 (seen as `01` in the committed sample and `00` in a
+  LabVIEW 2025 project, so it is not a layout flag), a u32 (seen as 1), then the
+  type string `Global` (LabVIEW's recorded name for a single-process variable);
+- network-published: the **network path** as a u32-length string
+  (`\\.\SV Sample\Value`; `\\.\` is the local machine), four u32 (seen as
+  `ffffffff 1 2 1`, roles not established), then the type string `Network`.
+
+The two u16 values are not a fixed marker: in a LabVIEW 2025 project the first
+differs from record to record within a VI and the second is the same for every
+record of that VI (seen as 2, 3, 5 and 6); both committed samples read `2, 3`.
+Their meaning, and the meaning of the u8 and the u32, are not established; the
+link keeps them as read. A record that fits neither layout is a
 `SharedVariableRecordFailure` (offset, reason, the node uids if the failure came
-after the uid list) instead of raising, so the VI still loads and the affected
-nodes say their library link is unreadable. Exact layout: `parser/link_table.py`
-module docstring.
+after the uid list) instead of an exception, so the VI still loads and the
+affected nodes say their library link is unreadable. Exact layout:
+`parser/link_table.py` module docstring.
 
 Evidence: `tests/corpus/issues/149/SV Sample.vi` (LabVIEW 25.0, reporter
 metman-oss): one `HpVL` record, library `SV Sample.lvlib`, variable `Value`, type
@@ -271,6 +325,48 @@ target is a `SharedVariableRecordFailure`). **This layout comes from the reporte
 description plus the structure shared with `HpVL`; it has not been checked against a
 real `HpVr` file yet.** The link keeps which ident it came from
 (`SharedVariableLink.record`); nothing user-facing shows it.
+
+## A .NET assembly is named by a `DNVA` (`LIvi`) and a `DNDA` (`LIbd`) link-table record; each terminal of a .NET node records its .NET type in a `dnetItemInfo` (issue #161)
+
+A VI that calls a .NET assembly records the assembly in both link tables, like
+the project library of a Shared Variable: a `DNVA` record in the VI-level table
+(`LIvi`) and a `DNDA` record in the block-diagram table (`LIbd`) that also lists
+the heap uid of every node using it. pylabview defines both layouts
+(`LinkObjVIToAssembly` and `LinkObjHeapToAssembly` in `LVlinkinfo.py`); lvkit reads
+the main XML when pylabview decoded the table and the `_LIvi.bin` / `_LIbd.bin`
+sidecar otherwise.
+
+The record's qualified name has FOUR parts, not a path: the assembly's name,
+version, culture and public key token (`MccDaq`, `3.0.0.0`, `neutral`,
+`a37eefcf5c6ca10a`). The path holds only the name -- there is no file, the
+assembly comes from the GAC. A `DNVA` record is the basic link head (qualified
+name, path, flag) and a second path; a `DNDA` record is the head an `IUVI`
+record starts with (adds the type id and link reference), the typed-link flags
+(>= 12.0.0.3), the node uids and a second path. The second path is not read.
+Exact layout: `parser/link_table.py` module docstring. A record without four name
+parts, or that runs past the table, is a `DotNetAssemblyRecordFailure`; the VI
+still loads and describe and the JSON say the link is unreadable.
+
+**Evidence and its limits.** Taken from a reported sample, a LabVIEW VI calling
+`MccDaq` 3.0.0.0 (`DNDA ... 06 "MccDaq" 07 "3.0.0.0" 07 "neutral" 10
+"a37eefcf5c6ca10a" PTH0 ... 06 "MccDaq"`), and pylabview's layouts. The sample's
+bytes were reported, not shared: no VI with a `DNDA`/`DNVA` record is in the
+corpus, so the decoder is tested on records built from that layout, and the
+bytes the report elides (alignment, the counts and lengths) are the ones the
+layout implies.
+
+Each terminal of a .NET node is an `invokeItem` DCO whose `privDataList` holds a
+`dnetItemInfo` element. Its `DotNetItemType` field is the terminal's .NET type as
+an assembly-qualified name, hex-encoded, ending in a NUL byte:
+`MccDaq.DaqDeviceDescriptor[], MccDaq, Version=3.0.0.0, Culture=neutral,
+PublicKeyToken=a37eefcf5c6ca10a` (the return value of `GetDaqDeviceInventory`,
+an array), `MccDaq.DaqDeviceInterface, ...` (a parameter the VI types as I32: a
+.NET enum) and `MccDaq.ErrorInfo, ...` (the return value of `IgnoreInstaCal`).
+The VI's own type for the terminal stays the generic DotNet refnum (or I32).
+Member and parameter names are not stored in the VI. The three types come from the
+same report; the element's exact heap shape (whether the `dnetItemInfo` is a tag or
+a `class`, and where the DCO is defined) is read both ways in `parser/vi.py`
+`_dotnet_item_type`.
 
 ## "Compound Arithmetic (cpdArith) operation is in objFlags bits 16-18, NOT dcoFiller — corpus-verified decode that fixed"
 <!-- was memory: reference_cpdarith_objflags -->
@@ -458,6 +554,42 @@ Implemented in `src/lvkit/parser/nodes/case.py`
 via `main_xml`. Fixed #82 (was fabricating True/False for all non-boolean cases).
 Renderer `_selector_label` + codegen `_build_frame_pattern` now emit multi-value
 labels / `case "jpe" | "jpeg" | "jpg":` OR-patterns. See [[feedback_no_heuristics]].
+
+### Case selector values in the heap (LabVIEW 2010+)
+
+Verified against the stored label of the displayed frame (`selString/textRec/text`
+of the `select`/`caseStruct` element, frame `dIdx`; LabVIEW omits `dIdx` when it
+is 0) over a fixed corpus list (`tests/test_case_frame_labels_corpus.py`):
+
+- `SelectRangeArray32` entries are `start`/`end` plus `startRangeType`/
+  `endRangeType` (each omitted when 0). **0** = a lone value; **1** = a literal
+  end of a range (`0..2` is `(0, 2, 1, 1)`); **3** = an OPEN side, whose number is
+  filler (the selector type's limit: `0..` is `(0, 2147483647, 1, 3)`, `..-1` is
+  `(-2147483648, -1, 3, 1)`, I16 `126..` is `(126, 32767, 1, 3)`). Both sides open
+  is the whole domain: the error cluster's second frame, stored as `Error ..`
+  (`Error ` plus the range text) with `SelectDefaultCase` FF, so it is not a
+  default frame; one open side whose filler equals the bounded end is its "No
+  Error" point.
+- A string frame lists `SelectStringArray` indices (a frame can match several);
+  the empty string is an element without text.
+- Enum selectors are named `UnitUInt8/16/32` by pylabview; the type's kind is
+  `ENUM`.
+- A heap case's `SelectDefaultCase` is authoritative for its default frame and
+  its `dIdx` (absent = 0) for the displayed frame. A dataspace table paired to it
+  by order may belong to another case, so tables are applied only to cases
+  whose values are not in the heap.
+- A pre-2010 case has no `SelectRangeArray32`; its `dIdx` is a global diagram
+  ordinal (e.g. 36, 38, 52 on 2-frame cases), not a frame index.
+- Stored labels quote enum item names and strings (`"Up", Default`), pad with a
+  space, and write a control character as a backslash code.
+
+## Boolean and two-frame error case structures have NO default frame; only an error case with error-code frames has one (`Default`)
+
+- **Boolean:** NI: "You cannot specify a default subdiagram if you wire a Boolean control to the case selector" (labview help, *specifying-a-default-subdiagram-for-case-structures*). Frames are `True`/`False`, never a Default marker.
+- **Error, two frames (`No Error` / `Error`):** fully described (status Boolean), so no default. Never infer one (no "first frame without a value" fallback, no frame-0 rule).
+- **Error with error-code frames (LV 2019+):** NI: "If you add more error cases without customizing the selector label of the Error case, the Error case changes to Default". The file stores it: `Enumerate Compute Nodes.vi` (measurement-plugin-labview) case uid 496 has `SelectDefaultCase 01`, no range on frame 1, saved label ` Default `. Label that frame `Default`; a frame storing status 1 reads `Error`, never `Error, Default`.
+- **The No Error frame can also list codes** (`No Error, Error 18`, NI help *handling-errors-using-case-structures*).
+- Rule of thumb: mark a Boolean/error frame default ONLY when the VI stores it.
 
 ## Event Structure per-frame labels ARE reconstructable from EventSpec (ddoUID->FP caption + type code); only the displayed frame has faithful heap text
 <!-- was memory: reference_eventspec_frame_labels -->
@@ -1162,3 +1294,273 @@ is a control; OpenG `Reorder Array__ogtk.vi` is a polymorphic VI.
 The value exposed as `vi_type` (describe text and `--format json`, the index
 `vi_type` column) is the readable kind: `VI`, `Global VI`, `Control`,
 `Polymorphic VI`, or `unknown (code N)`.
+
+## A connector-pane terminal's wiring rule is Flags bits 11-12 of the Function TypeDesc that CONP points to (issue #173)
+
+Each connected slot is a child of the VI's own connector-pane Function
+`TypeDesc` (`CONP` TypeID -> `VCTP/TopLevel` -> FlatTypeID). Its `Flags`:
+
+| Bit | Meaning |
+|---|---|
+| 12 (`0x1000`) | Required |
+| 11 (`0x0800`) | Recommended (when bit 12 is clear) |
+| neither | Optional (`Flags="0x0000"` is a normal Optional input) |
+| 8 (`0x0100`) | output |
+| 15 (`0x8000`) | Dynamic Dispatch (with bit 12 on an input, bit 11 on an output) |
+
+Evidence: the reporter's scan of 17,514 terminals in 3,890 VIs (LabVIEW 9.0 to
+24.0): bit 8 on 7,983 of 7,983 outputs and 0 of 9,531 inputs; bit 12 on 3,987
+inputs and 0 outputs; bits 11 and 12 never together. A re-check on a capped
+sample (295 VIs, direction from the FP DCO `objFlags` bit 0): bit 8 on 553 of
+553 outputs and 0 of 639 inputs; bit 12 on 274 inputs and no output; bit 11 on
+360 inputs and 553 outputs; neither on 5 inputs; no slot with both 11 and 12;
+bit 15 on 43 inputs and 38 outputs. Labels agree: `custom report message ("")`
+is `0x0000`; JKI-EasyXML `Easy Write XML File.vi` has `XML File Path`
+`0x1000` (Required), `Overwrite File? (false)` `0x0800` (Recommended),
+`Encoding (none)` `0x0000` (Optional). NI's public docs name the dynamic-dispatch
+settings "Dynamic Dispatch Input (Required)" / "Dynamic Dispatch Output
+(Recommended)". Bits 0-3, 9, 10, 16, 17 are unrelated to the wiring rule
+(meaning unknown).
+
+A VCTP lists every type used in the VI, including other VIs' interfaces, so
+more than one same-shaped `Function` TypeDesc can exist; only the one CONP
+names is the VI's own (JKI-EasyXML `Easy Parse XML.vi`).
+
+## A flattened array stores one 32-bit size per dimension, slowest-varying first, then the elements row-major; a Picture is a 4-byte length plus that many bytes (issues #174, #175)
+
+An array default (front-panel `DefaultData`) or diagram constant (`ConstValue`)
+is the flattened form of the value. NI's public "Flattened Data" page, section
+"Arrays" (https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html):
+"Flattened 32-bit integers that record the size, in elements, of each of the
+dimensions of an array precede the data for a flattened array. The slowest
+varying dimension is first ... The flattened data follows immediately after
+these dimension sizes in the same order in which LabVIEW stores them in
+memory." Its example, a 2D array of six 8-bit integers `{{1,2,3},{4,5,6}}`,
+flattens to `0000 0002 0000 0003 0102 0304 0506`.
+
+So an N-dimensional array is `4 x N` bytes of sizes, then `product(sizes)`
+elements; the dimension count N is the number of `<Dimension>` children of its
+VCTP `Array` descriptor. Checked against the corpus (stored byte count =
+`4 x N` + elements):
+
+| VI (control) | Type | Sizes | Bytes |
+|---|---|---|---|
+| OpenG `Index Array Elements (2D) Example 01.vi` (`array`) | `[[U32]]` | 3 x 4 | 56 |
+| OpenG `Reverse 2D Array Example 01.vi` (`Array`) | `[[TF]]` | 4 x 6 | 32 |
+| measurement-plugin `Next Generation.vi` (`cells in`) | `[[TF]]` | 13 x 16 | 216 |
+| OpenG `Write GIF File Example.vi` (`Array`) | `[[[U32]]]` | 75 x 36 x 36 | 388,812 |
+| LabVIEW-OOP-Classes `AI_New.vi` (`Data`, a cluster with an empty 0 x 0 `[[DBL]]`) | cluster | 0 x 0 | 62 |
+
+A reader that takes the first size as the whole element count decodes the
+second size as an element, and inside a cluster every following field
+misaligns.
+
+A **Picture** is not described on that page. In the ni-labview-icon-editor
+`Install Glyphs.vi` control `Glyph list` (an array of a cluster
+`{Install: TF, Current: Picture, Icon Library: Picture, Subfolder: String,
+Name: String}`), the stored default is 565 bytes with one element, which
+equals `4 (array size) + 1 (TF) + 2 x (4 + 272) (the two pictures, each a
+4-byte length 272 then 272 bytes) + 4 + 4 (the two empty strings)`: a Picture
+is a length-prefixed byte run, deduced from the byte count.
+
+That layout was then checked against every Picture-bearing value in the
+extracted corpus (130 distinct VI and control files; all but three of the 409
+values below come from the ni-labview-icon-editor sample project, the rest from
+JKI-VI-Tester and actor-framework): 409 default and constant values in 206
+extracts (338 front-panel defaults, 71 diagram constants). 374 of them are
+consumed to exactly their stored byte count, so every Picture and every field
+after it lines up; those 374 hold 169 Pictures (56 non-empty, in 21 distinct
+files; 113 empty). The largest, `LayerList.ctl` `User layers`, is a cluster of
+four non-empty Pictures in 12,452 bytes; `lv_icon.vi` `Framework Templates` is
+1,172. The 35 that are not exact are not Picture mismatches: 34 are all-zero
+diagram constants stored with one extra trailing zero byte (an empty array
+`0000000000` is 5 bytes; the same extra byte appears on Picture-free empty
+array and cluster constants), and 1 is a front-panel default whose array holds
+a LabVIEW class object (`Layer.lvclass`), whose flattened private data (see
+"Classes" on the NI page) the decoder does not read yet. Every value holding a
+non-empty Picture is exact. Nearly all the evidence comes from one project, so a Picture saved by
+another LabVIEW version is lightly tested. The drawing bytes themselves are not
+documented publicly, so a non-empty Picture is shown as `<Picture, N bytes of
+drawing not decoded>` (and listed as undecoded by the audit); an empty one
+(length 0) shows as `None`.
+
+A `TypeDef` descriptor holds the type it wraps as its single `Nested='True'`
+child TypeDesc; for an `Array` that child carries the `<Dimension>` children
+and the element's `TypeID`, and for a `Refnum` its `RefType` and payload
+`TypeID` (child `TypeID`s are FlatTypeIDs like everywhere else in VCTP).
+
+## A LabVIEW class value is a flattened object: level, class name section, version list, private data (issues #174, #175)
+
+A class-typed value (a `Refnum` descriptor with `RefType="UDClassInst"` and an
+`<Item>` chain naming the class) in a front-panel default or diagram constant is
+not a 4-byte handle but the flattened object. NI's public "Flattened Data" page,
+section "Classes" (https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html):
+
+- **level in hierarchy**: 4-byte unsigned integer. 0 is an instance of LabVIEW
+  Object and the other three fields are omitted (the value is 4 bytes).
+- **class name**: a length byte for the qualified name, then Pascal strings, the
+  last of length zero, padded with zero bytes so the whole section is a multiple
+  of 4.
+- **version list**: one cluster of four 2-byte unsigned integers (8 bytes) per
+  level. At level 1 with version 0 the value is the class's default data and the
+  remaining field is omitted.
+- **private data**: per level, a 4-byte byte count then exactly that many bytes of
+  flattened cluster. NI's page says each cluster "ends with enough pad bytes to
+  increase the cluster to a multiple of 4"; the stored count already includes
+  them, and nothing follows the counted bytes. Decoding those bytes needs the
+  class's own private data type, so lvkit skips them and shows the class name.
+
+Evidence: in `Extract Default Icon Data.vi` the `All User Layers` default holds
+one `Layer.lvclass` object of 112 bytes: `00000001` (level) + `0f 0d Layer.lvclass
+00` (the 16-byte name section, already a multiple of 4) + 8 bytes of version +
+`00000049` (73 bytes of private data, nothing after them). The fields after it
+then start at the right byte: reading a pad up to 76 leaves the next field's
+4-byte length 3 bytes late and the default 12 bytes short of its stored 181, and
+without the pad all 181 bytes are consumed (the `Font` string in that cluster,
+which had looked like a 1-byte-length string, is an ordinary 4-byte-length one). Across 236 class-bearing defaults and constants in 149
+extracts (a deterministic quarter of the 2,302 distinct VIs that name a class;
+723 class objects, 714 at level 1 and 9 at level 0), 210 are consumed to exactly
+their stored byte count. Of the other 26, 24 are diagram constants
+with one extra trailing zero byte (the same extra byte seen on constants with no
+class or Picture), and 2 are one `Data` cluster whose last field is a type
+descriptor lvkit does not decode (its 4 remaining bytes are zero). No value in
+the sample has a level above 1, so the multi-level layout rests on the NI page
+alone.
+
+
+## Every stored default and constant reads to its exact size (audit of 14,914 values, issues #174, #175)
+
+`scripts/audit_default_data.py` decodes every front-panel `DefaultData` and every
+diagram constant of every extracted VI/control in the corpus (4,850 distinct
+files; 14,914 values in 2,928 of them -- 1,485 front-panel defaults, 13,429
+diagram constants) with `_decode_element` and requires each to consume exactly
+its stored byte count AND read every field and element its type declares
+(`lvkit.parser.audit`). Before the fixes below 10,573 were exact; after, all
+14,914. What each group needed:
+
+- **A diagram constant whose flattened value is all zero bytes carries one extra
+  trailing zero byte.** 4,139 constants had a surplus of exactly one `00`; in all
+  4,139 the value bytes were all zero, and in none of the other 9,290 diagram
+  constants was there a surplus. It follows from nothing in NI's pages, so it is
+  a stored-form fact of the constant (a front-panel default never has it):
+  `lvkit.parser.audit.constant_padding`.
+- **Extended-precision numbers are IEEE binary128** (1 sign bit, 15 exponent
+  bits, 112 fraction bits, big-endian, 16 bytes; a complex is two). NI: "stores
+  flattened extended-precision, floating-point numbers as 16-byte quantities".
+  A physical quantity (a number with a unit, `UnitFloat*`/`UnitComplex*`) flattens
+  as its plain number; it was being read as an enum. 33 values.
+- **Tag refnums store flattened strings, not a 4-byte handle.** NI, "Refnums":
+  type codes 0xE (`VisaRef`), 0xF (`IVIRef`) and 0x15 (`UsrDefndTag`) hold "a
+  flattened string" (the tag); 0x1D (`UsrDefTagFlt`) holds the tag, a string, a
+  string, a 32-bit integer and a string (an IMAQ image's pixels are that last
+  string -- values up to 2 MB). Together with waveforms and unit-tagged extended
+  numbers below, 46 values.
+- **A Variant is `[version][type count][type descriptors][has value]
+  [value type index][value][attribute count][attributes]`**, an attribute being a
+  name string and another Variant. The type descriptors are those of NI's "Type
+  Descriptors" page (`[size][flags][type code][info][name]`; an array names its
+  element, a cluster its members, by index into the same list); the value is read
+  with the type its descriptor names. Every Variant in the corpus (134) is the
+  empty 20-byte form (version, one Void descriptor, has-value 1, type 0, no
+  attributes); a Variant that holds a value is read from its descriptors.
+- **A waveform is flattened like a cluster** (NI "Waveforms"): t0 (the 16-byte
+  timestamp), dt (a double), Y (a 1D array of the sample type), the error
+  cluster (Boolean, 32-bit integer, string) and the attributes Variant. Digital
+  data is a cluster of the 1D U32 transition array and the 2D U8 data array;
+  dynamic data a cluster of an array of waveforms. 57-byte example: 16 + 8 + 4 +
+  9 + 20.
+- **Set (type code 0x73) and Map (0x74)**: their type descriptors are
+  `[header][element index][label]` and `[header][2][key index][value index]
+  [label]` (the corpus's own descriptors; 15 values), which pylabview reads as a
+  refnum. Their values are a 32-bit count then each element, or each key and
+  value (NI "Sets" and "Maps"); the 37-byte Map `{'PinGroup1': ['Pin1', 'Pin2']}`
+  is `00000001 00000009 "PinGroup1" 00000002 00000004 "Pin1" 00000004 "Pin2"`.
+- **A type definition over a refnum pylabview cannot finish reading** (an IMAQ
+  image's body ends in a Variant it misaligns) still names its refnum kind: the
+  16-bit code right after the 4-byte header (15 values).
+- **A cluster with no members stores no bytes**, and neither does a Void; a
+  cluster may repeat a field name (`Left, Bottom, Right, Bottom`), so values keyed
+  by name use `unique_names` (`Bottom`, `Bottom (2)`).
+- **An array of more than 4,000,000 elements** (a camera frame of 18,001,000
+  pixels is a front-panel default) is read to its end but its values are not kept.
+
+A class object's private data is decoded when its class is loaded: the object
+holds one cluster per level of the class hierarchy, oldest ancestor first, and
+the graph gives the type's class the private-data fields of each level
+(`InMemoryVIGraph.get_class_private_levels`, from the loaded `.lvclass` nodes and
+their parent chain; `LVType.class_levels`). Each level's stored bytes are read
+with that level's fields and must be consumed exactly; the value then shows as
+`Layer.lvclass{'Origin': {...}, 'Data': {...}, 'Type': 2}` (all levels' fields in
+one cluster display). In `Extract Default Icon Data.vi` the 73 stored bytes of
+`Layer.lvclass` read exactly as its three private-data fields: `Origin` (cluster
+`Horizontal`, `Vertical`), `Data` (cluster `LayerIcon` Picture, `LayerName`
+`'VI Icon'`, `Opacity` 100, `Visibility?` True) and `Type` (a 16-bit enum, 2).
+Where the class is not loaded, the number of levels differs from the object's,
+or a level does not read exactly, the private data is skipped by its stored
+count and the value shows the class name only; the bytes are still accounted
+for. A class held in another class's private data is stamped the same way, down
+to any depth; a class already being stamped further up (its private data holds
+itself, directly or through another class) is left without levels, so that
+inner instance shows its name and keeps its exact extent. The only corpus value with stored private data is that one (every other class object in
+the corpus is the class's default, a one-level object at version 0).
+
+## A Call Library Function Node row is ONE `extFuncArg` DCO owned by the input terminal; the output terminal is a bare reference to it (issue #185)
+
+A Call Library Function Node (`class="extFunc"`) stores the path pair and the
+error pair as ordinary `hGrowCItem` DCOs (positions 0-3), then one `extFuncArg`
+DCO per function row — the return value first, then each parameter. The DCO sits
+on the row's LEFT `<term>`; its own `<termList elements="2">` names the row's two
+terminals in order (input side, output side), and the right `<term>` holds only
+`<dco uid=.../>`, a bare reference to that DCO with no flags of its own. So the
+direction of a row terminal comes from its position in that pair list, not from
+the DCO's `objFlags` bit 0.
+
+The return-value row is the `extFuncArg` whose `objFlags` has bit 16
+(`0x10000`): 46/46 corpus nodes, always the first row, and no other row ever
+carries the bit. Its input terminal is never wired (46/46) and the node does not
+have it (NI's page for the node: the top terminal is unused).
+
+The node's `<funcTD>` (hex heap TypeID) is a Cluster whose fields are the C
+prototype, one per row in the same order (46/46 nodes; same count as
+`<paramInfo>`). The field names are the parameter names (`varName`, `hFile`).
+The return value's field is sometimes unnamed, sometimes `return`, `return
+type` or `error code`. The field TYPES are C-level (`PtrTo`, `ArrayDataPtr`);
+the DCO's `typeDesc` is the LabVIEW wire type (`Array`, `NumUInt32`) and is the
+one the terminal shows.
+
+The function's name is `<nodeName>`; its library is `<libPath>`, a `PTH0` path
+(`kernel32.dll`, or `LabVIEW` for LabVIEW's own functions). A node whose
+`libPath` is the empty path (`PTH0` with zero components) takes its library from
+the wired path input at run time. Three of the 46 corpus nodes sit inside an
+XNode's implementation diagram (Match Regular Expression) and are not on the
+VI's own diagram.
+
+Terminal names come from the type each DCO references: heap TypeID -> consolidated
+TypeID -> FlatTypeID -> that type descriptor's `Label`. The path and error
+terminals reference labelled types (`path in`, `path out`, `error in (no
+error)`, `error out`; the two LabVIEW-library nodes with a reference use
+`reference` / `reference out`); all 184 path and error terminals of the 46 corpus
+nodes carry one. A row's `extFuncArg` DCO references a labelled type for 192 of
+its 216 rows (the 24 without are return values); the label differs from the
+prototype's field name for 34 of those (`bytesRead` against an unnamed field,
+`file path` against `path`).
+
+How the call is recorded. `<callType>` is absent for stdcall and `01` for C (all 27
+kernel32 nodes in the corpus have none, which are `__stdcall` functions; the 19 others
+have `01`; NI's dialog lists stdcall first and C second). An empty `PTH0` in `<libPath>`
+means the library comes from the `path in` terminal. The funcTD cluster's field types are
+the C types: `NumInt32`..`NumUInt64`/`NumFloat32`/`NumFloat64` by value (a 64-bit integer
+with `Prop1="1"` is the pointer-sized integer), `PtrTo` a number (NI's "pass pointer to
+value"), `CString` (a C string pointer), `ArrayDataPtr` with one `Dimension` (a pointer to
+the elements), `String` with `Prop1="0xFFFFFFFF"` and `Array` (a LabVIEW string and array
+handle), and `Void` (the return value of a function with none, else Adapt to Type: NI
+passes a scalar by reference). The `extFuncParam` `Tag0000` byte is 00/01 and does not
+change how a parameter is passed. Error in/out: NI says the node does not run when an
+error enters it, and reports error 7 for a library path that does not exist and error 1097
+for an exception in the called code.
+
+**Absent field = value 0 (2026-10-24):** in extFunc node XML, an optional scalar like `callType` or `threadInfo` is omitted when 0 and written (e.g. `01`) otherwise; read absent as 0, not as "unknown".
+
+`<threadInfo>` is 0 (absent) for "Run in UI thread" and `01` for "Run in any thread"
+(28 of the 46 corpus nodes have `01`). LabVIEW draws the node's top band orange for the
+UI thread and pale yellow for any thread.

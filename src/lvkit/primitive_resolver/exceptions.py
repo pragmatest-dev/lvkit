@@ -14,17 +14,26 @@ class PrimitiveResolutionNeeded(Exception):
 
     Same pattern as VILibResolutionNeeded — the whole primitive is unknown,
     here are all its terminals from the graph with directions and types.
+
+    A node without a ``primResID`` (a Call Library Function Node, a class-
+    resolved function) has ``prim_id=None`` and names its kind in
+    ``node_kind`` (``"Call Library Function Node"``): nothing can be added to
+    ``primitives.json`` for it, so the message states the gap instead.
     """
 
     def __init__(
         self,
-        prim_id: int | str,
+        prim_id: int | str | None,
         prim_name: str,
         terminals: list[dict[str, str | int | bool | None]],
         vi_name: str | None = None,
         qualified_vi_name: str | None = None,
+        node_kind: str | None = None,
+        reason: str | None = None,
     ):
-        self.prim_id = str(prim_id)
+        self.prim_id = "" if prim_id is None else str(prim_id)
+        self.node_kind = node_kind
+        self.reason = reason
         self.prim_name = prim_name
         self.terminals = terminals
         self.vi_name = vi_name
@@ -36,16 +45,28 @@ class PrimitiveResolutionNeeded(Exception):
         super().__init__(self._format_message())
 
     def _format_message(self) -> str:
-        msg = f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
+        if self.prim_id:
+            msg = (
+                f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
+            )
+        else:
+            because = f": {self.reason}" if self.reason else ""
+            msg = (
+                f"{self.node_kind or 'Node'} {self.prim_name}"
+                f" has no code generation yet{because}.\n"
+            )
         if self.qualified_vi_name:
             msg += f"  In VI: {self.qualified_vi_name}\n"
         elif self.vi_name:
             msg += f"  In VI: {self.vi_name}\n"
-        msg += (
-            "  Full connector pane (every terminal the heap serialized — wired\n"
-            "  AND unwired — with its declared type; identify by this whole\n"
-            "  signature, not just the wired ones):\n"
-        )
+        if self.prim_id:
+            msg += (
+                "  Full connector pane (every terminal the heap serialized — wired\n"
+                "  AND unwired — with its declared type; identify by this whole\n"
+                "  signature, not just the wired ones):\n"
+            )
+        else:
+            msg += "  Terminals:\n"
         for t in self.terminals:
             parts = [
                 f"index={t['index']}",
@@ -59,12 +80,13 @@ class PrimitiveResolutionNeeded(Exception):
             msg += f"    - {' '.join(parts)}\n"
         if not self.terminals:
             msg += "    (none)\n"
-        msg += (
-            f"\n  Fix: add primitive {self.prim_id} to"
-            f" .lvkit/primitives.json (project-local) or"
-            f" data/primitives.json (cleanroom upstream)"
-        )
-        return msg
+        if self.prim_id:
+            msg += (
+                f"\n  Fix: add primitive {self.prim_id} to"
+                f" .lvkit/primitives.json (project-local) or"
+                f" data/primitives.json (cleanroom upstream)"
+            )
+        return msg.rstrip("\n")
 
 
 class TerminalResolutionNeeded(Exception):

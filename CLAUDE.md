@@ -158,7 +158,9 @@ This preserves LabVIEW's semantics where:
 - First error is preserved and raised at merge point
 - All branches get a chance to clean up
 
-Implementation: `src/lvkit/codegen/error_handler.py`
+`LabVIEWError` is generated once into the package (`errors.py`) and imported from there; generated code imports nothing from lvkit.
+
+Implementation: `src/lvkit/codegen/error_handler.py`. Where try/except goes: `ARCHITECTURE.md` "try/except wrapping goes at Clear/Merge/error-case nodes". Parallel tiers: `src/lvkit/codegen/README.md` "Tiered Topological Sort".
 
 ## Searching for Code in VIs
 

@@ -30,7 +30,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
-from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
+from ..parser.constants import NMUX_NAMED_LANE_NODE_CLASSES
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .models import Constant
@@ -231,8 +231,9 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     once a class search-path resolves, can fill it in). Safe to call
     repeatedly (e.g. once per top-level ``load_vi``).
 
-    Gated to ``NMUX_BY_NAME_NODE_CLASSES`` (``nMux``/``decomposeClusterNode``)
-    -- NOT every node carrying ``nmux_role`` terminals. ``mux``/``demux``
+    Gated to ``NMUX_NAMED_LANE_NODE_CLASSES`` (``nMux``/
+    ``decomposeClusterNode``/``eventDataNode``, whose terminals each store a
+    field index) -- NOT every node carrying ``nmux_role`` terminals. ``mux``/``demux``
     (loop/structure-boundary bundlers) share the exact same dcoAgg/dcoList
     terminal shape but index POSITIONALLY, never by a real field name; naming
     their ports/wires after whatever field happens to sit at that position
@@ -243,7 +244,7 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     """
     for vi_name in graph.list_vis():
         for node in graph.iter_nodes(vi_name):
-            if node.node_type not in NMUX_BY_NAME_NODE_CLASSES:
+            if node.node_type not in NMUX_NAMED_LANE_NODE_CLASSES:
                 continue
             agg = next((t for t in node.terminals if t.nmux_role == "agg"), None)
             if agg is None:
@@ -351,37 +352,36 @@ def _const_value_str(c: Constant) -> str:
     return str(c.value)
 
 
-def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
-    """Render a frame's selector ranges the way LabVIEW builds the label:
-    singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as ``a..``
-    / ``..b``, joined with ``, `` (e.g. ``1, 3, 5..8``). Shared by the
-    renderer's frame-chrome label and the netlist's case/disable frame
-    label -- both need the identical faithful text."""
-    parts: list[str] = []
+def _range_tokens(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> list[str]:
+    """A frame's selector ranges as the separate values LabVIEW lists in its
+    label: singles as ``fmt(v)``, closed ranges as ``a..b``, open ranges as
+    ``a..`` / ``..b``, and the whole domain as ``..`` (e.g. ``1``, ``3``,
+    ``5..8``). Exactly two adjacent values list both (``a``, ``b``): ".."
+    means the contiguous middle is skipped, which only applies to a span of
+    three or more values."""
+    tokens: list[str] = []
     for r in ranges:
-        if r.open_start:
-            parts.append(f"..{fmt(r.end)}")
+        if r.open_start and r.open_end:
+            tokens.append("..")
+        elif r.open_start:
+            tokens.append(f"..{fmt(r.end)}")
         elif r.open_end:
-            parts.append(f"{fmt(r.start)}..")
+            tokens.append(f"{fmt(r.start)}..")
         elif r.is_single:
-            parts.append(fmt(r.start))
+            tokens.append(fmt(r.start))
         elif r.end == r.start + 1:
-            # Exactly two values — nothing lies between them to elide, so list
-            # both ("a, b"). ".." means the contiguous middle is skipped, which
-            # only applies to a span of three or more values.
-            parts.append(f"{fmt(r.start)}, {fmt(r.end)}")
+            tokens.extend((fmt(r.start), fmt(r.end)))
         else:
-            parts.append(f"{fmt(r.start)}..{fmt(r.end)}")
-    return ", ".join(parts)
+            tokens.append(f"{fmt(r.start)}..{fmt(r.end)}")
+    return tokens
 
 
-def is_no_error_selector(selector_value: str) -> bool:
-    """The error-cluster case that switches on ``status == False`` -- selector
-    value ``"0"`` -- is LabVIEW's "No Error" (green) frame; every other value is
-    an "Error" (red) frame. Shared by ``_selector_label`` (the label text) and
-    ``render/scene.py``'s green/red frame classification, so the two never
-    disagree on which frame is No-Error."""
-    return selector_value == "0"
+def _format_ranges(ranges: list[SelectorRange], fmt: Callable[[int], str]) -> str:
+    """Render a frame's selector ranges the way LabVIEW builds the label: the
+    ``_range_tokens`` values joined with ``, `` (e.g. ``1, 3, 5..8``). Shared by
+    the renderer's frame-chrome label and the netlist's case/disable frame
+    label -- both need the identical faithful text."""
+    return ", ".join(_range_tokens(ranges, fmt))
 
 
 def _terminal_display_name(term: Terminal) -> str | None:
@@ -394,9 +394,20 @@ def _terminal_display_name(term: Terminal) -> str | None:
     return term.display_name or term.name
 
 
-def _selector_values_label(frame: CaseFrame, lv_type: LVType | None) -> str | None:
-    """A frame's explicit selector values: enum item name(s), integer
-    value(s)/range(s), or quoted strings; None when it has none."""
+_DEFAULT_LABEL = "Default"
+
+
+def _is_string_selector(frame: CaseFrame, lv_type: LVType | None) -> bool:
+    """Whether the frame's values are strings (shown quoted)."""
+    return bool(frame.selector_strings) or bool(
+        lv_type and lv_type.underlying_type == "String"
+    )
+
+
+def _selector_values(frame: CaseFrame, lv_type: LVType | None) -> list[str]:
+    """A frame's explicit selector values, one entry per value: enum item
+    name(s), integer value(s)/range(s), or the raw strings; empty when it has
+    none."""
     if (
         lv_type
         and lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
@@ -404,44 +415,93 @@ def _selector_values_label(frame: CaseFrame, lv_type: LVType | None) -> str | No
         and frame.selector_ranges
     ):
         int_to_name = {ev.value: name for name, ev in lv_type.values.items()}
-        return _format_ranges(
+        return _range_tokens(
             frame.selector_ranges,
             lambda i: int_to_name.get(i, str(i)),
         )
     if frame.selector_ranges:  # integer selector
-        return _format_ranges(frame.selector_ranges, str)
-    if frame.selector_strings:  # string selector — one frame, several strings
-        return ", ".join(f'"{s}"' for s in frame.selector_strings)
-    return None
+        return _range_tokens(frame.selector_ranges, str)
+    return list(frame.selector_strings)  # string selector: one frame, several
 
 
-def _selector_label(frame: CaseFrame, lv_type: LVType | None, is_error: bool) -> str:
-    """The faithful case-selector text for one frame, by selector type:
-    ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
-    integer → value(s)/range(s); string → quoted; boolean → ``True``/``False``.
-    """
+def selector_frame_values(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> tuple[str, ...]:
+    """The values one case frame's label lists, unquoted and in order -- empty
+    for a default frame that matches no value of its own. Error-cluster frames
+    list their labels (``No Error``/``Error``/``Error 3..10``; a No Error frame
+    that also stores codes lists ``No Error, Error 3..10``)."""
     sv = str(frame.selector_value)
     if is_error:
         # The error-cluster case switches on the status boolean: 0 = no error,
         # anything else is an error (LabVIEW: "No Error" / "Error", plus code
-        # ranges like "Error 3..10" since 2019). The Error frame is often the
-        # structure's default — LabVIEW still labels it "Error", not "Default",
-        # so this precedes the plain-default branch below.
-        if is_no_error_selector(sv):
-            return "No Error"
-        codes = [r for r in frame.selector_ranges if not (r.is_single and r.start == 1)]
-        if codes:
-            return f"Error {_format_ranges(codes, str)}"
-        return "Error"
-    values = _selector_values_label(frame, lv_type)
-    if frame.is_default or sv == "Default":
-        # A default frame can also carry explicit values ("0, Default").
-        return f"{values}, Default" if values else "Default"
+        # ranges like "Error 3..10" since 2019). A frame that stores status 1
+        # alone is "Error"; a frame that stores no value is the default.
+        status = 0 if frame.is_no_error else 1
+        codes = [
+            r
+            for r in frame.selector_ranges
+            if not (r.is_single and r.start == status)
+        ]
+        listed = [f"Error {_format_ranges(codes, str)}"] if codes else []
+        if frame.is_no_error:
+            return ("No Error", *listed)
+        if listed:
+            return tuple(listed)
+        if frame.selector_ranges:
+            return ("Error",)
+        return ()
+    values = _selector_values(frame, lv_type)
     if values:
-        return values
-    if lv_type and lv_type.underlying_type == "String":
-        return f'"{sv}"'
-    return sv  # boolean True/False, or an already-display token
+        return tuple(values)
+    if frame.boolean_value is not None:
+        return (str(frame.boolean_value),)
+    if frame.is_default:
+        return ()
+    return (sv,)  # an already-display token
+
+
+def _double_quote(text: str) -> str:
+    """Plain double quoting of one selector value (no escaping)."""
+    return f'"{text}"'
+
+
+def selector_values_quoted_one_by_one(
+    frame: CaseFrame, lv_type: LVType | None, is_error: bool
+) -> bool:
+    """Whether a frame's label quotes each of its string values itself (a string
+    selector that stores values). Every other label is one unquoted text."""
+    return _is_string_selector(frame, lv_type) and bool(
+        selector_frame_values(frame, lv_type, is_error)
+    )
+
+
+def _selector_label(
+    frame: CaseFrame,
+    lv_type: LVType | None,
+    is_error: bool,
+    quote_value: Callable[[str], str] = _double_quote,
+) -> str:
+    """The faithful case-selector text for one frame, by selector type:
+    ``Default``; error cluster → ``No Error``/``Error``; enum → item name(s);
+    integer → value(s)/range(s); string → each value through ``quote_value``;
+    boolean → ``True``/``False``. A default frame that also matches values lists
+    them first (``0, Default``).
+    """
+    values = selector_frame_values(frame, lv_type, is_error)
+    if _is_string_selector(frame, lv_type):
+        values = [quote_value(v) for v in values]
+    listed = ", ".join(values)
+    if not frame.is_default:
+        return listed
+    if not listed:
+        return _DEFAULT_LABEL
+    # A Boolean or error frame that stores a value is fully described -- every
+    # value has a frame -- so it takes no Default marker. Any other default frame
+    # can also carry explicit values ("0, Default").
+    if is_error or frame.boolean_value is not None:
+        return listed
+    return f"{listed}, {_DEFAULT_LABEL}"
 
 
 # ============================================================
@@ -467,26 +527,19 @@ class ComponentPort:
 def _subvi_ports(
     graph: InMemoryVIGraph,
     name: str,
+    callee_key: str | None,
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     """Typed (inputs, outputs) port list for a called SubVI.
 
-    Loaded VIs use their resolved front-panel signature; unloaded vilib
-    refs fall back to the resolver's terminal layout. Returns ``None`` when
-    neither is available -- callers decide how to render that (bare name,
-    or an empty-port declaration), never fabricate ports.
+    ``callee_key`` is the loaded callee's ``vi_key`` (see
+    ``InMemoryVIGraph.loaded_callee_key``): its resolved front-panel signature
+    is used. Without one, an unloaded vilib ref falls back to the resolver's
+    terminal layout (looked up by ``name``). Returns ``None`` when neither is
+    available -- callers decide how to render that (bare name, or an empty-port
+    declaration), never fabricate ports.
     """
-    loaded = set(graph.list_vis())
-    qname = name
-    if qname not in loaded:
-        try:
-            resolved = graph.resolve_vi_name(name)
-        except (KeyError, ValueError):
-            resolved = None
-        if resolved in loaded:
-            qname = resolved  # type: ignore[assignment]
-
-    if qname in loaded:
-        sctx = graph.get_vi_context(qname)
+    if callee_key is not None:
+        sctx = graph.get_vi_context(callee_key)
         ins = [
             ComponentPort(
                 name=t.name or str(t.index),

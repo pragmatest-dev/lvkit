@@ -29,12 +29,11 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
-from lvkit.load_mode import LoadMode
+from tests.corpus_graphs import load_corpus_vi
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
@@ -94,6 +93,7 @@ _IDEMPOTENCE_CASES = [
         _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
         _ICON_EDITOR_ROOT,
         id="lv_icon_global_variables",
+        marks=pytest.mark.xdist_group("lv_icon.vi"),
     ),
     pytest.param(
         _ICON_EDITOR_ROOT
@@ -136,9 +136,7 @@ def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | Non
         # load_vi_by_path returns load_vi's OWN key for vi_path -- never
         # re-derived from vi_path.name, which collides across same-named
         # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
-        return load_vi_by_path(
-            vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
-        )
+        return load_corpus_vi(vi_path, search_root)
     except Exception:
         return None
 

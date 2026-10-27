@@ -120,17 +120,21 @@ positions. Real example (`Draw Image..._FPHb.xml:2510-2517`):
 ### Wiring rules (from the base `.xml`, not the FP heap)
 
 The **required/recommended/optional** designation of each connector-pane
-terminal is NOT in the FP heap — it is in the base `.xml`'s Function `TypeDesc`
-`Flags` (bits 8-9), matched to slots by index
-(`parse_connector_pane_types`, `front_panel.py:234-289`):
+terminal is NOT in the FP heap — it is in the `Flags` of the VI's OWN
+connector-pane Function `TypeDesc` in the base `.xml` (the one `CONP`/`CPC2`
+points to through `VCTP/TopLevel`, never "the first Function TypeDesc that
+fits"), matched to slots by child index (`parse_connector_pane_types`,
+`_resolve_own_connector_pane_function` in `front_panel.py`):
 
-| Flags bits 8-9 value | Meaning | Evidence | Confidence |
-|---|---|---|---|
-| 0 | Invalid wire rule | `front_panel.py:243-248` | probable |
-| 1 | Required | `front_panel.py:244` | probable |
-| 2 | Recommended | `front_panel.py:245` | probable |
-| 3 | Optional | `front_panel.py:246` | probable |
-| 4 | Dynamic Dispatch | `front_panel.py:247` | probable |
+| Flags bit | Meaning | Confidence |
+|---|---|---|
+| 12 (`0x1000`) | Required (inputs only) | confirmed |
+| 11 (`0x0800`), bit 12 clear | Recommended | confirmed |
+| neither 11 nor 12 (incl. `Flags="0x0000"`) | Optional | confirmed |
+| 8 (`0x0100`) | the terminal is an output | confirmed |
+| 15 (`0x8000`) | Dynamic Dispatch terminal (always with bit 12 on an input, bit 11 on an output); no extra wiring state | confirmed |
 
-Extraction: `get_wiring_rule(flags) = (flags >> 8) & 0x03` (`flags.py:34-36`).
+Bits 11 and 12 never occur together. Decoding: `get_wiring_rule(flags)`
+(`flags.py`). The evidence and counts are in
+[labview-binary-format.md](../design/labview-binary-format.md).
 See [dataspace.md](dataspace.md) for the Function TypeDesc.

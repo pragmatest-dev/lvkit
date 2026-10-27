@@ -33,6 +33,7 @@ from lvkit.graph.netlist_models import (
 )
 from lvkit.load_mode import LoadMode
 from lvkit.models import FPTerminal, LVType, LVTypeKind
+from lvkit.parser.models import ParsedWiringRule
 from tests.test_lvnet_identity import _assert_graph_identity
 
 _ISSUES = Path(__file__).resolve().parent / "corpus" / "issues"
@@ -137,13 +138,13 @@ def test_unwired_pane_round_trips_by_bytes_and_identity(vi: Path) -> None:
 
 
 def test_slot_zero_keeps_its_wiring_rule() -> None:
-    """`error out` sits on connector-pane slot 0; its wiring rule (1) is read
-    like every other slot's."""
+    """`error out` sits on connector-pane slot 0; its wiring rule (Recommended)
+    is read like every other slot's."""
     vi = _ISSUES / "133" / "Run_after.vi"
     graph, key = _load(vi)
     by_name = {t.name: t for t in graph.get_outputs(key)}
     assert by_name["error out"].index == 0
-    assert by_name["error out"].wiring_rule == 1
+    assert by_name["error out"].wiring_rule == ParsedWiringRule.RECOMMENDED
     module = build_netlist_from_graph(graph, key)
     text = render_lvnet(module, display_name=vi.name, verbose=True)
     assert "recommended @0" in text

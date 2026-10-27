@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ..dotnet_types import DotNetAssembly
 from ..models import (
     CaseFrame,
     ClusterField,
@@ -26,8 +27,10 @@ from ..models import (
     SequenceFrame,
     SharedVariableKind,
     Terminal,
+    UnwritableValue,
     VIKind,
 )
+from ..parser.extfunc_prototype import ExtFuncCall
 from ..parser.models import ParsedFrontPanel
 from ..parser.node_types import get_display_name
 
@@ -124,6 +127,15 @@ class VINode(GraphNode):
     # "<vilib>/Utility/error.llb/Error Cluster From Error Code.vi".
     # Set on SubVI call nodes when the parser captured a path ref.
     qualified_path: str | None = None
+    # On a SubVI call node, the identity of the VI it calls: that file's resolved
+    # path, or the path the caller recorded for it when the file is absent. For
+    # a polymorphic call it is the polymorphic VI (None when the caller records
+    # none). None also when the caller records no path for the call (a call by
+    # reference, a ``<vilib>`` call with no configured root). Never a name.
+    callee_key: str | None = None
+    # On a polymorphic call node, the identity of the variant the call resolves
+    # to (same form as ``callee_key``); None on every other node.
+    variant_key: str | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the
@@ -135,6 +147,13 @@ class VINode(GraphNode):
     # node (``graph/loading.py::load_typedef``) -- both graph citizens carry
     # their own front panel the same way.
     front_panel: ParsedFrontPanel | None = None
+
+    @property
+    def interface_key(self) -> str | None:
+        """On a SubVI call node, the file whose connector pane the call's
+        terminals are: the variant a polymorphic call resolves to, else the
+        callee."""
+        return self.variant_key or self.callee_key
 
 
 class PrimitiveNode(GraphNode):
@@ -180,6 +199,14 @@ class PrimitiveNode(GraphNode):
     # uniform, so the drawer glyph positions each row at its own real
     # fraction instead of equal-dividing. See render/nodes.py:_xnode_glyph.
     xnode_terminal_y_fracs: list[tuple[float, float]] = []
+    # Call Library Function Node only: its drawn rows top to bottom, each
+    # ``(top, bottom, has_input, has_output, fixed)`` with the span as a fraction
+    # of the node's height (parser.extfunc.ExtFuncRow); ``fixed`` marks the path
+    # and error rows.
+    ext_func_rows: list[tuple[float, float, bool, bool, bool]] = []
+    # Call Library Function Node only: the call it makes, with its terminal ids
+    # qualified like ``terminals[i].id``.
+    ext_func: ExtFuncCall | None = None
     # Property node only: qualified terminal ids from the parser's dcoList,
     # ``properties[i]`` correlates to the terminal whose id is
     # ``property_value_terminal_ids[i]`` -- LabVIEW's real dcoList/permDCOList
@@ -272,12 +299,32 @@ class LoopNode(StructureNode):
     hidden_border_terminals: frozenset[str] = frozenset()
 
 
+class SequenceLocalLink(BaseModel):
+    """One sequence local of a Stacked Sequence as the graph sees it: the
+    frame terminal that writes it and the later-frame terminals that read it.
+    A local nothing is wired to has neither. A local wired in a way LabVIEW
+    does not allow (read but never written, written more than once, read in a
+    frame that does not come after its write, wired off the frame boundary) is
+    ``unreadable``: it gets no join between write and reads, and
+    ``unreadable_frame`` (its first frame with a wired terminal) is where the
+    reason is shown."""
+
+    write_terminal: str | None = None
+    write_frame: int | None = None
+    read_terminals: list[str] = []
+    unreadable: str | None = None
+    unreadable_frame: int | None = None
+
+
 class SequenceNode(StructureNode):
     """A flat or stacked sequence with ordered frames."""
 
     model_config = {"arbitrary_types_allowed": True}
 
     frames: list[SequenceFrame] = []
+    # Sequence locals in heap list order; the position is the ``K`` of the
+    # ``sequence_<uid>.local<K>`` net.
+    sequence_locals: list[SequenceLocalLink] = []
     # Frame a STACKED sequence last displayed (heap ``dIdx``, range-checked) —
     # the faithful initial view. None for a flat sequence (all frames shown)
     # and when ``dIdx`` is an out-of-range legacy ordinal → renderer opens
@@ -289,6 +336,11 @@ class SequenceNode(StructureNode):
     # out-of-range legacy stacked one). True = Flat Sequence, False = Stacked
     # Sequence.
     is_flat: bool = True
+
+    @property
+    def kind_word(self) -> str:
+        """``Flat`` or ``Stacked`` -- which kind of sequence this is."""
+        return "Flat" if self.is_flat else "Stacked"
 
 
 class InPlaceNode(StructureNode):
@@ -377,12 +429,18 @@ class ConstantNode(GraphNode):
     value: ScalarValue = None
     lv_type: LVType | None = None
     raw_value: str | None = None
+    # A static VI reference: the identity of the VI it refers to (same form as
+    # ``VINode.callee_key``); None for every other constant.
+    referenced_vi_key: str | None = None
     # Human-readable DISPLAY form of a string constant, decoded with the LabVIEW
     # codepage (a repr'd literal, like ``value``) — render/describe show this so
     # CJK/localized text stays readable, while ``value`` is byte-faithful latin-1
     # for codegen. None for non-string constants (``value`` is already legible).
     # Mirrors the Terminal.name (codegen) vs display_name (display) split.
     display_value: str | None = None
+    # Set when ``value`` shows an array (itself, or inside a cluster) whose values
+    # were not kept because it is too large.
+    unwritable: UnwritableValue | None = None
     # ``label`` inherited from GraphNode (partID 16) — this IS the constant's
     # display text; codegen never treats a constant's label as an identity.
     # Raw printf-style numeric display-format string from the parser
@@ -640,6 +698,8 @@ class Constant(BaseModel):
     # ConstantNode so describe/netlist render the LabVIEW radix like the renderer.
     display_format: str | None = None
     raw_value: str | None = None
+    referenced_vi_key: str | None = None
+    unwritable: UnwritableValue | None = None
     label: str | None = None  # LabVIEW label (partID 16), the author's caption
     # Structure containment (None = top-level diagram). Mirrors GraphNode:
     # parent = containing structure's node id, frame = selector value / index.
@@ -1073,6 +1133,16 @@ class VIMetadata:
     owning_libraries: list[str] = field(default_factory=list)
     # The VI's own documentation text (STRG/DSTM), shown in the hover help box.
     description: str | None = None
+
+
+@dataclass
+class VIDotNetAssemblies:
+    """The .NET assemblies a VI calls (from its ``DNVA`` / ``DNDA`` link records)
+    and why any such record could not be read. A sibling facet of ``VIMetadata``,
+    keyed by VI like it."""
+
+    assemblies: list[DotNetAssembly] = field(default_factory=list)
+    unreadable: list[str] = field(default_factory=list)
 
 
 # ============================================================

@@ -5,16 +5,37 @@ Handles parsing TypeID mappings and VCTP section to build LVType structures.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 from ..models import ClusterField, EnumValue, LVType, LVTypeKind
+from .constants import CORRUPT_STUB_FORMAT
+from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
+from .xml_trees import parsed_xml
 
 
-def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
+class TypeMap(dict[int, LVType]):
+    """A VI's TypeID -> type table. ``pool_failure`` says why a pre-LV9 VI's heap
+    type pool could not be read to its end (None when it could, and for every
+    VI that has a VCTP). ``labels`` maps a TypeID to the label its type
+    descriptor carries (``path in``, ``error out``), for the TypeIDs that have
+    one. ``flat_ids`` maps a TypeID to its FlatTypeID (the position of its type
+    descriptor in the VCTP)."""
+
+    pool_failure: str | None = None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.labels: dict[int, str] = {}
+        self.flat_ids: dict[int, int] = {}
+
+
+def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
     """Parse TypeID mappings with rich type info from main XML.
 
     For TypeDefs, extracts the underlying type and .ctl filename.
@@ -28,7 +49,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     Returns:
         Dict mapping TypeID -> LVType with full type structure
     """
-    type_map: dict[int, LVType] = {}
+    type_map = TypeMap()
     heap_to_consolidated: dict[int, int] = {}
     # Track type names for primitives before we have full type info
     type_names: dict[int, str] = {}
@@ -61,8 +82,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
     # Second pass: parse VCTP to get TypeDef details
     # Chain: Heap TypeID -> Consolidated ID -> FlatTypeID -> VCTP TypeDesc
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        root = parsed_xml(xml_path)
 
         # Build consolidated -> flat mapping from TopLevel
         consolidated_to_flat: dict[int, int] = {}
@@ -74,6 +94,7 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
 
         # Parse full type info from VCTP (includes cluster fields, array elements)
         vctp_types = parse_vctp_types(xml_path)
+        flat_descs = flat_type_descs(root)
 
         # Build flat -> typedef info from VCTP Section TypeDescs
         flat_to_typedef: dict[int, tuple[str | None, str | None]] = {}
@@ -98,33 +119,18 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
                 # The FlatTypeID is the position in the section
                 flat_to_typedef[i] = (underlying_type, typedef_name)
 
-        # Parse VICC elements to get path info for typedefs
-        # Maps ctl_filename -> path_tokens (match by filename, not type_id)
-        vicc_paths: dict[str, list[str]] = {}
-        for vicc in root.findall(".//LIvi//VICC"):
-            path_ref = vicc.find("LinkSavePathRef")
-            if path_ref is None:
-                continue
-
-            path_parts = [s.text for s in path_ref.findall("String") if s.text]
-            if not path_parts:
-                continue
-
-            # Check if this is a .ctl file
-            filename = path_parts[-1]
-            if not filename.endswith(".ctl"):
-                continue
-
-            # Remove special markers like <vilib>, <userlib>
-            clean_parts = [p for p in path_parts if not p.startswith("<")]
-            if clean_parts:
-                vicc_paths[filename] = clean_parts
+        vicc_paths = _typedef_ctl_paths(root)
 
         # Now update type_map: heap -> consolidated -> flat -> full type info
         for heap_id, cons_id in heap_to_consolidated.items():
             flat_id = consolidated_to_flat.get(cons_id)
             if flat_id is None:
                 continue
+
+            type_map.flat_ids[heap_id] = flat_id
+            label = _field_label(flat_descs.get(flat_id), "")
+            if label:
+                type_map.labels[heap_id] = label
 
             # Use VCTP result directly — it has the full type info
             if flat_id in vctp_types:
@@ -135,30 +141,88 @@ def parse_type_map_rich(xml_path: Path | str) -> dict[int, LVType]:
             if flat_id in flat_to_typedef:
                 _, ctl_filename = flat_to_typedef[flat_id]
                 if ctl_filename and heap_id in type_map:
-                    # Build qualified name from VICC path info
-                    if ctl_filename in vicc_paths:
-                        path_tokens = vicc_paths[ctl_filename]
-                        type_map[heap_id].typedef_path = build_relative_path(
-                            path_tokens
-                        )
-                        owner_chain = [
-                            t
-                            for t in path_tokens[:-1]
-                            if t.endswith(
-                                (".llb", ".lvlib", ".lvclass"),
-                            )
-                        ]
-                        type_map[heap_id].typedef_name = build_qualified_name(
-                            owner_chain,
-                            ctl_filename,
-                        )
-                    else:
-                        type_map[heap_id].typedef_name = ctl_filename
+                    _apply_typedef_identity(type_map[heap_id], ctl_filename, vicc_paths)
 
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
 
+    if not type_map:
+        heap = _parse_pre_lv9_heap_types(xml_path)
+        type_map.update(heap.types)
+        type_map.pool_failure = heap.failure
+
     return type_map
+
+
+def _typedef_ctl_paths(root: ET.Element) -> dict[str, list[str]]:
+    """Map each ``.ctl`` filename to its path tokens, from the VI's VICC link
+    records (matched by filename, not type id; ``<vilib>``-style markers dropped).
+    """
+    vicc_paths: dict[str, list[str]] = {}
+    for vicc in root.findall(".//LIvi//VICC"):
+        path_ref = vicc.find("LinkSavePathRef")
+        if path_ref is None:
+            continue
+
+        path_parts = [s.text for s in path_ref.findall("String") if s.text]
+        if not path_parts:
+            continue
+
+        filename = path_parts[-1]
+        if not filename.endswith(".ctl"):
+            continue
+
+        clean_parts = [p for p in path_parts if not p.startswith("<")]
+        if clean_parts:
+            vicc_paths[filename] = clean_parts
+    return vicc_paths
+
+
+def _apply_typedef_identity(
+    lv_type: LVType,
+    ctl_filename: str,
+    vicc_paths: dict[str, list[str]],
+) -> None:
+    """Stamp a typedef's qualified name (and relative path, when its link record
+    gives one) onto ``lv_type``."""
+    lv_type.typedef_file = ctl_filename
+    if ctl_filename not in vicc_paths:
+        lv_type.typedef_name = ctl_filename
+        return
+    path_tokens = vicc_paths[ctl_filename]
+    lv_type.typedef_path = build_relative_path(path_tokens)
+    owner_chain = [
+        t for t in path_tokens[:-1] if t.endswith((".llb", ".lvlib", ".lvclass"))
+    ]
+    lv_type.typedef_name = build_qualified_name(owner_chain, ctl_filename)
+
+
+def _parse_pre_lv9_heap_types(xml_path: Path | str) -> HeapTypes:
+    """The heap ``TypeID`` map of a pre-LV9 VI, decoded from its ``DTHP`` sidecar
+    (see ``heap_types``); empty when the VI has none. A typedef whose ``.ctl`` has
+    a link record gains the same qualified name / path an LV9+ typedef gets."""
+    sidecar = heap_sidecar_path(xml_path)
+    if not sidecar.exists():
+        return HeapTypes()
+    heap = decode_heap_types(sidecar.read_bytes())
+    try:
+        vicc_paths = _typedef_ctl_paths(parsed_xml(xml_path))
+    except ET.ParseError:
+        return heap
+    for lv_type in heap.types.values():
+        if lv_type.typedef_file is not None and lv_type.typedef_file in vicc_paths:
+            _apply_typedef_identity(lv_type, lv_type.typedef_file, vicc_paths)
+    return heap
+
+
+def flat_type_descs(root: ET.Element) -> dict[int, ET.Element]:
+    """Every VCTP top-level TypeDesc by its FlatTypeID (its position across the
+    VCTP sections)."""
+    flat_types: dict[int, ET.Element] = {}
+    for section in root.findall(".//VCTP/Section"):
+        for type_desc in section.findall("TypeDesc"):
+            flat_types[len(flat_types)] = type_desc
+    return flat_types
 
 
 def _field_label(ref_td: ET.Element | None, default_name: str) -> str:
@@ -199,6 +263,11 @@ def _make_primitive_lvtype(type_name: str) -> LVType:
         return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
 
 
+# Type codes 0x73 and 0x74, which pylabview does not name (the patched reader
+# writes them to the XML as their decimal code).
+_COLLECTION_TYPE_NAMES = {"115": "Set", "116": "Map"}
+
+
 def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
     """Parse VCTP section to get full type info including cluster fields.
 
@@ -213,40 +282,20 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
         Dict mapping FlatTypeID → LVType with fields/element_type populated
     """
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        root = parsed_xml(xml_path)
     except ET.ParseError:
         return {}
 
     # First pass: collect all TypeDescs by FlatTypeID
-    flat_types: dict[int, ET.Element] = {}
-    flat_id = 0
-
-    for section in root.findall(".//VCTP/Section"):
-        for type_desc in section.findall("TypeDesc"):
-            flat_types[flat_id] = type_desc
-            flat_id += 1
+    flat_types = flat_type_descs(root)
 
     # Second pass: build LVTypes with resolved references
     resolved: dict[int, LVType] = {}
 
-    def resolve_type(fid: int, visited: set[int] | None = None) -> LVType | None:
-        """Recursively resolve a FlatTypeID to LVType."""
-        if visited is None:
-            visited = set()
-
-        if fid in visited:
-            # Cycle detection - return placeholder
-            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Recursive")
-
-        if fid in resolved:
-            return resolved[fid]
-
-        if fid not in flat_types:
-            return None
-
-        visited = visited | {fid}
-        td = flat_types[fid]
+    def build_lvtype(td: ET.Element, visited: set[int]) -> LVType:
+        """The LVType one TypeDesc element describes, its child references
+        followed by ``resolve_type``. A top-level descriptor and the descriptor
+        nested inside a TypeDef are both built here."""
         type_name = td.get("Type", "")
 
         if type_name == "Cluster":
@@ -266,7 +315,9 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             lv_type = LVType(
                 kind=LVTypeKind.CLUSTER,
                 underlying_type="Cluster",
-                fields=fields if fields else None,
+                # A cluster that lists no members is empty (``[]``); one whose
+                # members could not be resolved has no known fields (None).
+                fields=fields if fields or not td.findall("TypeDesc") else None,
             )
 
         elif type_name in ("Array", "SubArray"):
@@ -292,49 +343,30 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             )
 
         elif type_name == "TypeDef":
-            # Parse typedef - get underlying type and name
+            # A TypeDef wraps one Nested='True' descriptor: it is that
+            # descriptor's type (cluster fields, enum labels, array element and
+            # dimensions, refnum kind and payload, ...) plus the typedef's
+            # identity, the .ctl name.
             nested = td.find("TypeDesc[@Nested='True']")
-            underlying = nested.get("Type") if nested is not None else None
             typedef_name = None
             for lbl in td.findall("Label"):
                 text = lbl.get("Text", "")
                 if text.endswith(".ctl"):
                     typedef_name = text
                     break
-
-            # Parse enum labels if present
-            enum_values = None
-            td_fields: list[ClusterField] | None = None
-            if nested is not None:
-                enum_labels = nested.findall("EnumLabel")
-                if enum_labels:
-                    enum_values = {}
-                    for i, el in enumerate(enum_labels):
-                        if el.text:
-                            enum_values[el.text] = EnumValue(value=i)
-
-                # Recurse into nested type's children (cluster fields,
-                # array elements, etc.) — same as top-level parsing.
-                if underlying == "Cluster":
-                    td_fields = []
-                    for child in nested.findall("TypeDesc"):
-                        child_tid = child.get("TypeID")
-                        if child_tid:
-                            ft = resolve_type(int(child_tid), visited)
-                            ref = flat_types.get(int(child_tid))
-                            default = f"field_{len(td_fields)}"
-                            name = _field_label(ref, default)
-                            td_fields.append(
-                                ClusterField(name=name, type=ft),
-                            )
-
-            lv_type = LVType(
-                kind=_get_kind(underlying or ""),
-                underlying_type=underlying,
-                typedef_name=typedef_name,
-                values=enum_values,
-                fields=td_fields if td_fields else None,
-            )
+            if nested is None:
+                lv_type = LVType(
+                    kind=LVTypeKind.PRIMITIVE,
+                    underlying_type=None,
+                    typedef_name=typedef_name,
+                    typedef_file=typedef_name,
+                )
+            else:
+                lv_type = dataclasses.replace(
+                    build_lvtype(nested, visited),
+                    typedef_name=typedef_name,
+                    typedef_file=typedef_name,
+                )
 
         elif type_name in ("UnitUInt16", "UnitUInt32", "UnitUInt8") or (
             type_name.startswith("Enum")
@@ -358,6 +390,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
             # Refnum type - extract RefType and class name if present
             ref_type = td.get("RefType")
             classname = None
+            class_file = None
             element_type = None
             user_event_name = None
 
@@ -370,6 +403,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 if items:
                     parts = [it.get("Text", "") for it in items]
                     classname = ":".join(parts)
+                    class_file = parts[-1]
             else:
                 # A parametrized refnum (Queue/Notifier/UserEvent/DataValueRef)
                 # carries its element/payload type as a single nested TypeDesc,
@@ -391,8 +425,23 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type="Refnum",
                 ref_type=ref_type,
                 classname=classname,
+                class_file=class_file,
                 element_type=element_type,
                 user_event_name=user_event_name,
+            )
+
+        elif type_name in _COLLECTION_TYPE_NAMES:
+            # A Set (one member type: its element) or a Map (two: key, then
+            # value). The members are listed by TypeID like a cluster's fields.
+            members = [
+                resolve_type(int(child.attrib["TypeID"]), visited)
+                for child in td.findall("TypeDesc[@TypeID]")
+            ]
+            lv_type = LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type=_COLLECTION_TYPE_NAMES[type_name],
+                element_type=members[0] if members else None,
+                value_type=members[1] if len(members) > 1 else None,
             )
 
         elif type_name == "MeasureData":
@@ -412,6 +461,28 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type=type_name,
             )
 
+        if td.get("Format") == CORRUPT_STUB_FORMAT:
+            lv_type = dataclasses.replace(
+                lv_type, unreadable="its type descriptor could not be read"
+            )
+        return lv_type
+
+    def resolve_type(fid: int, visited: set[int] | None = None) -> LVType | None:
+        """Recursively resolve a FlatTypeID to LVType."""
+        if visited is None:
+            visited = set()
+
+        if fid in visited:
+            # Cycle detection - return placeholder
+            return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Recursive")
+
+        if fid in resolved:
+            return resolved[fid]
+
+        if fid not in flat_types:
+            return None
+
+        lv_type = build_lvtype(flat_types[fid], visited | {fid})
         resolved[fid] = lv_type
         return lv_type
 
@@ -431,7 +502,7 @@ def _get_kind(type_name: str) -> LVTypeKind:
         return LVTypeKind.ARRAY
     elif type_name.startswith("Enum") or type_name == "Ring":
         return LVTypeKind.ENUM
-    elif type_name.startswith("Unit"):
-        return LVTypeKind.ENUM  # UnitUInt16 etc are often enums
+    elif type_name in ("UnitUInt8", "UnitUInt16", "UnitUInt32"):
+        return LVTypeKind.ENUM  # a unit-tagged unsigned integer is an enum's storage
     else:
         return LVTypeKind.PRIMITIVE

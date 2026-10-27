@@ -9,6 +9,8 @@ const path = require('path');
 // to the same number), but this floor still guards against pairing a build with
 // too old a library.
 const MIN_LVKIT = "0.5.3";
+// The file kinds that hold a VI (matches package.json's selectors).
+const VI_FILE_RE = /\.vi[mt]?$/i;
 
 // ---- config ----------------------------------------------------------------
 function cfg() { return vscode.workspace.getConfiguration('lvkit'); }
@@ -302,7 +304,7 @@ function injectSubVIClickNav(html) {
 // directory of the CURRENTLY-OPEN document (not the temp render output dir —
 // see resolveCustomEditor's `origPath`/`document.uri` distinction) and opens
 // it through the SAME custom editor (`vscode.open` routes a `.vi` back to
-// `lvkit.viPreview`). Never destructive: a missing/non-.vi target just warns.
+// `lvkit.viPreview`). Never destructive: a missing/non-VI target just warns.
 function wireSubVINavigation(webview, document) {
   webview.onDidReceiveMessage(async (m) => {
     if (!m || m.type !== 'lvkitOpenVI') return;
@@ -312,7 +314,7 @@ function wireSubVINavigation(webview, document) {
       return;
     }
     const resolved = path.resolve(path.dirname(document.uri.fsPath), rel);
-    if (!fileExists(resolved) || !resolved.toLowerCase().endsWith('.vi')) {
+    if (!fileExists(resolved) || !VI_FILE_RE.test(resolved)) {
       vscode.window.showWarningMessage(`lvkit: could not open SubVI "${rel}" (not found).`);
       return;
     }
@@ -409,11 +411,11 @@ class ViPreviewProvider {
           // e.g. the "before" side of a newly-added file — no committed blob.
           panel.webview.html = errorHtml(
             'No version to show',
-            'This .vi has no committed content on this side (it is newly added).'
+            'This VI has no committed content on this side (it is newly added).'
           );
           return;
         }
-        file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
+        file = path.join(tmp, path.basename(origPath)); // keep the VI file extension
         fs.writeFileSync(file, Buffer.from(bytes));
         const rl = gitRefLabel(document.uri, root);
         if (rl) refArg = ` --ref "${rl}"`;
@@ -458,12 +460,12 @@ class ViTextProvider {
         if (!bytes || bytes.length === 0) {
           panel.webview.html = errorHtml(
             'No version to show',
-            'This .vi has no committed content on this side (it is newly added).'
+            'This VI has no committed content on this side (it is newly added).'
           );
           return;
         }
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
-        file = path.join(tmp, path.basename(origPath)); // keep the .vi extension
+        file = path.join(tmp, path.basename(origPath)); // keep the VI file extension
         fs.writeFileSync(file, Buffer.from(bytes));
       }
       const text = run(
@@ -497,7 +499,7 @@ function diffSources(target) {
     && vscode.window.tabGroups.activeTabGroup.activeTab
     && vscode.window.tabGroups.activeTabGroup.activeTab.input;
   if (input && input.original && input.modified && input.modified.fsPath
-      && input.modified.fsPath.toLowerCase().endsWith('.vi')
+      && VI_FILE_RE.test(input.modified.fsPath)
       && (input.modified.fsPath === target.fsPath || input.original.fsPath === target.fsPath)) {
     return { before: sideOf(input.original), after: sideOf(input.modified) };
   }
@@ -520,14 +522,14 @@ function gitRawRef(uri) {
   catch (_) { return 'HEAD'; }
 }
 
-// Materialize one side ({ref} or {file}) to a real .vi path lvkit can read + a
+// Materialize one side ({ref} or {file}) to a real VI file path lvkit can read + a
 // short label. A {file} side is the working copy (no ref label). A {ref} side is
 // extracted from git (`git show <ref>:<rel>`); rel uses POSIX separators — git
 // reads a backslash path as a literal filename ("exists on disk, but not in
 // 'HEAD'") on Windows.
 function materialize(src, rel, root, tmp, tag) {
   if (src.file) return { viPath: src.file, ref: null };
-  const dest = path.join(tmp, `${tag}.vi`);
+  const dest = path.join(tmp, `${tag}${path.extname(rel)}`);
   fs.writeFileSync(dest, run(`git show ${src.ref}:"${rel}"`, { cwd: root }));
   let label = src.ref;
   try { label = cp.execSync(`git rev-parse --short "${src.ref}"`, { cwd: root }).toString().trim(); }
@@ -537,12 +539,12 @@ function materialize(src, rel, root, tmp, tag) {
 
 async function diffVI(arg) {
   const target = arg && (arg.resourceUri || arg);
-  if (!target || !target.fsPath) { vscode.window.showErrorMessage('lvkit: no .vi selected.'); return; }
+  if (!target || !target.fsPath) { vscode.window.showErrorMessage('lvkit: no VI file selected.'); return; }
   const file = target.fsPath;
   // The Source Control menu can't filter by file type (resourceExtname isn't an
-  // scm/resourceState/context key), so the .vi check has to happen here.
-  if (!file.toLowerCase().endsWith('.vi')) {
-    vscode.window.showErrorMessage(`lvkit: "${path.basename(file)}" is not a .vi file.`);
+  // scm/resourceState/context key), so the VI-file check has to happen here.
+  if (!VI_FILE_RE.test(file)) {
+    vscode.window.showErrorMessage(`lvkit: "${path.basename(file)}" is not a VI file (.vi, .vim or .vit).`);
     return;
   }
   await vscode.window.withProgress(

@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..extractor import extract_vi_xml
+from ..vi_files import is_vi_file
+from .extfunc_bounds import extfunc_mirrored_bounds
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
 from .utils import extract_caption, extract_label_strict
 
@@ -957,6 +959,8 @@ class _LayoutBuilder:
                 off_x = (nb[2] - nb[0] - (emax_x - emin_x)) / 2 - emin_x
                 off_y = (nb[3] - nb[1] - (emax_y - emin_y)) / 2 - emin_y
 
+        is_ext_func = elem.get("class") == "extFunc"
+        mirrored_bounds = extfunc_mirrored_bounds(elem) if is_ext_func else {}
         for term in tl.findall("SL__arrayElement"):
             cls = term.get("class")
             if cls == "fPTerm":
@@ -1008,6 +1012,9 @@ class _LayoutBuilder:
             # termBounds is nested at varying depth (directly under a "term",
             # or under its dco/parm/overridableParm child) — search any depth.
             tb = _rect(term, ".//termBounds")
+            if tb is None and term_uid in mirrored_bounds:
+                top, left, bottom, right = mirrored_bounds[term_uid]
+                tb = (float(left), float(top), float(right), float(bottom))
             ddo = term.find(".//ddo")
             # A constant attached directly to this terminal (bDConstDCO) has
             # NO termBounds of its own — only its nested ddo carries a box. Use
@@ -1024,6 +1031,11 @@ class _LayoutBuilder:
                     oy + tb[3] + off_y,
                 )
                 cx, cy = (abs_tb[0] + abs_tb[2]) / 2, (abs_tb[1] + abs_tb[3]) / 2
+                if elem.get("class") == "extFunc" and (node_box := _rect(elem)):
+                    # A Call Library Function Node's wires meet the node's edge:
+                    # an input's at the left, an output's at the right.
+                    on_left = cx < ox + (node_box[2] - node_box[0]) / 2
+                    cx = abs_tb[0] if on_left else abs_tb[2]
                 if term_uid:
                     # The terminal's own border-box rect (used for N/SR/
                     # tunnel/selector glyphs). A nested constant's ddo box,
@@ -1038,7 +1050,7 @@ class _LayoutBuilder:
                     # terminal (no attached constant), so the structure-border
                     # lookup by the graph's chosen uid finds geometry.
                     if cb is None:
-                        for u in self._collect_uids(term):
+                        for u in self._alias_uids(term, is_ext_func):
                             self.node_bounds.setdefault(u, abs_tb)
             if cb is not None:
                 abs_cb = (
@@ -1139,8 +1151,16 @@ class _LayoutBuilder:
                     cx, cy = cx + hx, cy + hy
                 except ValueError:
                     pass
-            for u in self._collect_uids(term):
+            for u in self._alias_uids(term, is_ext_func):
                 self.terminal_centers.setdefault(u, (cx, cy))
+
+    def _alias_uids(self, term: ET.Element, is_ext_func: bool) -> set[str]:
+        """The uids that resolve to ``term``'s geometry. A Call Library Function
+        Node row's input terminal lists its output terminal in its DCO's own
+        ``termList``, but the two are separate terminals at opposite edges: each
+        keeps only its own uid."""
+        own = term.get("uid")
+        return {own} if is_ext_func and own else self._collect_uids(term)
 
     # -- structure border DCOs (loop N/i/cond, case selector) --------------
     def _border_dcos(
@@ -1578,7 +1598,8 @@ def _icon_for_heap(bd: Path) -> Path | None:
 
 
 def build_layout(vi_or_bd: Path) -> Layout:
-    """Build a ``Layout`` from a ``.vi`` file or a ``_BDHb.xml`` heap path.
+    """Build a ``Layout`` from a VI file (``.vi``/``.vim``/``.vit``) or a
+    ``_BDHb.xml`` heap path.
 
     Thin I/O wrapper: it does the read (extract for a ``.vi``, ``ET.parse`` the
     heap, locate the icon + resource map) and hands the parsed root to
@@ -1586,7 +1607,7 @@ def build_layout(vi_or_bd: Path) -> Layout:
     graph is already being built — that reuses its single parse instead of
     reading the heap a second time.
     """
-    if vi_or_bd.suffix.lower() == ".vi":
+    if is_vi_file(vi_or_bd):
         bd_path, _, _ = extract_vi_xml(vi_or_bd)
         bd = Path(bd_path)
     else:

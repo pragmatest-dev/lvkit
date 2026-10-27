@@ -42,9 +42,11 @@ import json
 import os
 import shutil
 import time
+from collections.abc import Iterable
 from pathlib import Path
 
 from lvkit import cache_paths, staging
+from lvkit.build_options import BuildOptions
 from lvkit.text_encoding import labview_text_encoding
 
 # Retirement is decoupled from correctness (a removed file is indistinguishable
@@ -194,7 +196,7 @@ def _write(
     if not unchanged:
         tmp = staging.temp_path(cache_paths.global_cache_root())
         tmp.write_text(body, encoding="utf-8")
-        os.replace(tmp, body_path)
+        staging.replace(tmp, body_path)
     cache_paths.write_meta(vi_path, meta_path, **extra)
     _sweep_once()
 
@@ -232,8 +234,13 @@ def store_render(
     body: str,
     *,
     name: str | None = None,
+    dependencies: Iterable[Path] = (),
 ) -> Path:
     """Cache ``body`` as the render of ``input_path``; return the slot path.
+
+    ``dependencies`` are the files the render read besides the VI (its SubVIs
+    and controls); their content stamps are recorded so a later lookup is a miss
+    once any of them changed.
 
     ``name`` (the VI's qualified name, or a ``.ctl``'s typedef name) is
     recorded purely for :func:`read_render_identity` to read back later — it
@@ -251,6 +258,7 @@ def store_render(
         # The fixed ``vi.<ext>`` body name carries no source info by
         # itself — record the real path (mirrors extraction's meta.json).
         "source": source_label,
+        "dependencies": cache_paths.dependency_stamps(dependencies),
     }
     if name is not None:
         extra["name"] = name
@@ -303,8 +311,10 @@ def store_diff(
     *,
     before_name: str | None = None,
     after_name: str | None = None,
+    dependencies: Iterable[Path] = (),
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path.
+    ``dependencies`` are recorded the way :func:`store_render` records them.
 
     ``before_name``/``after_name`` (each side's qualified name) are recorded
     purely for :func:`read_diff_identity` to read back later — not a
@@ -322,6 +332,7 @@ def store_diff(
         # The fixed ``vi.<sha>.<ext>`` body name carries no source info by
         # itself — record the AFTER VI's real path (mirrors extraction).
         "source": source_label,
+        "dependencies": cache_paths.dependency_stamps(dependencies),
     }
     if before_name is not None:
         extra["before_name"] = before_name
@@ -362,20 +373,33 @@ def read_diff_identity(
 # web) shares these, so caching is structural, not something each path re-wires.
 
 
-def render_options_tag(fmt: str, theme_mode: str, ref: str | None) -> str:
+def render_options_tag(
+    fmt: str,
+    theme_mode: str,
+    ref: str | None,
+    build: BuildOptions | None = None,
+) -> str:
     """The render output-cache options key: everything besides VI content + the
-    lvkit version that changes the rendered bytes (format, theme, title ref)."""
-    return f"{fmt}|{theme_mode}|ref={ref or ''}"
+    lvkit version that changes the rendered bytes (format, theme, title ref and
+    the build options). The SubVIs' content is not in the key: the stored meta
+    records it (``dependencies``) and a lookup checks it."""
+    return f"{fmt}|{theme_mode}|ref={ref or ''}|{(build or BuildOptions()).tag()}"
 
 
 def diff_options_tag(
-    fmt: str, verbose: bool, before_ref: str | None, after_ref: str | None
+    fmt: str,
+    verbose: bool,
+    before_ref: str | None,
+    after_ref: str | None,
+    build: BuildOptions | None = None,
 ) -> str:
     """The diff output-cache options key: everything besides the two VIs' content
-    + the lvkit version that changes the output bytes."""
+    + the lvkit version that changes the output bytes (see
+    :func:`render_options_tag`)."""
     return (
         f"{fmt}|verbose={int(bool(verbose))}"
         f"|before={before_ref or ''}|after={after_ref or ''}"
+        f"|{(build or BuildOptions()).tag()}"
     )
 
 
@@ -408,9 +432,16 @@ def cached_render(
     result = render_body_with_name(input_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
     if result is None:
         return None
-    body, name = result
-    store_render(input_path, fmt, options, version, body, name=name)
-    return body
+    store_render(
+        input_path,
+        fmt,
+        options,
+        version,
+        result.body,
+        name=result.name,
+        dependencies=result.dependencies,
+    )
+    return result.body
 
 
 def cached_diff(
@@ -448,6 +479,7 @@ def cached_diff(
         result.body,
         before_name=result.before_name,
         after_name=result.after_name,
+        dependencies=result.dependencies,
     )
     return result.body
 

@@ -133,7 +133,8 @@
           "index": 2,
           "direction": "in",
           "name": "error in",
-          "type": "ErrorCluster"
+          "type": "ErrorCluster",
+          "expandable": true
         }
       ],
       "verified": false,

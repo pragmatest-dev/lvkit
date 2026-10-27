@@ -37,8 +37,28 @@ def _make_install(root: Path, name: str, *, vilib: bool, userlib: bool) -> Path:
 # --------------------------------------------------------------------------- #
 
 
-def test_detect_never_raises_and_is_none_without_labview():
-    # On the dev machine there's no LabVIEW; must return None, not raise.
+def test_detect_returns_none_or_a_validated_install():
+    # Whether LabVIEW is installed depends on the machine: the contract is a
+    # validated install (vi.lib on disk) or None, and never an exception.
+    found = detect_labview()
+    if found is not None:
+        assert found.install_dir.is_dir()
+        assert found.vilib_root.is_dir()
+        assert found.userlib_root is None or found.userlib_root.is_dir()
+
+
+def test_detect_never_raises_when_the_platform_probe_fails(monkeypatch):
+    if sys.platform.startswith("win"):
+        probe = "_detect_windows"
+    elif sys.platform == "darwin":
+        probe = "_detect_macos"
+    else:
+        probe = "_detect_linux"
+
+    def boom():
+        raise OSError("probe failed")
+
+    monkeypatch.setattr(lv_detect, probe, boom)
     assert detect_labview() is None
 
 

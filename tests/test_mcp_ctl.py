@@ -34,6 +34,11 @@ def test_a_missing_control_raises(tmp_path: Path) -> None:
         _run(srv.read_ctl(str(tmp_path / "Nope.ctl")))
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CLUSTER_CTL.exists(), reason="icon-editor sample absent")
 def test_read_ctl_returns_the_typedef_structure():

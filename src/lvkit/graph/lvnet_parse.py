@@ -47,6 +47,7 @@ from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
+    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -93,6 +94,7 @@ from .render_lvnet import (
     _is_void_type,
     _lv_type_comparison_shape,
     _lvnet_ambiguous_named_types,
+    _lvnet_case_header,
     _lvnet_component,
     _lvnet_default_token,
     _lvnet_default_trailing,
@@ -101,6 +103,7 @@ from .render_lvnet import (
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
+    _sequence_frame_drives,
     lvnet_literal_token,
 )
 
@@ -724,6 +727,10 @@ class ParsedFrame:
     # ``lvnet_reconstruct``'s ``GammaCase.frame_key`` lookup (``"default" if
     # is_default else label``) agrees with the original.
     is_default: bool = False
+    # Case-scope ONLY: the frame's selector values, unquoted and unescaped, in
+    # header order (``NetlistFrame.values`` on the build side). Empty for a pure
+    # ``frame default :`` and for the frame-only families.
+    values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -804,6 +811,7 @@ class ParsedDependency:
     qualified: str
     path: str | None = None
     interface: tuple[ParsedDependencyTerminal, ...] = field(default_factory=tuple)
+    unreadable: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1406,56 +1414,59 @@ _LVNET_CASE_DEFAULT_SUFFIX = f", {_LVNET_DEFAULT_KEYWORD}"
 
 def _parse_case_frame_header(
     header: str, frame_line_no: int, frame_line: str
-) -> tuple[str, bool]:
+) -> tuple[str, tuple[str, ...], bool]:
     """Split one case-frame header's post-``frame ``, pre-``` :``` text into
-    ``(label, is_default)`` (§8's ``"Error", default`` convention --
-    ``_render_lvnet_case_scope``'s exact inverse).
+    ``(label, values, is_default)`` (§8 -- ``_lvnet_case_frame_header``'s exact
+    inverse): a comma list of quoted values, then the bare keyword ``default``
+    as the list's last (or only) entry.
 
-    Three shapes, in order:
-    - the bare keyword ``default`` (no quotes at all) -- a pure default frame
-      with no specific selector value; recovered as the ``"Default"``
-      sentinel label (matching ``_selector_label``'s own non-error-default
-      text, so re-rendering hits the SAME bare-keyword branch again).
-    - one or more double-quoted value tokens (kept WITH their quotes,
-      verbatim -- same passthrough convention ``_quoted_frame_label`` already
-      relies on) followed by a literal ``, default`` suffix -- a frame that
-      catches a specific value AND is the default (the Error-cluster case:
-      ``_selector_label``'s ``is_error`` branch never returns the ``Default``
-      sentinel, so its default frame keeps a real value).
-    - the quoted value token(s) alone, no suffix -- a plain, non-default
-      frame (unchanged from before this feature).
+    - ``frame default :`` -- a pure default frame with no value of its own;
+      ``label`` is the ``"Default"`` sentinel and ``values`` is empty.
+    - ``frame "A", "B" :`` -- a plain frame; ``label`` is the quoted list
+      verbatim and ``values`` the unescaped values.
+    - ``frame "Error", default :`` -- a frame that catches values AND is the
+      default (the Error-cluster case).
 
-    The quoted portion is scanned quote-literal-at-a-time (honoring
-    ``\\``-escapes via ``_scan_quoted_literal``) rather than by a naive
-    string-suffix check, so a string selector's OWN text can legitimately
-    contain the substring ``", default"`` (e.g. a value literally reading
-    ``"foo, default"``) without being mistaken for the keyword suffix.
+    Values are scanned one quoted literal at a time (honoring ``\\``-escapes
+    via ``_scan_quoted_literal``), so a string value may itself contain
+    ``", default"``.
     """
-    if header == _LVNET_DEFAULT_KEYWORD:
-        return "Default", True
-    if not header.startswith('"'):
-        raise LvnetParseError(
-            f"line {frame_line_no}: expected 'frame \"<value>\"[, default] :' "
-            f"or 'frame default :' inside a case scope (§8), got {frame_line!r}"
-        )
-    return _split_trailing_default(header)
+    error = LvnetParseError(
+        f"line {frame_line_no}: expected 'frame \"<value>\"[, \"<value>\"]"
+        f"[, default] :' or 'frame default :' inside a case scope (§8), "
+        f"got {frame_line!r}"
+    )
+    values: list[str] = []
+    pos = 0
+    while True:
+        if header[pos:] == _LVNET_DEFAULT_KEYWORD:
+            label = header[:pos].removesuffix(", ") or "Default"
+            return label, tuple(values), True
+        if not header.startswith('"', pos):
+            raise error
+        end = _scan_quoted_literal(header, pos)
+        values.append(_unescape_lvnet_string(header[pos:end]))
+        pos = end
+        if pos == len(header):
+            return header, tuple(values), False
+        if not header.startswith(", ", pos):
+            raise error
+        pos += 2
 
 
 def _split_trailing_default(header: str) -> tuple[str, bool]:
     """Peel an optional trailing ``, default`` marker (§8) off a frame
-    header, returning ``(label, is_default)`` -- shared by case frames
-    (always quoted) AND the frame-only families (``_parse_labeled_frames``:
-    sequence/disabled/event, whose labels may be BARE -- ``Enabled``, ``[0]``
-    -- or quoted).
+    header, returning ``(label, is_default)`` for the frame-only families
+    (``_parse_labeled_frames``: sequence/disabled/event, whose labels may be
+    BARE -- ``Enabled``, ``[0]`` -- or quoted).
 
     A plain suffix strip is exact for BOTH, and -- unlike a quote-literal
     scan -- never chokes on an event label whose OWN text embeds raw quotes
     (``"[2] "Abort": Value Change"``, a real corpus label): a QUOTED label
     always ends with its closing ``"``, so a genuine trailing marker
-    (appended AFTER the quote by ``_render_lvnet_case_scope`` /
-    ``_render_lvnet_disabled_scope``) is exactly a header ending in
-    ``", default"`` -- never confused with a ``, default`` occurring INSIDE
-    the quotes (which is followed by that closing ``"``); a BARE label
+    (appended AFTER the quote by ``_render_lvnet_disabled_scope``) is exactly
+    a header ending in ``", default"`` -- never confused with a ``, default``
+    occurring INSIDE the quotes (which is followed by that closing ``"``); a BARE label
     (``Enabled``/``[0]``) is a comma-free token, so the same check is exact."""
     if header.endswith(_LVNET_CASE_DEFAULT_SUFFIX):
         return header[: -len(_LVNET_CASE_DEFAULT_SUFFIX)], True
@@ -1485,7 +1496,9 @@ def _parse_case_scope(
                 f"or 'frame default :' inside a case scope (§8), got {frame_line!r}"
             )
         header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
-        label, is_default = _parse_case_frame_header(header, frame_line_no, frame_line)
+        label, values, is_default = _parse_case_frame_header(
+            header, frame_line_no, frame_line
+        )
         items, drives = _parse_items(cursor, body_indent)
         frames.append(
             ParsedFrame(
@@ -1493,6 +1506,7 @@ def _parse_case_scope(
                 body=tuple(items),
                 drives=tuple(drives),
                 is_default=is_default,
+                values=values,
             )
         )
     if not frames:
@@ -1503,7 +1517,11 @@ def _parse_case_scope(
 
 
 def _parse_labeled_frames(
-    cursor: _Cursor, frame_indent: int, body_indent: int
+    cursor: _Cursor,
+    frame_indent: int,
+    body_indent: int,
+    *,
+    allow_drives: bool = False,
 ) -> list[ParsedFrame]:
     """Parse a run of ``frame <label> :`` blocks (§8) at EXACTLY
     ``frame_indent`` spaces -- shared by the sequence/disabled/event-
@@ -1514,12 +1532,10 @@ def _parse_labeled_frames(
     event label) -- so ``label`` is kept VERBATIM, quotes and all, exactly as
     ``_parse_case_scope`` already does for its own (always-quoted) labels.
 
-    None of these three families' ``NetlistScope``s carry any output MERGE
-    (see ``NetlistScope.outputs``'s docstring: "empty for every other scope
-    kind" -- sequence/disabled/event have none), so unlike a case frame, a
-    frame here never has its own ``net = source`` drive lines; encountering
-    one is a genuine grammar violation for this scope family, raised rather
-    than silently accepted.
+    Only a sequence frame may carry ``net = source`` drive lines (the
+    sequence locals it writes, ``allow_drives``); for disabled/event frames
+    encountering one is a genuine grammar violation, raised rather than
+    silently accepted.
     """
     frames: list[ParsedFrame] = []
     while True:
@@ -1540,7 +1556,7 @@ def _parse_labeled_frames(
         header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         label, is_default = _split_trailing_default(header)
         items, drives = _parse_items(cursor, body_indent)
-        if drives:
+        if drives and not allow_drives:
             raise LvnetParseError(
                 f"line {frame_line_no}: this scope family has no output "
                 f"merge to drive, so its frames must not contain bare "
@@ -1550,7 +1566,7 @@ def _parse_labeled_frames(
             ParsedFrame(
                 label=label,
                 body=tuple(items),
-                drives=(),
+                drives=tuple(drives),
                 is_default=is_default,
             )
         )
@@ -1564,7 +1580,10 @@ def _parse_sequence_scope(
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
     kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
     frames = _parse_labeled_frames(
-        cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
+        cursor,
+        indent + _LVNET_INDENT_WIDTH,
+        indent + _LVNET_INDENT_WIDTH * 2,
+        allow_drives=True,
     )
     if not frames:
         raise LvnetParseError(
@@ -1810,6 +1829,24 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 f"line {line_no}: unrecognized 'uses :' kind {kind!r} "
                 f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
             )
+        unreadable_prefix = f'({_LVNET_ASSEMBLY_UNREADABLE} "'
+        if kind == DependencyKind.ASSEMBLY.value and rest.startswith(
+            unreadable_prefix
+        ):
+            start = len(unreadable_prefix) - 1
+            end = _scan_quoted_literal(rest, start)
+            if rest[end:] != ")":
+                raise LvnetParseError(
+                    f"line {line_no}: expected '(unreadable \"<reason>\")': {line!r}"
+                )
+            entries.append(
+                ParsedDependency(
+                    kind=kind,
+                    qualified="",
+                    unreadable=_unescape_lvnet_string(rest[start:end]),
+                )
+            )
+            continue
         sep_idx = rest.find(_LVNET_DEP_PATH_SEP)
         if sep_idx == -1:
             qualified, path = rest.strip(), None
@@ -2556,7 +2593,7 @@ def _module_case_scope_signature(
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     frames: list[tuple] = []
     for frame in scope.frames:
-        label = _quoted_frame_label(frame.label)
+        label = _lvnet_case_header(frame.values, frame.is_default)
         body_sig = _module_body_signature(frame.body, handles, ambiguous)
         frame_key = "default" if frame.is_default else frame.label
         drive_entries: list[tuple[str, str]] = []
@@ -2610,19 +2647,21 @@ def _module_frame_only_scope_signature(
     frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
     handles: _LvnetHandles,
     ambiguous: frozenset[str],
+    frame_drives: list[list[tuple[str, str]]] | None = None,
 ) -> tuple:
     """Shared by the three frame-only scope families (sequence/disabled/
     event, see ``_parse_labeled_frames``'s docstring for why they share one
-    shape): none of them carry an output MERGE (``NetlistScope.outputs`` is
-    always empty for these kinds), so a frame's signature is just its own
-    already-rendered label + its body -- no drive-entries computation like
-    ``_module_case_scope_signature``'s (kept as an empty tuple for
-    STRUCTURAL symmetry with a case frame's 3-tuple shape, so
-    ``_parsed_item_signature``'s matching branch doesn't need a special
-    case)."""
+    shape): a frame's signature is its already-rendered label, its body and
+    its drive lines -- ``frame_drives`` (one list per frame) for a sequence's
+    sequence locals, empty for disabled/event frames. The 3-tuple matches a
+    case frame's shape, so ``_parsed_item_signature``'s matching branch needs
+    no special case."""
+    drives = frame_drives or [[] for _ in frame_labels_and_bodies]
     frames = tuple(
-        (label, _module_body_signature(body, handles, ambiguous), ())
-        for label, body in frame_labels_and_bodies
+        (label, _module_body_signature(body, handles, ambiguous), tuple(frame_drive))
+        for (label, body), frame_drive in zip(
+            frame_labels_and_bodies, drives, strict=True
+        )
     )
     return ("scope", kind_word, None, frames)
 
@@ -2639,6 +2678,7 @@ def _module_sequence_scope_signature(
         [(f"[{frame.value}]", frame.body) for frame in scope.frames],
         handles,
         ambiguous,
+        [_sequence_frame_drives(scope, f.value, handles) for f in scope.frames],
     )
 
 
@@ -2780,25 +2820,20 @@ def _parsed_item_signature(
     if isinstance(item, ParsedScope):
         if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
             # Same 3-tuple frame shape as a case scope (label, body, drives)
-            # -- §8's sequence/disabled/event families just never populate
-            # ``drives`` (see ``_parse_labeled_frames``: none of them carry
-            # an output merge to drive, so ``f.drives`` is always ``()``).
+            # -- only a sequence frame populates ``drives`` (the sequence
+            # locals it writes).
             #
-            # A CASE frame's label is re-normalized through
-            # ``_quoted_frame_label`` here -- matching
-            # ``_module_case_scope_signature``'s own call on the module side
-            # -- because a pure-default frame's ``ParsedFrame.label`` is the
-            # BARE ``"Default"`` sentinel (§8's ``frame default :`` keyword
-            # carries no quotes of its own to keep verbatim, unlike every
-            # other case-frame label), so without this it would compare
-            # unequal to the module side's quoted ``'"Default"'``. Every
-            # other case-frame label is already quoted verbatim from the
-            # text, so this is a no-op passthrough for them. The frame-only
-            # families are UNCHANGED (bare stays bare, matching their own
-            # module-side signature builders exactly).
+            # A CASE frame's label is its header text rebuilt from the parsed
+            # values and default flag -- matching
+            # ``_module_case_scope_signature``'s own ``_lvnet_case_header`` call
+            # on the module side. The frame-only families keep their label
+            # verbatim (bare stays bare, matching their own module-side
+            # signature builders exactly).
             frames = tuple(
                 (
-                    _quoted_frame_label(f.label) if item.kind == "case" else f.label,
+                    _lvnet_case_header(f.values, f.is_default)
+                    if item.kind == "case"
+                    else f.label,
                     tuple(
                         _parsed_item_signature(i, types_dict, ambiguous) for i in f.body
                     ),
@@ -2903,6 +2938,7 @@ def netlist_signature(
                 d.kind,
                 d.qualified,
                 d.path,
+                d.unreadable,
                 tuple(
                     (
                         t.direction,
@@ -2932,6 +2968,7 @@ def netlist_signature(
             d.kind.value,
             d.qualified,
             d.path,
+            d.unreadable,
             _dependency_interface_signature(d.interface, ambiguous),
         )
         for d in module.dependencies

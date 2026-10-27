@@ -408,6 +408,16 @@ uses :
   independently: `.vi` → `subVI`, `.ctl` → `typedef`, `.lvclass` → `class`; a Global VI that a
   `global-variable` node refers to is `global` (also a `.vi`).
   The project library (`.lvlib`) that a `shared-variable` node refers to is `library`.
+  A .NET assembly the VI calls is `assembly`: its identity is the assembly's name,
+  version, culture and public key token as .NET spells them
+  (`MccDaq, Version=3.0.0.0, Culture=neutral, PublicKeyToken=a37eefcf5c6ca10a`) and
+  it has no `; ./path` (no file: it comes from the GAC). A .NET node's terminal type
+  is `DotNet refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
+  keeps its own `[]`: `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
+  type name for a non-refnum parameter such as a .NET enum (`MccDaq.DaqDeviceInterface`).
+  A `DNDA`/`DNVA` link record that could not be read is an `assembly` entry with no
+  identity and the attribute form the `shared-variable` node uses:
+  `assembly (unreadable "<reason>")`, the reason a §4 quoted literal. No view drops it.
 - **`<qualified-identity>`** — the SAME fully-qualified identity a `subVI`/
   `class`/`typedef` component spells at its own declaration elsewhere in the
   file (§7/§9) — e.g. `TestCase.lvclass:listAllTestMethods.vi`,
@@ -461,7 +471,7 @@ frame** (never hoisted to a bottom-of-block merge).
 | For Loop | `for-loop :` | single implicit body (index `i`, count `N`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | While Loop | `while-loop :` | single implicit body (stop/continue on `cond`); a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
-| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time |
+| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case |
 | Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
 | Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
@@ -492,22 +502,23 @@ this is the piece that closes that gap (§1's graph-identity round-trip
 gate).
 
 **A case frame's `is_default` flag, in the header.** A case frame's header
-lists its selector value(s) as the existing quoted comma list, and — mirroring
-LabVIEW's own `"Error", Default` selector convention — the bare, unquoted
-keyword `default` is appended as that list's **last entry** whenever the frame
-is the structure's default frame, and is the list's **sole entry** when the
-frame carries no specific selector value of its own (the ordinary case:
-`_selector_label` collapses a non-error default frame to the `"Default"`
-sentinel with no real value left to show):
+lists its selector value(s) as a comma list of quoted string literals (§4
+escaping), one per value whatever the selector type — integers and enum item
+names included — and, mirroring LabVIEW's own `"Error", Default` selector
+convention, the bare, unquoted keyword `default` is appended as that list's
+**last entry** whenever the frame is the structure's default frame, and is the
+list's **sole entry** when the frame matches no value of its own:
 
-- a pure default frame (no specific value): `frame default :`
+- a pure default frame (no value of its own): `frame default :`
 - a frame that catches a value AND is the default: `frame "Error", default :`
-- a plain value frame (unchanged): `frame "Error" :`
-- a multi-value frame stays a comma list (unchanged): `frame "A", "B" :`
+- a plain value frame: `frame "Error" :`
+- a multi-value frame, strings or integers or enum items: `frame "A", "B" :`,
+  `frame "0", "43" :`
+- an empty-string frame: `frame "" :`
 
 This closes a real gap an earlier pass of this doc flagged as open: an
-Error-cluster default frame keeps a real value (`_selector_label`'s
-`is_error` branch never returns the `"Default"` sentinel), so on a real
+Error-cluster default frame keeps a real value (it is never a value-less
+default), so on a real
 corpus VI — `TextTestRunner/run.vi`'s dynamic-dispatch cascade — both the
 default frame and an ordinary `"1"`-valued frame are labeled `"Error"`; before
 this fix both rendered the identical `frame "Error" :` header with nothing in
@@ -529,6 +540,7 @@ tunnel loop_879::out1 : last-value+conditional :   # a Conditional tunnel is a b
   value = <source>         # the value taken on each iteration
   condition = <source>     # the wire on its condition terminal (omitted when unwired)
 case_139::out0 = <source>      # a case output, driven inside each frame
+sequence_100::local0 = <source>  # a sequence local, driven at the end of the stacked-sequence frame that writes it
 inplace_2331::put0 = <source>  # a value the body wires into an In Place Element border node's input
 ```
 
@@ -554,7 +566,10 @@ in different places.
   output), `loop_<uid>::shiftK` (shift register), `loop_<uid>::outK` (loop
   output tunnel), `sequence_<uid>::outK` (flat/stacked-sequence output),
   `disabled_<uid>::outK` (disable-family output), `event_<uid>::outK` (event
-  structure output), `inplace_<uid>::outK` (In Place Element output port),
+  structure output), `sequence_<uid>::localK` (a Stacked Sequence's sequence
+  local; `K` is the local's position in the structure's list, written or not,
+  so the name does not depend on which locals are wired),
+  `inplace_<uid>::outK` (In Place Element output port),
   `inplace_<uid>::getK` (a value an In Place Element border node supplies to
   the body — an Unbundle Elements element output) and `inplace_<uid>::putK`
   (a value wired into a border node's input — a Bundle Elements element the

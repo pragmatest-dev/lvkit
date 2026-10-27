@@ -24,7 +24,7 @@ Files in `src/lvkit/data/vilib/*.json` define LabVIEW standard library VIs.
     {
       "name": "system directory type",
       "index": 0,
-      "direction": "input",
+      "direction": "in",
       "python_param": "system_directory_type",
       "type": "sysdir.llb:System Directory Type.ctl"
     }
@@ -38,7 +38,9 @@ Files in `src/lvkit/data/vilib/*.json` define LabVIEW standard library VIs.
 
 PDF extraction provides `name`, `description`, `python_param`.
 
-`index` and `direction` are auto-discovered by `auto_update_terminals()` when code generation encounters wired terminals. Don't add manually.
+`direction` is `"in"` or `"out"`, the spelling primitive entries use too.
+
+`index` and `direction` are learned in memory by `auto_update_terminals()` when code generation encounters wired terminals; the bundled files are read-only at runtime, so add confirmed values to the JSON by hand.
 
 ## Source
 

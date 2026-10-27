@@ -5,7 +5,7 @@ from __future__ import annotations
 from lvkit.graph.models import PrimitiveNode
 from lvkit.primitive_resolver import ResolvedPrimitive
 
-from ..base import CodeGenError
+from ...errors import CodeGenError
 from . import register_op
 from ._numeric import is_real
 

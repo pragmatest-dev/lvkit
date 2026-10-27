@@ -25,15 +25,21 @@ from lvkit.codegen.ast_utils import (
     to_module_name,
     unique_names,
 )
+from lvkit.codegen.error_path import is_error_wire_vi
+from lvkit.codegen.errors_module import (
+    ERRORS_MODULE_NAME,
+    ERRORS_MODULE_SOURCE,
+    LABVIEW_ERROR_NAME,
+)
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.type_module import build_type_module
-from lvkit.graph import InMemoryVIGraph
+from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
-from lvkit.terminal_collector import get_collector
 from lvkit.type_names import ROOT_CLASS, derive_python_name
+from lvkit.vi_files import strip_vi_extension
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -220,27 +226,37 @@ def create_import_resolver(
 
     caller_dir = caller_path.parent
 
-    def locate(subvi_name: str) -> Path:
-        """The output file of a generated VI."""
-        # Resolve to qualified name for library lookup
-        qualified = subvi_name
-        if graph:
-            resolved_name = graph.resolve_vi_name(subvi_name)
-            if resolved_name:
-                qualified = resolved_name
-
+    def locate_by_name(vi_name: str) -> Path:
+        """The output file of a VI known only by name: a vi.lib VI, or a VI
+        reference constant (which names its VI by name). A call of a project VI
+        is never found this way -- it is found by its key, and a call that has
+        none stops code generation first."""
+        names_graph: InMemoryVIGraph | None = graph
+        qualified = vi_name
+        if graph is not None:
+            try:
+                qualified = graph.resolve_vi_name(vi_name) or vi_name
+            except AmbiguousVIReferenceError:
+                names_graph = None
         if qualified in vi_paths:
             return vi_paths[qualified]
-        if subvi_name in vi_paths:
-            return vi_paths[subvi_name]
+        if vi_name in vi_paths:
+            return vi_paths[vi_name]
         dep_path, _ = get_output_path(
             output_dir,
             qualified,
             create_dirs=False,
-            graph=graph,
+            graph=names_graph,
             vilib_resolver=vilib_resolver,
         )
         return dep_path
+
+    def locate(subvi_name: str, callee_key: str | None) -> Path:
+        """The output file of the VI a call names: the one generated for
+        ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
+        if callee_key is not None and callee_key in vi_paths:
+            return vi_paths[callee_key]
+        return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
         """``(dots, package, module)``: the relative import of ``dep_path`` from
@@ -265,8 +281,8 @@ def create_import_resolver(
             taken.add(spelled[identity])
         return spelled[identity]
 
-    def function_import(subvi_name: str) -> NameImport:
-        located = locate(subvi_name)
+    def function_import(subvi_name: str, callee_key: str | None) -> NameImport:
+        located = locate(subvi_name, callee_key)
         derived = to_function_name(subvi_name)
         if located == caller_path:
             return NameImport("", derived)
@@ -277,7 +293,7 @@ def create_import_resolver(
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
     def module_import(global_vi_name: str) -> ModuleImport:
-        dots, package, module = relative(locate(global_vi_name))
+        dots, package, module = relative(locate_by_name(global_vi_name))
         alias = f"{module}_global"
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 
@@ -304,7 +320,13 @@ def create_import_resolver(
             return None
         return node_import(key)
 
-    return ImportResolver(function_import, module_import, type_import, node_import)
+    def error_import() -> str:
+        dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
+        return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
+
+    return ImportResolver(
+        function_import, module_import, type_import, node_import, error_import
+    )
 
 
 def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
@@ -321,6 +343,25 @@ def _type_definition_scope(graph: InMemoryVIGraph, key: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _write_errors_module(package_root: Path) -> None:
+    """Write ``errors.py`` at the package root when a generated module imports
+    ``LabVIEWError`` from it."""
+    needle = f"import {LABVIEW_ERROR_NAME}"
+    if any(
+        needle in module.read_text(encoding="utf-8")
+        for module in sorted(package_root.rglob("*.py"))
+    ):
+        (package_root / f"{ERRORS_MODULE_NAME}.py").write_text(
+            ERRORS_MODULE_SOURCE, encoding="utf-8"
+        )
+
+
+def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
+    """Write the files a generated module reads at run time beside the module."""
+    for name, content in data_files.items():
+        (folder / name).write_bytes(content)
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -330,8 +371,10 @@ def _generate_polymorphic_module(
     output_dir: Path,
     vi_paths: dict[str, Path],
     soft_unresolved: bool = False,
+    data_files: dict[str, bytes] | None = None,
 ) -> str:
-    """Generate a module containing all variants and wrapper."""
+    """Generate a module containing all variants and wrapper. Data files the
+    variants read at run time are added to ``data_files``."""
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
@@ -376,6 +419,7 @@ def _generate_polymorphic_module(
                 import_resolver=import_resolver,
                 graph=graph,
                 soft_unresolved=soft_unresolved,
+                data_files=data_files,
             )
             # Take the function and result class; collect imports the body needs
             # into the shared header rather than dropping them.
@@ -476,7 +520,10 @@ def _generate_polymorphic_module(
     # names, so collect the provided values in call order and let _lv_dispatch
     # map them to the chosen variant's parameters positionally.
     lines.append(f"def {wrapper_func}(*args, **kwargs) -> {returns}:")
-    lines.append(f'    """Polymorphic wrapper for {wrapper_name}."""')
+    # repr() makes the VI path a valid string literal whatever it contains
+    # (a Windows path holds backslashes).
+    docstring = repr(f"Polymorphic wrapper for {wrapper_name}.")
+    lines.append(f"    {docstring}")
     lines.append("    _vals = [*args, *kwargs.values()]")
 
     if variant_funcs:
@@ -575,6 +622,8 @@ def generate_python(
             mode,
             search_paths=search_path_list,
         )
+    elif input_path.suffix.lower() == ".ctl":
+        graph.load_typedef(input_path, search_paths=search_path_list or None)
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
             str(input_path),
@@ -614,7 +663,9 @@ def generate_python(
         for key in order
         if (folder := to_library_name(key, graph=graph, vilib_resolver=vilib_resolver))
     }
-    module_names = unique_module_stems(order, graph, reserved=library_folders)
+    module_names = unique_module_stems(
+        order, graph, reserved={*library_folders, ERRORS_MODULE_NAME}
+    )
 
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
@@ -626,7 +677,7 @@ def generate_python(
     for vi_name in order:
         if vi_name in poly_groups:
             continue
-        name_no_ext = vi_name.replace(".vi", "").replace(".VI", "")
+        name_no_ext = strip_vi_extension(vi_name)
         if "(" in name_no_ext and ")" in name_no_ext:
             # Extract base: "Filter (Array)__sfx" -> "Filter__sfx"
             paren_start = name_no_ext.index("(")
@@ -678,7 +729,7 @@ def generate_python(
 
         print(f"  [{i}/{len(order)}] {vi_name}")
 
-        if has_inline:
+        if has_inline or is_error_wire_vi(vi_name, vilib_resolver):
             # Skip - inlined at call sites by AST builder
             print("         -> (inlined at call sites)")
             continue
@@ -754,6 +805,7 @@ def {func_name}(*args, **kwargs) -> Any:
             variants = poly_groups[vi_name]
             code = ""
             try:
+                data_files: dict[str, bytes] = {}
                 code = _generate_polymorphic_module(
                     vi_name,
                     variants,
@@ -763,9 +815,11 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code, encoding="utf-8")
+                _write_data_files(output_path.parent, data_files)
                 print(
                     f"         -> polymorphic: {output_path.name}"
                     f" ({len(variants)} variants)"
@@ -800,17 +854,20 @@ def {func_name}(*args, **kwargs) -> Any:
                     graph=graph,
                     vilib_resolver=vilib_resolver,
                 )
+                data_files: dict[str, bytes] = {}
                 code = build_module(
                     vi_context,
                     vi_name,
                     import_resolver=import_resolver,
                     graph=graph,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
 
                 # Validate syntax
                 ast.parse(code)
                 output_path.write_text(code, encoding="utf-8")
+                _write_data_files(output_path.parent, data_files)
                 print(f"         -> AST: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
 
@@ -849,6 +906,7 @@ def {func_name}(*args, **kwargs) -> Any:
         if not wrapper_path.exists():
             try:
                 wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+                data_files: dict[str, bytes] = {}
                 code = _generate_polymorphic_module(
                     wrapper_name,
                     variants,
@@ -858,9 +916,11 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     soft_unresolved=soft_unresolved,
+                    data_files=data_files,
                 )
                 ast.parse(code)
                 wrapper_path.write_text(code, encoding="utf-8")
+                _write_data_files(wrapper_path.parent, data_files)
                 generated.append((wrapper_name, wrapper_path, "ast"))
             except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
@@ -907,6 +967,8 @@ def {func_name}(*args, **kwargs) -> Any:
         class_path.write_text(class_code, encoding="utf-8")
         print(f"\nGenerated class wrapper: {class_path.name}")
 
+    _write_errors_module(output_dir_resolved)
+
     print(f"\nOutput: {output_dir_resolved}")
 
     vilib_count = sum(1 for _, _, s in generated if s == "vilib")
@@ -938,14 +1000,6 @@ def {func_name}(*args, **kwargs) -> Any:
                 "  - Or run `lvkit setup --no-skills` to create a"
                 " .lvkit/ store for manual mappings."
             )
-
-    # Save terminal observations for incremental collection
-    collector = get_collector()
-    if collector.data.get("observations"):
-        collector.save()
-        obs_count = len(collector.data["observations"])
-        print(f"\nTerminal observations collected for {obs_count} VI(s)")
-        print(f"  Saved to: {collector.pending_file}")
 
     return {
         "vilib": vilib_count,

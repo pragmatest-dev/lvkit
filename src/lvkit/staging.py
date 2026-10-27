@@ -10,7 +10,8 @@ of those private spots live under ONE directory per lvkit process:
 
 The run's directory is created lazily on the first write, reused for every write
 in the process, and removed at normal exit. A process that dies mid-run (killed,
-crashed, power loss) leaves its directory behind; the next lvkit run removes it.
+crashed, power loss) leaves its directory behind; the next lvkit run removes it
+and warns that the earlier run was stopped (:func:`clean_orphans`).
 
 Ownership is decided by the lock file, not by the pid in the name: the owner keeps
 an exclusive OS lock on ``.lock`` for its whole life and the operating system drops
@@ -44,6 +45,25 @@ _UNLOCKED_ORPHAN_MIN_AGE_S = 3600.0
 
 _RUN_PREFIX = "r-"
 _LOCK_SUFFIX = ".lock"
+
+
+# Windows refuses to replace a file another process or thread holds open (a
+# sharing violation, surfaced as PermissionError) until that reader closes it —
+# a moment later. POSIX never refuses, so the retry only ever runs on Windows.
+_REPLACE_ATTEMPTS = 100
+_REPLACE_RETRY_SECONDS = 0.02
+
+
+def replace(src: Path, dst: Path) -> None:
+    """``os.replace`` that waits out a reader holding ``dst`` open (Windows)."""
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_RETRY_SECONDS)
 
 
 def _try_lock(fh: IO[bytes]) -> bool:
@@ -109,7 +129,7 @@ def _claim_run(cache_root: Path) -> _Run:
             pass
     run = _Run(os.getpid(), root / name, lock_path, fh)
     run.directory.mkdir()
-    _remove_stale(root, keep=name)
+    _warn_orphans(_remove_stale(root, keep=name))
     atexit.register(_release, cache_root)
     return run
 
@@ -165,14 +185,40 @@ def release_all() -> None:
         _release(cache_root)
 
 
-def _remove_stale(root: Path, keep: str) -> None:
-    """Remove staging directories whose owner is gone. Best-effort: anything it
-    can't remove stays for a later run."""
+def clean_orphans(cache_root: Path) -> None:
+    """Remove the staging directories of runs that ended before they finished and
+    warn on stderr once if there were any. Called at the start of every command,
+    so an abnormal end (the run was killed or crashed) is noticed by the very
+    next run even when that run never writes to the cache. Creates nothing."""
+    root = staging_root(cache_root)
+    if root.is_dir():
+        _warn_orphans(_remove_stale(root, keep=""))
+
+
+def _warn_orphans(orphans: list[Path]) -> None:
+    """One stderr warning naming the first leftover staging folder (and how many
+    more there were)."""
+    if not orphans:
+        return
+    more = f" and {len(orphans) - 1} more" if len(orphans) > 1 else ""
+    print(
+        "lvkit: a previous lvkit run was stopped before it finished "
+        f"(staging folder {orphans[0]}{more}); it may have been terminated by "
+        "another program.",
+        file=sys.stderr,
+    )
+
+
+def _remove_stale(root: Path, keep: str) -> list[Path]:
+    """Remove staging directories whose owner is gone and return the run
+    directories (those that existed) removed because their run ended abnormally.
+    Best-effort: anything it can't remove stays for a later run."""
     now = time.time()
+    orphans: list[Path] = []
     try:
         entries = sorted(root.iterdir())
     except OSError:
-        return
+        return orphans
     locked_names = {p.name[: -len(_LOCK_SUFFIX)] for p in entries if _is_lock(p)}
     for entry in entries:
         if _is_lock(entry):
@@ -180,6 +226,8 @@ def _remove_stale(root: Path, keep: str) -> None:
             if name == keep:
                 continue
             if _owner_gone(entry):
+                if (root / name).is_dir():
+                    orphans.append(root / name)
                 shutil.rmtree(root / name, ignore_errors=True)
                 try:
                     entry.unlink()
@@ -192,6 +240,7 @@ def _remove_stale(root: Path, keep: str) -> None:
                 continue
             if age > _UNLOCKED_ORPHAN_MIN_AGE_S:
                 shutil.rmtree(entry, ignore_errors=True)
+    return orphans
 
 
 def _is_lock(path: Path) -> bool:

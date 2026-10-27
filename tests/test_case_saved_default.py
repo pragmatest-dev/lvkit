@@ -46,8 +46,9 @@ def test_default_index_survives_literal_ranges_and_tables(
             [(0, 0)],
             [(1, 1)],
         ]
-    if with_table:
-        assert case.displayed_frame == 1
+    # The heap omits ``dIdx`` when the displayed frame is 0; a table never
+    # overrides it.
+    assert case.displayed_frame == 0
 
 
 @pytest.mark.parametrize("type_name", ["NumInt32", "String", "Enum"])
@@ -114,12 +115,7 @@ def test_dataspace_only_values_default_to_the_last_frame(type_name):
     write SelectDefaultCase, so "absent" does not mean diagram 0 there: with
     every frame valued, the default is the last frame ("1, Default")."""
     strings = ["alpha", "beta"] if type_name == "String" else None
-    root = _build_case_xml("case", "selector", select_ranges=[], sel_type_id=42)
-    case_elem = root.find("SL__arrayElement")
-    assert case_elem is not None
-    heap_ranges = case_elem.find("SelectRangeArray32")
-    assert heap_ranges is not None
-    case_elem.remove(heap_ranges)
+    root = _build_case_xml("case", "selector", select_ranges=None, sel_type_id=42)
     tables = [_ds_selector_table_obj(33, 0, [(0, 0, 0), (1, 1, 1)], strings)]
     case = extract_case_structures(
         root, _make_terminal_info("selector", type_name), tables
@@ -129,7 +125,7 @@ def test_dataspace_only_values_default_to_the_last_frame(type_name):
     assert [f.selector_value for f in case.frames] == (strings or ["0", "1"])
 
 
-def test_zero_default_does_not_depend_on_displayed_frame():
+def test_heap_case_ignores_the_tables_displayed_frame():
     root = _build_case_xml(
         "case", "selector", select_ranges=[(0, 0), (1, 1)], sel_type_id=42
     )
@@ -137,5 +133,5 @@ def test_zero_default_does_not_depend_on_displayed_frame():
     case = extract_case_structures(
         root, _make_terminal_info("selector", "NumInt32"), tables
     )[0]
-    assert case.displayed_frame == 1
+    assert case.displayed_frame == 0
     assert [f.is_default for f in case.frames] == [True, False]

@@ -30,6 +30,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Protocol
 
+from lvkit.lv_type_codes import is_boolean_type_name
+
 from .._data import data_dir as _bundled_data_dir
 from ..extractor import extract_vi_xml
 from ..graph.core import InMemoryVIGraph
@@ -50,7 +52,14 @@ from ..graph.op_walk import (
     _resolve_nmux_field_name,
     correlate_property_terminals,
 )
-from ..models import ClusterField, LVType, Terminal, bundle_unbundle_name
+from ..models import (
+    ClusterField,
+    LVType,
+    Terminal,
+    bundle_unbundle_name,
+    leading_element,
+    unique_names,
+)
 from ..num_format import format_numeric_const as _format_numeric_const
 from ..parser.constants import NMUX_BY_NAME_NODE_CLASSES
 from ..parser.layout import ClusterGeom, Rect, RefnumPayload
@@ -83,6 +92,7 @@ from .glyph import (
     ErrorClusterGlyph,
     EventDataGlyph,
     EventRegNodeGlyph,
+    ExtFuncGlyph,
     FeedbackNodeGlyph,
     FormulaNodeGlyph,
     GlobalVariableGlyph,
@@ -565,6 +575,13 @@ def resolve_subvi_source(
     name = node.name
     if not name:
         return None
+
+    # The file the caller records for the call, when it is on disk.
+    recorded = node.interface_key
+    if recorded is not None and Path(recorded).is_file():
+        return SubVISource(
+            Path(recorded), project_local=not graph.is_library_file(Path(recorded))
+        )
 
     # Caller-RELATIVE path resolution first: a SubVI's qualified_path is a
     # LabVIEW LinkSavePathRef token string whose leading empties (leading '/'s)
@@ -1211,6 +1228,8 @@ class OriginalGlyphResolver:
             return _property_node_glyph(node)
         if node.node_type == "invokeNode":
             return _invoke_node_glyph(node)
+        if node.node_type == "extFunc":
+            return ExtFuncGlyph.from_node(node)
         if node.node_type == "eventRegNode":
             return _event_reg_node_glyph(node)
         if node.node_type == "xNode":
@@ -1299,7 +1318,7 @@ def _cpd_arith_boolean(node: PrimitiveNode) -> bool:
     ``codegen/nodes/compound.py::_is_boolean``/its use in
     ``generate_compound_arith``, so the glyph and the generated code agree."""
     return any(
-        t.lv_type is not None and t.lv_type.underlying_type == "Boolean"
+        t.lv_type is not None and is_boolean_type_name(t.lv_type.underlying_type)
         for t in node.terminals
     )
 
@@ -1515,8 +1534,9 @@ def _cluster_value_glyph(
     values = _cluster_field_values(value)
     geom_by_name = {g.name: g for g in cluster_geom.fields} if cluster_geom else {}
     composed = []
-    for f in fields:
-        field_value = values.get(f.name)
+    keys = unique_names(f.name for f in fields)
+    for f, key in zip(fields, keys):
+        field_value = values.get(key)
         field_fam = type_family(f.type)
         if field_fam in ("cluster", "error_cluster") and f.type and f.type.fields:
             field_geom = geom_by_name.get(f.name)
@@ -1554,7 +1574,8 @@ def _cluster_value_glyph(
                 ),
             ))
     summary = "\n".join(
-        f"{f.name}: {_field_summary_value(f.type, values.get(f.name))}" for f in fields
+        f"{f.name}: {_field_summary_value(f.type, values.get(key))}"
+        for f, key in zip(fields, keys)
     )
     return ClusterConstantGlyph(
         tuple(composed),
@@ -1585,18 +1606,21 @@ def _cluster_const_glyph(
 
 
 def _array_const_values(value: object) -> list[object]:
-    """An array constant's values as a Python list. The graph stores the value
-    as its ``repr`` string (``"[0, 0, 1, ...]"`` / ``"['a', 'b']"``); parse it
-    back with ``ast.literal_eval`` the same way the cluster path does."""
+    """An array constant's values as a Python list, one per entry of the first
+    dimension. The graph stores the value as its ``repr`` string (``"[0, 0, 1,
+    ...]"`` / ``"['a', 'b']"``); parse it back with ``ast.literal_eval`` the same
+    way the cluster path does. The glyph draws one cell per entry, so a
+    multi-dimensional array's entry (a row, as a nested list) is drawn as its
+    first element."""
     if isinstance(value, (list, tuple)):
-        return list(value)
+        return [leading_element(v) for v in value]
     if isinstance(value, str) and value:
         try:
             parsed = ast.literal_eval(value)
         except (ValueError, SyntaxError):
             return []
         if isinstance(parsed, (list, tuple)):
-            return list(parsed)
+            return [leading_element(v) for v in parsed]
     return []
 
 
@@ -1690,6 +1714,14 @@ def _array_const_glyph(
     )
 
 
+def _element_count(value: object) -> int:
+    """How many elements an array value holds: every entry of a
+    multi-dimensional array's nested lists."""
+    if isinstance(value, (list, tuple)):
+        return sum(_element_count(v) for v in value)
+    return 1
+
+
 def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
     """A cluster field's value as short text for the hover tooltip — mirrors
     what ``_leaf_const_glyph`` draws (type defaults for an unset field)."""
@@ -1710,12 +1742,15 @@ def _field_summary_value(lv_type: LVType | None, raw: object) -> str:
         # ``{'Idle State': False}``.
         vals = _cluster_field_values(raw)
         inner = ", ".join(
-            f"{f.name}: {_field_summary_value(f.type, vals.get(f.name))}"
-            for f in lv_type.fields
+            f"{f.name}: {_field_summary_value(f.type, vals.get(key))}"
+            for f, key in zip(
+                lv_type.fields, unique_names(f.name for f in lv_type.fields)
+            )
         )
         return "{" + inner + "}"
     if fam == "array" and isinstance(raw, (list, tuple)):
-        return f"[{len(raw)} element{'s' if len(raw) != 1 else ''}]"
+        count = _element_count(raw)
+        return f"[{count} element{'s' if count != 1 else ''}]"
     return str(raw) if raw is not None else ""
 
 

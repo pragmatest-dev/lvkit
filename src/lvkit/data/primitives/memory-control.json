@@ -36,31 +36,31 @@
       "name": "Swap Values",
       "terminals": [
         {
-          "index": 0,
+          "index": 1,
           "direction": "out",
           "name": " y'",
           "type": "NumInt32"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": " x'  ",
           "type": "NumInt32"
         },
         {
-          "index": 2,
+          "index": 12,
           "direction": "in",
           "name": "y",
           "type": "NumInt32"
         },
         {
-          "index": 3,
+          "index": 13,
           "direction": "in",
           "name": "?(T)",
           "type": "Boolean"
         },
         {
-          "index": 4,
+          "index": 14,
           "direction": "in",
           "name": "x",
           "type": "NumInt32"
@@ -117,19 +117,19 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "data value",
           "type": "NumFloat64"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 7,
           "direction": "in",
           "name": "data value reference",
           "type": "Refnum",

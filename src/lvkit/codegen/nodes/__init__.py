@@ -28,6 +28,7 @@ from lvkit.graph.models import (
 )
 
 from ..context import CodeGenContext
+from ..errors import CodeGenError, MissingDependencyError, UnknownNodeError
 from ..fragment import CodeFragment
 
 # Import modules (not classes) for dispatch
@@ -37,6 +38,7 @@ from . import (
     constant,
     disable,
     event,
+    ext_func,
     first_call,
     formula,
     global_variable,
@@ -52,7 +54,6 @@ from . import (
     shared_variable,
     subvi,
 )
-from .base import CodeGenError, MissingDependencyError, UnknownNodeError
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
@@ -120,6 +121,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "mux": nmux.generate,
     "demux": nmux.generate,
     "printf": printf.generate,
+    "extFunc": ext_func.generate,
 }
 
 

@@ -9,7 +9,13 @@ from dataclasses import dataclass, field
 
 from lvkit.graph.core import kind_display
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
-from lvkit.models import CaseFrame, LVType, TunnelTerminal, _is_error_cluster
+from lvkit.lv_type_codes import is_boolean_type_name
+from lvkit.models import (
+    CaseFrame,
+    LVType,
+    SelectorRange,
+    TunnelTerminal,
+)
 
 from ..ast_utils import (
     build_assign,
@@ -18,6 +24,8 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..error_path import is_error_selector
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 logger = logging.getLogger(__name__)
@@ -110,9 +118,9 @@ def _resolve_output_tunnels(
             bindings[ot.outer_uid] = next(iter(distinct))
             continue
 
-        var = ctx.output_tunnel_var_name(
-            ot.outer_uid, node.id
-        ) or ctx.make_output_var("case_output", ot.outer_uid)
+        var = ctx.output_tunnel_var_name(ot.outer_uid, node.id) or ctx.make_output_var(
+            "case_output", ot.outer_uid
+        )
         for fv in ot.inner_by_frame:
             body = body_by_frame.get(fv)
             if body is None:
@@ -140,7 +148,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
 
     ops_by_frame = _ops_by_frame(node, ctx)
 
-    if _is_error_selector_by_type(node, ctx):
+    if is_error_selector(node):
         return _generate_error_case(node, ctx, ops_by_frame)
 
     selector_var = None
@@ -150,16 +158,37 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
     if not selector_var:
         selector_var = _fallback_selector(node, ctx)
 
-    if _is_boolean_selector(node.frames):
+    selector_type = _selector_underlying_type(node)
+    if is_boolean_type_name(selector_type):
         return _generate_if_else(node, selector_var, ctx, ops_by_frame)
+    if selector_type is None and _has_placeholder_frame(node):
+        raise CodeGenError(
+            "The case structure's selector type is unknown, so the values its "
+            "frames match are unknown",
+            node,
+        )
     return _generate_match_case(node, selector_var, ctx, ops_by_frame)
 
 
-def _is_boolean_selector(frames: list[CaseFrame]) -> bool:
-    """Check if case structure uses boolean selector."""
-    selector_values = {str(f.selector_value) for f in frames}
-    bool_values = {"True", "False", "Default", "true", "false", "default"}
-    return selector_values <= bool_values and len(frames) <= 3
+def _has_placeholder_frame(node: CaseStructureNode) -> bool:
+    """Whether a non-default frame records no value to match: no strings, no
+    ranges and no Boolean value."""
+    return any(
+        not frame.is_default
+        and not frame.selector_strings
+        and not frame.selector_ranges
+        and frame.boolean_value is None
+        for frame in node.frames
+    )
+
+
+def _selector_underlying_type(node: CaseStructureNode) -> str | None:
+    """The underlying type name of the case structure's selector terminal
+    (``Boolean``, ``String``, ...), or None when it has no resolved type."""
+    for term in node.terminals:
+        if term.id == node.selector_terminal and term.lv_type:
+            return term.lv_type.underlying_type
+    return None
 
 
 def _generate_if_else(
@@ -180,20 +209,24 @@ def _generate_if_else(
     default_frame = None
 
     for frame in node.frames:
-        val = str(frame.selector_value).lower()
-        if val == "true":
-            true_frame = frame
-        elif val == "false":
-            false_frame = frame
-        elif "default" in val:
+        if frame.is_default:
             default_frame = frame
+        elif frame.boolean_value is True:
+            true_frame = frame
+        elif frame.boolean_value is False:
+            false_frame = frame
+        else:
+            raise CodeGenError(
+                "A frame of a Boolean case structure records neither True nor "
+                "False as its value",
+                node,
+            )
 
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     if_body: list[ast.stmt] = []
     if true_frame:
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(true_frame), []), ctx)
         if_body = inner_fragment.statements
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((true_frame, if_body))
 
@@ -202,7 +235,6 @@ def _generate_if_else(
     if else_frame:
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(else_frame), []), ctx)
         else_body = inner_fragment.statements
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
         frame_bodies.append((else_frame, else_body))
 
@@ -262,18 +294,17 @@ def _generate_match_case(
     # assignment into these same body lists.
     frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = []
     patterns: list[tuple[ast.pattern, ast.expr | None]] = []
+    is_string = _is_string_selector(node)
     for frame in node.frames:
-        selector_str = str(frame.selector_value)
-        if frame.is_default or selector_str.lower() == "default":
+        if frame.is_default:
             pattern: ast.pattern = ast.MatchAs(pattern=None, name=None)
             guard: ast.expr | None = None
         else:
-            pattern, guard = _build_frame_pattern(frame, selector_var)
+            pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
         patterns.append((pattern, guard))
 
         inner_fragment = _generate_frame_body(ops_by_frame.get(id(frame), []), ctx)
         frame_bodies.append((frame, inner_fragment.statements))
-        bindings.update(inner_fragment.bindings)
         all_imports.update(inner_fragment.imports)
 
     output_bindings, pre_decls = _resolve_output_tunnels(node, frame_bodies, ctx)
@@ -316,26 +347,47 @@ def _generate_match_case(
     )
 
 
-def _build_match_pattern(selector_value: str) -> ast.pattern:
-    """Build AST pattern for a single match value (int if it parses, else str)."""
-    try:
-        int_val = int(selector_value)
-        return ast.MatchValue(value=ast.Constant(value=int_val))
-    except ValueError:
-        pass
+def _is_string_selector(node: CaseStructureNode) -> bool:
+    """Whether the case structure's selector terminal carries a String."""
+    return _selector_underlying_type(node) == "String"
+
+
+def _build_match_pattern(selector_value: str, is_string: bool) -> ast.pattern:
+    """Build AST pattern for a single display token: a string selector matches
+    the string itself; any other selector matches the integer when it parses."""
+    if not is_string:
+        try:
+            return ast.MatchValue(value=ast.Constant(value=int(selector_value)))
+        except ValueError:
+            pass
     return ast.MatchValue(value=ast.Constant(value=selector_value))
+
+
+def _range_clause(selector_var: str, r: SelectorRange) -> str:
+    """The Python comparison for one selector range. An open side has no bound
+    (its stored number is filler), so it compares one-sided."""
+    if r.open_start and r.open_end:
+        return "True"
+    if r.open_start:
+        return f"{selector_var} <= {r.end}"
+    if r.open_end:
+        return f"{selector_var} >= {r.start}"
+    if r.is_single:
+        return f"{selector_var} == {r.start}"
+    return f"{r.start} <= {selector_var} <= {r.end}"
 
 
 def _build_frame_pattern(
     frame: CaseFrame,
     selector_var: str,
+    is_string: bool,
 ) -> tuple[ast.pattern, ast.expr | None]:
     """Build the match pattern (and optional guard) for one non-default frame.
 
     A frame can match several selector values: a string selector matches a set
     of strings (``"jpe" | "jpeg" | "jpg"``); a numeric/enum selector matches a
-    set of singletons and/or closed ranges. Singletons become an OR-pattern;
-    any true range (``start != end``) is expressed as a ``case _ if`` guard,
+    set of singletons and/or ranges. Singletons become an OR-pattern; any true
+    range (closed or open-ended) is expressed as a ``case _ if`` guard,
     OR-combined with the singletons.
     """
     # String selector: OR of the matched string literals.
@@ -347,19 +399,17 @@ def _build_frame_pattern(
 
     # Numeric/enum selector with faithful ranges.
     if frame.selector_ranges:
-        singles = [r for r in frame.selector_ranges if r.start == r.end]
-        spans = [r for r in frame.selector_ranges if r.start != r.end]
-        if not spans:
+        singles = [r for r in frame.selector_ranges if r.is_single]
+        if len(singles) == len(frame.selector_ranges):
             pats = [ast.MatchValue(value=ast.Constant(value=r.start)) for r in singles]
             return (pats[0] if len(pats) == 1 else ast.MatchOr(patterns=pats)), None
         # At least one true range → wildcard pattern with a boolean guard.
-        clauses: list[str] = [f"{selector_var} == {r.start}" for r in singles]
-        clauses += [f"{r.start} <= {selector_var} <= {r.end}" for r in spans]
+        clauses = [_range_clause(selector_var, r) for r in frame.selector_ranges]
         guard = parse_expr(" or ".join(clauses))
         return ast.MatchAs(pattern=None, name=None), guard
 
     # Fallback: the single display token.
-    return _build_match_pattern(str(frame.selector_value)), None
+    return _build_match_pattern(str(frame.selector_value), is_string), None
 
 
 def _generate_frame_body(
@@ -400,18 +450,84 @@ def _fallback_selector(
     return "selector"
 
 
-def _is_error_selector_by_type(
+@dataclass
+class ErrorCaseParts:
+    """The code of an error case structure, by frame.
+
+    The no-error frame runs when nothing upstream raised; ``on_error`` is the
+    error frame, which runs in the handler of the error that was raised."""
+
+    pre_decls: list[ast.stmt]
+    no_error: list[ast.stmt]
+    on_error: list[ast.stmt]
+    bindings: dict[str, str]
+    imports: set[str]
+
+
+def error_frame_ops(node: CaseStructureNode, ctx: CodeGenContext) -> list[AnyGraphNode]:
+    """The nodes in the error frame of an error case structure."""
+    ops_by_frame = _ops_by_frame(node, ctx)
+    return [
+        op
+        for frame in node.frames
+        if not frame.is_no_error
+        for op in ops_by_frame.get(id(frame), [])
+    ]
+
+
+def generate_error_case_parts(
     node: CaseStructureNode,
     ctx: CodeGenContext,
-) -> bool:
-    """Check if the selector terminal carries an error cluster type."""
-    sel_id = node.selector_terminal
-    if not sel_id or ctx.graph is None:
-        return False
-    for term in node.terminals:
-        if term.id == sel_id and term.lv_type:
-            return _is_error_cluster(term.lv_type)
-    return False
+    error_var: str | None,
+) -> ErrorCaseParts:
+    """Generate the frames of an error case structure.
+
+    The error frame is generated only when ``error_var`` (the name its handler
+    catches the error as) is given: an Unbundle of the error in it reads that
+    error. The merge of the case's output tunnels is over every frame's inner
+    values.
+    """
+    ops_by_frame = _ops_by_frame(node, ctx)
+    _bind_input_tunnels(node, ctx)
+
+    no_error_frame = None
+    error_frame = None
+    for frame in node.frames:
+        if frame.is_no_error:
+            no_error_frame = frame
+        else:
+            error_frame = frame
+    if no_error_frame is None and node.frames:
+        no_error_frame = node.frames[0]
+    if no_error_frame is None:
+        return ErrorCaseParts([], [], [], {}, set())
+
+    error_ops = ops_by_frame.get(id(error_frame), []) if error_frame else []
+    no_error_fragment = _generate_frame_body(
+        ops_by_frame.get(id(no_error_frame), []), ctx
+    )
+    no_error = list(no_error_fragment.statements)
+    frame_bodies: list[tuple[CaseFrame, list[ast.stmt]]] = [(no_error_frame, no_error)]
+    imports = set(no_error_fragment.imports)
+
+    on_error: list[ast.stmt] = []
+    if error_frame is not None and error_ops and error_var:
+        saved, ctx.error_var = ctx.error_var, error_var
+        try:
+            error_fragment = _generate_frame_body(error_ops, ctx)
+        finally:
+            ctx.error_var = saved
+        on_error = list(error_fragment.statements)
+        imports.update(error_fragment.imports)
+        frame_bodies.append((error_frame, on_error))
+    elif error_ops:
+        op_names = ", ".join(_op_display(op) for op in error_ops)
+        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
+
+    output_bindings, pre_decls = _resolve_output_tunnels(node, frame_bodies, ctx)
+    bindings = dict(no_error_fragment.bindings)
+    bindings.update(output_bindings)
+    return ErrorCaseParts(pre_decls, no_error, on_error, bindings, imports)
 
 
 def _generate_error_case(
@@ -419,49 +535,14 @@ def _generate_error_case(
     ctx: CodeGenContext,
     ops_by_frame: _OpsByFrame,
 ) -> CodeFragment:
-    """Generate code for an error-cluster case structure.
-
-    Emits only the no-error frame body (happy path).
-    96% of error frames are empty (45/47 in TestCase.lvclass).
-    """
-    _bind_input_tunnels(node, ctx)
-
-    no_error_frame = None
-    error_frame = None
-    for frame in node.frames:
-        val = str(frame.selector_value).lower()
-        if val in ("false", "no error", "0"):
-            no_error_frame = frame
-        elif val in ("true", "error", "1", "default"):
-            error_frame = frame
-
-    if no_error_frame is None and node.frames:
-        no_error_frame = node.frames[0]
-
-    if no_error_frame is None:
-        return CodeFragment.empty()
-
-    error_ops = ops_by_frame.get(id(error_frame), []) if error_frame else []
-    if error_ops:
-        op_names = ", ".join(_op_display(op) for op in error_ops)
-        logger.info("LV error frame omitted in %s: %s", node.id, op_names)
-
-    no_error_fragment = _generate_frame_body(
-        ops_by_frame.get(id(no_error_frame), []), ctx
-    )
-    body = list(no_error_fragment.statements)
-    # Only the no-error frame is emitted; the merge resolves each tunnel over
-    # ALL frames' inner values, so a pass-through still aliases correctly.
-    output_bindings, pre_decls = _resolve_output_tunnels(
-        node, [(no_error_frame, body)], ctx
-    )
-    bindings = dict(no_error_fragment.bindings)
-    bindings.update(output_bindings)
-
+    """Generate an error case structure whose error comes from nothing in this
+    diagram: an error from the caller has already been raised, so only the
+    no-error frame runs."""
+    parts = generate_error_case_parts(node, ctx, error_var=None)
     return CodeFragment(
-        statements=pre_decls + body,
-        bindings=bindings,
-        imports=no_error_fragment.imports,
+        statements=parts.pre_decls + parts.no_error,
+        bindings=parts.bindings,
+        imports=parts.imports,
     )
 
 

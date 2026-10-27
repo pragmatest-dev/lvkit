@@ -262,7 +262,7 @@ def test_ring_constant_value_still_decodes_as_its_integer() -> None:
         [1, 2, 4, 7],
     )
     const = SimpleNamespace(value="00000004")
-    _, value, _ = decode_constant(const, lv_type=ring)  # type: ignore[arg-type]
+    _, value, _, _ = decode_constant(const, lv_type=ring)  # type: ignore[arg-type]
     assert value == "4"
     assert ring is not None and ring.member_name(int(value)) == "Ethernet"
 

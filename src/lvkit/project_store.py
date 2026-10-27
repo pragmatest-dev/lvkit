@@ -27,6 +27,7 @@ resolve workflows in their own LLM-enabled editor.
 from __future__ import annotations
 
 import json
+import os
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -159,6 +160,19 @@ def init_project_store(root: Path) -> Path:
     return store
 
 
+def write_json_atomic(path: Path, data: object) -> None:
+    """Write ``data`` as JSON to ``path`` so a concurrent reader sees the old
+    or the new file, never an empty or half-written one: the text goes to a
+    sibling file named for this process, then ``os.replace`` swaps it in."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 # ============================================================
 # Skill installation
 # ============================================================
@@ -173,18 +187,17 @@ def init_project_store(root: Path) -> Path:
 # - install_claude_skills(): copies SKILL.md files to .claude/skills/
 #   one-for-one. Claude Code reads them as auto-launchable skills.
 #
-# - install_copilot_skills(): writes per-workflow .github/prompts/<name>.
-#   prompt.md files for explicit /<name> invocation, plus a single
-#   .github/instructions/lvkit.instructions.md router that auto-loads
-#   into every chat with a short list of available prompts. This dual
-#   pattern matches Claude Code's auto + explicit skill semantics.
+# - install_copilot_skills(): writes Agent Skills to .github/skills/. VS Code
+#   loads them by description match and also exposes each as a /<name> slash
+#   command, so no router file is needed.
 #
 # - install_codex_skills(): writes Agent Skills to .agents/skills/. Codex
 #   natively supports both description-based implicit activation and explicit
 #   $<name> mentions, so it does not need a separate router file.
 
 # Marker comment lvkit embeds in every generated Copilot file so users
-# (and re-installs) can recognize a lvkit-managed file.
+# (and re-installs) can recognize a lvkit-managed file. Prompt files and the
+# router instruction that carry it are removed on install.
 _COPILOT_MANAGED_MARKER = (
     "<!-- lvkit: managed by `lvkit setup`, re-running will overwrite this file -->"
 )
@@ -292,76 +305,85 @@ def install_claude_skills(target_dir: Path, force: bool = False) -> list[Path]:
 
 
 def install_copilot_skills(target_dir: Path, force: bool = False) -> list[Path]:
-    """Install lvkit's workflows for GitHub Copilot.
+    """Install lvkit's workflows as GitHub Copilot Agent Skills.
 
-    Writes two file types under `<target_dir>/.github/`:
+    Each packaged ``SKILL.md`` is converted to the Agent Skills shape VS Code
+    reads and written to ``<target_dir>/.github/skills/<name>/SKILL.md``. The
+    conversion keeps the portable ``name`` and ``description`` metadata,
+    drops the Claude-specific ``allowed-tools`` field, keeps cross-skill
+    references as ``/<name>`` slash commands, and adds the lvkit-managed
+    marker after the frontmatter. ``disable-model-invocation`` is not set, so
+    Copilot can load a skill by matching its description.
 
-    - `prompts/<name>.prompt.md` — one per workflow. User-invocable via
-      `/<name>` slash command in Copilot Chat. Body is the SKILL.md body
-      (frontmatter stripped); frontmatter is rewritten to Copilot's
-      prompt schema (`mode`, `description`).
-    - `instructions/lvkit.instructions.md` — single router file. Auto-
-      loaded into every Copilot chat (`applyTo: "**"`). Lists the five
-      prompts and when to suggest each. Stays small so it doesn't
-      bloat every chat.
+    Prompt files (``.github/prompts/lvkit*.prompt.md``) and the router
+    ``.github/instructions/lvkit.instructions.md`` are deleted when they
+    carry the lvkit-managed marker, and ``.github/prompts/`` is removed if
+    that leaves it empty. Files without the marker are left alone.
 
-    Why both: Claude Code skills are dual-mode (auto-loaded by
-    description match AND explicit `/<name>` invocation). The Copilot
-    equivalent is a router instruction (auto half) plus per-workflow
-    prompts (explicit half). Together they give Copilot users the same
-    dual-mode UX as Claude Code skills.
-
-    Atomic with respect to local-edit detection: pre-validates every
-    destination, collects conflicts, raises once before writing.
+    Atomic with respect to local-edit detection: every destination is
+    validated before any file is written or deleted.
 
     Args:
-        target_dir: Project root. `.github/prompts/` and
-            `.github/instructions/` are created under this directory.
-        force: Overwrite existing files even if they have local edits.
+        target_dir: Project root. The ``.github/skills/`` tree is created
+            under this directory.
+        force: Overwrite existing skill files even if they have local edits.
 
     Returns:
         List of paths that were written or overwritten. Empty when all
-        files are already byte-identical to the templates.
+        installed skills are already up to date.
     """
     plan: list[tuple[Path, str]] = []
     conflicts: list[Path] = []
 
-    # Phase 1: build per-prompt content + router content, validate
-    # all destinations, collect conflicts.
-    skill_dirs = _iter_skill_templates()
-
-    for skill_dir in skill_dirs:
+    for skill_dir in _iter_skill_templates():
         template_file = skill_dir.joinpath("SKILL.md")
         if not template_file.is_file():
             raise ValueError(
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-        prompt_content = _build_copilot_prompt(
-            template_file.read_text(encoding="utf-8")
+        skill_content = _build_agent_skill(
+            template_file.read_text(encoding="utf-8"),
+            mention_prefix="/",
+            marker=_COPILOT_MANAGED_MARKER,
         )
-        dest = target_dir / ".github" / "prompts" / f"{skill_dir.name}.prompt.md"
-        _stage_write(dest, prompt_content, force, plan, conflicts)
-
-    router_content = _build_copilot_router(skill_dirs)
-    router_dest = target_dir / ".github" / "instructions" / "lvkit.instructions.md"
-    _stage_write(router_dest, router_content, force, plan, conflicts)
+        dest = target_dir / ".github" / "skills" / skill_dir.name / "SKILL.md"
+        _stage_write(dest, skill_content, force, plan, conflicts)
 
     if conflicts:
         names = "\n  ".join(str(p) for p in conflicts)
         raise FileExistsError(
-            f"{len(conflicts)} Copilot file(s) have local edits and would"
+            f"{len(conflicts)} Copilot skill file(s) have local edits and would"
             f" be overwritten:\n  {names}\n"
             "Re-run with force=True to overwrite."
         )
 
-    # Phase 2: commit all writes.
     written: list[Path] = []
     for dest, new_content in plan:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(new_content, encoding="utf-8")
         written.append(dest)
+    _remove_managed_copilot_files(target_dir)
     return written
+
+
+def _remove_managed_copilot_files(target_dir: Path) -> None:
+    """Delete lvkit-managed Copilot prompt files and router instruction.
+
+    Only files containing ``_COPILOT_MANAGED_MARKER`` are removed.
+    ``.github/prompts/`` is removed afterwards if it is empty.
+    """
+    github_dir = target_dir / ".github"
+    prompts_dir = github_dir / "prompts"
+    candidates = sorted(prompts_dir.glob("lvkit*.prompt.md"))
+    candidates.append(github_dir / "instructions" / "lvkit.instructions.md")
+    for path in candidates:
+        if path.is_file() and _COPILOT_MANAGED_MARKER in path.read_text(
+            encoding="utf-8"
+        ):
+            path.unlink()
+    if prompts_dir.is_dir() and not any(prompts_dir.iterdir()):
+        prompts_dir.rmdir()
 
 
 def install_codex_skills(target_dir: Path, force: bool = False) -> list[Path]:
@@ -396,7 +418,9 @@ def install_codex_skills(target_dir: Path, force: bool = False) -> list[Path]:
                 f"Skill template directory {skill_dir.name!r} is missing"
                 " its SKILL.md — packaging or sync error."
             )
-        skill_content = _build_codex_skill(template_file.read_text(encoding="utf-8"))
+        skill_content = _build_agent_skill(
+            template_file.read_text(encoding="utf-8"), mention_prefix="$"
+        )
         dest = target_dir / ".agents" / "skills" / skill_dir.name / "SKILL.md"
         _stage_write(dest, skill_content, force, plan, conflicts)
 
@@ -442,47 +466,26 @@ def _stage_write(
     plan.append((dest, new_content))
 
 
-def _build_copilot_prompt(skill_md: str) -> str:
-    """Build a Copilot prompt file from a Claude SKILL.md.
+def _build_agent_skill(
+    skill_md: str, mention_prefix: str, marker: str | None = None
+) -> str:
+    """Build an Agent Skill (Codex or Copilot) from a packaged SKILL.md.
 
-    Rewrites the frontmatter from Claude's schema (``name``,
-    ``description``, ``allowed-tools``) to Copilot's prompt schema
-    (``mode``, ``description``). Body is preserved unchanged.
-
-    The description is double-quoted in the output frontmatter so
-    YAML special characters (``:``, ``#``, ``[``, ``{``, etc.) in the
-    SKILL.md description don't break the prompt's frontmatter parser.
-    """
-    fm, body = _split_frontmatter(skill_md)
-    description = _yaml_get(fm, "description") or ""
-    return (
-        "---\n"
-        "mode: agent\n"
-        f"description: {_yaml_quote(description)}\n"
-        "---\n"
-        f"{_COPILOT_MANAGED_MARKER}\n"
-        "\n"
-        f"{body.lstrip()}"
-    )
-
-
-def _build_codex_skill(skill_md: str) -> str:
-    """Build a Codex-compatible Agent Skill from a packaged SKILL.md.
-
-    Codex only needs the portable skill metadata and reads repository skills
-    from ``.agents/skills``. Internal references use ``$name`` because Codex
-    exposes explicit skill invocation through skill mentions rather than
-    per-skill slash commands. Lines referencing a nonexistent CLI command
-    (``lvkit llm-generate``/``lvkit check``) are stripped as a safety net.
+    Keeps the portable ``name`` and ``description`` metadata. Cross-skill
+    references are rewritten to ``<mention_prefix>name``: ``$`` for Codex's
+    skill mentions, ``/`` for Copilot's slash commands. Lines referencing a
+    nonexistent CLI command (``lvkit llm-generate``/``lvkit check``) are
+    stripped as a safety net. When ``marker`` is given it is placed on its
+    own line after the frontmatter.
     """
     fm, body = _split_frontmatter(skill_md)
     name = _yaml_get(fm, "name")
     description = _yaml_get(fm, "description")
     if not name or not description:
-        raise ValueError("Codex skill templates require name and description")
+        raise ValueError("Skill templates require name and description")
 
     for skill_name in _SKILL_ORDER:
-        body = body.replace(f"/{skill_name}", f"${skill_name}")
+        body = body.replace(f"/{skill_name}", f"{mention_prefix}{skill_name}")
     body = "".join(
         line
         for line in body.splitlines(keepends=True)
@@ -496,12 +499,13 @@ def _build_codex_skill(skill_md: str) -> str:
             f"{body.lstrip()}"
         )
 
+    separator = f"{marker}\n\n" if marker else "\n"
     return (
         "---\n"
         f"name: {name}\n"
         f"description: {_yaml_quote(description)}\n"
         "---\n"
-        "\n"
+        f"{separator}"
         f"{body.lstrip()}"
     )
 
@@ -512,44 +516,6 @@ def _yaml_quote(value: str) -> str:
     Minimal — handles the only YAML escapes lvkit needs (`"` and `\\`).
     """
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def _build_copilot_router(skill_dirs: list[Any]) -> str:
-    """Build the .github/instructions/lvkit.instructions.md router.
-
-    Lists every packaged skill in workflow order with its
-    description, so Copilot can auto-suggest the right slash command
-    when context matches. Stays small (under 30 lines + the warning
-    marker) so it doesn't bloat every Copilot chat.
-    """
-    lines = [
-        "---",
-        'applyTo: "**"',
-        "---",
-        _COPILOT_MANAGED_MARKER,
-        "",
-        "# lvkit: LabVIEW VI to Python workflows",
-        "",
-        "This project uses lvkit for LabVIEW VI to Python conversion.",
-        "These workflows are available as prompts. Suggest the appropriate",
-        "slash command when context matches; the user can also invoke",
-        "them directly:",
-        "",
-    ]
-    for skill_dir in skill_dirs:
-        skill_md = skill_dir.joinpath("SKILL.md").read_text(encoding="utf-8")
-        fm, _ = _split_frontmatter(skill_md)
-        description = _yaml_get(fm, "description") or skill_dir.name
-        lines.append(f"- `/{skill_dir.name}` — {description}")
-    lines.extend(
-        [
-            "",
-            "Run `lvkit setup copilot` to refresh these prompts and",
-            "this router file.",
-            "",
-        ]
-    )
-    return "\n".join(lines)
 
 
 def _split_frontmatter(text: str) -> tuple[str, str]:

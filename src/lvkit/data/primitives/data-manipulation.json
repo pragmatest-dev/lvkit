@@ -131,10 +131,8 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "swapped": "[((v & 0x00FF00FF) << 8) | ((v >> 8) & 0x00FF00FF) for v in in_1]"
-      },
-      "note": "Swap Bytes -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
+      "op": "SWAP_BYTES",
+      "note": "Swap Bytes -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: an integer, an array of integers or a cluster; emitted via the SWAP_BYTES/SWAP_WORDS op handler, which reads the data type from the pane.",
       "verified": false
     },
     "1163": {
@@ -154,10 +152,8 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "swapped": "[((v & 0xFFFF) << 16) | ((v >> 16) & 0xFFFF) for v in in_1]"
-      },
-      "note": "Swap Words -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: Array[U32] + cluster.",
+      "op": "SWAP_WORDS",
+      "note": "Swap Words -- endianness op; chained 1162->1163 gives a full 32-bit byte-reversal (MD5 little-endian words). Bytes=1162/Words=1163 follows NI palette order. Polymorphic: an integer, an array of integers or a cluster; emitted via the SWAP_BYTES/SWAP_WORDS op handler, which reads the data type from the pane.",
       "verified": false
     },
     "1164": {
@@ -170,38 +166,38 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "out",
           "name": "type string",
           "type": "Array",
           "hidden": true
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "data string",
           "type": "String"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 9,
           "direction": "in",
           "name": "byte order (0:big-endian, network order)",
           "type": "Enum16"
         },
         {
-          "index": 5,
+          "index": 10,
           "direction": "in",
           "name": "prepend array or string size? (T)",
           "type": "Boolean"
         },
         {
-          "index": 6,
+          "index": 11,
           "direction": "in",
           "name": "anything",
           "type": "Cluster"

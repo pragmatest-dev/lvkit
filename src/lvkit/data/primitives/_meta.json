@@ -68,7 +68,8 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "-1"
+          "default_value": "-1",
+          "per_dimension_of": 1
         }
       ],
       "op": "DELETE_FROM_ARRAY",
@@ -91,14 +92,17 @@
           "name": "element",
           "type": "polymorphic",
           "dco_ref": "dcoAgg",
-          "expandable": true
+          "expandable": true,
+          "group": "indexed element"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "0"
+          "default_value": "0",
+          "per_dimension_of": 0,
+          "group": "indexed element"
         }
       ],
       "op": "INDEX_ARRAY",
@@ -128,7 +132,8 @@
           "index": 2,
           "direction": "in",
           "name": "dimension size",
-          "type": "numeric"
+          "type": "numeric",
+          "per_dimension_of": 1
         }
       ],
       "python_code": "[element] * dimension_size"
@@ -154,18 +159,19 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "element",
-          "type": "polymorphic"
+          "name": "index",
+          "type": "numeric",
+          "per_dimension_of": 0
         },
         {
           "index": 3,
           "direction": "in",
-          "name": "index",
-          "type": "numeric",
-          "default_value": "-1"
+          "name": "new element/subarray",
+          "type": "polymorphic",
+          "group": "new elements"
         }
       ],
-      "python_code": "array[:index] + [element] + array[index:]"
+      "python_code": "array[:index] + [new_element_subarray] + array[index:]"
     },
     "aReplace": {
       "name": "Replace Array Subset",
@@ -188,18 +194,21 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "new element",
-          "type": "polymorphic"
+          "name": "new element/subarray",
+          "type": "polymorphic",
+          "group": "replacement"
         },
         {
           "index": 3,
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "0"
+          "default_value": "0",
+          "per_dimension_of": 0,
+          "group": "replacement"
         }
       ],
-      "python_code": "array[:index] + [new_element] + array[index + 1:]"
+      "python_code": "array[:index] + [new_element_subarray] + array[index + 1:]"
     },
     "aReshape": {
       "name": "Reshape Array",
@@ -222,8 +231,9 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "dimension sizes",
-          "type": "array"
+          "name": "dimension size",
+          "type": "numeric",
+          "per_dimension_of": 1
         }
       ],
       "python_code": "array"
@@ -253,7 +263,9 @@
           "type": "numeric",
           "default_value": "0",
           "dco_ref": "dcoList",
-          "expandable": true
+          "expandable": true,
+          "per_dimension_of": 0,
+          "group": "span"
         },
         {
           "index": 3,
@@ -262,7 +274,9 @@
           "type": "numeric",
           "default_value": "None",
           "dco_ref": "lengthDCOList",
-          "expandable": true
+          "expandable": true,
+          "per_dimension_of": 0,
+          "group": "span"
         }
       ],
       "python_code": "_lv.array_subset(array, index, length)"

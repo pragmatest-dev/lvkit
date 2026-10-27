@@ -269,10 +269,11 @@ class NodeFact:
 
     ``prim_id`` is the ROBUST filter for primitives (a stable numeric id);
     ``name`` is human-convenience only (localized/variant strings). For a SubVI
-    call ``qualified_name`` is the callee's qualified name and ``callee_path`` is
-    its merge-resolved on-disk path (``None`` at projection time, backfilled at
-    merge via ``_resolve_callee``; ``None`` when the callee is external or an
-    ambiguous bare name that the resolver refuses to guess). A global variable
+    call ``qualified_name`` is the callee's qualified name, ``callee_key`` the
+    callee's identity as the caller recorded it, and ``callee_path`` its
+    merge-resolved on-disk path (``None`` at projection time, backfilled at
+    merge from ``callee_key``; ``None`` when the callee is not an indexed VI of
+    the project). A global variable
     node carries the Global VI the same way (``qualified_name`` /
     ``callee_path``) and the control it reads or writes as ``name``. ``object_name`` /
     ``method_name`` are the property/invoke target class + invoke method.
@@ -286,6 +287,10 @@ class NodeFact:
     name: str | None = None
     prim_id: int | None = None
     qualified_name: str | None = None  # SubVI callee (unresolved key)
+    # SubVI call only: the identity the caller recorded for the callee (its file
+    # path, in or out of the project); ``callee_path`` below is this when the
+    # callee is an indexed VI.
+    callee_key: str | None = None
     callee_path: str | None = None  # SubVI callee resolved path (merge-time)
     object_name: str | None = None  # property/invoke target class
     method_name: str | None = None  # invoke method
@@ -478,6 +483,11 @@ class VIFacts:
     # each with the type_id it resolved to when this VI was built. See
     # TypedefVersionFact.
     typedef_versions: list[TypedefVersionFact] = field(default_factory=list)
+    # Whether this VI's dependencies were walked when it was projected. False for
+    # a VI a load pulled in only as a SubVI (connector pane, no dependency
+    # edges): its empty ``typedef_paths``/``typedef_versions`` then mean "not
+    # looked at", not "none". Not persisted.
+    dependencies_walked: bool = True
     # The ``TypeFact`` bodies a fresh build produced. NOT persisted on the VI: a
     # type is stored once, shared by every owner (``types`` table). Empty on a VI
     # loaded from the store, whose ``type_ids`` already name rows that exist.

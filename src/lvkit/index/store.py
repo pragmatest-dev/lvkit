@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     name TEXT,
     prim_id INTEGER,
     qualified_name TEXT,
+    callee_key TEXT,
     callee_path TEXT,
     object_name TEXT,
     method_name TEXT,
@@ -451,8 +452,8 @@ class _Prior:
     impact_score: int
     callers_count: int
     class_fact: ClassFact | None
-    # Each node's stored ``callee_path``, by node uid (resolved ones only).
-    callee_paths: dict[str, str]
+    typedef_paths: list[str]
+    typedef_versions: list[TypedefVersionFact]
 
 
 def facts_digest(f: VIFacts) -> str:
@@ -462,6 +463,7 @@ def facts_digest(f: VIFacts) -> str:
     payload = asdict(f)
     del payload["impact_score"]
     del payload["callers_count"]
+    del payload["dependencies_walked"]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
@@ -500,13 +502,22 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         if cf_row is not None
         else None
     )
-    callee_paths = dict(
-        conn.execute(
-            "SELECT uid, callee_path FROM nodes "
-            "WHERE vi_path = ? AND callee_path IS NOT NULL",
+    typedef_paths = [
+        r[0]
+        for r in conn.execute(
+            "SELECT typedef_path FROM typedef_uses WHERE vi_path = ? "
+            "ORDER BY typedef_path",
             (path,),
-        ).fetchall()
-    )
+        )
+    ]
+    typedef_versions = [
+        TypedefVersionFact(r[0], r[1])
+        for r in conn.execute(
+            "SELECT typedef_path, type_id FROM vi_typedef_versions "
+            "WHERE vi_path = ? ORDER BY typedef_path",
+            (path,),
+        )
+    ]
     return _Prior(
         content_sha=row[0],
         facts_digest=row[1],
@@ -515,7 +526,8 @@ def _prior(conn: sqlite3.Connection, path: str) -> _Prior | None:
         impact_score=row[4],
         callers_count=row[5],
         class_fact=class_fact,
-        callee_paths=callee_paths,
+        typedef_paths=typedef_paths,
+        typedef_versions=typedef_versions,
     )
 
 
@@ -574,9 +586,7 @@ def _coalesce_class_fact(
     )
 
 
-def _facts_to_write(
-    conn: sqlite3.Connection, f: VIFacts, *, callees_resolved: bool
-) -> VIFacts | None:
+def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
     """The facts ``save()`` must persist for ``f`` given what ``conn`` already
     holds, or ``None`` when the stored row is already current.
 
@@ -587,17 +597,15 @@ def _facts_to_write(
     row, a partial load never downgrades a fuller one:
 
     * ``library`` / ``class_fact``: an incoming NULL keeps the stored value.
-    * ``typedef_paths`` / ``typedef_versions`` are NOT merged: they record which
-      controls the VI could read at its last save, and ``sync_index`` compares
-      them with the controls' current shape to decide a rebuild, so the latest
-      load's value is the truth.
+    * ``typedef_paths`` / ``typedef_versions`` record which controls the VI could
+      read at its last save, and ``sync_index`` compares them with the controls'
+      current shape to decide a rebuild, so the latest load that walked the VI's
+      dependencies replaces them. A load that did not walk them
+      (``dependencies_walked`` False) knows nothing about them, so the stored
+      lists stay.
     * a stub never replaces a loaded VI.
     * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
       stored ones stay.
-    * each node's ``callee_path`` is resolved across the whole project too: when
-      ``callees_resolved`` is false (a progressive write, which never resolves
-      it), a node with no ``callee_path`` keeps its stored one. A full sync's
-      resolution is the truth, ``None`` included (the callee left the project).
 
     The result is compared by :func:`facts_digest`; equal means nothing to write.
     """
@@ -610,18 +618,14 @@ def _facts_to_write(
             f,
             library=f.library if f.library is not None else prior.library,
             class_fact=_coalesce_class_fact(prior.class_fact, f.class_fact),
+            typedef_paths=(
+                f.typedef_paths if f.dependencies_walked else prior.typedef_paths
+            ),
+            typedef_versions=(
+                f.typedef_versions if f.dependencies_walked else prior.typedef_versions
+            ),
             impact_score=prior.impact_score,
             callers_count=prior.callers_count,
-            nodes=(
-                f.nodes
-                if callees_resolved
-                else [
-                    replace(n, callee_path=prior.callee_paths.get(n.uid))
-                    if n.callee_path is None
-                    else n
-                    for n in f.nodes
-                ]
-            ),
         )
         if prior.facts_digest == facts_digest(effective):
             return None
@@ -650,28 +654,21 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
     return conn
 
 
-def _probe_is_current(
-    project_root: Path, vis: list[VIFacts], *, callees_resolved: bool
-) -> bool:
+def _probe_is_current(project_root: Path, vis: list[VIFacts]) -> bool:
     """True when every one of ``vis`` is already stored as-is: a save would
     write nothing, so it need not open the DB for writing at all."""
     conn = _probe(project_root)
     if conn is None:
         return False
     try:
-        return all(
-            _facts_to_write(conn, f, callees_resolved=callees_resolved) is None
-            for f in vis
-        )
+        return all(_facts_to_write(conn, f) is None for f in vis)
     except sqlite3.Error:
         return False
     finally:
         conn.close()
 
 
-def save(
-    project_root: Path, vis: Iterable[VIFacts], *, callees_resolved: bool = True
-) -> None:
+def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     """Upsert the given ``VIFacts`` rows into the project's index DB.
 
     A VI whose stored row is already current is not touched (see
@@ -680,20 +677,16 @@ def save(
     and its WAL files exactly as they were. The terminals/constants/nodes/
     type_uses child tables are intrinsic to a single-VI load and are always
     rewritten together with their VI's row. (``callee_path`` on the node rows is
-    the one exception filled at merge, like impact_score: pass
-    ``callees_resolved=False`` for facts whose ``callee_path`` was never
-    resolved, so the stored ones are kept.)
+    the one exception filled at merge, like impact_score.)
     """
     pending = list(vis)
-    if not pending or _probe_is_current(
-        project_root, pending, callees_resolved=callees_resolved
-    ):
+    if not pending or _probe_is_current(project_root, pending):
         return
     conn = _connect(project_root)
     try:
         with conn:
             for incoming in pending:
-                f = _facts_to_write(conn, incoming, callees_resolved=callees_resolved)
+                f = _facts_to_write(conn, incoming)
                 if f is not None:
                     _write_vi(conn, f)
             drop_unused_types(conn)
@@ -779,9 +772,9 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
     )
     conn.executemany(
         "INSERT INTO nodes(vi_path, ord, uid, kind, name, prim_id, "
-        "qualified_name, callee_path, object_name, method_name, "
+        "qualified_name, callee_key, callee_path, object_name, method_name, "
         "network_path, library_unreadable, parent_uid, frame) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         [
             (
                 f.path,
@@ -791,6 +784,7 @@ def _write_vi(conn: sqlite3.Connection, f: VIFacts) -> None:
                 n.name,
                 n.prim_id,
                 n.qualified_name,
+                n.callee_key,
                 n.callee_path,
                 n.object_name,
                 n.method_name,
@@ -1067,7 +1061,7 @@ def load(project_root: Path) -> list[VIFacts]:
         nodes_by_vi: dict[str, list[NodeFact]] = {}
         for row in conn.execute(
             "SELECT vi_path, uid, kind, name, prim_id, qualified_name, "
-            "callee_path, object_name, method_name, network_path, "
+            "callee_key, callee_path, object_name, method_name, network_path, "
             "library_unreadable, parent_uid, frame "
             "FROM nodes ORDER BY vi_path, ord"
         ):
@@ -1078,6 +1072,7 @@ def load(project_root: Path) -> list[VIFacts]:
                 name,
                 prim_id,
                 qualified_name,
+                callee_key,
                 callee_path,
                 object_name,
                 method_name,
@@ -1093,6 +1088,7 @@ def load(project_root: Path) -> list[VIFacts]:
                     name=name,
                     prim_id=prim_id,
                     qualified_name=qualified_name,
+                    callee_key=callee_key,
                     callee_path=callee_path,
                     object_name=object_name,
                     method_name=method_name,

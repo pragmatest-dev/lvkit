@@ -23,16 +23,13 @@ from .ast_utils import (
 from .context import CodeGenContext
 from .elementwise import LV_IMPORT, arrayify_module
 from .error_handler import (
-    ErrorHandlingPattern,
-    build_clear_try_except,
     build_held_error_check,
     build_held_error_init,
-    build_labview_error_import,
     build_merge_try_except,
-    classify_error_node,
-    find_error_path_ops,
     needs_error_handling,
 )
+from .error_path import ErrorRole, classify_error_node
+from .error_wires import generate_error_handler
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
 from .nodes import generate as generate_node
@@ -42,10 +39,10 @@ def build_module(
     vi_context: VIContext,
     vi_name: str,
     import_resolver: ImportResolver | None = None,
-    has_parallel_branches: bool | None = None,
     graph: InMemoryVIGraph | None = None,
     soft_unresolved: bool = False,
     unresolved_sink: list[Exception] | None = None,
+    data_files: dict[str, bytes] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -53,8 +50,6 @@ def build_module(
         vi_context: VIContext with inputs, outputs, etc.
         vi_name: Name of the VI (used for function name)
         import_resolver: Optional callable (subvi_name) -> import statement string
-        has_parallel_branches: If True, enable held error model for parallel
-                              branch error handling. If None, reads from vi_context.
         graph: The nx.MultiDiGraph. resolve() walks this directly.
         soft_unresolved: When True, unknown primitives / vi.lib VIs are
             emitted as inline `raise PrimitiveResolutionNeeded(...)` /
@@ -65,6 +60,10 @@ def build_module(
         unresolved_sink: When a list, each resolution gap (unknown primitive /
             unmapped vi.lib VI) is appended to it as the constructed exception.
             `lvkit unresolved` uses this to batch-collect every gap in one pass.
+        data_files: When a dict, every data file the module reads at run time (an
+            array too large to write into the module) is added to it by file name;
+            the caller writes each beside the module. Without it, a VI that needs
+            one fails with an error saying so.
 
     Returns:
         Python source code as string
@@ -85,11 +84,15 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node, import_resolver)
+        return build_global_module(vi_node, import_resolver, data_files)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(
-        vi_context, graph=graph, import_resolver=import_resolver
+        vi_context,
+        graph=graph,
+        import_resolver=import_resolver,
+        data_files=data_files,
+        module_stem=to_function_name(vi_context.name),
     )
     ctx.vi_name = vi_name
     ctx.qualified_vi_name = vi_context.qualified_name
@@ -104,8 +107,7 @@ def build_module(
         ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
     )
 
-    # Determine if we need error handling infrastructure (graph-driven).
-    # True only if Merge Errors (prim 2147) exists in the VI's node tree.
+    # The held error model is on when Merge Errors is anywhere in the VI.
     use_error_handling = needs_error_handling(top_nodes, ctx)
     ctx.use_held_error_model = use_error_handling
 
@@ -121,8 +123,8 @@ def build_module(
         build_array_input_normalization(parameters, parameter_names(parameters))
     )
 
-    # Add held error initialization if needed
     if use_error_handling:
+        ctx.import_labview_error()
         body.append(build_held_error_init())
 
     # Generate operation code
@@ -133,7 +135,7 @@ def build_module(
     if arrayify_module(body, frozenset(ctx.array_vars)):
         ctx.imports.add(LV_IMPORT)
 
-    # Add held error check before return if we have error handling
+    # Raise the first held error where the branches have merged
     if use_error_handling:
         body.append(build_held_error_check())
 
@@ -143,7 +145,7 @@ def build_module(
         body.append(return_stmt)
 
     # Build module structure
-    module = build_module_ast(vi_context, vi_name, body, ctx, use_error_handling)
+    module = build_module_ast(vi_context, vi_name, body, ctx)
 
     # Optimize AST (duplicate imports, dead code)
     module = optimize_module(module)
@@ -158,12 +160,14 @@ def generate_body(
 ) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
-    Uses tiered topological sort to identify parallel groups. Single-op
-    tiers emit sequential code. Multi-op tiers are wrapped in
-    concurrent.futures.ThreadPoolExecutor.
+    Uses tiered topological sort to identify parallel groups. Single-op tiers
+    emit sequential code. Under the held error model a multi-op tier is wrapped
+    in concurrent.futures.ThreadPoolExecutor, each branch holding its error;
+    otherwise independent nodes are emitted sequentially in dataflow order.
 
-    Statements are tagged with the operation IDs that produced them so
-    Clear Errors can scope its try/except to only the error-path ops.
+    Statements are tagged with the operation IDs that produced them so the
+    nodes that handle an error (Clear Errors, an error case structure, ...) can
+    wrap the statements that produce the error they handle in a ``try``.
 
     Args:
         operations: List of graph nodes to generate code for
@@ -184,94 +188,42 @@ def generate_body(
     tiers = topological_sort_tiered(operations, ctx)
 
     for tier in tiers:
-        # Extract Clear Errors ops from the tier before dispatching
-        clear_ops = [
-            op for op in tier if classify_error_node(op) == ErrorHandlingPattern.CLEAR
+        roles = {op.id: classify_error_node(op) for op in tier}
+        handlers = [
+            op for op in tier if roles[op.id] not in (ErrorRole.NONE, ErrorRole.MERGE)
         ]
-        if clear_ops:
-            clear_ids = {op.id for op in clear_ops}
-            remaining = [op for op in tier if op.id not in clear_ids]
-        else:
-            remaining = tier
+        handler_ids = {op.id for op in handlers}
+        remaining = [op for op in tier if op.id not in handler_ids]
 
-        # A ThreadPoolExecutor parallel tier is used ONLY when the held-error
+        # A ThreadPoolExecutor parallel tier is used ONLY when the held error
         # model needs per-branch error holding. Otherwise independent nodes are
-        # emitted SEQUENTIALLY in dataflow order: equivalent for by-value LabVIEW
-        # dataflow (independent branches carry no shared mutable state), far more
-        # idiomatic Python, and free of the per-branch return wiring that dropped
-        # cross-branch inlined references (the `product`/UnboundLocal class).
-        if remaining:
-            if ctx.use_held_error_model and len(remaining) > 1:
-                tier_ids = {op.id for op in remaining}
-                stmts = _generate_parallel_tier(remaining, ctx)
-                for s in stmts:
-                    tagged.append((tier_ids, s))
-            else:
-                for node in remaining:
-                    fragment = generate_node(node, ctx)
-                    for s in fragment.statements:
-                        tagged.append(({node.id}, s))
-                    ctx.merge(fragment.bindings)
-                    ctx.imports.update(fragment.imports)
+        # emitted SEQUENTIALLY in dataflow order: equivalent for by-value
+        # LabVIEW dataflow (independent branches carry no shared mutable
+        # state), far more idiomatic Python, and free of the per-branch return
+        # wiring that dropped cross-branch inlined references.
+        if ctx.use_held_error_model and len(remaining) > 1:
+            tier_ids = {op.id for op in remaining}
+            for stmt in _generate_parallel_tier(remaining, ctx):
+                tagged.append((tier_ids, stmt))
+        else:
+            for node in remaining:
+                fragment = generate_node(node, ctx)
+                for s in fragment.statements:
+                    tagged.append(({node.id}, s))
+                ctx.merge(fragment.bindings)
+                ctx.imports.update(fragment.imports)
 
-        # Apply Clear Errors wrapping for each extracted clear op
-        for clear_op in clear_ops:
-            _apply_clear_wrapping(
-                clear_op,
-                operations,
-                ctx,
-                tagged,
-            )
+        # A handler wraps the statements that produce the error it handles,
+        # which are all in earlier tiers or earlier in this one.
+        for op in handlers:
+            if not generate_error_handler(op, roles[op.id], operations, ctx, tagged):
+                fragment = generate_node(op, ctx)
+                for s in fragment.statements:
+                    tagged.append(({op.id}, s))
+                ctx.merge(fragment.bindings)
+                ctx.imports.update(fragment.imports)
 
     return [stmt for _, stmt in tagged]
-
-
-def _apply_clear_wrapping(
-    clear_op: AnyGraphNode,
-    all_ops: list[AnyGraphNode],
-    ctx: CodeGenContext,
-    tagged: list[tuple[set[str], ast.stmt]],
-) -> None:
-    """Apply scoped Clear Errors wrapping to tagged statements.
-
-    Traces upstream from the Clear Errors' error input to find which
-    operations are on its error wire, then wraps only those statements.
-    Falls back to wrapping everything if no graph is available.
-    """
-    if not tagged:
-        return
-
-    # Clear Errors generates except LabVIEWError — ensure import
-    ctx.imports.add("from lvkit.labview_error import LabVIEWError")
-
-    error_op_ids = find_error_path_ops(clear_op, all_ops, ctx)
-
-    if error_op_ids:
-        # Scoped: wrap only statements from error-path operations. Statements
-        # keep their dataflow order: each run of consecutive error-path
-        # statements gets its own try block at that position, so a statement
-        # that reads a wrapped statement's value still runs after it.
-        result: list[tuple[set[str], ast.stmt]] = []
-        run: list[ast.stmt] = []
-        for op_ids, stmt in tagged:
-            if op_ids & error_op_ids:
-                run.append(stmt)
-                continue
-            if run:
-                result.append(({clear_op.id}, build_clear_try_except(run)))
-                run = []
-            result.append((op_ids, stmt))
-        if run:
-            result.append(({clear_op.id}, build_clear_try_except(run)))
-        tagged.clear()
-        tagged.extend(result)
-    else:
-        # No graph or no upstream found — wrap everything
-        all_stmts = [stmt for _, stmt in tagged]
-        tagged.clear()
-        tagged.append(
-            ({clear_op.id}, build_clear_try_except(all_stmts)),
-        )
 
 
 def _generate_parallel_tier(
@@ -358,22 +310,15 @@ def _generate_parallel_tier(
         )
         inner_stmts.append(func_def)
 
-        if bound_vars:
-            # _fN = _executor.submit(_branch_N)
-            inner_stmts.append(
-                ast.Assign(
-                    targets=[ast.Name(id=future_var, ctx=ast.Store())],
-                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-                )
+        # _fN = _executor.submit(_branch_N); every branch is awaited after the
+        # block so an error it raises reaches the caller.
+        inner_stmts.append(
+            ast.Assign(
+                targets=[ast.Name(id=future_var, ctx=ast.Store())],
+                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
             )
-            branch_info.append((future_var, bound_vars))
-        else:
-            # Fire-and-forget: _executor.submit(_branch_N)
-            inner_stmts.append(
-                ast.Expr(
-                    value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
-                )
-            )
+        )
+        branch_info.append((future_var, bound_vars))
 
     # Always merge bindings — even when all ops produce zero statements.
     # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
@@ -422,14 +367,18 @@ def _generate_parallel_tier(
             args=[],
             keywords=[],
         )
-        if len(bound_vars) == 1:
+        result_stmt: ast.stmt
+        if not bound_vars:
+            result_stmt = ast.Expr(value=result_expr)
+        elif len(bound_vars) == 1:
             target = ast.Name(id=bound_vars[0], ctx=ast.Store())
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
         else:
             target = ast.Tuple(
                 elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
                 ctx=ast.Store(),
             )
-        result_stmt = ast.Assign(targets=[target], value=result_expr)
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
 
         if ctx.use_held_error_model:
             # Wrap in try/except: _held_error = _held_error or e
@@ -543,7 +492,11 @@ def topological_sort_tiered(
         for term in op.terminals:
             if term.direction != "input":
                 continue
-            # Trace through graph edges to find producing operation
+            # Trace through graph edges to find producing operation. The trace
+            # stays in the terminal's own VI: a subVI call is connected to the
+            # called VI's terminals, and what feeds those belongs to other VIs.
+            graph = ctx.graph
+            home = graph.terminal_vi(term.id) if graph else None
             visited: set[str] = set()
             current = term.id
             while current not in visited:
@@ -562,6 +515,8 @@ def topological_sort_tiered(
                 src_parent = source.src_parent_id
                 if src_parent in op_by_id and src_parent != op.id:
                     dependencies[op.id].add(src_parent)
+                    break
+                if graph is None or graph.terminal_vi(src_term) != home:
                     break
                 current = src_term
 
@@ -650,13 +605,12 @@ def build_module_ast(
     vi_name: str,
     body: list[ast.stmt],
     ctx: CodeGenContext,
-    use_error_handling: bool = False,
 ) -> ast.Module:
     """Build complete module AST."""
     module_body: list[ast.stmt] = []
 
     # Imports
-    module_body.extend(build_imports(vi_context, ctx, use_error_handling))
+    module_body.extend(build_imports(vi_context, ctx))
 
     # Result class
     spell = ctx.type_namer()
@@ -684,7 +638,6 @@ def build_module_ast(
 def build_imports(
     vi_context: VIContext,
     ctx: CodeGenContext,
-    use_error_handling: bool = False,
 ) -> list[ast.stmt]:
     """Build import statements."""
     imports: list[ast.stmt] = []
@@ -704,10 +657,6 @@ def build_imports(
         tree = ast.parse(imp)
         imports.extend(tree.body)
 
-    # Add LabVIEWError import if using error handling
-    if use_error_handling:
-        imports.append(build_labview_error_import())
-
     # Context-accumulated imports
     for imp in sorted(ctx.imports):
         try:
@@ -718,7 +667,6 @@ def build_imports(
 
     imports.extend(build_type_checking_block(ctx.annotation_imports))
     return imports
-
 
 
 def annotated_terminals(vi_context: VIContext) -> list[Terminal]:
@@ -814,9 +762,7 @@ def build_function_def(
     func_name = to_function_name(vi_context.name)
 
     # Build arguments
-    args = build_args(
-        vi_context.inputs, vi_context.off_pane_inputs, spell=spell
-    )
+    args = build_args(vi_context.inputs, vi_context.off_pane_inputs, spell=spell)
 
     # Build return annotation
     returns = None

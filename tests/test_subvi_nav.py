@@ -76,7 +76,10 @@ def test_subvi_link_through_a_symlinked_folder_stays_a_sibling(tmp_path: Path):
     if not RESOLVABLE_SUBVI_VI.exists():
         pytest.skip(f"sample VI not available: {RESOLVABLE_SUBVI_VI}")
     link = tmp_path / "linked"
-    link.symlink_to(RESOLVABLE_SUBVI_VI.parent.resolve(), target_is_directory=True)
+    try:
+        link.symlink_to(RESOLVABLE_SUBVI_VI.parent.resolve(), target_is_directory=True)
+    except OSError as e:  # Windows needs admin rights or Developer Mode
+        pytest.skip(f"this OS refuses to create symlinks here: {e}")
     svg = _render(link / RESOLVABLE_SUBVI_VI.name)
     matches = re.findall(r'data-lv-vi-rel="([^"]*)"', svg)
     assert "Parse XML.vi" in matches

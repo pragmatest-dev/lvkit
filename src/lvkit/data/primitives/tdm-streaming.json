@@ -187,7 +187,7 @@
         {
           "index": 3,
           "direction": "in",
-          "name": "disable buffering (T)",
+          "name": "disable buffering? (T)",
           "type": "Boolean"
         },
         {

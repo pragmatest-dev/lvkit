@@ -1,4 +1,4 @@
-"""Error classes and shared helpers for node code generators."""
+"""Shared helpers for node code generators."""
 
 from __future__ import annotations
 
@@ -10,28 +10,7 @@ from lvkit.graph.models import AnyGraphNode
 from ..ast_utils import build_assign, parse_expr
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT
-
-
-class CodeGenError(Exception):
-    """Raised when code generation fails for a node."""
-
-    def __init__(self, message: str, node: AnyGraphNode | None = None):
-        self.node = node
-        self.node_id = node.id if node else None
-        self.node_name = node.name if node else None
-        super().__init__(message)
-
-
-class UnknownNodeError(CodeGenError):
-    """Raised when encountering an unsupported node type."""
-
-    pass
-
-
-class MissingDependencyError(CodeGenError):
-    """Raised when a required dependency (SubVI, primitive) is missing."""
-
-    pass
+from ..errors import CodeGenError
 
 
 @dataclass

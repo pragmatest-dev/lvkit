@@ -8,6 +8,7 @@ import logging
 
 from lvkit.codegen.builder import topological_sort_tiered
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.error_path import is_error_selector
 from lvkit.codegen.nodes import case, invoke_node, nmux, property_node
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import CaseStructureNode, PrimitiveNode, Wire, WireEnd
@@ -79,23 +80,20 @@ def _make_ctx_with_binding(terminal_id: str, var_name: str) -> CodeGenContext:
 
 
 class TestErrorSelectorByType:
-    """_is_error_selector_by_type detects error clusters via LVType fields."""
+    """is_error_selector detects error clusters via LVType fields."""
 
     def test_detects_error_cluster(self):
         op = _make_case_op("sel_1", _error_cluster_type())
-        ctx = _make_ctx_with_binding("sel_1", "err")
-        assert case._is_error_selector_by_type(op, ctx) is True
+        assert is_error_selector(op) is True
 
     def test_rejects_boolean(self):
         bool_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
         op = _make_case_op("sel_1", bool_type)
-        ctx = _make_ctx_with_binding("sel_1", "flag")
-        assert case._is_error_selector_by_type(op, ctx) is False
+        assert is_error_selector(op) is False
 
     def test_rejects_no_type(self):
         op = _make_case_op("sel_1", None)
-        ctx = _make_ctx_with_binding("sel_1", "x")
-        assert case._is_error_selector_by_type(op, ctx) is False
+        assert is_error_selector(op) is False
 
     def test_rejects_cluster_without_error_fields(self):
         cluster_type = LVType(
@@ -104,8 +102,7 @@ class TestErrorSelectorByType:
             fields=[ClusterField(name="x"), ClusterField(name="y")],
         )
         op = _make_case_op("sel_1", cluster_type)
-        ctx = _make_ctx_with_binding("sel_1", "point")
-        assert case._is_error_selector_by_type(op, ctx) is False
+        assert is_error_selector(op) is False
 
 
 # ── Error case unwrap ───────────────────────────────────────────────

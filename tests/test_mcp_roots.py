@@ -9,6 +9,7 @@ capability).
 """
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,6 +23,13 @@ from lvkit.mcp.server import (
     _resolve_target,
     _uri_to_path,
     _win_to_wsl_path,
+)
+
+# The Windows-to-WSL mapping applies only when the server is not a native
+# Windows process (`_win_to_wsl_path` returns the path unchanged when
+# os.name == "nt").
+maps_windows_paths = pytest.mark.skipif(
+    os.name == "nt", reason="Windows-to-WSL path mapping is off on native Windows"
 )
 
 _SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
@@ -55,44 +63,48 @@ def _ctx_for(*paths: Path, unsupported: bool = False) -> Any:
 
 
 def test_uri_to_path_posix():
-    assert _uri_to_path("file:///home/ryanf/repo") == Path("/home/ryanf/repo")
+    assert _uri_to_path("file:///home/user/repo") == Path("/home/user/repo")
 
 
+@maps_windows_paths
 def test_uri_to_path_windows_drive():
     # A Windows client sends file:///C:/Users/x -> urlparse path is /C:/Users/x;
     # on a non-Windows (WSL) host that maps onto the /mnt mount.
-    assert _uri_to_path("file:///C:/Users/ryanf/repo") == Path(
-        "/mnt/c/Users/ryanf/repo"
+    assert _uri_to_path("file:///C:/Users/user/repo") == Path(
+        "/mnt/c/Users/user/repo"
     )
 
 
 # ---- _win_to_wsl_path (Windows client -> WSL-hosted server) -----------------
 
 
+@maps_windows_paths
 def test_win_to_wsl_drive_forward_slash():
-    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "/mnt/c/Users/ryanf/repo"
+    assert _win_to_wsl_path("C:/Users/user/repo") == "/mnt/c/Users/user/repo"
 
 
+@maps_windows_paths
 def test_win_to_wsl_drive_backslash():
     assert _win_to_wsl_path("D:\\work\\my repo") == "/mnt/d/work/my repo"
 
 
+@maps_windows_paths
 def test_win_to_wsl_unc_wsl_localhost():
     # A WSL folder opened FROM Windows arrives as a \\wsl.localhost\ UNC path.
     assert (
-        _win_to_wsl_path("\\\\wsl.localhost\\Ubuntu\\home\\ryanf\\repo")
-        == "/home/ryanf/repo"
+        _win_to_wsl_path("\\\\wsl.localhost\\Ubuntu\\home\\user\\repo")
+        == "/home/user/repo"
     )
 
 
 def test_win_to_wsl_posix_is_noop():
-    assert _win_to_wsl_path("/home/ryanf/repo") == "/home/ryanf/repo"
+    assert _win_to_wsl_path("/home/user/repo") == "/home/user/repo"
 
 
 def test_win_to_wsl_native_windows_is_noop(monkeypatch: pytest.MonkeyPatch):
     # On a native Windows process the path is already correct — never remap.
     monkeypatch.setattr(mcp_server.os, "name", "nt")
-    assert _win_to_wsl_path("C:/Users/ryanf/repo") == "C:/Users/ryanf/repo"
+    assert _win_to_wsl_path("C:/Users/user/repo") == "C:/Users/user/repo"
 
 
 def test_uri_to_path_percent_encoded():
@@ -169,6 +181,7 @@ def test_resolve_target_absolute_passthrough(tmp_path):
     assert asyncio.run(_resolve_target(abs_p, ctx)) == abs_p
 
 
+@maps_windows_paths
 def test_resolve_target_windows_abs_maps_to_wsl(tmp_path):
     # A Windows client can pass an explicit C:\ path; on a WSL host it must map
     # to /mnt/... and be treated as absolute (C:\ is NOT is_absolute() on Linux).
@@ -195,6 +208,11 @@ def test_resolve_target_unmatched_relative_unchanged(tmp_path):
 
 
 # ---- end-to-end: a real tool honors the client root when project is omitted --
+
+
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
 
 
 @pytest.mark.needs_samples

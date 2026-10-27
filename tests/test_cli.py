@@ -2,8 +2,8 @@
 output-projection surface (roadmap #24, increment 3 of the vi-diff-action
 plan).
 
-Mirrors ``tests/test_diff.py``'s conventions: the real sample pair under
-``outputs/vi-diff/`` (skipped if absent), and in-process graph loads that
+Mirrors ``tests/test_diff.py``'s conventions: a sample pair copied into a
+temporary folder (skipped if the corpus is absent), and in-process graph loads that
 mirror exactly what ``cmd_diff`` does, so CLI output can be compared against
 the underlying library functions.
 """
@@ -22,31 +22,50 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.diff import diff_to_dict, diff_uid, format_diff
 from lvkit.graph.loading import LoadMode
 
-BASE_VI = Path("outputs/vi-diff/run_base.vi")
-HEAD_VI = Path("outputs/vi-diff/run_head.vi")
+from .conftest import ViDiffPair
+
+
+class _Pair:
+    """The VI pair the diff tests compare (see ``vi_diff_pair`` in conftest)."""
+
+    base: Path = Path()
+    head: Path = Path()
+    root: Path = Path()
+
+
+PAIR = _Pair()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _sample_pair(vi_diff_pair: ViDiffPair) -> None:
+    PAIR.base, PAIR.head, PAIR.root = (
+        vi_diff_pair.base,
+        vi_diff_pair.head,
+        vi_diff_pair.root,
+    )
 
 
 def _require_pair() -> None:
-    if not BASE_VI.exists() or not HEAD_VI.exists():
-        pytest.skip(f"sample VI pair not available: {BASE_VI}, {HEAD_VI}")
+    if not PAIR.base.is_file() or not PAIR.head.is_file():
+        pytest.skip("sample VI pair not available")
 
 
 def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
     """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default) and the
-    SAME auto-detected project-root search paths a bare `lvkit diff a b`
-    resolves (#36) — so CLI output matches this in-process reference."""
+    search paths a bare ``lvkit diff a b --search-path <copy>`` resolves, so CLI
+    output matches this in-process reference."""
     from lvkit.cli import _auto_search_paths
 
     graph = InMemoryVIGraph()
-    search_paths = _auto_search_paths([], vi_path, vi_path)
-    graph.load_vi(
+    search_paths = _auto_search_paths([str(PAIR.root)], vi_path, vi_path)
+    key = graph.load_vi(
         str(vi_path),
         LoadMode.MINIMAL,
         search_paths=search_paths,
         layout=layout,
     )
-    vi_name = graph.resolve_vi_name(vi_path.name)
-    return graph, vi_name
+    assert key is not None
+    return graph, key
 
 
 def _run_diff(*args: str) -> subprocess.CompletedProcess:
@@ -60,7 +79,17 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
     """
     env = {**os.environ, "BROWSER": "true"}
     return subprocess.run(
-        [sys.executable, "-m", "lvkit.cli", "diff", str(BASE_VI), str(HEAD_VI), *args],
+        [
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            "diff",
+            str(PAIR.base),
+            str(PAIR.head),
+            "--search-path",
+            str(PAIR.root),
+            *args,
+        ],
         capture_output=True,
         text=True,
         env=env,
@@ -75,13 +104,15 @@ class TestDiffVIFilesNames:
         from lvkit.vi_diff import DiffBody, diff_vi_files
 
         _require_pair()
-        ga, na = _load(BASE_VI, layout=True)
-        gb, nb = _load(HEAD_VI, layout=True)
+        ga, na = _load(PAIR.base, layout=True)
+        gb, nb = _load(PAIR.head, layout=True)
         expected_before = ga.vi_display_name(na)
         expected_after = gb.vi_display_name(nb)
 
         for fmt in ("text", "json", "html"):
-            result = diff_vi_files(BASE_VI, HEAD_VI, fmt=fmt)
+            result = diff_vi_files(
+                PAIR.base, PAIR.head, fmt=fmt, search_paths=[PAIR.root]
+            )
             assert isinstance(result, DiffBody)
             assert result.before_name == expected_before
             assert result.after_name == expected_after
@@ -103,8 +134,8 @@ class TestFormatJson:
 
         got = json.loads(result.stdout)
 
-        ga, na = _load(BASE_VI, layout=True)
-        gb, nb = _load(HEAD_VI, layout=True)
+        ga, na = _load(PAIR.base, layout=True)
+        gb, nb = _load(PAIR.head, layout=True)
         expected = diff_to_dict(ga, gb, na, nb)
 
         assert got == expected
@@ -118,8 +149,8 @@ class TestFormatJson:
 
         written = json.loads(out.read_text())
 
-        ga, na = _load(BASE_VI, layout=True)
-        gb, nb = _load(HEAD_VI, layout=True)
+        ga, na = _load(PAIR.base, layout=True)
+        gb, nb = _load(PAIR.head, layout=True)
         expected = diff_to_dict(ga, gb, na, nb)
 
         assert written == expected
@@ -140,8 +171,8 @@ class TestFormatHtml:
         html = out.read_text()
         assert html.startswith("<!doctype html>")
 
-        ga, na = _load(BASE_VI, layout=True)
-        gb, nb = _load(HEAD_VI, layout=True)
+        ga, na = _load(PAIR.base, layout=True)
+        gb, nb = _load(PAIR.head, layout=True)
         cmap = diff_uid(ga, gb, na, nb)
         # the change-map JSON is embedded
         for change in cmap.changes:
@@ -182,8 +213,8 @@ class TestFormatText:
         result = _run_diff()  # no flags at all — today's default behavior
         assert result.returncode == 0, result.stderr
 
-        ga, na = _load(BASE_VI, layout=False)
-        gb, nb = _load(HEAD_VI, layout=False)
+        ga, na = _load(PAIR.base, layout=False)
+        gb, nb = _load(PAIR.head, layout=False)
         report = format_diff(ga, gb, na, nb)
         expected = "No changes detected." if not report else report
 
@@ -203,8 +234,8 @@ class TestFormatText:
         assert verbose_result.returncode == 0, verbose_result.stderr
         assert long_result.returncode == 0, long_result.stderr
 
-        ga, na = _load(BASE_VI, layout=False)
-        gb, nb = _load(HEAD_VI, layout=False)
+        ga, na = _load(PAIR.base, layout=False)
+        gb, nb = _load(PAIR.head, layout=False)
         report = format_diff(ga, gb, na, nb, verbose=True)
         expected = "No changes detected." if not report else report
 

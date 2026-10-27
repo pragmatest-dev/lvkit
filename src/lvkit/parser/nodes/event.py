@@ -59,6 +59,7 @@ from lvkit.models import EventFrame, Tunnel
 
 from ..models import ParsedEventStructure
 from ..utils import clean_labview_string, extract_label, heap_color
+from ..xml_trees import parsed_xml
 from .base import (
     extract_tunnel_mapping,
     frame_inner_node_uids,
@@ -149,7 +150,7 @@ def _parse_fp_root(fp_xml_path: Path | str | None) -> ET.Element | None:
     path = Path(fp_xml_path)
     if not path.exists():
         return None
-    return ET.parse(path).getroot()
+    return parsed_xml(path)
 
 
 def _extract_one_event_structure(

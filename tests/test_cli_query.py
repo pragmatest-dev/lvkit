@@ -153,6 +153,11 @@ _TESTCASE_DIR = (
 )
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 def test_default_refreshes_index(capsys: pytest.CaptureFixture[str]):
     """The default (no --no-refresh) builds/refreshes the index before reading,

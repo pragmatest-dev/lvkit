@@ -23,6 +23,7 @@ from typing import Any
 import lvkit.mcp.server as _facade
 
 from ... import __version__
+from ...build_options import BuildOptions
 from ...graph import InMemoryVIGraph, load_ctl_by_path, load_vi_by_path
 from ...graph.lvnet_typedef import render_lvnet_typedef
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
@@ -239,9 +240,10 @@ async def render(
         p = Path(vi_path).resolve()
         if not p.exists():
             raise FileNotFoundError(f"File not found: {vi_path}")
-        _configure_resolvers_for_vi(p)
+        store = _configure_resolvers_for_vi(p)
         roots = _resolved_roots(p, search_paths)
-        opts = render_options_tag("html", "auto", None)
+        build = BuildOptions(search_paths=tuple(roots), project_store=store)
+        opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
         html = cached_render(
@@ -249,8 +251,8 @@ async def render(
             fmt="html",
             options=opts,
             version=__version__,
-            search_paths=roots,
             theme_mode="auto",
+            **build.build_kwargs(),
         )
         if html is None:
             raise RuntimeError(f"Could not render {p.name} (nothing to draw).")
@@ -309,20 +311,21 @@ async def diff(
         for p in (pa, pb):
             if not p.exists():
                 raise FileNotFoundError(f"VI not found: {p}")
-        _configure_resolvers_for_vi(pa)
+        store = _configure_resolvers_for_vi(pa)
         roots = [
             pa.parent,
             pb.parent,
             *(Path(s).resolve() for s in (search_paths or [])),
         ]
-        opts = diff_options_tag("html", False, None, None)
+        build = BuildOptions(search_paths=tuple(roots), project_store=store)
+        opts = diff_options_tag("html", False, None, None, build)
         body = cached_diff(
             pa,
             pb,
             fmt="html",
             options=opts,
             version=__version__,
-            search_paths=roots,
+            **build.build_kwargs(),
         )
         if body is None:
             raise RuntimeError(
@@ -356,7 +359,8 @@ async def unresolved(
     one-at-a-time ``PrimitiveResolutionNeeded``/``VILibResolutionNeeded`` the
     conversion loop raises. Use before converting a large library to triage the
     gaps up front. Returns a list of ``{kind, identifier, name, count,
-    vi_names}`` (kind ∈ ``unknown_primitive``/``unmapped_vilib``/
+    vi_names}`` (kind ∈ ``unknown_primitive``/``placeholder_primitive``/
+    ``unsupported_node``/``unmapped_vilib``/
     ``terminal_mapping``). Empty list means no gaps. ``target`` may be relative
     to the client's workspace root."""
     target = await _facade._resolve_target(target, ctx)

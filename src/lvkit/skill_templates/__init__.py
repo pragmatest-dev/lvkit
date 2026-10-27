@@ -4,7 +4,7 @@ lvkit ships these as package data so `lvkit setup` can install
 them into a downstream user's project via importlib.resources. Each
 skill lives under `<name>/SKILL.md` directly under this package — they
 are the canonical source of truth for the Claude Code, Copilot, and
-Codex install paths. Copilot prompts and Codex skills are built
+Codex install paths. Copilot and Codex skills are built
 dynamically from these templates; see ``lvkit.project_store``.
 
 These user skills are NOT copied into the repo's own `.claude/skills/` —

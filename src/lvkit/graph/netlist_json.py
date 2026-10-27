@@ -45,6 +45,9 @@ from .netlist_models import (
     NetlistPropertyAccess,
     NetlistTerminalBinding,
     NetRef,
+    ScopeOutput,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .typedef import TypedefField, TypedefInfo, TypedefRef
 
@@ -145,15 +148,37 @@ def _border_drive_to_dict(drive: InPlaceBorderDrive) -> dict[str, Any]:
     }
 
 
-def _merge_to_dict(
-    merge: GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive,
+def _sequence_local_drive_to_dict(drive: SequenceLocalDrive) -> dict[str, Any]:
+    return {
+        "net": drive.net,
+        "kind": "sequence_local",
+        "frame": drive.frame,
+        "value": _netref_to_dict(drive.value),
+    }
+
+
+def _sequence_local_unreadable_to_dict(
+    unreadable: SequenceLocalUnreadable,
 ) -> dict[str, Any]:
+    return {
+        "net": unreadable.net,
+        "kind": "sequence_local",
+        "frame": unreadable.frame,
+        "unreadable": unreadable.reason,
+    }
+
+
+def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
     if isinstance(merge, GammaMerge):
         return _gamma_to_dict(merge)
     if isinstance(merge, MuMerge):
         return _mu_to_dict(merge)
     if isinstance(merge, InPlaceBorderDrive):
         return _border_drive_to_dict(merge)
+    if isinstance(merge, SequenceLocalDrive):
+        return _sequence_local_drive_to_dict(merge)
+    if isinstance(merge, SequenceLocalUnreadable):
+        return _sequence_local_unreadable_to_dict(merge)
     return _eta_to_dict(merge)
 
 
@@ -215,8 +240,10 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     - ``element_type``: the recursive dict for an array's element or a
       parametrized refnum's inner type -- ``None`` when absent.
     - every other ``LVType`` field carried through verbatim.
+    - ``dotnet_type``: the full assembly-qualified .NET type of a .NET node's
+      terminal; the key is absent for every other type.
     """
-    return {
+    result: dict[str, Any] = {
         "kind": lv_type.kind.value,
         "underlying_type": lv_type.underlying_type,
         "ref_type": lv_type.ref_type,
@@ -254,6 +281,10 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
         "measure_flavor": lv_type.measure_flavor,
         "user_event_name": lv_type.user_event_name,
     }
+    if lv_type.dotnet_type is not None:
+        # Only a .NET node's terminal has one: the assembly-qualified name.
+        result["dotnet_type"] = lv_type.dotnet_type.qualified
+    return result
 
 
 def _dependency_terminal_to_dict(t: ConnectorPaneTerminal) -> dict[str, Any]:
@@ -281,6 +312,8 @@ def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
         "qualified": dep.qualified,
         "path": dep.path,
     }
+    if dep.unreadable is not None:
+        d["unreadable"] = dep.unreadable
     if dep.interface:
         d["interface"] = [_dependency_terminal_to_dict(t) for t in dep.interface]
     return d

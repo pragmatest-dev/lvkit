@@ -8,7 +8,6 @@ from typing import NoReturn
 
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal
-from lvkit.parser.constants import VI_NAME_MERGE_ERRORS
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     ResolutionContext,
@@ -25,9 +24,11 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
+from ..error_path import ERROR_WIRE_VI_NAMES
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..unresolved import emit_soft_unresolved
+from . import error_vi
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -36,19 +37,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if not subvi_name:
         return CodeFragment.empty()
 
-    # Merge Errors' vi.lib WRAPPER VI (see VI_NAME_MERGE_ERRORS) is a
-    # structural signal, not a code node -- same as the raw primitive (prim
-    # 2147, primitive.py). Its real .vi body is never present in a downstream
-    # search path (it's an NI vi.lib file, not something a user owns), so it
-    # can never be resolved as an ordinary SubVI/vilib call; and even if it
-    # were, calling it as a function returning an error-cluster VALUE would be
-    # the wrong, non-idiomatic shape -- LabVIEW error clusters become Python
-    # exceptions, and sequential dataflow already raises before this node is
-    # ever reached (mirroring the primitive's own semantics). The genuinely
-    # parallel-branch case is handled by classify_error_node's MERGE
-    # classification, which the held-error-model tier wrapping already covers.
-    if subvi_name == VI_NAME_MERGE_ERRORS:
-        return CodeFragment.empty()
+    # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
+    # Code, the error handlers) are exception handling, not calls of a module.
+    if subvi_name in ERROR_WIRE_VI_NAMES:
+        return error_vi.generate(node, ctx)
 
     # Dynamic dispatch → obj.method(args) / super().method(args)
     if node.node_type in ("dynIUse", "callParentDynIUse"):
@@ -73,7 +65,13 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
         return _generate_inline(node, ctx, vilib_vi)
 
-    func_name = ctx.import_function(subvi_name)
+    # The module of the VI the call names. A polymorphic call whose polymorphic
+    # VI the caller does not record calls the variant it resolves to.
+    callee_name, callee_key = subvi_name, node.callee_key
+    if callee_key is None and node.variant_key is not None:
+        callee_key = node.variant_key
+        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
 
     # Gather input arguments with proper names
@@ -136,15 +134,15 @@ def _generate_inline(
         if vt.index is None:
             continue
         param_key = vt.python_param or to_var_name(vt.name)
-        if vt.direction in ("in", "input"):
+        if vt.direction == "in":
             vilib_inputs[vt.index] = param_key
-        elif vt.direction in ("out", "output"):
+        elif vt.direction == "out":
             vilib_outputs[vt.index] = param_key
 
     # Build default values from vilib terminal definitions
     vilib_defaults: dict[str, str] = {}
     for vt in vilib_vi.terminals:
-        if vt.direction in ("in", "input"):
+        if vt.direction == "in":
             param_key = vt.python_param or to_var_name(vt.name)
             default = getattr(vt, "default_value", None)
             if default is not None:
@@ -363,7 +361,7 @@ def _build_arguments(
 
     vilib_inputs = _build_vilib_terminal_map(
         vilib_vi,
-        "input",
+        "in",
     )
 
     args = []
@@ -400,7 +398,7 @@ def _build_arguments(
 
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = (
-            _resolve_enum_value(value, term, vilib_vi, subvi_name, ctx)
+            _resolve_enum_value(value, term, vilib_vi, subvi_name, node.callee_key, ctx)
             if vilib_vi
             else value
         )
@@ -415,6 +413,7 @@ def _resolve_enum_value(
     term: Terminal,
     vilib_vi: VIEntry,
     subvi_name: str,
+    callee_key: str | None,
     ctx: CodeGenContext,
 ) -> str:
     """Resolve enum constant to enum reference if applicable.
@@ -423,7 +422,8 @@ def _resolve_enum_value(
         value: The resolved value (e.g., "7")
         term: Terminal object with type info
         vilib_vi: VI entry with terminal typedef info
-        subvi_name: The called VI, whose module defines the enum class
+        subvi_name: The called VI's name
+        callee_key: The called VI's identity; its module defines the enum class
         ctx: Code generation context
 
     Returns:
@@ -439,7 +439,7 @@ def _resolve_enum_value(
     # Find this terminal in vilib
     vilib_term = None
     for vt in vilib_vi.terminals:
-        if vt.index == term_index and vt.direction == "input":
+        if vt.index == term_index and vt.direction == "in":
             vilib_term = vt
             break
 
@@ -467,7 +467,9 @@ def _resolve_enum_value(
                 # Add import for this enum
                 if isinstance(ctx.import_resolver, ImportResolver):
                     # The enum class sits in the module of the called VI
-                    module = ctx.import_resolver.function(subvi_name).statement
+                    module = ctx.import_resolver.function(
+                        subvi_name, callee_key
+                    ).statement
                     if module:
                         ctx.add_import(
                             module.rsplit(" import ", 1)[0] + f" import {class_name}"
@@ -508,7 +510,7 @@ def _build_output_bindings(
 
     vilib_outputs = _build_vilib_terminal_map(
         vilib_vi,
-        "output",
+        "out",
     )
 
     bindings = {}
@@ -736,7 +738,7 @@ def _generate_static_fallback(
     node: VINode, ctx: CodeGenContext, func_name: str
 ) -> CodeFragment:
     """Fallback for dynIUse with no inputs — generate as static function call."""
-    func_name = ctx.import_function(node.name or func_name)
+    func_name = ctx.import_function(node.name or func_name, node.callee_key)
     result_var = f"{func_name}_result"
     call = ast.Call(
         func=ast.Name(id=func_name, ctx=ast.Load()),

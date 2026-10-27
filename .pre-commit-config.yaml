@@ -6,10 +6,10 @@
 # Run against all files (e.g. after editing config):
 #     uv run pre-commit run --all-files
 #
-# pytest runs the FULL suite locally, where the sample corpus is present
-# (scripts/pull_samples.sh). On a fresh clone without it, `needs_samples` tests
-# auto-skip (tests/conftest.py) rather than fail. CI mirrors these checks and
-# additionally pulls the corpus — see .github/workflows/ci.yml.
+# pytest runs every test that does not read the sample corpus
+# (`-m "not needs_samples"`), the same set CI runs. The full suite, corpus
+# included, runs once per PR before merge: `uv run pytest -q` with the corpus
+# pulled (scripts/pull_samples.sh).
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -56,7 +56,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: uv run pytest -q
+        entry: uv run pytest -q -m "not needs_samples and not slow"
         language: system
         types: [python]
         pass_filenames: false

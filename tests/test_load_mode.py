@@ -30,13 +30,14 @@ CLASS_VI = Path(
 
 def _render(vi: Path, mode: LoadMode) -> tuple[str, int]:
     g = InMemoryVIGraph()
-    g.load_vi(vi, search_paths=None, layout=True, mode=mode)
+    key = g.load_vi(vi, search_paths=None, layout=True, mode=mode)
+    assert key is not None
     n_vis = sum(
         1
         for _, d in g._dep_graph.nodes(data=True)
         if d.get("node_type") not in ("class", "typedef", "library")
     )
-    return render_vi(g, g.resolve_vi_name(vi.name)) or "", n_vis
+    return render_vi(g, key) or "", n_vis
 
 
 @pytest.mark.parametrize("vi", [DEEP_VI, CLASS_VI])

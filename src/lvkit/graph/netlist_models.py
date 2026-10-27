@@ -320,6 +320,11 @@ class NetlistFrame:
     # build time via ``_has_output_tunnel_gn`` since the renderer only sees
     # the IR, not the original graph operation.
     passthrough: bool = False
+    # A case frame's selector values, one entry per value and unquoted (enum
+    # item names, integers/ranges, raw strings, ``Error``); empty for a default
+    # frame that matches no value of its own and for non-case frames. What
+    # ``render_lvnet`` writes as the frame header's comma list.
+    values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -460,6 +465,41 @@ class InPlaceBorderDrive:
     value: NetRef
 
 
+@dataclass(frozen=True)
+class SequenceLocalDrive:
+    """The value a Stacked Sequence frame writes into a sequence local: ONE
+    named net (``sequence_<uid>.local<K>``, ``K`` the local's position in the
+    structure's list) driven by ``value`` inside frame ``frame`` (the frame's
+    ``NetlistFrame.value``). A reader in a later frame references the same
+    net (see ``netlist_build._sequence_local_net_name_gn``)."""
+
+    net: str
+    frame: str
+    value: NetRef
+
+
+@dataclass(frozen=True)
+class SequenceLocalUnreadable:
+    """A sequence local whose wiring LabVIEW does not allow (see
+    ``SequenceLocalLink.unreadable``): the net's reason, shown in the first
+    frame ``frame`` where the local has a wired terminal. Readers still
+    reference the net."""
+
+    net: str
+    frame: str
+    reason: str
+
+
+ScopeOutput = (
+    GammaMerge
+    | MuMerge
+    | EtaMerge
+    | InPlaceBorderDrive
+    | SequenceLocalDrive
+    | SequenceLocalUnreadable
+)
+
+
 @dataclass
 class NetlistScope:
     """A structure: case / for / while / sequence / disabled / event / inplace.
@@ -506,11 +546,10 @@ class NetlistScope:
     # tunnel (see ``_build_loop_shift_registers_gn``/``_build_loop_outputs_gn``,
     # shift registers first); an In Place Element structure (kind ==
     # "inplace") carries one ``InPlaceBorderDrive`` per wired border-node
-    # input. Empty for every other scope kind (sequence/
-    # disabled/event have no such merge).
-    outputs: list[GammaMerge | MuMerge | EtaMerge | InPlaceBorderDrive] = field(
-        default_factory=list
-    )
+    # input; a sequence (kind == "sequence") carries one
+    # ``SequenceLocalDrive`` per written sequence local. Empty for every other
+    # scope kind (disabled/event have no such merge).
+    outputs: list[ScopeOutput] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -684,8 +723,10 @@ class DependencyKind(str, Enum):
     dependency's qualified identity file extension (``.vi`` -> subVI,
     ``.ctl`` -> typedef, ``.lvclass`` -> class), never a separate guessed
     input; except ``global``, a Global VI that a global variable node refers
-    to (also a ``.vi`` file), and ``library``, the project library (``.lvlib``) a
-    Shared Variable node refers to. See ``_dependency_kind_for``/
+    to (also a ``.vi`` file), ``library``, the project library (``.lvlib``) a
+    Shared Variable node refers to, and ``assembly``, a .NET assembly the VI calls
+    (no file: its qualified identity is the assembly's name, version, culture and
+    public key token). See ``_dependency_kind_for``/
     ``_build_dependency_manifest``.
     """
 
@@ -694,6 +735,7 @@ class DependencyKind(str, Enum):
     CLASS = "class"
     GLOBAL = "global"
     SHARED_VARIABLE_LIBRARY = "library"
+    ASSEMBLY = "assembly"
 
     @classmethod
     def for_node_type(cls, node_type: NodeType) -> DependencyKind:
@@ -750,6 +792,10 @@ class NetlistDependency:
     qualified: str
     path: str | None
     interface: list[ConnectorPaneTerminal] = field(default_factory=list)
+    # Why a link record could not be read (``assembly`` only): the entry then
+    # names no assembly (``qualified`` is empty) and lvnet spells it
+    # ``assembly (unreadable "<reason>")``.
+    unreadable: str | None = None
 
 
 @dataclass

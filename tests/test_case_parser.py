@@ -4,17 +4,21 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+import pytest
+
+from lvkit.graph.op_walk import _selector_label
 from lvkit.parser.models import ParsedTerminalInfo, ParsedType, SelectorTable
 from lvkit.parser.nodes.case import (
     extract_case_structures,
     parse_selector_tables,
 )
+from lvkit.parser.type_mapping import _get_kind
 
 
 def _build_case_xml(
     case_uid: str,
     selector_uid: str,
-    select_ranges: list[tuple[int, ...]],
+    select_ranges: list[tuple[int, ...]] | None,
     *,
     string_array: list[str] | None = None,
     default_diag: int | None = None,
@@ -27,7 +31,8 @@ def _build_case_xml(
     Args:
         case_uid: UID for the case structure element
         selector_uid: UID for the selector terminal
-        select_ranges: list of (start, diagramIdx) for SelectRangeArray32
+        select_ranges: list of (start, diagramIdx) for SelectRangeArray32;
+            None omits the array (selector values live only in the dataspace)
         string_array: hex-encoded strings for SelectStringArray
         default_diag: stored default diagram index (None omits the field)
         num_diags: number of diagram frames to create
@@ -62,27 +67,28 @@ def _build_case_xml(
 
     # SelectRangeArray32. Each entry is (start, diagramIdx) — a single value —
     # or (start, end, diagramIdx) for a closed range.
-    sra = ET.SubElement(case, "SelectRangeArray32")
-    for i, entry in enumerate(select_ranges):
-        if len(entry) == 3:
-            start, end, diag_idx = entry
-        else:
-            start, diag_idx = entry
-            end = start
-        sr = ET.SubElement(
-            sra,
-            "SL__arrayElement",
-            attrib={
-                "class": "SelectorRange",
-            },
-        )
-        ET.SubElement(sr, "start").text = str(start)
-        ET.SubElement(sr, "end").text = str(end)
-        ET.SubElement(sr, "diagramIdx").text = str(diag_idx)
-        if range_types is not None:
-            start_type, end_type = range_types[i]
-            ET.SubElement(sr, "startRangeType").text = str(start_type)
-            ET.SubElement(sr, "endRangeType").text = str(end_type)
+    if select_ranges is not None:
+        sra = ET.SubElement(case, "SelectRangeArray32")
+        for i, entry in enumerate(select_ranges):
+            if len(entry) == 3:
+                start, end, diag_idx = entry
+            else:
+                start, diag_idx = entry
+                end = start
+            sr = ET.SubElement(
+                sra,
+                "SL__arrayElement",
+                attrib={
+                    "class": "SelectorRange",
+                },
+            )
+            ET.SubElement(sr, "start").text = str(start)
+            ET.SubElement(sr, "end").text = str(end)
+            ET.SubElement(sr, "diagramIdx").text = str(diag_idx)
+            if range_types is not None:
+                start_type, end_type = range_types[i]
+                ET.SubElement(sr, "startRangeType").text = str(start_type)
+                ET.SubElement(sr, "endRangeType").text = str(end_type)
 
     # SelectStringArray
     if string_array is not None:
@@ -120,7 +126,7 @@ def _make_terminal_info(
             parent_uid="parent",
             index=0,
             is_output=False,
-            parsed_type=ParsedType(kind="primitive", type_name=type_name),
+            parsed_type=ParsedType(kind=_get_kind(type_name), type_name=type_name),
         ),
     }
 
@@ -154,6 +160,56 @@ class TestBooleanSelector:
         cs = cases[0]
         assert cs.frames[0].selector_value == "True"
         assert cs.frames[1].selector_value == "False"
+
+
+class TestTypedFrameFacts:
+    def test_boolean_frames_carry_their_boolean_value(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(1, 0), (0, 1)])
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "Boolean"))
+        assert [f.boolean_value for f in cases[0].frames] == [True, False]
+
+    def test_a_16_bit_boolean_selects_like_a_boolean(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=[(0, 0), (1, 1)])
+        cases = extract_case_structures(
+            root, _make_terminal_info("sel1", "BooleanU16")
+        )
+        assert [f.boolean_value for f in cases[0].frames] == [False, True]
+
+    def test_a_substring_selector_is_a_string_selector(self):
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0)],
+            string_array=["616C706861"],
+            default_diag=1,
+        )
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "SubString"))
+        assert cases[0].selector_type == "string"
+        assert cases[0].frames[0].selector_strings == ["alpha"]
+
+    def test_an_unknown_selector_type_gets_no_boolean_labels(self):
+        root = _build_case_xml("cs1", "sel1", select_ranges=None)
+        cases = extract_case_structures(root, None)
+        frames = cases[0].frames
+        assert [f.boolean_value for f in frames] == [None, None]
+        assert [f.selector_value for f in frames] == ["Default", "1"]
+
+    def test_the_no_error_frame_is_flagged(self):
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0, 0), (-2147483648, 2147483647, 1)],
+            range_types=[(0, 3), (3, 3)],
+        )
+        cases = extract_case_structures(root, _make_terminal_info("sel1", "Cluster"))
+        assert [f.is_no_error for f in cases[0].frames] == [True, False]
+
+    def test_an_undocumented_range_end_type_is_an_error(self):
+        root = _build_case_xml(
+            "cs1", "sel1", select_ranges=[(0, 0)], range_types=[(2, 0)]
+        )
+        with pytest.raises(ValueError, match="is not a valid RangeEndType"):
+            extract_case_structures(root, _make_terminal_info("sel1", "NumInt32"))
 
 
 class TestStringSelector:
@@ -343,7 +399,8 @@ class TestSymbolicRangeTypes:
 
     def test_error_cluster_no_error_and_error_frames_get_distinct_values(self):
         # frame 0: No-Error — symbolic degenerate point (start == end).
-        # frame 1: Error/default — symbolic full-domain span (start != end).
+        # frame 1: the whole domain (open on both sides), labeled "Error ..";
+        # the stored SelectDefaultCase is FF, so it is not the default frame.
         root = _build_case_xml(
             "cs1",
             "sel1",
@@ -352,6 +409,7 @@ class TestSymbolicRangeTypes:
                 (-2147483648, 2147483647, 1),
             ],
             range_types=[(3, 1), (3, 3)],
+            default_diag=0xFF,
             num_diags=2,
         )
         ti = _make_terminal_info("sel1", "Cluster")
@@ -364,9 +422,11 @@ class TestSymbolicRangeTypes:
         assert f0.is_default is False
         assert f0.selector_ranges == []
 
-        assert f1.is_default is True
-        assert f1.selector_value == "Default"
-        assert f1.selector_ranges == []
+        assert f1.is_default is False
+        assert [(r.open_start, r.open_end) for r in f1.selector_ranges] == [
+            (True, True)
+        ]
+        assert _selector_label(f1, None, True) == "Error .."
 
     def test_literal_enum_case_unchanged(self):
         """Literal values survive the omitted zero default-diagram field."""
@@ -471,7 +531,7 @@ class TestApplySelectorTables:
         root = _build_case_xml(
             "cs1",
             "sel1",
-            select_ranges=[],
+            select_ranges=None,
             num_diags=4,
             sel_type_id=42,
             default_diag=3,
@@ -497,7 +557,7 @@ class TestApplySelectorTables:
         root = _build_case_xml(
             "cs1",
             "sel1",
-            select_ranges=[],
+            select_ranges=None,
             num_diags=3,
             sel_type_id=50,
             default_diag=2,
@@ -515,7 +575,7 @@ class TestApplySelectorTables:
         root = _build_case_xml(
             "cs1",
             "sel1",
-            select_ranges=[],
+            select_ranges=None,
             num_diags=2,
             sel_type_id=42,
         )

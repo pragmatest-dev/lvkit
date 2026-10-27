@@ -11,12 +11,15 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
+    CaseFrame,
     FPTerminal,
     LVType,
     ScalarValue,
     Terminal,
+    TunnelTerminal,
 )
 from ..parser.node_types import get_display_name
+from ..vi_files import is_vi_file, strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
 from .models import (
@@ -31,21 +34,33 @@ from .models import (
     InstanceProps,
     KindProps,
     Label,
+    LocalVariableNode,
     LoopNode,
     PrimitiveNode,
     SequenceNode,
     SharedVariableNode,
+    StructureNode,
     ToolbarProps,
     VIContext,
     VINode,
     WindowProps,
     bool_str,
 )
+from .netlist_build import (
+    StructureBorder,
+    TracedSource,
+    case_selector_type_gn,
+    sequence_local_read_gn,
+    trace_source_gn,
+)
 from .node_kinds import EdgeRel
 from .op_walk import (
     _const_value_str,
     _render_ports,
+    _selector_label,
     _subvi_ports,
+    _terminal_display_name,
+    selector_values_quoted_one_by_one,
 )
 from .queries import collect_class_context
 from .render_lvnet import lvnet_literal_token
@@ -160,19 +175,30 @@ def describe_vi(
     # Same shape verbose or not -- verbose only deepens Properties/Health/
     # pane detail above; it never swaps this section out.
     top_nodes = graph.top_level_nodes(vi_name)
-    subvi_names = _collect_subvi_names(graph, top_nodes, vi_name)
+    subvi_callees = _collect_subvi_callees(graph, top_nodes, vi_name)
     global_vi_names, library_names = _collect_variable_dependencies(
         graph, top_nodes, vi_name
     )
-    if subvi_names or global_vi_names or library_names:
+    dotnet = graph.get_dotnet_assemblies(vi_name)
+    if (
+        subvi_callees
+        or global_vi_names
+        or library_names
+        or dotnet.assemblies
+        or dotnet.unreadable
+    ):
         lines.append("## Dependencies")
         for name in sorted(global_vi_names):
             lines.append(f"  {name} (Global VI)")
         for name in sorted(library_names):
             lines.append(f"  {name} (Shared Variable library)")
-        for name in sorted(subvi_names):
+        for assembly in dotnet.assemblies:
+            lines.append(f"  {assembly.qualified} (.NET assembly)")
+        for reason in dotnet.unreadable:
+            lines.append(f"  (.NET unreadable: {reason})")
+        for name, callee_key in sorted(subvi_callees.items()):
             desc = _get_subvi_description(graph, name)
-            ports = _subvi_ports(graph, name)
+            ports = _subvi_ports(graph, name, callee_key)
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
             if sig:
@@ -187,8 +213,9 @@ def describe_vi(
     structures = _collect_structures(
         graph,
         ctx,
+        vi_name,
         top_nodes,
-        _index_terminal_owners(graph, vi_name),
+        {c.id: c for c in ctx.constants},
     )
     if structures:
         lines.append("## Control Flow")
@@ -218,7 +245,7 @@ def _format_signature(ctx: VIContext) -> str:
     for out in ctx.outputs:
         outputs.append(f"{out.name}: {_terminal_type_label(out)}")
 
-    func_name = ctx.name.replace(".vi", "").replace(" ", "_").lower()
+    func_name = strip_vi_extension(ctx.name).replace(" ", "_").lower()
     params = ", ".join(inputs)
     ret = ", ".join(outputs) if outputs else "None"
 
@@ -289,28 +316,30 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
     return line
 
 
-def _collect_subvi_names(
+def _collect_subvi_callees(
     graph: InMemoryVIGraph,
     nodes: list[AnyGraphNode],
     vi_name: str,
-) -> set[str]:
-    """Collect all SubVI callees' QUALIFIED names recursively — the
+) -> dict[str, str | None]:
+    """Collect all SubVI callees recursively: each one's QUALIFIED name — the
     class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
     dynamic-dispatch call reports its declaring parent class rather than a bare
-    ``addError.vi``. resolve_vi_name accepts the qualified form, so the ports /
-    description lookups below still resolve (to the correct copy).
+    ``addError.vi`` — mapped to the ``vi_key`` of the loaded callee the call
+    records (None when that VI is not loaded). A name several calls share keeps
+    the first call's callee, in diagram order.
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
     a structure's frame bodies AND a loop/IPES body alike — in one
     recursion)."""
-    names: set[str] = set()
+    callees: dict[str, str | None] = {}
     for node in nodes:
         if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
-            names.add(node.qualified_name)
-        names.update(
-            _collect_subvi_names(graph, graph.child_nodes(node.id, vi_name), vi_name)
-        )
-    return names
+            callees.setdefault(node.qualified_name, graph.loaded_callee_key(node))
+        for name, key in _collect_subvi_callees(
+            graph, graph.child_nodes(node.id, vi_name), vi_name
+        ).items():
+            callees.setdefault(name, key)
+    return callees
 
 
 def _collect_variable_dependencies(
@@ -434,30 +463,6 @@ def _body_child_nodes(
     return body
 
 
-def _index_terminal_owners(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-    nodes: list[AnyGraphNode] | None = None,
-    out: dict[str, tuple[AnyGraphNode, Terminal]] | None = None,
-) -> dict[str, tuple[AnyGraphNode, Terminal]]:
-    """Map every terminal id -> its owning ``(node, terminal)`` in ONE walk --
-    the graph-native mirror of ``op_walk.index_terminal_owners``, built once so
-    selector tracing (:func:`_resolve_selector`) is an O(1) lookup that reaches
-    any node at any nesting depth (``child_nodes`` covers frame bodies and
-    loop/IPES bodies alike). Uses ``enriched_terminals`` so a subVI terminal's
-    callee-resolved name is the one recorded."""
-    if out is None:
-        out = {}
-    if nodes is None:
-        nodes = graph.top_level_nodes(vi_name)
-    for node in nodes:
-        for t in graph.enriched_terminals(node, vi_name):
-            if t.id not in out:
-                out[t.id] = (node, t)
-        _index_terminal_owners(graph, vi_name, graph.child_nodes(node.id, vi_name), out)
-    return out
-
-
 _FlagGroup = ExecutionProps | WindowProps | ToolbarProps | InstanceProps | KindProps
 
 
@@ -579,7 +584,7 @@ def _describe_class_context(
         {
             t.split(":")[-1]
             for _, t, e in graph._dep_graph.edges(cc.owning_class, data=True)
-            if e.get("rel") == EdgeRel.OWNS and t.endswith(".vi")
+            if e.get("rel") == EdgeRel.OWNS and is_vi_file(t)
         }
     )
 
@@ -609,66 +614,117 @@ def _describe_class_context(
     return lines
 
 
+def _frame_count(n: int) -> str:
+    """``1 frame`` / ``3 frames``."""
+    return f"{n} frame" if n == 1 else f"{n} frames"
+
+
+def _structure_word(node: AnyGraphNode) -> str:
+    """A structure's type in LabVIEW's words, with its own author text when it
+    has one: ``For Loop "For Each Front Panel Control"``, ``Stacked
+    Sequence``."""
+    if isinstance(node, SequenceNode):
+        type_word = f"{node.kind_word} Sequence"
+    else:
+        type_word = get_display_name(node.node_type) if node.node_type else "node"
+    author = node.caption or node.label
+    return f'{type_word} "{author}"' if author else type_word
+
+
+def _node_output_name(node: AnyGraphNode, term: Terminal) -> str:
+    """A node's output as a selector/stop wire's source: a local variable by
+    its control, any other node by its identity plus the terminal's name (the
+    bare node when it has one output and this terminal is unnamed)."""
+    if isinstance(node, LocalVariableNode):
+        return f"{node.control_name or node.display_name} (local variable)"
+    identity = node.display_name if node.name else _structure_word(node)
+    if label := _terminal_display_name(term):
+        return f"{identity}.{label}"
+    outputs = [t for t in node.terminals if t.direction == "output"]
+    return identity if len(outputs) == 1 else f"{identity} output {term.index}"
+
+
+def _border_name(
+    owner: AnyGraphNode, term: Terminal, border: StructureBorder | None
+) -> str:
+    """A structure's border terminal as the source of a wire, in LabVIEW's
+    words: ``While Loop shift register``, ``Case Structure tunnel``,
+    ``sequence local (frame 0)``."""
+    if border is StructureBorder.SEQUENCE_LOCAL:
+        hit = sequence_local_read_gn(owner, term.id)
+        assert hit is not None
+        link = hit[1]
+        if link.unreadable is not None:
+            return f"sequence local (unreadable: {link.unreadable})"
+        return f"sequence local (frame {link.write_frame})"
+    if isinstance(term, TunnelTerminal):
+        kind = tunnel_kind_name(term)
+    elif border is StructureBorder.ITERATION_TERMINAL:
+        kind = "iteration terminal"
+    else:
+        kind = _terminal_display_name(term) or "terminal"
+    return f"{_structure_word(owner)} {kind}"
+
+
+def _name_traced_source(
+    graph: InMemoryVIGraph,
+    traced: TracedSource,
+    constants: dict[str, Constant],
+) -> str | None:
+    """Name what a selector/stop wire really comes from (see
+    :func:`trace_source_gn`): a constant by its value, a front-panel input by
+    its label, a structure border by its kind, a node by its identity and
+    output. ``None`` when the graph does not say."""
+    src = traced.wire_end
+    if traced.owner is not None and traced.term is not None:
+        if isinstance(traced.owner, StructureNode):
+            return _border_name(traced.owner, traced.term, traced.border)
+        return _node_output_name(traced.owner, traced.term)
+    if traced.element_net is not None:
+        node = graph.get_graph_node(src.node_id)
+        term = graph.get_terminal(src.terminal_id)
+        if node is not None and term is not None:
+            return _node_output_name(node, term)
+        return None
+    if traced.boundary is not None:
+        return traced.boundary.name
+    if (const := constants.get(src.node_id)) is not None:
+        return f'"{_const_value_str(const)}"'
+    return src.name
+
+
 def _resolve_selector(
     graph: InMemoryVIGraph,
     ctx: VIContext,
-    owner_by_terminal: dict[str, tuple[AnyGraphNode, Terminal]],
+    vi_name: str,
+    constants: dict[str, Constant],
     selector_terminal: str | None,
 ) -> str | None:
-    """Trace a selector/stop wire back one hop to identify what gates it.
-
-    Returns a short ``Node.terminal`` label, a front-panel input name, or
-    None when the wire source can't be located. ``owner_by_terminal`` is the
-    VI-wide terminal->owner index (:func:`_index_terminal_owners`, built
-    once) -- an O(1) lookup instead of re-scanning the whole node tree per call.
-    """
+    """Name what gates a case selector / loop stop condition: its wire traced
+    back through tunnels and shift registers to the real source
+    (:func:`trace_source_gn`, the same trace lvnet uses). ``constants`` is the
+    VI's constants by node id. ``None`` when nothing is wired."""
     if not selector_terminal:
         return None
-    sources = graph.incoming_edges(selector_terminal)
-    if not sources:
+    traced = trace_source_gn(graph, ctx, vi_name, selector_terminal)
+    if traced is None:
         return None
-    src = sources[0]
-    hit = owner_by_terminal.get(src.terminal_id)
-    if hit is None:
-        for t in (*ctx.inputs, *ctx.off_pane_inputs):
-            if t.id == src.terminal_id:
-                return t.name
-        return None
-    node, term = hit
-    term_name = term.name or f"idx={term.index}"
-    return f"{_gated_source(node)}.{term_name}"
-
-
-def _gated_source(node: AnyGraphNode) -> str:
-    """Name a selector/stop wire's source for a ``gated on …`` line, composed
-    for THIS view's intent — keep the structure TYPE visible. An identity-
-    bearing source (subVI/primitive) shows its identity (``display_name``); an
-    identity-LESS structure (``name is None``) shows its type word plus its own
-    author text, so a labeled loop reads ``For Loop "For Each Front Panel
-    Control"`` and an unlabeled one reads ``For Loop`` — the type is never
-    dropped in favour of a free-text label. Uses only clean truth fields (the
-    ``name`` split), never a string comparison against a type word."""
-    if node.name:
-        return node.display_name
-    author = node.caption or node.label
-    type_word = get_display_name(node.node_type) if node.node_type else "node"
-    return f'{type_word} "{author}"' if author else type_word
+    return _name_traced_source(graph, traced, constants)
 
 
 def _collect_structures(
     graph: InMemoryVIGraph,
     ctx: VIContext,
+    vi_name: str,
     nodes: list[AnyGraphNode],
-    owner_by_terminal: dict[str, tuple[AnyGraphNode, Terminal]],
+    constants: dict[str, Constant],
 ) -> list[str]:
     """Summarize control flow structures.
 
     Case/loop entries are annotated with what gates them -- the selector
-    (or stop-condition) wire traced back one hop to its source node
-    or front-panel input. ``owner_by_terminal`` is the VI-wide terminal->owner
-    index (built once at the top-level call), kept constant through recursion
-    so selector tracing is an O(1) lookup that reaches any node regardless of
-    nesting depth -- never an O(n) node-tree rescan per structure.
+    (or stop-condition) wire traced back through tunnels and shift registers
+    to its source (:func:`_resolve_selector`). ``constants`` is the VI's
+    constants by node id, kept constant through recursion.
 
     A frame-bearing structure recurses each frame's grouped child nodes; the
     trailing recursion covers a loop/IPES body (frame-less children).
@@ -680,23 +736,22 @@ def _collect_structures(
                 gated = _resolve_selector(
                     graph,
                     ctx,
-                    owner_by_terminal,
+                    vi_name,
+                    constants,
                     node.selector_terminal,
                 )
-                if gated:
-                    sel = f", gated on {gated}"
-                elif node.selector_terminal:
-                    sel = f", selector: {node.selector_terminal}"
-                else:
-                    sel = ""
-                structures.append(f"Case structure ({len(node.frames)} frames{sel})")
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                sel = f", gated on {gated}" if gated else ""
+                structures.append(
+                    f"Case structure ({_frame_count(len(node.frames))}{sel})"
+                )
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(frame.selector_value, []),
-                        owner_by_terminal,
+                        constants,
                     ):
                         structures.append(f"  \\ {s}")
             case LoopNode():
@@ -704,41 +759,54 @@ def _collect_structures(
                 gated = _resolve_selector(
                     graph,
                     ctx,
-                    owner_by_terminal,
+                    vi_name,
+                    constants,
                     node.stop_condition_terminal,
                 )
                 structures.append(f"{kind} (stops when {gated})" if gated else kind)
             case SequenceNode():
-                structures.append(f"Flat sequence ({len(node.frames)} frames)")
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                structures.append(
+                    f"{node.kind_word} sequence ({_frame_count(len(node.frames))})"
+                )
+                for k, link in enumerate(node.sequence_locals):
+                    if link.unreadable is not None:
+                        structures.append(
+                            f"  \\ Sequence local {k} unreadable: {link.unreadable}"
+                        )
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(str(frame.index), []),
-                        owner_by_terminal,
+                        constants,
                     ):
                         structures.append(f"  \\ {s}")
             case EventStructureNode():
-                structures.append(f"Event structure ({len(node.frames)} frames)")
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                structures.append(f"Event structure ({_frame_count(len(node.frames))})")
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for i in range(len(node.frames)):
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(str(i), []),
-                        owner_by_terminal,
+                        constants,
                     ):
                         structures.append(f"  \\ {s}")
             case DisableStructureNode():
-                structures.append(f"Disable structure ({len(node.frames)} frames)")
-                fmap = _frame_child_nodes(graph, node, vi_name=ctx.name)
+                structures.append(
+                    f"Disable structure ({_frame_count(len(node.frames))})"
+                )
+                fmap = _frame_child_nodes(graph, node, vi_name=vi_name)
                 for frame in node.frames:
                     for s in _collect_structures(
                         graph,
                         ctx,
+                        vi_name,
                         fmap.get(frame.selector_value, []),
-                        owner_by_terminal,
+                        constants,
                     ):
                         structures.append(f"  \\ {s}")
             case _:
@@ -748,8 +816,9 @@ def _collect_structures(
             for s in _collect_structures(
                 graph,
                 ctx,
-                _body_child_nodes(graph, node, ctx.name),
-                owner_by_terminal,
+                vi_name,
+                _body_child_nodes(graph, node, vi_name),
+                constants,
             )
         )
     return structures
@@ -784,6 +853,19 @@ def _frame_constants(
     return [
         c for c in constants if c.parent == parent_id and str(c.frame) == str(frame_key)
     ]
+
+
+def _case_frame_header(node: CaseStructureNode, frame: CaseFrame) -> str:
+    """A case frame's header text: the same label lvnet and JSON show for it
+    (enum item names, ``No Error``/``Error``, integer ranges, quoted strings),
+    which carries its own Default marker where one applies. Quoting is lvnet's
+    (``lvnet_literal_token``): a string selector quotes each of its values, any
+    other label is quoted once as a whole."""
+    lv_type, is_error = case_selector_type_gn(node)
+    label = _selector_label(frame, lv_type, is_error, quote_value=lvnet_literal_token)
+    if selector_values_quoted_one_by_one(frame, lv_type, is_error):
+        return label
+    return lvnet_literal_token(label)
 
 
 def _describe_frame_body(
@@ -832,8 +914,7 @@ def _describe_op_list(
                 passthrough = _node_has_output_tunnel(node)
                 fmap = _frame_child_nodes(graph, node, vi_name)
                 for frame in node.frames:
-                    default = " (default)" if frame.is_default else ""
-                    lines.append(f'{prefix}  Frame "{frame.selector_value}"{default}:')
+                    lines.append(f"{prefix}  Frame {_case_frame_header(node, frame)}:")
                     _describe_frame_body(
                         graph,
                         vi_name,
@@ -994,13 +1075,13 @@ def _describe_single_op(
                 where = ""
             return f"Shared Variable `{node.variable_name}`{where} {access}"
         case CaseStructureNode():
-            return f"Case Structure ({len(node.frames)} frames)"
+            return f"Case Structure ({_frame_count(len(node.frames))})"
         case LoopNode():
             if node.loop_type == "whileLoop":
                 return "While Loop"
             return "For Loop"
         case SequenceNode():
-            return "Flat Sequence"
+            return f"{node.kind_word} Sequence"
         case InPlaceNode() | DisableStructureNode() | EventStructureNode():
             # These structures have no codegen identity (``name`` is None) --
             # compose the faithful human label from caption/label/type-word

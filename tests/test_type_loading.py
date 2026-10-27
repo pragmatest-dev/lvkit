@@ -191,7 +191,9 @@ class TestTypedefRefDoesNotDuplicateStub:
             resolved = [
                 n
                 for n in dg.nodes
-                if n.endswith(leaf) and "/" in n and n not in graph._stubs
+                if n.endswith(leaf)
+                and Path(n).name != n  # a path node, not a bare name
+                and n not in graph._stubs
             ]
             assert len(resolved) >= 1, f"{leaf}: no resolved path node"
             # The BARE name must NOT exist as its own (stub) node beside it.

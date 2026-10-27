@@ -12,10 +12,10 @@ The `status` field tracks resolution progress for vilib VI entries.
 
 ## Auto-Discovery
 
-`vilib_resolver.auto_update_terminals()` automatically populates terminal `index` and `direction` when code generation encounters wired terminals. This moves entries from `needs_terminals` → `needs_review`.
+`vilib_resolver.auto_update_terminals()` learns terminal `index` and `direction` in memory, for the current resolver only, when code generation encounters wired terminals. It never writes the bundled JSON; promoting a learned value (`needs_terminals` → `needs_review`) is a hand edit.
 
 ## Workflow
 
 1. PDF extraction creates entries with `needs_terminals`
-2. Code generation encounters VI, `auto_update_terminals()` adds indices → `needs_review`
+2. Code generation encounters VI, `auto_update_terminals()` learns indices in memory; a developer copies confirmed ones into the JSON → `needs_review`
 3. Developer verifies `python_code` works → `complete`

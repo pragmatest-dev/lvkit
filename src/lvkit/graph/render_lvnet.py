@@ -28,11 +28,13 @@ from ..models import (
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
+from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
 from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
+    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -56,6 +58,7 @@ from .lvnet_grammar import (
     _LVNET_PATTERN_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
+    _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_STRING_ESCAPES,
     _LVNET_STRUCTURE_NET_RE,
     _LVNET_TERMINAL_SEP,
@@ -84,6 +87,8 @@ from .netlist_models import (
     NetlistModule,
     NetlistScope,
     NetRef,
+    SequenceLocalDrive,
+    SequenceLocalUnreadable,
 )
 from .op_walk import _format_error_cluster
 
@@ -302,6 +307,14 @@ def lvnet_named_stem(lv_type: LVType) -> str | None:
     return None
 
 
+def _dotnet_array_type(lv_type: LVType) -> str | None:
+    """An array of .NET objects names its .NET type (its element type is the
+    generic refnum); ``None`` for every other type."""
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.dotnet_type is not None:
+        return lv_type.type_descriptor(expand_named=False)
+    return None
+
+
 def lvnet_type_ref(lv_type: LVType | None) -> str:
     """One type REFERENCE inside the §10 lossless grammar -- a cluster
     field's type, an array's element, a refnum's inner type: a NAMED type
@@ -315,6 +328,8 @@ def lvnet_type_ref(lv_type: LVType | None) -> str:
     """
     if lv_type is None:
         return "?"
+    if (dotnet_array := _dotnet_array_type(lv_type)) is not None:
+        return dotnet_array
     name = lvnet_named_stem(lv_type)
     if name is not None:
         return name
@@ -422,6 +437,8 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
     ``refnum{Error}`` element stays ``"Error"``), matching the comparison
     shape's ``full=full`` on those two containers.
     """
+    if (dotnet_array := _dotnet_array_type(lv_type)) is not None:
+        return dotnet_array
     if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
         dims = lv_type.dimensions or 1
         return "[" * dims + _lvnet_type_inline(lv_type.element_type) + "]" * dims
@@ -788,11 +805,9 @@ def _lvnet_handle_base(name: str) -> str:
     transform (e.g. ``"Foo Bar.vi"`` and literal ``"Foo_Bar"``) still get
     distinct handles with no shared numbering group needed.
     """
-    base = name
-    for ext in (".vi", ".ctl"):
-        if base.endswith(ext):
-            base = base[: -len(ext)]
-            break
+    base = strip_vi_extension(name)
+    if base == name and base.endswith(".ctl"):
+        base = base[: -len(".ctl")]
     # Every WHITESPACE character -- a space, and crucially a NEWLINE/tab/CR that
     # a multi-line String constant's own display value can carry -- becomes
     # ``_``, so the handle is always a single-line grammar-safe token. A raw
@@ -1287,6 +1302,16 @@ def _render_lvnet_loop_scope(
                 lines.append(f"{kv_indent}condition{_LVNET_DRIVER_OP}{condition_str}")
 
 
+def _lvnet_case_header(values: tuple[str, ...], is_default: bool) -> str:
+    """A case frame's header text, between ``frame `` and `` :`` (§8): the
+    quoted selector values, then the bare ``default`` keyword when the frame is
+    the structure's default (the sole entry when it has no values)."""
+    entries = [lvnet_literal_token(v) for v in values]
+    if is_default:
+        entries.append(_LVNET_DEFAULT_KEYWORD)
+    return ", ".join(entries)
+
+
 def _render_lvnet_case_scope(
     scope: NetlistScope,
     indent: str,
@@ -1306,21 +1331,16 @@ def _render_lvnet_case_scope(
     line). ``gamma.net`` is reformatted to ``::`` the same render-time-only
     way as the loop scope's ``merge.net`` above.
 
-    A frame's ``is_default`` is encoded IN the header's comma list, mirroring
-    LabVIEW's own ``"Error", Default`` selector convention -- it is NOT a
-    separate keyword line, and it does NOT apply to the frame-only families
-    below (sequence/disabled/event keep their plain ``frame <label> :``
+    A case frame's header is the comma list of its selector values, each a
+    quoted literal (``frame "0", "43" :``). ``is_default`` is encoded IN that
+    list, mirroring LabVIEW's own ``"Error", Default`` selector convention -- it
+    is NOT a separate keyword line, and it does NOT apply to the frame-only
+    families below (sequence/disabled/event keep their plain ``frame <label> :``
     header): ``default`` (the bare, unquoted ``_LVNET_DEFAULT_KEYWORD``) is
     appended as the list's last entry when ``frame.is_default``, and is the
-    SOLE entry when the frame carries no specific selector value of its own
-    (``_selector_label`` collapsed it to the ``"Default"`` sentinel because
-    it isn't also an Error-cluster frame -- see its own docstring). An
-    Error-cluster default frame DOES keep its specific value (``"Error"``/
-    ``"Error 3..10"``), since ``_selector_label``'s ``is_error`` branch never
-    returns the ``"Default"`` sentinel -- that's exactly the
-    ``TextTestRunner/run.vi`` shape this fixes: two frames both labeled
-    ``"Error"``, only one of which is the default, previously indistinguishable
-    once rendered."""
+    SOLE entry when the frame matches no value of its own (``frame default :``).
+    An Error-cluster default frame keeps its value (``frame "Error", default :``),
+    so two frames both labeled ``"Error"`` stay distinguishable."""
     sel_str = (
         _render_lvnet_source(scope.selector, handles)
         if scope.selector is not None
@@ -1331,13 +1351,8 @@ def _render_lvnet_case_scope(
     gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
     body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
-        if frame.is_default and frame.label == "Default":
-            label = _LVNET_DEFAULT_KEYWORD
-        elif frame.is_default:
-            label = f"{_quoted_frame_label(frame.label)}, {_LVNET_DEFAULT_KEYWORD}"
-        else:
-            label = _quoted_frame_label(frame.label)
-        lines.append(f"{indent + _LVNET_INDENT}frame {label}{_LVNET_BLOCK_OPEN}")
+        header = _lvnet_case_header(frame.values, frame.is_default)
+        lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
         frame_key = "default" if frame.is_default else frame.label
         for gamma in gammas:
@@ -1349,6 +1364,28 @@ def _render_lvnet_case_scope(
             source_str = _render_lvnet_source(case_entry.source, handles)
             net = _lvnet_net_separator(gamma.net)
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
+
+
+def _sequence_frame_drives(
+    scope: NetlistScope, frame_value: str, handles: _LvnetHandles
+) -> list[tuple[str, str]]:
+    """The ``(net, source)`` drive lines of one sequence frame -- each sequence
+    local the frame writes (``sequence_<uid>::local<K> = <source>``), or, for
+    a local wired in a way LabVIEW does not allow, ``= (sequence local
+    unreadable "<reason>")``."""
+    lines: list[tuple[str, str]] = []
+    for d in scope.outputs:
+        if isinstance(d, SequenceLocalDrive) and d.frame == frame_value:
+            lines.append(
+                (_lvnet_net_separator(d.net), _render_lvnet_source(d.value, handles))
+            )
+        elif isinstance(d, SequenceLocalUnreadable) and d.frame == frame_value:
+            attribute = (
+                f"({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "
+                f"{lvnet_literal_token(d.reason)})"
+            )
+            lines.append((_lvnet_net_separator(d.net), attribute))
+    return lines
 
 
 def _render_lvnet_sequence_scope(
@@ -1374,6 +1411,10 @@ def _render_lvnet_sequence_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
+        for net, source_str in _sequence_frame_drives(scope, frame.value, handles):
+            lines.append(
+                f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
+            )
 
 
 def _render_lvnet_disabled_scope(
@@ -1930,6 +1971,12 @@ def render_lvnet_uses(
         qualified_width = (max(under_cap_q) if under_cap_q else 0) + 1
     for dep in dependencies:
         kind_part = _lvnet_capped_pad(dep.kind.value, kind_width, _LVNET_DEP_KIND_CAP)
+        if dep.unreadable is not None:
+            lines.append(
+                f"    {kind_part}({_LVNET_ASSEMBLY_UNREADABLE} "
+                f"{lvnet_literal_token(dep.unreadable)})"
+            )
+            continue
         if dep.path is not None:
             qualified_part = _lvnet_capped_pad(
                 dep.qualified, qualified_width, _LVNET_DEP_QUALIFIED_CAP

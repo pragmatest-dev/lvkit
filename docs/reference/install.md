@@ -43,7 +43,7 @@ claude plugin install lvkit-<platform>@pragmatest
 
 `<platform>` is one of `mac-arm64`, `mac-intel`, `windows`, `linux` —
 pick the one matching your machine. The plugin bundles the `lvkit` binary and
-lvkit's five workflow skills (the same ones [`setup`](setup.md) installs), so
+lvkit's seven workflow skills (the same ones [`setup`](setup.md) installs), so
 it needs no Python, uv, or pip, and no `lvkit` on `PATH`.
 
 ## Developer: configure your agent's config file

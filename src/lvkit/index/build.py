@@ -252,9 +252,7 @@ def warm_index_for_vi(
     of only from a whole-repo ``build_index``. The row is keyed by path with a
     ``content_sha`` (``store.save`` deletes+inserts), so a later query reuses it
     when unchanged; ``impact_score`` stays 0 until a full/refresh pass recomputes
-    it across the whole call graph (it needs the global inverse). The same pass
-    resolves each SubVI call's ``callee_path``, so this write keeps the stored
-    ones (``callees_resolved=False``).
+    it across the whole call graph (it needs the global inverse).
 
     Best-effort by contract: warming must NEVER break the command that triggered
     it (e.g. a read-only project dir), so any failure is swallowed.
@@ -262,11 +260,7 @@ def warm_index_for_vi(
     try:
         p = vi_path.resolve()
         root = cache_paths._project_root_for(p) or p.parent
-        store_save(
-            root,
-            [project_vi_facts(graph, vi_name, p, root)],
-            callees_resolved=False,
-        )
+        store_save(root, [project_vi_facts(graph, vi_name, p, root)])
     except Exception:
         return  # progressive warming is best-effort — never fail the caller
     _warm_typedefs(graph, [root])
@@ -315,7 +309,7 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
                 continue  # one bad VI must not sink the rest
         for root, facts in by_root.items():
             try:
-                store_save(root, facts, callees_resolved=False)
+                store_save(root, facts)
             except Exception:
                 pass
     except Exception:
@@ -651,6 +645,7 @@ def project_vi_facts(
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=_node_callee_key(gn),
+            callee_key=gn.callee_key if isinstance(gn, VINode) else None,
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             network_path=(
@@ -707,6 +702,7 @@ def project_vi_facts(
         type_ids=sorted(catalog.types),
         typedef_paths=typedef_paths,
         typedef_versions=typedef_versions,
+        dependencies_walked=graph.dependencies_walked(vi_name),
         types=list(catalog.types.values()),
         class_fact=class_fact,
         impact_score=0,  # filled at merge time

@@ -17,6 +17,13 @@ from typing import Any
 
 from ..models import LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
+from .extfunc import (
+    ExtFuncRow,
+    extfunc_call,
+    extfunc_function_name,
+    extfunc_rows,
+)
+from .extfunc_prototype import ExtFuncCall
 from .flags import is_output_terminal
 from .layout import _rect
 from .models import ParsedNode
@@ -43,6 +50,9 @@ class SubVINode(ParsedNode):
 
     vi_path: str | None = None
     poly_variant_name: str | None = None  # Resolved variant for polyIUse
+    # Dynamic-dispatch call: uid of its ``dynLink`` child, the id the block-diagram
+    # link table's ``DyOM`` record lists the call under.
+    dyn_link_uid: str | None = None
 
 
 @dataclass
@@ -381,6 +391,12 @@ class PolySubVIHandler(NodeTypeHandler):
         return None
 
 
+def _dyn_link_uid(elem: ET.Element) -> str | None:
+    """The uid of a dispatch call's own ``dynLink`` child."""
+    link = elem.find("dynLink")
+    return link.get("uid") if link is not None else None
+
+
 class DynamicDispatchHandler(NodeTypeHandler):
     """Handler for dynamic dispatch VI nodes (class="dynIUse").
 
@@ -394,7 +410,7 @@ class DynamicDispatchHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
-        return SubVINode(**common)
+        return SubVINode(**common, dyn_link_uid=_dyn_link_uid(elem))
 
 
 class CallParentHandler(NodeTypeHandler):
@@ -409,7 +425,7 @@ class CallParentHandler(NodeTypeHandler):
 
     def parse(self, elem: ET.Element) -> SubVINode:
         common = self._extract_common(elem)
-        return SubVINode(**common)
+        return SubVINode(**common, dyn_link_uid=_dyn_link_uid(elem))
 
 
 class CallByRefHandler(NodeTypeHandler):
@@ -620,7 +636,7 @@ class SelectHandler(NodeTypeHandler):
     """
 
     xml_class = "select"
-    display_name = "Select"
+    display_name = "Case Structure"
 
     def parse(self, elem: ET.Element) -> SelectNode:
         return SelectNode(
@@ -1253,9 +1269,7 @@ class XNodeHandler(NodeTypeHandler):
         # The method name (when present) is ALSO recorded as a row-name pair
         # elsewhere in the same blob -- exclude it, it's the header/method
         # row (drawn separately), never one of the node's own param rows.
-        row_names = [
-            n for n in _xnode_state_row_names(state_data) if n != method_name
-        ]
+        row_names = [n for n in _xnode_state_row_names(state_data) if n != method_name]
         resource_name = _xnode_state_resource_name(state_data)
         # An "Invoke Method" node's leading StateData string IS its method
         # name (unpaired, read above) -- it is ALSO, by construction, the one
@@ -1799,6 +1813,31 @@ class FormulaNodeHandler(NodeTypeHandler):
         return FormulaNode(**common, script=script)
 
 
+@dataclass
+class ExtFuncNode(ParsedNode):
+    """A Call Library Function Node (class="extFunc"): ``rows`` are the drawn
+    rows top to bottom (see ``extfunc.extfunc_rows``)."""
+
+    rows: list[ExtFuncRow] = field(default_factory=list)
+    call: ExtFuncCall = field(
+        default_factory=lambda: ExtFuncCall(None, "", "", None, ())
+    )
+
+
+class ExtFuncHandler(NodeTypeHandler):
+    """Handler for a Call Library Function Node (class="extFunc"): named
+    ``<library file>:<function>`` from the node's recorded library path and
+    function name."""
+
+    xml_class = "extFunc"
+    display_name = "Call Library Function Node"
+
+    def parse(self, elem: ET.Element) -> ExtFuncNode:
+        common = self._extract_common(elem)
+        common["name"] = extfunc_function_name(elem) or common["name"]
+        return ExtFuncNode(**common, rows=extfunc_rows(elem), call=extfunc_call(elem))
+
+
 class GenericHandler(NodeTypeHandler):
     """Fallback handler for unknown node types."""
 
@@ -1883,6 +1922,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
     DecomposeRecomposeStructureHandler(),
+    ExtFuncHandler(),
     # Built-in primitives with specialized XML classes.
     # aDelete/aIndx/subset resolve by XML class via the node_types section of
     # primitives.json, so they carry NO primResID. Their old numeric IDs were

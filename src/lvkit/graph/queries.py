@@ -15,10 +15,14 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
+from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, Terminal
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
+from ..type_names import ROOT_CLASS
+from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
+from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
 from .loading import _redirect_member_beside_container
 from .models import (
@@ -40,6 +44,7 @@ from .models import (
     SubVICall,
     TerminalRef,
     VIContext,
+    VIDotNetAssemblies,
     VIHealth,
     VIMetadata,
     VINode,
@@ -81,13 +86,6 @@ def _real_member_path(path: Path) -> Path | None:
     return sibling if sibling.is_file() else None
 
 
-class AmbiguousVIReferenceError(Exception):
-    """A bare name/qname lookup (``resolve_vi_name``) matched two or more
-    on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
-    not duplicate copies of the same VI. Raised by ``_pick_vi_key`` instead of
-    silently guessing one -- resolve by full source path instead."""
-
-
 class QueryMixin:
     """Mixin providing graph query methods."""
 
@@ -102,11 +100,13 @@ class QueryMixin:
     _name_to_keys: dict[str, list[str]]
     _qname_to_keys: dict[str, list[str]]
     _loaded_vis: set[str]
+    _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
+    _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _layouts: dict[str, Layout]
     _search_paths: list[Path]
     _vilib_root: Path | None
@@ -164,6 +164,17 @@ class QueryMixin:
             if keys:
                 return self._pick_vi_key(keys)
         return vi_name
+
+    def loaded_callee_key(self, node: VINode) -> str | None:
+        """The ``vi_key`` of the VI whose connector pane a SubVI call node shows
+        (``VINode.interface_key``), when that VI is loaded in the graph; None
+        when it is absent (a stub, or a load that did not reach it) or the call
+        records no path.
+
+        The one way a call node finds its callee: the identity the caller
+        recorded for the call, never a lookup by the callee's name."""
+        key = node.interface_key
+        return key if key is not None and key in self._vi_nodes else None
 
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
@@ -269,19 +280,31 @@ class QueryMixin:
                     candidate = root / rel
                     if candidate.is_file():
                         return candidate
-        loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
+        try:
+            loaded = self._source_paths.get(self.resolve_vi_name(vi_name))
+        except AmbiguousVIReferenceError:
+            # Several VIs share the name: no icon rather than a wrong one.
+            return None
         if loaded is not None:
             return loaded
         if self._vi_file_index is None:
             index: dict[str, Path] = {}
             for root in self._search_paths:
                 try:
-                    for found in sorted(root.rglob("*.vi")):
+                    for found in rglob_vi_files(root):
                         index.setdefault(found.name, found)
                 except OSError:
                     continue
             self._vi_file_index = index
         return self._vi_file_index.get(vi_name)
+
+    def is_library_file(self, path: Path) -> bool:
+        """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
+        root (the user's own library install, not their project)."""
+        return any(
+            root is not None and path.is_relative_to(root)
+            for root in (self._vilib_root, self._userlib_root, self._instrlib_root)
+        )
 
     def resolve_library_vi_path(self, qualified_path: str | None) -> Path | None:
         """Resolve a ``<vilib>``/``<userlib>`` token path to a real ``.vi``
@@ -388,6 +411,14 @@ class QueryMixin:
             return []
         return list(self._dep_graph.successors(vi_name))
 
+    def dependencies_walked(self, vi_name: str) -> bool:
+        """Whether this VI's own dependencies (SubVIs, classes, typedefs) were
+        loaded, so ``get_vi_dependencies`` is its full dependency list. False
+        for a VI loaded at ``LoadMode.NONE`` (connector pane only) and for one
+        this graph never loaded."""
+        mode = self._dep_load_mode.get(self.resolve_vi_name(vi_name))
+        return mode is not None and mode is not LoadMode.NONE
+
     def type_key(self, ref: str, caller_vi_key: str) -> str | None:
         """The dependency key (file path) of the loaded class or typedef that
         the type name ``ref`` denotes in ``caller_vi_key``, found among that
@@ -402,6 +433,21 @@ class QueryMixin:
         ):
             return None
         return key
+
+    def class_method(self, class_key: str, method: str) -> tuple[str, str] | None:
+        """``(owner_key, path)`` of the file that declares ``method`` for the
+        class at ``class_key``: the class's own, else the nearest ancestor's,
+        following each class's recorded parent key. ``None`` when no class of
+        the chain lists it."""
+        key: str | None = class_key
+        seen: set[str] = set()
+        while key is not None and key not in seen and self._dep_graph.has_node(key):
+            seen.add(key)
+            path = self._dep_graph.nodes[key].get("method_paths", {}).get(method)
+            if path is not None:
+                return key, path
+            key = self._dep_graph.nodes[key].get("parent_key")
+        return None
 
     def node_type(self, key: str) -> NodeType:
         """What the dependency node at ``key`` is: a VI, class, library or
@@ -438,7 +484,7 @@ class QueryMixin:
         """The name the class at ``key`` records for its parent, loaded or not;
         ``None`` for a class that descends directly from LabVIEW Object."""
         parent = self._dep_graph.nodes[key].get("parent_class")
-        return parent if parent and parent != "LabVIEW Object" else None
+        return parent if parent and parent != ROOT_CLASS else None
 
     def global_vi_key(self, node: GlobalVariableNode) -> str | None:
         """The dependency key (the Global VI's file path) a global variable node
@@ -792,6 +838,8 @@ class QueryMixin:
                     lv_type=gnode.lv_type,
                     display_format=gnode.display_format,
                     raw_value=gnode.raw_value,
+                    referenced_vi_key=gnode.referenced_vi_key,
+                    unwritable=gnode.unwritable,
                     label=gnode.label,
                     parent=gnode.parent,
                     frame=gnode.frame,
@@ -1096,6 +1144,12 @@ class QueryMixin:
         vi_name = self.resolve_vi_name(vi_name)
         return self._vi_health.get(vi_name, VIHealth())
 
+    def get_dotnet_assemblies(self, vi_name: str) -> VIDotNetAssemblies:
+        """The .NET assemblies the VI calls, and the link records that could not
+        be read."""
+        vi_name = self.resolve_vi_name(vi_name)
+        return self._vi_dotnet_assemblies.get(vi_name, VIDotNetAssemblies())
+
     def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
         """The VI's OWN front-panel layout (every control, not just the
         connector-pane subset), or None when the VI is unknown or its node
@@ -1392,7 +1446,7 @@ class QueryMixin:
         if key is None:
             return None
         parent_raw = self._dep_graph.nodes[key].get("parent_class")
-        if parent_raw and parent_raw != "LabVIEW Object":
+        if parent_raw and parent_raw != ROOT_CLASS:
             return parent_raw + ".lvclass"
         return None
 

@@ -6,14 +6,17 @@ import ast
 import re
 
 from lvkit.graph.models import PrimitiveNode
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
+from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
     ResolvedPrimitive,
     TerminalResolutionNeeded,
     get_resolver,
 )
+from lvkit.vi_files import strip_vi_extension
 
 from ..ast_utils import (
     build_assign,
@@ -123,7 +126,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         )
         if prim_id is None and not is_generic_unknown:
             return CodeFragment.empty()
-        return _emit_unknown(node, prim_id or 0, ctx)
+        return _emit_unknown(node, prim_id, ctx)
 
     # Generator-owned op handler: a neutral ``op`` tag in the data maps to a
     # Python emission template here (codegen/nodes/ops/), keeping target-language
@@ -177,7 +180,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
     if is_unknown:
         # Unknown primitive - emit explicit error
-        return _emit_unknown(node, prim_id or 0, ctx)
+        return _emit_unknown(node, prim_id, ctx)
 
     # Resolve input values from context (use resolved terminals for names)
     input_map = _build_input_map(node, ctx, resolved)
@@ -347,8 +350,7 @@ def _build_input_map(
             ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
             if ut == "Refnum" and node.prim_id in (8010, 8011, 8003, 8005):
                 vi_short = (
-                    (ctx.vi_name or "output")
-                    .replace(".vi", "")
+                    strip_vi_extension(ctx.vi_name or "output")
                     .replace(":", "_")
                     .replace(".", "_")
                 )
@@ -792,9 +794,9 @@ def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
     lv_type = term.lv_type
     if lv_type:
         ut = lv_type.underlying_type or ""
-        if ut == "Boolean":
+        if is_boolean_type_name(ut):
             return "False"
-        if ut == "String":
+        if is_string_type_name(ut):
             return "''"
         if ut == "Path":
             ctx.imports.add("from pathlib import Path")
@@ -879,13 +881,14 @@ def _emit_placeholder(
         bindings[term.id] = var_name
     if len(statements) == 1:
         statements.append(ast.Pass())
-    return CodeFragment(
-        statements=statements, bindings=bindings, imports={LV_IMPORT}
-    )
+    return CodeFragment(statements=statements, bindings=bindings, imports={LV_IMPORT})
 
 
 def _emit_unknown(
-    node: PrimitiveNode, prim_id: int, ctx: CodeGenContext
+    node: PrimitiveNode,
+    prim_id: int | None,
+    ctx: CodeGenContext,
+    reason: str | None = None,
 ) -> CodeFragment:
     """Handle an unknown primitive.
 
@@ -914,6 +917,12 @@ def _emit_unknown(
         "vi_name": ctx.vi_name,
         "qualified_vi_name": ctx.qualified_vi_name,
     }
+    if reason is not None:
+        kwargs["reason"] = reason
+    if prim_id is None:
+        kwargs["node_kind"] = (
+            get_display_name(node.node_type) if node.node_type else "Node"
+        )
 
     if ctx.unresolved_sink is not None:
         # Batch-collection mode (`lvkit unresolved`): record the gap and keep

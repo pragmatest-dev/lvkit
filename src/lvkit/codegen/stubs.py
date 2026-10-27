@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.vi_files import strip_vi_extension
+
 
 class StubGenerator:
     """Generates stub module files for unknown SubVIs.
@@ -161,7 +163,7 @@ class StubGenerator:
 
     def _to_class_name(self, name: str) -> str:
         """Convert VI name to PascalCase class name."""
-        name = name.replace(".vi", "").replace(".VI", "")
+        name = strip_vi_extension(name)
         if ":" in name:
             name = name.split(":")[-1]
         words = name.replace("-", " ").replace("_", " ").split()

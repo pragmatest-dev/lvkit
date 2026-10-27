@@ -56,7 +56,6 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
@@ -84,7 +83,7 @@ from lvkit.graph.render_lvnet import (
     _lvnet_net_separator,
     _quoted_frame_label,
 )
-from lvkit.load_mode import LoadMode
+from tests.corpus_graphs import load_corpus_vi
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
@@ -148,6 +147,7 @@ _IDENTITY_CASES = [
         _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
         _ICON_EDITOR_ROOT,
         id="lv_icon_global_variables",
+        marks=pytest.mark.xdist_group("lv_icon.vi"),
     ),
     pytest.param(
         _ICON_EDITOR_ROOT
@@ -180,6 +180,25 @@ _IDENTITY_CASES = [
         _DCAF_ROOT,
         id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Tests"
+        / "Tests.Runtime"
+        / "Measurement Server"
+        / "Helpers"
+        / "Write Environment Variable.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Write_Environment_Variable_call_library_function_node",
+    ),
+    pytest.param(
+        Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
+        / "largefile"
+        / "largefile.llb"
+        / "LF Write File (SGL)__ogtk.vi",
+        Path(".lvkit/cache/samples/OpenG/extracted"),
+        id="LF_Write_File_SGL_call_library_function_node",
+    ),
 ]
 
 
@@ -190,9 +209,7 @@ def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | Non
         # load_vi_by_path returns load_vi's OWN key for vi_path -- never
         # re-derived from vi_path.name, which collides across same-named
         # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
-        return load_vi_by_path(
-            vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
-        )
+        return load_corpus_vi(vi_path, search_root)
     except Exception:
         return None
 
@@ -466,18 +483,21 @@ def _compare_scope(
                         f"{frame_path}: is_default mismatch: "
                         f"{fa.is_default!r} vs {fb.is_default!r}"
                     )
-                # Compare the frame's OWN selector value(s) via the same
-                # quoting ``_render_lvnet_case_scope`` itself applies (the
-                # original's ``label`` is stored BARE, e.g. "Error", while a
-                # reconstructed label is stored ALREADY quoted, e.g.
-                # '"Error"' -- an intentional passthrough asymmetry, not a
-                # real difference -- see ``_quoted_frame_label``'s own
-                # docstring), so this normalizes both sides to the same
-                # final rendered token before comparing.
-                if _quoted_frame_label(fa.label) != _quoted_frame_label(fb.label):
+                # Compare the frame's OWN selector value(s). A case frame
+                # lists them as separate values (``values``); a disabled
+                # frame's label is the original's bare text vs the
+                # reconstructed already-quoted text, so both sides are
+                # normalized to the same rendered token first.
+                if a.kind == "case":
+                    same_values = fa.values == fb.values
+                else:
+                    same_values = _quoted_frame_label(fa.label) == _quoted_frame_label(
+                        fb.label
+                    )
+                if not same_values:
                     errors.append(
                         f"{frame_path}: selector value mismatch: "
-                        f"{fa.label!r} vs {fb.label!r}"
+                        f"{fa.values or fa.label!r} vs {fb.values or fb.label!r}"
                     )
             _compare_items(fa.body, fb.body, frame_path, errors, ctx)
 

@@ -58,6 +58,10 @@ NODE_CLASS_MERGE_ERRORS = "mergeErrors"  # Merge Errors
 # body -- only by this exact, canonical vi.lib name, the same way vilib.json
 # entries and NODE_CLASS_MERGE_ERRORS itself identify other known builtins.
 VI_NAME_MERGE_ERRORS = "Merge Errors.vi"
+# The other vi.lib error VIs a call site handles, identified the same way
+# (exact canonical name).
+VI_NAME_CLEAR_ERRORS = "Clear Errors.vi"
+VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE = "Error Cluster From Error Code.vi"
 NODE_CLASS_OH_EXT = "oHExt"  # Obtain/Release Semaphore
 NODE_CLASS_MUX = "mux"  # Multiplexer (bundle at structure boundary)
 NODE_CLASS_DEMUX = "demux"  # Demultiplexer (unbundle at structure boundary)
@@ -78,12 +82,18 @@ NODE_CLASS_DECOMPOSE_RECOMPOSE = "decomposeRecomposeStructure"
 # ``mux``/``demux`` (loop/structure-boundary bundlers -- structurally
 # identical SelectNode shape, but positional/sequential indices, never a
 # genuine by-name field lookup -- see _MuxHandler/_DemuxHandler) and
-# ``eventDataNode`` (also genuinely by-name, but resolved through its own
-# EventDataGlyph path in render, never through netlist/diff/describe).
-# Shared by render's Bundle/Unbundle-By-Name glyph selection and
-# graph.op_walk's canonical nMux lane-name resolver so both agree on exactly
-# which node classes get field-name (not index) treatment.
+# ``eventDataNode`` (drawn with its own EventDataGlyph, not the Bundle/
+# Unbundle-By-Name glyph).
+# Shared by render's Bundle/Unbundle-By-Name glyph selection.
 NMUX_BY_NAME_NODE_CLASSES = frozenset({NODE_CLASS_NMUX, "decomposeClusterNode"})
+
+# Node classes whose ``list`` terminals each carry their own stored ``<i>``
+# field index into the aggregate's field list, so their field NAMES resolve
+# the same way: every by-name class above, plus ``eventDataNode`` (an Event
+# Structure's data/filter node -- each output is one field of the event
+# data cluster, the field named by the terminal's ``<i>``, not by its
+# position). Used by graph.op_walk's canonical lane-name resolver.
+NMUX_NAMED_LANE_NODE_CLASSES = NMUX_BY_NAME_NODE_CLASSES | {NODE_CLASS_EVENT_DATA_NODE}
 
 # Node classes that are explicitly ignored during parsing.
 # These are known LabVIEW elements with no Python equivalent and no dataflow
@@ -300,3 +310,9 @@ def derive_vi_name(bd_xml_path: str) -> str:
     """Derive VI name from block diagram XML filename."""
     basename = os.path.basename(bd_xml_path)
     return basename.replace(BD_XML_SUFFIX, "")
+
+
+# The ``Format`` attribute of a ``TypeDesc`` the extraction could not export in
+# full: only what parsed before the failure is kept (see the type-pool export
+# patch in ``_pylabview_patches``).
+CORRUPT_STUB_FORMAT = "corrupt-stub"

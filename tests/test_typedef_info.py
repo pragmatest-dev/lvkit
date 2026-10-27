@@ -175,6 +175,11 @@ def test_typedef_to_dict_shape_and_verbose() -> None:
 # --- real controls --------------------------------------------------------------
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CLUSTER_CTL.exists(), reason="icon-editor sample absent")
 def test_cluster_control_fields_carry_nested_fields_and_defaults():

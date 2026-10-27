@@ -20,6 +20,12 @@ class PrimitiveTerminal(BaseModel):
     type: str | None = None
     default_value: str | None = None
     expandable: bool = False  # True if this terminal can be resized (N instances)
+    # Index of the array terminal whose dimension count sets how many
+    # consecutive terminals this slot occupies (one per dimension).
+    per_dimension_of: int | None = None
+    # Terminals sharing a group name are one set that repeats on a resized
+    # node (see graph/terminal_layout.py).
+    group: str | None = None
     # Named DCO reference tag in XML (e.g., "srcDCO4", "delDCO")
     dco_ref: str | None = None
 

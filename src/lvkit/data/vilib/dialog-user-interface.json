@@ -293,19 +293,19 @@
         {
           "name": "error code (no error:0)",
           "index": 2,
-          "direction": "input",
+          "direction": "in",
           "python_param": "error_code_no_error_0"
         },
         {
           "name": "error source (\" \")",
           "index": 3,
-          "direction": "input",
+          "direction": "in",
           "python_param": "error_source"
         },
         {
           "name": "type of dialog (OK msg:1)",
           "index": 4,
-          "direction": "input",
+          "direction": "in",
           "type": "String",
           "enum_values": [
             [
@@ -330,38 +330,38 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "input",
+          "direction": "in",
           "python_param": "error_in_no_error"
         },
         {
           "name": "error?",
           "index": 0,
-          "direction": "output",
+          "direction": "out",
           "python_param": "error"
         },
         {
           "name": "code out",
           "index": 1,
-          "direction": "output",
+          "direction": "out",
           "python_param": "code_out"
         },
         {
           "name": "source out",
           "index": 5,
-          "direction": "output",
+          "direction": "out",
           "python_param": "source_out"
         },
         {
           "name": "error out",
           "index": 6,
-          "direction": "output",
+          "direction": "out",
           "type": "Cluster",
           "python_param": "error_out"
         },
         {
           "name": "message",
           "index": 7,
-          "direction": "output",
+          "direction": "out",
           "python_param": "message"
         }
       ],
@@ -550,7 +550,7 @@
           "default_value": "value is 0, which means the VI will ignore all errors",
           "enum_values": null,
           "python_param": "specific_error_code_to_clear_0_all",
-          "direction": "input",
+          "direction": "in",
           "index": 7
         },
         {
@@ -559,7 +559,7 @@
           "default_value": "no error",
           "enum_values": null,
           "python_param": "error_in_no_error",
-          "direction": "input",
+          "direction": "in",
           "index": 4
         },
         {
@@ -568,7 +568,7 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "specific_error_cleared",
-          "direction": "output",
+          "direction": "out",
           "index": 3
         },
         {
@@ -577,14 +577,11 @@
           "default_value": null,
           "enum_values": null,
           "python_param": "error_out",
-          "direction": "output",
+          "direction": "out",
           "index": 0
         }
       ],
-      "imports": [],
-      "python": "clear_errors(error_in)",
-      "python_code": "from typing import NamedTuple\n\nclass ClearErrorsResult(NamedTuple):\n    error_out: dict\n\ndef clear_errors(error_in: dict = None) -> ClearErrorsResult:\n    \"\"\"Clear any errors, returning a clean error cluster.\"\"\"\n    return ClearErrorsResult(error_out={'status': False, 'code': 0, 'source': ''})",
-      "inline": false
+      "python": ""
     },
     {
       "name": "Error Ring",
@@ -659,54 +656,50 @@
       "terminals": [
         {
           "name": "is warning? (False)",
-          "index": 1,
-          "direction": "input",
+          "index": 4,
+          "direction": "in",
+          "type": "Boolean",
           "python_param": "is_warning_false"
         },
         {
           "name": "show call chain? (False)",
-          "index": 2,
-          "direction": "input",
+          "index": 5,
+          "direction": "in",
+          "type": "Boolean",
           "python_param": "show_call_chain_false"
         },
         {
-          "name": "error code (0)",
+          "name": "error in (no error)",
           "index": 6,
-          "direction": "input",
-          "type": "NumInt32",
-          "python_param": "error_code_0",
-          "default_value": "0"
+          "direction": "in",
+          "type": "Cluster",
+          "python_param": "error_in_no_error"
         },
         {
           "name": "error message (\"\")",
-          "index": 9,
-          "direction": "input",
+          "index": 8,
+          "direction": "in",
           "type": "String",
           "python_param": "error_message",
           "default_value": "''"
         },
         {
-          "name": "error in (no error)",
-          "index": 8,
-          "direction": "input",
-          "type": "Cluster",
-          "python_param": "error_in_no_error"
+          "name": "error code (0)",
+          "index": 9,
+          "direction": "in",
+          "type": "NumInt32",
+          "python_param": "error_code_0",
+          "default_value": "0"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "output",
+          "direction": "out",
           "type": "Cluster",
           "python_param": "error_out"
         }
       ],
       "python": "",
-      "python_code": "if {error_code_0} != 0:\n    raise LabVIEWError(code={error_code_0}, message={error_message} or get_error_description({error_code_0}))",
-      "inline": true,
-      "imports": [
-        "from lvkit.labview_error import LabVIEWError",
-        "from lvkit.labview_error_codes import get_error_description"
-      ],
       "status": "complete",
       "is_variant": false,
       "match_names": [],

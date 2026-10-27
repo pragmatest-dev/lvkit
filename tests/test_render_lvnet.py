@@ -249,12 +249,13 @@ def test_golden_load_tests_from_test_case_matches_verified_render() -> None:
 
 # The golden VI's own boundary block, VERBOSE -- captured the same way as
 # `_GOLDEN_LVNET` (actually running the renderer, not hand-typed). Every
-# terminal here resolves REAL `wiring_rule` values off the graph: the four
-# non-error terminals are all authored `Recommended` (rule=2, or rule=1 on
-# an OUTPUT, which `requirement_state` folds to Recommended -- see
-# `interface_order.requirement_rank`'s docstring), and so is `error out`
-# (slot 0, rule=1); `TestLoader in` is unresolved (rule=0/INVALID) so it
-# renders NO keyword at all, same as terse (§5: never claim a resolved state that was never authored).
+# terminal here resolves REAL `wiring_rule` values off the graph, read from
+# the VI's own connector-pane flags: `TestLoader in` and `TestCase` are
+# Required inputs; `error in (no error)` is Recommended, and so are the
+# outputs (Required is inputs-only, see
+# `interface_order.requirement_rank`'s docstring). A connector-pane terminal
+# whose wiring rule could not be read (rule=0/INVALID) renders NO keyword at
+# all, same as terse (§5: never claim a resolved state that was never authored).
 # The `uses :` manifest's OWN reference-list lines are IDENTICAL in both
 # modes (a plain reference list present in both terse and verbose, per the
 # design doc) -- unchanged from `_GOLDEN_LVNET`. NEW this pass (§7a's later,
@@ -288,15 +289,15 @@ vi loadTestsFromTestCase.vi :
     subVI TestSuite.lvclass:TestSuite_Init.vi    ; ./Classes/TestSuite/TestSuite_Init.vi
       in   TestSuite in                    : TestSuite.lvclass
       in   tests (none)                    : [LabVIEW Object]
-      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
       in   GUID ("")                       : String
+      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
       in   error in (no error)             : Error
       out  TestSuite out                   : TestSuite.lvclass
       out  error out                       : Error
   front-panel :
     pattern : 4815
-    in   TestLoader in       : TestLoader.lvclass @11
-    in   TestCase            : TestCase.lvclass   recommended @10
+    in   TestLoader in       : TestLoader.lvclass required @11
+    in   TestCase            : TestCase.lvclass   required @10
     in   error in (no error) : Error              recommended @8
     out  TestLoader out      : TestLoader.lvclass recommended @3
     out  TestSuite           : TestSuite.lvclass  recommended @2

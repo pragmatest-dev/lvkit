@@ -12,12 +12,20 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.parser.conp_types import decode_conp_terminals
+from lvkit.parser.conp_types import ConpTerminals, decode_conp_terminals
 
 
-def _td(type_code: int, body: bytes) -> bytes:
+def _td(type_code: int, body: bytes, flags: int = 0x40) -> bytes:
     """One TypeDesc: u16 total_len (incl. these 2 bytes), u8 flags, u8 type."""
-    return struct.pack(">HBB", 4 + len(body), 0x40, type_code) + body
+    return struct.pack(">HBB", 4 + len(body), flags, type_code) + body
+
+
+def _class_names(*names: str) -> bytes:
+    """A class refnum's name section: a length byte covering the length-prefixed
+    parts and their zero terminator, padded to an even size."""
+    parts = b"".join(bytes([len(n)]) + n.encode("latin1") for n in names) + b"\x00"
+    total = len(parts)
+    return bytes([total]) + parts + (b"\x00" if (total + 1) % 2 else b"")
 
 
 def _pstr(s: str) -> bytes:
@@ -42,7 +50,7 @@ def test_error_cluster_fields_and_terminal_recovered():
         ),
         _td(0xF0, struct.pack(">HH", 1, 3)),  # [4] conpane: slot0->TD3
     ]
-    terms = decode_conp_terminals(_conp(*tds))
+    terms = decode_conp_terminals(_conp(*tds)).terminals
     assert len(terms) == 1
     t = terms[0]
     assert t.slot == 0 and t.name == "error out"
@@ -54,19 +62,19 @@ def test_error_cluster_fields_and_terminal_recovered():
 
 def test_empty_conp_returns_no_terminals():
     """An LV9+ VI carries a 2-byte empty CONP stub (types are in VCTP)."""
-    assert decode_conp_terminals(b"\x00\x00") == []
-    assert decode_conp_terminals(struct.pack(">I", 0)) == []
+    assert decode_conp_terminals(b"\x00\x00") == ConpTerminals()
+    assert decode_conp_terminals(struct.pack(">I", 0)) == ConpTerminals()
 
 
 def test_void_slots_are_skipped():
     """Empty connector-pane slots point at a Void (0x00) TD and yield no
     terminal."""
     tds = [
-        _td(0x00, b""),  # [0] Void
+        _td(0x00, b"", flags=0),  # [0] Void
         _td(0x0A, _pstr("x")),  # [1] DBL
         _td(0xF0, struct.pack(">HHH", 2, 0, 1)),  # slots: void, TD1
     ]
-    terms = decode_conp_terminals(_conp(*tds))
+    terms = decode_conp_terminals(_conp(*tds)).terminals
     assert [t.slot for t in terms] == [1]
     assert terms[0].lv_type is not None
     assert terms[0].lv_type.type_descriptor() == "DBL"
@@ -75,18 +83,16 @@ def test_void_slots_are_skipped():
 def test_refnum_kind_and_class_name():
     """A refnum's u16 sub-kind maps to a RefType (``Queue refnum``); a class
     refnum (UDClassInst) additionally carries its ``.lvclass`` name."""
-    queue = _td(0x70, struct.pack(">HHH", 18, 1, 1) + _pstr("queue"))
+    queue = _td(0x70, struct.pack(">HH", 18, 0) + _pstr("queue"))
     cls = _td(
         0x70,
         struct.pack(">H", 30)
         + b"\x00" * 6
-        + b"\x13"
-        + _pstr("Foo.lvclass")
-        + b"\x00"
+        + _class_names("Foo.lvclass")
         + _pstr("obj in"),
     )
     tds = [queue, cls, _td(0xF0, struct.pack(">HHH", 2, 0, 1))]
-    terms = decode_conp_terminals(_conp(*tds))
+    terms = decode_conp_terminals(_conp(*tds)).terminals
     by_slot = {t.slot: t for t in terms}
     assert by_slot[0].lv_type is not None
     assert by_slot[0].lv_type.type_descriptor() == "Queue refnum"
@@ -98,19 +104,21 @@ def test_class_refnum_label_follows_class_name():
     """A class refnum is ``[class name][terminal label]``. The class name is the
     TYPE; the label follows it. LabVIEW's default label for a dynamic-dispatch
     terminal is its class name, disambiguated ``<class> 2`` for a second
-    same-class terminal — that IS the label, not garbled."""
+    same-class terminal -- that IS the label, not garbled."""
     cls = _td(
         0x70,
         struct.pack(">H", 30)
         + b"\x00" * 6
-        + _pstr("Class1.lvclass")
-        + b"\x00\x00"
+        + _class_names("Class1.lvclass")
         + _pstr("Class1.lvclass 2"),
     )
-    terms = decode_conp_terminals(_conp(cls, _td(0xF0, struct.pack(">HH", 1, 0))))
+    terms = decode_conp_terminals(
+        _conp(cls, _td(0xF0, struct.pack(">HH", 1, 0)))
+    ).terminals
     assert len(terms) == 1
     assert terms[0].lv_type is not None
     assert terms[0].lv_type.classname == "Class1.lvclass"  # the TYPE
+    assert terms[0].lv_type.class_file == "Class1.lvclass"
     assert terms[0].name == "Class1.lvclass 2"  # the LABEL
 
     # A developer-renamed terminal sits in the same slot.
@@ -118,17 +126,44 @@ def test_class_refnum_label_follows_class_name():
         0x70,
         struct.pack(">H", 30)
         + b"\x00" * 6
-        + _pstr("Class1.lvclass")
-        + b"\x00\x00"
+        + _class_names("Class1.lvclass")
         + _pstr("reference in"),
     )
-    t = decode_conp_terminals(_conp(renamed, _td(0xF0, struct.pack(">HH", 1, 0))))[0]
+    t = decode_conp_terminals(
+        _conp(renamed, _td(0xF0, struct.pack(">HH", 1, 0)))
+    ).terminals[0]
     assert t.name == "reference in"
 
 
-def test_malformed_conp_never_raises():
-    assert decode_conp_terminals(b"\xff\xff\xff\xff\x00\x0c") == []
-    assert decode_conp_terminals(b"") == []
+def test_a_library_qualified_class_name_keeps_its_parts():
+    cls = _td(
+        0x70,
+        struct.pack(">H", 30)
+        + b"\x00" * 6
+        + _class_names("Lib.lvlib", "Class1.lvclass")
+        + _pstr("obj in"),
+    )
+    terms = decode_conp_terminals(
+        _conp(cls, _td(0xF0, struct.pack(">HH", 1, 0)))
+    ).terminals
+    lv_type = terms[0].lv_type
+    assert lv_type.classname == "Lib.lvlib:Class1.lvclass"
+    assert lv_type.class_file == "Class1.lvclass"
+    assert terms[0].name == "obj in"
+
+
+def test_a_refnum_without_a_label_flag_has_no_name():
+    queue = _td(0x70, struct.pack(">HH", 18, 0), flags=0)
+    terms = decode_conp_terminals(
+        _conp(queue, _td(0xF0, struct.pack(">HH", 1, 0)))
+    ).terminals
+    assert terms[0].name is None
+
+
+def test_malformed_conp_says_why():
+    conp = decode_conp_terminals(b"\xff\xff\xff\xff\x00\x0c")
+    assert conp.terminals == []
+    assert conp.failure is not None and "ends inside descriptor 0" in conp.failure
 
 
 # --- end-to-end on real LabVIEW 8.2 VIs -------------------------------------
@@ -201,7 +236,9 @@ def test_conp_slot_alignment_agrees_with_control_type():
         "stdClust": lambda lbl: (
             lbl == "Error" or lbl.startswith(("cluster", "cluster{"))
         ),
-        "stdRing": lambda lbl: lbl.startswith("enum{") or lbl == "ring",
+        # A typedef'd ring renders as ``<Name>{items}``; an anonymous one as
+        # ``enum{items}``.
+        "stdRing": lambda lbl: lbl.startswith("enum{") or lbl.endswith("}"),
         "stdString": lambda lbl: lbl == "String",
     }
     g, name = _load_one(str(_LV82_VI))

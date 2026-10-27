@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from lvkit.vi_files import strip_vi_extension
+
 from .ast_utils import to_function_name
 from .dataflow import DataFlowTracer
 from .imports import ImportBuilder
@@ -240,7 +242,7 @@ class FunctionBuilder:
     def _build_docstring(self, vi_name: str) -> str:
         """Build docstring from VI name."""
         # Convert VI name to readable description
-        name = vi_name.replace(".vi", "").replace(".VI", "")
+        name = strip_vi_extension(vi_name)
         name = name.replace("_", " ").replace("-", " ")
         # Capitalize first letter of each word
         words = name.split()
@@ -250,7 +252,7 @@ class FunctionBuilder:
 
     def _to_class_name(self, name: str) -> str:
         """Convert VI name to PascalCase class name."""
-        name = name.replace(".vi", "").replace(".VI", "")
+        name = strip_vi_extension(name)
         if ":" in name:
             name = name.split(":")[-1]
         words = name.replace("-", " ").replace("_", " ").split()

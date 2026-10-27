@@ -61,14 +61,22 @@ def _cache() -> Path:
 class TestClassify:
     def test_no_project_is_adhoc(self, tmp_path: Path) -> None:
         # A bare dir with no .git/.lvkit ancestor -> adhoc has NO owner slug, so
-        # the kind sits right under the namespace: adhoc/extract/<slug(parent)>.
+        # the kind sits right under the namespace: adhoc/extract/<fp>/<vi slot>.
         vi = _touch_vi(tmp_path / "loose" / "foo.vi")
         target, source, ns = cache_paths.classify(vi, "extract")
-        slug = cache_paths._slug(vi.parent.resolve())
+        slot = cache_paths._vi_slot(vi.resolve())
         xfp = cache_paths.kind_fingerprint("extract")
-        assert target == _cache() / "adhoc" / "extract" / xfp / slug
+        assert target == _cache() / "adhoc" / "extract" / xfp / slot
         assert source == "foo.vi"
         assert ns == "adhoc"
+
+    def test_adhoc_siblings_get_their_own_slot(self, tmp_path: Path) -> None:
+        a = _touch_vi(tmp_path / "loose" / "a.vi")
+        b = _touch_vi(tmp_path / "loose" / "b.vi")
+        da, _, _ = cache_paths.classify(a, "extract")
+        db, _, _ = cache_paths.classify(b, "extract")
+        assert da != db
+        assert da == cache_paths.classify(a, "extract")[0]
 
     def test_under_project_is_projects(self, tmp_path: Path) -> None:
         proj = tmp_path / "myproj"
@@ -363,6 +371,11 @@ class TestCacheFreshness:
 # ── real extraction: cold miss extracts, warm hit does not ──────────────────
 
 
+# These tests check index or cache state, so each starts with an
+# empty cache instead of the one corpus tests share.
+pytestmark = pytest.mark.cold_cache
+
+
 @pytest.mark.needs_samples
 class TestRealExtraction:
     SAMPLE = Path(
@@ -510,9 +523,21 @@ class TestGlobalHomeGuard:
         observed Windows cache tree (#78)."""
         from lvkit import project_store
 
-        home = tmp_path / "home"
-        (home / ".lvkit").mkdir(parents=True)  # stands in for the global ~/.lvkit
-        monkeypatch.setattr(project_store, "global_home", lambda: home / ".lvkit")
+        # A temp dir that already sits under a real `.lvkit` (the machine's own
+        # ~/.lvkit, as on Windows where %TEMP% is under the user profile) makes
+        # that store the global home for this scenario; otherwise stand one up.
+        outer_stores = [
+            a / ".lvkit" for a in tmp_path.parents if (a / ".lvkit").is_dir()
+        ]
+        if len(outer_stores) > 1:
+            pytest.skip("temp dir sits under more than one .lvkit store")
+        if outer_stores:
+            home, global_store = tmp_path, outer_stores[0]
+        else:
+            home = tmp_path / "home"
+            global_store = home / ".lvkit"
+            global_store.mkdir(parents=True)
+        monkeypatch.setattr(project_store, "global_home", lambda: global_store)
 
         repo = home / "repo"  # a real git repo nested under the home
         (repo / ".git").mkdir(parents=True)

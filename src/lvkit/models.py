@@ -17,13 +17,16 @@ subclasses are the single source of truth for node structure.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from collections import Counter
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field, replace
 from enum import Enum, IntEnum
 from typing import Literal
 
 from pydantic import BaseModel
 
+from .dotnet_types import DotNetType
+from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -32,6 +35,82 @@ ScalarValue = str | int | float | bool | None
 # ============================================================
 # Shared types (used by both graph and codegen layers)
 # ============================================================
+
+
+@dataclass(frozen=True)
+class ValuesNotKept:
+    """An array value too large to keep: it was read to its end, so its extent in
+    the file is exact, but none of its elements are stored. ``element_count`` is
+    the product of ``dimension_sizes`` (one size per array dimension, slowest-varying
+    first)."""
+
+    element_count: int
+    dimension_sizes: tuple[int, ...]
+    # The elements exactly as the VI stores them (row-major, each flattened
+    # big-endian), and their type: what a data file written for the array holds.
+    # Empty / None when the extent was read from a type this does not slice.
+    element_bytes: bytes = field(default=b"", repr=False, compare=False)
+    element_type: LVType | None = field(default=None, repr=False, compare=False)
+
+    def __str__(self) -> str:
+        return f"<{self.element_count} elements, values not kept>"
+
+    def reason(self) -> str:
+        shape = " x ".join(str(size) for size in self.dimension_sizes)
+        return (
+            f"an array of {self.element_count} elements ({shape}) whose values "
+            "are not kept"
+        )
+
+
+@dataclass(frozen=True)
+class UndecodedPicture:
+    """A Picture value that holds drawing data. The drawing is read past (its
+    length is stored) but not turned into a value."""
+
+    byte_count: int
+
+    def __str__(self) -> str:
+        return f"<Picture, {self.byte_count} bytes of drawing not decoded>"
+
+    def reason(self) -> str:
+        return f"a Picture of {self.byte_count} bytes whose drawing is not decoded"
+
+
+@dataclass(frozen=True)
+class UnreadPrivateData:
+    """A class object that holds private data this could not read: its class is
+    not loaded, or its stored levels do not match the class's. ``class_name`` is
+    the class's file name."""
+
+    class_name: str
+
+    def __str__(self) -> str:
+        return f"{self.class_name}(private data not read)"
+
+    def reason(self) -> str:
+        return f"an object of {self.class_name} whose private data is not read"
+
+
+UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData
+
+
+def find_unwritable(value: object) -> UnwritableValue | None:
+    """The first part of a decoded value (an array's elements, a cluster's fields,
+    recursively) that holds no value code generation could write, else None."""
+    if isinstance(value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData)):
+        return value
+    if isinstance(value, dict):
+        children: Iterable[object] = value.values()
+    elif isinstance(value, list):
+        children = value
+    else:
+        return None
+    for child in children:
+        found = find_unwritable(child)
+        if found is not None:
+            return found
+    return None
 
 
 class LVTypeKind(str, Enum):
@@ -139,14 +218,29 @@ class LVType:
     # constant's own instance of it, not the .ctl file name). None for every
     # other refnum and for an unlabeled data type.
     user_event_name: str | None = None
+    # The .NET type of a .NET node's terminal, as the VI records it. The VI types
+    # the terminal as a DotNet refnum (or, for a .NET enum, an I32); this is the
+    # type the node actually passes.
+    dotnet_type: DotNetType | None = None
 
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
     element_type: LVType | None = None
+    # A Map's value type (``element_type`` is its key type); None for every
+    # other type.
+    value_type: LVType | None = None
     dimensions: int | None = None
     typedef_path: str | None = None
     typedef_name: str | None = None
+    # The typedef's ``.ctl`` file name and the class's ``.lvclass`` file name,
+    # without the library chain ``typedef_name`` / ``classname`` carry in front of
+    # them. ``compare=False`` -- the same identity, kept as its own part.
+    typedef_file: str | None = field(default=None, compare=False)
+    class_file: str | None = field(default=None, compare=False)
     description: str | None = None
+    # Why this type could not be read from the file, when the VI records a
+    # descriptor that did not decode; None for a type that read cleanly.
+    unreadable: str | None = None
     # For a MeasureData type (waveform / digital data): its LabVIEW "flavor"
     # (e.g. "Float64Waveform", "DigitalWaveform", "Digitaldata"). These are
     # opaque built-in structures with no VCTP children, so their component names
@@ -158,6 +252,17 @@ class LVType:
     # built-in today); a LabVIEW class fills it from its ``.lvclass``.
     # ``compare=False`` — presentation, never type identity/coercion.
     wire_style: WireStyle | None = field(default=None, compare=False)
+    # For a class instance whose ``.lvclass`` is loaded: the private-data fields
+    # of each level of its hierarchy, oldest ancestor first (a flattened object
+    # holds one cluster per level). None when the class is not loaded.
+    # ``compare=False`` -- what a value of the type is read with, not its identity.
+    class_levels: list[list[ClusterField]] | None = field(default=None, compare=False)
+
+    def _refnum_leaf(self) -> bool:
+        """Whether this type, or the element type of its arrays, is a refnum."""
+        if self.kind == LVTypeKind.ARRAY and self.element_type is not None:
+            return self.element_type._refnum_leaf()
+        return self.kind == LVTypeKind.PRIMITIVE and self.underlying_type == "Refnum"
 
     def type_ref(self) -> str | None:
         """The LabVIEW name of the class or typedef this type names -- the
@@ -208,9 +313,7 @@ class LVType:
         if self.kind == LVTypeKind.PRIMITIVE:
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
-            inner = (
-                self.element_type.to_python(names) if self.element_type else "Any"
-            )
+            inner = self.element_type.to_python(names) if self.element_type else "Any"
             result = f"list[{inner}]"
             for _ in range((self.dimensions or 1) - 1):
                 result = f"list[{result}]"
@@ -270,6 +373,10 @@ class LVType:
         representation) is load-bearing and must never be silently narrowed
         to a Python annotation outside the code generator.
 
+        - a type with a ``dotnet_type`` (a .NET node's terminal): the recorded
+          .NET type name, ``MccDaq.DaqDeviceInterface``; as
+          ``DotNet refnum{MccDaq.ErrorInfo}`` when the terminal is a DotNet
+          refnum (or an array of them), the name keeping its own array suffix.
         - ``array``: bracket-nested element label, one pair per dimension
           (``[DBL]``, ``[[I32]]``); an unresolved element renders ``?``.
         - ``enum``/``ring``: ``{member, member, …}`` in ORDINAL order (by
@@ -301,6 +408,16 @@ class LVType:
         refnum's element) with the SAME flag, so ``[NamedThing]``/
         ``refnum{NamedThing}`` also collapse to the name one level down.
         """
+        if self.unreadable is not None:
+            readable = replace(self, unreadable=None)
+            return (
+                f"{readable.type_descriptor(expand_named=expand_named)} "
+                f"(unreadable: {self.unreadable})"
+            )
+        if self.dotnet_type is not None:
+            if self._refnum_leaf():
+                return f"DotNet refnum{{{self.dotnet_type.name}}}"
+            return self.dotnet_type.name
         if self.kind == LVTypeKind.ARRAY:
             dims = self.dimensions or 1
             inner = (
@@ -368,10 +485,21 @@ class LVType:
                         return f"{self.ref_type} refnum{{{inner}}}"
                     return f"{self.ref_type} refnum"
                 return "refnum"
+            if self.underlying_type == "Set":
+                return f"set{{{_member_descriptor(self.element_type, expand_named)}}}"
+            if self.underlying_type == "Map":
+                key = _member_descriptor(self.element_type, expand_named)
+                value = _member_descriptor(self.value_type, expand_named)
+                return f"map{{{key}: {value}}}"
             return _SCALAR_TYPE_DESCRIPTOR.get(
                 self.underlying_type or "", self.underlying_type or "?"
             )
         return "?"
+
+
+def _member_descriptor(member: LVType | None, expand_named: bool) -> str:
+    """A Set or Map member's descriptor; ``?`` when its type is not known."""
+    return member.type_descriptor(expand_named=expand_named) if member else "?"
 
 
 class WireLineStyle(IntEnum):
@@ -539,6 +667,9 @@ class Terminal(BaseModel):
     nmux_field_index: int | None = None  # class field index
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     default_value: ScalarValue = None
+    # Set when ``default_value`` shows a part (an array too large to keep, a
+    # Picture's drawing) that code generation has no value to write for.
+    unwritable: UnwritableValue | None = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
     # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
     # same DCO are one value: an In Place Element structure's In/Out Element
@@ -927,12 +1058,27 @@ class CaseFrame(Frame):
     # the default frame — there ``selector_value``/``selector_ranges`` carry
     # the token. ``selector_value`` holds the first string as the unique key.
     selector_strings: list[str] = []
+    # For a Boolean selector: the value this frame matches (True or False). None
+    # for every other selector type.
+    boolean_value: bool | None = None
+    # For an error-cluster selector: whether this is the "No Error" frame (the one
+    # that matches status False).
+    is_no_error: bool = False
 
 
 class SequenceFrame(Frame):
     """A frame in a flat or stacked sequence — executes in order."""
 
     index: int = 0
+
+
+class SequenceLocal(BaseModel):
+    """A Stacked Sequence's sequence local: a value one frame writes and later
+    frames read. The file lists one terminal per frame; ``frame_terminal_uids``
+    keeps that order, so the list position is the frame index."""
+
+    uid: str
+    frame_terminal_uids: list[str] = []
 
 
 class EventFrame(Frame):
@@ -989,7 +1135,7 @@ _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
     "NumUInt16": "U16",
     "NumUInt32": "U32",
     "NumUInt64": "U64",
-    "Boolean": "TF",
+    **{name: "TF" for name in BOOLEAN_TYPE_NAMES},
     "Path": "Path",
 }
 
@@ -999,7 +1145,7 @@ _NUMERIC_TYPE_DESCRIPTOR: dict[str, str] = {
 # abbreviation "abc"/"Var" — see ``render/style.py::_TYPE_REPR`` for that).
 _SCALAR_TYPE_DESCRIPTOR: dict[str, str] = {
     **_NUMERIC_TYPE_DESCRIPTOR,
-    "String": "String",
+    **{name: "String" for name in STRING_TYPE_NAMES},
     "Variant": "Variant",
     "LVVariant": "Variant",
 }
@@ -1015,8 +1161,8 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumUInt64": "int",
     "NumFloat32": "float",
     "NumFloat64": "float",
-    "String": "str",
-    "Boolean": "bool",
+    **{name: "str" for name in STRING_TYPE_NAMES},
+    **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
     "Path": "Path",
     "Variant": "Any",
     "LVVariant": "Any",
@@ -1054,3 +1200,40 @@ def _strip_typedef_stem(typedef_name: str) -> str:
     type's own name are kept verbatim (mirrors the stripping convention in
     ``graph/construction.py``'s ``_format_lv_type_for_display``)."""
     return typedef_name.rsplit(":", 1)[-1].replace(".ctl", "")
+
+
+def leading_element(value: object) -> object:
+    """The first element of a decoded array value, however many dimensions it
+    has: a multi-dimensional array's value is lists nested one level per
+    dimension (see ``parser.vi._decode_element``), so this walks down the first
+    entry of each. ``None`` when an empty array is reached; a value that is not a
+    list (a scalar, or a cluster's dict) is returned as is."""
+    while isinstance(value, list):
+        value = value[0] if value else None
+    return value
+
+
+def unique_names(names: Iterable[str]) -> list[str]:
+    """``names`` with each repeat made distinct by a `` (2)``, `` (3)`` suffix, in
+    order -- a cluster may hold several fields with the same label, and a value
+    keyed by field name needs one key per field."""
+    seen: Counter[str] = Counter()
+    result = []
+    for name in names:
+        seen[name] += 1
+        result.append(name if seen[name] == 1 else f"{name} ({seen[name]})")
+    return result
+
+
+def contains_class_instance(lv_type: LVType | None) -> bool:
+    """Whether ``lv_type`` is, or holds in a field, element, key or value, a class
+    instance (a refnum naming a class)."""
+    if lv_type is None:
+        return False
+    if lv_type.underlying_type == "Refnum" and lv_type.classname:
+        return True
+    return (
+        contains_class_instance(lv_type.element_type)
+        or contains_class_instance(lv_type.value_type)
+        or any(contains_class_instance(f.type) for f in lv_type.fields or [])
+    )

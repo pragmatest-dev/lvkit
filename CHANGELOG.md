@@ -3,7 +3,57 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **Fix: the index forgot which VI a SubVI call goes to after `describe`, `render`, `generate`, `docs` or `diff`** — each of these (and MCP `read_vi`/`render`) adds the VIs it loads to the project index, and that cleared the `callee_path` an index refresh had found, so a later query showed no callee for those calls and missed those callers (MCP `query` does not refresh while the session's index is loaded, nor does `lvkit query --no-refresh`). The found callee is now kept until the next refresh.
+- **Fix: VIs outside a git or LabVIEW project no longer re-extract on every run** — each VI has its own extraction slot, so describe and render of a folder with several VIs stop rewriting hundreds of cache files per run (#131).
+- **Fix: a cached render or diff is rebuilt when a SubVI changed or when `--vilib`, `--userlib`, `--search-path`, `--load-mode`, `--no-auto-vilib` or the project store differ** (#131).
+- **`render -o FILE --no-cache` writes only the output file** — no cache entry and no staging folder, for machines where security software watches the cache folder (#131).
+- **A run that was stopped before it finished is reported** — the next lvkit command warns once and removes the leftover staging folder (#131).
+- **Generated Python raises `LabVIEWError` from a generated `errors.py`, not from lvkit** — the package gets the class once and imports nothing from lvkit; an Error Cluster From Error Code raises it with NI's description of a constant code, and no error cluster value is passed around.
+- **Fix: an unwired Application Property Node reads `User Name`** — generated code runs the account name instead of stopping at an unavailable property; the CLFN corpus tests now check the Windows environment and file-information results the Windows way (#185).
+- **Fix: a SubVI call is tied to the file its caller links, not to any VI with the same name** — two classes' same-named methods, or two libraries' same-named VIs, no longer share terminals, imports or "Ambiguous VI reference" failures in describe, lvnet, the index and `generate`.
+- **Type Cast, Swap Bytes and Swap Words work on clusters, arrays, floats and Booleans, in LabVIEW's flattened-data format** — so OpenG's File Info and large-file VIs run end to end on real files; Build Array no longer reads as an element-wise Add (#185).
+- **Call Library Function Node code generation covers LabVIEW string and array handles, Adapt to Type clusters, and LabVIEW's own file functions** — `FNewRefNum`, `FRefNumToFD`, `FGetInfo` and `FSetInfo` become Python, and `Is Path and Not Empty` resolves by the file name callers record (#185).
+- **Call Library Function Node: terminals, drawing and Python generation** — each parameter shows its input and output side with its name, the node draws as stacked rows, the return value is an output only, and `generate` emits a ctypes call to the library (#185).
+- **Fix: the project index keeps a VI's typedef links when another render loads it only as a SubVI** — the result no longer depends on which command ran last.
+- **Faster first load** — extracting a VI is about a third faster (up to 3.5× for a VI with large constant data), and a VI's SubVIs or a directory's VIs extract in parallel worker processes.
+- **Fix: `lvkit setup copilot` installs Copilot skills, not prompt files** — VS Code no longer asks to migrate them, and lvkit's earlier prompt files and router are removed (#196).
+- **String To IP and IP To String generate Python** — both look up the address or host name through the operating system, as NI documents them.
+- **`lvkit setup --git-textconv` covers `.vim` and `.vit`** — `git diff`/`git show` render their netlist text like a `.vi`.
+- **Fix: `.vim` (malleable VI) and `.vit` (VI template) files load like `.vi` files** — describe, lvnet, JSON, render, generate, project indexing and `.lvlib` members all accept them; a call to a malleable VI shows the VI's own terminal names instead of a bare box; `generate` works on a `.ctl` (#99).
+- **Faster VI loading** — each of a VI's XML files is parsed once, and a VI reached from several callers is parsed once.
+- **Fix: a two-frame error case with an error-code frame keeps its Default frame** — its frame with no value read `""` instead of `Default` (#187).
+
+## [0.8.12] - 2026-10-22
+- **Fix: an Invoke Node's method row no longer shows an input** — only its return value output is a terminal (#183).
+- **Fix: error cases in LabVIEW 9 VIs read `No Error` / `Error`** — the No Error frame no longer reads `Error -2147483648..0`, and neither frame is marked default (#187).
+- **Fix: Flatten To JSON terminals are numbered by the slots the VI stores** — its error, enable and JSON string terminals were misnumbered, so generated Python passed the wrong terminal (#184).
+- **Fix: Boolean and error case frames are labelled by what they store** — an error frame that stores a value never takes a Default marker, a frame that stores no value is Default, and a LabVIEW 8/9 two-frame error case reads `No Error` then `Error` (#187).
+- **Fix: describe quotes a string case frame once and escapes control characters** — a string frame that is also the default reads `"TestCase", Default`, the VI's own control gating a case is named by its label, and a control character in a frame value is escaped as lvnet does (#186).
+- **Fix: an array of .NET objects names its .NET type in lvnet** — it shows `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}` like a scalar .NET refnum instead of `[DotNet refnum]` (#183).
+
+## [0.8.11] - 2026-10-21
+- **Fix: Required and Optional connector-pane terminals are detected** — the wiring rule is read from the VI's own connector pane, so describe, lvnet, diff, render and generated Python show Required inputs and Optional terminals correctly (#173).
+- **Fix: terminal names landed on the wrong terminals** of 38 functions (Search and Replace String, VISA, TCP, Write to Text File, …) and of Insert Into Array — names now follow the slot the VI stores and are withheld when a node does not match its definition (#168).
+- **Resized array functions are named per dimension and set** (Index Array, Replace Array Subset, Array Subset, Insert Into Array, Delete From Array), and Replace Array Subset generates for any array rank with unwired indices starting at 0.
+- **Fix: an unwired node output could read as an input** when its definition sits on the node rather than in its terminal list (Delete From Array and similar).
+- **Fix: case frames showed the wrong selector values** — empty-string frames, extra strings, value-plus-Default frames, enum defaults, open ranges and overwritten values now match the VI; lvnet frame headers read `frame "Error", default :` and `frame "0", "43" :` (#170).
+- **Fix: `describe` text names case frames, sequences and selectors like lvnet** — frame headers show enum item names and `No Error`/`Error`, a stacked sequence is called Stacked, and "gated on" / "stops when" follow the wire through tunnels and shift registers to the real source (a Case Structure no longer reads as "Select", unnamed outputs are named) (#171).
+- **Fix: a case selector wired from a constant or a local variable** — `describe` names it by the constant's value or as `<name> (local variable)` instead of printing the VI path and a terminal id (#162).
+- **Fix: Event Data Node outputs are named by their event-data field** — describe, lvnet and JSON show `Type`, `Time`, `NewVal` or a user event's own fields instead of `out 1`, `out 2` (#171).
+- **Fix: `lvkit generate` no longer rewrites lvkit's bundled vi.lib catalog** — terminals learned from a caller are used for that run only, so doc links, terminal descriptions and encoding stay intact (#164).
+- **Fix: Single Process Shared Variables from a LabVIEW 2025 project failed to decode** — the record's layout is now decided by the type it ends with, not a flag byte (#166).
+- **Stacked Sequence sequence locals are read** — the frame that writes one shows `sequence_<uid>::local0 = …` in lvnet, later frames read that name instead of an undriven input, describe says `gated on sequence local (frame 0)`, and generated Python carries the value between frames (#172).
+- **.NET assemblies are dependencies, and .NET terminals show their .NET type** — a VI's assembly (name, version, culture, public key token) is listed under describe's Dependencies and lvnet's `uses :` (`assembly`), and a .NET node's terminal shows `DotNet refnum{MccDaq.ErrorInfo}` or `MccDaq.DaqDeviceInterface` instead of `DotNet refnum` / `I32` (#161).
+- **Fix: generated code on Windows** — a polymorphic wrapper under a path like `\user.lib` compiles, and a pattern wired into Match Pattern follows LabVIEW's pattern syntax (a `\` separator no longer breaks it); concurrent extraction and piped CLI output work on Windows, and CI now runs the tests on Windows (#165).
+- **LabVIEW 8.2 block diagrams now carry real types** — array dimensions and element types, error clusters, enums and clusters on every wire and terminal (lvnet, describe, render, generated Python), where they showed `?`; Bundle/Unbundle By Name drawers name their own fields instead of repeating the first, and case structures name their selector instead of `case ?`.
+- **Fix: multi-dimensional array values (2D tables, 3D grids) read only the first dimension** — front-panel defaults and diagram constants now show every row, and the fields after one in a cluster are no longer shifted; Picture values and class objects inside a cluster are skipped correctly (#174).
+- **Fix: stored default and constant values are read to their exact size** — Variants, extended-precision numbers, waveforms, VISA/DAQmx/IMAQ tag refnums, Sets and Maps, class objects (with their private data when the class is loaded), empty clusters and repeated field names no longer corrupt or drop the fields after them (#174).
+- **Fix: a type definition of an array or a refnum kept no inner type** — its element type, dimensions, refnum kind and User Event data type now show in describe, lvnet and JSON, and an array's default value is read (#175).
+- **Fix: a very large array value no longer reads as an array of text** — describe, lvnet and render show `<N elements, values not kept>`, and generated Python reads a large array constant or Global VI default from a data file written beside the module.
+- **Fix: a string case on a Substring wire, and a Boolean case, are decided by the VI's own types** — a Boolean frame carries True/False and an error case its No Error frame, so generated code never compares a Boolean to the text "True".
+- **Fix: waveform and digital-data values are read from one built-in table** (including 16-bit-stored Booleans and the other string storages); an Old Float64 Waveform value says it is not read.
+- **A Picture with drawing, a class object whose private data is not loaded, and a type the VI stores in a form lvkit cannot read now say so** instead of showing as `None`, the bare class name, or a default.
+- **A Variant's attributes are shown with its value**, and a Variant cluster's members keep their labels.
+- **Fix: .NET types that cannot be read are reported** under `.NET unreadable` in describe and lvnet.
 
 ## [0.8.10] - 2026-10-18
 - **Fix: a VI with a network-published Shared Variable failed to load in 0.8.9** — its link-table record is read now; a Shared Variable record that cannot be read leaves the VI loading and the node says its library link is unreadable, in describe, lvnet, JSON and the index (#149).

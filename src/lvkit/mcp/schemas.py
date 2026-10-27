@@ -32,7 +32,9 @@ TOOL_DEFINITIONS = {
             "properties": {
                 "vi_path": {
                     "type": "string",
-                    "description": "Path to VI file (.vi) or block diagram XML",
+                    "description": (
+                        "Path to VI file (.vi, .vim, .vit) or block diagram XML"
+                    ),
                 },
                 "search_paths": {
                     "type": "array",
@@ -60,7 +62,10 @@ TOOL_DEFINITIONS = {
             "properties": {
                 "library_path": {
                     "type": "string",
-                    "description": "Path to .lvlib, .lvclass, .vi, or directory",
+                    "description": (
+                        "Path to .lvlib, .lvclass, a VI file (.vi, .vim, .vit), "
+                        "or directory"
+                    ),
                 },
                 "output_dir": {
                     "type": "string",
@@ -89,7 +94,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
+                "vi_path": {
+                    "type": "string",
+                    "description": "Path to VI file (.vi, .vim, .vit)",
+                },
                 "output_dir": {
                     "type": "string",
                     "description": "Output directory for generated Python",
@@ -108,7 +116,10 @@ TOOL_DEFINITIONS = {
         "input_schema": {
             "type": "object",
             "properties": {
-                "vi_path": {"type": "string", "description": "Path to VI file (.vi)"},
+                "vi_path": {
+                    "type": "string",
+                    "description": "Path to VI file (.vi, .vim, .vit)",
+                },
                 "search_paths": {
                     "type": "array",
                     "items": {"type": "string"},

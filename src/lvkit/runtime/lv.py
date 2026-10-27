@@ -12,13 +12,49 @@ element-wise behaviour over multidimensional arrays.
 
 from __future__ import annotations
 
+import array as _array
+import copy as _copy
 import math as _math
 import operator as _op
 import random as _random
 import re as _re
 import sys as _sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from pathlib import Path as _Path
 from typing import Literal
+
+from . import flat as _flat
+from .default_properties import DEFAULT_PROPERTIES as _DEFAULT_PROPERTIES
+
+
+def load_array(
+    module_file: str,
+    data_file: str,
+    typecode: str,
+    dimensions: Sequence[int],
+    as_bool: bool = False,
+) -> list:
+    """An array too large to write into the module: its elements, as the VI
+    stores them (big-endian, row-major), read from ``data_file`` beside the
+    module (``module_file`` is the module's ``__file__``). ``typecode`` is the
+    ``array`` module's code for the element type; ``as_bool`` reads one-byte
+    elements as Booleans. The result is a list nested one level per dimension,
+    the same shape as every other array."""
+    values = _array.array(typecode)
+    values.frombytes((_Path(module_file).parent / data_file).read_bytes())
+    if values.itemsize > 1 and _sys.byteorder == "little":
+        values.byteswap()
+    flat = [bool(v) for v in values] if as_bool else values.tolist()
+    return _nest(flat, list(dimensions))
+
+
+def _nest(flat: list, sizes: list[int]) -> list:
+    if len(sizes) <= 1:
+        return flat
+    row = 1
+    for size in sizes[1:]:
+        row *= size
+    return [_nest(flat[i * row : (i + 1) * row], sizes[1:]) for i in range(sizes[0])]
 
 
 def _binop(a, b, f: Callable):
@@ -335,7 +371,42 @@ def array_subset(arr, index, length):
     i = int(index)
     if length is None:
         return arr[i:]
-    return arr[i:i + int(length)]
+    return arr[i : i + int(length)]
+
+
+def replace_array_subset(arr, new, offsets, new_rank: int):
+    """Replace Array Subset (node class ``aReplace``) for one new element or
+    subarray, for an array of any rank (``len(offsets)``).
+
+    ``offsets`` holds one start index per dimension (an unwired index is 0).
+    The new element's ``new_rank`` dimensions lie along the array's last
+    dimensions; the leading dimensions pick the cell it lands in. The result is
+    a copy; the input array is not modified. Per NI's page, any subarray too
+    large to fit is cropped, and if any index is negative or larger than its
+    dimension the function has no effect."""
+    rank = len(offsets)
+    out = _copy.deepcopy(arr)
+    sizes = []
+    level = out
+    for _ in range(rank):
+        sizes.append(len(level))
+        level = level[0] if level else []
+    if any(not 0 <= int(i) < size for i, size in zip(offsets, sizes)):
+        return out
+    lead = rank - new_rank
+
+    def place(a, depth, sub):
+        if depth == rank:
+            return sub
+        start = int(offsets[depth])
+        if depth < lead:
+            a[start] = place(a[start], depth + 1, sub)
+            return a
+        for k in range(max(0, min(len(sub), len(a) - start))):
+            a[start + k] = place(a[start + k], depth + 1, sub[k])
+        return a
+
+    return place(out, 0, new)
 
 
 def array_size(a, ndims: int):
@@ -450,105 +521,51 @@ def rotate(x, n, bits):
     return ((x << n) | (x >> (bits - n))) & mask
 
 
-# Integer type spec -> (byte width, signed). Type Cast (below) speaks these.
-_INT_SPEC = {
-    "i8": (1, True), "u8": (1, False),
-    "i16": (2, True), "u16": (2, False),
-    "i32": (4, True), "u32": (4, False),
-    "i64": (8, True), "u64": (8, False),
-}
+def type_cast(x, src, dst):
+    """LabVIEW Type Cast: reinterpret x's flat bytes as the destination type (see
+    ``lvkit.runtime.flat`` for the type specs and the flattened format). Pairs it
+    cannot flatten raise NotImplementedError (loud, never silently wrong)."""
+    return _flat.type_cast(x, src, dst)
 
 
-def _flatten_bytes(x, spec: str) -> bytes:
-    """Flatten a value to LabVIEW's big-endian FLAT byte form (no length prefix,
-    which is what Type Cast uses — unlike Flatten To String). Supports strings,
-    scalar integers, and 1-D integer arrays; raises for anything else."""
-    if spec == "str":
-        return x.encode("latin-1") if isinstance(x, str) else bytes(x)
-    if spec in _INT_SPEC:
-        width, signed = _INT_SPEC[spec]
-        return int(x).to_bytes(width, "big", signed=signed)
-    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[spec[:-2]]
-        return b"".join(int(e).to_bytes(width, "big", signed=signed) for e in x)
-    raise NotImplementedError(f"Type Cast cannot flatten spec {spec!r}")
+def swap_bytes(x, spec):
+    """LabVIEW Swap Bytes of an integer, an array of integers or a cluster."""
+    return _flat.swap_bytes(x, spec)
 
 
-def _unflatten_bytes(b: bytes, spec: str):
-    """Interpret big-endian flat bytes as the target type spec (inverse of
-    _flatten_bytes). Supports strings, scalar integers, and 1-D integer arrays."""
-    if spec == "str":
-        return b.decode("latin-1")
-    if spec in _INT_SPEC:
-        width, signed = _INT_SPEC[spec]
-        return int.from_bytes(b[:width], "big", signed=signed)
-    if spec.endswith("[]") and spec[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[spec[:-2]]
-        return [
-            int.from_bytes(b[i:i + width], "big", signed=signed)
-            for i in range(0, len(b) - len(b) % width, width)
-        ]
-    raise NotImplementedError(f"Type Cast cannot unflatten spec {spec!r}")
-
-
-def type_cast(x, src: str, dst: str):
-    """LabVIEW Type Cast: reinterpret x's flat bytes as the destination type.
-    Flattens x (big-endian, no length prefix) then reads those bytes back as
-    dst. Supported specs: 'str', scalar ints ('u32', 'i16', …) and 1-D integer
-    arrays ('u32[]', …); other type pairs raise NotImplementedError (loud, never
-    silently wrong)."""
-    return _unflatten_bytes(_flatten_bytes(x, src), dst)
+def swap_words(x, spec):
+    """LabVIEW Swap Words of an integer, an array of integers or a cluster."""
+    return _flat.swap_words(x, spec)
 
 
 # LabVIEW's 3 byte-order codes -> Python's from_bytes/to_bytes literal.
 _BYTE_ORDER: dict[int, Literal["little", "big"]] = {
-    0: "big", 1: _sys.byteorder, 2: "little"
+    0: "big",
+    1: _sys.byteorder,
+    2: "little",
 }
 
 
 def unflatten_from_string(
-    binary_string, dst: str, byte_order: int = 0, includes_size: bool = True
+    binary_string, dst, byte_order: int = 0, includes_size: bool = True
 ):
     """LabVIEW Unflatten From String: parse ``binary_string`` (LabVIEW's
     Flatten To String format) as ``dst``'s type, returning
     ``(value, rest_of_the_binary_string)``. Unlike Type Cast, a String/array
     target carries a 4-byte length PREFIX when ``includes_size`` is True (the
-    default — matching Flatten To String's own output format), and
+    default -- matching Flatten To String's own output format), and
     ``byte_order`` selects big-endian/native/little-endian (LabVIEW's 0/1/2).
-    Supported specs: 'str', scalar ints, and 1-D integer arrays (same set Type
-    Cast supports); other type pairs raise NotImplementedError (loud, never
-    silently wrong -- clusters/refnums/floats await a fuller flat-format
-    implementation, same as Type Cast)."""
-    order = _BYTE_ORDER[byte_order]
+    The type specs are those of ``lvkit.runtime.flat``; other specs raise
+    NotImplementedError (loud, never silently wrong)."""
     data = (
         binary_string.encode("latin-1")
         if isinstance(binary_string, str)
         else bytes(binary_string)
     )
-    if dst == "str":
-        if includes_size:
-            n = int.from_bytes(data[:4], order)
-            value, rest = data[4 : 4 + n], data[4 + n :]
-        else:
-            value, rest = data, b""
-        return value.decode("latin-1"), rest.decode("latin-1")
-    if dst in _INT_SPEC:
-        width, signed = _INT_SPEC[dst]
-        value = int.from_bytes(data[:width], order, signed=signed)
-        return value, data[width:].decode("latin-1")
-    if dst.endswith("[]") and dst[:-2] in _INT_SPEC:
-        width, signed = _INT_SPEC[dst[:-2]]
-        if includes_size:
-            count = int.from_bytes(data[:4], order)
-            body, rest = data[4 : 4 + count * width], data[4 + count * width :]
-        else:
-            body, rest = data, b""
-        value = [
-            int.from_bytes(body[i : i + width], order, signed=signed)
-            for i in range(0, len(body) - len(body) % width, width)
-        ]
-        return value, rest.decode("latin-1")
-    raise NotImplementedError(f"Unflatten From String cannot unflatten spec {dst!r}")
+    value, end = _flat.unflatten_at(
+        data, 0, dst, _BYTE_ORDER[byte_order], includes_size
+    )
+    return value, data[end:].decode("latin-1")
 
 
 def replace_fields(
@@ -591,8 +608,9 @@ class DefaultReference:
     NI documents the default for the Application class (the current
     application instance) and the VI class (the VI containing the node). The
     object names its class and the VI that owns the node. A property that was
-    written can be read back; any other property or method raises
-    ``UnavailableReferenceMember`` naming the class and the member.
+    written can be read back, and a property that NI documents a value for
+    (``default_properties``) reads that value; any other property or method
+    raises ``UnavailableReferenceMember`` naming the class and the member.
     """
 
     def __init__(self, class_name: str, owner: str):
@@ -600,6 +618,9 @@ class DefaultReference:
         self.__dict__["owner"] = owner
 
     def __getattr__(self, name: str):
+        documented = _DEFAULT_PROPERTIES.get(self.class_name, {}).get(name)
+        if documented is not None:
+            return documented.read()
         raise UnavailableReferenceMember(
             f"default {self.class_name} reference of {self.owner!r} has no"
             f" value for {name!r}"

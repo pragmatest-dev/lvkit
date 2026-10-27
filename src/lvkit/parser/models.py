@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import IntEnum
+from enum import Enum, IntEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..models import ClusterField, DisableStructureKind, EventFrame, LVType, Tunnel
+from ..dotnet_types import DotNetAssembly, DotNetType
+from ..models import (
+    ClusterField,
+    DisableStructureKind,
+    EventFrame,
+    LVType,
+    Tunnel,
+    UnwritableValue,
+)
 from .layout import ClusterGeom
-from .link_table import SharedVariableLink, SharedVariableRecordFailure
+from .link_table import (
+    DotNetAssemblyRecordFailure,
+    SharedVariableLink,
+    SharedVariableRecordFailure,
+)
 
 if TYPE_CHECKING:
     from .layout import Layout
@@ -31,14 +43,18 @@ class ParsedType:
     type_name: str  # "Path", "Cluster", "NumInt32"
     typedef_path: str | None = None
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
+    typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
+    class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
     enum_values: dict | None = None  # {name: EnumValue} from VCTP
     element_type: ParsedType | None = None  # Array element type (recursive)
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
+    dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
+    unreadable: str | None = None  # Why the type's descriptor could not be read
 
 
 @dataclass
@@ -120,6 +136,9 @@ class ParsedTerminalInfo:
     # that name the same DCO are one value (an In Place Element structure's
     # In/Out Element port and its border node's cluster/array/index terminal).
     dco_uid: str | None = None
+    # Why the .NET type a .NET node's terminal passes could not be read, when the
+    # VI records a name that does not decode.
+    dotnet_type_unreadable: str | None = None
 
 
 class ParsedWiringRule(IntEnum):
@@ -185,7 +204,7 @@ class ParsedLoopStructure:
     bg_color: str | None = None
 
 
-from ..models import CaseFrame, SequenceFrame  # noqa: E402
+from ..models import CaseFrame, SequenceFrame, SequenceLocal  # noqa: E402
 
 
 @dataclass
@@ -234,13 +253,24 @@ class SelectorTable:
         return bool(self.strings)
 
 
+class SelectorKind(str, Enum):
+    """What a case structure's selector terminal carries, as far as framing its
+    values goes."""
+
+    BOOLEAN = "boolean"
+    INTEGER = "integer"
+    STRING = "string"
+    ENUM = "enum"
+    ERROR = "error"
+
+
 @dataclass
 class ParsedCaseStructure:
     """A case structure on the block diagram."""
 
     uid: str
     selector_terminal_uid: str | None = None
-    selector_type: str | None = None
+    selector_type: SelectorKind | None = None
     frames: list[CaseFrame] = field(default_factory=list)
     tunnels: list[Tunnel] = field(default_factory=list)
     # VCTP index of the caseSel selector-value type (``typeDesc TypeID(N)``).
@@ -309,6 +339,8 @@ class ParsedFlatSequenceStructure:
     uid: str
     tunnels: list[Tunnel] = field(default_factory=list)
     frames: list[SequenceFrame] = field(default_factory=list)
+    # Sequence locals, in heap list order (``seqLocDCOList``).
+    sequence_locals: list[SequenceLocal] = field(default_factory=list)
     # Frame LabVIEW last displayed (heap ``dIdx``, range-checked). Only a
     # STACKED sequence stacks its frames, so this is None for a flat sequence
     # (which shows every frame) and None when ``dIdx`` is an out-of-range
@@ -557,6 +589,13 @@ class ParsedFPControl:
     # None for an unresolved control or a VI whose VCTP was unreadable.
     lv_type: LVType | None = None
     default_value: str | None = None
+    # Set when ``default_value`` shows an array (itself, or inside a cluster) whose
+    # values were not kept because it is too large.
+    unwritable: UnwritableValue | None = None
+    # The stored bytes of ``default_value``, kept only when ``lv_type`` holds a
+    # class instance: a class's private data is decoded once the class is loaded,
+    # which happens after this parse (see ``graph.core._enrich_type``).
+    default_raw: bytes | None = None
     # A developer-set CAPTION (partID 82, see extract_caption) -- a display-
     # only alias, distinct from `name` (the LABEL, partID 16). Most controls
     # have none: a caption is something a developer sets deliberately, for a
@@ -694,6 +733,15 @@ class ParsedVIMetadata:
     # the VI's block-diagram link table; ``iuse_to_qualified_name`` is this map's
     # qualified names.
     iuse_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # ``dynLink`` uid of every dynamic-dispatch call -> the class method its
+    # ``DyOM`` record names and the path it records.
+    dyn_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    # Heap uid of every node that calls the VI itself (a recursive call), from the
+    # link-table record that names no VI.
+    self_call_uids: list[str] = field(default_factory=list)
+    # Heap uid of every polymorphic call -> the polymorphic VI its ``PUPV`` record
+    # names; ``iuse_refs`` holds, for the same uid, the variant it resolves to.
+    poly_refs: dict[str, ParsedDependencyRef] = field(default_factory=dict)
     # Heap uid of every Shared Variable node -> the ``HpVL`` record of the
     # variable it reads or writes (library, kind, persistent ID), from the same
     # link table. A node whose variable has no record read here is absent.
@@ -701,6 +749,12 @@ class ParsedVIMetadata:
     # Every ``HpVL`` record that could not be decoded. A Shared Variable node
     # none of the decoded records lists has no library; these say why.
     shared_variable_failures: list[SharedVariableRecordFailure] = field(
+        default_factory=list
+    )
+    # The .NET assemblies the VI's ``DNVA`` / ``DNDA`` link records name, sorted,
+    # and the records that could not be decoded.
+    dotnet_assemblies: list[DotNetAssembly] = field(default_factory=list)
+    dotnet_assembly_failures: list[DotNetAssemblyRecordFailure] = field(
         default_factory=list
     )
     dependency_refs: list[ParsedDependencyRef] = field(
@@ -720,6 +774,11 @@ class ParsedVIMetadata:
     # instead of a name-search (path-driven closure, web == desktop). SEPARATE
     # from ``dependency_refs`` so it never adds a dep, only supplies a path.
     link_path_refs: list[ParsedDependencyRef] = field(default_factory=list)
+    # The sidecar files of the VI's ``VINS`` block, in section order: section 0
+    # (the list of embedded instance names), then one file per embedded instance
+    # (the private VI file LabVIEW saves for each call of a malleable VI). Empty
+    # when the VI has no ``VINS`` block. See ``lvkit.embedded_instances``.
+    instance_files: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -847,3 +906,9 @@ class ParsedVI:
     # parse_vi(..., layout=True) — the geometry half of the parse. None for
     # codegen, which needs no positions and pays nothing. See parser/layout.py.
     layout: Layout | None = None
+    # Connector-pane slot index -> wiring rule (``ParsedWiringRule`` value),
+    # read from the main XML; empty without a connected connector pane.
+    wiring_rules: dict[int, int] = field(default_factory=dict)
+    # ``parse_vi_metadata``'s result for the main XML (polymorphic info, library
+    # membership, VI Properties); None when the VI has no main XML.
+    file_metadata: dict[str, Any] | None = None

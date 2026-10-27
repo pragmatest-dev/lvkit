@@ -37,18 +37,12 @@ from lvkit.parser.vi import (
 
 def test_class_refnum_value_decodes_to_class_name_not_handle():
     """A CLASS/LVObject refnum's DataFill decodes to its CLASS NAME (from the
-    resolved type), never the opaque handle. The on-disk value is a class-name
-    descriptor: ``[4-byte class-count N][ N x [1-byte block-len][1-byte name-len]
-    [name] ]`` — for a nested ``lib:class`` the block holds BOTH length-prefixed
-    strings (block-len is self-inclusive). We consume the WHOLE descriptor so a
-    following cluster field stays aligned: the old fixed-4-byte read left the
-    name bytes in place, which a later array field misread as a huge length (a
-    290M-element decode runaway). A PLAIN typed refnum (no classname) keeps its
-    ``Refnum(<handle>)`` token.
-
-    NOTE: the class's default-OBJECT data (its member instance) can follow the
-    descriptor and is class-dependent; that trailing region is not yet consumed
-    (see TASKS: class-refnum value under-consumed)."""
+    resolved type), never the opaque handle, and consumes the whole flattened
+    object (level, class name section, version list, private data -- see
+    ``read_class_object``) so a following cluster field stays aligned. This
+    value is a one-level object at version 0, the class's default data, so it
+    ends after the version list. A PLAIN typed refnum (no classname) keeps its
+    ``Refnum(<handle>)`` token."""
     from lvkit.models import LVType, LVTypeKind
 
     cls = LVType(
@@ -56,6 +50,7 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
         underlying_type="Refnum",
         ref_type="UDClassInst",
         classname="MeasurementLink Measurement Server.lvlib:MeasurementContext.lvclass",
+        class_file="MeasurementContext.lvclass",
     )
     raw = bytes.fromhex(
         "0000000145284d6561737572656d656e744c696e6b204d6561737572656d656e74"
@@ -65,8 +60,9 @@ def test_class_refnum_value_decodes_to_class_name_not_handle():
     val, size, _structured = _decode_element(raw, cls)
     assert val == "MeasurementContext.lvclass"
     assert "Refnum(" not in val
-    # count(4) + self-inclusive block(0x45=69) = the whole name descriptor.
-    assert size == 73
+    # level(4) + name section (length byte + 69 bytes, padded to 72) + 8-byte
+    # version list = every stored byte.
+    assert size == len(raw) == 84
 
     # A generic refnum (no classname) keeps the handle token.
     gen = LVType(
@@ -2318,7 +2314,7 @@ class TestRealVIParsing:
         assert target is not None, "GTR's SMUI cluster constant not found"
 
         raw_uid = target.id.rsplit("::", 1)[-1]
-        _, decoded, _ = decode_constant(
+        _, decoded, _, _ = decode_constant(
             ParsedConstant(uid=raw_uid, type_desc="", value=target.raw_value),
             lv_type=target.lv_type,
         )
@@ -2357,11 +2353,14 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     classes the generic sweep exists to catch), reached instead via
     _extract_nodes's `_is_generic_operation_node` sweep (has class+bounds+
     termList, not in any allowlist) -- confirmed end to end against real
-    corpus FPGA VIs, not just by this handler's registration."""
+    corpus FPGA VIs, not just by this handler's registration.
+
+    "extFunc" (a Call Library Function Node) is reached the same way; its
+    handler only supplies the display name."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode"}
+    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode", "extFunc"}
     unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "

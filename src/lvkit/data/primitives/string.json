@@ -150,12 +150,12 @@
         }
       ],
       "python_code": {
-        "_import": "import re",
-        "_body": "_m = re.search(in_1, in_0[in_2:])",
-        "before_substring": "in_0[in_2:][:_m.start()] if _m else in_0[in_2:]",
-        "match_substring": "_m.group() if _m else ''",
-        "after_substring": "in_0[in_2:][_m.end():] if _m else ''",
-        "offset_past_match": "(in_2 + _m.end()) if _m else -1"
+        "_import": "from lvkit.runtime.match_pattern import match_pattern as _match_pattern",
+        "_body": "_m = _match_pattern(in_0, in_1, in_2)",
+        "before_substring": "_m[0]",
+        "match_substring": "_m[1]",
+        "after_substring": "_m[2]",
+        "offset_past_match": "_m[3]"
       },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"
@@ -427,7 +427,7 @@
         {
           "index": 2,
           "direction": "in",
-          "name": "case sensitive?",
+          "name": "ignore case?",
           "type": "Boolean"
         },
         {
@@ -450,37 +450,37 @@
           "type": "String"
         },
         {
-          "index": 6,
+          "index": 7,
           "direction": "in",
           "name": "replace string",
           "type": "String"
         },
         {
-          "index": 7,
+          "index": 8,
           "direction": "out",
           "name": "number of replacements",
           "type": "NumInt32"
         },
         {
-          "index": 8,
+          "index": 9,
           "direction": "in",
           "name": "offset",
           "type": "NumInt32"
         },
         {
-          "index": 9,
+          "index": 10,
           "direction": "out",
           "name": "offset past replacement",
           "type": "NumInt32"
         },
         {
-          "index": 10,
+          "index": 11,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 11,
+          "index": 15,
           "direction": "out",
           "name": "error out",
           "type": "ErrorCluster"

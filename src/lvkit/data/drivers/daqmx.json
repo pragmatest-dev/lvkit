@@ -10,14 +10,14 @@
         {
           "name": "task name",
           "index": 1,
-          "direction": "input",
+          "direction": "in",
           "type": "String",
           "python_param": "task_name"
         },
         {
           "name": "task out",
           "index": 4,
-          "direction": "output",
+          "direction": "out",
           "type": "Refnum",
           "python_param": "task_out"
         }
@@ -44,14 +44,14 @@
         {
           "name": "task in",
           "index": 0,
-          "direction": "input",
+          "direction": "in",
           "type": "Refnum",
           "python_param": "task_in"
         },
         {
           "name": "task out",
           "index": 4,
-          "direction": "output",
+          "direction": "out",
           "type": "Refnum",
           "python_param": "task_out"
         }
@@ -78,14 +78,14 @@
         {
           "name": "task in",
           "index": 0,
-          "direction": "input",
+          "direction": "in",
           "type": "Refnum",
           "python_param": "task_in"
         },
         {
           "name": "task out",
           "index": 4,
-          "direction": "output",
+          "direction": "out",
           "type": "Refnum",
           "python_param": "task_out"
         }
@@ -116,13 +116,13 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -139,7 +139,7 @@
         {
           "name": "task in",
           "index": 0,
-          "direction": "input",
+          "direction": "in",
           "type": "Refnum",
           "python_param": "task_in"
         }
@@ -167,18 +167,18 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "timeout (s)",
-          "direction": "input",
+          "direction": "in",
           "python_param": "timeout"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -199,25 +199,25 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 15
         }
@@ -234,25 +234,25 @@
         {
           "name": "task in",
           "index": 0,
-          "direction": "input",
+          "direction": "in",
           "type": "Refnum",
           "python_param": "task_in"
         },
         {
           "name": "number of samples per channel",
           "index": 11,
-          "direction": "input",
+          "direction": "in",
           "type": "Cluster",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -282,23 +282,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -321,23 +321,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -360,23 +360,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -399,23 +399,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -438,38 +438,38 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data",
           "index": 6
         },
         {
           "name": "timeout",
-          "direction": "input",
+          "direction": "in",
           "python_param": "timeout",
           "index": 9,
           "type": "NumFloat64"
         },
         {
           "name": "error in",
-          "direction": "input",
+          "direction": "in",
           "index": 11,
           "type": "Cluster"
         },
         {
           "name": "error out",
-          "direction": "output",
+          "direction": "out",
           "index": 15,
           "type": "Cluster"
         }
@@ -494,23 +494,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -533,23 +533,23 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "number of samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "num_samps"
         },
         {
           "name": "data",
-          "direction": "output",
+          "direction": "out",
           "python_param": "data"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -568,21 +568,21 @@
         {
           "name": "task in",
           "index": 0,
-          "direction": "input",
+          "direction": "in",
           "type": "Refnum",
           "python_param": "task_in"
         },
         {
           "name": "data",
           "index": 7,
-          "direction": "input",
+          "direction": "in",
           "type": "Boolean",
           "python_param": "data"
         },
         {
           "name": "task out",
           "index": 4,
-          "direction": "output",
+          "direction": "out",
           "type": "Refnum",
           "python_param": "task_out"
         }
@@ -613,19 +613,19 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data",
           "index": 7
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -649,19 +649,19 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data",
           "index": 7
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -685,19 +685,19 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data",
           "index": 7
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -721,53 +721,53 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "auto start",
-          "direction": "input",
+          "direction": "in",
           "python_param": "auto_start",
           "index": 1,
           "type": "Boolean"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data",
           "index": 7,
           "type": "Boolean"
         },
         {
           "name": "timeout",
-          "direction": "input",
+          "direction": "in",
           "python_param": "timeout",
           "index": 9,
           "type": "NumFloat64"
         },
         {
           "name": "number of samples written",
-          "direction": "output",
+          "direction": "out",
           "python_param": "samples_written",
           "index": 10,
           "type": "NumUInt32"
         },
         {
           "name": "error in",
-          "direction": "input",
+          "direction": "in",
           "index": 11,
           "type": "Cluster"
         },
         {
           "name": "error out",
-          "direction": "output",
+          "direction": "out",
           "index": 15,
           "type": "Cluster"
         }
@@ -792,19 +792,19 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "data",
-          "direction": "input",
+          "direction": "in",
           "python_param": "data",
           "index": 7
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -828,29 +828,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -878,29 +878,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -929,29 +929,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -979,29 +979,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1029,29 +1029,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1079,29 +1079,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1129,29 +1129,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1179,29 +1179,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1225,29 +1225,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1275,29 +1275,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1325,29 +1325,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1371,29 +1371,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1421,29 +1421,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1467,29 +1467,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1517,19 +1517,19 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1557,29 +1557,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1607,29 +1607,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1657,19 +1657,19 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1698,25 +1698,25 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         },
         {
           "name": "line grouping",
-          "direction": "input",
+          "direction": "in",
           "python_param": "line_grouping",
           "index": 9,
           "type": "NumInt32",
@@ -1724,13 +1724,13 @@
         },
         {
           "name": "error in",
-          "direction": "input",
+          "direction": "in",
           "index": 11,
           "type": "Cluster"
         },
         {
           "name": "error out",
-          "direction": "output",
+          "direction": "out",
           "index": 15,
           "type": "Cluster"
         }
@@ -1758,19 +1758,19 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1795,25 +1795,25 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         },
         {
           "name": "line grouping",
-          "direction": "input",
+          "direction": "in",
           "python_param": "line_grouping",
           "index": 9,
           "type": "NumInt32",
@@ -1821,13 +1821,13 @@
         },
         {
           "name": "error in",
-          "direction": "input",
+          "direction": "in",
           "index": 11,
           "type": "Cluster"
         },
         {
           "name": "error out",
-          "direction": "output",
+          "direction": "out",
           "index": 15,
           "type": "Cluster"
         }
@@ -1855,19 +1855,19 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1891,19 +1891,19 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1931,29 +1931,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -1981,29 +1981,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2031,29 +2031,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2081,29 +2081,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "minimum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "min_val"
         },
         {
           "name": "maximum value",
-          "direction": "input",
+          "direction": "in",
           "python_param": "max_val"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2131,29 +2131,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "frequency",
-          "direction": "input",
+          "direction": "in",
           "python_param": "freq"
         },
         {
           "name": "duty cycle",
-          "direction": "input",
+          "direction": "in",
           "python_param": "duty_cycle"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2181,29 +2181,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "high time",
-          "direction": "input",
+          "direction": "in",
           "python_param": "high_time"
         },
         {
           "name": "low time",
-          "direction": "input",
+          "direction": "in",
           "python_param": "low_time"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2231,29 +2231,29 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "physical channels",
-          "direction": "input",
+          "direction": "in",
           "python_param": "physical_channel",
           "index": 5
         },
         {
           "name": "high ticks",
-          "direction": "input",
+          "direction": "in",
           "python_param": "high_ticks"
         },
         {
           "name": "low ticks",
-          "direction": "input",
+          "direction": "in",
           "python_param": "low_ticks"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2281,28 +2281,28 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "rate",
-          "direction": "input",
+          "direction": "in",
           "python_param": "rate"
         },
         {
           "name": "sample mode",
-          "direction": "input",
+          "direction": "in",
           "python_param": "sample_mode"
         },
         {
           "name": "samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "samps_per_chan"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2325,23 +2325,23 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "sample mode",
-          "direction": "input",
+          "direction": "in",
           "python_param": "sample_mode"
         },
         {
           "name": "samples per channel",
-          "direction": "input",
+          "direction": "in",
           "python_param": "samps_per_chan"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2364,18 +2364,18 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2398,23 +2398,23 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "level",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_level"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2437,28 +2437,28 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "window top",
-          "direction": "input",
+          "direction": "in",
           "python_param": "window_top"
         },
         {
           "name": "window bottom",
-          "direction": "input",
+          "direction": "in",
           "python_param": "window_bottom"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2481,23 +2481,23 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "pattern",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_pattern"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2520,13 +2520,13 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2549,23 +2549,23 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "pretrigger samples",
-          "direction": "input",
+          "direction": "in",
           "python_param": "pretrigger_samples"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2585,28 +2585,28 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "source",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_source"
         },
         {
           "name": "pretrigger samples",
-          "direction": "input",
+          "direction": "in",
           "python_param": "pretrigger_samples"
         },
         {
           "name": "level",
-          "direction": "input",
+          "direction": "in",
           "python_param": "trigger_level"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2626,13 +2626,13 @@
       "terminals": [
         {
           "name": "task/channels in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out"
         }
       ],
@@ -2652,18 +2652,18 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "buffer size",
-          "direction": "input",
+          "direction": "in",
           "python_param": "buffer_size"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }
@@ -2684,18 +2684,18 @@
       "terminals": [
         {
           "name": "task in",
-          "direction": "input",
+          "direction": "in",
           "python_param": "task_in",
           "index": 0
         },
         {
           "name": "buffer size",
-          "direction": "input",
+          "direction": "in",
           "python_param": "buffer_size"
         },
         {
           "name": "task out",
-          "direction": "output",
+          "direction": "out",
           "python_param": "task_out",
           "index": 4
         }

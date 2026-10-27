@@ -508,32 +508,32 @@
           "type": "Boolean"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "out",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
-          "index": 3,
+          "index": 7,
           "direction": "in",
           "name": "prompt (Choose or enter file path)",
           "type": "String"
         },
         {
-          "index": 4,
+          "index": 8,
           "direction": "in",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
-          "index": 5,
+          "index": 10,
           "direction": "in",
           "name": "text",
           "type": "String"
         },
         {
-          "index": 6,
+          "index": 11,
           "direction": "in",
           "name": "file (use dialog)",
           "type": "Path"

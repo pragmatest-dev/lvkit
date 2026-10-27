@@ -50,7 +50,6 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.graph import load_vi_by_path
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import (
     LvnetParseError,
@@ -71,7 +70,7 @@ from lvkit.graph.render_lvnet import (
     lvnet_literal_token,
     render_lvnet,
 )
-from lvkit.load_mode import LoadMode
+from tests.corpus_graphs import load_corpus_vi
 
 _JKI_SOURCE_ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
 _FLEX_ROOT = Path(".lvkit/cache/samples/lv-flex-channel-examples")
@@ -139,6 +138,7 @@ _ROUND_TRIP_CASES = [
         _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
         _ICON_EDITOR_ROOT,
         id="lv_icon_global_variables",
+        marks=pytest.mark.xdist_group("lv_icon.vi"),
     ),
     pytest.param(
         _ICON_EDITOR_ROOT
@@ -171,6 +171,68 @@ _ROUND_TRIP_CASES = [
         _DCAF_ROOT,
         id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
+    # Case frame headers: an empty-string frame, several strings per frame, a
+    # frame that matches values AND is the default, multi-value integer and
+    # enum frames, open integer ranges, and control characters in a string
+    # frame.
+    pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "Tree_Control_VIs" / "Item Indent.vi",
+        _JKI_SOURCE_ROOT,
+        id="Item_Indent_empty_string_frame",
+    ),
+    pytest.param(
+        _JKI_SOURCE_ROOT / "Utilities" / "Expand Pathroot.vi",
+        _JKI_SOURCE_ROOT,
+        id="Expand_Pathroot_multi_string_frames",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Miscellaneous"
+        / "Key Down Up"
+        / "KeyDown.vi",
+        _ICON_EDITOR_ROOT,
+        id="KeyDown_multi_value_and_control_char_frames",
+    ),
+    pytest.param(
+        _ICON_EDITOR_ROOT
+        / "resource"
+        / "plugins"
+        / "NIIconEditor"
+        / "Miscellaneous"
+        / "Write Error to File.vi",
+        _ICON_EDITOR_ROOT,
+        id="Write_Error_to_File_integer_default_frames",
+    ),
+    pytest.param(
+        Path(".lvkit/cache/samples/JKI-EasyXML")
+        / "Source"
+        / "Fast Parser"
+        / "Link XML Start Tags with End Tags.vi",
+        Path(".lvkit/cache/samples/JKI-EasyXML"),
+        id="Link_XML_Start_Tags_open_range_frames",
+    ),
+    pytest.param(
+        _MEASUREMENT_PLUGIN_ROOT
+        / "Source"
+        / "Tests"
+        / "Tests.Runtime"
+        / "Measurement Server"
+        / "Helpers"
+        / "Write Environment Variable.vi",
+        _MEASUREMENT_PLUGIN_ROOT,
+        id="Write_Environment_Variable_call_library_function_node",
+    ),
+    pytest.param(
+        Path(".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib/_OpenG.lib")
+        / "largefile"
+        / "largefile.llb"
+        / "LF Write File (SGL)__ogtk.vi",
+        Path(".lvkit/cache/samples/OpenG/extracted"),
+        id="LF_Write_File_SGL_call_library_function_node",
+    ),
 ]
 
 
@@ -181,9 +243,7 @@ def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | Non
         # load_vi_by_path returns load_vi's OWN key for vi_path -- never
         # re-derived from vi_path.name, which collides across same-named
         # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
-        return load_vi_by_path(
-            vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
-        )
+        return load_corpus_vi(vi_path, search_root)
     except Exception:
         return None
 
@@ -326,9 +386,9 @@ _AMBIGUOUS_TYPE_CASES = [
         / "Tests"
         / "Tests.Runtime"
         / "Measurement Server"
-        / "Reserve Sessions"
-        / "test_CallReserveSessionsWithEmptyPin_ErrorReturned.vi",
-        id="Data_names_two_structures",
+        / "Discovery"
+        / "test_ResolveService_UpdateClusterId_ResolveServiceWorksWithoutError.vi",
+        id="Discovery_test_names_two_structures",
     ),
     pytest.param(
         _MEASUREMENT_PLUGIN_ROOT

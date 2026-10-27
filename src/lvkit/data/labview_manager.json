@@ -1,0 +1,29 @@
+{
+  "_comment": "LabVIEW's own library functions that Call Library Function Nodes call by the library name LabVIEW (NI: \"LabVIEW Manager Functions\"). Each has a Python equivalent in lvkit.runtime.lv_manager, called with the input value of every parameter row (the return value excluded) and returning the return value followed by each parameter's value after the call. `parameters` are NI's names, in call order.",
+  "functions": {
+    "FNewRefNum": {
+      "python": "_lv_manager.new_ref_num",
+      "import": "from lvkit.runtime import lv_manager as _lv_manager",
+      "parameters": ["path", "fd", "refNumPtr"],
+      "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fnewrefnum.html"
+    },
+    "FRefNumToFD": {
+      "python": "_lv_manager.ref_num_to_fd",
+      "import": "from lvkit.runtime import lv_manager as _lv_manager",
+      "parameters": ["refNum", "fdp"],
+      "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/frefnumtofd.html"
+    },
+    "FGetInfo": {
+      "python": "_lv_manager.get_info",
+      "import": "from lvkit.runtime import lv_manager as _lv_manager",
+      "parameters": ["path", "infop"],
+      "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fgetinfo.html"
+    },
+    "FSetInfo": {
+      "python": "_lv_manager.set_info",
+      "import": "from lvkit.runtime import lv_manager as _lv_manager",
+      "parameters": ["path", "infop"],
+      "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fsetinfo.html"
+    }
+  }
+}

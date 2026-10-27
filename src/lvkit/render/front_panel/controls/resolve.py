@@ -10,6 +10,7 @@ own field/element glyphs.
 
 from __future__ import annotations
 
+from ....models import leading_element
 from ....parser.models import ParsedFPControl, ParsedFPPart
 from ...glyph import ClusterConstantGlyph, Glyph
 from ...style import Theme
@@ -46,9 +47,7 @@ def _cluster(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     return _cluster_glyph(ctrl, fields)
 
 
-def _element(
-    ctrl: ParsedFPControl, theme: Theme, value: object = None
-) -> Glyph | None:
+def _element(ctrl: ParsedFPControl, theme: Theme, value: object = None) -> Glyph | None:
     """The array's ELEMENT type's own glyph -- at ``value`` (that element's
     saved value) when given, else at the real representative-row value the
     heap carries (``ctrl.element_default_value`` / each ``ctrl.children``
@@ -90,7 +89,7 @@ def _array(ctrl: ParsedFPControl, theme: Theme) -> Glyph | None:
     rows = tuple(
         glyph
         for value in ctrl.element_values
-        if (glyph := _element(ctrl, theme, value)) is not None
+        if (glyph := _element(ctrl, theme, leading_element(value))) is not None
     )
     return array_control(ctrl, _element(ctrl, theme), rows)
 

@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 WORKER_FLAG = "--_worker"
+VI_SUFFIXES = (".vi", ".vim", ".vit")
 
 
 def _worker(paths: list[str], force: bool) -> int:
@@ -67,7 +68,11 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    vis = sorted(Path(args.root).rglob("*.vi"))
+    vis = sorted(
+        p
+        for p in Path(args.root).rglob("*")
+        if p.is_file() and p.suffix in VI_SUFFIXES
+    )
     print(
         f"{len(vis)} VIs under {args.root} -> .lvkit/cache/extracted/ "
         f"(batch={args.batch}, {'force' if args.force else 'resume'})",

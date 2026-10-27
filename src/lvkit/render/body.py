@@ -12,6 +12,7 @@ from . import ThemeMode, render_vi_body
 from . import render_vi_body_with_name as _render_vi_body_with_name
 from .ctl import render_ctl_body
 from .ctl import render_ctl_body_with_name as _render_ctl_body_with_name
+from .rendered import RenderedBody
 
 
 def render_body(
@@ -54,7 +55,7 @@ def render_body_with_name(
     mode: LoadMode = LoadMode.MINIMAL,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
-) -> tuple[str, str] | None:
+) -> RenderedBody | None:
     """Like :func:`render_body`, but also returns the rendered VI/control's own
     name (qualified for a VI, the typedef name for a ``.ctl``) — ALREADY
     resolved internally regardless of ``fmt``, so this costs nothing beyond

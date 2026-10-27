@@ -10,15 +10,41 @@ Architecture:
 from __future__ import annotations
 
 import logging
+import math
 import re
 import struct
 import warnings
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass, replace
+from fractions import Fraction
 from pathlib import Path
+from typing import Any
 
+from lvkit.dotnet_types import DotNetType, DotNetTypeError
 from lvkit.extractor import extract_vi_xml
-from lvkit.models import LVType, LVTypeKind
+from lvkit.lv_type_codes import (
+    FLOAT_BYTE_WIDTHS,
+    INTEGER_BYTE_WIDTHS,
+    SIGNED_INTEGER_TYPE_NAMES,
+    TD_FULL_TYPE,
+    is_float_type_name,
+    is_integer_type_name,
+    plain_number_name,
+)
+from lvkit.measure_data import TIMESTAMP_FLAVOR, measure_data_value_type
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValuesNotKept,
+    contains_class_instance,
+    find_unwritable,
+    leading_element,
+    unique_names,
+)
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -32,7 +58,15 @@ from .constants import (
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
 )
-from .flags import is_indicator, is_inverted_terminal, is_output_terminal
+from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
+from .extfunc_resolve import resolve_ext_func_calls
+from .flags import (
+    is_indicator,
+    is_inverted_terminal,
+    is_method_row_input,
+    is_output_terminal,
+)
+from .flat_type import descriptor_type, read_descriptors, read_var_size
 from .fp_heap_type import (
     _direct_fields,
     _wrapped_control,
@@ -44,6 +78,7 @@ from .front_panel import (
     extract_fp_terminals,
     parse_connector_pane,
     parse_connector_pane_labels,
+    parse_connector_pane_types,
 )
 from .image_resources import resource_sections, resources_for_heap
 from .layout import (
@@ -54,17 +89,28 @@ from .layout import (
     build_layout_from_root,
 )
 from .link_table import (
+    DotNetAssemblyLink,
+    DotNetAssemblyRecordFailure,
+    DotNetAssemblyRecordKind,
+    DotNetAssemblyTable,
+    DynamicDispatchLink,
     IUseLink,
+    LinkTableError,
     LinkTableVersion,
     SharedVariableLink,
     SharedVariableTable,
+    decode_dotnet_assemblies,
+    dotnet_assembly_from_name_parts,
     qualified_link_name,
+    read_dyn_links,
     read_iuse_links,
     read_shared_variable_links,
 )
 from .metadata import (
     _decode_pth0_components,
+    parse_instance_files,
     parse_link_path_refs,
+    parse_vi_metadata,
     parse_vipi_from_livi,
 )
 from .models import (
@@ -108,6 +154,7 @@ from .utils import (
     safe_int,
     strip_surrounding_quotes,
 )
+from .xml_trees import parsed_xml, xml_scope
 
 # A single corrupt VI can export a front-panel heap that balloons past 1 GB (a
 # bad LVVariant DataFill); parsing that into an ElementTree can OOM the host.
@@ -146,6 +193,7 @@ def _load_node_dco_maps() -> dict[str, dict[str, int]]:
 _NODE_DCO_MAP: dict[str, dict[str, int]] = _load_node_dco_maps()
 
 
+@xml_scope()
 def parse_vi(
     vi_path: Path | str | None = None,
     *,
@@ -277,12 +325,22 @@ def parse_vi(
             unresolved_uids,
         )
 
+    # Both read the main XML this scope already holds.
+    main_path = Path(main_xml) if main_xml is not None else None
+    wiring_rules: dict[int, int] = {}
+    file_metadata = None
+    if main_path is not None and main_path.exists():
+        file_metadata = parse_vi_metadata(main_path)
+        if connector_pane:
+            wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(
         metadata=metadata,
         block_diagram=block_diagram,
         front_panel=front_panel,
         connector_pane=connector_pane,
         layout=bd_layout,
+        wiring_rules=wiring_rules,
+        file_metadata=file_metadata,
     )
 
 
@@ -298,8 +356,7 @@ def _parse_metadata(
     if not main_xml.exists():
         return ParsedVIMetadata(source_path=source_path)
 
-    main_tree = ET.parse(main_xml)
-    main_root = main_tree.getroot()
+    main_root = parsed_xml(main_xml)
 
     # Extract qualified name from LVIN or LVSR
     qualified_name: str | None = None
@@ -325,13 +382,17 @@ def _parse_metadata(
     # block-diagram link table only as the raw ``_LIbd.bin`` sidecar -- read
     # that instead.
     libd_links: list[IUseLink] = []
+    dyn_links: list[DynamicDispatchLink] = []
     shared_variable_table = SharedVariableTable(links=[], failures=[])
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
     version_elem = main_root.find(".//LVSR/Section/Version")
+    dotnet_table = _read_dotnet_assemblies(main_root, main_xml)
     if libd_bin.exists() and version_elem is not None:
         link_version = LinkTableVersion.from_lvsr(version_elem)
         if main_root.find(".//LIbd//BDHP/IUVI") is None:
             libd_links = read_iuse_links(libd_bin, link_version)
+        if main_root.find(".//LIbd//BDHP/DyOM") is None:
+            dyn_links = read_dyn_links(libd_bin, link_version)
         # pylabview has no decoder for the Shared Variable records, so they are
         # only ever in the sidecar.
         shared_variable_table = read_shared_variable_links(libd_bin, link_version)
@@ -340,7 +401,11 @@ def _parse_metadata(
         iuse_refs,
         dependency_refs,
     ) = _extract_subvi_info(
-        main_root, qualified_name, libd_links, shared_variable_table.links
+        main_root,
+        qualified_name,
+        libd_links,
+        shared_variable_table.links,
+        dyn_links,
     )
     iuse_to_qualified_name = {
         uid: ref.qualified_name for uid, ref in iuse_refs.items() if ref.qualified_name
@@ -382,15 +447,23 @@ def _parse_metadata(
         subvi_qualified_names=subvi_qualified_names,
         iuse_to_qualified_name=iuse_to_qualified_name,
         iuse_refs=iuse_refs,
+        self_call_uids=_extract_self_call_uids(main_root, libd_links),
+        dyn_refs=_extract_dyn_refs(
+            main_root, _caller_library(qualified_name), dyn_links
+        ),
+        poly_refs=_extract_poly_refs(main_root, _caller_library(qualified_name)),
         shared_variable_links={
             str(uid): link
             for link in shared_variable_table.links
             for uid in link.node_uids
         },
         shared_variable_failures=shared_variable_table.failures,
+        dotnet_assemblies=sorted({link.assembly for link in dotnet_table.links}),
+        dotnet_assembly_failures=dotnet_table.failures,
         dependency_refs=dependency_refs,
         subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
+        instance_files=parse_instance_files(main_root),
     )
 
 
@@ -406,7 +479,7 @@ def _parse_selector_tables(
     main_xml = Path(main_xml_path)
     if not main_xml.exists():
         return [], 0
-    root = ET.parse(main_xml).getroot()
+    root = parsed_xml(main_xml)
     tm80 = root.find("TM80/Section")
     shift = 0
     if tm80 is not None and (raw := tm80.get("IndexShift")) is not None:
@@ -433,12 +506,12 @@ def _parse_block_diagram(
     SAME parsed ``root`` (no second read) and return it alongside — the parser
     owning both semantics and positions from one pass.
     """
-    tree = ET.parse(bd_xml)
-    root = tree.getroot()
-    _inline_structure_tunnel_dcos(root)
+    root = parsed_xml(bd_xml)
+    _inline_dco_definitions(root)
 
     nodes = _extract_nodes(root)
     _resolve_bound_control_types(nodes, fp_xml)
+    resolve_ext_func_calls(nodes, main_xml, type_map)
     constants = extract_constants(root)
     labels = extract_free_labels(root)
     wires = _extract_wires(root)
@@ -519,8 +592,7 @@ def _parse_front_panel(
     if not fp_xml_path.exists():
         return ParsedFrontPanel(controls=[], panel_bounds=(0, 0, 400, 600))
 
-    tree = ET.parse(fp_xml_path)
-    root = tree.getroot()
+    root = parsed_xml(fp_xml_path)
 
     # Build indicator UIDs from block diagram for accurate is_indicator detection
     indicator_dco_uids: set[str] = set()
@@ -608,6 +680,12 @@ def _parse_front_panel(
         )
         if control:
             control.ddo_uid = ddo.get("uid")
+            if (
+                default_elem is not None
+                and default_elem.text
+                and contains_class_instance(lv_type)
+            ):
+                control.default_raw = decode_xml_entities_to_bytes(raw_data)
             controls.append(control)
 
     # The heap root's <ddoList> names every fPDCO in DCO-table order -- the
@@ -660,34 +738,56 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
-def _inline_structure_tunnel_dcos(root: ET.Element) -> None:
-    """Give a structure's border terminals their tunnel definition inline.
+# Direct children of a node or structure whose items define terminal DCOs.
+_DCO_LIST_TAGS = ("tunnelList", "dcoList")
 
-    A structure normally defines each tunnel as the ``<dco class=...>`` of its
-    border ``<term>``. A VI saved in the older form instead lists the tunnels in
-    the structure's own ``<tunnelList>`` and leaves each border ``<term>`` a bare
-    ``<dco uid=.../>`` back-reference. Replace such a back-reference with a
-    ``<dco>`` carrying the listed tunnel's class and content, so every reader of
-    the diagram sees one form."""
-    for structure in root.iter():
-        tunnel_list = structure.find("tunnelList")
-        term_list = structure.find("termList")
-        if tunnel_list is None or term_list is None:
+
+def _is_named_dco_definition(child: ET.Element) -> bool:
+    """Whether a direct child of a node is one DCO defined under its own tag
+    (``delDCO``, ``caseSelDCO``, ``dcoAgg`` ...), as opposed to the terminal
+    list or a list item (``SL__arrayElement``)."""
+    return (
+        child.tag not in ("termList", "SL__arrayElement")
+        and bool(child.get("uid"))
+        and bool(child.get("class"))
+    )
+
+
+def _inline_dco_definitions(root: ET.Element) -> None:
+    """Give a node's or structure's terminals their DCO definition inline.
+
+    A node normally defines each DCO (tunnel, case selector, by-name
+    Bundle/Unbundle aggregate, drawer, Delete From Array's array/length/index
+    ...) as the ``<dco class=...>`` of its ``<term>``. A VI saved in the older
+    form instead defines them on the node itself -- as direct children under
+    names such as ``delDCO``, ``srcDCO``, ``caseSelDCO`` or ``dcoAgg``, or as
+    items of its ``<tunnelList>`` / ``<dcoList>`` -- and leaves each ``<term>``
+    a bare ``<dco uid=.../>`` back-reference. Replace such a back-reference with
+    a ``<dco>`` carrying the definition's class and content (its flags, and so
+    the terminal's direction, its type), so every reader of the diagram sees one
+    form."""
+    for node in root.iter():
+        term_list = node.find("termList")
+        if term_list is None:
             continue
-        tunnels = {
-            t.get("uid"): t
-            for t in tunnel_list.findall("SL__arrayElement")
-            if t.get("uid") and t.get("class")
-        }
+        definitions: dict[str | None, ET.Element] = {}
+        for list_tag in _DCO_LIST_TAGS:
+            listed = node.find(list_tag)
+            if listed is not None:
+                for item in listed.findall("SL__arrayElement"):
+                    definitions[item.get("uid")] = item
+        for child in node:
+            if _is_named_dco_definition(child):
+                definitions[child.get("uid")] = child
         for term in term_list.findall("SL__arrayElement"):
             dco = term.find("dco")
             if dco is None or dco.get("class") is not None:
                 continue
-            tunnel = tunnels.get(dco.get("uid"))
-            if tunnel is None:
+            definition = definitions.get(dco.get("uid"))
+            if definition is None or not definition.get("class"):
                 continue
-            dco.set("class", tunnel.get("class", ""))
-            dco.extend(tunnel)
+            dco.set("class", definition.get("class", ""))
+            dco.extend(definition)
 
 
 def _iter_diagram_elements(root: ET.Element) -> Iterator[ET.Element]:
@@ -787,7 +887,7 @@ def _resolve_bound_control_types(
     fp_path = Path(fp_xml)
     if not fp_path.exists():
         return
-    fp_root = ET.parse(fp_path).getroot()
+    fp_root = parsed_xml(fp_path)
     for bound_node in bound:
         ddo = fp_root.find(f".//*[@uid='{bound_node.bound_control_uid}']")
         if ddo is not None:
@@ -872,6 +972,8 @@ def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
     - case/select tunnels (``selTun``/``csTun``/``caseSel``): pass-through --
       no nested inner dco; every face (outer + each frame's inner) shares the
       dco's own ``<typeDesc>``.
+    - sequence locals (``sLoc``): every frame's terminal shares the local's
+      ``<typeDesc>``.
     """
     inner_types: dict[str, str] = {}
     for dco in root.iter("dco"):
@@ -888,6 +990,14 @@ def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
             continue
         if type_desc is not None and type_desc.text:
             inner_types[uid] = type_desc.text
+    # A sequence local's terminals (one per frame, each a bare ``<dco uid=.../>``)
+    # take the type of the local's own ``<typeDesc>``.
+    for local in root.iter("SL__arrayElement"):
+        if local.get("class") != "sLoc":
+            continue
+        type_desc = local.find("typeDesc")
+        if local.get("uid") and type_desc is not None and type_desc.text:
+            inner_types[local.get("uid", "")] = type_desc.text
     return inner_types
 
 
@@ -930,9 +1040,19 @@ def _process_element_terminals(
         f"./termList/SL__arrayElement[@class='{TERMINAL_CLASS}']",
     )
 
+    ext_func_roles = (
+        extfunc_terminal_roles(elem, type_map)
+        if elem_class == NODE_CLASS_EXT_FUNC
+        else {}
+    )
+
     for list_position, term in enumerate(term_list):
         term_uid = term.get("uid")
         if not term_uid:
+            continue
+
+        ext_func_role = ext_func_roles.get(term_uid)
+        if ext_func_role is not None and ext_func_role.dropped:
             continue
 
         dco = term.find("dco")
@@ -1006,7 +1126,9 @@ def _process_element_terminals(
             parm_index = list_position
 
         # Determine direction from wire connectivity
-        if term_uid in wire_sources:
+        if ext_func_role is not None:
+            is_output = ext_func_role.is_output
+        elif term_uid in wire_sources:
             is_output = True
         elif term_uid in wire_sinks:
             is_output = False
@@ -1022,7 +1144,10 @@ def _process_element_terminals(
             # flags — consulting the available data beats silently defaulting to
             # input (safe_int(None) == 0 == input).
             if dco is not None:
-                is_output = is_output_terminal(safe_int(dco.find("objFlags")))
+                dco_flags = safe_int(dco.find("objFlags"))
+                if is_method_row_input(dco.get("class"), dco_flags):
+                    continue
+                is_output = is_output_terminal(dco_flags)
             else:
                 is_output = is_output_terminal(safe_int(term.find("objFlags")))
 
@@ -1054,8 +1179,12 @@ def _process_element_terminals(
             # wire propagation. See _build_tunnel_inner_type_map.
             type_desc_str = tunnel_inner_types[dco_uid]
         parsed_type = None
+        dotnet_type_unreadable = None
         if type_desc_str and type_map:
             lv_type = resolve_type_rich(type_desc_str, type_map)
+            dotnet_type, dotnet_type_unreadable = _dotnet_item_type(elem, dco, dco_uid)
+            if dotnet_type is not None:
+                lv_type = replace(lv_type, dotnet_type=dotnet_type)
             parsed_type = _lvtype_to_parsed(lv_type)
 
         # Extract terminal label from dco or terminal element. An XNode's
@@ -1069,6 +1198,8 @@ def _process_element_terminals(
             term_name = extract_label(term)
         if not term_name and dco is not None:
             term_name = extract_xtunnel_name(dco)
+        if ext_func_role is not None and ext_func_role.name:
+            term_name = ext_func_role.name
 
         # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
         # terminal's DCO objFlags. This bit only means "invert" for
@@ -1089,6 +1220,7 @@ def _process_element_terminals(
             name=term_name,
             inverted=inverted,
             dco_uid=dco_uid or None,
+            dotnet_type_unreadable=dotnet_type_unreadable,
         )
 
 
@@ -1259,10 +1391,104 @@ def _resolve_qualified_name(
     )
 
 
+_DOTNET_ITEM_INFO = "dnetItemInfo"
+
+
+def _private_data_holders(elem: ET.Element) -> dict[str, ET.Element]:
+    """The uid -> element of every DCO a node's own lists define with a
+    ``privDataList`` (the node's children and their children, not the sub-diagrams
+    nested under it)."""
+    return {
+        c.get("uid", ""): c
+        for child in elem
+        for c in (child, *child)
+        if c.get("uid") and c.find("privDataList") is not None
+    }
+
+
+def _dotnet_item_type(
+    elem: ET.Element, dco: ET.Element | None, dco_uid: str | None
+) -> tuple[DotNetType | None, str | None]:
+    """The .NET type a .NET node's terminal passes: the ``DotNetItemType`` of the
+    ``dnetItemInfo`` in the ``privDataList`` of the terminal's DCO. The DCO is
+    defined either in the terminal's own ``<dco>`` or, when that is a bare uid
+    reference, in one of the node's lists. ``(None, None)`` for a terminal of any
+    other node; ``(None, reason)`` when the recorded name is not readable."""
+    holder = dco if dco is not None and dco.find("privDataList") is not None else None
+    if holder is None and dco_uid and dco is not None and len(dco) == 0:
+        holder = _private_data_holders(elem).get(dco_uid)
+    if holder is None:
+        return None, None
+    for info in holder.iterfind("privDataList//*"):
+        if _DOTNET_ITEM_INFO not in (info.tag, info.get("class")):
+            continue
+        item_type = info.find("DotNetItemType")
+        if item_type is None or not item_type.text:
+            continue
+        try:
+            return DotNetType.from_item_type(item_type.text), None
+        except DotNetTypeError as exc:
+            return None, f"the .NET type of a node terminal is unreadable: {exc}"
+    return None, None
+
+
+def _xml_dotnet_assembly(
+    elem: ET.Element, record: DotNetAssemblyRecordKind
+) -> DotNetAssemblyLink:
+    """The assembly a decoded ``DNDA`` / ``DNVA`` element names, in the same shape
+    the raw sidecar decoder yields."""
+    parts = [s.text or "" for s in elem.findall("LinkSaveQualName/String")]
+    return DotNetAssemblyLink(
+        assembly=dotnet_assembly_from_name_parts(parts),
+        node_uids=tuple(
+            int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
+        ),
+        record=record,
+    )
+
+
+def _read_dotnet_assemblies(
+    main_root: ET.Element, main_xml: Path
+) -> DotNetAssemblyTable:
+    """Every .NET assembly record of the VI: those pylabview decoded into the main
+    XML, and those left in the ``_LIbd.bin`` / ``_LIvi.bin`` sidecars."""
+    table = DotNetAssemblyTable(links=[], failures=[])
+    for record in DotNetAssemblyRecordKind:
+        for elem in main_root.iter(record.value):
+            try:
+                table.links.append(_xml_dotnet_assembly(elem, record))
+            except LinkTableError as exc:
+                table.failures.append(
+                    DotNetAssemblyRecordFailure(f"{record.value} record: {exc}")
+                )
+    version_elem = main_root.find(".//LVSR/Section/Version")
+    for suffix in ("_LIbd.bin", "_LIvi.bin"):
+        sidecar = main_xml.with_name(main_xml.stem + suffix)
+        if not sidecar.exists():
+            continue
+        data = sidecar.read_bytes()
+        if version_elem is None:
+            if any(record.ident in data for record in DotNetAssemblyRecordKind):
+                table.failures.append(
+                    DotNetAssemblyRecordFailure(
+                        "the VI holds a .NET assembly record but records no "
+                        "version to read it with"
+                    )
+                )
+            continue
+        sidecar_table = decode_dotnet_assemblies(
+            data, LinkTableVersion.from_lvsr(version_elem)
+        )
+        table.links.extend(sidecar_table.links)
+        table.failures.extend(sidecar_table.failures)
+    return table
+
+
 def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     """The link record a decoded ``BDHP`` element (``IUVI``/``PUPV``) holds, in
     the same shape the raw ``_LIbd.bin`` decoder yields. ``None`` when it has no
-    ``LinkSavePathRef``."""
+    ``LinkSavePathRef``, or a path with a name but no tokens. A record with
+    neither name nor path is kept: it is the VI's link to itself."""
     path_ref = elem.find("LinkSavePathRef")
     if path_ref is None:
         return None
@@ -1271,12 +1497,13 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     path_tokens = tuple(
         s.text if s.text is not None else "" for s in path_ref.findall("String")
     )
-    if not path_tokens:
+    name_parts = tuple(
+        s.text for s in elem.findall("LinkSaveQualName/String") if s.text
+    )
+    if not path_tokens and name_parts:
         return None
     return IUseLink(
-        name_parts=tuple(
-            s.text for s in elem.findall("LinkSaveQualName/String") if s.text
-        ),
+        name_parts=name_parts,
         path_tokens=path_tokens,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
@@ -1285,11 +1512,97 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
 
 
+def _caller_library(qualified_name: str | None) -> str | None:
+    """The library a VI's qualified name starts with, for same-library refs."""
+    if qualified_name and ":" in qualified_name:
+        return qualified_name.split(":")[0]
+    return None
+
+
+def _link_dependency_ref(
+    link: IUseLink | DynamicDispatchLink, caller_library: str | None
+) -> ParsedDependencyRef | None:
+    """The VI a block-diagram link record refers to, with the path it records;
+    None when the record names no VI."""
+    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    if not qname:
+        return None
+    return ParsedDependencyRef(
+        name=qname.rsplit(":", 1)[-1],
+        path_tokens=list(link.path_tokens),
+        qualified_name=qname,
+    )
+
+
+def _extract_self_call_uids(
+    main_root: ET.Element, libd_links: Sequence[IUseLink]
+) -> list[str]:
+    """Heap uid of every node that calls the VI itself: the nodes the VI's
+    block-diagram link table lists under a record that names no VI and has no path
+    (the link to itself a recursive call carries)."""
+    links = [
+        link
+        for elem in main_root.findall(".//LIbd//BDHP/IUVI")
+        if (link := _xml_iuse_link(elem)) is not None
+    ]
+    links.extend(libd_links)
+    return sorted(
+        str(uid)
+        for link in links
+        if not link.name_parts and not link.path_tokens
+        for uid in link.node_uids
+    )
+
+
+def _extract_dyn_refs(
+    main_root: ET.Element,
+    caller_library: str | None,
+    dyn_links: Sequence[DynamicDispatchLink] = (),
+) -> dict[str, ParsedDependencyRef]:
+    """``dynLink`` uid of every dynamic-dispatch call -> the class method its
+    ``DyOM`` record names (qualified ``Class.lvclass:method.vi``) with the path
+    of the class file the method sits beside. The record lists the calls it
+    belongs to in ``APILinkCacheList``."""
+    dyn_refs: dict[str, ParsedDependencyRef] = {}
+    for elem in main_root.findall(".//LIbd//BDHP/DyOM"):
+        link = _xml_iuse_link(elem)
+        ref = _link_dependency_ref(link, caller_library) if link else None
+        if ref is None:
+            continue
+        for offset in elem.findall("APILinkCacheList/Offset"):
+            if offset.text:
+                dyn_refs[str(int(offset.text, 16))] = ref
+    for raw in dyn_links:
+        ref = _link_dependency_ref(raw, caller_library)
+        for uid in raw.node_uids:
+            if ref is not None:
+                dyn_refs[str(uid)] = ref
+    return dyn_refs
+
+
+def _extract_poly_refs(
+    main_root: ET.Element, caller_library: str | None
+) -> dict[str, ParsedDependencyRef]:
+    """Heap uid of every polymorphic call -> the polymorphic VI the call's
+    ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
+    call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
+    poly_refs: dict[str, ParsedDependencyRef] = {}
+    for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
+        link = _xml_iuse_link(elem)
+        ref = _link_dependency_ref(link, caller_library) if link else None
+        if link is None or ref is None:
+            continue
+        for uid in link.node_uids:
+            poly_refs[str(uid)] = ref
+    return poly_refs
+
+
 def _extract_subvi_info(
     main_root: ET.Element,
     caller_qualified_name: str | None,
     libd_links: Sequence[IUseLink] = (),
     shared_variable_links: Sequence[SharedVariableLink] = (),
+    dyn_links: Sequence[DynamicDispatchLink] = (),
 ) -> tuple[list[str], dict[str, ParsedDependencyRef], list[ParsedDependencyRef]]:
     """Extract SubVI qualified names, iUse uid -> referenced VI, and dependency
     path refs.
@@ -1307,9 +1620,7 @@ def _extract_subvi_info(
     dependency_refs: list[ParsedDependencyRef] = []
 
     # Get caller's library for qualifying same-library references
-    caller_library = None
-    if caller_qualified_name and ":" in caller_qualified_name:
-        caller_library = caller_qualified_name.split(":")[0]
+    caller_library = _caller_library(caller_qualified_name)
 
     # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
@@ -1332,7 +1643,7 @@ def _extract_subvi_info(
         "BSVR",
         "SVVI",  # statVIRef link types
     )
-    _BDHP_LINK_TAGS = ("IUVI", "PUPV")  # block-diagram iUse path refs
+    _BDHP_LINK_TAGS = ("IUVI", "PUPV", "DyOM")  # block-diagram iUse path refs
     scopes: list[tuple[str, tuple[str, ...]]] = [
         (".//LIvi//{tag}", _LIVI_LINK_TAGS),
         (".//LIbd//BDHP/{tag}", _BDHP_LINK_TAGS),
@@ -1371,6 +1682,14 @@ def _extract_subvi_info(
         if qname:
             _add_dependency(qname, link.path_tokens)
 
+    # The class method each raw dynamic-dispatch record names is a dependency.
+    for dyn in dyn_links:
+        qname = qualified_link_name(
+            list(dyn.name_parts), dyn.link_flag, caller_library
+        )
+        if qname:
+            _add_dependency(qname, dyn.path_tokens)
+
     # The project library each Shared Variable belongs to.
     for sv_link in shared_variable_links:
         _add_dependency(sv_link.library_qualified_name, ())
@@ -1393,16 +1712,9 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
-        )
-        if not qname:
+        ref = _link_dependency_ref(link, caller_library)
+        if ref is None:
             continue
-        ref = ParsedDependencyRef(
-            name=qname.rsplit(":", 1)[-1],
-            path_tokens=list(link.path_tokens),
-            qualified_name=qname,
-        )
         for uid in link.node_uids:
             iuse_refs[str(uid)] = ref
 
@@ -1465,7 +1777,9 @@ def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
     if not conp_bin.exists():
         return {}
     return {
-        t.slot: t.name for t in decode_conp_terminals(conp_bin.read_bytes()) if t.name
+        t.slot: t.name
+        for t in decode_conp_terminals(conp_bin.read_bytes()).terminals
+        if t.name
     }
 
 
@@ -1686,11 +2000,10 @@ def _parse_cluster_fields(
     direct = _direct_fields(cluster_ddo)
 
     fields: list[ParsedFPControl] = []
-    for field_elem in direct:
-        field_name = extract_label_strict(field_elem)
-        value = (
-            field_defaults.get(field_name) if field_defaults and field_name else None
-        )
+    labels = [extract_label_strict(field_elem) for field_elem in direct]
+    keys = unique_names(label or "" for label in labels)
+    for field_elem, field_name, key in zip(direct, labels, keys):
+        value = field_defaults.get(key) if field_defaults and field_name else None
         # A field's own type -- there is no wrapping fPDCO here (unlike a
         # top-level control), so the ONLY spot is the field ddo's own
         # <typeDesc> child (the same "carries its own child when it nests a
@@ -1707,9 +2020,17 @@ def _parse_cluster_fields(
             field_elem,
             field_elem.get("uid", ""),
             set(),
-            value if isinstance(value, str) else None,
+            (
+                str(value)
+                if isinstance(value, (str, ValuesNotKept, UndecodedPicture))
+                else None
+            ),
             unresolved_uids=unresolved_uids,
-            field_defaults=value if isinstance(value, (dict, list)) else None,
+            field_defaults=(
+                value
+                if isinstance(value, (dict, list, ValuesNotKept, UndecodedPicture))
+                else None
+            ),
             type_map=type_map,
             own_lv_type=field_lv_type,
         )
@@ -1855,12 +2176,10 @@ def _parse_ddo(
         # one representative (the first encoded) row's fields, so its own
         # field defaults come from field_defaults[0], the same "one visible
         # row" convention cluster_geom already documents for array geometry.
-        # None for an array saved with zero elements (field_defaults == []).
-        elem_defaults = (
-            field_defaults[0]
-            if isinstance(field_defaults, list) and field_defaults
-            else None
-        )
+        # None for an array saved with zero elements (field_defaults == []);
+        # a multi-dimensional array's is nested lists, whose first row's first
+        # element is that representative row.
+        elem_defaults = leading_element(field_defaults)
         # The element ddo may itself be typeDef-wrapped (an array of a NAMED
         # cluster/enum typedef, e.g. an array element typed as a `.ctl` --
         # "Scope Time/Div Settings"'s TIMECONTROL.ctl element, verified on the
@@ -1949,6 +2268,7 @@ def _parse_ddo(
         is_indicator=control_is_indicator,
         lv_type=own_lv_type,
         default_value=default_data,
+        unwritable=find_unwritable(field_defaults),
         caption=caption,
         label_visible=_part_shown(ddo, 16) is not None,
         caption_visible=_part_shown(ddo, 82) is not None and bool(caption),
@@ -2127,6 +2447,310 @@ def _decode_numeric_default(data: bytes) -> str | None:
     return None
 
 
+def _decode_collection(
+    data: bytes | memoryview, member_types: list[LVType | None], empty: str
+) -> tuple[str | None, int, object]:
+    """A Set (one member type per entry) or a Map (key type, value type): the
+    entry count, then each entry's members in turn. Shown as a Python set or dict
+    literal; the structured value is the list of entries (each a list of its
+    members' values for a Map)."""
+    if len(data) < 4 or any(t is None for t in member_types):
+        return None, 0, None
+    count = int.from_bytes(data[:4], "big")
+    pos = 4
+    entries: list[list[str]] = []
+    structured: list[object] = []
+    for _ in range(count):
+        shown: list[str] = []
+        members: list[object] = []
+        for member_type in member_types:
+            value, consumed, member = _decode_element(data[pos:], member_type)
+            if consumed == 0 and value is None:
+                return None, 0, None
+            shown.append("None" if value is None else value)
+            members.append(member)
+            pos += consumed
+        entries.append(shown)
+        structured.append(members[0] if len(members) == 1 else members)
+    if not entries:
+        return empty, pos, structured
+    if len(member_types) == 1:
+        return "{" + ", ".join(e[0] for e in entries) + "}", pos, structured
+    return "{" + ", ".join(f"{e[0]}: {e[1]}" for e in entries) + "}", pos, structured
+
+
+def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
+    """One flattened Variant: ``[version][type count][type descriptors]
+    [has value][value type index][value][attribute count][attributes]``, each
+    attribute being ``[name length][name]`` and another flattened Variant (NI
+    "Flattened Data" for Variants and "Type Descriptors" for the descriptor
+    format). The value is read with the type its descriptor names; a Variant with
+    no value (type Void) shows as ``Variant()``.
+
+    Returns ``(None, 0, None)`` for a Variant saved by LabVIEW 7 or older (it
+    stores a byte count where the version is) or whose value has a type this
+    does not read."""
+    if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
+        return None, 0, None
+    count = int.from_bytes(data[4:8], "big")
+    read = read_descriptors(data, 8, count)
+    if read is None:
+        return None, 0, None
+    descriptors, pos = read
+    has_value = read_var_size(data, pos)
+    if has_value is None:
+        return None, 0, None
+    present, pos = has_value
+    shown = "Variant()"
+    structured: object = shown
+    if present:
+        typed = read_var_size(data, pos)
+        if typed is None:
+            return None, 0, None
+        index, pos = typed
+        value_type = descriptor_type(descriptors, index)
+        if value_type is None:
+            return None, 0, None
+        if value_type.underlying_type != "Void":
+            value, consumed, structured = _decode_element(data[pos:], value_type)
+            if value is None and consumed == 0:
+                return None, 0, None
+            pos += consumed
+            shown = f"Variant({value})"
+    if pos + 4 > len(data):
+        return None, 0, None
+    attribute_count = int.from_bytes(data[pos : pos + 4], "big")
+    pos += 4
+    attributes = []
+    for _ in range(attribute_count):
+        name_end = _read_string(data, pos)
+        if name_end is None:
+            return None, 0, None
+        attribute, consumed, _structured = _decode_variant(data[name_end:])
+        if attribute is None or consumed == 0:
+            return None, 0, None
+        name = bytes(data[pos + 4 : name_end]).decode("latin-1")
+        attributes.append(f"{name!r}: {attribute}")
+        pos = name_end + consumed
+    if attributes:
+        listed = "{" + ", ".join(attributes) + "}"
+        inner = shown[len("Variant(") : -1]
+        shown = f"Variant({inner + ', ' if inner else ''}attributes={listed})"
+    return shown, pos, structured
+
+
+# An array with more elements than this is read to its end but its values are not
+# kept: a value that large (a camera frame, a recording) as per-element Python
+# objects and display text runs to gigabytes, and nothing downstream draws or
+# generates it.
+MAX_STORED_ARRAY_ELEMENTS = 4_000_000
+
+
+# The unit-tagged unsigned integers an enum, ring or class field is stored as.
+_UNIT_INTEGER_TYPES = frozenset(
+    {
+        TD_FULL_TYPE.UnitUInt8.name,
+        TD_FULL_TYPE.UnitUInt16.name,
+        TD_FULL_TYPE.UnitUInt32.name,
+    }
+)
+
+
+def _quad_to_float(raw: bytes | memoryview) -> float:
+    """A flattened extended-precision number -- 16 bytes, IEEE 754 binary128
+    (1 sign bit, 15 exponent bits, 112 fraction bits, big-endian) -- as the
+    nearest Python float. NI's "Flattened Data" page: "stores flattened
+    extended-precision, floating-point numbers as 16-byte quantities"."""
+    bits = int.from_bytes(raw, "big")
+    sign = -1.0 if bits >> 127 else 1.0
+    exponent = (bits >> 112) & 0x7FFF
+    fraction = bits & ((1 << 112) - 1)
+    if exponent == 0x7FFF:
+        return sign * math.inf if fraction == 0 else math.nan
+    if exponent == 0:
+        magnitude = Fraction(fraction, 1 << 112) * Fraction(2) ** -16382
+    else:
+        magnitude = (1 + Fraction(fraction, 1 << 112)) * Fraction(2) ** (
+            exponent - 16383
+        )
+    try:
+        return sign * float(magnitude)
+    except OverflowError:
+        return sign * math.inf
+
+
+# Refnums whose value is not a 4-byte handle but flattened strings (NI "Flattened
+# Data", "Refnums": type codes 0xE, 0xF and 0x15 store "a flattened string" holding
+# the refnum tag; 0x1D, with the tag, three more fields). Keyed by RefType.
+_TAG_REFNUM_TYPES = frozenset({"VisaRef", "IVIRef", "UsrDefndTag", "UsrDefTagFlt"})
+_TAG_FLATTENED_REFNUM_TYPE = "UsrDefTagFlt"
+
+
+def _read_string(data: bytes | memoryview, idx: int) -> int | None:
+    """The offset just past the flattened string at ``idx``, else None."""
+    if idx + 4 > len(data):
+        return None
+    end = idx + 4 + int.from_bytes(data[idx : idx + 4], "big")
+    return end if end <= len(data) else None
+
+
+def _decode_tag_refnum(
+    data: bytes | memoryview, ref_type: str
+) -> tuple[str | None, int, object]:
+    """A tag refnum: the tag string, and for ``UsrDefTagFlt`` the string, string,
+    32-bit integer and string that follow it. Shown as the tag text."""
+    tag_end = _read_string(data, 0)
+    if tag_end is None:
+        return None, 0, None
+    end = tag_end
+    if ref_type == _TAG_FLATTENED_REFNUM_TYPE:
+        for part in ("string", "string", "int", "string"):
+            if part == "int":
+                end += 4
+                if end > len(data):
+                    return None, 0, None
+                continue
+            string_end = _read_string(data, end)
+            if string_end is None:
+                return None, 0, None
+            end = string_end
+    value = repr(bytes(data[4:tag_end]).decode("latin-1"))
+    return value, end, value
+
+
+@dataclass(frozen=True)
+class ClassObject:
+    """One flattened class object: its total size and, per level of its hierarchy
+    (oldest ancestor first), the ``(start, end)`` of that level's private-data
+    bytes. A level of a default object has none."""
+
+    size: int
+    private: tuple[tuple[int, int], ...]
+
+    @property
+    def level(self) -> int:
+        return len(self.private)
+
+
+def read_class_object(data: bytes | memoryview) -> ClassObject | None:
+    """One flattened LabVIEW class object at the start of ``data``, or None when
+    ``data`` is too short for its own layout. NI's "Flattened Data", "Classes":
+    https://docs-be.ni.com/api/bundle/labview/page/flattened-data.html
+
+    - ``level in hierarchy``: 4 bytes; 0 is an instance of LabVIEW Object and
+      nothing follows.
+    - ``class name``: a length byte (of the Pascal-string run that follows,
+      ending in a zero length byte), padded with zero bytes so the whole
+      section is a multiple of 4.
+    - ``version list``: one 8-byte version (four 2-byte integers) per level. A
+      one-level object whose version is 0 is the class's default data and
+      nothing follows.
+    - ``private data``: per level, a 4-byte byte count and that many bytes of
+      flattened cluster. The stored count already includes any padding: the bytes
+      after the count are exactly ``count`` long (a 73-byte cluster is followed
+      directly by the next field; see labview-binary-format.md).
+    """
+    if len(data) < 4:
+        return None
+    level = int.from_bytes(data[:4], "big")
+    if level == 0:
+        return ClassObject(4, ())
+    if len(data) < 5:
+        return None
+    idx = 4 + _padded_to_4(1 + data[4])
+    versions_end = idx + 8 * level
+    if versions_end > len(data):
+        return None
+    if level == 1 and not any(data[idx:versions_end]):
+        return ClassObject(versions_end, ((versions_end, versions_end),))
+    idx = versions_end
+    private = []
+    for _ in range(level):
+        if idx + 4 > len(data):
+            return None
+        count = int.from_bytes(data[idx : idx + 4], "big")
+        private.append((idx + 4, idx + 4 + count))
+        idx += 4 + count
+        if idx > len(data):
+            return None
+    return ClassObject(idx, tuple(private))
+
+
+def _decode_class_object(
+    data: bytes | memoryview, elem_type: LVType
+) -> tuple[str | None, int, object]:
+    """A class instance: shown as its class name, followed by its private data
+    (the fields of every level of the hierarchy, as a cluster is shown) when the
+    class is loaded and its private-data types read the stored bytes exactly.
+    Otherwise the private data is skipped by its stored count and the value says
+    it was not read."""
+    name = elem_type.class_file or elem_type.classname or ""
+    obj = read_class_object(data)
+    if obj is None:
+        return None, 0, None
+    private = _decode_private_data(data, obj, elem_type.class_levels)
+    if private is None:
+        unread = UnreadPrivateData(name)
+        return str(unread), obj.size, unread
+    return f"{name}{private}", obj.size, name
+
+
+def _decode_private_data(
+    data: bytes | memoryview,
+    obj: ClassObject,
+    levels: list[list[ClusterField]] | None,
+) -> str | None:
+    """The cluster display of every level's private data, joined into one, ``""``
+    for a default object (no stored private data), or None when the class's
+    levels are unknown, differ in number from the object's, or a level's bytes
+    are not read exactly by its fields."""
+    if all(start == end for start, end in obj.private):
+        return ""
+    if levels is None or len(levels) != obj.level:
+        return None
+    items = []
+    for level_fields, (start, end) in zip(levels, obj.private):
+        if start == end:
+            return None
+        level_type = LVType(
+            kind=LVTypeKind.CLUSTER, underlying_type="Cluster", fields=level_fields
+        )
+        value, consumed, _ = _decode_element(data[start:end], level_type)
+        if value is None or consumed != end - start:
+            return None
+        if len(value) > 2:
+            items.append(value[1:-1])
+    return "{" + ", ".join(items) + "}"
+
+
+def _padded_to_4(size: int) -> int:
+    """``size`` rounded up to a multiple of 4."""
+    return (size + 3) & ~3
+
+
+def _nest_by_dimension(flat: list[Any], sizes: list[int]) -> list[Any]:
+    """``flat`` (row-major, one entry per element) as lists nested by ``sizes``,
+    slowest-varying dimension outermost: ``[3, 4]`` gives 3 rows of 4. A
+    one-dimension array is ``flat`` itself."""
+    if len(sizes) == 1:
+        return flat
+    row_len = math.prod(sizes[1:])
+    return [
+        _nest_by_dimension(flat[row * row_len : (row + 1) * row_len], sizes[1:])
+        for row in range(sizes[0])
+    ]
+
+
+def _list_display(items: list[Any]) -> str:
+    """A decoded array's display string: its elements' display strings
+    (``str``), or nested lists of them for a multi-dimensional array."""
+    return (
+        "["
+        + ", ".join(_list_display(i) if isinstance(i, list) else i for i in items)
+        + "]"
+    )
+
+
 def _decode_element(
     data: bytes | memoryview, elem_type: LVType | None
 ) -> tuple[str | None, int, object]:
@@ -2150,7 +2774,16 @@ def _decode_element(
         ``_parse_cluster_fields``) can thread each field's own real value down
         to its own control, not just the aggregate string.
     """
-    if not elem_type or len(data) == 0:
+    if not elem_type:
+        return None, 0, None
+
+    # Types that store no bytes read nothing, even at the end of the data.
+    if elem_type.underlying_type == "Void":
+        return "None", 0, None
+    if elem_type.kind == LVTypeKind.CLUSTER and elem_type.fields == []:
+        return "{}", 0, {}
+
+    if len(data) == 0:
         return None, 0, None
 
     # A memoryview instead of bytes so the ARRAY/CLUSTER branches' recursive
@@ -2187,13 +2820,28 @@ def _decode_element(
         value = repr(string_val)
         return value, 4 + str_len, value
 
+    # Picture: a 4-byte length then that many bytes of drawing data (the stored
+    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4).
+    # The drawing is not turned into a value, but its bytes are consumed so a
+    # cluster's following fields stay aligned. A Picture with no drawing is empty.
+    if underlying == "Picture":
+        if len(data) < 4:
+            return None, 0, None
+        picture_len = int.from_bytes(data[:4], "big")
+        if len(data) < 4 + picture_len:
+            return None, 0, None
+        if picture_len == 0:
+            return "None", 4, None
+        picture = UndecodedPicture(picture_len)
+        return str(picture), 4 + picture_len, picture
+
     # Boolean: 1 byte in binary data
     if underlying == "Boolean":
         value = "True" if data[0] else "False"
         return value, 1, value
 
     # Enum: decode as its underlying integer type
-    if kind == LVTypeKind.ENUM:
+    if kind == LVTypeKind.ENUM or underlying in _UNIT_INTEGER_TYPES:
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0, None
@@ -2201,11 +2849,11 @@ def _decode_element(
         return str(val), size, str(val)
 
     # Numeric integer types
-    if underlying.startswith("NumInt") or underlying.startswith("NumUInt"):
+    if is_integer_type_name(underlying):
         size = _get_numeric_size(underlying)
         if len(data) < size:
             return None, 0, None
-        signed = underlying.startswith("NumInt")
+        signed = underlying in SIGNED_INTEGER_TYPE_NAMES
         val = int.from_bytes(data[:size], "big", signed=signed)
         return str(val), size, str(val)
 
@@ -2213,7 +2861,9 @@ def _decode_element(
     # components (NumComplex64 = 2x f32 = 8 bytes, NumComplex128 = 2x f64 = 16),
     # and extended floats are 16/32 — under-reading them (the old code read every
     # non-f32 as 8) desyncs the following cluster field.
-    if underlying.startswith(("NumFloat", "NumComplex")):
+    if is_float_type_name(underlying):
+        # A physical quantity (a number with a unit) flattens as its plain number.
+        underlying = plain_number_name(underlying)
         width = {
             "NumFloat32": 4,
             "NumFloat64": 8,
@@ -2235,8 +2885,12 @@ def _decode_element(
             elif underlying == "NumComplex128":
                 re, im = struct.unpack(">dd", data[:16])
                 val = str(complex(re, im))
-            else:  # extended-precision (80/128-bit) — width known, no struct fmt
-                val = f"<{underlying}>"
+            elif underlying == "NumFloatExt":
+                val = str(_quad_to_float(data[:16]))
+            else:  # NumComplexExt: two quad-precision components
+                val = str(
+                    complex(_quad_to_float(data[:16]), _quad_to_float(data[16:32]))
+                )
         except struct.error:
             return None, 0, None
         return val, width, val
@@ -2247,19 +2901,33 @@ def _decode_element(
         value = value or 'Path("")'
         return value, consumed, value
 
-    # Array: 4-byte length + elements
+    # Array: one 4-byte size per dimension (slowest-varying first), then the
+    # elements in row-major order.
     if kind == LVTypeKind.ARRAY and elem_type.element_type:
-        if len(data) < 4:
+        dims = elem_type.dimensions or 1
+        header = 4 * dims
+        if len(data) < header:
             return None, 0, None
-        array_len = int.from_bytes(data[:4], "big")
-        idx = 4
+        sizes = [int.from_bytes(data[4 * d : 4 * d + 4], "big") for d in range(dims)]
+        array_len = math.prod(sizes)
+        idx = header
         elements = []
+        keep_values = array_len <= MAX_STORED_ARRAY_ELEMENTS
+        element_width = _fixed_element_width(elem_type.element_type)
         # The STRUCTURED per-element values (see the docstring) -- kept
         # alongside ``elements``'s display strings so a caller can thread each
         # element's own real value down to its own control (see
         # _parse_cluster_fields), the same reason the CLUSTER branch below
         # keeps ``field_structured``.
         elements_structured: list[object] = []
+        if (
+            not keep_values
+            and element_width is not None
+            and header + element_width * array_len <= len(data)
+        ):
+            # Fixed-width elements: the extent is known without reading each one.
+            idx = header + element_width * array_len
+            array_len = 0
         for _ in range(array_len):
             if idx >= len(data):
                 break
@@ -2267,7 +2935,7 @@ def _decode_element(
                 data[idx:],
                 elem_type.element_type,
             )
-            if elem_val is None:
+            if elem_val is None and consumed <= 0:
                 break
             # No forward progress (e.g. an undecodable element that returns
             # consumed=0, like a non-PTH0 Path) means the remaining elements
@@ -2289,79 +2957,87 @@ def _decode_element(
                     idx,
                 )
                 break
-            elements.append(elem_val)
-            elements_structured.append(elem_structured)
+            # An element read past but with no value shows as None.
+            if keep_values:
+                elements.append("None" if elem_val is None else elem_val)
+                elements_structured.append(elem_structured)
             idx += consumed
-        return "[" + ", ".join(elements) + "]", idx, elements_structured
+        if not keep_values:
+            # Every element was read (so the extent is exact), none kept.
+            not_kept = ValuesNotKept(
+                math.prod(sizes),
+                tuple(sizes),
+                bytes(data[header:idx]),
+                elem_type.element_type,
+            )
+            return str(not_kept), idx, not_kept
+        if len(elements) < array_len:
+            # Truncated: the elements read so far, flat.
+            return _list_display(elements), idx, elements_structured
+        return (
+            _list_display(_nest_by_dimension(elements, sizes)),
+            idx,
+            _nest_by_dimension(elements_structured, sizes),
+        )
 
     # Cluster: sequential fields
-    if kind == LVTypeKind.CLUSTER and elem_type.fields:
+    if kind == LVTypeKind.CLUSTER and elem_type.fields is not None:
         idx = 0
         field_values = {}
         # By field NAME, recursively -- see the docstring and
         # _parse_cluster_fields (the reason this is kept instead of only the
-        # flattened ``field_values`` display string below).
+        # flattened ``field_values`` display string below). A name a cluster
+        # repeats is made unique (``unique_names``) so no field's value is lost.
         field_structured: dict[str, object] = {}
-        for field in elem_type.fields:
-            if idx >= len(data):
-                break
+        keys = unique_names(f.name for f in elem_type.fields)
+        for field, key in zip(elem_type.fields, keys):
             field_val, consumed, field_val_structured = _decode_element(
                 data[idx:],
                 field.type,
             )
+            # An unreadable field (no value, no bytes) leaves the later fields'
+            # positions unknown: stop rather than read them from its bytes.
+            if field_val is None and consumed <= 0:
+                break
             if field_val is None:
-                field_values[field.name] = "None"
-                field_structured[field.name] = None
+                field_values[key] = "None"
+                field_structured[key] = None
             else:
-                field_values[field.name] = field_val
-                field_structured[field.name] = field_val_structured
+                field_values[key] = field_val
+                field_structured[key] = field_val_structured
             idx += consumed
         items = [f"'{k}': {v}" for k, v in field_values.items()]
         return "{" + ", ".join(items) + "}", idx, field_structured
 
-    # Refnum: a 4-byte opaque handle. A CLASS/LVObject refnum reads as its CLASS
-    # NAME (from the resolved type), never the handle — the handle is a
-    # meaningless runtime cookie, and a class ref's on-disk value even embeds the
-    # class path AFTER the 4 bytes (a marker byte + two length-prefixed strings +
-    # padding, whose alignment isn't reliably derivable), which this fixed 4-byte
-    # read does NOT consume. The label comes from the TYPE, so it's right
-    # regardless of that under-read; ``size`` stays 4 (unchanged) so cluster
-    # field decoding is not perturbed. A plain typed refnum keeps its handle
-    # token. Same class-name rule as render.style.lv_type_label.
+    # Refnum: a 4-byte opaque handle, except a CLASS value (a typed refnum
+    # with a ``classname``), which is a flattened object (see
+    # ``read_class_object``) and reads as its CLASS NAME from the resolved
+    # type, followed by its private data when the class is loaded. A plain typed
+    # refnum keeps its handle token. Same class-name rule as
+    # render.style.lv_type_label.
     if underlying == "Refnum":
         if elem_type.classname:
-            # A CLASS/LVObject refnum's on-disk value is a class-name descriptor:
-            #   [4-byte class-chain count N][ N x [1-byte block-len]
-            #                                     [1-byte name-len][name] ]
-            # where block-len is self-inclusive (= 2 + name-len). Consuming only
-            # a fixed 4 bytes (the old behavior) left [block-len][name-len][name]
-            # in place, which a FOLLOWING cluster field then misread — e.g. an
-            # array field read the class-name bytes as a 290M length (the decode
-            # runaway). Parse the descriptor so cluster fields stay aligned.
-            # Verified across TestCase/TestResult/TestSuite/JUnitXML/LVObject.
-            name = elem_type.classname.rsplit(":", 1)[-1]
-            if len(data) >= 4:
-                n = int.from_bytes(data[:4], "big")
-                idx = 4
-                if 0 <= n <= 16:  # a real class chain is short; guards garbage
-                    for _ in range(n):
-                        if idx >= len(data):
-                            break
-                        blk = data[idx]  # self-inclusive block length (2+namelen)
-                        if blk < 2 or idx + blk > len(data):
-                            idx = 4  # malformed descriptor — fall back to 4
-                            break
-                        idx += blk
-                    return name, idx, name
-            return name, min(4, len(data)), name
+            return _decode_class_object(data, elem_type)
+        if elem_type.ref_type in _TAG_REFNUM_TYPES:
+            return _decode_tag_refnum(data, elem_type.ref_type)
         size = min(4, len(data))
         val = int.from_bytes(data[:size], "big")
         value = f"Refnum({val})" if val else "None"
         return value, size, value
 
-    # LVVariant: opaque — just report the byte count
+    # Set and Map: a 32-bit count, then each element (a Set) or each key and
+    # value (a Map) in the collection's own order -- NI "Flattened Data", "Sets"
+    # and "Maps".
+    if underlying == "Set":
+        return _decode_collection(data, [elem_type.element_type], "set()")
+    if underlying == "Map":
+        return _decode_collection(
+            data, [elem_type.element_type, elem_type.value_type], "{}"
+        )
+
+    # LVVariant: its type descriptors, the value, and its attributes.
     if underlying in ("LVVariant", "Variant"):
-        return "Variant()", len(data), "Variant()"
+        return _decode_variant(data)
 
     # MeasureData (timestamp): 16 bytes -- LabVIEW's 128-bit timestamp is an
     # i64 whole-second count (data[:8]) plus a u64 FRACTION of a second
@@ -2373,7 +3049,9 @@ def _decode_element(
     # renderer's timedelta(seconds=...) reconstruction anyway), carrying
     # into the whole-second count on the (rare) round-up-to-1.0 edge.
     if underlying == "MeasureData":
-        if len(data) >= 16:
+        if elem_type.measure_flavor == TIMESTAMP_FLAVOR:
+            if len(data) < 16:
+                return None, 0, None
             secs = int.from_bytes(data[:8], "big", signed=True)
             frac_u64 = int.from_bytes(data[8:16], "big", signed=False)
             frac_micros = round(frac_u64 * 1_000_000 / 2**64)
@@ -2382,9 +3060,27 @@ def _decode_element(
                 frac_micros = 0
             value = f"Timestamp({secs}.{frac_micros:06d})"
             return value, 16, value
-        return "Timestamp(0)", len(data), "Timestamp(0)"
+        parts = measure_data_value_type(elem_type.measure_flavor)
+        if parts is None:
+            return None, 0, None
+        return _decode_element(data, parts)
 
     return None, 0, None
+
+
+def _fixed_element_width(lv_type: LVType | None) -> int | None:
+    """The bytes each element of ``lv_type`` takes when flattened, for the types
+    that always take the same number (integers, floats, Booleans); else None."""
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
+        return None
+    name = lv_type.underlying_type or ""
+    if name in INTEGER_BYTE_WIDTHS:
+        return INTEGER_BYTE_WIDTHS[name]
+    if name in FLOAT_BYTE_WIDTHS:
+        return FLOAT_BYTE_WIDTHS[name]
+    if name == TD_FULL_TYPE.Boolean.name:
+        return 1
+    return None
 
 
 def _get_numeric_size(type_name: str) -> int:

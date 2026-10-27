@@ -10,7 +10,7 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "object refnum",
           "type": "Refnum",
@@ -19,7 +19,7 @@
           "class_name": "Generic"
         },
         {
-          "index": 2,
+          "index": 7,
           "direction": "in",
           "name": "vi object class",
           "type": "Refnum",
@@ -28,19 +28,19 @@
           "class_name": "Generic"
         },
         {
-          "index": 3,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 10,
           "direction": "in",
           "name": "name/order",
           "type": "String"
         },
         {
-          "index": 5,
+          "index": 11,
           "direction": "in",
           "name": "owner refnum",
           "type": "Refnum",
@@ -62,7 +62,7 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "vi refnum",
           "type": "Refnum",
@@ -71,7 +71,7 @@
           "class_name": "VI"
         },
         {
-          "index": 2,
+          "index": 5,
           "direction": "in",
           "name": "type specifier VI Refnum (for type only)",
           "type": "Refnum",
@@ -80,37 +80,37 @@
           "class_name": "VI"
         },
         {
-          "index": 3,
+          "index": 6,
           "direction": "in",
           "name": "password",
           "type": "String"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "in",
-          "name": "not connected",
+          "name": "options",
           "type": "NumUInt32"
         },
         {
-          "index": 5,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 6,
+          "index": 9,
           "direction": "in",
           "name": "vi type (standard vi)",
           "type": "Enum32"
         },
         {
-          "index": 7,
+          "index": 10,
           "direction": "in",
           "name": "template",
           "type": "Path"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "in",
           "name": "application refnum",
           "type": "Refnum",
@@ -132,7 +132,7 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 1,
+          "index": 3,
           "direction": "out",
           "name": "object refnum",
           "type": "Refnum",
@@ -141,25 +141,25 @@
           "class_name": "Generic"
         },
         {
-          "index": 2,
+          "index": 4,
           "direction": "in",
           "name": "bounds",
           "type": "Cluster"
         },
         {
-          "index": 3,
+          "index": 5,
           "direction": "in",
           "name": "auto wire? (F)",
           "type": "Boolean"
         },
         {
-          "index": 4,
+          "index": 6,
           "direction": "in",
           "name": "path",
           "type": "Path"
         },
         {
-          "index": 5,
+          "index": 7,
           "direction": "in",
           "name": "vi object class",
           "type": "Refnum",
@@ -168,25 +168,25 @@
           "class_name": "Generic"
         },
         {
-          "index": 6,
+          "index": 8,
           "direction": "in",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 7,
+          "index": 9,
           "direction": "in",
-          "name": "position/next to",
+          "name": "location",
           "type": "Cluster"
         },
         {
-          "index": 8,
+          "index": 10,
           "direction": "in",
           "name": "style",
           "type": "NumUInt32"
         },
         {
-          "index": 9,
+          "index": 11,
           "direction": "in",
           "name": "owner refnum",
           "type": "Refnum",

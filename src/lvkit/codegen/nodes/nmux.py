@@ -7,9 +7,12 @@ uses the <i> field index from XML + dep_graph class fields. No heuristics.
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
+from enum import Enum
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import _flatten_fields
+from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import (
     ClusterField,
     LVType,
@@ -19,7 +22,13 @@ from lvkit.models import (
     _is_error_cluster,
 )
 
-from ..ast_utils import build_assign, default_value_expr, parse_expr, to_var_name
+from ..ast_utils import (
+    build_assign,
+    build_assign_attr,
+    default_value_expr,
+    parse_expr,
+    to_var_name,
+)
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
@@ -98,14 +107,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         # LIST out only = unbundle (extract fields from cluster)
         for t in sorted(list_out, key=lambda t: t.index):
             if agg_lv_type is not None and _is_error_cluster(agg_lv_type):
-                default = _error_field_default(t, class_fields)
-                if default is not None:
-                    bindings[t.id] = default
+                read = _error_read(t, class_fields)
+                if read is not None:
+                    bindings[t.id] = (
+                        read.caught_value(ctx.error_var)
+                        if ctx.error_var
+                        else read.no_error_value
+                    )
             elif agg_var:
                 if anon:
                     path = _position_path(t, class_fields)
-                    bindings[t.id] = (
-                        f"({agg_var})" + "".join(f"[{index}]" for index in path)
+                    bindings[t.id] = f"({agg_var})" + "".join(
+                        f"[{index}]" for index in path
                     )
                 else:
                     bindings[t.id] = _field_expr(t, agg_var, class_fields)
@@ -117,9 +130,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             and agg_terminals[0].lv_type
             and _is_error_cluster(agg_terminals[0].lv_type)
         ):
-            if _bundles_status(list_in, class_fields):
-                return _generate_error_bundle(list_in, class_fields, ctx)
-            return CodeFragment.empty()
+            return _generate_error_bundle(list_in, class_fields, ctx)
 
         if agg_var:
             if anon:
@@ -212,8 +223,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # to the agg output. Fields go in cluster-field-index order.
             ordered = sorted(
                 list_in,
-                key=lambda t: t.nmux_field_index if t.nmux_field_index is not None
-                else t.index,
+                key=lambda t: (
+                    t.nmux_field_index if t.nmux_field_index is not None else t.index
+                ),
             )
             elts = [parse_expr(ctx.resolve(t.id) or "None") for t in ordered]
             tup = ast.Tuple(elts=elts, ctx=ast.Load())
@@ -223,20 +235,58 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     return CodeFragment(statements=statements, bindings=bindings)
 
 
-def _error_field_default(
+class ErrorFieldRole(Enum):
+    """Which field of an error cluster a slot is."""
+
+    STATUS = "status"
+    CODE = "code"
+    SOURCE = "source"
+
+
+def error_field_role(field_type: LVType | None) -> ErrorFieldRole:
+    """The role of an error cluster field, from its type: the Boolean is the
+    status, the string the source, the number the code."""
+    underlying = field_type.underlying_type if field_type else None
+    if is_boolean_type_name(underlying):
+        return ErrorFieldRole.STATUS
+    if is_string_type_name(underlying):
+        return ErrorFieldRole.SOURCE
+    return ErrorFieldRole.CODE
+
+
+@dataclass(frozen=True)
+class ErrorFieldRead:
+    """One field an Unbundle takes out of an error cluster: the terminal it
+    leaves from, its role, and the value it holds when no error occurred (the
+    type's default: status False, code 0, source empty)."""
+
+    terminal_id: str
+    role: ErrorFieldRole
+    no_error_value: str
+
+    def caught_value(self, error_var: str) -> str:
+        """The value of the field when the error ``error_var`` was caught."""
+        if self.role is ErrorFieldRole.STATUS:
+            return "True"
+        return f"{error_var}.{self.role.value}"
+
+
+def _error_read(
     term: Terminal, class_fields: list[ClusterField] | None
-) -> str | None:
-    """The value of the field an Unbundle takes out of an error cluster. An
-    error is an exception, so the cluster that reaches the Unbundle is the no
-    error one: every field holds its type's default (status False, code 0,
-    source empty). None when the field is not found."""
+) -> ErrorFieldRead | None:
+    """The read an Unbundle terminal makes of an error cluster field; None when
+    the field is not found."""
     if term.nmux_field_index is None or not class_fields:
         return None
     flat = _flatten_fields(class_fields)
     if term.nmux_field_index >= len(flat):
         return None
     _path, field = flat[term.nmux_field_index]
-    return ast.unparse(default_value_expr(field.type))
+    return ErrorFieldRead(
+        terminal_id=term.id,
+        role=error_field_role(field.type),
+        no_error_value=ast.unparse(default_value_expr(field.type)),
+    )
 
 
 def _position_path(
@@ -268,17 +318,7 @@ def _position_path(
         path = paths[index]
         if path is not None:
             return path
-    raise TypeResolutionNeeded(
-        type_name=f"positional field[{index}]", context=term.id
-    )
-
-
-def _bundles_status(
-    list_in: list[Terminal],
-    class_fields: list[ClusterField] | None,
-) -> bool:
-    """Check if any LIST input maps to the 'status' field."""
-    return any(_field_name(t, class_fields) == "status" for t in list_in)
+    raise TypeResolutionNeeded(type_name=f"positional field[{index}]", context=term.id)
 
 
 def _generate_error_bundle(
@@ -286,39 +326,49 @@ def _generate_error_bundle(
     class_fields: list[ClusterField] | None,
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Generate conditional raise for error cluster bundle."""
-    field_values: dict[str, str] = {}
+    """Generate what a Bundle into an error cluster does.
+
+    A Bundle that sets the status raises ``LabVIEWError`` with the code and
+    source it bundles, when the status is true. Inside an error handler, a
+    Bundle that sets only the code or the source changes the error being
+    handled, which then stays raised.
+    """
+    values: dict[ErrorFieldRole, str] = {}
     for t in sorted(list_in, key=lambda t: t.index):
         val = ctx.resolve(t.id)
-        if not val:
-            continue
-        fname = _field_name(t, class_fields)
-        if fname:
-            field_values[fname] = val
+        read = _error_read(t, class_fields)
+        if val and read is not None:
+            values[read.role] = val
 
-    status_val = field_values.get("status", "True")
-    code_val = field_values.get("code", "0")
-    source_val = field_values.get("source", "''")
+    status = values.get(ErrorFieldRole.STATUS)
+    if status is None:
+        if ctx.error_var is None:
+            return CodeFragment.empty()
+        return CodeFragment(
+            statements=[
+                build_assign_attr(ctx.error_var, role.value, parse_expr(val))
+                for role, val in values.items()
+            ]
+        )
 
+    ctx.import_labview_error()
     raise_stmt = ast.Raise(
         exc=ast.Call(
             func=ast.Name(id="LabVIEWError", ctx=ast.Load()),
             args=[],
             keywords=[
-                ast.keyword(arg="code", value=parse_expr(code_val)),
-                ast.keyword(arg="source", value=parse_expr(source_val)),
+                ast.keyword(arg=role.value, value=parse_expr(values[role]))
+                for role in (ErrorFieldRole.CODE, ErrorFieldRole.SOURCE)
+                if role in values
             ],
         ),
         cause=None,
     )
-    if_stmt = ast.If(
-        test=parse_expr(status_val),
-        body=[raise_stmt],
-        orelse=[],
+    if status == "True":
+        return CodeFragment(statements=[raise_stmt])
+    return CodeFragment(
+        statements=[ast.If(test=parse_expr(status), body=[raise_stmt], orelse=[])]
     )
-
-    imports = {"from lvkit.labview_error import LabVIEWError"}
-    return CodeFragment(statements=[if_stmt], bindings={}, imports=imports)
 
 
 def _field_name(

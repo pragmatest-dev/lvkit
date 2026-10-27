@@ -1,27 +1,22 @@
-"""Polymorphic-variant discovery, matching, and JSON persistence."""
+"""Polymorphic-variant discovery and matching, plus in-memory terminal learning."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from lvkit.models import LVType, LVTypeKind
 
 from .models import VIEntry, VITerminal
-from .naming import derive_python_name
 
 
 class _VILibVariantMixin:
-    """Match, discover, and persist polymorphic vilib VI variants."""
+    """Match and discover polymorphic vilib VI variants; learn terminals in memory."""
 
     # Instance attributes populated by _VILibLoaderMixin.__init__. Declared
     # here (annotation only, no assignment — zero runtime effect) so pyright
     # can type-check attribute access within this mixin.
-    data_dir: Path
     _types: dict[str, LVType]
     _variants: dict[str, list[VIEntry]]
-    _category_files: dict[str, Path]
 
     # Implemented by _VILibLookupMixin. Declared here (stub body, never
     # executed) only so pyright can type-check the call below — on the
@@ -178,54 +173,7 @@ class _VILibVariantMixin:
             self._variants[vi_name] = []
         self._variants[vi_name].append(variant)
 
-        # Save to pending for review (variants need human verification)
-        self._add_variant_to_pending(vi_name, variant, caller_vi)
-
         return variant
-
-    def _add_variant_to_pending(
-        self,
-        vi_name: str,
-        variant: VIEntry,
-        caller_vi: str | None,
-    ) -> None:
-        """Save discovered variant to _pending_terminals.json for review."""
-        pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
-
-        if pending_file.exists():
-            with open(pending_file, encoding="utf-8") as f:
-                pending_data = json.load(f)
-        else:
-            pending_data = {"conflicts": {}, "variants": {}}
-
-        if "variants" not in pending_data:
-            pending_data["variants"] = {}
-
-        if vi_name not in pending_data["variants"]:
-            pending_data["variants"][vi_name] = []
-
-        variant_entry = {
-            "signature": variant.variant_signature,
-            "caller_vi": caller_vi,
-            "terminals": [
-                {
-                    "index": t.index,
-                    "name": t.name,
-                    "direction": t.direction,
-                    "type": t.type,
-                }
-                for t in variant.terminals
-            ],
-        }
-
-        # Don't add duplicate signatures
-        existing_sigs = {v.get("signature") for v in pending_data["variants"][vi_name]}
-        if variant.variant_signature not in existing_sigs:
-            pending_data["variants"][vi_name].append(variant_entry)
-
-            pending_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(pending_file, "w", encoding="utf-8") as f:
-                json.dump(pending_data, f, indent=2)
 
     def auto_update_terminals(
         self,
@@ -235,7 +183,9 @@ class _VILibVariantMixin:
     ) -> VIEntry:
         """Auto-update VI terminals from caller observations.
 
-        Creates new typedefs in _types.json as needed.
+        The bundled catalog is read-only: what is learned lives in this
+        resolver instance's memory and is gone with it. Typedefs seen on a
+        wire are registered in memory as needed.
         On conflicts, creates a polymorphic variant instead of failing.
         Observations are always trusted - they come from actual wire connections.
         """
@@ -267,7 +217,7 @@ class _VILibVariantMixin:
 
             observed_map[wired_term.index] = {
                 "name": wired_term.name or "",
-                "direction": wired_term.direction,
+                "direction": "out" if wired_term.direction == "output" else "in",
                 "type": type_str,
             }
 
@@ -304,17 +254,14 @@ class _VILibVariantMixin:
             return self._create_variant(vi_name, observed_map, vi, caller_vi)
 
         # No conflict - update base entry
-        updated = False
         unmatched_obs: list[tuple[int, dict[str, Any]]] = []
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 term = existing_map[idx]
                 if not term.direction and obs_data["direction"]:
                     term.direction = obs_data["direction"]
-                    updated = True
                 if not term.type and obs_data["type"]:
                     term.type = obs_data["type"]
-                    updated = True
             else:
                 # Try name-based matching first
                 matched = False
@@ -324,7 +271,6 @@ class _VILibVariantMixin:
                             term.index = idx
                             term.direction = obs_data["direction"]
                             term.type = obs_data["type"]
-                            updated = True
                             matched = True
                             break
                 if not matched:
@@ -356,7 +302,6 @@ class _VILibVariantMixin:
                     if obs_data["type"]:
                         t.type = obs_data["type"]
                     null_terms.remove(t)
-                    updated = True
                 else:
                     still_unmatched.append((idx, obs_data))
 
@@ -373,10 +318,6 @@ class _VILibVariantMixin:
                     if obs_data["type"]:
                         t.type = obs_data["type"]
                     null_terms.remove(t)
-                    updated = True
-
-        if updated:
-            self._save_vi_entry(vi_name, vi)
 
         return vi
 
@@ -412,7 +353,7 @@ class _VILibVariantMixin:
             variant.variant_signature = self._compute_signature(new_map)
 
     def _ensure_typedef(self, lv_type: LVType) -> None:
-        """Create typedef in _types.json if it doesn't exist."""
+        """Register a typedef seen on a wire if the catalog lacks it."""
         if not lv_type.typedef_path:
             return
 
@@ -426,113 +367,3 @@ class _VILibVariantMixin:
             lv_type.description = f"Auto-discovered typedef from {lv_type.typedef_path}"
 
         self._types[lv_type.typedef_path] = lv_type
-        self._save_typedef(lv_type)
-
-    def _save_typedef(self, lv_type: LVType) -> None:
-        """Save typedef to _types.json."""
-        types_path = self.data_dir / "vilib" / "_types.json"
-
-        if types_path.exists():
-            with open(types_path, encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            data = {}
-
-        # Derive Python name from typedef_name
-        python_name = (
-            derive_python_name(lv_type.typedef_name)
-            if lv_type.typedef_name
-            else "Unknown"
-        )
-
-        # Serialize LVType
-        type_data: dict[str, Any] = {
-            "name": python_name,
-            "kind": lv_type.kind,
-            "underlying_type": lv_type.underlying_type,
-        }
-
-        if lv_type.description:
-            type_data["description"] = lv_type.description
-
-        if lv_type.values:
-            type_data["values"] = {
-                name: {
-                    "value": ev.value,
-                    "description": ev.description,
-                }
-                for name, ev in lv_type.values.items()
-            }
-
-        if lv_type.fields:
-            type_data["fields"] = [
-                {
-                    "name": f.name,
-                    "type": (f.type.underlying_type or "Any") if f.type else "Any",
-                }
-                for f in lv_type.fields
-            ]
-
-        data[lv_type.typedef_path] = type_data
-
-        types_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(types_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-
-    def _save_vi_entry(self, vi_name: str, vi: VIEntry) -> None:
-        """Save updated VI to category JSON."""
-        category_file = self._category_files.get(vi_name)
-        if not category_file:
-            return
-
-        with open(category_file, encoding="utf-8") as f:
-            data = json.load(f)
-
-        for i, entry in enumerate(data.get("entries", [])):
-            entry_name = entry.get("name", "")
-            if not entry_name.endswith(".vi"):
-                entry_vi_name = f"{entry_name}.vi"
-            else:
-                entry_vi_name = entry_name
-            if entry_vi_name == vi_name:
-                data["entries"][i] = json.loads(vi.model_dump_json(exclude_none=True))
-                break
-
-        with open(category_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-
-    def _add_to_pending(
-        self,
-        vi_name: str,
-        caller_vi: str | None,
-        conflicts: list[dict[str, Any]],
-        observed_map: dict[int, dict[str, Any]],
-        existing_map: dict[int, VITerminal],
-    ) -> None:
-        """Save conflict to _pending_terminals.json."""
-        pending_file = self.data_dir / "vilib" / "_pending_terminals.json"
-
-        if pending_file.exists():
-            with open(pending_file, encoding="utf-8") as f:
-                pending_data = json.load(f)
-        else:
-            pending_data = {"conflicts": {}}
-
-        if vi_name not in pending_data["conflicts"]:
-            pending_data["conflicts"][vi_name] = []
-
-        conflict_entry = {
-            "caller_vi": caller_vi,
-            "conflicts": conflicts,
-            "observed": {k: v for k, v in observed_map.items()},
-            "existing": {
-                k: {"name": v.name, "direction": v.direction, "type": v.type}
-                for k, v in existing_map.items()
-            },
-        }
-
-        pending_data["conflicts"][vi_name].append(conflict_entry)
-
-        pending_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(pending_file, "w", encoding="utf-8") as f:
-            json.dump(pending_data, f, indent=2)

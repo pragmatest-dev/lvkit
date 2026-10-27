@@ -246,13 +246,12 @@ def test_in_place_element_on_an_array_edits_the_array(tmp_path, monkeypatch):
     modules = _import_all(package, monkeypatch)
     registry = modules[_module_named(package, "tdm_registry.py").name]
 
-    # Registering a notifier twice replaces its entry in place; the run ends in
-    # the Type Cast of a refnum, which the runtime does not support.
+    # Registering a notifier twice replaces its entry in place; each run ends in
+    # the Type Cast of a refnum to a U32, which flattens as a 32-bit integer.
     for tdm_id, details in (("a", ("q", "c")), ("b", ("q2", "c2"))):
-        with pytest.raises(NotImplementedError):
-            registry.tdm_registry(
-                action=0, tdm_id=tdm_id, delivery_notifier=7, details=details
-            )
+        registry.tdm_registry(
+            action=0, tdm_id=tdm_id, delivery_notifier=7, details=details
+        )
     (state,) = (v for k, v in vars(registry).items() if k.startswith("_lv_state_"))
     assert state == ([7], ["b"], [("q2", "c2")])
 

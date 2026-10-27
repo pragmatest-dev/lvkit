@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.core import _uid_of
 from lvkit.graph.models import (
     AnyGraphNode,
     Constant,
@@ -23,6 +24,7 @@ from lvkit.graph.models import (
     VIContext,
 )
 from lvkit.graph.operations import OperationsMixin, frame_key
+from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import (
     Frame,
     LVType,
@@ -31,9 +33,14 @@ from lvkit.models import (
     Tunnel,
     TunnelTerminal,
     TypeNamer,
+    unique_names,
 )
 
 from .ast_utils import parameter_names, to_function_name, to_var_name
+from .data_files import data_file_expression, holds_array_whole
+from .elementwise import LV_IMPORT
+from .errors import unwritable_value_error
+from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .import_resolver import ImportResolver
 
 
@@ -67,7 +74,14 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
+    # Whether the VI has parallel branches with error wires: independent
+    # nodes then run as branches that hold their errors (see error_handler).
     use_held_error_model: bool = False
+    # The name of the caught ``LabVIEWError`` while the code of an error handler
+    # (the error frame of an error case structure) is generated: an Unbundle of
+    # the error cluster there reads the caught error. None outside a handler,
+    # where an error cluster is the no-error one.
+    error_var: str | None = None
     # When True, unknown primitives / vi.lib VIs do NOT raise — instead
     # the codegen emits a `raise PrimitiveResolutionNeeded(...)` /
     # `raise VILibResolutionNeeded(...)` statement inline in the generated
@@ -82,6 +96,12 @@ class CodeGenContext:
     # with a sink to batch-collect every gap in one pass. Shared across child
     # contexts so a gap nested in a loop/case is still collected.
     unresolved_sink: list[Exception] | None = field(default=None, repr=False)
+    # Files the generated module reads at run time (an array too large to write
+    # into the module), by file name; the caller writes them beside the module.
+    # None when the caller has nowhere to put them. ``module_stem`` prefixes
+    # their names so modules in one folder never collide.
+    data_files: dict[str, bytes] | None = field(default=None, repr=False)
+    module_stem: str = ""
     # Lives on context (not builder) because child() must share it
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
@@ -446,6 +466,7 @@ class CodeGenContext:
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
+            error_var=self.error_var,
             soft_unresolved=self.soft_unresolved,
             unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass
             _allocated_vars=self._allocated_vars,  # Shared — same scope
@@ -470,11 +491,19 @@ class CodeGenContext:
         if import_stmt:
             self.imports.add(import_stmt)
 
-    def import_function(self, vi_name: str) -> str:
-        """Import the function of a VI and return the name this module calls it
-        by."""
+    def import_labview_error(self) -> None:
+        """Import ``LabVIEWError`` from the package's ``errors`` module."""
         if isinstance(self.import_resolver, ImportResolver):
-            imported = self.import_resolver.function(vi_name)
+            self.add_import(self.import_resolver.error_import())
+        else:
+            self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
+
+    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
+        """Import the function of a VI and return the name this module calls it
+        by. ``callee_key`` is the VI's identity (a call node's ``callee_key``);
+        a VI named without one (a VI reference constant) is found by name."""
+        if isinstance(self.import_resolver, ImportResolver):
+            imported = self.import_resolver.function(vi_name, callee_key)
             self.add_import(imported.statement)
             return imported.name
         function = to_function_name(vi_name)
@@ -496,7 +525,19 @@ class CodeGenContext:
             and lv_type.underlying_type == "VIRefnum"
             and isinstance(const.value, str)
         ):
-            return self.import_function(const.value)
+            return self.import_function(const.value, const.referenced_vi_key)
+        if const.unwritable is not None:
+            self.add_import(LV_IMPORT)
+            return data_file_expression(
+                what="constant",
+                name=const.label,
+                uid=_uid_of(const.id),
+                module_stem=self.module_stem,
+                unwritable=const.unwritable,
+                lv_type=lv_type,
+                data_files=self.data_files,
+                whole_value=holds_array_whole(const.unwritable, lv_type),
+            )
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
@@ -511,9 +552,7 @@ class CodeGenContext:
         target = self.imports if at_run_time else self.annotation_imports
         for named in lv_type.named_types():
             type_ref = named.type_ref()
-            imported = (
-                self.import_resolver.type_import(type_ref) if type_ref else None
-            )
+            imported = self.import_resolver.type_import(type_ref) if type_ref else None
             if imported is not None:
                 target.add(imported.statement)
 
@@ -617,6 +656,8 @@ class CodeGenContext:
         vi_context: VIContext,
         graph: InMemoryVIGraph | None = None,
         import_resolver: ImportResolver | None = None,
+        data_files: dict[str, bytes] | None = None,
+        module_stem: str = "",
     ) -> CodeGenContext:
         """Create context from VIContext.
 
@@ -633,6 +674,8 @@ class CodeGenContext:
             graph=graph,
             vi_inputs=parameters,
             import_resolver=import_resolver,
+            data_files=data_files,
+            module_stem=module_stem,
         )
 
         _bind_inputs_and_constants(ctx, parameters, vi_context.constants)
@@ -823,7 +866,10 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         return None
     # Values in field order; a field absent from the parsed dict falls back to
     # None (LabVIEW's cluster default fills every field, so this is defensive).
-    ordered = [(f.name, _python_literal(value.get(f.name))) for f in fields]
+    keys = unique_names(f.name for f in fields)
+    ordered = [
+        (f.name, _python_literal(value.get(key))) for f, key in zip(fields, keys)
+    ]
     if anon:
         elts = ", ".join(v for _name, v in ordered)
         trailing = "," if len(ordered) == 1 else ""
@@ -872,6 +918,9 @@ def _format_constant(
     module's name for the class (``CodeGenContext.constant_expression`` adds the
     import); otherwise it is the item's value.
     """
+    if const.unwritable is not None:
+        raise unwritable_value_error("constant", const.label, const.unwritable)
+
     member_ref = enum_member_constant(const, names)
     if member_ref is not None:
         return member_ref
@@ -908,7 +957,10 @@ def _format_constant(
         return _python_literal(value)
 
     # Type-driven decoding: use underlying_type when available.
-    if underlying == "Boolean":
+    if underlying == "Picture":
+        # A Picture holding drawing data raised above; what is left is empty.
+        return "None"
+    if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
         # The parser already hands path constants back as a ``Path("…")``

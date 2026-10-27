@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
 
+from .clfn_generated import generated_vi  # noqa: F401  (a fixture)
+from .fake_kernel32 import kernel32  # noqa: F401  (a fixture)
 from .helpers import make_ctx, make_graph_with_terminals
 
 # The sample VI corpus is local-only (gitignored, pulled via
@@ -53,14 +58,32 @@ def _sanitize_git_env(monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
 
+@pytest.fixture(scope="session")
+def _corpus_cache_dir(tmp_path_factory):
+    """One cache per test worker, shared by its corpus tests. Extraction is
+    keyed by each VI's content hash, so a VI one test extracted is reused by the
+    next instead of re-running pylabview."""
+    return tmp_path_factory.mktemp("lvkit-corpus-cache")
+
+
 @pytest.fixture(autouse=True)
-def _hermetic_cache(tmp_path_factory, monkeypatch):
-    """Point the extraction cache at a per-test tmp dir so no test ever writes
-    to the real ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``), and each test
-    starts with a cold cache. ``monkeypatch.setenv`` mutates ``os.environ`` in
-    process, so subprocess-based CLI tests inherit ``LVKIT_CACHE_DIR`` too.
-    Also clears the module-level extraction roots (mirrors a fresh process)."""
-    cache_dir = tmp_path_factory.mktemp("lvkit-cache")
+def _hermetic_cache(request, tmp_path_factory, monkeypatch):
+    """Point the cache at a tmp dir so no test ever writes to the real
+    ``~/.cache/lvkit`` (or a repo's ``.lvkit/cache``). A corpus test
+    (``needs_samples``) shares its worker's cache; every other test, and a
+    corpus test marked ``cold_cache``, starts with an empty one.
+    ``monkeypatch.setenv`` mutates ``os.environ`` in process, so subprocess-based
+    CLI tests inherit ``LVKIT_CACHE_DIR`` too. Also clears the module-level
+    extraction roots (mirrors a fresh process)."""
+    node = request.node
+    shared = node.get_closest_marker("needs_samples") and not node.get_closest_marker(
+        "cold_cache"
+    )
+    cache_dir = (
+        request.getfixturevalue("_corpus_cache_dir")
+        if shared
+        else tmp_path_factory.mktemp("lvkit-cache")
+    )
     monkeypatch.setenv("LVKIT_CACHE_DIR", str(cache_dir))
 
     from lvkit import cache_paths, staging
@@ -88,3 +111,41 @@ def ctx_with_terminals():
         return make_ctx(*terminal_ids)
 
     return _factory
+
+
+# Two revisions of one VI from the JKI-VI-Tester sample (BSD-3-Clause): the diff
+# tests compare the older one (``_DIFF_BASE_REF``) with the sample's current file.
+_DIFF_REPO = SAMPLES_ROOT / "JKI-VI-Tester"
+_DIFF_VI = "source/Classes/TestCase/run.vi"
+_DIFF_BASE_REF = "92be264"
+
+
+@dataclass(frozen=True)
+class ViDiffPair:
+    """``base`` -> ``head`` copies in a temporary folder; ``root`` holds both."""
+
+    base: Path
+    head: Path
+    root: Path
+
+
+@pytest.fixture(scope="session")
+def vi_diff_pair(tmp_path_factory: pytest.TempPathFactory) -> ViDiffPair:
+    """An older and the current revision of ``TestCase/run.vi``, copied into a
+    temporary folder, so a diff test reads nothing from (and writes nothing to)
+    the repository."""
+    head_src = _DIFF_REPO / _DIFF_VI
+    if not head_src.is_file():
+        pytest.skip(f"{head_src} not present on this machine")
+    shown = subprocess.run(
+        ["git", "-C", str(_DIFF_REPO), "show", f"{_DIFF_BASE_REF}:{_DIFF_VI}"],
+        capture_output=True,
+    )
+    if shown.returncode != 0:
+        pytest.skip(f"{_DIFF_REPO} has no revision {_DIFF_BASE_REF}")
+    root = tmp_path_factory.mktemp("vi_diff_pair")
+    base = root / "run_base.vi"
+    base.write_bytes(shown.stdout)
+    head = root / "run_head.vi"
+    shutil.copyfile(head_src, head)
+    return ViDiffPair(base=base, head=head, root=root)

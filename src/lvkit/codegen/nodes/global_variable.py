@@ -13,9 +13,9 @@ from lvkit.graph.models import GlobalVariableNode, VINode
 
 from ..ast_utils import parameter_names, parse_expr, to_module_name
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver, ModuleImport
-from .base import CodeGenError
 
 
 def _module_import(

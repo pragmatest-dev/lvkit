@@ -15,7 +15,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import _lvnet_ambiguous_named_types, render_lvnet
 from lvkit.load_mode import LoadMode
-from lvkit.parser.vi import _inline_structure_tunnel_dcos
+from lvkit.parser.vi import _inline_dco_definitions
 from tests.test_lvnet_identity import _assert_graph_identity
 
 _JKI = Path(".lvkit/cache/samples/JKI-VI-Tester/source")
@@ -39,7 +39,7 @@ def test_bare_back_reference_takes_the_listed_tunnel_definition() -> None:
             </SL__arrayElement>
           </termList></s></r>"""
     )
-    _inline_structure_tunnel_dcos(root)
+    _inline_dco_definitions(root)
     terms = root.findall("s/termList/SL__arrayElement")
     listed = terms[0].find("dco")
     assert listed is not None

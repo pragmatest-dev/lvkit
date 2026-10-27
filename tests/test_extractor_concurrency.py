@@ -15,7 +15,7 @@ import pytest
 
 from lvkit.extractor import extract_vi_xml
 
-pytestmark = pytest.mark.needs_samples
+pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
 _VI = (
     Path(__file__).resolve().parent.parent

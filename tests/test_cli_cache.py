@@ -52,6 +52,7 @@ def _run(*args: str) -> subprocess.CompletedProcess:
         [sys.executable, "-m", "lvkit.cli", *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
 
@@ -77,7 +78,9 @@ class TestRenderCacheCLI:
         slot.write_text(_POISON, encoding="utf-8")
         out2 = tmp_path / "o2.html"
         _render(str(vi), "--format", "html", "-o", str(out2))
-        assert out2.read_text() == _POISON, "warm run did not read from cache"
+        assert out2.read_text(encoding="utf-8") == _POISON, (
+            "warm run did not read from cache"
+        )
 
     def test_cold_and_warm_output_byte_identical(self, tmp_path: Path) -> None:
         _require(_SAMPLE_A)
@@ -97,10 +100,15 @@ class TestRenderCacheCLI:
 
         out = tmp_path / "nc.html"
         _render(str(vi), "--format", "html", "--no-cache", "-o", str(out))
-        assert out.read_text() != _POISON, "--no-cache should rebuild, not read cache"
+        assert out.read_text(encoding="utf-8") != _POISON, (
+            "--no-cache should rebuild, not read cache"
+        )
         assert b"<" in out.read_bytes()
-        # and it refreshed the slot with the real rebuild
-        assert slot.read_text() != _POISON
+        # -o with --no-cache writes the file directly: the cache is not touched
+        assert slot.read_text(encoding="utf-8") == _POISON
+        # without -o the render lives in the cache, so --no-cache refreshes it
+        _render(str(vi), "--format", "html", "--no-cache")
+        assert slot.read_text(encoding="utf-8") != _POISON
 
     def test_edited_vi_is_a_miss(self, tmp_path: Path) -> None:
         _require(_SAMPLE_A)
@@ -112,7 +120,38 @@ class TestRenderCacheCLI:
         vi.write_bytes(vi.read_bytes() + b"\x00")
         out = tmp_path / "e.html"
         _render(str(vi), "--format", "html", "-o", str(out))
-        assert out.read_text() != _POISON, "edited VI must not hit the old slot"
+        assert out.read_text(encoding="utf-8") != _POISON, (
+            "edited VI must not hit the old slot"
+        )
+
+    def test_changed_subvi_or_option_is_a_miss(self, tmp_path: Path) -> None:
+        main = Path(
+            ".lvkit/cache/samples/LabVIEW-DAQ/Fiber Photometry/"
+            "MasterAquisitionFile_FP.vi"
+        )
+        _require(main)
+        src = tmp_path / "repo" / "src"
+        (tmp_path / "repo" / ".git").mkdir(parents=True)
+        src.mkdir(parents=True)
+        for sibling in main.parent.glob("*.vi"):
+            (src / sibling.name).write_bytes(sibling.read_bytes())
+        vi = src / main.name
+        _render(str(vi), "--format", "html", "-o", str(tmp_path / "x.html"))
+        slot = output_cache.render_slot(vi, "html")
+
+        def poisoned_run(*extra: str) -> str:
+            slot.write_text(_POISON, encoding="utf-8")
+            out = tmp_path / "p.html"
+            _render(str(vi), "--format", "html", "-o", str(out), *extra)
+            return out.read_text(encoding="utf-8")
+
+        assert poisoned_run() == _POISON  # nothing changed: a hit
+        assert poisoned_run("--load-mode", "none") != _POISON  # option changed
+        _render(str(vi), "--format", "html", "-o", str(tmp_path / "x.html"))
+        slot.write_text(_POISON, encoding="utf-8")
+        for sub in sorted(p for p in src.glob("*.vi") if p != vi):
+            sub.write_bytes(sub.read_bytes() + b"\x00")
+        assert poisoned_run() != _POISON  # a SubVI changed
 
     def test_two_vis_do_not_cross_serve(self, tmp_path: Path) -> None:
         _require(_SAMPLE_A)
@@ -124,7 +163,7 @@ class TestRenderCacheCLI:
         output_cache.render_slot(vi_a, "html").write_text(_POISON, encoding="utf-8")
         out_b = tmp_path / "b.html"
         _render(str(vi_b), "--format", "html", "-o", str(out_b))
-        assert out_b.read_text() != _POISON
+        assert out_b.read_text(encoding="utf-8") != _POISON
 
     def test_no_output_flag_warms_cache_and_reports_slot(self, tmp_path: Path) -> None:
         _require(_SAMPLE_A)
@@ -177,4 +216,6 @@ class TestDiffCacheCLI:
             "diff", str(before), str(after), "--format", "html", "-o", str(out2)
         )
         assert res2.returncode == 0, res2.stderr
-        assert out2.read_text() == _POISON, "warm diff did not read from cache"
+        assert out2.read_text(encoding="utf-8") == _POISON, (
+            "warm diff did not read from cache"
+        )

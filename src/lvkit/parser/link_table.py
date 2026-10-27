@@ -26,24 +26,27 @@ one an ``IUVI`` record starts with::
                                             same ID as ``varPersistentID``)
     u32 count, count x u32                  node uids
     u32 len, bytes                          a second GUID (role not established)
-    00 02 00 03                             (role not established)
+    u16, u16                                role not established; the first
+                                            differs from record to record, the
+                                            second is the same for every record
+                                            of a VI
 
-    then, selected by the byte that follows (the layout flag):
+    then one of two layouts, each validated by the type string it ends with. The
+    single-process layout is read first and kept only if its type reads ``Global``;
+    otherwise the network-published layout is read and kept only if its type reads
+    ``Network``:
 
-    flag 01 (single process): the flag is its own byte
-    u8 01, u32                              the u32 seen as 1 (role not
-                                            established)
+    single process:
+    u8, u32                                 the u8 seen as 00 and 01, the u32 seen
+                                            as 1 (roles not established)
+    u32 len, bytes                          variable type, ``Global``
 
-    flag 00 (network-published): the flag is the high byte of the path length,
-    so it is NOT consumed on its own
+    network-published:
     u32 len, bytes                          network path (``\\.\SV Sample\Value``;
                                             ``\\.\`` is the local machine)
     4 x u32                                 seen as ffffffff 1 2 1 (roles not
                                             established)
-
-    u32 len, bytes                          variable type (``Global`` for a
-                                            single-process variable, ``Network``
-                                            for a network-published one)
+    u32 len, bytes                          variable type, ``Network``
 
 The qualified name is the library's name parts followed by the variable's name.
 
@@ -56,10 +59,45 @@ record's target is a ``SharedVariableRecordFailure``. This layout is taken from
 the reporter's description of the record and the structure it shares with
 ``HpVL``; it has not been checked against a real ``HpVr`` file.
 
-Any other flag is a layout not seen, and a type that disagrees with
-the flag is an inconsistent record; either way the record is reported as a
+A record that fits neither layout is reported as a
 ``SharedVariableRecordFailure``, never guessed at. A record of any other kind
 (``VIVl``) is never looked at: the scan only stops at the idents it knows.
+
+A .NET assembly the VI calls has a ``DNDA`` record in ``LIbd`` (every node that
+uses it) and a ``DNVA`` record in ``LIvi`` (the VI as a whole). pylabview's
+``LinkObjHeapToAssembly`` / ``LinkObjVIToAssembly`` define the layouts; the
+assembly's identity is the record's qualified name, four parts::
+
+    'DNVA'                                  ident
+    <basic head>                            pad to 4, u32 count, count x (u8 len,
+                                            bytes), pad to 2, path, flag (u32
+                                            >= 8.6, u8 >= 8.5)
+    pad to 2, path                          (>= 10.0.0.1; not read)
+
+    'DNDA'                                  ident
+    <link head>                             the head an ``IUVI`` record starts
+                                            with
+    typed-link flags                        u32 (>= 12.0.0.3)
+    u32 count, count x u32                  node uids
+    pad to 2, path                          (>= 10.0.0.1; not read)
+
+    qualified name = name, version, culture, public key token
+                                            (``MccDaq`` ``3.0.0.0`` ``neutral``
+                                            ``a37eefcf5c6ca10a``); the path holds
+                                            only the name -- there is no file, the
+                                            assembly comes from the GAC
+
+Taken from a reported sample (``DNDA ... 06 "MccDaq" 07 "3.0.0.0" 07 "neutral"
+10 "a37eefcf5c6ca10a" PTH0 ... 06 "MccDaq"``) and pylabview's layouts; no
+``DNVA`` or ``DNDA`` record of a real file has been decoded here. A record that
+does not have those four parts, or that runs past the table, is a
+``DotNetAssemblyRecordFailure``.
+
+A malleable VI's instance (the VI file LabVIEW embeds in each caller, see
+``lvkit.embedded_instances``) opens its ``LIvi`` table with an ``IVOV``
+(instance-to-owner) record; the first ``VIVI`` record after it names the VI the
+instance is an instance of. A ``VIVI`` record starts with the same name and path
+as an ``IUVI`` record, which is all that is read of it.
 
 Record layout (pylabview ``LVlinkinfo.py``: ``LinkObjIUseToVILink`` ->
 ``HeapToVILinkSaveInfo`` -> ``OffsetLinkSaveInfo`` -> ``TypedLinkSaveInfo`` ->
@@ -90,16 +128,21 @@ from __future__ import annotations
 import re
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from lvkit.dotnet_types import DotNetAssembly
 from lvkit.models import SharedVariableKind
 from lvkit.text_encoding import decode_labview_text
 
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_DYOM_IDENT = b"DyOM"
+_IVOV_IDENT = b"IVOV"
+_VIVI_IDENT = b"VIVI"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -150,6 +193,18 @@ _OLDEST_SUPPORTED = (8, 2, 0, 3)
 
 
 @dataclass(frozen=True)
+class DynamicDispatchLink:
+    """One ``DyOM`` record: the class method a dynamic-dispatch call names (class
+    qualified name, then method name) with the path of the class file, and the
+    ``dynLink`` uid of every call it belongs to."""
+
+    name_parts: tuple[str, ...]
+    path_tokens: tuple[str, ...]
+    link_flag: int
+    node_uids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class IUseLink:
     """One ``IUVI`` record: the VI referenced and every node that uses it."""
 
@@ -183,9 +238,11 @@ class SharedVariableLink:
     own name inside it. ``network_path`` is the path a network-published variable
     is published at (``\\.\SV Sample\Value``), ``None`` for a single-process one.
 
-    ``second_guid`` and ``layout_values`` are recorded as read, their role not
-    established: the second GUID, and the integers that follow the layout flag
-    (one for a single-process record, four for a network-published one).
+    ``second_guid``, ``second_guid_values``, ``layout_byte`` and ``layout_values``
+    are recorded as read, their role not established: the second GUID, the two
+    ``u16`` values after it, the byte that opens a single-process layout (``None``
+    for a network-published one), and the ``u32`` values that follow (one for a
+    single-process record, four for a network-published one).
     """
 
     library_parts: tuple[str, ...]
@@ -197,6 +254,8 @@ class SharedVariableLink:
     node_uids: tuple[int, ...]
     network_path: str | None = None
     second_guid: str = ""
+    second_guid_values: tuple[int, int] = (0, 0)
+    layout_byte: int | None = None
     layout_values: tuple[int, ...] = ()
     record: SharedVariableRecordKind = SharedVariableRecordKind.HPVL
 
@@ -227,6 +286,45 @@ class SharedVariableTable:
 
     links: list[SharedVariableLink]
     failures: list[SharedVariableRecordFailure]
+
+
+class DotNetAssemblyRecordKind(str, Enum):
+    """The ident of a .NET assembly link record: ``DNDA`` in the block-diagram
+    table (with the nodes that use the assembly), ``DNVA`` in the VI table.
+    ``(str, Enum)`` so a member equals the ident text."""
+
+    DNDA = "DNDA"
+    DNVA = "DNVA"
+
+    @property
+    def ident(self) -> bytes:
+        return self.value.encode("ascii")
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyLink:
+    """One ``DNDA`` or ``DNVA`` record: a .NET assembly the VI uses and, for a
+    ``DNDA`` record, the heap uids of every node that uses it."""
+
+    assembly: DotNetAssembly
+    node_uids: tuple[int, ...]
+    record: DotNetAssemblyRecordKind
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyRecordFailure:
+    """One ``DNDA`` or ``DNVA`` record that could not be decoded, and why."""
+
+    reason: str
+
+
+@dataclass(frozen=True)
+class DotNetAssemblyTable:
+    """What the ``DNDA`` and ``DNVA`` records of a sidecar hold: the assemblies
+    that decoded and the records that did not."""
+
+    links: list[DotNetAssemblyLink]
+    failures: list[DotNetAssemblyRecordFailure]
 
 
 class _SharedVariableRecordError(LinkTableError):
@@ -265,13 +363,6 @@ class _Reader:
 
     def u8(self) -> int:
         return self.take(1)[0]
-
-    def peek_u8(self) -> int:
-        if self.pos >= len(self.data):
-            raise LinkTableError(
-                f"record runs past the end of the table at {self.pos + 1}"
-            )
-        return self.data[self.pos]
 
     def u16(self) -> int:
         return struct.unpack(">H", self.take(2))[0]
@@ -321,8 +412,9 @@ class _Reader:
         raise LinkTableError(f"unrecognized path class {ident!r}")
 
 
-def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
-    """The head of a heap-to-VI link record, read from just after its ident."""
+def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
+    """The name, path and flag every link record starts with, read from just
+    after its ident."""
     r.align(4)
     count = r.u32()
     if count > _MAX_NAME_PARTS:
@@ -336,7 +428,12 @@ def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
         link_flag = r.u32()
     elif version.at_least(8, 5, 0, 1):
         link_flag = r.u8()
+    return _LinkHead(name_parts, path_tokens, link_flag)
 
+
+def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
+    """The head of a heap-to-VI link record, read from just after its ident."""
+    head = _read_basic_head(r, version)
     r.variable_size_u2p2()  # type id of the link's client type
 
     flag_byte = 0xFF
@@ -347,7 +444,7 @@ def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
             r.take(4 + 8)
         if version.at_least(6, 0, 0, 1):
             r.take(4 + 4 + 4)
-    return _LinkHead(name_parts, path_tokens, link_flag)
+    return head
 
 
 def _read_node_uids(r: _Reader) -> tuple[int, ...]:
@@ -375,10 +472,56 @@ def _decode_record(data: bytes, ident_pos: int, version: LinkTableVersion) -> IU
     )
 
 
-_SV_LAYOUT_MARKER = b"\x00\x02\x00\x03"
-_SV_LAYOUT_SINGLE_PROCESS = 1
-_SV_LAYOUT_NETWORK = 0
 _SV_NETWORK_VALUES = 4
+
+
+@dataclass(frozen=True)
+class _SharedVariableLayout:
+    """What follows the two ``u16`` values of a Shared Variable record."""
+
+    kind: SharedVariableKind
+    layout_byte: int | None
+    network_path: str | None
+    layout_values: tuple[int, ...]
+
+
+def _read_single_process_layout(r: _Reader) -> _SharedVariableLayout:
+    layout_byte = r.u8()
+    layout_values = (r.u32(),)
+    kind_text = r.string32()
+    if kind_text != SharedVariableKind.SINGLE_PROCESS.value:
+        raise LinkTableError(f"type {kind_text!r} where 'Global' was expected")
+    return _SharedVariableLayout(
+        SharedVariableKind.SINGLE_PROCESS, layout_byte, None, layout_values
+    )
+
+
+def _read_network_layout(r: _Reader) -> _SharedVariableLayout:
+    network_path = r.string32()
+    layout_values = tuple(r.u32() for _ in range(_SV_NETWORK_VALUES))
+    kind_text = r.string32()
+    if kind_text != SharedVariableKind.NETWORK.value:
+        raise LinkTableError(f"type {kind_text!r} where 'Network' was expected")
+    return _SharedVariableLayout(
+        SharedVariableKind.NETWORK, None, network_path, layout_values
+    )
+
+
+def _read_shared_variable_layout(data: bytes, pos: int) -> _SharedVariableLayout:
+    """The layout that ends the record at ``pos``: the single-process one when its
+    type string reads ``Global``, else the network-published one when its type
+    string reads ``Network``; a record that fits neither is an error."""
+    try:
+        return _read_single_process_layout(_Reader(data, pos))
+    except LinkTableError as single_error:
+        try:
+            return _read_network_layout(_Reader(data, pos))
+        except LinkTableError as network_error:
+            raise LinkTableError(
+                "fits neither Shared Variable layout "
+                f"(single process: {single_error}; "
+                f"network-published: {network_error})"
+            ) from None
 
 
 def _decode_shared_variable_record(
@@ -408,41 +551,66 @@ def _decode_shared_variable_record(
                 f"qualified name {name_parts!r} lacks a library and a variable"
             )
         second_guid = r.string32()
-        r.take(len(_SV_LAYOUT_MARKER))
-        layout = r.peek_u8()
-        network_path: str | None = None
-        if layout == _SV_LAYOUT_SINGLE_PROCESS:
-            r.u8()
-            layout_values = (r.u32(),)
-        elif layout == _SV_LAYOUT_NETWORK:
-            network_path = r.string32()
-            layout_values = tuple(r.u32() for _ in range(_SV_NETWORK_VALUES))
-        else:
-            raise LinkTableError(f"unknown layout flag {layout:#04x}")
-        kind_text = r.string32()
-        try:
-            kind = SharedVariableKind(kind_text)
-        except ValueError:
-            raise LinkTableError(
-                f"unknown Shared Variable type {kind_text!r}"
-            ) from None
-        if (kind is SharedVariableKind.NETWORK) != (network_path is not None):
-            raise LinkTableError(
-                f"type {kind_text!r} does not match layout flag {layout:#04x}"
-            )
+        second_guid_values = (r.u16(), r.u16())
+        layout = _read_shared_variable_layout(data, r.pos)
     except LinkTableError as exc:
         raise _SharedVariableRecordError(str(exc), node_uids) from exc
     return SharedVariableLink(
         library_parts=name_parts[:-1],
         variable_name=name_parts[-1],
-        kind=kind,
+        kind=layout.kind,
         persistent_id=persistent_id,
         item_type=item_type,
         target=target,
         node_uids=node_uids,
-        network_path=network_path,
+        network_path=layout.network_path,
         second_guid=second_guid,
-        layout_values=layout_values,
+        second_guid_values=second_guid_values,
+        layout_byte=layout.layout_byte,
+        layout_values=layout.layout_values,
+        record=record,
+    )
+
+
+_DOTNET_ASSEMBLY_NAME_PARTS = ("name", "version", "culture", "public key token")
+_OLDEST_DOTNET_RECORD = (8, 5, 0, 1)
+
+
+def dotnet_assembly_from_name_parts(parts: Sequence[str]) -> DotNetAssembly:
+    """The assembly a ``DNDA`` / ``DNVA`` record's qualified name spells: its
+    name, version, culture and public key token, in that order."""
+    if len(parts) != len(_DOTNET_ASSEMBLY_NAME_PARTS):
+        raise LinkTableError(
+            f"qualified name {tuple(parts)!r} has {len(parts)} parts, expected "
+            f"{', '.join(_DOTNET_ASSEMBLY_NAME_PARTS)}"
+        )
+    name, assembly_version, culture, token = parts
+    return DotNetAssembly(name, assembly_version, culture, token)
+
+
+def _decode_dotnet_record(
+    data: bytes,
+    ident_pos: int,
+    record: DotNetAssemblyRecordKind,
+    version: LinkTableVersion,
+) -> DotNetAssemblyLink:
+    if not version.at_least(*_OLDEST_DOTNET_RECORD):
+        raise LinkTableError(
+            f"{record.value} record of a {version.major}.{version.minor} VI is "
+            "older than the oldest supported layout (8.5)"
+        )
+    r = _Reader(data, ident_pos + len(record.ident))
+    node_uids: tuple[int, ...] = ()
+    if record is DotNetAssemblyRecordKind.DNDA:
+        head = _read_link_head(r, version)
+        if version.at_least(12, 0, 0, 3):
+            r.u32()  # typed-link flags
+        node_uids = _read_node_uids(r)
+    else:
+        head = _read_basic_head(r, version)
+    return DotNetAssemblyLink(
+        assembly=dotnet_assembly_from_name_parts(head.name_parts),
+        node_uids=node_uids,
         record=record,
     )
 
@@ -464,6 +632,83 @@ def _require_supported(version: LinkTableVersion) -> None:
         )
 
 
+def _dyn_extra_bytes(version: LinkTableVersion) -> int:
+    """Bytes a ``DyOM`` record holds between its 4-aligned end of API content and
+    its call uid list that pylabview's layout does not name. Fixed per saving
+    version, as measured on the cached sidecars (every record of a version has
+    the same size; values vary and their meaning is unknown): none up to 16, 4
+    bytes in LabVIEW 17-19, 8 bytes from LabVIEW 20."""
+    if version.at_least(20, 0, 0, 0):
+        return 8
+    if version.at_least(17, 0, 0, 0):
+        return 4
+    return 0
+
+
+def _decode_dyn_record(
+    data: bytes, ident_pos: int, version: LinkTableVersion
+) -> DynamicDispatchLink:
+    """A ``DyOM`` record, field by field as pylabview ``parseUDClassHeapAPISaveInfo``
+    reads it:
+
+    1. ``BasicLinkSaveInfo``: qualified name, path, flag.
+    2. (>= 8.0.0.3) ``UDClassAPILinkCache``, 4-aligned: library version (u64), is
+       internal (u8), bool 2 (u8, >= 8.1.0.2), call parent nodes (u8, >= 9.0.0.2),
+       API content (u32 length + bytes).
+    3. Pad to a 4-byte boundary.
+    4. ``_dyn_extra_bytes`` bytes pylabview does not read.
+    5. ``LinkOffsetList``: u32 count, then the uids.
+
+    The record must end where the table's next item starts (or at its end); a
+    record that does not is an error."""
+    r = _Reader(data, ident_pos + len(_DYOM_IDENT))
+    head = _read_basic_head(r, version)
+    if not version.at_least(8, 0, 0, 3):
+        raise LinkTableError("DyOM record of a VI older than 8.0")
+    r.align(4)
+    r.take(8)  # library version
+    r.take(2 if version.at_least(8, 1, 0, 2) else 1)  # is internal (+ bool 2)
+    if version.at_least(9, 0, 0, 2):
+        r.take(1)  # call parent nodes
+    content = r.u32()
+    if content > _MAX_STRING:
+        raise LinkTableError(f"API content of {content} bytes")
+    r.take(content)
+    r.align(4)
+    r.take(_dyn_extra_bytes(version))
+    uids = _read_node_uids(r)
+    if data[r.pos : r.pos + 2] != _NEXT_LINK_ITEM and r.pos < len(data) - 2:
+        raise LinkTableError("the call uid list does not end the record")
+    return DynamicDispatchLink(
+        name_parts=head.name_parts,
+        path_tokens=head.path_tokens,
+        link_flag=head.link_flag,
+        node_uids=uids,
+    )
+
+
+def decode_dyn_links(
+    data: bytes, version: LinkTableVersion
+) -> list[DynamicDispatchLink]:
+    """Every ``DyOM`` record in a ``_LIbd.bin`` sidecar, in file order. An
+    unreadable record raises ``LinkTableError``, never skipped."""
+    records: list[DynamicDispatchLink] = []
+    for start in _record_starts(data, _DYOM_IDENT):
+        _require_supported(version)
+        try:
+            records.append(_decode_dyn_record(data, start, version))
+        except LinkTableError as exc:
+            raise LinkTableError(f"DyOM record at offset {start}: {exc}") from exc
+    return records
+
+
+def read_dyn_links(
+    libd_path: Path, version: LinkTableVersion
+) -> list[DynamicDispatchLink]:
+    """``decode_dyn_links`` over a ``_LIbd.bin`` file."""
+    return decode_dyn_links(libd_path.read_bytes(), version)
+
+
 def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
     """Every ``IUVI`` record in a ``_LIbd.bin`` sidecar, in file order.
 
@@ -479,6 +724,39 @@ def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
         except LinkTableError as exc:
             raise LinkTableError(f"IUVI record at offset {start}: {exc}") from exc
     return records
+
+
+@dataclass(frozen=True)
+class InstanceSourceLink:
+    """The VI a malleable-VI instance is an instance of: its qualified name parts
+    and recorded path (relative to the instance)."""
+
+    name_parts: tuple[str, ...]
+    path_tokens: tuple[str, ...]
+
+
+def decode_instance_source(
+    data: bytes, version: LinkTableVersion
+) -> InstanceSourceLink | None:
+    """The VI an instance is an instance of, from the instance's raw ``_LIvi.bin``
+    sidecar: the first ``VIVI`` record after its ``IVOV`` record. ``None`` when
+    the table has no ``IVOV`` record (the VI is not an instance) or no ``VIVI``
+    record after it."""
+    owner_starts = _record_starts(data, _IVOV_IDENT)
+    if not owner_starts:
+        return None
+    source_starts = [
+        start for start in _record_starts(data, _VIVI_IDENT) if start > owner_starts[0]
+    ]
+    if not source_starts:
+        return None
+    try:
+        head = _read_basic_head(_Reader(data, source_starts[0] + 4), version)
+    except LinkTableError as exc:
+        raise LinkTableError(
+            f"VIVI record at offset {source_starts[0]}: {exc}"
+        ) from exc
+    return InstanceSourceLink(head.name_parts, head.path_tokens)
 
 
 def read_iuse_links(libd_path: Path, version: LinkTableVersion) -> list[IUseLink]:
@@ -518,6 +796,38 @@ def decode_shared_variable_links(
                 )
             )
     return table
+
+
+def decode_dotnet_assemblies(
+    data: bytes, version: LinkTableVersion
+) -> DotNetAssemblyTable:
+    """Every ``DNDA`` and ``DNVA`` record in a ``_LIbd.bin`` / ``_LIvi.bin``
+    sidecar, in file order: the assemblies that decoded, and a
+    ``DotNetAssemblyRecordFailure`` for each record that did not follow the
+    documented layout -- an unreadable record is reported, never skipped."""
+    table = DotNetAssemblyTable(links=[], failures=[])
+    starts = sorted(
+        (start, record)
+        for record in DotNetAssemblyRecordKind
+        for start in _record_starts(data, record.ident)
+    )
+    for start, record in starts:
+        try:
+            table.links.append(_decode_dotnet_record(data, start, record, version))
+        except LinkTableError as exc:
+            table.failures.append(
+                DotNetAssemblyRecordFailure(
+                    f"{record.value} record at offset {start}: {exc}"
+                )
+            )
+    return table
+
+
+def read_dotnet_assemblies(
+    sidecar_path: Path, version: LinkTableVersion
+) -> DotNetAssemblyTable:
+    """``decode_dotnet_assemblies`` over a link-table sidecar file."""
+    return decode_dotnet_assemblies(sidecar_path.read_bytes(), version)
 
 
 def read_shared_variable_links(

@@ -49,6 +49,7 @@ class OperationsMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def resolve_vi_name(self, vi_name: str) -> str: ...
+        def loaded_callee_key(self, node: VINode) -> str | None: ...
         def get_poly_variants(self, vi_name: str) -> list[str]: ...
         def get_operation_order(
             self, vi_name: str, extra_kinds: tuple[str, ...] = ()
@@ -114,12 +115,13 @@ class OperationsMixin:
 
     def enriched_terminals(self, node: AnyGraphNode, vi_name: str) -> list[Terminal]:
         """A node's terminals with subVI-call terminals enriched with the
-        callee's parameter names (resolved by the callee's QUALIFIED name).
+        callee's parameter names (the callee found by the call's recorded
+        ``callee_key``).
         """
         terminals = list(node.terminals)
         if isinstance(node, VINode) and node.id != node.vi_path:
             terminals = self._enrich_subvi_terminals_typed(
-                terminals, node.qualified_name or node.name, vi_name
+                terminals, self.loaded_callee_key(node)
             )
         return terminals
 
@@ -178,19 +180,13 @@ class OperationsMixin:
     def _enrich_subvi_terminals_typed(
         self,
         terminals: list[Terminal],
-        subvi_name: str | None,
-        caller_vi: str,
+        resolved_name: str | None,
     ) -> list[Terminal]:
         """Add callee parameter names to SubVI terminals via _get_slot_to_name.
 
-        ``subvi_name`` should be the callee's QUALIFIED name/vi_key when
-        available (not a bare filename) -- resolve_vi_name's bare-name lookup
-        collides across same-named VIs (e.g. two classes' same-named
-        dynamic-dispatch override, both literally "run.vi")."""
-        if not subvi_name:
-            return terminals
-        resolved_name = self.resolve_vi_name(subvi_name)
-        if resolved_name not in self._vi_nodes:
+        ``resolved_name`` is the loaded callee's ``vi_key`` (see
+        ``loaded_callee_key``); None leaves the terminals as they are."""
+        if resolved_name is None:
             return terminals
 
         # Get callee slot -> name mapping
@@ -226,6 +222,7 @@ class OperationsMixin:
                         caption_visible=t.caption_visible,
                         control_type=t.control_type,
                         default_value=t.default_value,
+                        unwritable=t.unwritable,
                         enum_values=t.enum_values,
                     )
                 )

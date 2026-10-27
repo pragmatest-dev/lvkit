@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.utils import clean_labview_string
+from lvkit.parser.xml_trees import parsed_xml
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import FP_TERMINAL_CLASS
@@ -19,6 +20,7 @@ from .models import (
     ParsedFPTerminal,
     ParsedType,
 )
+from .td_pool import unreadable_type
 from .type_resolution import resolve_type_rich
 
 
@@ -33,8 +35,10 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         type_name=lv_type.underlying_type or "unknown",
         typedef_path=lv_type.typedef_path,
         typedef_name=lv_type.typedef_name,
+        typedef_file=lv_type.typedef_file,
         ref_type=lv_type.ref_type,
         classname=lv_type.classname,
+        class_file=lv_type.class_file,
         fields=lv_type.fields,
         enum_values=lv_type.values,
         element_type=(
@@ -43,6 +47,8 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         dimensions=lv_type.dimensions,
         measure_flavor=lv_type.measure_flavor,
         user_event_name=lv_type.user_event_name,
+        dotnet_type=lv_type.dotnet_type,
+        unreadable=lv_type.unreadable,
     )
 
 
@@ -75,7 +81,7 @@ def extract_fp_dco_info(fp_xml_path: Path | str) -> dict[str, FpDcoInfo]:
     keyed by DCO uid: its ``typeDesc`` (the actual LabVIEW type) and its
     control/indicator flag (``objFlags`` bit 0).
     """
-    root = ET.parse(fp_xml_path).getroot()
+    root = parsed_xml(fp_xml_path)
 
     info: dict[str, FpDcoInfo] = {}
     for dco in root.findall(".//*[@class='fPDCO']"):
@@ -233,7 +239,7 @@ def _apply_conp_types(
     OVERRIDES the structure-only FP-heap fallback the loop above set. It never
     fights VCTP: CONP is non-empty ONLY for pre-LV9 VIs, which have no VCTP at
     all, so a terminal already resolved from VCTP (LV9+) is never reached here
-    (LV9+ CONP is an empty stub -> ``decode_conp_terminals`` returns ``[]``).
+    (LV9+ CONP is an empty stub -> ``decode_conp_terminals`` returns no terminals).
     Correlated by connector-pane SLOT: CONP terminal at slot S -> the conpane
     slot with the same index -> its ``fp_dco_uid`` -> the matching terminal.
     """
@@ -241,17 +247,21 @@ def _apply_conp_types(
     conp_bin = conp_sidecar_path(fp_path)
     if not conp_bin.exists():
         return
-    conp_terms = decode_conp_terminals(conp_bin.read_bytes())
-    if not conp_terms:
+    conp = decode_conp_terminals(conp_bin.read_bytes())
+    if not conp.terminals and conp.failure is None:
         return
     cpane = parse_connector_pane(fp_path)
     if cpane is None:
         return
     slot_to_dco = {s.index: s.fp_dco_uid for s in cpane.slots if s.fp_dco_uid}
     by_dco = {t.fp_dco_uid: t for t in terminals}
-    for ct in conp_terms:
-        if ct.lv_type is None:
-            continue
+    if conp.failure is not None:
+        # The block could not be read, so no terminal's type is known.
+        unreadable = _lvtype_to_parsed(unreadable_type(conp.failure))
+        for dco in slot_to_dco.values():
+            if dco in by_dco:
+                by_dco[dco].parsed_type = unreadable
+    for ct in conp.terminals:
         dco = slot_to_dco.get(ct.slot)
         term = by_dco.get(dco) if dco else None
         if term is None:
@@ -271,8 +281,7 @@ def parse_connector_pane(fp_xml_path: Path | str) -> ParsedConnectorPane | None:
     Returns:
         ParsedConnectorPane with slot assignments, or None if not found
     """
-    tree = ET.parse(fp_xml_path)
-    root = tree.getroot()
+    root = parsed_xml(fp_xml_path)
 
     con_pane = root.find(".//conPane[@class='conPane']")
     if con_pane is None:
@@ -313,55 +322,40 @@ def parse_connector_pane_types(
 ) -> dict[int, int]:
     """Get wiring rules for connected connector pane terminals.
 
-    Finds the VI's connector pane Function TypeDesc by matching connected
-    slot indices from the FPHb conpane, then extracts wiring rules.
+    Reads each connected slot's Flags from the VI's OWN connector-pane
+    Function TypeDesc (see ``_resolve_own_connector_pane_function``).
 
-    Wiring rule encoding in TypeDesc Flags bits 8-9:
-    - 0 = Invalid Wire Rule
-    - 1 = Required
-    - 2 = Recommended
-    - 3 = Optional
-    - 4 = Dynamic Dispatch
+    Wiring rule encoding in TypeDesc Flags (see ``get_wiring_rule``):
+    - bit 12 set = Required
+    - else bit 11 set = Recommended
+    - neither = Optional (a slot with ``Flags="0x0000"`` is Optional)
+    Bit 8 marks an output and bit 15 a Dynamic Dispatch terminal; neither
+    changes the wiring rule.
 
     Args:
         main_xml_path: Path to the main .xml file (not BDHb/FPHb)
         fp_conpane: ParsedConnectorPane from FPHb with connected slot indices
 
     Returns:
-        Dict mapping slot index -> wiring rule (0-4)
+        Dict mapping slot index -> ``ParsedWiringRule`` value (1-3); empty
+        when the VI's connector pane can't be resolved.
     """
     connected_indices = {s.index for s in fp_conpane.slots if s.fp_dco_uid}
     if not connected_indices:
         return {}
 
-    max_index = max(connected_indices)
+    func_td = _resolve_own_connector_pane_function(parsed_xml(main_xml_path))
+    if func_td is None:
+        return {}
+    children = func_td.findall("TypeDesc")
 
-    tree = ET.parse(main_xml_path)
-    root = tree.getroot()
-
-    for func_td in root.findall(".//TypeDesc[@Type='Function']"):
-        children = func_td.findall("TypeDesc")
-        if len(children) <= max_index:
+    rules: dict[int, int] = {}
+    for idx in sorted(connected_indices):
+        if idx >= len(children):
             continue
-
-        matches = all(
-            children[i].get("Flags", "0x0000") != "0x0000" for i in connected_indices
-        )
-        if not matches:
-            continue
-
-        rules: dict[int, int] = {}
-        for idx in connected_indices:
-            flags_str = children[idx].get("Flags", "0x0000")
-            try:
-                flags = int(flags_str, 16)
-            except ValueError:
-                flags = 0
-            rules[idx] = get_wiring_rule(flags)
-
-        return rules
-
-    return {}
+        flags = int(children[idx].get("Flags", "0x0000"), 16)
+        rules[idx] = get_wiring_rule(flags)
+    return rules
 
 
 def _flat_type_table(root: ET.Element) -> list[ET.Element]:
@@ -461,7 +455,7 @@ def parse_connector_pane_labels(main_xml_path: Path | str) -> dict[int, str]:
         referenced type carries a non-empty Label.
     """
     try:
-        root = ET.parse(main_xml_path).getroot()
+        root = parsed_xml(main_xml_path)
     except (ET.ParseError, OSError):
         return {}
 
