@@ -11,8 +11,9 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-from ..models import ClusterField, EnumValue, LVType, LVTypeKind
+from ..models import ClusterField, EnumValue, LVType, LVTypeKind, PaneSlot
 from .constants import CORRUPT_STUB_FORMAT
+from .flags import CONPANE_FLAG_OUTPUT
 from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
@@ -442,6 +443,30 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 underlying_type=_COLLECTION_TYPE_NAMES[type_name],
                 element_type=members[0] if members else None,
                 value_type=members[1] if len(members) > 1 else None,
+            )
+
+        elif type_name == "Function":
+            # A connector pane: one child per slot, the unused ones Void. Bit 8 of
+            # a slot's Flags marks an output.
+            slots: list[PaneSlot] = []
+            for index, child in enumerate(td.findall("TypeDesc[@TypeID]")):
+                slot_type = resolve_type(int(child.attrib["TypeID"]), visited)
+                if slot_type is None or slot_type.underlying_type == "Void":
+                    continue
+                flags = int(child.get("Flags", "0x0000"), 16)
+                label = _field_label(flat_types.get(int(child.attrib["TypeID"])), "")
+                slots.append(
+                    PaneSlot(
+                        index,
+                        bool(flags & CONPANE_FLAG_OUTPUT),
+                        slot_type,
+                        label or None,
+                    )
+                )
+            lv_type = LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type="Function",
+                pane=tuple(slots),
             )
 
         elif type_name == "MeasureData":

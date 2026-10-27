@@ -109,7 +109,9 @@ the "pad" steps align to that absolute offset::
     u32 count, count x (u8 len, bytes)      qualified name (N parts)
     pad to 2
     path                                    PTH0 / PTH1 / PTH2
-    flag                                    u32 (>= 8.6), u8 (>= 8.5)
+    flag                                    u32 (>= 8.6), u8 (8.5), u32 (older: read
+                                            from 29 LabVIEW 8.2 files, whose tables
+                                            pylabview leaves raw)
     type id                                 u16, or u32 when the top bit is set
     VI link reference                       u8 flag byte (>= 14.0.0.3) -- else
                                             u32 + u64 (>= 8.0.0.3), then
@@ -140,6 +142,8 @@ from lvkit.text_encoding import decode_labview_text
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_SVVI_IDENT = b"SVVI"
+_SCVI_IDENT = b"SCVI"
 _DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
@@ -182,6 +186,16 @@ class LinkTableVersion:
             bugfix=int(version.get("Bugfix", "0")),
             stage=stage,
         )
+
+    @classmethod
+    def of_vi(cls, main_root: ET.Element) -> LinkTableVersion | None:
+        """The version a VI was saved in: its save record's (``LVSR``), else its
+        version block's (``vers``) when pylabview left the save record raw, as it
+        does for LabVIEW 8.2 files. None when the VI records neither."""
+        element = main_root.find(".//LVSR/Section/Version")
+        if element is None:
+            element = main_root.find(".//vers/Section/Version")
+        return cls.from_lvsr(element) if element is not None else None
 
     def at_least(self, major: int, minor: int, bugfix: int, stage: int) -> bool:
         return self >= LinkTableVersion(major, minor, bugfix, stage)
@@ -423,11 +437,10 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     r.align(2)
     path_tokens = r.path()
 
-    link_flag = 0
-    if version.at_least(8, 6, 0, 1):
-        link_flag = r.u32()
-    elif version.at_least(8, 5, 0, 1):
+    if version.at_least(8, 5, 0, 1) and not version.at_least(8, 6, 0, 1):
         link_flag = r.u8()
+    else:
+        link_flag = r.u32()
     return _LinkHead(name_parts, path_tokens, link_flag)
 
 
@@ -710,19 +723,30 @@ def read_dyn_links(
 
 
 def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
-    """Every ``IUVI`` record in a ``_LIbd.bin`` sidecar, in file order.
+    """Every ``IUVI``, ``SVVI`` and ``SCVI`` record in a ``_LIbd.bin`` sidecar, in
+    file order. An ``SVVI`` record is how a Static VI Reference names the VI it
+    refers to, an ``SCVI`` record how a Call By Reference or Start Asynchronous
+    Call node whose VI is chosen in the node's setup names it; both have the
+    layout of an ``IUVI`` record and list the uid of every such node.
 
-    Raises ``LinkTableError`` when the table holds an ``IUVI`` record but the
-    saving VI predates the oldest layout read here, or a record does not follow
-    the layout -- an unreadable record is never skipped.
+    Raises ``LinkTableError`` when the table holds such a record but the saving VI
+    predates the oldest layout read here, or a record does not follow the layout
+    -- an unreadable record is never skipped.
     """
+    starts = sorted(
+        (start, ident)
+        for ident in (_IUVI_IDENT, _SVVI_IDENT, _SCVI_IDENT)
+        for start in _record_starts(data, ident)
+    )
     records: list[IUseLink] = []
-    for start in _record_starts(data, _IUVI_IDENT):
+    for start, ident in starts:
         _require_supported(version)
         try:
             records.append(_decode_record(data, start, version))
         except LinkTableError as exc:
-            raise LinkTableError(f"IUVI record at offset {start}: {exc}") from exc
+            raise LinkTableError(
+                f"{ident.decode()} record at offset {start}: {exc}"
+            ) from exc
     return records
 
 

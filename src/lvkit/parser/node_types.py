@@ -228,10 +228,12 @@ class CallByRefNode(ParsedNode):
 
     Calls a VI determined at runtime via a VI reference wire.
     frame_terminal_uids: UIDs of the 4 hGrowCItem terminals
-    (error in/out, VI ref in/out) from permDCOList.
+    (error in/out, VI ref in/out) from permDCOList. save_style: the node's
+    saved ``CBRSaveStyle`` byte, which records how the node calls the VI.
     """
 
     frame_terminal_uids: list[str] = field(default_factory=list)
+    save_style: int | None = None
 
 
 @dataclass
@@ -459,7 +461,12 @@ class CallByRefHandler(NodeTypeHandler):
                     t_uid = te.get("uid")
                     if t_uid:
                         frame_terminal_uids.append(t_uid)
-        return CallByRefNode(**common, frame_terminal_uids=frame_terminal_uids)
+        style_text = elem.findtext("CBRSaveStyle")
+        return CallByRefNode(
+            **common,
+            frame_terminal_uids=frame_terminal_uids,
+            save_style=int(style_text, 16) if style_text else None,
+        )
 
 
 class FeedbackMasterHandler(NodeTypeHandler):

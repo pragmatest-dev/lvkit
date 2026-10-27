@@ -161,6 +161,7 @@ from .operations import OperationsMixin  # noqa: E402
 from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
+from .vi_reference import VIReferenceMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
@@ -171,6 +172,7 @@ class InMemoryVIGraph(
     PackageQueriesMixin,
     AnalysisMixin,
     TypedefMixin,
+    VIReferenceMixin,
 ):
     """In-memory VI graph using a single unified NetworkX MultiDiGraph.
 
@@ -345,6 +347,7 @@ class InMemoryVIGraph(
             user_event_name=parsed_type.user_event_name,
             dotnet_type=parsed_type.dotnet_type,
             unreadable=parsed_type.unreadable,
+            pane=parsed_type.pane,
         )
 
         # Anonymous clusters: fields ARE the type definition (no external

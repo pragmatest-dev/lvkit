@@ -17,6 +17,7 @@ from typing import Any
 from lvkit.models import Terminal
 from lvkit.parser.link_table import SharedVariableRecordFailure
 from lvkit.parser.node_types import (
+    CallByRefNode,
     CpdArithNode,
     EventRegNode,
     ExtFuncNode,
@@ -300,6 +301,9 @@ class SubVIBuildHandler(NodeBuildHandler):
             qualified_name=qualified_name,
             callee_key=callee_key,
             variant_key=variant_key,
+            call_save_style=(
+                node.save_style if isinstance(node, CallByRefNode) else None
+            ),
         )
 
 

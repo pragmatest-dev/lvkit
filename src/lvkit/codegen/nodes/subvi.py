@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import re
+from dataclasses import dataclass
 from typing import NoReturn
 
 from lvkit.graph.models import VINode
@@ -46,10 +47,6 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if node.node_type in ("dynIUse", "callParentDynIUse"):
         return _generate_dynamic_dispatch(node, ctx)
 
-    # Call By Reference → vi_ref(args...)
-    if node.node_type == "callByRefNode":
-        return _generate_call_by_ref(node, ctx)
-
     # Look up VI — polymorphic variant if selected, otherwise base name
     vilib_vi = None
     if node.poly_variant_name:
@@ -71,15 +68,44 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if callee_key is None and node.variant_key is not None:
         callee_key = node.variant_key
         callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    elif callee_key is None and node.qualified_path and node.qualified_name:
+        # The caller records a path (a `<vilib>` or `<extravilib>` VI with no
+        # configured root): the absent VI is named by its qualified name, the
+        # identity its stub is keyed by.
+        callee_name = node.qualified_name
+    parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
+    stmt = ast.Assign(
+        targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
+        value=parts.call,
+    )
+    return CodeFragment(statements=[stmt], bindings=parts.bindings)
+
+
+@dataclass(frozen=True)
+class CallParts:
+    """One call of a generated VI: the call, the variable its result is
+    assigned to, and the node's output terminals bound to that result."""
+
+    func_name: str
+    call: ast.Call
+    result_var: str
+    bindings: dict[str, str]
+
+
+def build_call(
+    node: VINode,
+    ctx: CodeGenContext,
+    callee_name: str,
+    callee_key: str | None,
+    vilib_vi: VIEntry | None,
+) -> CallParts:
+    """The call of the VI ``callee_key`` from ``node``: its function imported,
+    each wired input passed by the callee's parameter name, each output read from
+    the result by the callee's output name."""
     func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
-
-    # Gather input arguments with proper names
     args, keywords = _build_arguments(node, ctx, vilib_vi)
-
-    # Build function call AST
     if keywords:
-        # Use keyword arguments for clarity
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
             args=[],
@@ -88,25 +114,16 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             ],
         )
     else:
-        # Positional arguments
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
             args=[_to_ast_value(a) for a in args],
             keywords=[],
         )
-
-    # Assignment: result = func(...)
-    stmt = ast.Assign(
-        targets=[ast.Name(id=result_var, ctx=ast.Store())],
-        value=call,
-    )
-
-    # Build output bindings using vilib terminal names
-    bindings = _build_output_bindings(node, result_var, vilib_vi, ctx)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings=bindings,
+    return CallParts(
+        func_name=func_name,
+        call=call,
+        result_var=result_var,
+        bindings=_build_output_bindings(node, result_var, vilib_vi, ctx),
     )
 
 
@@ -332,6 +349,14 @@ def _get_vilib_vi(
         return None
 
 
+def is_call_frame_terminal(node: VINode, term: Terminal) -> bool:
+    """True for a terminal of a Call By Reference node that is not a terminal of
+    the VI it calls: the VI reference and error terminals, numbered below zero."""
+    return (
+        node.node_type == "callByRefNode" and term.index is not None and term.index < 0
+    )
+
+
 def _raise_terminal_resolution(
     subvi_name: str,
     direction: str,
@@ -368,7 +393,7 @@ def _build_arguments(
     keywords: dict[str, str] = {}
 
     for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
+        if term.direction != "input" or is_call_frame_terminal(node, term):
             continue
 
         term_id = term.id
@@ -515,7 +540,7 @@ def _build_output_bindings(
 
     bindings = {}
     for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
+        if term.direction != "output" or is_call_frame_terminal(node, term):
             continue
 
         term_id = term.id
@@ -647,91 +672,6 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
         bindings=bindings,
         imports=set(),
     )
-
-
-def _generate_call_by_ref(
-    node: VINode,
-    ctx: CodeGenContext,
-) -> CodeFragment:
-    """Generate vi_ref(args...) for Call By Reference nodes.
-
-    Frame terminals (index < 0) carry error in/out and VI ref in/out.
-    Callee terminals (index >= 0) mirror the called VI's connector pane.
-    The VI ref input is the callable; callee inputs become positional args.
-    """
-    subvi_name = node.name or "call_by_ref"
-    func_name = to_function_name(subvi_name)
-
-    # Find VI reference input terminal: frame (index < 0), input, not error
-    vi_ref_var: str | None = None
-    for term in ctx.enriched_terminals(node):
-        if (
-            term.direction == "input"
-            and term.index is not None
-            and term.index < 0
-            and not term.is_error_cluster
-        ):
-            vi_ref_var = ctx.resolve(term.id)
-            if vi_ref_var:
-                break
-
-    if not vi_ref_var:
-        raise TerminalResolutionNeeded(
-            prim_id=subvi_name,
-            prim_name=subvi_name,
-            terminal_direction="input",
-            terminal_type="VI Refnum",
-            available=[],
-            vi_name=ctx.vi_name if ctx else None,
-            kind="subvi",
-        )
-
-    # Collect callee input arguments (index >= 0, not error)
-    call_args: list[tuple[int, str]] = []
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
-            continue
-        if term.index is None or term.index < 0:
-            continue
-        if term.is_error_cluster:
-            continue
-        value = ctx.resolve(term.id)
-        if value is not None:
-            call_args.append((term.index, value))
-    call_args.sort(key=lambda x: x[0])
-
-    # Build AST: result = vi_ref(arg0, arg1, ...)
-    result_var = f"{func_name}_result"
-    call = ast.Call(
-        func=ast.Name(id=vi_ref_var, ctx=ast.Load()),
-        args=[_to_ast_value(v) for _, v in call_args],
-        keywords=[],
-    )
-
-    # Output bindings: callee outputs (index >= 0, not error)
-    bindings: dict[str, str] = {}
-    has_output = False
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
-            continue
-        if term.index is None or term.index < 0:
-            continue
-        if term.is_error_cluster:
-            continue
-        has_output = True
-        field = result_field_name(term.name or f"out_{term.index}")
-        bindings[term.id] = f"{result_var}.{field}"
-
-    stmt: ast.stmt
-    if has_output:
-        stmt = ast.Assign(
-            targets=[ast.Name(id=result_var, ctx=ast.Store())],
-            value=call,
-        )
-    else:
-        stmt = ast.Expr(value=call)
-
-    return CodeFragment(statements=[stmt], bindings=bindings, imports=set())
 
 
 def _generate_static_fallback(

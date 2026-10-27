@@ -29,7 +29,7 @@ from lvkit.models import (
     Terminal,
     TunnelTerminal,
 )
-from lvkit.pipeline import create_import_resolver, module_stem, unique_module_stems
+from lvkit.pipeline import create_import_resolver
 from lvkit.type_names import derive_python_name, is_enum_member_name
 from tests.helpers import make_graph_with_edge
 
@@ -359,36 +359,6 @@ class TestSameDerivedName:
             check=False,
         )
         assert result.returncode == 0, result.stdout
-
-
-class TestModuleNames:
-    """A module is named from its VI's own name, qualified by its class or
-    library, never from where its file sits."""
-
-    @staticmethod
-    def _graph() -> InMemoryVIGraph:
-        graph = InMemoryVIGraph()
-        for key, display in (
-            ("/home/me/lvkit/corpus/a/run.vi", "TestCase.lvclass:run.vi"),
-            ("/home/me/lvkit/corpus/b/Init.vi", "Init.vi"),
-            ("/home/me/lvkit/corpus/c/Init.vi", "Init.vi"),
-        ):
-            graph._vi_nodes[key] = set()
-            graph._vi_display_names[key] = display
-        return graph
-
-    def test_stem_is_the_qualified_vi_name(self):
-        graph = self._graph()
-        assert module_stem("/home/me/lvkit/corpus/a/run.vi", graph) == (
-            "testcaselvclass_run"
-        )
-        assert module_stem("/home/me/lvkit/corpus/b/Init.vi", graph) == "init"
-
-    def test_vis_of_one_name_get_distinct_modules(self):
-        graph = self._graph()
-        keys = list(graph._vi_display_names)
-        stems = unique_module_stems(keys, graph)
-        assert sorted(stems.values()) == ["init", "init_2", "testcaselvclass_run"]
 
 
 class TestSameFunctionName:

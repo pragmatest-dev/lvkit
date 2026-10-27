@@ -343,6 +343,16 @@ class QueryMixin:
         (a missing dependency)."""
         return key in self._stubs
 
+    def recorded_path(self, key: str) -> str | None:
+        """The path a caller recorded for the absent VI, class or control ``key``
+        (``<vilib>/addons/TestCase.llb/skip.vi``, ``/../Gone/gone.vi``), as ``/``
+        joined tokens; None when no caller recorded one. A stub is named by this
+        path as far as it resolves; the rest of it rides on the stub node."""
+        if key not in self._dep_graph:
+            return None
+        tokens = self._dep_graph.nodes[key].get("path_tokens")
+        return "/".join(tokens) if tokens else None
+
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
         if vi_name not in self._stubs:

@@ -38,6 +38,6 @@ def test_unwired_daqmx_reference_stops_generation_naming_class_and_property():
 
 def test_a_primitive_without_an_implementation_raises_where_it_runs():
     source = _generate(CURRENT_VI_PATH_VI)
-    assert "raise NotImplementedError('Open VI Reference is not converted yet')" in (
+    assert "raise NotImplementedError('Close Reference is not converted yet')" in (
         source
     )
