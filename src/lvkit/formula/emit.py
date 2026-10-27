@@ -16,7 +16,11 @@ Formula Node, issue #8):
   * float assigned to an int var -> rounded to nearest (ties to even), then
                                     wrapped to the declared width with
                                     ``ctypes.c_int16(...).value`` etc.
-  * ``**``                       -> right-assoc, tighter than unary minus
+  * ``**``                       -> right-assoc, tighter than unary minus; a
+                                    negative base with a fractional exponent is
+                                    NaN
+  * domain functions             -> NaN / ±inf outside their domain (``sqrt(-1)``,
+                                    ``ln(0)``, ``asin(2)``), written inline
   * ``%`` / ``rem``              -> truncated remainder, sign of dividend
                                     (``math.fmod``); ``mod`` is Python's ``%``
   * ``&&`` ``||`` ``!``          -> ``bool(a and b)`` ``bool(a or b)`` ``not``
@@ -78,34 +82,32 @@ _KW_INT_HELPER = {
 }
 _KW_FLOAT = {"float32", "float64", "float"}
 
+# A power is NaN for a negative base with a fractional exponent (Python's ``**``
+# would give a complex number).
+_POWER = (
+    "(math.nan if (({t} := {0}) < 0) & (({u} := {1}) != math.floor({u})) "
+    "else {t} ** {u})"
+)
+
 # Formula-node function spelling -> emitted Python callee. Anything not here
 # (and not in ``_FUNC_TEMPLATE``) fails loud. ``int`` rounds to nearest (ties to
 # even); ``intrz`` truncates.
 _FUNC_MAP = {
     "abs": "abs",
-    "sqrt": "math.sqrt",
     "exp": "math.exp",
     "expm1": "math.expm1",
-    "ln": "math.log",
     "lnp1": "math.log1p",
-    "log": "math.log10",
-    "log2": "math.log2",
     "ceil": "math.ceil",
     "floor": "math.floor",
     "sin": "math.sin",
     "cos": "math.cos",
     "tan": "math.tan",
-    "asin": "math.asin",
-    "acos": "math.acos",
     "atan": "math.atan",
     "atan2": "math.atan2",
     "sinh": "math.sinh",
     "cosh": "math.cosh",
     "tanh": "math.tanh",
     "asinh": "math.asinh",
-    "acosh": "math.acosh",
-    "atanh": "math.atanh",
-    "pow": "math.pow",
     "int": "round",
     "intrz": "math.trunc",
     "rem": "math.fmod",
@@ -113,8 +115,35 @@ _FUNC_MAP = {
     "min": "min",
     "rand": "random.random",
 }
+
+
 # Functions written as an expression over their arguments: the template's ``{0}``
 # and ``{1}`` are the argument expressions.
+# Math functions that give NaN or an infinity outside their domain, written as an
+# expression (a Formula Node has no error terminal to raise into). ``{0}`` and
+# ``{1}`` are the arguments; ``{t}`` and ``{u}`` are fresh names the expression
+# assigns, so an argument is evaluated once.
+def _logarithm(function: str) -> str:
+    return (
+        f"({function}({{t}}) if ({{t}} := {{0}}) > 0 "
+        "else (-math.inf if {t} == 0 else math.nan))"
+    )
+
+
+_FUNC_GUARDED = {
+    "sqrt": "(math.sqrt({t}) if ({t} := {0}) >= 0 else math.nan)",
+    "ln": _logarithm("math.log"),
+    "log": _logarithm("math.log10"),
+    "log2": _logarithm("math.log2"),
+    "asin": "(math.asin({t}) if -1 <= ({t} := {0}) <= 1 else math.nan)",
+    "acos": "(math.acos({t}) if -1 <= ({t} := {0}) <= 1 else math.nan)",
+    "acosh": "(math.acosh({t}) if ({t} := {0}) >= 1 else math.nan)",
+    "atanh": (
+        "(math.atanh({t}) if -1 < ({t} := {0}) < 1 else "
+        "(math.inf if {t} == 1 else (-math.inf if {t} == -1 else math.nan)))"
+    ),
+    "pow": _POWER,
+}
 _FUNC_TEMPLATE = {
     "mod": "({0} % {1})",
     "sign": "(({0} > 0) - ({0} < 0))",
@@ -166,6 +195,7 @@ def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
 
 class _Emitter:
     def __init__(self, variables: list[VarSpec], func_name: str):
+        self._serial = 0
         self.vars = {v.name: v for v in variables}
         self.var_list = variables
         self.func_name = func_name
@@ -224,6 +254,9 @@ class _Emitter:
             if e.name == "sizeOfDim":
                 return self._emit_size_of_dim(e)
             emitted = [self._emit_expr(a) for a in e.args]
+            guarded = _FUNC_GUARDED.get(e.name)
+            if guarded is not None:
+                return guarded.format(*emitted, **self._temporaries())
             template = _FUNC_TEMPLATE.get(e.name)
             if template is not None:
                 return template.format(*emitted)
@@ -250,8 +283,15 @@ class _Emitter:
             # be zero, so it keeps the plain operator.
             if e.op == "/" and not _is_nonzero_literal(e.right):
                 return float_divide(left, right)
+            if e.op == "**" and not _is_nonneg_literal(e.left):
+                return _POWER.format(left, right, **self._temporaries())
             return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
+
+    def _temporaries(self) -> dict[str, str]:
+        """Two fresh names for an expression that assigns its arguments."""
+        self._serial += 1
+        return {"t": f"_t{self._serial}", "u": f"_u{self._serial}"}
 
     def _emit_size_of_dim(self, e: Call) -> str:
         """``sizeOfDim(a, k)``: the length of axis ``k`` (0 is the outermost),
@@ -531,6 +571,18 @@ def _is_nonzero_literal(e: Expr) -> bool:
         return False
     try:
         return float(e.text) != 0.0
+    except ValueError:
+        return False
+
+
+def _is_nonneg_literal(e: Expr) -> bool:
+    """True if ``e`` is a provably non-negative numeric literal, so a power with
+    this base cannot give a complex result. A unary-minus literal parses as
+    Unary, not Num, so it is correctly excluded."""
+    if not isinstance(e, Num):
+        return False
+    try:
+        return float(e.text) >= 0.0
     except ValueError:
         return False
 

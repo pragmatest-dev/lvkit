@@ -104,10 +104,10 @@ unwired) returns the ELEMENT (scalar), a run delete returns a subarray. In a
 per-index delete loop (OpenG Delete Elements from 1D Array) the scalar case was
 emitted as a 1-element slice, which the auto-indexing tunnel accumulated into a
 2-D array instead of a flat 1-D one. Moved to op `DELETE_FROM_ARRAY`: reads the
-deleted-portion terminal's type — subarray keeps the slice; scalar emits
-`_lv.index_array(array, index, <default>)` (guarded like Index Array, since the
-array shrinks each pass and a stale index must yield the element default, not
-raise — the slice form silently returned []). Verified: Delete Elements now
+deleted-portion terminal's type — subarray keeps the slice; scalar emits the
+guarded index `array[index] if 0 <= index < len(array) else <default>` (the same
+inline form as Index Array, since the array shrinks each pass and a stale index
+must yield the element default, not raise — the slice form silently returned []). Verified: Delete Elements now
 returns a flat `deleted_elements` with correct values and a correct trimmed
 array. (Separate, pre-existing: the deleted-elements ORDER is
 descending-by-index; its sort_pointers/reorder_array2 restore-order chain does
@@ -131,12 +131,14 @@ ordered via its sort+reorder path — masked by the crash before, not this fix.)
 The static template only did the 2-D string case (`[r.split(d) for r in
 s.splitlines()]`), so a 1-D `array type` (To Camel Case, String to 1D Array)
 got a nested `[[...]]` that broke downstream joins. Replaced with op
-`SPREADSHEET_STRING_TO_ARRAY` (codegen/nodes/ops/) + runtime helper
-`_lv.spreadsheet_string_to_array(s, delim, ndims, elem)`: the op reads the
-OUTPUT terminal's `dimensions` and element type (a wire can't carry them) and
-emits ndims + elem kind as literals. 1-D splits on the delimiter OR an EOL; 2-D
+`SPREADSHEET_STRING_TO_ARRAY` (codegen/nodes/ops/), which writes inline Python for
+the output's rank and element kind: the op reads the OUTPUT terminal's
+`dimensions` and element type (a wire can't carry them) and picks the code. 1-D splits on the delimiter OR an EOL; 2-D
 splits rows by EOL and columns by delimiter; fields convert per element type
 (str/int/float). To Camel Case now yields a flat word list and runs end to end.
+The generated code is inline (`re.split` for one dimension; `split` / `splitlines`
+for two, an empty number field reading as 0, a non-empty unparseable one raising
+`ValueError`); there is no runtime helper.
 
 ### Boolean case frame values come from the dataspace selector table
 `to_camel_case_(string)` returned `helloworld` not `helloWorld`: its boolean
@@ -239,13 +241,15 @@ applying element-wise), codegen emitted the scalar form and crashed: OpenG
 Conditional Auto-Indexing Tunnel / Filter 1D Array (~48 VIs) count kept elements
 via `sum(int(bool(elements_to_keep)))` — `bool()` of a list is a scalar, so
 `sum(<int>)` raised "'int' object is not iterable". Fixed by extending arrayify:
-(a) a `visit_Call` rewrites `int/bool/round/float/abs` over an array-valued arg
-into recursively-broadcasting `_lv.int_/bool_/round_/float_/abs_` (nested calls
-compose, since an `_lv.*` result is array-valued); (b) bitwise `& | ^ << >>` join
-the broadcast operator map (`_lv.bitand/bitor/bitxor/lshift/rshift`); (c) VI input
-parameters whose lv_type is an array are now tracked in `array_vars` (they were
-not — only primitive array OUTPUTS were), so the module arrayify pass fires on
-them. Conditional Auto-Indexing now filters correctly; guarded by an executing
+(a) calls `int/bool/round/float/abs` (and `math.*` and `ctypes.c_<type>(x).value`
+conversions) over an array-valued argument become list comprehensions, one
+nesting level per array dimension; a connected chain of operators and
+conversions is one comprehension, with `zip` for several arrays (decided in
+`elementwise-function-template-plan.md`); (b) bitwise `& | ^ << >>` are in the
+same operator set; (c) VI input parameters and shift registers whose lv_type is
+an array are tracked in `array_vars` as name -> dimension count (they were not —
+only primitive array OUTPUTS were), so the final pass fires on them; it runs
+after the return statement is built, so inlined expressions there are covered. Conditional Auto-Indexing now filters correctly; guarded by an executing
 test. Impact is contained to the ~48 array-conversion VIs; full corpus regen has
 0 syntax errors and the full suite is green.
 
@@ -254,16 +258,17 @@ test. Impact is contained to the ~48 array-conversion VIs; full corpus regen has
 an out-of-range index; LabVIEW instead returns the element type's DEFAULT and
 never raises (Trim Whitespace indexes a 33-entry whitespace table by a raw byte
 0-255). Fixed via the existing generator-owned "op" mechanism: aIndx now carries
-`op: "INDEX_ARRAY"`, whose handler injects the element's REAL default (from the
-output terminal's lv_type, via `default_value_expr`) into a runtime helper call
-`_lv.index_array(array, index, <default>)` — accurate, not a `type(arr[0])()`
-guess, and single-eval (no duplicated array expression). Multi-dimensional
-indexing (element type is itself an array) keeps a plain subscript, since the
-expandable machinery composes the dimensions. Two supporting fixes were needed:
+`op: "INDEX_ARRAY"`, whose handler writes the guard inline with the element's REAL
+default (from the output terminal's lv_type, via `default_value_expr`):
+`array[i] if 0 <= i < len(array) else <default>` — accurate, not a
+`type(arr[0])()` guess. The 1D fragment evaluates the array and index once into
+variables; the template path repeats the operand text. Indexing one dimension of
+a multi-dimensional array (element type is itself an array) uses the same guard
+with `[]` as the default. Two supporting fixes were needed:
 (a) `primitive.py` was discarding a node_type resolution with no `python_code`
 BEFORE the op handler could supply it — now it keeps op-carrying resolutions;
 (b) the polymorphic module builder dropped variant import lines — now it hoists
-them into the shared header (so `_lv` is imported). Verified: Search/Sort still
+them into the shared header. Verified: Search/Sort still
 correct; Trim's LEADING trim now works. (Trim's TRAILING trim + its use of
 primitive 1126 "Lexical Class" remain separate open bugs.)
 

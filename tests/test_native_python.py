@@ -190,8 +190,9 @@ def test_rotate_wraps_to_the_width_of_x(x, count, expected):
 
 def test_log10_is_math_log10_over_each_element():
     generated = unary(1210, array("NumFloat64", 2), array("NumFloat64", 2))
-    assert "[[math.log10(_e1) for _e1 in _e0] for _e0 in x]" in body(generated)
+    assert "[[math.log10(_e1) if _e1 > 0 else" in body(generated)
     assert run(generated, [[1.0, 10.0], [100.0, 1000.0]]) == [[0.0, 1.0], [2.0, 3.0]]
+    assert run(generated, [[0.0, -1.0]])[0][0] == -math.inf
     no_lvkit(generated)
 
 

@@ -99,7 +99,11 @@ def fingerprint(value):
         (1.0, 0.0),
         (10.0, 1.0),
         (2.0, 0.3010299956639812),
+        (0.0, -math.inf),
+        (-0.0, -math.inf),
+        (-1.0, math.nan),
         (math.inf, math.inf),
+        (-math.inf, math.nan),
         (math.nan, math.nan),
         (1e300, 300.0),
         (1e-300, -300.0),
@@ -110,20 +114,18 @@ def test_generated_dbl_scalar(value, expected):
     assert_numeric(generated_log10()(value).log_values, expected)
 
 
-@pytest.mark.parametrize("value", [0.0, -0.0, -1.0, -math.inf])
-def test_generated_dbl_scalar_outside_the_domain_raises(value):
-    with pytest.raises(ValueError):
-        generated_log10()(value)
-
-
 @pytest.mark.parametrize(
     "values,rank,expected",
     [
         ([], 1, []),
         ([1.0], 1, [0.0]),
         ([0.01, 1.0, 100.0], 1, [-2.0, 0.0, 2.0]),
-        ([math.nan, math.inf], 1, [math.nan, math.inf]),
-        ([[1.0, 10.0], [100.0, 1000.0]], 2, [[0.0, 1.0], [2.0, 3.0]]),
+        (
+            [0.0, -0.0, -1.0, math.nan, math.inf, -math.inf],
+            1,
+            [-math.inf, -math.inf, math.nan, math.nan, math.inf, math.nan],
+        ),
+        ([[1.0, 10.0], [0.0, -1.0]], 2, [[0.0, 1.0], [-math.inf, math.nan]]),
         ([[], []], 2, [[], []]),
     ],
 )
@@ -145,3 +147,18 @@ def test_unqualified_representation_is_rejected(terminal, underlying):
 @pytest.mark.parametrize("input_type", ["NumFloat32", "NumFloatExt", "NumInt32"])
 def test_other_real_inputs_generate(input_type):
     assert generated_log10(input_type=input_type)(100).log_values == 2.0
+
+
+@pytest.mark.parametrize(
+    "values,expected",
+    [
+        ([], []),
+        ([1.0, 10.0], [0.0, 1.0]),
+        ([[0.0, -1.0], [1.0, math.inf]], [[-math.inf, math.nan], [0.0, math.inf]]),
+    ],
+)
+def test_generated_arrays_without_mutation(values, expected):
+    rank = 2 if values and isinstance(values[0], list) else 1
+    before = fingerprint(values)
+    assert_numeric(generated_log10(rank)(values).log_values, expected)
+    assert fingerprint(values) == before

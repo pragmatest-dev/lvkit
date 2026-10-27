@@ -12,9 +12,8 @@ result is consistent. Deliberately NOT locked here (tracked separately):
     `-1 & 255` — anomalous vs two's complement; needs interpretation.
   * getexp/getman/rand/sizeOfDim and 2D indexing: not yet supported
     (fail loud).
-  * domain edges (Script 2): LV yields nan/inf for sqrt(-1), ln(0), asin(2);
-    the generated Python is native Python and raises ValueError there.
-    Division by zero keeps the IEEE infinity / NaN.
+  * div-by-zero / domain edges (Script 2): LV yields inf/nan, the pure
+    Python backend currently raises — a separate decision.
 """
 
 from __future__ import annotations
@@ -144,29 +143,27 @@ def test_float_semantics(script, expected):
     assert out["RF"][0] == pytest.approx(expected, rel=1e-9, abs=1e-9), script
 
 
-# A Formula Node has no error terminal, so a zero divisor gives an IEEE
-# infinity or NaN rather than raising (oracle Script 2).
+# A Formula Node has no error terminal, so domain/zero errors coerce to IEEE
+# inf/nan rather than raising (oracle Script 2). The generated Python
+# writes these as inline conditionals (NaN / inf outside the domain).
 _EDGE_CASES = [
     ("RF[0] = 1 / 0;", math.inf),
     ("RF[0] = 1.0 / 0.0;", math.inf),
     ("RF[0] = -1.0 / 0.0;", -math.inf),
     ("RF[0] = 0.0 / 0.0;", math.nan),
+    ("RF[0] = sqrt(-1.0);", math.nan),
+    ("RF[0] = ln(0.0);", -math.inf),
+    ("RF[0] = ln(-1.0);", math.nan),
+    ("RF[0] = log(0.0);", -math.inf),
+    ("RF[0] = acos(2.0);", math.nan),
+    ("RF[0] = asin(2.0);", math.nan),
+    ("RF[0] = (-8) ** (1.0 / 3.0);", math.nan),
     ("RF[0] = 0 ** 0;", 1.0),
     # getexp/getman: mantissa in [1, 2), x == getman(x) * 2**getexp(x).
     ("RF[0] = getexp(12.0);", 3.0),
     ("RF[0] = getman(12.0);", 1.5),
     ("RF[0] = getexp(0.75);", -1.0),
     ("RF[0] = getman(0.75);", 1.5),
-]
-
-# Outside the domain of the math function Python raises, as native Python does.
-_DOMAIN_ERRORS = [
-    "RF[0] = sqrt(-1.0);",
-    "RF[0] = ln(0.0);",
-    "RF[0] = ln(-1.0);",
-    "RF[0] = log(0.0);",
-    "RF[0] = acos(2.0);",
-    "RF[0] = asin(2.0);",
 ]
 
 
@@ -178,12 +175,6 @@ def test_no_error_terminal_coercion(script, expected):
         assert isinstance(got, float) and math.isnan(got), script
     else:
         assert got == expected, script
-
-
-@pytest.mark.parametrize("script", _DOMAIN_ERRORS)
-def test_domain_errors_raise_value_error(script):
-    with pytest.raises(ValueError):
-        _run(script, _VARS, RI=[0] * 4, RF=[0.0], A=[1.0], n=1)
 
 
 def test_division_guards_only_ambiguous_divisors():
@@ -202,7 +193,9 @@ def test_division_guards_only_ambiguous_divisors():
     assert "(a / b if b else math.nan" in src
 
 
-def test_power_is_the_python_operator():
+def test_power_is_plain_only_for_a_non_negative_literal_base():
+    # ``2 ** n`` can't produce a complex result -> plain operator; a base that
+    # might be negative is NaN for a fractional exponent.
     src = transpile(
         "y = 2 ** n; z = b ** 0.5;",
         [
@@ -213,7 +206,7 @@ def test_power_is_the_python_operator():
         ],
     ).source
     assert "2 ** n" in src
-    assert "b ** 0.5" in src
+    assert "math.nan if" in src and "lvkit" not in src
 
 
 def test_rand_is_uniform_unit_interval():

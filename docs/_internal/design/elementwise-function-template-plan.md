@@ -1,6 +1,8 @@
 # Element-wise FUNCTION-template broadcast — execution plan
 
-**Status:** planned, not started. This is the single highest-leverage codegen
+**Decided (2026-10-26): A — comprehensions.** Built in `codegen/elementwise.py`: operators, comparisons, `int/float/bool/round/abs`, `math.*` calls and `ctypes.c_<type>(x).value` conversions over an array operand become list comprehensions (`zip` for several arrays, one nesting level per dimension, rank from the wire's type); no `vmap` helper. Not built: broadcasting an arbitrary scalar function template such as `len` (steps 1 and 3 below).
+
+**Status (before the decision):** planned, not started. This is the single highest-leverage codegen
 unlock: probing (2026-09-10) shows most remaining OpenG VIs fail the SAME way —
 a scalar *function* template applied to an array stays scalar. Needs a maintainer
 decision on approach (below) before executing, per the bug-gate.
