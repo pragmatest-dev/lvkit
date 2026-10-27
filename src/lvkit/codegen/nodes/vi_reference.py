@@ -287,7 +287,7 @@ def _function_name(stem):
 
 _IMPORT_BY_PATH = """\
 {here} = os.path.dirname(__file__)
-{path} = os.path.join({here}, os.fspath({value}))
+{path} = os.path.join({here}, os.fspath({value}).replace("\\\\", "/"))
 {parts} = os.path.relpath({path}, {here}).replace(os.sep, "/").split("/")
 {up} = 0
 while {parts}[0] == "..":

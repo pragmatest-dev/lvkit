@@ -25,70 +25,84 @@ def _graph(*keys: str) -> InMemoryVIGraph:
     return graph
 
 
+class _Tree:
+    """Absolute paths under a temporary folder, valid on any platform."""
+
+    def __init__(self, base: Path) -> None:
+        self.base = base.resolve()
+        self.proj = self.base / "proj"
+
+    def key(self, *parts: str, under: Path | None = None) -> str:
+        return str((under or self.proj).joinpath(*parts))
+
+
+@pytest.fixture
+def tree(tmp_path: Path) -> _Tree:
+    return _Tree(tmp_path)
+
+
 def _layout(
     *keys: str,
-    root: str = "/home/me/proj",
-    search_roots: tuple[str, ...] = (),
+    root: Path,
+    search_roots: tuple[Path, ...] = (),
     shared: frozenset[str] = frozenset(),
     recorded: dict[str, str] | None = None,
 ) -> ModuleLayout:
     return ModuleLayout(
         _graph(*keys),
         list(keys),
-        Path(root),
-        [Path(r) for r in search_roots],
+        root,
+        list(search_roots),
         shared,
         recorded or {},
     )
 
 
-def test_modules_mirror_the_folders_below_the_project_folder() -> None:
-    layout = _layout(
-        "/home/me/proj/Classes/TestCase/run.vi",
-        "/home/me/proj/Classes/TestSuite/run.vi",
-        "/home/me/proj/Support Files/1D Helper-X.vi",
-    )
-    assert layout.places["/home/me/proj/Classes/TestCase/run.vi"] == ModulePlace(
-        ("classes", "testcase"), "run"
-    )
-    assert layout.places["/home/me/proj/Classes/TestSuite/run.vi"] == ModulePlace(
-        ("classes", "testsuite"), "run"
-    )
-    assert layout.places["/home/me/proj/Support Files/1D Helper-X.vi"] == ModulePlace(
-        ("support_files",), "var_1d_helper_x"
-    )
+def test_modules_mirror_the_folders_below_the_project_folder(tree: _Tree) -> None:
+    case = tree.key("Classes", "TestCase", "run.vi")
+    suite = tree.key("Classes", "TestSuite", "run.vi")
+    helper = tree.key("Support Files", "1D Helper-X.vi")
+    layout = _layout(case, suite, helper, root=tree.proj)
+    assert layout.places[case] == ModulePlace(("classes", "testcase"), "run")
+    assert layout.places[suite] == ModulePlace(("classes", "testsuite"), "run")
+    assert layout.places[helper] == ModulePlace(("support_files",), "var_1d_helper_x")
 
 
-def test_what_else_was_loaded_does_not_move_a_module() -> None:
-    vi = "/home/me/proj/a/x.vi"
-    alone = _layout(vi)
+def test_what_else_was_loaded_does_not_move_a_module(tree: _Tree) -> None:
+    vi = tree.key("a", "x.vi")
+    other = tree.key("other", "deep", "y.vi", under=tree.base)
+    alone = _layout(vi, root=tree.proj)
     with_others = _layout(
-        vi,
-        "/home/me/other/deep/y.vi",
-        "/somewhere/else/z.vi",
-        search_roots=("/home/me/other",),
+        vi, other, root=tree.proj, search_roots=(tree.base / "other",)
     )
     assert alone.places[vi] == with_others.places[vi] == ModulePlace(("a",), "x")
 
 
-def test_a_folder_named_like_a_keyword_is_a_valid_package() -> None:
-    layout = _layout("/home/me/proj/Class/ants/Import.vi")
-    assert layout.places["/home/me/proj/Class/ants/Import.vi"] == ModulePlace(
-        ("class_", "ants"), "import_"
+def test_files_that_are_not_vis_keep_their_extension_in_the_module_name(
+    tree: _Tree,
+) -> None:
+    vi, ctl = tree.key("a", "Data.vi"), tree.key("a", "Data.ctl")
+    layout = _layout(vi, ctl, root=tree.proj)
+    assert layout.places[vi].module == "data"
+    assert layout.places[ctl].module == "datactl"
+
+
+def test_a_folder_named_like_a_keyword_is_a_valid_package(tree: _Tree) -> None:
+    key = tree.key("Class", "ants", "Import.vi")
+    layout = _layout(key, root=tree.proj)
+    assert layout.places[key] == ModulePlace(("class_", "ants"), "import_")
+
+
+def test_a_file_outside_the_project_is_placed_by_the_path_its_caller_recorded(
+    tree: _Tree,
+) -> None:
+    key = tree.key(
+        "lv", "vi.lib", "Utility", "error.llb", "Clear Errors.vi", under=tree.base
     )
-
-
-def test_files_that_are_not_vis_keep_their_extension_in_the_module_name() -> None:
-    layout = _layout("/home/me/proj/a/Data.vi", "/home/me/proj/a/Data.ctl")
-    assert layout.places["/home/me/proj/a/Data.vi"].module == "data"
-    assert layout.places["/home/me/proj/a/Data.ctl"].module == "datactl"
-
-
-def test_a_file_outside_the_project_is_placed_by_the_path_its_caller_recorded() -> None:
-    key = "/lv/vi.lib/Utility/error.llb/Clear Errors.vi"
     layout = _layout(
-        "/home/me/proj/a.vi",
+        tree.key("a.vi"),
         key,
+        root=tree.proj,
         recorded={key: "<vilib>/Utility/error.llb/Clear Errors.vi"},
     )
     assert layout.places[key] == ModulePlace(
@@ -96,26 +110,27 @@ def test_a_file_outside_the_project_is_placed_by_the_path_its_caller_recorded() 
     )
 
 
-def test_a_search_path_file_with_no_recorded_path_is_under_its_search_path() -> None:
+def test_a_search_path_file_with_no_recorded_path_is_under_its_search_path(
+    tree: _Tree,
+) -> None:
+    key = tree.key("lib", "Sub", "b.vi", under=tree.base)
     layout = _layout(
-        "/home/me/proj/a.vi",
-        "/home/me/lib/Sub/b.vi",
-        search_roots=("/home/me/lib",),
+        tree.key("a.vi"), key, root=tree.proj, search_roots=(tree.base / "lib",)
     )
-    assert layout.places["/home/me/lib/Sub/b.vi"] == ModulePlace(("lib", "sub"), "b")
+    assert layout.places[key] == ModulePlace(("lib", "sub"), "b")
 
 
-def test_any_other_file_outside_the_project_is_under_external() -> None:
-    layout = _layout("/home/me/proj/a.vi", "/home/me/other/Deep/c.vi")
-    assert layout.places["/home/me/other/Deep/c.vi"] == ModulePlace(
-        ("external", "other", "deep"), "c"
-    )
+def test_any_other_file_outside_the_project_is_under_external(tree: _Tree) -> None:
+    key = tree.key("other", "Deep", "c.vi", under=tree.base)
+    layout = _layout(tree.key("a.vi"), key, root=tree.proj)
+    assert layout.places[key] == ModulePlace(("external", "other", "deep"), "c")
 
 
-def test_a_vi_with_a_recorded_path_and_no_file_is_placed_by_it() -> None:
+def test_a_vi_with_a_recorded_path_and_no_file_is_placed_by_it(tree: _Tree) -> None:
     layout = _layout(
-        "/home/me/proj/a.vi",
+        tree.key("a.vi"),
         "Clear Errors.vi",
+        root=tree.proj,
         recorded={"Clear Errors.vi": "<vilib>/Utility/error.llb/Clear Errors.vi"},
     )
     assert layout.places["Clear Errors.vi"] == ModulePlace(
@@ -123,30 +138,37 @@ def test_a_vi_with_a_recorded_path_and_no_file_is_placed_by_it() -> None:
     )
 
 
-def test_a_vi_with_no_file_and_no_recorded_path_is_unplaced_and_named() -> None:
-    layout = _layout("/home/me/proj/a.vi", "Build Path__ogtk.vi")
+def test_a_vi_with_no_file_and_no_recorded_path_is_unplaced_and_named(
+    tree: _Tree,
+) -> None:
+    layout = _layout(tree.key("a.vi"), "Build Path__ogtk.vi", root=tree.proj)
     assert "Build Path__ogtk.vi" not in layout.places
     assert "Build Path__ogtk.vi" in str(layout.unplaced["Build Path__ogtk.vi"])
 
 
-def test_polymorphic_variants_take_no_module_and_the_wrapper_goes_beside_one() -> None:
-    wrap, variant = "/home/me/proj/a/Wrap.vi", "/home/me/proj/a/sub/Variant One.vi"
-    layout = _layout(wrap, variant, shared=frozenset({variant}))
+def test_polymorphic_variants_take_no_module_and_the_wrapper_goes_beside_one(
+    tree: _Tree,
+) -> None:
+    wrap, variant = tree.key("a", "Wrap.vi"), tree.key("a", "sub", "Variant One.vi")
+    layout = _layout(wrap, variant, root=tree.proj, shared=frozenset({variant}))
     assert variant not in layout.places
     place = layout.place_beside("Family.vi", [variant])
     assert place == ModulePlace(("a", "sub"), "family")
 
 
-def test_two_files_that_transform_to_one_module_stop_generation_naming_both() -> None:
+def test_two_files_that_transform_to_one_module_stop_generation_naming_both(
+    tree: _Tree,
+) -> None:
+    first, second = tree.key("Foo Bar", "x.vi"), tree.key("foo_bar", "x.vi")
     with pytest.raises(ModuleCollisionError) as caught:
-        _layout("/home/me/proj/Foo Bar/x.vi", "/home/me/proj/foo_bar/x.vi")
-    assert "'/home/me/proj/Foo Bar/x.vi'" in str(caught.value)
-    assert "'/home/me/proj/foo_bar/x.vi'" in str(caught.value)
+        _layout(first, second, root=tree.proj)
+    assert repr(first) in str(caught.value)
+    assert repr(second) in str(caught.value)
 
 
-def test_a_module_and_a_package_of_one_name_stop_generation() -> None:
+def test_a_module_and_a_package_of_one_name_stop_generation(tree: _Tree) -> None:
     with pytest.raises(ModuleCollisionError, match="package of"):
-        _layout("/home/me/proj/a.vi", "/home/me/proj/a/b.vi")
+        _layout(tree.key("a.vi"), tree.key("a", "b.vi"), root=tree.proj)
 
 
 def test_the_project_is_the_nearest_folder_with_a_project_marker(
@@ -175,22 +197,22 @@ def test_the_transform_is_valid_python_for_awkward_names(name: str) -> None:
     assert module_part(name).isidentifier()
 
 
-def test_an_absent_vi_is_placed_by_the_path_its_stub_records() -> None:
+def test_an_absent_vi_is_placed_by_the_path_its_stub_records(tree: _Tree) -> None:
     key = "Flex-t'DAQmx AO.lvlib-Action.ctl'.lvlib:Read Event.vi"
-    graph = _graph("/home/me/proj/a.vi", key)
+    graph = _graph(tree.key("a.vi"), key)
     graph._dep_graph.add_node(  # noqa: SLF001
         key,
         path_tokens=["<extravilib>", "ChannelInstances", "Action.ctl", "Read Event.vi"],
     )
-    layout = ModuleLayout(graph, ["/home/me/proj/a.vi", key], Path("/home/me/proj"))
+    layout = ModuleLayout(graph, [tree.key("a.vi"), key], tree.proj)
     assert layout.places[key] == ModulePlace(
         ("extravilib", "channelinstances", "actionctl"), "read_event"
     )
 
 
-def test_an_unplaceable_vi_fails_only_what_imports_it() -> None:
-    layout = _layout("/home/me/proj/a.vi", "Missing.vi")
-    assert "/home/me/proj/a.vi" in layout.places
+def test_an_unplaceable_vi_fails_only_what_imports_it(tree: _Tree) -> None:
+    layout = _layout(tree.key("a.vi"), "Missing.vi", root=tree.proj)
+    assert tree.key("a.vi") in layout.places
     assert list(layout.unplaced) == ["Missing.vi"]
     with pytest.raises(UnplacedVIError, match="Missing.vi"):
         layout.place_of_name("Missing.vi")

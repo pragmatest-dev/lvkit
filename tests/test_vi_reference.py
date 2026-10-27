@@ -351,6 +351,30 @@ def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
             del sys.modules[name]
 
 
+def test_a_computed_path_with_backslashes_is_read_like_one_with_slashes(
+    tmp_path: Path,
+) -> None:
+    loaded = _computed(tmp_path, _PATH_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
+    d.type_terminal(loaded, 21, d.typed_vi_reference())
+    d.type_terminal(loaded, 31, d.typed_vi_reference())
+    package = tmp_path / "generated_refs"
+    (package / "sub").mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "sub" / "__init__.py").write_text("")
+    (package / "sub" / "callee.py").write_text(_CALLEE)
+    (package / "refs.py").write_text(_source(loaded))
+    sys.path.insert(0, str(tmp_path))
+    try:
+        refs = importlib.import_module("generated_refs.refs")
+        refs.refs("sub\\Callee.vi")
+        callee = importlib.import_module("generated_refs.sub.callee")
+        assert [x for x, _ in callee.calls] == [5]
+    finally:
+        sys.path.remove(str(tmp_path))
+        for name in [m for m in sys.modules if m.startswith("generated_refs")]:
+            del sys.modules[name]
+
+
 def test_a_computed_name_finds_its_owner_and_imports_the_vi(tmp_path: Path) -> None:
     loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
     d.type_terminal(loaded, 21, d.typed_vi_reference())

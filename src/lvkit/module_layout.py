@@ -22,7 +22,7 @@ import os
 import re
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
@@ -78,12 +78,30 @@ def _tokens(path: str) -> list[str]:
     return [t for t in re.split(r"[\\/]", path) if t]
 
 
+def _beside_project(key: str, root: str) -> tuple[str, ...]:
+    """The parts of ``key`` below the folder it shares with the project (all of
+    them, drive aside, when it shares none)."""
+    own, project = Path(key).parent.parts, Path(root).parts
+    shared = 0
+    while shared < min(len(own), len(project)) and own[shared] == project[shared]:
+        shared += 1
+    parts = Path(key).parts
+    return (
+        parts[shared:] if shared else tuple(p for p in parts if p != Path(key).anchor)
+    )
+
+
 def _is_path(key: str) -> bool:
     return os.path.isabs(key) or len(_tokens(key)) > 1
 
 
-def _inside(key: str, folder: str) -> bool:
-    return os.path.commonpath([key, folder]) == folder
+def _below(key: str, folder: str) -> tuple[str, ...] | None:
+    """The parts of ``key`` below ``folder``; None when it is not inside it (or on
+    another drive)."""
+    try:
+        return Path(key).relative_to(folder).parts
+    except ValueError:
+        return None
 
 
 class ModuleLayout:
@@ -137,17 +155,16 @@ class ModuleLayout:
             return _tokens(recorded)
         if not os.path.isabs(key):
             return _tokens(key)
-        if _inside(key, self._root):
-            return list(PurePosixPath(os.path.relpath(key, self._root)).parts)
+        inside = _below(key, self._root)
+        if inside is not None:
+            return list(inside)
         if recorded is not None:
             return _tokens(recorded)
         for search_root in self._search_roots:
-            if _inside(key, search_root):
-                relative = PurePosixPath(os.path.relpath(key, search_root)).parts
-                return [Path(search_root).name, *relative]
-        shared_folder = os.path.commonpath([os.path.dirname(key), self._root])
-        relative = PurePosixPath(os.path.relpath(key, shared_folder)).parts
-        return [EXTERNAL_PACKAGE, *relative]
+            inside = _below(key, search_root)
+            if inside is not None:
+                return [Path(search_root).name, *inside]
+        return [EXTERNAL_PACKAGE, *_beside_project(key, self._root)]
 
     def _place(self, key: str) -> ModulePlace:
         *folders, name = self._tokens_of(key)
