@@ -271,9 +271,9 @@ class NodeFact:
     ``name`` is human-convenience only (localized/variant strings). For a SubVI
     call ``qualified_name`` is the callee's qualified name, ``callee_key`` the
     callee's identity as the caller recorded it, and ``callee_path`` its
-    merge-resolved on-disk path (``None`` at projection time, backfilled at
-    merge from ``callee_key``; ``None`` when the callee is not an indexed VI of
-    the project). A global variable
+    on-disk path (the ``callee_key`` when that file is under the project, set at
+    projection; the merge keeps it only when the callee is an indexed VI of the
+    project, else ``None``). A global variable
     node carries the Global VI the same way (``qualified_name`` /
     ``callee_path``) and the control it reads or writes as ``name``. ``object_name`` /
     ``method_name`` are the property/invoke target class + invoke method.
@@ -291,7 +291,7 @@ class NodeFact:
     # path, in or out of the project); ``callee_path`` below is this when the
     # callee is an indexed VI.
     callee_key: str | None = None
-    callee_path: str | None = None  # SubVI callee resolved path (merge-time)
+    callee_path: str | None = None  # SubVI callee path, in-project only
     object_name: str | None = None  # property/invoke target class
     method_name: str | None = None  # invoke method
     # Shared Variable only: the path a network-published variable is published at
@@ -470,7 +470,7 @@ class VIFacts:
     constants: list[ConstantFact] = field(default_factory=list)
     # The block-diagram node spine (grep-not-read); see NodeFact. Intrinsic to
     # this VI's own bytes, in iter_nodes order — except each NodeFact.callee_path
-    # is backfilled at merge (needs the whole-repo resolver), like impact_score.
+    # is set at projection from its caller's own record, in-project only.
     nodes: list[NodeFact] = field(default_factory=list)
     type_uses: list[str] = field(default_factory=list)  # class/typedef keys
     # The ids of every type this VI uses: its terminals' and constants' types and
@@ -488,6 +488,10 @@ class VIFacts:
     # edges): its empty ``typedef_paths``/``typedef_versions`` then mean "not
     # looked at", not "none". Not persisted.
     dependencies_walked: bool = True
+    # Whether ``impact_score`` / ``callers_count`` were computed across the whole
+    # call graph (the merge does; a single-VI projection cannot). Only then do
+    # they replace the stored scores. Not persisted.
+    scores_computed: bool = False
     # The ``TypeFact`` bodies a fresh build produced. NOT persisted on the VI: a
     # type is stored once, shared by every owner (``types`` table). Empty on a VI
     # loaded from the store, whose ``type_ids`` already name rows that exist.
