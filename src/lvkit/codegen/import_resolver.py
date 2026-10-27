@@ -60,7 +60,7 @@ class ImportResolver:
         package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
-        project_file: Callable[[Path], str | None] | None = None,
+        project_file: Callable[[Path, Path], str | None] | None = None,
     ) -> None:
         self._function_import = function_import
         self._module_import = module_import
@@ -144,12 +144,13 @@ class ImportResolver:
             attributes,
         )
 
-    def project_file(self, source: Path) -> str | None:
-        """Where the file ``source`` sits from the folder of the module being
-        generated once it is copied into the package at its project-relative path
-        (a ``/`` path, ``..`` for each folder up); None when ``source`` is not
-        inside the project."""
-        return self._project_file(source) if self._project_file else None
+    def project_file(self, folder: Path, source: Path) -> str | None:
+        """Where the file ``source`` at or below the project ``folder`` sits from
+        the folder of the module being generated once it is copied into the
+        package: in the package ``folder`` is generated as, under the file's own
+        names (a ``/`` path, ``..`` for each folder up); None when ``folder`` is
+        not inside the project."""
+        return self._project_file(folder, source) if self._project_file else None
 
     def package_spec(self, key: str) -> str:
         """The start of the relative import spec of a module in the folder holding

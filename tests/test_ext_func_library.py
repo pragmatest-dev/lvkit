@@ -245,10 +245,10 @@ def project(tmp_path: Path) -> Iterator[Project]:
         del sys.modules[name]
 
 
-def _import(out: Path) -> types.ModuleType:
+def _import(out: Path, package: str = "vis.sub") -> types.ModuleType:
     sys.path.insert(0, str(out.parent))
     try:
-        return importlib.import_module("clfn_bdhb.vis.sub.clfn_bdhbxml")
+        return importlib.import_module(f"clfn_bdhb.{package}.clfn_bdhbxml")
     finally:
         sys.path.remove(str(out.parent))
 
@@ -327,6 +327,39 @@ def test_a_library_it_needs_in_the_project_is_copied_too(project: Project) -> No
     ]
     module = _import(out)
     assert module._liba_so.a_value() == 42  # noqa: SLF001
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the library is a Linux .so")
+def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
+    project: Project,
+    library: str,  # noqa: F811
+) -> None:
+    """The folder ``Vendor Libs`` is the package ``vendor_libs`` for the VI module
+    and for the library; the library's own file name is not changed."""
+    folder = project.root / "Vendor Libs"
+    folder.mkdir()
+    project.vi_folder = project.libs = folder
+    shutil.copy(library, folder / "Vendor Lib_64.so")
+    vi = project.write_vi("Vendor Lib**.*", ["", "Vendor Lib.dll"], "swap")
+
+    out = project.generate(vi)
+
+    assert _tree(out) == [
+        "__init__.py",
+        "vendor_libs/Vendor Lib_64.so",
+        "vendor_libs/__init__.py",
+        "vendor_libs/clfn_bdhbxml.py",
+    ]
+    source = (out / "vendor_libs/clfn_bdhbxml.py").read_text()
+    assert (
+        "os.path.join(os.path.dirname(__file__), _library_file('Vendor Lib**.*'))"
+    ) in source
+    module = _import(out, "vendor_libs")
+    loaded = Path(module._vendor_lib_._name).resolve()  # noqa: SLF001
+    assert loaded == (out / "vendor_libs/Vendor Lib_64.so").resolve()
+    pair = (module.ctypes.c_uint16 * 2)(3, 4)
+    module._vendor_lib_.swap(pair)  # noqa: SLF001
+    assert list(pair) == [4, 3]
 
 
 def test_a_project_library_that_is_not_on_disk_stops_generation(

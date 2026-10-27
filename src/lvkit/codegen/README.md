@@ -108,7 +108,9 @@ the node's setup is loaded when the module is imported and a library wired to
 - **By name** (a name with no folder, or a path rooted in a LabVIEW folder): the
   operating system finds it.
 - **A library recorded relative to the VI, inside the project root**: copied into the
-  generated package at its project-relative path (a file at a path from the module's
+  generated package in the package folder its project folder is generated as (the
+  folders go through `module_part` like module packages; file names under it stay
+  as they are) (a file at a path from the module's
   folder in `data_files`, written by `pipeline._write_data_files`) and loaded with
   `os.path.join(os.path.dirname(__file__), ...)`. Every file another platform or
   bitness expansion of a wildcard name selects is copied too, and so is each library

@@ -230,15 +230,15 @@ def create_import_resolver(
         below_root = folder.relative_to(output_dir).parts
         return "." * (depth + 1) + "".join(f"{part}." for part in below_root)
 
-    def project_file(source: Path) -> str | None:
-        """Where ``source`` sits from the calling module's folder once copied into
-        the package at its project-relative path."""
-        inside = layout.below_root(source) if layout else None
-        if inside is None:
+    def project_file(folder: Path, source: Path) -> str | None:
+        """Where ``source``, a file at or below the project ``folder``, sits from
+        the calling module's folder once copied into the package: below the
+        package ``folder`` is generated as, under its own names."""
+        placed = layout.placed_folder(folder) if layout else None
+        if placed is None:
             return None
-        return Path(
-            os.path.relpath(output_dir.joinpath(*inside), caller_dir)
-        ).as_posix()
+        target = output_dir.joinpath(*placed, *source.relative_to(folder).parts)
+        return Path(os.path.relpath(target, caller_dir)).as_posix()
 
     def error_import() -> str:
         dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")

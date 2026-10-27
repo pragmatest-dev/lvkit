@@ -23,7 +23,6 @@ module loads it by its path from the module's own folder.
 from __future__ import annotations
 
 import posixpath
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -122,9 +121,7 @@ def _location(
     return LibraryLocation(folder.joinpath(*rest[:-1]), call.library or rest[-1])
 
 
-def _copied_files(
-    candidates: list[Path], project_file: Callable[[Path], str | None]
-) -> list[Path]:
+def _copied_files(candidates: list[Path]) -> list[Path]:
     """``candidates`` (a file, or a folder's files) and, recursively, the libraries
     they need that sit beside them inside the project."""
     ordered: list[Path] = []
@@ -137,8 +134,6 @@ def _copied_files(
         seen.add(path)
         if path.is_dir():
             pending.extend(sorted(p for p in path.rglob("*") if p.is_file()))
-            continue
-        if project_file(path) is None:
             continue
         ordered.append(path)
         data = path.read_bytes()
@@ -158,7 +153,9 @@ def _project_copy(
     from the module, or None when it lies outside the project."""
     location = _location(ctx, node, call)
     resolver = ctx.import_resolver
-    folder = resolver.project_file(location.folder) if resolver else None
+    folder = (
+        resolver.project_file(location.folder, location.folder) if resolver else None
+    )
     if resolver is None or folder is None:
         return None
     candidates = [
@@ -185,8 +182,8 @@ def _project_copy(
             "returns only the module's text. Generate with `lvkit generate` to "
             "get the file",
         )
-    for path in _copied_files(candidates, resolver.project_file):
-        target = resolver.project_file(path)
+    for path in _copied_files(candidates):
+        target = resolver.project_file(location.folder, path)
         if target is not None:
             ctx.data_files[target] = path.read_bytes()
     parts = [p for p in folder.split("/") if p != "."]
