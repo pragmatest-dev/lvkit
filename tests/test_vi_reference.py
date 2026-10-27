@@ -47,6 +47,9 @@ AWKWARD_NAMES = (
     " ",
     "Get Settings Path",
     "TestCase.lvclass",
+    "Class",
+    "import",
+    "None",
 )
 
 _NO_PANE = (
@@ -395,7 +398,7 @@ def test_a_reference_opened_by_a_computed_path_is_called_with_the_panes_names(
 
 
 def test_the_inline_name_transform_is_the_generators() -> None:
-    namespace: dict[str, object] = {}
+    namespace: dict[str, object] = {"keyword": keyword}
     exec(vi_reference.MODULE_PART_SOURCE, namespace)  # noqa: S102
     for name in AWKWARD_NAMES:
         assert namespace["_module_part"](name) == module_part(name)  # type: ignore[operator]

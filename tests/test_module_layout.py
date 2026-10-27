@@ -71,6 +71,13 @@ def test_what_else_was_loaded_does_not_move_a_module() -> None:
     assert alone.places[vi] == with_others.places[vi] == ModulePlace(("a",), "x")
 
 
+def test_a_folder_named_like_a_keyword_is_a_valid_package() -> None:
+    layout = _layout("/home/me/proj/Class/ants/Import.vi")
+    assert layout.places["/home/me/proj/Class/ants/Import.vi"] == ModulePlace(
+        ("class_", "ants"), "import_"
+    )
+
+
 def test_files_that_are_not_vis_keep_their_extension_in_the_module_name() -> None:
     layout = _layout("/home/me/proj/a/Data.vi", "/home/me/proj/a/Data.ctl")
     assert layout.places["/home/me/proj/a/Data.vi"].module == "data"

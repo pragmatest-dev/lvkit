@@ -67,10 +67,12 @@ def build_iuvi_record(
         buf += bytes([len(part)]) + part
     pad(2)
     buf += _pth0(path_tokens)
-    if version.at_least(8, 5, 0, 1) and not version.at_least(8, 6, 0, 1):
-        buf += bytes([link_flag])
-    else:
+    if version.at_least(8, 6, 0, 1):
         buf += struct.pack(">I", link_flag)
+    elif version.at_least(8, 5, 0, 1):
+        buf += bytes([link_flag])
+    if not version.at_least(8, 5, 0, 1):
+        buf += struct.pack(">I", 0)  # held by heap-to-VI records before 8.5
     buf += struct.pack(">H", 0)  # type id
     if version.at_least(14, 0, 0, 3):
         buf += bytes([0x42])
@@ -234,7 +236,7 @@ def test_follows_alignment_and_version_layout(
         ("B.vi",),
     ]
     assert [link.node_uids for link in links] == [(7,), ()]
-    assert links[0].link_flag == 2
+    assert links[0].link_flag == (2 if version.at_least(8, 5, 0, 1) else 0)
 
 
 def test_a_version_older_than_the_oldest_layout_is_an_error() -> None:

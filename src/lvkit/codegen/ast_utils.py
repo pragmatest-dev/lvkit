@@ -370,7 +370,8 @@ def module_part(name: str) -> str:
     name it is generated as: lower case, spaces and hyphens to ``_``, every other
     character that is not a letter, digit or ``_`` dropped, and ``var_`` in front
     of a part that does not start with a letter or ``_`` (a name that starts with
-    a digit is a SyntaxError in ``from <name> import ...``).
+    a digit is a SyntaxError in ``from <name> import ...``), and ``_`` after a
+    Python keyword (a folder named ``Class`` is the package ``class_``).
 
     Generated code that opens a VI by a path computed when it runs applies this
     same transform to each part, so the two always agree
@@ -379,6 +380,8 @@ def module_part(name: str) -> str:
     result = "".join(c for c in result if c.isalnum() or c == "_")
     if result and not result[0].isalpha() and result[0] != "_":
         result = "var_" + result
+    if keyword.iskeyword(result):
+        result += "_"
     return result or "module"
 
 

@@ -270,7 +270,9 @@ def _module_part(name):
         if c.isalnum() or c == "_"
     )
     if name and not (name[0].isalpha() or name[0] == "_"):
-        return "var_" + name
+        name = "var_" + name
+    if keyword.iskeyword(name):
+        name += "_"
     return name or "module"
 """
 
