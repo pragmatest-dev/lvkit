@@ -21,6 +21,9 @@ from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import ConstantNode, VINode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.index.build import project_vi_facts, warm_index_for_vi
+from lvkit.index.model import NodeKind
+from lvkit.index.store import load as load_index
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.render import render_vi_with_subvis
@@ -572,3 +575,30 @@ def test_the_docs_diagram_links_each_call_to_its_own_vi_page() -> None:
         None
     }
     assert set(targets.values()) == calls
+
+
+def _callee_paths(facts) -> list[str | None]:
+    return [n.callee_path for n in facts.nodes if n.kind is NodeKind.VI]
+
+
+def test_projection_sets_callee_path_only_for_a_callee_in_the_project(
+    tree: _Tree,
+) -> None:
+    """The caller calls ``twins/One/twin.vi``."""
+    graph, key = _load(tree, "twins/caller_one.vi")
+    inside = project_vi_facts(graph, key, Path(key), (tree.root / "twins").resolve())
+    outside = project_vi_facts(
+        graph, key, Path(key), (tree.root / "twins" / "Two").resolve()
+    )
+    assert _callee_paths(inside) == [_key(tree, "twins/One/twin.vi")]
+    assert _callee_paths(outside) == [None]
+
+
+def test_a_progressive_write_on_a_never_synced_index_keeps_callee_paths(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "twins/caller_one.vi")
+    warm_index_for_vi(graph, key, Path(key))
+
+    [stored] = [f for f in load_index((tree.root / "twins").resolve()) if f.path == key]
+    assert _callee_paths(stored) == [_key(tree, "twins/One/twin.vi")]

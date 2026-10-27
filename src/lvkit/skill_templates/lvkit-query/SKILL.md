@@ -237,14 +237,13 @@ Node fed by a **wired reference** points at — those rows all show
 carry an `object_name`, so they count as Property Nodes here.
 
 **Call-tree questions need a refreshed index.** `callee_path` — which VI a
-SubVI call goes to — is found only when the index is built or refreshed for
-the whole project. A VI that `describe`, `render`, `generate`, `docs`, `diff`
-or MCP `read_vi`/`render` first added to the index after that has no
-`callee_path` until the next refresh, and so does one whose file changed
-since; an unchanged VI keeps the ones found for it (see the changelog). So
-before callers, callees or blast-radius queries let `lvkit query` refresh
-(leave out `--no-refresh`) or run `lvkit index <repo> --refresh`; over MCP,
-call `index` with `refresh=True` before `query`.
+SubVI call goes to — is set whenever a VI is loaded into the index, including
+by `describe`, `render`, `generate`, `docs`, `diff` or MCP `read_vi`/`render`.
+A callee outside the project has none. Only a refresh drops a callee that was
+deleted or moved out of the project since, and picks up a VI whose file
+changed. So before callers, callees or blast-radius queries let `lvkit query`
+refresh (leave out `--no-refresh`) or run `lvkit index <repo> --refresh`; over
+MCP, call `index` with `refresh=True` before `query`.
 
 ## Feeds
 
