@@ -20,8 +20,8 @@ import pytest
 
 from lvkit.codegen.ast_utils import module_part, to_function_name
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import vi_reference
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
@@ -87,7 +87,7 @@ def _lvnet(loaded: d.Loaded) -> str:
 
 
 def _failure(loaded: d.Loaded) -> str:
-    with pytest.raises(CodeGenError) as caught:
+    with pytest.raises(ConversionGap) as caught:
         _source(loaded)
     return str(caught.value)
 

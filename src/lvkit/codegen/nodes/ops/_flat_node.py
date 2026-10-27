@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 
 
 def terminal(node: PrimitiveNode, direction: str, index: int) -> Terminal | None:
@@ -28,9 +28,9 @@ def add_flat_imports(ctx: CodeGenContext, statements: list[ast.stmt]) -> None:
             ctx.add_import(f"import {module}")
 
 
-def unsupported_layout_error(node: PrimitiveNode, reason: Exception) -> CodeGenError:
+def unsupported_layout_error(node: PrimitiveNode, reason: Exception) -> ConversionGap:
     """The error that stops generating a VI whose flatten, unflatten or swap node
     handles a type with no flattened form."""
-    return CodeGenError(
+    return ConversionGap(
         f"{node.name or 'This function'} does not handle {reason}", node
     )

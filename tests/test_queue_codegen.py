@@ -19,6 +19,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import queue_ops
 from lvkit.codegen.package_modules import PackageModules
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
@@ -406,7 +407,7 @@ def test_queue_name_and_waiting_counts_have_no_equivalent() -> None:
         vi.add("status", "s")
         vi.wires.append(wire("o:queue_out", "s:queue"))
         vi.indicator("value", f"s:{role}", TEXT if role == "name" else INT)
-        with pytest.raises(CodeGenError, match="Get Queue Status uses its"):
+        with pytest.raises(ConversionGap, match="Get Queue Status uses its"):
             vi.source()
 
 
@@ -517,7 +518,7 @@ def test_a_named_queue_with_two_sizes_stops_generation_of_its_nodes() -> None:
     resolver = create_import_resolver(
         "pkg", Path("/x"), {}, Path("/x/a.py"), package_modules=modules
     )
-    with pytest.raises(CodeGenError, match="Work Items"):
+    with pytest.raises(ConversionGap, match="Work Items"):
         a.source(resolver, graph)
 
 

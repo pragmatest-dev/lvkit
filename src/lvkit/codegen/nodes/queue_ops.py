@@ -32,6 +32,7 @@ from __future__ import annotations
 import ast
 from enum import IntEnum
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
@@ -107,7 +108,7 @@ def _queue_input(
 ) -> str:
     queue = _input(by_index.get(0), ctx)
     if queue is None:
-        raise CodeGenError(f"{node.name} has no queue wired", node)
+        raise ConversionGap(f"{node.name} has no queue wired", node)
     return queue
 
 
@@ -136,7 +137,7 @@ def _timeout_seconds(milliseconds: str | None) -> str | None:
         return f"None if {milliseconds} < 0 else {milliseconds} / 1000"
     if isinstance(value, (int, float)):
         return None if value < 0 else repr(value / 1000)
-    raise CodeGenError(f"Queue timeout {milliseconds} is not a number")
+    raise ConversionGap(f"Queue timeout {milliseconds} is not a number")
 
 
 def _call(queue: str, method: str, args: list[str], timeout: str | None) -> ast.expr:
@@ -197,7 +198,7 @@ def _obtain_queue_use(
         ctx.graph.obtain_queue_uses([ctx.vi_name or ""])
     ).use_of(node.id, node)
     if use.error is not None:
-        raise CodeGenError(use.error, node)
+        raise ConversionGap(use.error, node)
     if use.computed or use.attribute is not None:
         raise CodeGenError(
             f"Queue '{use.name}' is named, and there is no generated package to "
@@ -451,7 +452,7 @@ def _generate_release_queue(
     name of its own, so a used ``queue name`` stops generation."""
     queue = _queue_input(node, by_index, ctx)
     if _consumed(by_index.get(8), ctx) is not None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Release Queue uses its 'queue name' output; a queue.Queue has no name",
             node,
         )
@@ -498,7 +499,7 @@ def _generate_get_queue_status(
         (10, "# pending insert"),
     ):
         if _consumed(by_index.get(index), ctx) is not None:
-            raise CodeGenError(
+            raise ConversionGap(
                 f"Get Queue Status uses its '{what}' output, which queue.Queue "
                 "does not provide",
                 node,

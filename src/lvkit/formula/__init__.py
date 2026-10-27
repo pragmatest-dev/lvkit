@@ -18,8 +18,10 @@ int assignment, fixed-width wrap) are written inline as plain Python (``math``,
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 
-class FormulaTranspileError(Exception):
+
+class FormulaTranspileError(ConversionGap):
     """Raised when a Formula Node script uses a construct we do not support.
 
     Carries 1-based line/column so the diagnostic points at the offending

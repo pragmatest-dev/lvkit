@@ -13,7 +13,7 @@ from .expressions import ExpressionBuilder
 from .fragment import CodeFragment
 from .function import FunctionBuilder
 from .imports import ImportBuilder
-from .nodes import CodeGenError, MissingDependencyError, UnknownNodeError
+from .nodes import CodeGenError, UnknownNodeError
 from .stubs import StubGenerator
 
 __all__ = [
@@ -31,6 +31,5 @@ __all__ = [
     "ClassConfig",
     # Exceptions
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
 ]

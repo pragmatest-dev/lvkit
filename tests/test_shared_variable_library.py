@@ -18,8 +18,8 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.codegen.package_modules import PackageModules
+from lvkit.conversion_gap import ConversionGap
 from lvkit.extractor import extract_vi_xml
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
@@ -434,7 +434,7 @@ def test_an_unreadable_record_raises_a_clear_error_for_generated_python(
 ) -> None:
     _fail_shared_variable_records(monkeypatch, (1033, 1112, 977))
     graph, vi = _load(SV_NETWORK_SAMPLE)
-    with pytest.raises(CodeGenError, match="library link is unreadable.*layout flag"):
+    with pytest.raises(ConversionGap, match="library link is unreadable.*layout flag"):
         build_module(graph.get_vi_context(vi), vi, graph=graph)
 
 

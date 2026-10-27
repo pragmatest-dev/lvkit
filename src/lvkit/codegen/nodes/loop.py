@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelMode, TunnelTerminal
 
@@ -15,7 +16,6 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 
@@ -29,7 +29,7 @@ def _when_condition(
         return write
     condition = ctx.resolve(tunnel.condition_terminal_uid)
     if condition is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Conditional tunnel's condition terminal is not wired", node
         )
     return ast.If(test=parse_expr(condition), body=[write], orelse=[])

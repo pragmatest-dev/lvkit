@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 from ...flat import (
     BYTE_ORDER_PREFIX,
     Functions,
@@ -48,7 +48,7 @@ def _constant(ctx: CodeGenContext, node: PrimitiveNode, index: int, default):
     try:
         return ast.literal_eval(text)
     except (ValueError, SyntaxError) as error:
-        raise CodeGenError(
+        raise ConversionGap(
             "Unflatten From String needs its byte order and size inputs to be "
             "constants",
             node,

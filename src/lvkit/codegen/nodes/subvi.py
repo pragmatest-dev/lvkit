@@ -336,7 +336,7 @@ def _get_vilib_vi(
             )
 
             if wired_node_terminals:
-                # Auto-update terminals (raises VILibConflict on conflict)
+                # Auto-update terminals
                 vi = resolver.auto_update_terminals(
                     vi_name=subvi_name,
                     wired_terminals=wired_node_terminals,

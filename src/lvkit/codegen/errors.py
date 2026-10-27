@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lvkit.conversion_gap import ConversionGap
+
 if TYPE_CHECKING:
     from lvkit.graph.models import AnyGraphNode
     from lvkit.models import UnwritableValue
 
 
 class CodeGenError(Exception):
-    """Raised when code generation fails for a node."""
+    """An invariant of code generation failed: a bug in lvkit, not something in
+    the VI. Generation stops. What the VI contains and cannot be converted is a
+    ``ConversionGap``."""
 
     def __init__(self, message: str, node: AnyGraphNode | None = None):
         self.node = node
@@ -19,24 +23,16 @@ class CodeGenError(Exception):
         super().__init__(message)
 
 
-class UnknownNodeError(CodeGenError):
-    """Raised when encountering an unsupported node type."""
-
-    pass
-
-
-class MissingDependencyError(CodeGenError):
-    """Raised when a required dependency (SubVI, primitive) is missing."""
-
-    pass
+class UnknownNodeError(ConversionGap):
+    """A node type code generation has no generator for."""
 
 
 def unwritable_value_error(
     what: str, name: str | None, value: UnwritableValue
-) -> CodeGenError:
-    """The error for a ``what`` ("constant" or "control") named ``name`` that holds
+) -> ConversionGap:
+    """The gap for a ``what`` ("constant" or "control") named ``name`` that holds
     a part (``value``) code generation has no value to write for."""
-    return CodeGenError(
+    return ConversionGap(
         f"The {what} {name!r} holds {value.reason()}; code generation has no "
         "value to write for it."
     )

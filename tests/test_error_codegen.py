@@ -20,8 +20,8 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_codes import describe_error_code
-from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
@@ -1122,7 +1122,7 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
 
 
 def test_clear_errors_with_a_specific_code_is_not_generated_yet() -> None:
-    with pytest.raises(CodeGenError, match="specific error code"):
+    with pytest.raises(ConversionGap, match="specific error code"):
         diagram(
             [step("A", "Step A.vi"), _clear()],
             [

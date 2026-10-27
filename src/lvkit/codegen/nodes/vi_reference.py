@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
 from lvkit.graph.vi_reference import (
     OPEN_VI_PATH_INDEX,
@@ -77,8 +78,8 @@ def _label(node: AnyGraphNode) -> str:
     return node.label or node.name or "VI reference node"
 
 
-def _fail(node: AnyGraphNode, problem: VIReferenceUnresolved) -> CodeGenError:
-    return CodeGenError(f"{_label(node)}: {problem}", node)
+def _fail(node: AnyGraphNode, problem: VIReferenceUnresolved) -> ConversionGap:
+    return ConversionGap(f"{_label(node)}: {problem}", node)
 
 
 def _frame_terminal(
@@ -92,7 +93,7 @@ def _call_style(node: VINode) -> CallStyle:
     try:
         return CallStyle(0 if saved is None else saved)
     except ValueError:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: this kind of call by reference (saved style "
             f"{saved:#x}) is not supported yet; Wait On Asynchronous Call has no "
             "code generation yet.",
@@ -115,12 +116,12 @@ def _reference_input(node: VINode, ctx: CodeGenContext) -> Terminal:
     reference = _frame_terminal(node, ctx, _REFERENCE_IN)
     if reference is None or not ctx.is_wired(reference.id) or ctx.graph is None:
         if node.qualified_path:
-            raise CodeGenError(
+            raise ConversionGap(
                 f"{_label(node)}: the VI chosen in the node's setup, "
                 f"{node.qualified_path!r}, is not loaded with this VI.",
                 node,
             )
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: the VI reference input is not wired and the node "
             "records no VI of its own.",
             node,
@@ -135,7 +136,7 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
     assert ctx.graph is not None
     callee = node.model_copy(update={"callee_key": target.key, "name": target.name})
     if ctx.graph.loaded_callee_key(callee) is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: the VI {target.name!r} is not loaded with this VI.",
             node,
         )
@@ -149,7 +150,7 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
     function = ctx.resolve(reference.id)
     pane = pane_of(reference.lv_type)
     if function is None or pane is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: which VI the reference holds is only known when the "
             "diagram runs, and its type records no connector pane to name the "
             "parameters by.",
@@ -391,7 +392,7 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
         return True
     if kinds == {"Path"}:
         return False
-    raise CodeGenError(
+    raise ConversionGap(
         "Open VI Reference: the computed VI path is neither a path nor a string.",
     )
 

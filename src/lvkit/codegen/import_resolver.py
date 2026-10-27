@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode
 
 from .errors import CodeGenError
@@ -121,7 +122,7 @@ class ImportResolver:
         modules, root_import = self._modules("A queue", node)
         use = modules.queues.use_of(node.id, node)
         if use.error is not None:
-            raise CodeGenError(use.error, node)
+            raise ConversionGap(use.error, node)
         return use, root_import(modules.queues_stem, "shared_queues")
 
     def shared_variable(
@@ -138,7 +139,7 @@ class ImportResolver:
                 node,
             )
         if attributes.error is not None:
-            raise CodeGenError(attributes.error, node)
+            raise ConversionGap(attributes.error, node)
         return (
             root_import(modules.shared_variables_stem, "shared_variables_module"),
             attributes,

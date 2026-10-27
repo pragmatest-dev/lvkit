@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
@@ -57,8 +58,8 @@ def generate_1d_index_array(
     # array, one set per element output, each with its index input.
     try:
         roles = laid_out_roles(node, "aIndx")
-    except CodeGenError as error:
-        raise CodeGenError(
+    except ConversionGap as error:
+        raise ConversionGap(
             "1D Index Array requires output/index terminal pairs", node
         ) from error
     outputs = [term for _, term in roles.get(1, [])]
@@ -68,9 +69,9 @@ def generate_1d_index_array(
         or any(t.direction != "output" for t in outputs)
         or any(t.direction != "input" for t in indices)
     ):
-        raise CodeGenError("1D Index Array requires output/index terminal pairs", node)
+        raise ConversionGap("1D Index Array requires output/index terminal pairs", node)
     if any(t.lv_type is None or t.lv_type.kind == LVTypeKind.ARRAY for t in outputs):
-        raise CodeGenError("1D Index Array requires typed scalar outputs", node)
+        raise ConversionGap("1D Index Array requires typed scalar outputs", node)
 
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}

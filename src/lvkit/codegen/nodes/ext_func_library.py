@@ -26,12 +26,12 @@ import posixpath
 from dataclasses import dataclass
 from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.parser.extfunc_prototype import ExtFuncCall, LibraryPathKind
 
 from ..context import CodeGenContext
 from ..ctypes_module import CtypesModule
-from ..errors import CodeGenError
 from ..library_dependencies import LibraryFormat, library_format, needed_in
 
 # The file names a wildcard name can expand to: the extensions and bit counts.
@@ -92,7 +92,7 @@ def _fail(ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, why: str)
     empties = next((i for i, t in enumerate(tokens) if t), len(tokens))
     up = [".."] * (empties - 1)
     where = posixpath.normpath("/".join([*(up or ["."]), *tokens[empties:]]))
-    return CodeGenError(
+    return ConversionGap(
         f"{ctx.vi_name}: the Call Library Function Node {call.function!r} records "
         f"the library {call.library!r} at the path {where!r} from the VI's folder, "
         f"but {why}.",

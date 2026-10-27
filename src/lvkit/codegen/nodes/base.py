@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode
 from lvkit.models import Terminal
 
@@ -11,7 +12,7 @@ from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
 
 
-class DefaultObjectError(CodeGenError):
+class DefaultObjectError(ConversionGap):
     """A Property or Invoke Node acts on the default object of a VI Server class
     in a way that has no Python equivalent."""
 
@@ -61,7 +62,7 @@ def unwired_ref_class(node: AnyGraphNode, ctx: CodeGenContext) -> str | None:
         return None
     class_name = getattr(node, "object_name", None)
     if not class_name:
-        raise CodeGenError("Unwired object reference has no object class", node)
+        raise ConversionGap("Unwired object reference has no object class", node)
     return str(class_name)
 
 

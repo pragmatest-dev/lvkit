@@ -8,8 +8,10 @@ strategy these exceptions are the escape hatch for.
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 
-class PrimitiveResolutionNeeded(Exception):
+
+class PrimitiveResolutionNeeded(ConversionGap):
     """Raised when a primitive has no definition in primitives.json.
 
     Same pattern as VILibResolutionNeeded — the whole primitive is unknown,
@@ -43,6 +45,15 @@ class PrimitiveResolutionNeeded(Exception):
         # works as before.
         self.qualified_vi_name = qualified_vi_name
         super().__init__(self._format_message())
+
+    def summary(self) -> str:
+        if self.prim_id:
+            return f"primitive {self.prim_id} ({self.prim_name}) is not known"
+        because = f": {self.reason}" if self.reason else ""
+        return (
+            f"{self.node_kind or 'Node'} {self.prim_name} has no code "
+            f"generation yet{because}"
+        )
 
     def _format_message(self) -> str:
         if self.prim_id:
@@ -89,7 +100,7 @@ class PrimitiveResolutionNeeded(Exception):
         return msg.rstrip("\n")
 
 
-class TerminalResolutionNeeded(Exception):
+class TerminalResolutionNeeded(ConversionGap):
     """Raised when a specific wired terminal cannot be resolved to a known index.
 
     kind="primitive": a built-in LabVIEW primitive with a missing terminal index
@@ -115,6 +126,12 @@ class TerminalResolutionNeeded(Exception):
         self.vi_name = vi_name
         self.kind = kind
         super().__init__(self._format_message())
+
+    def summary(self) -> str:
+        return (
+            f"the {self.terminal_direction} terminal of {self.prim_name} "
+            f"(type {self.terminal_type}) has no known index"
+        )
 
     def _format_message(self) -> str:
         if self.kind == "vilib":

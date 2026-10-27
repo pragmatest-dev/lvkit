@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from lvkit.codegen.errors import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import Generated, array, generate, node, scalar
 
@@ -488,7 +488,7 @@ def test_type_cast_cluster_both_ways():
 
 
 def test_type_cast_of_a_type_with_no_flattened_form_stops_generation():
-    with pytest.raises(CodeGenError, match="does not handle.*Variant"):
+    with pytest.raises(ConversionGap, match="does not handle.*Variant"):
         cast(scalar("Variant"), U32)
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import SharedVariableNode
 from lvkit.models import Terminal
 from lvkit.parser.node_types import SharedVariableTerminal
@@ -53,13 +54,13 @@ def _declare(
 ) -> tuple[ModuleImport, SharedVariableAttributes]:
     library = node.library
     if library is None and node.library_unreadable is not None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Shared Variable '{node.variable_name}' cannot be generated: its "
             f"library link is unreadable ({node.library_unreadable})",
             node,
         )
     if library is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Shared Variable '{node.variable_name}' cannot be generated: the VI's "
             "link table records no library for it, so how it is published is "
             "unknown",
@@ -83,7 +84,7 @@ def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
     module, attributes = _declare(node, ctx)
     if node.is_write:
         if not ctx.is_wired(value_term.id):
-            raise CodeGenError(
+            raise ConversionGap(
                 f"Shared Variable '{node.variable_name}' is written with nothing wired",
                 node,
             )

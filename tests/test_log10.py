@@ -8,7 +8,7 @@ from functools import cache
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from tests.helpers import build_graph
@@ -139,7 +139,7 @@ def test_generated_dbl_arrays(values, rank, expected):
 @pytest.mark.parametrize("underlying", ["NumComplex128", None])
 def test_unqualified_representation_is_rejected(terminal, underlying):
     with pytest.raises(
-        CodeGenError, match="supports resolved real numeric scalars and arrays only"
+        ConversionGap, match="supports resolved real numeric scalars and arrays only"
     ):
         generated_log10(**{f"{terminal}_type": underlying})
 

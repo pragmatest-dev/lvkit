@@ -561,7 +561,7 @@ class TestCompoundArithInvert:
         raises at codegen rather than silently defaulting to OR."""
         import pytest
 
-        from lvkit.codegen.nodes.base import CodeGenError
+        from lvkit.conversion_gap import ConversionGap
 
         ctx = make_ctx("term1", "term2", "term_out")
         ctx.bind("term1", "a")
@@ -578,7 +578,7 @@ class TestCompoundArithInvert:
                 Terminal(id="term_out", index=0, direction="output"),
             ],
         )
-        with pytest.raises(CodeGenError, match="not supported"):
+        with pytest.raises(ConversionGap, match="not supported"):
             compound.generate_compound_arith(op, ctx)
 
     def test_multiply_boolean_translates_to_and(self):

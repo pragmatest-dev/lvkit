@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import LaidOutTerminal, lay_out_node
 from lvkit.models import Terminal
@@ -20,12 +21,12 @@ def laid_out_roles(
     """
     template = get_resolver().resolve_by_node_type(node_type)
     if template is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"No terminal layout is known for {node.name or 'this function'}", node
         )
     laid_out = lay_out_node(template.terminals, node.terminals)
     if laid_out is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{template.name} terminals do not fit the array types wired to it "
             "(unknown array dimensions, or a terminal count that does not make "
             "whole sets).",

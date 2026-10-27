@@ -28,7 +28,7 @@ from lvkit.graph.models import (
 )
 
 from ..context import CodeGenContext
-from ..errors import CodeGenError, MissingDependencyError, UnknownNodeError
+from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
 
 # Import modules (not classes) for dispatch
@@ -168,7 +168,6 @@ def _generate_unknown(node: AnyGraphNode) -> CodeFragment:
 
 __all__ = [
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
     "generate",
 ]

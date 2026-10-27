@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.errors import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
 from lvkit.models import (
     FPTerminal,
@@ -126,5 +126,5 @@ def test_properties_with_no_python_meaning_stop_generation() -> None:
         ("App", "Disp.AllMonitors"),
         ("VI", "IsInPackedLibrary"),
     ):
-        with pytest.raises(CodeGenError, match=f"'{name}' of the default"):
+        with pytest.raises(ConversionGap, match=f"'{name}' of the default"):
             _vi(class_name, name)

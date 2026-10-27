@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+
+from lvkit.conversion_gap import ConversionGap
 
 
 @dataclass
@@ -23,7 +24,7 @@ class ResolutionContext:
     caller_qualified_name: str | None = None
 
 
-class VILibResolutionNeeded(Exception):
+class VILibResolutionNeeded(ConversionGap):
     """Raised when vi.lib terminal info is missing.
 
     Claude should use the VI dependencies in the files being processed
@@ -34,6 +35,9 @@ class VILibResolutionNeeded(Exception):
         self.vi_name = vi_name
         self.context = context or ResolutionContext()
         super().__init__(self._format_message())
+
+    def summary(self) -> str:
+        return f"the vi.lib VI '{self.vi_name}' has no terminal mapping"
 
     def _format_message(self) -> str:
         msg = f"VILib resolution needed for '{self.vi_name}'.\n"
@@ -68,20 +72,4 @@ class VILibResolutionNeeded(Exception):
             " (project-local) or data/vilib/<category>.json"
             " (cleanroom upstream)"
         )
-        return msg
-
-
-class VILibConflict(Exception):
-    """Terminal conflict detected across callers."""
-
-    def __init__(self, vi_name: str, conflicts: list[dict[str, Any]]):
-        self.vi_name = vi_name
-        self.conflicts = conflicts
-        super().__init__(self._format_message())
-
-    def _format_message(self) -> str:
-        msg = f"Terminal conflict for '{self.vi_name}'.\n\nConflicts:\n"
-        for c in self.conflicts:
-            msg += f"  Index {c['index']} ({c['field']}): "
-            msg += f"{c['existing']} → {c['observed']}\n"
         return msg

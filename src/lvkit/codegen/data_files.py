@@ -9,6 +9,7 @@ from __future__ import annotations
 import array
 from collections.abc import Sequence
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import (
     FLOAT_BYTE_WIDTHS,
     INTEGER_BYTE_WIDTHS,
@@ -88,14 +89,14 @@ def data_file_expression(
         raise unwritable_value_error(what, name, unwritable)
     coded = array_typecode(unwritable.element_type)
     if coded is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"The {what} {name!r} holds {unwritable.reason()}; its element type "
             "has no fixed width to write to a data file."
         )
     typecode, as_bool = coded
     width = array.array(typecode).itemsize
     if len(unwritable.element_bytes) != width * unwritable.element_count:
-        raise CodeGenError(
+        raise ConversionGap(
             f"The {what} {name!r} holds {unwritable.reason()}, but the VI stores "
             "fewer bytes than that many elements take."
         )

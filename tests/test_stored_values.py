@@ -16,6 +16,7 @@ import pytest
 
 from lvkit.codegen.context import _format_constant
 from lvkit.codegen.errors import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.extractor import resolve_extracted
 from lvkit.graph.construction import decode_constant
 from lvkit.graph.models import Constant
@@ -316,7 +317,7 @@ def test_code_generation_names_a_constant_whose_values_are_not_kept():
         unwritable=decoded.unwritable,
         label="Frame",
     )
-    with pytest.raises(CodeGenError, match=rf"'Frame'.*{count} elements"):
+    with pytest.raises(ConversionGap, match=rf"'Frame'.*{count} elements"):
         _format_constant(node)
 
 
@@ -327,7 +328,7 @@ def test_a_picture_with_drawing_is_shown_as_not_decoded_and_cannot_be_written():
     assert (value, consumed) == ("<Picture, 3 bytes of drawing not decoded>", 7)
     assert structured == UndecodedPicture(3)
     node = Constant(id="c", value=value, lv_type=lv_type, unwritable=structured)
-    with pytest.raises(CodeGenError, match="Picture of 3 bytes"):
+    with pytest.raises(ConversionGap, match="Picture of 3 bytes"):
         _format_constant(node)
 
 
@@ -808,5 +809,5 @@ def test_a_large_array_inside_a_cluster_constant_is_named_in_the_error(monkeypat
         unwritable=decoded.unwritable,
         label="Settings",
     )
-    with pytest.raises(CodeGenError, match="'Settings'.*6 elements"):
+    with pytest.raises(ConversionGap, match="'Settings'.*6 elements"):
         CodeGenContext(data_files={}).constant_expression(node)

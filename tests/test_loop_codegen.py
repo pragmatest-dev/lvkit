@@ -9,7 +9,6 @@ import pytest
 from lvkit.codegen.ast_utils import parse_stmt
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
-from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.codegen.nodes.loop import (
     _build_while_loop,
     _get_dest_terminal_name,
@@ -18,6 +17,7 @@ from lvkit.codegen.nodes.loop import (
     _negate_condition,
     _singularize,
 )
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import LoopNode, PrimitiveNode, Wire, WireEnd
 from lvkit.models import (
@@ -1167,7 +1167,7 @@ class TestConditionalOutputTunnel:
                 Terminal(id="cond", index=11, direction="input"),
             ],
         )
-        with pytest.raises(CodeGenError, match="condition terminal is not wired"):
+        with pytest.raises(ConversionGap, match="condition terminal is not wired"):
             loop.generate(loop_op, ctx)
 
 

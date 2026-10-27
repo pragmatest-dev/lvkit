@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.flat import Integer, Real, Record, Sequence, Text, layout_of
+from lvkit.conversion_gap import ConversionGap
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import array, generate, node, scalar
 
@@ -144,9 +144,9 @@ def test_type_cast_refnum_flattens_as_a_32_bit_integer() -> None:
 
 
 def test_types_with_no_flattened_form_stop_generation() -> None:
-    with pytest.raises(CodeGenError, match="does not handle"):
+    with pytest.raises(ConversionGap, match="does not handle"):
         cast(U32, scalar("Variant"))
-    with pytest.raises(CodeGenError, match="does not handle"):
+    with pytest.raises(ConversionGap, match="does not handle"):
         cast(I32, array("Variant"))
 
 
