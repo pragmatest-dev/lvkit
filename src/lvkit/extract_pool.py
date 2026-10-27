@@ -33,7 +33,6 @@ from pathlib import Path
 from types import TracebackType
 
 from . import cache_paths
-from .cache_paths import classify
 from .extractor import cached_extraction, extract_vi_xml
 
 logger = logging.getLogger(__name__)
@@ -54,14 +53,6 @@ def _init_worker(vilib_root: Path | None, userlib_root: Path | None) -> None:
 def _extract_one(vi_path: str) -> None:
     """Worker entry point: extract one VI into the managed cache."""
     extract_vi_xml(vi_path)
-
-
-def _shares_cache_slot(vi_path: Path) -> bool:
-    """Whether ``vi_path`` extracts into a cache slot shared with the other VIs
-    of its directory (a VI outside any project or library, see
-    ``cache_paths.classify``). Extractions into one slot overwrite each other, so
-    those run only one at a time, in the loader."""
-    return classify(vi_path, "extract")[2] == "adhoc"
 
 
 class ExtractionPool:
@@ -92,7 +83,7 @@ class ExtractionPool:
             if key in self._futures or not key.is_file():
                 continue
             try:
-                if cached_extraction(key) is not None or _shares_cache_slot(key):
+                if cached_extraction(key) is not None:
                     continue
                 self._futures[key] = self._start().submit(_extract_one, str(key))
             except Exception:

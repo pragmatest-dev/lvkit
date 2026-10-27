@@ -28,6 +28,7 @@ from .composite import draw_scene
 from .connector_pane import pane_terminals, render_connector_pane_help
 from .icons import icon_data_uri
 from .render_viewer import build_render_viewer
+from .rendered import RenderedBody
 from .scene import Scene, build_scene
 from .style import DEFAULT_THEME, Theme, css_var_theme
 from .theme_web import embedded_dark_css
@@ -639,10 +640,11 @@ def render_vi_file_titled(
     mode: LoadMode = LoadMode.MINIMAL,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
-) -> tuple[str | None, str]:
+) -> tuple[str | None, str, tuple[Path, ...]]:
     """Like :func:`render_vi_file`, but also returns the VI's resolved
     (fully qualified, e.g. ``Class.lvclass:vi.vi``) name — for use as a viewer
-    title. Same load/degrade behaviour."""
+    title — and the sorted file paths of the dependencies the load reached.
+    Same load/degrade behaviour."""
     path = Path(path)
     vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
@@ -682,7 +684,8 @@ def render_vi_file_titled(
     svg = render_vi(graph, name, theme=theme, theme_mode=theme_mode)
     # `name` is the vi_key (canonical source path) — the render identity. The
     # TITLE is display-only: the qualified name, never the abspath key.
-    return svg, graph.vi_display_name(name)
+    dependencies = tuple(sorted(graph.get_dependency_paths(name), key=str))
+    return svg, graph.vi_display_name(name), dependencies
 
 
 def render_vi_body_with_name(
@@ -695,7 +698,7 @@ def render_vi_body_with_name(
     mode: LoadMode = LoadMode.MINIMAL,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
-) -> tuple[str, str] | None:
+) -> RenderedBody | None:
     """Like :func:`render_vi_body`, but also returns the VI's resolved
     qualified name (e.g. ``Class.lvclass:vi.vi``, else its bare stem) —
     ALREADY computed by :func:`render_vi_file_titled` below regardless of
@@ -704,7 +707,7 @@ def render_vi_body_with_name(
     wrapper that discards it. Lets a cache layer persist VI identity
     alongside the body without a second graph load just to recover it later
     (#114's follow-up)."""
-    svg, vi_title = render_vi_file_titled(
+    svg, vi_title, dependencies = render_vi_file_titled(
         path,
         search_paths=search_paths,
         vilib_root=vilib_root,
@@ -716,9 +719,9 @@ def render_vi_body_with_name(
         return None
     name = vi_title or path.stem.replace("_BDHb", "")
     if fmt != "html":
-        return svg, name
+        return RenderedBody(svg, name, dependencies)
     title = f"{name} ({ref})" if ref else name
-    return build_render_viewer(svg, title=title), name
+    return RenderedBody(build_render_viewer(svg, title=title), name, dependencies)
 
 
 def render_vi_body(
@@ -752,4 +755,4 @@ def render_vi_body(
         theme_mode=theme_mode,
         ref=ref,
     )
-    return result[0] if result is not None else None
+    return result.body if result is not None else None

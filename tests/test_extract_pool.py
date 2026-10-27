@@ -103,15 +103,15 @@ def test_extracted_files_start_no_pool(vis: list[Path]) -> None:
         assert pool._futures == {}
 
 
-def test_vis_outside_any_project_are_left_to_the_loader(
-    vis: list[Path], monkeypatch: pytest.MonkeyPatch
+def test_sibling_vis_outside_any_project_keep_their_own_extraction(
+    vis: list[Path],
 ) -> None:
-    """Outside a project, sibling VIs share one cache slot, so they are never
-    extracted concurrently."""
+    """Outside a project each VI has its own slot: extracting one sibling does
+    not invalidate the other."""
     shutil.rmtree(vis[0].parent / ".git")
-    with ExtractionPool() as pool:
-        pool.prefetch(vis)
-        assert pool._executor is None
+    for vi in vis:
+        extract_vi_xml(vi)
+    assert all(cached_extraction(vi) is not None for vi in vis)
 
 
 def test_missing_file_starts_no_pool(tmp_path: Path) -> None:

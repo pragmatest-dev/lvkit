@@ -39,7 +39,7 @@ def _r(p):
     # Render from the STAGED /proj tree with /proj as the search root, exactly
     # as the shipped web extension does — must match \`lvkit render --format svg
     # --theme light\` on the native side (which reads the same files off disk).
-    svg, _ = render_vi_file_titled(Path(p), search_paths=[Path("/proj")])
+    svg = render_vi_file_titled(Path(p), search_paths=[Path("/proj")])[0]
     return svg or ""
 _r`);
 

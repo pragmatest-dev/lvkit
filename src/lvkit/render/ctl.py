@@ -10,6 +10,7 @@ from ..graph.load_ctl import load_ctl_by_path
 from . import ThemeMode
 from .front_panel import render_ctl_front_panel
 from .render_viewer import build_ctl_viewer
+from .rendered import RenderedBody
 
 
 def render_ctl_body_with_name(
@@ -19,7 +20,7 @@ def render_ctl_body_with_name(
     search_paths: list[Path] | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
-) -> tuple[str, str] | None:
+) -> RenderedBody | None:
     """Like :func:`render_ctl_body`, but also returns the control's own
     typedef name — ALREADY resolved by ``load_ctl_by_path`` below regardless
     of ``fmt``, so surfacing it costs nothing extra. The one entry point that
@@ -29,10 +30,11 @@ def render_ctl_body_with_name(
     if svg is None:
         return None
     name = graph.get_typedef(key).name
+    dependencies = tuple(sorted(graph.get_dependency_paths(key), key=str))
     if fmt != "html":
-        return svg, name
+        return RenderedBody(svg, name, dependencies)
     title = f"{name} ({ref})" if ref else name
-    return build_ctl_viewer(svg, title=title), name
+    return RenderedBody(build_ctl_viewer(svg, title=title), name, dependencies)
 
 
 def render_ctl_body(
@@ -51,4 +53,4 @@ def render_ctl_body(
     result = render_ctl_body_with_name(
         path, fmt=fmt, search_paths=search_paths, theme_mode=theme_mode, ref=ref
     )
-    return result[0] if result is not None else None
+    return result.body if result is not None else None
