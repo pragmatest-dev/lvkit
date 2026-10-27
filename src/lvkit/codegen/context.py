@@ -37,6 +37,7 @@ from lvkit.models import (
 )
 
 from .ast_utils import parameter_names, to_function_name, to_var_name
+from .ctypes_module import CtypesModule
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -125,6 +126,9 @@ class CodeGenContext:
     # this module (keyed by function kind, byte order and type), so a type that
     # recurs is written once. Shared across child contexts like formula_helpers.
     flat_functions: dict[tuple, str] = field(default_factory=dict, repr=False)
+    # The module-level ``ctypes`` code of Call Library Function Nodes (libraries,
+    # prototypes, structures); shared across child contexts.
+    ctypes_module: CtypesModule = field(default_factory=CtypesModule)
     # Module-level global variables for persistent per-call-site state:
     # uninitialized shift registers (LV2/functional-global idiom — see
     # codegen/nodes/loop.py) and stateful primitives like First Call?
@@ -481,6 +485,7 @@ class CodeGenContext:
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
             flat_functions=self.flat_functions,  # Shared — one dict
+            ctypes_module=self.ctypes_module,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
             _body_generator=self._body_generator,
         )

@@ -626,6 +626,9 @@ def build_module_ast(
     # Module-level helper functions generated for Formula Nodes.
     module_body.extend(ctx.formula_helpers)
 
+    # Module-level ctypes declarations of Call Library Function Nodes.
+    module_body.extend(ctx.ctypes_module.statements)
+
     # Module-level globals for persistent per-call-site state
     # (uninitialized shift registers, First Call?). Sorted by name for
     # deterministic output — dict iteration order is insertion order, but

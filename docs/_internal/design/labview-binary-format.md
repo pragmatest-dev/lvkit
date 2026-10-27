@@ -1567,3 +1567,25 @@ for an exception in the called code.
 `<threadInfo>` is 0 (absent) for "Run in UI thread" and `01` for "Run in any thread"
 (28 of the 46 corpus nodes have `01`). LabVIEW draws the node's top band orange for the
 UI thread and pale yellow for any thread.
+
+**`Ptr` and `PtrTo` String prototype fields (2026-10-26).** Two more `funcTD` field types
+occur in the protobuf/gRPC nodes (`labview_grpc_server.dll`, and the nodes whose library
+comes from the path-in terminal), none of them in the sample corpus tree: they were read
+from the extracted diagrams of those VIs in the per-user extraction cache, whose source
+paths are not recorded, so no corpus VI can be named for them.
+
+- A bare `Ptr` (pylabview `TD_FULL_TYPE.Ptr`, type code `0x80`) has no child type
+  descriptor: `<TypeDesc Type="Ptr" Format="inline" Label="data" />`. The only information
+  about the pointee is the DCO's wire type, so lvkit reads it as a pointer to the wired
+  value's C layout, the same as Adapt to Type (`Void`): a scalar by reference, a cluster
+  as a pointer to a structure. Nodes seen: `GetRequestData` param 2 and `SetResponseData`
+  param 2 (wire type Cluster, or a unit-tagged `UnitUInt32`), `PackToAny` params 3 and 4
+  (Cluster), `UnpackFromAny` param 4 (Cluster), `CompleteClientUnaryCall2` param 4
+  (Cluster).
+- `PtrTo` (`0x83`) whose child is a `String` with `Prop1="0xFFFFFFFF"` (the same String
+  descriptor as a string handle, see above): `<TypeDesc Type="PtrTo" Format="inline">
+  <TypeDesc TypeID="N" /></TypeDesc>` with the child flat type `<TypeDesc Type="String"
+  Prop1="0xFFFFFFFF" Format="inline" Label="errorMessage" />`. lvkit reads it as a
+  pointer to a string handle (one more level of pointer than the `String` field, which
+  is the handle itself). Node seen: `CompleteClientUnaryCall2` param 3 (wire type
+  String). A `PtrTo` whose child is a number is the existing "pass pointer to value".

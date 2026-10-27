@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Call Library Function Nodes generate plain `ctypes` code that imports nothing from lvkit** — the library loads once at module level, string and array handles and Adapt to Type clusters are `ctypes.Structure` classes in the module, and `FGetInfo`/`FSetInfo` are `os.stat`/`os.chmod`/`os.utime`; pointers to a string handle and bare `Ptr` parameters now generate too (#185).
 - **Fix: VIs outside a git or LabVIEW project no longer re-extract on every run** — each VI has its own extraction slot, so describe and render of a folder with several VIs stop rewriting hundreds of cache files per run (#131).
 - **Fix: a cached render or diff is rebuilt when a SubVI changed or when `--vilib`, `--userlib`, `--search-path`, `--load-mode`, `--no-auto-vilib` or the project store differ** (#131).
 - **`render -o FILE --no-cache` writes only the output file** — no cache entry and no staging folder, for machines where security software watches the cache folder (#131).

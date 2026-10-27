@@ -37,6 +37,8 @@ def _c_type(param: ExtFuncParam) -> str:
         return "char *"
     if param.kind == ParamKind.STRING_HANDLE:
         return "LStrHandle"
+    if param.kind == ParamKind.STRING_HANDLE_POINTER:
+        return "LStrHandle *"
     if param.kind == ParamKind.NO_VALUE:
         return "void"
     # An array handle, an Adapt to Type parameter, or a type this reader does not

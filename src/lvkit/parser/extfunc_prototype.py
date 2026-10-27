@@ -4,9 +4,9 @@ convention, and how each parameter is passed.
 The node's ``<funcTD>`` is a Cluster whose fields are the C prototype, one per
 row (the return value first). Each field's type descriptor says how that
 parameter reaches the function: a number by value, ``PtrTo`` a number, a
-``CString`` (C string pointer), or an ``ArrayDataPtr`` to numbers. Any other
-descriptor (a LabVIEW string or array handle, ``Adapt to Type``) is kept as an
-unsupported parameter with the reason.
+``CString`` (C string pointer), an ``ArrayDataPtr`` to numbers, a LabVIEW string
+or array handle, or a pointer to the wired value (``Adapt to Type``, ``Ptr``).
+Any other descriptor is kept as an unsupported parameter with the reason.
 """
 
 from __future__ import annotations
@@ -27,10 +27,12 @@ class ParamKind(str, Enum):
     ARRAY_DATA = "array_data"  # a pointer to the elements of a 1-D numeric array
     # Adapt to Type: a scalar is passed as a pointer to it (NI: "Scalars are passed
     # by reference"), so its C type is that of the wire type, known only on the
-    # graph (see ``codegen.nodes.ext_func``).
+    # graph (see ``codegen.nodes.ext_func``). A bare pointer (``Ptr``) points at
+    # the wired value the same way.
     ADAPT_TO_TYPE = "adapt_to_type"
     NO_VALUE = "no_value"  # a function with no return value
     STRING_HANDLE = "string_handle"  # a LabVIEW string handle
+    STRING_HANDLE_POINTER = "string_handle_pointer"  # a pointer to a string handle
     ARRAY_HANDLE = "array_handle"  # a LabVIEW array handle
     UNSUPPORTED = "unsupported"
 
@@ -166,6 +168,11 @@ def _param(
         return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
     if kind_name == "String":
         return ExtFuncParam(ParamKind.STRING_HANDLE)
+    if kind_name == "Ptr":
+        return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
+    if kind_name == "PtrTo" and (target := _child(td, flat)) is not None:
+        if target.get("Type") == "String":
+            return ExtFuncParam(ParamKind.STRING_HANDLE_POINTER)
     if kind_name == "Array":
         element = _number(_child(td, flat))
         dimensions = len(td.findall("Dimension"))

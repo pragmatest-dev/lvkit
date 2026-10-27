@@ -17,20 +17,18 @@ fileapi.h and handleapi.h):
   through ``lpNumberOfBytesRead`` / ``lpNumberOfBytesWritten``;
 - CloseHandle and GetLastError.
 
-It replaces ``clfn.call_library_function`` for calls to ``kernel32.dll`` only; a
-call to any other library goes to the real one.
+It replaces ``ctypes.WinDLL`` for ``kernel32.dll`` only: the generated module
+gets an object whose functions take the ``ctypes`` arguments the module builds
+(``byref`` cells, ``ctypes`` arrays, integers); any other library is the real one.
 """
 
 from __future__ import annotations
 
+import ctypes
 import os
-import struct
-from collections.abc import Callable, Sequence
 from typing import Any
 
 import pytest
-
-from lvkit.runtime import clfn
 
 GENERIC_WRITE = 0x40000000
 CREATE_NEW, CREATE_ALWAYS, OPEN_EXISTING, OPEN_ALWAYS, TRUNCATE_EXISTING = 1, 2, 3, 4, 5
@@ -38,19 +36,6 @@ INVALID_HANDLE_VALUE = 0xFFFFFFFF
 INVALID_SET_FILE_POINTER = 0xFFFFFFFF
 INVALID_FILE_SIZE = 0xFFFFFFFF
 ERROR_FILE_NOT_FOUND, ERROR_INVALID_HANDLE, ERROR_FILE_EXISTS = 2, 6, 80
-
-_FORMATS = {
-    "int8": "b",
-    "uint8": "B",
-    "int16": "h",
-    "uint16": "H",
-    "int32": "i",
-    "uint32": "I",
-    "int64": "q",
-    "uint64": "Q",
-    "float32": "f",
-    "float64": "d",
-}
 
 
 class Kernel32:
@@ -69,7 +54,7 @@ class Kernel32:
 
     def CreateFileA(
         self,
-        name: str,
+        name: Any,
         access: int,
         share: int,
         security: int,
@@ -77,7 +62,8 @@ class Kernel32:
         flags: int,
         template: int,
     ) -> int:
-        exists = os.path.exists(name)
+        path = os.fsdecode(name.value)
+        exists = os.path.exists(path)
         if disposition == CREATE_NEW and exists:
             self.last_error = ERROR_FILE_EXISTS
             return INVALID_HANDLE_VALUE
@@ -87,55 +73,54 @@ class Kernel32:
         mode = os.O_RDWR | os.O_CREAT
         if disposition in (CREATE_ALWAYS, TRUNCATE_EXISTING):
             mode |= os.O_TRUNC
-        descriptor = os.open(name, mode)
+        descriptor = os.open(path, mode)
         self._next += 4
         self.files[self._next] = descriptor
         self.last_error = 0
         return self._next
 
     def ReadFile(
-        self, handle: int, buffer: Sequence[int], count: int, element: str
-    ) -> tuple[list[int], int] | None:
+        self, handle: int, buffer: Any, count: int, read: Any, overlapped: int
+    ) -> int:
         descriptor = self._handle(handle)
         if descriptor is None:
-            return None
-        data = os.read(descriptor, count)
-        code = _FORMATS[element]
-        size = struct.calcsize(code)
-        whole = len(data) // size
-        values = list(struct.unpack(f"<{whole}{code}", data[: whole * size]))
-        return values + list(buffer)[whole:], len(data)
+            return 0
+        data = os.read(descriptor, min(count, ctypes.sizeof(buffer)))
+        ctypes.memmove(buffer, data, len(data))
+        read._obj.value = len(data)
+        return 1
 
     def WriteFile(
-        self, handle: int, buffer: Sequence[int], count: int, element: str
-    ) -> int | None:
+        self, handle: int, buffer: Any, count: int, written: Any, overlapped: int
+    ) -> int:
         descriptor = self._handle(handle)
         if descriptor is None:
-            return None
-        code = _FORMATS[element]
-        raw = struct.pack(f"<{len(buffer)}{code}", *buffer)[:count]
-        return os.write(descriptor, raw)
+            return 0
+        written._obj.value = os.write(descriptor, bytes(buffer)[:count])
+        return 1
 
-    def SetFilePointer(
-        self, handle: int, low: int, high: int | None, method: int
-    ) -> tuple[int, int]:
+    def SetFilePointer(self, handle: int, low: int, high: Any, method: int) -> int:
         descriptor = self._handle(handle)
         if descriptor is None:
-            return INVALID_SET_FILE_POINTER, 0
-        distance = struct.unpack(
-            "<q", struct.pack("<II", low & 0xFFFFFFFF, (high or 0) & 0xFFFFFFFF)
-        )[0]
+            return INVALID_SET_FILE_POINTER
+        high_part = high._obj.value if high is not None else 0
+        distance = ((high_part & 0xFFFFFFFF) << 32) | (low & 0xFFFFFFFF)
+        if distance >= 1 << 63:
+            distance -= 1 << 64
         position = os.lseek(
             descriptor, distance, (os.SEEK_SET, os.SEEK_CUR, os.SEEK_END)[method]
         )
-        return position & 0xFFFFFFFF, position >> 32
+        if high is not None:
+            high._obj.value = position >> 32
+        return position & 0xFFFFFFFF
 
-    def GetFileSize(self, handle: int) -> tuple[int, int]:
+    def GetFileSize(self, handle: int, high: Any) -> int:
         descriptor = self._handle(handle)
         if descriptor is None:
-            return INVALID_FILE_SIZE, 0
+            return INVALID_FILE_SIZE
         size = os.fstat(descriptor).st_size
-        return size & 0xFFFFFFFF, size >> 32
+        high._obj.value = size >> 32
+        return size & 0xFFFFFFFF
 
     def SetEndOfFile(self, handle: int) -> int:
         descriptor = self._handle(handle)
@@ -144,12 +129,13 @@ class Kernel32:
         os.ftruncate(descriptor, os.lseek(descriptor, 0, os.SEEK_CUR))
         return 1
 
-    def GetFileSizeEx(self, handle: int) -> tuple[int, int]:
+    def GetFileSizeEx(self, handle: int, size: Any) -> int:
         """The file size as one 64-bit value, through ``lpFileSize``."""
         descriptor = self._handle(handle)
         if descriptor is None:
-            return 0, 0
-        return 1, os.fstat(descriptor).st_size
+            return 0
+        size._obj.value = os.fstat(descriptor).st_size
+        return 1
 
     def CloseHandle(self, handle: int) -> int:
         descriptor = self._handle(handle)
@@ -167,58 +153,37 @@ class Kernel32:
             os.close(descriptor)
         self.files.clear()
 
-    def call(
-        self, function: str, signature: Sequence[Any], args: Sequence[Any]
-    ) -> tuple[Any, ...]:
-        """The result of ``clfn.call_library_function`` for ``function``: the
-        return value, then each parameter's value after the call."""
-        a = list(args)
-        if function == "CreateFileA":
-            return (self.CreateFileA(*a), *a)
-        if function == "GetLastError":
-            return (self.GetLastError(),)
-        if function == "SetEndOfFile":
-            return (self.SetEndOfFile(a[0]), a[0])
-        if function == "GetFileSizeEx":
-            ok, size = self.GetFileSizeEx(a[0])
-            return ok, a[0], size
-        if function == "CloseHandle":
-            return self.CloseHandle(a[0]), a[0]
-        if function == "GetFileSize":
-            low, high = self.GetFileSize(a[0])
-            return low, a[0], high
-        if function == "SetFilePointer":
-            low, high = self.SetFilePointer(a[0], a[1], a[2], a[3])
-            return low, a[0], a[1], high, a[3]
-        if function == "ReadFile":
-            element = signature[2][1]
-            result = self.ReadFile(a[0], a[1], a[2], element)
-            if result is None:
-                return 0, *a
-            values, count = result
-            return 1, a[0], values, a[2], count, a[4]
-        if function == "WriteFile":
-            element = signature[2][1]
-            written = self.WriteFile(a[0], a[1], a[2], element)
-            if written is None:
-                return 0, *a
-            return 1, a[0], a[1], a[2], written, a[4]
-        raise NotImplementedError(f"the kernel32 stand-in has no {function}")
+    def __getitem__(self, function: str) -> Any:
+        """The function as ``ctypes`` hands it out: an object that takes
+        ``argtypes`` and ``restype`` and is called with the arguments."""
+        if function.startswith("_") or not callable(getattr(self, function, None)):
+            raise AttributeError(f"the kernel32 stand-in has no {function}")
+        return _Function(self, function)
+
+
+class _Function:
+    def __init__(self, owner: Kernel32, name: str) -> None:
+        self._owner = owner
+        self._name = name
+        self.argtypes: list[Any] = []
+        self.restype: Any = None
+
+    def __call__(self, *args: Any) -> int:
+        assert len(args) == len(self.argtypes)
+        return getattr(self._owner, self._name)(*args)
 
 
 @pytest.fixture
 def kernel32(monkeypatch: pytest.MonkeyPatch) -> Kernel32:
-    """Route generated calls to kernel32.dll to a ``Kernel32`` stand-in."""
+    """Route ``ctypes.WinDLL('kernel32.dll')`` to a ``Kernel32`` stand-in."""
     stand_in = Kernel32()
-    real: Callable[..., tuple[Any, ...]] = clfn.call_library_function
+    real = getattr(ctypes, "WinDLL", ctypes.CDLL)
 
-    def call(
-        library: str, function: str, convention: str, signature: Any, args: Any
-    ) -> tuple[Any, ...]:
+    def load(library: str, *args: Any, **kwargs: Any) -> Any:
         if library == "kernel32.dll":
-            return stand_in.call(function, signature, args)
-        return real(library, function, convention, signature, args)
+            return stand_in
+        return real(library, *args, **kwargs)
 
-    monkeypatch.setattr(clfn, "call_library_function", call)
+    monkeypatch.setattr(ctypes, "WinDLL", load, raising=False)
     yield stand_in
     stand_in.close()
