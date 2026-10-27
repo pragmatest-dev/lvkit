@@ -137,8 +137,9 @@ the output's rank and element kind: the op reads the OUTPUT terminal's
 splits rows by EOL and columns by delimiter; fields convert per element type
 (str/int/float). To Camel Case now yields a flat word list and runs end to end.
 The generated code is inline (`re.split` for one dimension; `split` / `splitlines`
-for two, an empty number field reading as 0, a non-empty unparseable one raising
-`ValueError`); there is no runtime helper.
+for two); a number field that is empty or not a number reads as 0 through a small
+`_parse_int_field` / `_parse_float_field` function written into the module; there is
+no runtime helper.
 
 ### Boolean case frame values come from the dataspace selector table
 `to_camel_case_(string)` returned `helloworld` not `helloWorld`: its boolean

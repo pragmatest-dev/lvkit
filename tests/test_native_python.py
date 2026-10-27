@@ -384,6 +384,16 @@ def test_spreadsheet_string_to_one_dimensional_strings():
 def test_spreadsheet_string_to_two_dimensional_integers():
     generated = spreadsheet(array("NumInt32", 2))
     assert run(generated, "1,2\n3,\n", ",") == [[1, 2], [3, 0]]
+    # a field that is not a number reads as 0
+    assert run(generated, "1,x\n1.5,7", ",") == [[1, 0], [0, 7]]
+    no_lvkit(generated)
+
+
+def test_spreadsheet_string_to_one_dimensional_floats():
+    generated = spreadsheet(array("NumFloat64"))
+    assert "def _parse_float_field(field):" in generated.source
+    assert run(generated, "1.5,abc\n2", ",") == [1.5, 0.0, 2.0]
+    assert run(generated, "", ",") == []
 
 
 # --- bundle by position ---
