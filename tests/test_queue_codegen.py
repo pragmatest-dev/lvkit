@@ -349,6 +349,9 @@ def test_flush_status_and_release() -> None:
     source = vi.source()
     assert "elements_in_queue = queue.qsize()\n" in source
     assert "max_queue_size = queue.maxsize or -1\n" in source
+    assert "queue.shutdown()" in source
+    if sys.version_info < (3, 13):
+        pytest.skip("running Release Queue's queue.shutdown() needs Python 3.13")
     result = run(source, "queue_test")(4, 5)
     assert result.count == 2
     assert result.capacity == -1
