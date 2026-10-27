@@ -93,7 +93,7 @@ def _fail(ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, why: str)
     up = [".."] * (empties - 1)
     where = posixpath.normpath("/".join([*(up or ["."]), *tokens[empties:]]))
     return ConversionGap(
-        f"{ctx.vi_name}: the Call Library Function Node {call.function!r} records "
+        f"The Call Library Function Node {call.function!r} records "
         f"the library {call.library!r} at the path {where!r} from the VI's folder, "
         f"but {why}.",
         node,

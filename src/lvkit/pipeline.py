@@ -728,9 +728,11 @@ def generate_python(
                         defined_names=[derive_python_name(Path(vi_name).name)],
                         layout=layout,
                     ),
+                    gaps=vi_gaps,
                 )
                 ast.parse(code)
                 output_path.write_text(code, encoding="utf-8")
+                _report_gaps(vi_gaps, all_gaps, gap_root)
                 print(f"         -> type: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
             except Exception as e:  # noqa: BLE001 — per-type; keep generating remaining modules

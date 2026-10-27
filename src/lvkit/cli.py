@@ -1827,6 +1827,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
 def cmd_generate(args: argparse.Namespace) -> int:
     """Handle the generate command - AST-based Python generation."""
+    from .conversion_gap import ConversionGap
     from .module_layout import ModuleCollisionError
     from .pipeline import generate_python
 
@@ -1851,7 +1852,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
         )
         return 1 if result["error"] > 0 or result["failed"] > 0 else 0
 
-    except ModuleCollisionError as e:
+    except (ModuleCollisionError, ConversionGap) as e:
+        # A collision stops the package; a gap found while loading the graph
+        # (two files that a call could mean) belongs to no node to raise in.
         print(f"Error: {e}", file=sys.stderr)
         return 1
     except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
@@ -1864,6 +1867,7 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     """Handle the unresolved command — batch-list every resolution gap."""
     import json
 
+    from .conversion_gap import ConversionGap
     from .module_layout import ModuleCollisionError
     from .unresolved import collect_unresolved, format_unresolved_report
 
@@ -1890,6 +1894,7 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
         KeyError,
         NotImplementedError,
         ModuleCollisionError,
+        ConversionGap,
     ) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

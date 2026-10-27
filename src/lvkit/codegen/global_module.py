@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import _uid_of
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
@@ -34,6 +35,7 @@ from .context import (
     type_namer,
 )
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
+from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
 
 
@@ -84,12 +86,15 @@ def build_global_module(
     vi_node: VINode,
     import_resolver: ImportResolver | None = None,
     data_files: dict[str, bytes] | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Module source for a Global VI: one annotated module-level name per
     front-panel control, in the VI's own control order, bound to the control's
     saved default. The names are the ones a global variable node reads
     (``parameter_names`` over the same control list). A control of a class or
-    typedef type is annotated with that class, imported under ``TYPE_CHECKING``."""
+    typedef type is annotated with that class, imported under ``TYPE_CHECKING``.
+    A control whose saved default cannot be written is a gap: the module raises
+    where the control is defined, and the gap is added to ``gaps``."""
     controls = vi_node.terminals
     spell = type_namer(import_resolver)
     annotation_imports: set[str] = set()
@@ -107,9 +112,16 @@ def build_global_module(
     for control in controls:
         if control.id not in names:
             continue
-        value, namespace = _saved_default(
-            control, to_function_name(vi_node.name or ""), data_files
-        )
+        try:
+            value, namespace = _saved_default(
+                control, to_function_name(vi_node.name or ""), data_files
+            )
+        except ConversionGap as exc:
+            gap = gap_of(exc, vi_node.id, None, label=control.name)
+            if gaps is not None:
+                gaps.append(gap)
+            assignments.append(raise_statement(gap.reason))
+            continue
         if control.unwritable is not None:
             needs_runtime = True
         needs_namespace = needs_namespace or namespace

@@ -5,13 +5,12 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
-import logging
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
 from lvkit.vi_files import strip_vi_extension
 
-logger = logging.getLogger(__name__)
+from .errors import CodeGenError
 
 
 def default_value_expr(lv_type: LVType | None) -> ast.expr:
@@ -65,8 +64,7 @@ def parse_expr(template: str) -> ast.expr:
         tree = ast.parse(template, mode="eval")
         return tree.body
     except SyntaxError as e:
-        logger.warning("Invalid expression template: %r — %s", template, e)
-        return ast.Constant(value=None)
+        raise CodeGenError(f"Invalid expression template: {template!r} — {e}") from e
 
 
 def parse_stmt(template: str) -> ast.stmt:
@@ -84,8 +82,7 @@ def parse_stmt(template: str) -> ast.stmt:
             return tree.body[0]
         return ast.Pass()
     except SyntaxError as e:
-        logger.warning("Invalid statement template: %r — %s", template, e)
-        return ast.Expr(value=ast.Constant(value=None))
+        raise CodeGenError(f"Invalid statement template: {template!r} — {e}") from e
 
 
 def build_assign(target: str, value: ast.expr) -> ast.Assign:
@@ -308,10 +305,12 @@ def result_field_names(
     outputs: list[Terminal], off_pane_outputs: list[Terminal]
 ) -> dict[str, str]:
     """Terminal id -> result field name of each non-error-cluster indicator.
-    Connector-pane fields keep ``result_field_name`` (callers read them by it);
-    an off-pane indicator's field is made distinct from every earlier one."""
+    Connector-pane fields are ``result_field_name`` of the label (callers read
+    them by it), made distinct when two labels give the same name; an off-pane
+    indicator's field is made distinct from every earlier one."""
     pane = [t for t in outputs if not t.is_error_cluster]
-    names = {t.id: result_field_name(t.name or "output") for t in pane}
+    pane_names = unique_names([result_field_name(t.name or "output") for t in pane])
+    names = {t.id: name for t, name in zip(pane, pane_names, strict=True)}
     taken = list(names.values())
     for t in off_pane_outputs:
         if t.is_error_cluster:

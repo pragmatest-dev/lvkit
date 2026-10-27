@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import warnings
 from collections import deque
 
 from lvkit.graph import InMemoryVIGraph
@@ -30,6 +29,7 @@ from .error_handler import (
 )
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
+from .errors import CodeGenError
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
@@ -78,7 +78,7 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node, import_resolver, data_files)
+        return build_global_module(vi_node, import_resolver, data_files, gaps)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(
@@ -681,8 +681,8 @@ def build_imports(
         try:
             tree = ast.parse(imp)
             imports.extend(tree.body)
-        except SyntaxError:
-            warnings.warn(f"Skipping unparseable import: {imp!r}", stacklevel=2)
+        except SyntaxError as e:
+            raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
     imports.extend(build_type_checking_block(ctx.annotation_imports))
     return imports

@@ -16,12 +16,14 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.models import ClusterField, LVType, LVTypeKind, TypeNamer
 from lvkit.type_names import derive_python_name, is_enum_member_name
 
 from .ast_utils import build_type_checking_block, parse_expr, to_var_name
 from .context import type_namer
+from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver, NameImport
 
 # What the Python spelling of a field type or an alias can name.
@@ -29,17 +31,31 @@ _TYPING_IMPORTS = {"from pathlib import Path", "from typing import Any"}
 
 
 def build_type_module(
-    graph: InMemoryVIGraph, key: str, import_resolver: ImportResolver
+    graph: InMemoryVIGraph,
+    key: str,
+    import_resolver: ImportResolver,
+    gaps: list[Gap] | None = None,
 ) -> str:
-    """Module source defining the class or typedef at dependency key ``key``."""
-    if graph.is_class(key):
-        runtime_imports, annotation_imports, definition = _class_definition(
-            graph, key, import_resolver
-        )
-    else:
-        runtime_imports, annotation_imports, definition = _typedef_definition(
-            graph, key, import_resolver
-        )
+    """Module source defining the class or typedef at dependency key ``key``. A
+    definition that cannot be written is a gap: the module raises where the
+    definition would run, and the gap is added to ``gaps``."""
+    runtime_imports: set[str] = set()
+    annotation_imports: set[str] = set()
+    try:
+        if graph.is_class(key):
+            runtime_imports, annotation_imports, definition = _class_definition(
+                graph, key, import_resolver
+            )
+        else:
+            runtime_imports, annotation_imports, definition = _typedef_definition(
+                graph, key, import_resolver
+            )
+    except ConversionGap as exc:
+        gap = gap_of(exc, key, None)
+        if gaps is not None:
+            gaps.append(gap)
+        runtime_imports, annotation_imports = set(), set()
+        definition = [raise_statement(gap.reason)]
     body: list[ast.stmt] = [
         ast.ImportFrom(
             module="__future__", names=[ast.alias(name="annotations")], level=0
@@ -103,7 +119,7 @@ def _class_definition(
     if parent_key is not None:
         parent = import_resolver.node_import(parent_key)
     elif graph.class_parent_name(key) is not None:
-        raise ValueError(
+        raise ConversionGap(
             f"Parent class {graph.class_parent_name(key)} of {key} is not loaded"
         )
     fields = graph.class_own_fields(key)
