@@ -102,9 +102,23 @@ The parallelism comes from the graph, not from heuristics. If two operations hav
 
 LabVIEW passes error clusters through wires. Python uses exceptions. lvkit translates between the two models based on what the graph actually does with errors:
 
-**Error case structures** (case selector wired to an error cluster): an empty error frame is dropped, the no-error frame is straight-line code, and the exception of the failing call propagates. An error frame that does work becomes the `except LabVIEWError as e:` handler of the code that produces the error, with the no-error frame in the `else:`.
+**Error case structures** (case selector wired to an error cluster): lvkit emits only the no-error frame. In the TestCase class, 45 of 47 error-case structures have empty error frames — they just re-wire the cluster. Python's exception propagation handles this naturally.
 
-**Merge Errors and parallel branches**: branches are sequential statements; the first exception propagates.
+**Merge Errors at parallel join points**: When parallel branches can independently fail, lvkit wraps `future.result()` in try/except with a held-error pattern:
+
+```python
+_held_error = None
+try:
+    result_0 = _f0.result()
+except LabVIEWError as e:
+    _held_error = _held_error or e
+    result_0 = None
+# ... each branch ...
+if _held_error:
+    raise _held_error  # First error wins
+```
+
+This preserves LabVIEW's semantics: all branches get to finish, the first error is re-raised at the merge point.
 
 **The placement is graph-driven**, not pattern-matched. lvkit traces error wires backward through the graph to determine scope. Only the operations actually on the error path get wrapped.
 

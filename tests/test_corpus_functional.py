@@ -289,7 +289,7 @@ def test_merge_errors_vilib_subvi_generates_and_runs() -> None:
     entirely (VILibResolutionNeeded: the wrapper's real .vi body is an NI
     vi.lib file never present in any search path). It must now generate
     clean -- no vilib error -- and run to completion for an empty array
-    (0 iterations, so nothing raises)."""
+    (0 iterations, so _held_error stays None and nothing raises)."""
     r = _run_pkg(
         "appcontrol/appcontrol.llb/Close Generic Object Refnum (Array)__ogtk.vi",
         gen_refnum_array=[],

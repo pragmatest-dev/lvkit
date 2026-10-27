@@ -289,23 +289,6 @@ def _error_read(
     )
 
 
-def error_unbundle_reads(
-    node: PrimitiveNode, ctx: CodeGenContext
-) -> list[ErrorFieldRead]:
-    """The fields an Unbundle of an error cluster takes out that something
-    reads (a wired output)."""
-    agg = [t for t in node.terminals if t.direction == "input" and t.nmux_role == "agg"]
-    if not agg or agg[0].lv_type is None or ctx.graph is None:
-        return []
-    class_fields = ctx.graph.get_type_fields(agg[0].lv_type, caller_vi_key=ctx.vi_name)
-    reads = [
-        _error_read(t, class_fields)
-        for t in sorted(node.terminals, key=lambda t: t.index)
-        if t.direction == "output" and t.nmux_role == "list" and ctx.is_wired(t.id)
-    ]
-    return [r for r in reads if r is not None]
-
-
 def _position_path(
     term: Terminal, fields: list[ClusterField] | None
 ) -> tuple[int, ...]:

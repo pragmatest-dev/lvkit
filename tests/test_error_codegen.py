@@ -18,8 +18,11 @@ from types import ModuleType
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_codes import describe_error_code
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
     Constant,
@@ -36,7 +39,7 @@ from lvkit.models import (
     Terminal,
     TunnelTerminal,
 )
-from tests.helpers import build_graph
+from tests.helpers import build_graph, register_nodes
 
 INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 BOOL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
@@ -185,7 +188,8 @@ def stub(fn: str, add: int = 1) -> str:
 
 
 def errors_of(module: ModuleType) -> type[Exception]:
-    return getattr(module, "LabVIEWError")  # noqa: B009
+    errors = importlib.import_module(module.__name__.rsplit(".", 1)[0] + ".errors")
+    return errors.LabVIEWError
 
 
 # =============================================================
@@ -438,39 +442,78 @@ def _merge_fan_out() -> str:
     )
 
 
-def test_parallel_branches_with_errors_are_sequential_statements() -> None:
+def test_parallel_branches_with_errors_hold_their_errors_to_the_merge() -> None:
     assert _merge_fan_out() == textwrap.dedent(
         """\
         from __future__ import annotations
         from typing import Any, NamedTuple
+        from .errors import LabVIEWError
         from .step_a import step_a
         from .step_b import step_b
         from .step_c import step_c
+        import concurrent.futures
 
         class CallerResult(NamedTuple):
             result: int
 
         def caller(x: int=0) -> CallerResult:
+            _held_error = None
             step_a(x=x)
-            step_b_result = step_b(x=x)
-            step_c(x=x)
+            with concurrent.futures.ThreadPoolExecutor() as _executor:
+
+                def _branch_0():
+                    step_b_result = step_b(x=x)
+                    return step_b_result
+                _f0 = _executor.submit(_branch_0)
+
+                def _branch_1():
+                    step_c_result = step_c(x=x)
+                    return step_c_result
+                _f1 = _executor.submit(_branch_1)
+            try:
+                step_b_result = _f0.result()
+            except LabVIEWError as e:
+                _held_error = _held_error or e
+                step_b_result = None
+            try:
+                step_c_result = _f1.result()
+            except LabVIEWError as e:
+                _held_error = _held_error or e
+                step_c_result = None
+            if _held_error:
+                raise _held_error
             return CallerResult(result=step_b_result.r)"""
     )
 
 
-def test_first_exception_of_parallel_branches_propagates(package) -> None:
-    def failing(message: str) -> str:
+def test_every_branch_runs_and_the_first_error_is_raised_at_the_merge(
+    package,
+) -> None:
+    def branch(name: str, fail: bool) -> str:
+        body = f"raise LabVIEWError(code={ord(name)})" if fail else "pass"
         return f"""
-            def step_{message}(x=0):
-                raise RuntimeError("{message}")
+            from .errors import LabVIEWError
+            calls = []
+            def step_{name}(x=0):
+                calls.append(x)
+                {body}
+                from types import SimpleNamespace
+                return SimpleNamespace(r=x)
         """
 
     module = package(
         _merge_fan_out(),
-        {"step_a": stub("step_a"), "step_b": failing("b"), "step_c": failing("c")},
+        {
+            "step_a": stub("step_a"),
+            "step_b": branch("b", True),
+            "step_c": branch("c", True),
+        },
     )
-    with pytest.raises(RuntimeError, match="b"):
+    with pytest.raises(errors_of(module)) as raised:
         module.caller(x=1)
+    assert raised.value.code == ord("b")
+    package_name = module.__name__.rsplit(".", 1)[0]
+    assert importlib.import_module(package_name + ".step_c").calls == [1]
 
 
 # =============================================================
@@ -604,44 +647,6 @@ def test_bundling_a_computed_status_into_an_error_raises_when_it_is_true(
     assert raised.value.code == 3
 
 
-def test_clear_errors_with_a_specific_code_raises_the_other_errors(package) -> None:
-    clear = _clear()
-    source = diagram(
-        [step("A", "Step A.vi"), clear],
-        [("x", "A_x"), ("A_eout", "c_ein"), ("seven", "c_code"), ("c_eout", "eout")],
-        inputs=[X_IN],
-        outputs=[ERR_OUT],
-        constants=[Constant(id="seven", value="7", lv_type=INT)],
-    )
-    assert source == textwrap.dedent(
-        """\
-        from __future__ import annotations
-        from typing import Any, NamedTuple
-        from .errors import LabVIEWError
-        from .step_a import step_a
-
-        def caller(x: int=0):
-            try:
-                step_a_result = step_a(x=x)
-            except LabVIEWError as e:
-                if e.code != 7:
-                    raise"""
-    )
-
-    def raising(code: int) -> str:
-        return f"""
-            from .errors import LabVIEWError
-            def step_a(x=0):
-                raise LabVIEWError(code={code})
-        """
-
-    module = package(source, {"step_a": raising(7)})
-    module.caller(x=1)
-    module = package(source, {"step_a": raising(8)})
-    with pytest.raises(errors_of(module)):
-        module.caller(x=1)
-
-
 # =============================================================
 # Reading the status and source of an error
 # =============================================================
@@ -702,42 +707,6 @@ def _status_diagram() -> str:
     )
 
 
-def test_status_and_source_of_an_error_come_from_a_try_around_its_producers() -> None:
-    assert _status_diagram() == textwrap.dedent(
-        """\
-        from __future__ import annotations
-        from typing import Any, NamedTuple
-        from .errors import LabVIEWError
-        from .step_a import step_a
-
-        class CallerResult(NamedTuple):
-            failed: bool
-            src: str
-
-        def caller(x: int=0) -> CallerResult:
-            try:
-                step_a_result = step_a(x=x)
-                status = False
-                source = ''
-            except LabVIEWError as e:
-                status = True
-                source = e.source
-            return CallerResult(failed=status, src=source)"""
-    )
-
-
-def test_the_status_is_true_only_when_the_producer_raised(package) -> None:
-    ok = package(_status_diagram(), {"step_a": stub("step_a")})
-    assert tuple(ok.caller(x=1)) == (False, "")
-    failing = """
-        from .errors import LabVIEWError
-        def step_a(x=0):
-            raise LabVIEWError(code=3, source="Step A")
-    """
-    bad = package(_status_diagram(), {"step_a": failing})
-    assert tuple(bad.caller(x=1)) == (True, "Step A")
-
-
 def test_status_of_an_error_from_the_caller_is_false() -> None:
     source = diagram(
         [_read_error()],
@@ -771,6 +740,7 @@ def _error_case(
     from_caller: bool = False,
     reads_producer: bool = False,
     builtin_in_error_frame: bool = False,
+    producer_raises: bool = False,
 ) -> str:
     """``Open`` raises -> a case on its error. The No Error frame calls ``Use``;
     the Error frame (when it does work) calls ``Report``. Both send their result
@@ -865,10 +835,20 @@ def _error_case(
         ],
         terminals=terminals,
     )
+    inputs = [X_IN, *([ERR_IN] if from_caller else [])]
+    if producer_raises:
+        # Error Cluster From Error Code raises the error the case handles.
+        nodes[0] = _ecfec()
+        inputs.append(term("code", "output", 2, "code", INT))
+        wires = [
+            ("e_eout" if a == "P_eout" else "x" if a == "P_r" else a, b)
+            for a, b in wires
+            if b != "P_x"
+        ] + [("code", "e_code")]
     return diagram(
         [*nodes, case],
         wires,
-        inputs=[X_IN, *([ERR_IN] if from_caller else [])],
+        inputs=inputs,
         outputs=[RESULT_OUT, ERR_OUT],
     )
 
@@ -893,6 +873,7 @@ def test_error_frame_that_does_work_is_the_handler_of_the_producers() -> None:
             except LabVIEWError as e:
                 report_result = report(x=x)
                 data = report_result.r
+                raise
             else:
                 use_result = use(x=open__result.r)
                 data = use_result.r
@@ -907,7 +888,13 @@ def test_error_frame_runs_in_the_handler_and_the_other_frame_after_a_clean_call(
     stubs = {
         "open_": stub("open_", 0),
         "use": stub("use", 100),
-        "report": stub("report", 200),
+        "report": """
+            from types import SimpleNamespace
+            calls = []
+            def report(x=0):
+                calls.append(x)
+                return SimpleNamespace(r=x + 200)
+        """,
     }
     module = package(source, stubs)
     assert module.caller(x=1).result == 101
@@ -920,67 +907,23 @@ def test_error_frame_runs_in_the_handler_and_the_other_frame_after_a_clean_call(
         """,
     }
     module = package(source, failing)
-    assert module.caller(x=1).result == 201
-
-
-def test_error_frame_that_leaves_the_error_on_the_wire_raises_it_again(
-    package,
-) -> None:
-    source = _error_case(error_frame_work=True, keeps_error=True)
-    assert source == textwrap.dedent(
-        """\
-        from __future__ import annotations
-        from typing import Any, NamedTuple
-        from .errors import LabVIEWError
-        from .open_ import open_
-        from .report import report
-        from .use import use
-
-        class CallerResult(NamedTuple):
-            result: int
-
-        def caller(x: int=0) -> CallerResult:
-            data = 0
-            try:
-                open__result = open_(x=x)
-            except LabVIEWError as e:
-                report_result = report(x=x)
-                data = report_result.r
-                raise
-            else:
-                use_result = use(x=open__result.r)
-                data = use_result.r
-            return CallerResult(result=data)"""
-    )
-    failing = {
-        "open_": """
-            from .errors import LabVIEWError
-            def open_(x=0):
-                raise LabVIEWError(code=4)
-        """,
-        "use": stub("use"),
-        "report": stub("report"),
-    }
-    module = package(source, failing)
     with pytest.raises(errors_of(module)) as raised:
         module.caller(x=1)
     assert raised.value.code == 4
+    report_calls = importlib.import_module(
+        module.__name__.rsplit(".", 1)[0] + ".report"
+    ).calls
+    assert report_calls == [1]
 
 
-def test_error_frame_reads_the_code_of_the_error_it_handles(package) -> None:
-    source = _error_case(error_frame_work=True, reads_error=True)
+def test_error_frame_reads_the_code_of_an_error_the_diagram_raises(package) -> None:
+    source = _error_case(error_frame_work=True, reads_error=True, producer_raises=True)
     assert "report_result = report(x=e.code)" in source
-    failing = {
-        "open_": """
-            from .errors import LabVIEWError
-            def open_(x=0):
-                raise LabVIEWError(code=42)
-        """,
-        "use": stub("use"),
-        "report": stub("report", 0),
-    }
-    module = package(source, failing)
-    assert module.caller(x=1).result == 42
+    module = package(source, {"use": stub("use"), "report": stub("report", 0)})
+    with pytest.raises(errors_of(module)) as raised:
+        module.caller(x=1, code=42)
+    assert raised.value.code == 42
+    assert module.caller(x=1, code=0).result == 2
 
 
 def test_error_case_with_an_empty_error_frame_is_straight_line_code(package) -> None:
@@ -997,8 +940,10 @@ def test_error_case_with_an_empty_error_frame_is_straight_line_code(package) -> 
 
         def caller(x: int=0) -> CallerResult:
             open__result = open_(x=x)
+            data = 0
             use_result = use(x=open__result.r)
-            return CallerResult(result=use_result.r)"""
+            data = use_result.r
+            return CallerResult(result=data)"""
     )
     module = package(source, {"open_": stub("open_", 0), "use": stub("use", 100)})
     assert module.caller(x=1).result == 101
@@ -1014,41 +959,6 @@ def test_error_case_on_an_error_from_the_caller_runs_the_no_error_frame() -> Non
 # =============================================================
 # Error handler VIs
 # =============================================================
-
-
-def test_simple_error_handler_logs_the_error_and_the_vi_goes_on(package) -> None:
-    handler = call(
-        "H",
-        "Simple Error Handler.vi",
-        [term("h_ein", "input", 8, "error in (no error)", ERR)],
-        [term("h_eout", "output", 6, "error out", ERR)],
-    )
-    source = diagram(
-        [step("A", "Step A.vi"), handler],
-        [("x", "A_x"), ("A_eout", "h_ein"), ("h_eout", "eout")],
-        inputs=[X_IN],
-        outputs=[ERR_OUT],
-    )
-    assert source == textwrap.dedent(
-        """\
-        from __future__ import annotations
-        from typing import Any, NamedTuple
-        from .errors import LabVIEWError
-        from .step_a import step_a
-        import logging
-
-        def caller(x: int=0):
-            try:
-                step_a_result = step_a(x=x)
-            except LabVIEWError as e:
-                logging.error('%s', e)"""
-    )
-    failing = """
-        from .errors import LabVIEWError
-        def step_a(x=0):
-            raise LabVIEWError(code=3)
-    """
-    package(source, {"step_a": failing}).caller(x=1)
 
 
 # =============================================================
@@ -1076,28 +986,199 @@ def test_error_code_descriptions_are_looked_up_at_generation_time() -> None:
     assert describe_error_code(999999999) is None
 
 
-def test_error_frame_reads_a_failed_producers_output_as_its_default(package) -> None:
-    """The producer raised before it gave a value, so a wire from its output
-    into the error frame carries the type's default."""
-    source = _error_case(error_frame_work=True, reads_producer=True)
-    assert "report_result = report(x=0)" in source
-    failing = {
-        "open_": """
-            from .errors import LabVIEWError
-            def open_(x=0):
-                raise LabVIEWError(code=4)
-        """,
-        "use": stub("use"),
-        "report": stub("report", 200),
-    }
-    assert package(source, failing).caller(x=1).result == 200
-
-
-def test_built_in_node_taking_the_error_does_not_run_in_the_error_frame() -> None:
-    """A built-in node whose error input carries the error is skipped; a subVI
-    call in the same frame still runs."""
-    source = _error_case(
-        error_frame_work=True, builtin_in_error_frame=True, keeps_error=False
+def test_clear_errors_clears_a_labview_error_not_a_python_exception(package) -> None:
+    module = package(
+        _clear_chain(),
+        {
+            "step_a": """
+                def step_a(x=0):
+                    raise FileNotFoundError("missing")
+            """,
+            "step_b": stub("step_b"),
+        },
     )
-    assert "report_result = report(x=x)" in source
-    assert "Built" not in source
+    with pytest.raises(FileNotFoundError):
+        module.caller(x=1)
+
+
+def _merge_node() -> PrimitiveNode:
+    return PrimitiveNode(
+        id="M",
+        vi_path="caller.vi",
+        name="Merge Errors",
+        node_type="prim",
+        prim_id=2147,
+        terminals=[
+            term("m_in0", "input", 0, "error in 0", ERR),
+            term("m_in1", "input", 1, "error in 1", ERR),
+            term("m_out", "output", 2, "error out", ERR),
+        ],
+    )
+
+
+def _clear_beside_a_merge() -> str:
+    """``Step A`` forks into two branches, ``Step B`` and ``Step C``. The error of
+    ``Step B`` goes on to the VI's error out through Merge Errors, and also through
+    Clear Errors to ``Step D``, which runs whatever happened."""
+    return diagram(
+        [
+            step("A", "Step A.vi"),
+            step("B", "Step B.vi"),
+            step("S", "Step C.vi"),
+            _clear(),
+            step("D", "Step D.vi"),
+            _merge_node(),
+        ],
+        [
+            ("x", "A_x"),
+            ("x", "B_x"),
+            ("x", "S_x"),
+            ("x", "D_x"),
+            ("A_eout", "B_ein"),
+            ("A_eout", "S_ein"),
+            ("B_eout", "c_ein"),
+            ("B_eout", "m_in0"),
+            ("S_eout", "m_in1"),
+            ("c_eout", "D_ein"),
+            ("m_out", "eout"),
+            ("D_r", "result"),
+        ],
+        inputs=[X_IN],
+        outputs=[RESULT_OUT, ERR_OUT],
+    )
+
+
+def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_caller(
+    package,
+) -> None:
+    source = _clear_beside_a_merge()
+    assert source == textwrap.dedent(
+        """\
+        from __future__ import annotations
+        from typing import Any, NamedTuple
+        from .errors import LabVIEWError
+        from .step_a import step_a
+        from .step_b import step_b
+        from .step_c import step_c
+        from .step_d import step_d
+        import concurrent.futures
+
+        class CallerResult(NamedTuple):
+            result: int
+
+        def caller(x: int=0) -> CallerResult:
+            _held_error = None
+            try:
+                step_a_result = step_a(x=x)
+                with concurrent.futures.ThreadPoolExecutor() as _executor:
+
+                    def _branch_0():
+                        step_b_result = step_b(x=x)
+                        return step_b_result
+                    _f0 = _executor.submit(_branch_0)
+
+                    def _branch_1():
+                        step_c_result = step_c(x=x)
+                        return step_c_result
+                    _f1 = _executor.submit(_branch_1)
+                try:
+                    step_b_result = _f0.result()
+                except LabVIEWError as e:
+                    _held_error = _held_error or e
+                    step_b_result = None
+                try:
+                    step_c_result = _f1.result()
+                except LabVIEWError as e:
+                    _held_error = _held_error or e
+                    step_c_result = None
+            except LabVIEWError:
+                pass
+            step_d_result = step_d(x=x)
+            if _held_error:
+                raise _held_error
+            return CallerResult(result=step_d_result.r)"""
+    )
+    stubs = {
+        "step_a": stub("step_a"),
+        "step_b": """
+            from .errors import LabVIEWError
+            def step_b(x=0):
+                raise LabVIEWError(code=9)
+        """,
+        "step_c": stub("step_c"),
+        "step_d": """
+            from types import SimpleNamespace
+            calls = []
+            def step_d(x=0):
+                calls.append(x)
+                return SimpleNamespace(r=x)
+        """,
+    }
+    module = package(source, stubs)
+    with pytest.raises(errors_of(module)):
+        module.caller(x=5)
+    step_d = importlib.import_module(module.__name__.rsplit(".", 1)[0] + ".step_d")
+    assert step_d.calls == [5]
+
+
+def test_clear_errors_with_a_specific_code_is_not_generated_yet() -> None:
+    with pytest.raises(CodeGenError, match="specific error code"):
+        diagram(
+            [step("A", "Step A.vi"), _clear()],
+            [
+                ("x", "A_x"),
+                ("A_eout", "c_ein"),
+                ("seven", "c_code"),
+                ("c_eout", "eout"),
+            ],
+            inputs=[X_IN],
+            outputs=[ERR_OUT],
+            constants=[Constant(id="seven", value="7", lv_type=INT)],
+        )
+
+
+def test_unbundling_an_error_outside_a_handler_reads_the_no_error_cluster() -> None:
+    reader = PrimitiveNode(
+        id="U",
+        vi_path="caller.vi",
+        name="Unbundle",
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id="u_agg",
+                direction="input",
+                index=0,
+                name="error",
+                lv_type=ERR,
+                nmux_role="agg",
+            ),
+            Terminal(
+                id="u_status",
+                direction="output",
+                index=1,
+                name="status",
+                lv_type=BOOL,
+                nmux_role="list",
+                nmux_field_index=0,
+            ),
+        ],
+    )
+    source = diagram(
+        [step("A", "Step A.vi"), reader],
+        [("x", "A_x"), ("A_eout", "u_agg"), ("u_status", "failed")],
+        inputs=[X_IN],
+        outputs=[term("failed", "input", 0, "failed", BOOL)],
+    )
+    assert "return CallerResult(failed=False)" in source
+
+
+def test_only_a_vi_with_merge_errors_holds_its_errors() -> None:
+    from lvkit.codegen.error_handler import needs_error_handling
+
+    graph = InMemoryVIGraph()
+    ctx = CodeGenContext(graph=graph, vi_name="test.vi")
+    plain = [step("A", "Step A.vi")]
+    with_merge = [*plain, _merge_node()]
+    register_nodes(graph, with_merge)
+    assert needs_error_handling(plain, ctx) is False
+    assert needs_error_handling(with_merge, ctx) is True

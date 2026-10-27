@@ -366,6 +366,9 @@
         }
       ],
       "python": "",
+      "python_code": "if error_in and error_in.get(\"status\"):\n    raise RuntimeError(f\"{error_in.get('source', 'Unknown')}: {error_in.get('code', 0)}\")",
+      "inline": true,
+      "imports": [],
       "status": "complete",
       "is_variant": false
     },

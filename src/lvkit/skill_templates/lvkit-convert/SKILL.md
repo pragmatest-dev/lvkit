@@ -101,11 +101,32 @@ execute concurrently in LabVIEW; port that as real concurrency (e.g.
 sequence — and don't over-parallelize branches that DO share a hidden
 dependency (a global, a reference, a queue) the wiring alone won't show you.
 
-**Errors are exceptions.** Do not pass error clusters around. A failing call
-raises, and the exception propagates; where the VI handles an error (Clear
-Errors, an error case structure with work in its error frame), use
-`try`/`except` around the code that produces it. Parallel branches with error
-wires are plain sequential statements.
+**Held-error model, if the VI has error clusters AND parallel branches.**
+LabVIEW keeps running every parallel branch even after one raises, and
+raises the FIRST error at the merge point. Port that shape explicitly —
+don't let a bare `try/except` short-circuit the branches that still need to
+run:
+
+```python
+def my_vi(input_data):
+    _held_error = None
+    try:
+        branch_0_result = branch_0_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_0_result = None
+    try:
+        branch_1_result = branch_1_operations()
+    except LabVIEWError as e:
+        _held_error = _held_error or e
+        branch_1_result = None
+    if _held_error:
+        raise _held_error
+    return result
+```
+
+If the VI has no error clusters, just let exceptions propagate naturally —
+don't manufacture a held-error scaffold where LabVIEW had none.
 
 **Value-copy at a wire branch — the aliasing trap.** LabVIEW arrays and
 clusters are value semantics: branching a wire to two consumers copies the

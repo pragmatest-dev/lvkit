@@ -74,6 +74,9 @@ class CodeGenContext:
     # ``TYPE_CHECKING`` and no import cycle can form at run time.
     annotation_imports: set[str] = field(default_factory=set)
     loop_depth: int = 0
+    # Whether the VI has parallel branches with error wires: independent
+    # nodes then run as branches that hold their errors (see error_handler).
+    use_held_error_model: bool = False
     # The name of the caught ``LabVIEWError`` while the code of an error handler
     # (the error frame of an error case structure) is generated: an Unbundle of
     # the error cluster there reads the caught error. None outside a handler,
@@ -99,6 +102,9 @@ class CodeGenContext:
     # their names so modules in one folder never collide.
     data_files: dict[str, bytes] | None = field(default=None, repr=False)
     module_stem: str = ""
+    # Lives on context (not builder) because child() must share it
+    # across the same generation pass.
+    _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
     # Variable names bound to array-typed values. A final codegen pass uses
     # this to broadcast operators over operands that turned out to be arrays
@@ -459,6 +465,7 @@ class CodeGenContext:
             imports=self.imports,
             annotation_imports=self.annotation_imports,
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
+            use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
             soft_unresolved=self.soft_unresolved,
             unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass

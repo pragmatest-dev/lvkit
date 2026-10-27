@@ -22,6 +22,12 @@ from .ast_utils import (
 )
 from .context import CodeGenContext
 from .elementwise import LV_IMPORT, arrayify_module
+from .error_handler import (
+    build_held_error_check,
+    build_held_error_init,
+    build_merge_try_except,
+    needs_error_handling,
+)
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
 from .global_module import build_global_module
@@ -101,6 +107,10 @@ def build_module(
         ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
     )
 
+    # The held error model is on when Merge Errors is anywhere in the VI.
+    use_error_handling = needs_error_handling(top_nodes, ctx)
+    ctx.use_held_error_model = use_error_handling
+
     # Generate function body
     body: list[ast.stmt] = []
 
@@ -113,6 +123,10 @@ def build_module(
         build_array_input_normalization(parameters, parameter_names(parameters))
     )
 
+    if use_error_handling:
+        ctx.import_labview_error()
+        body.append(build_held_error_init())
+
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
 
@@ -120,6 +134,10 @@ def build_module(
     # were inlined (single-use) past the per-node element-wise hook.
     if arrayify_module(body, frozenset(ctx.array_vars)):
         ctx.imports.add(LV_IMPORT)
+
+    # Raise the first held error where the branches have merged
+    if use_error_handling:
+        body.append(build_held_error_check())
 
     # Add return statement
     return_stmt = build_return_stmt(vi_context, ctx)
@@ -142,8 +160,10 @@ def generate_body(
 ) -> list[ast.stmt]:
     """Generate function body statements from operations.
 
-    Operations are emitted sequentially in dataflow order; independent nodes
-    carry no shared state, and an exception raised by one propagates.
+    Uses tiered topological sort to identify parallel groups. Single-op tiers
+    emit sequential code. Under the held error model a multi-op tier is wrapped
+    in concurrent.futures.ThreadPoolExecutor, each branch holding its error;
+    otherwise independent nodes are emitted sequentially in dataflow order.
 
     Statements are tagged with the operation IDs that produced them so the
     nodes that handle an error (Clear Errors, an error case structure, ...) can
@@ -167,29 +187,278 @@ def generate_body(
     # are fetched separately via ctx.child_nodes)
     tiers = topological_sort_tiered(operations, ctx)
 
-    def emit(node: AnyGraphNode) -> None:
-        fragment = generate_node(node, ctx)
-        for s in fragment.statements:
-            tagged.append(({node.id}, s))
-        ctx.merge(fragment.bindings)
-        ctx.imports.update(fragment.imports)
-
     for tier in tiers:
-        roles = {op.id: classify_error_node(op, ctx) for op in tier}
+        roles = {op.id: classify_error_node(op) for op in tier}
         handlers = [
             op for op in tier if roles[op.id] not in (ErrorRole.NONE, ErrorRole.MERGE)
         ]
         handler_ids = {op.id for op in handlers}
-        for node in tier:
-            if node.id not in handler_ids:
-                emit(node)
+        remaining = [op for op in tier if op.id not in handler_ids]
+
+        # A ThreadPoolExecutor parallel tier is used ONLY when the held error
+        # model needs per-branch error holding. Otherwise independent nodes are
+        # emitted SEQUENTIALLY in dataflow order: equivalent for by-value
+        # LabVIEW dataflow (independent branches carry no shared mutable
+        # state), far more idiomatic Python, and free of the per-branch return
+        # wiring that dropped cross-branch inlined references.
+        if ctx.use_held_error_model and len(remaining) > 1:
+            tier_ids = {op.id for op in remaining}
+            for stmt in _generate_parallel_tier(remaining, ctx):
+                tagged.append((tier_ids, stmt))
+        else:
+            for node in remaining:
+                fragment = generate_node(node, ctx)
+                for s in fragment.statements:
+                    tagged.append(({node.id}, s))
+                ctx.merge(fragment.bindings)
+                ctx.imports.update(fragment.imports)
+
         # A handler wraps the statements that produce the error it handles,
         # which are all in earlier tiers or earlier in this one.
         for op in handlers:
             if not generate_error_handler(op, roles[op.id], operations, ctx, tagged):
-                emit(op)
+                fragment = generate_node(op, ctx)
+                for s in fragment.statements:
+                    tagged.append(({op.id}, s))
+                ctx.merge(fragment.bindings)
+                ctx.imports.update(fragment.imports)
 
     return [stmt for _, stmt in tagged]
+
+
+def _generate_parallel_tier(
+    tier: list[AnyGraphNode], ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """Generate ThreadPoolExecutor block for parallel operations.
+
+    Each branch function returns its produced values as a tuple.
+    Futures capture the returns, and .result() unpacks them into
+    the outer scope after the executor block completes.
+
+    LabVIEW semantics:
+    - By-value data: branches get copies, return new values via future
+    - By-reference data (classes, refnums): shared, mutations visible
+      across branches via closure capture
+    - Shift registers: loop-scoped state, accessible to all branches
+    """
+    ctx.imports.add("import concurrent.futures")
+
+    # Generate fragments for each op
+    fragments = []
+    for node in tier:
+        fragment = generate_node(node, ctx)
+        fragments.append(fragment)
+        ctx.imports.update(fragment.imports)
+
+    # Build function defs, submit calls, and future captures
+    inner_stmts: list[ast.stmt] = []
+    # Statements to emit AFTER the with block (future.result() unpacking)
+    post_stmts: list[ast.stmt] = []
+    # Track which fragments produce bindings that need returning
+    branch_info: list[tuple[str, list[str]]] = []  # (future_var, [bound_var_names])
+
+    for fragment in fragments:
+        stmts = fragment.statements
+        if not stmts:
+            continue
+
+        func_name = f"_branch_{ctx._branch_counter}"
+        future_var = f"_f{ctx._branch_counter}"
+        ctx._branch_counter += 1
+
+        # Collect unique variable names this branch produces.
+        # Include both direct identifiers (e.g., "result") and root
+        # variables from dotted bindings (e.g., "result" from
+        # "result.field") when the root was assigned in this branch.
+        assigned_in_branch = _extract_assigned_names(stmts)
+        raw_vars: list[str] = []
+        for v in fragment.bindings.values():
+            if not v or v in ("None", "True", "False"):
+                continue
+            root = v.split(".")[0] if "." in v else v
+            if root.isidentifier() and root in assigned_in_branch:
+                raw_vars.append(root)
+        bound_vars = list(dict.fromkeys(raw_vars))
+
+        body = list(stmts)
+
+        # Add return statement if branch produces bindings
+        if bound_vars:
+            if len(bound_vars) == 1:
+                return_value = ast.Name(id=bound_vars[0], ctx=ast.Load())
+            else:
+                return_value = ast.Tuple(
+                    elts=[ast.Name(id=v, ctx=ast.Load()) for v in bound_vars],
+                    ctx=ast.Load(),
+                )
+            body.append(ast.Return(value=return_value))
+
+        func_def = ast.FunctionDef(
+            name=func_name,
+            args=ast.arguments(
+                posonlyargs=[],
+                args=[],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )
+        inner_stmts.append(func_def)
+
+        # _fN = _executor.submit(_branch_N); every branch is awaited after the
+        # block so an error it raises reaches the caller.
+        inner_stmts.append(
+            ast.Assign(
+                targets=[ast.Name(id=future_var, ctx=ast.Store())],
+                value=_build_submit(ast.Name(id=func_name, ctx=ast.Load())),
+            )
+        )
+        branch_info.append((future_var, bound_vars))
+
+    # Always merge bindings — even when all ops produce zero statements.
+    # Passthrough primitives (e.g., Variant To Data, inlined Subtract)
+    # generate no code but carry critical bindings that downstream
+    # tiers depend on for input resolution.
+    for fragment in fragments:
+        ctx.merge(fragment.bindings)
+
+    if not inner_stmts:
+        return []
+
+    # Build the with statement
+    with_stmt = ast.With(
+        items=[
+            ast.withitem(
+                context_expr=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id="concurrent", ctx=ast.Load()),
+                            attr="futures",
+                            ctx=ast.Load(),
+                        ),
+                        attr="ThreadPoolExecutor",
+                        ctx=ast.Load(),
+                    ),
+                    args=[],
+                    keywords=[],
+                ),
+                optional_vars=ast.Name(id="_executor", ctx=ast.Store()),
+            )
+        ],
+        body=inner_stmts,
+    )
+
+    # Build future.result() unpacking after the with block.
+    # When held-error model is active, wrap each .result() call in
+    # try/except so exceptions are captured and the first error is
+    # raised at the merge point (LabVIEW Merge Errors semantics).
+    for future_var, bound_vars in branch_info:
+        result_expr = ast.Call(
+            func=ast.Attribute(
+                value=ast.Name(id=future_var, ctx=ast.Load()),
+                attr="result",
+                ctx=ast.Load(),
+            ),
+            args=[],
+            keywords=[],
+        )
+        result_stmt: ast.stmt
+        if not bound_vars:
+            result_stmt = ast.Expr(value=result_expr)
+        elif len(bound_vars) == 1:
+            target = ast.Name(id=bound_vars[0], ctx=ast.Store())
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
+        else:
+            target = ast.Tuple(
+                elts=[ast.Name(id=v, ctx=ast.Store()) for v in bound_vars],
+                ctx=ast.Store(),
+            )
+            result_stmt = ast.Assign(targets=[target], value=result_expr)
+
+        if ctx.use_held_error_model:
+            # Wrap in try/except: _held_error = _held_error or e
+            result_var = bound_vars[0] if len(bound_vars) == 1 else None
+            post_stmts.append(build_merge_try_except(result_stmt, result_var))
+        else:
+            post_stmts.append(result_stmt)
+
+    ast.fix_missing_locations(with_stmt)
+    for stmt in post_stmts:
+        ast.fix_missing_locations(stmt)
+
+    return [with_stmt] + post_stmts
+
+
+class _AssignedNameVisitor(ast.NodeVisitor):
+    """Collects Name targets of Assign/AnnAssign (each name of an unpacking
+    target too) anywhere in a statement tree, including inside nested blocks
+    (while/for/if/with/try) -- e.g. a shift-register update assigned inside a
+    while loop's body. Does NOT
+    descend into nested function/lambda defs, which introduce their own
+    scope (a name assigned there is not a name of the enclosing branch)."""
+
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def _add_target(self, target: ast.expr) -> None:
+        if isinstance(target, ast.Name):
+            self.names.add(target.id)
+        elif isinstance(target, ast.Tuple | ast.List):
+            for element in target.elts:
+                self._add_target(element)
+        elif isinstance(target, ast.Starred):
+            self._add_target(target.value)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for target in node.targets:
+            self._add_target(target)
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.names.add(node.target.id)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        pass  # New scope -- do not descend.
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        pass  # New scope -- do not descend.
+
+
+def _extract_assigned_names(stmts: list[ast.stmt]) -> set[str]:
+    """Extract variable names assigned anywhere in a list of statements.
+
+    Walks into nested blocks (while/for/if/with/try) since a value bound
+    by a node's CodeFragment may be assigned inside a loop body it
+    generated (e.g. a shift-register update) rather than as a top-level
+    statement of the fragment.
+    """
+    visitor = _AssignedNameVisitor()
+    for stmt in stmts:
+        visitor.visit(stmt)
+    return visitor.names
+
+
+def _build_submit(callable_expr: ast.expr) -> ast.Call:
+    """Build _executor.submit(<callable_expr>) AST node."""
+    return ast.Call(
+        func=ast.Attribute(
+            value=ast.Name(id="_executor", ctx=ast.Load()),
+            attr="submit",
+            ctx=ast.Load(),
+        ),
+        args=[callable_expr],
+        keywords=[],
+    )
 
 
 def topological_sort_tiered(

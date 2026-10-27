@@ -9,9 +9,7 @@ handles, which are the nodes upstream of it on its error wire.
 
 from __future__ import annotations
 
-import ast
-from collections.abc import Iterable, Iterator
-from contextlib import contextmanager
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
@@ -21,19 +19,14 @@ from lvkit.graph.models import (
     AnyGraphNode,
     CaseStructureNode,
     PrimitiveNode,
-    StructureNode,
     VINode,
 )
 from lvkit.models import _is_error_cluster
 from lvkit.parser.constants import (
     VI_NAME_CLEAR_ERRORS,
     VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE,
-    VI_NAME_GENERAL_ERROR_HANDLER,
     VI_NAME_MERGE_ERRORS,
-    VI_NAME_SIMPLE_ERROR_HANDLER,
 )
-
-from .ast_utils import default_value_expr
 
 if TYPE_CHECKING:
     from lvkit.codegen.context import CodeGenContext
@@ -49,12 +42,7 @@ ERROR_WIRE_VI_NAMES = frozenset(
         VI_NAME_MERGE_ERRORS,
         VI_NAME_CLEAR_ERRORS,
         VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE,
-        VI_NAME_SIMPLE_ERROR_HANDLER,
-        VI_NAME_GENERAL_ERROR_HANDLER,
     }
-)
-_ERROR_HANDLER_VI_NAMES = frozenset(
-    {VI_NAME_SIMPLE_ERROR_HANDLER, VI_NAME_GENERAL_ERROR_HANDLER}
 )
 
 
@@ -72,9 +60,7 @@ class ErrorRole(Enum):
     NONE = auto()
     MERGE = auto()
     CLEAR = auto()
-    HANDLER = auto()
     CASE = auto()
-    READ = auto()
 
 
 def is_error_selector(op: AnyGraphNode) -> bool:
@@ -89,7 +75,7 @@ def is_error_selector(op: AnyGraphNode) -> bool:
     )
 
 
-def classify_error_node(op: AnyGraphNode, ctx: CodeGenContext) -> ErrorRole:
+def classify_error_node(op: AnyGraphNode) -> ErrorRole:
     """The role ``op`` plays on an error wire, from the node itself."""
     if isinstance(op, PrimitiveNode) and op.prim_id == PRIM_ID_MERGE_ERRORS:
         return ErrorRole.MERGE
@@ -98,22 +84,8 @@ def classify_error_node(op: AnyGraphNode, ctx: CodeGenContext) -> ErrorRole:
             return ErrorRole.MERGE
         if op.name == VI_NAME_CLEAR_ERRORS:
             return ErrorRole.CLEAR
-        if op.name in _ERROR_HANDLER_VI_NAMES:
-            return ErrorRole.HANDLER
     if is_error_selector(op):
         return ErrorRole.CASE
-    if isinstance(op, PrimitiveNode) and op.node_type == "nMux":
-        agg = [t for t in op.terminals if t.nmux_role == "agg" and t.is_error_cluster]
-        has_in = any(
-            t.direction == "input" and t.nmux_role == "list" for t in op.terminals
-        )
-        read = [
-            t
-            for t in op.terminals
-            if t.direction == "output" and t.nmux_role == "list" and ctx.is_wired(t.id)
-        ]
-        if agg and not has_in and read:
-            return ErrorRole.READ
     return ErrorRole.NONE
 
 
@@ -167,54 +139,8 @@ def trace_error_path(
         if producer is None:
             roots.add(source.src_terminal)
             continue
-        if classify_error_node(producer, ctx) is ErrorRole.CLEAR:
+        if classify_error_node(producer) is ErrorRole.CLEAR:
             continue
         op_ids.add(producer.id)
         pending.extend(error_inputs(producer))
     return ErrorPath(frozenset(op_ids), frozenset(roots))
-
-
-def skipped_on_error(
-    ops: list[AnyGraphNode],
-    live_error_roots: Iterable[str],
-    ctx: CodeGenContext,
-) -> list[AnyGraphNode]:
-    """The nodes among ``ops`` that do not run because the error wire they take
-    carries an error: a built-in node (a primitive, an Invoke or Property Node,
-    a Call Library Function Node) with that error as its input. A subVI call, a
-    structure, a Bundle / Unbundle and the nodes that handle errors run anyway.
-    ``live_error_roots`` are the terminals the error enters ``ops`` through."""
-    live = set(live_error_roots)
-    skipped: list[AnyGraphNode] = []
-    for op in ops:
-        runs = (
-            isinstance(op, VINode | StructureNode)
-            or (isinstance(op, PrimitiveNode) and op.node_type == "nMux")
-            or classify_error_node(op, ctx) is not ErrorRole.NONE
-        )
-        inputs = error_inputs(op)
-        if runs or not inputs:
-            continue
-        if trace_error_path(inputs, ops, ctx).roots & live:
-            skipped.append(op)
-    return skipped
-
-
-@contextmanager
-def outputs_at_default(ops: list[AnyGraphNode], ctx: CodeGenContext) -> Iterator[None]:
-    """Within the block, the data outputs of ``ops`` read as their type's
-    default: these nodes may have failed, or not run, before producing a
-    value."""
-    assert ctx.graph is not None
-    saved: dict[str, str | None] = {}
-    for op in ops:
-        for term in op.terminals:
-            if term.direction != "output" or term.is_error_cluster:
-                continue
-            saved[term.id] = ctx.graph.get_var_name(term.id)
-            ctx.bind(term.id, ast.unparse(default_value_expr(term.lv_type)))
-    try:
-        yield
-    finally:
-        for term_id, name in saved.items():
-            ctx.graph.set_var_name(term_id, name)  # type: ignore[arg-type]

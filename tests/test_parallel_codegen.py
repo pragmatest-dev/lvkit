@@ -1,9 +1,10 @@
-"""Tests for tiered topological sort and the body generated for parallel branches.
+"""Tests for tiered topological sort and parallel code generation.
 
 Covers:
 - Tiered Kahn's algorithm (topological_sort_tiered)
-- Independent nodes are emitted as sequential statements
+- ThreadPoolExecutor generation for multi-op tiers
 - Sequence frame integration with generate_body
+- End-to-end In.vi parallel output
 """
 
 from __future__ import annotations
@@ -176,8 +177,9 @@ class TestParallelCodegen:
         code = ast.unparse(ast.fix_missing_locations(mod))
         assert "ThreadPoolExecutor" not in code
 
-    def test_two_independent_ops_sequential(self):
-        """Two independent ops emit sequential code — no executor."""
+    def test_two_independent_ops_sequential_without_held_error(self):
+        """Two independent PURE ops emit sequential code — no executor. The
+        ThreadPoolExecutor is reserved for the held-error model (below)."""
         a = _make_op("A")
         b = _make_op("B")
         ctx = CodeGenContext()
@@ -185,6 +187,19 @@ class TestParallelCodegen:
         mod = ast.Module(body=stmts, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(mod))
         assert "ThreadPoolExecutor" not in code
+
+    def test_two_independent_ops_emit_executor_under_held_error(self):
+        """Under the held-error model, independent ops run in a ThreadPoolExecutor
+        so each branch can hold its own error."""
+        a = _make_op("A")
+        b = _make_op("B")
+        ctx = CodeGenContext()
+        ctx.use_held_error_model = True
+        stmts = generate_body([a, b], ctx)
+        mod = ast.Module(body=stmts, type_ignores=[])
+        code = ast.unparse(ast.fix_missing_locations(mod))
+        assert "ThreadPoolExecutor" in code
+        assert "_executor.submit" in code
 
     def test_sequential_chain_no_executor(self):
         """Fully sequential chain doesn't use executor."""
@@ -200,6 +215,43 @@ class TestParallelCodegen:
         mod = ast.Module(body=stmts, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(mod))
         assert "ThreadPoolExecutor" not in code
+
+    def test_diamond_has_executor_for_middle_tier(self):
+        """Diamond pattern: middle tier (B,C) uses executor."""
+        a_out = _make_terminal("a_out", "output")
+        b_in = _make_terminal("b_in", "input")
+        b_out = _make_terminal("b_out", "output")
+        c_in = _make_terminal("c_in", "input")
+        c_out = _make_terminal("c_out", "output")
+        d_in1 = _make_terminal("d_in1", "input")
+        d_in2 = _make_terminal("d_in2", "input")
+
+        a = _make_op("A", terminals=[a_out])
+        b = _make_op("B", terminals=[b_in, b_out])
+        c = _make_op("C", terminals=[c_in, c_out])
+        d = _make_op("D", terminals=[d_in1, d_in2])
+
+        wires = [
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="b_in"),
+            Wire.from_terminals(from_terminal_id="a_out", to_terminal_id="c_in"),
+            Wire.from_terminals(from_terminal_id="b_out", to_terminal_id="d_in1"),
+            Wire.from_terminals(from_terminal_id="c_out", to_terminal_id="d_in2"),
+        ]
+        ctx = CodeGenContext.from_wires(wires)
+        ctx.use_held_error_model = True
+        stmts = generate_body([a, b, c, d], ctx)
+        mod = ast.Module(body=stmts, type_ignores=[])
+        code = ast.unparse(ast.fix_missing_locations(mod))
+        assert "ThreadPoolExecutor" in code
+
+    def test_imports_include_concurrent_futures(self):
+        """Held-error parallel tier adds concurrent.futures to imports."""
+        a = _make_op("A")
+        b = _make_op("B")
+        ctx = CodeGenContext()
+        ctx.use_held_error_model = True
+        generate_body([a, b], ctx)
+        assert "import concurrent.futures" in ctx.imports
 
 
 # =============================================================
@@ -227,13 +279,14 @@ class TestSequenceParallelIntegration:
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
         assert "ThreadPoolExecutor" not in code
 
-    def test_frame_with_two_independent_ops_sequential(self):
-        """Frame with two independent ops: plain statements, no executor."""
+    def test_frame_with_two_independent_ops_uses_executor(self):
+        """Frame with two independent ops under held-error: executor used."""
         from lvkit.codegen.nodes import sequence
 
         op_a = _make_op("a")
         op_b = _make_op("b")
         ctx = CodeGenContext(graph=InMemoryVIGraph(), _body_generator=generate_body)
+        ctx.use_held_error_model = True
         op = _mk_seq(
             ctx,
             id="seq1",
@@ -243,7 +296,7 @@ class TestSequenceParallelIntegration:
         )
         fragment = sequence.generate(op, ctx)
         code = ast.unparse(ast.Module(body=fragment.statements, type_ignores=[]))
-        assert "ThreadPoolExecutor" not in code
+        assert "ThreadPoolExecutor" in code
 
     def test_multiple_frames_sequential(self):
         """Multiple frames execute sequentially (each may have parallelism)."""
@@ -278,12 +331,20 @@ class TestSequenceParallelIntegration:
 # out correct. No permissive DAQmx caller can build_module() end-to-end —
 # see the detailed rationale in test_e2e_codegen.py (same finding: DAQ AO.vi
 # hits an unresolvable project SubVI + missing vilib mappings; the Digital-
-# Output DO_Write.vi caller can't be parsed by pylabview at all).
+# Output DO_Write.vi caller can't be parsed by pylabview at all). The
+# parallel-branch -> ThreadPoolExecutor construct itself still has
+# synthetic, non-DAQmx coverage via TestPassthroughBindingsInParallelTier
+# below and the earlier classes in this file.
 
 
-class TestPassthroughBindingsInTier:
-    """Passthrough bindings reach downstream tiers even when every op in a
-    tier produces zero statements."""
+class TestPassthroughBindingsInParallelTier:
+    """Regression: passthrough bindings must be merged even when all
+    ops in a parallel tier produce zero statements.
+
+    Bug: _generate_parallel_tier returned early when inner_stmts was
+    empty, skipping ctx.merge(fragment.bindings). Downstream tiers then
+    could not resolve inputs and fell back to type defaults (e.g., 0).
+    """
 
     def test_all_passthrough_tier_bindings_propagate(self):
         """When a parallel tier has only passthrough ops (0 statements),

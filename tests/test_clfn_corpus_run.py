@@ -352,18 +352,30 @@ def test_read_discovery_service_key_file(
     assert kernel32.files == {}  # the file was closed
 
 
-def test_read_discovery_service_key_file_of_a_missing_file_clears_error_5054(
-    generated_vi, kernel32: Kernel32, tmp_path: Path
+def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
+    generated_vi,
+    kernel32: Kernel32,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """CreateFileA answers INVALID_HANDLE_VALUE, so GetFileSizeEx fails and the
     VI builds error 5054 through Error Cluster From Error Code. The Clear Errors
-    after the read catches the errors of the code before it, so the call returns
-    an empty key."""
+    after the read only clears the wire to the handle close: the close still runs,
+    and the error still reaches the caller."""
     module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
-    result = module.read_discovery_service_key_file(
-        key_file_path=tmp_path / "nope.json"
-    )
-    assert result.key_json == ""
+    closed: list[int] = []
+    close_handle = kernel32.CloseHandle
+
+    def record(handle: int) -> int:
+        closed.append(handle)
+        return close_handle(handle)
+
+    monkeypatch.setattr(kernel32, "CloseHandle", record)
+    with pytest.raises(_generated_error(module)) as raised:
+        module.read_discovery_service_key_file(key_file_path=tmp_path / "nope.json")
+    assert raised.value.code == 5054
+    assert raised.value.message == "Failed to get the discovery service key file size."
+    assert len(closed) == 1
 
 
 def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
