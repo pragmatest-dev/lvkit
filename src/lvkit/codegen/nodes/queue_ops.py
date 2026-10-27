@@ -1,29 +1,30 @@
-"""Code generator for LabVIEW Queue Operations primitives.
+"""Code generator for the Queue Operations primitives.
 
-Covers Obtain Queue (9108), Enqueue Element (9111), Enqueue Element At
-Opposite End (9129), Dequeue Element (9113), Release Queue (9109), and Get
-Queue Status (9110).
+Covers Obtain Queue (9108), Release Queue (9109), Get Queue Status (9110),
+Enqueue Element (9111), Preview Queue Element (9112), Dequeue Element (9113),
+Flush Queue (9114), and Enqueue Element At Opposite End (9129).
 
-Get Queue Status's 8-output pane has four same-typed I32 outputs (max size,
-#pending remove, #pending insert, #elements) that type alone can't tell apart;
-they were resolved from the NI connector-pane IMAGE (types by wire colour +
-top-to-bottom layout) plus two corpus wiring anchors (#elements feeds "<=0?" in
-test Queue Size is Zero.vi; error out -> the VI's error in) and termBounds
-geometry -- see _generate_get_queue_status. NOTE: 9109 was historically (and
-wrongly) mapped as "Get Queue Status" -- it is actually Release Queue.
+A queue is a ``queue.Queue``. An Obtain Queue with no name is a ``Queue`` made
+at that point. One with a constant name refers to the one queue of that name in
+the package's ``queues`` module (see ``queue_module``); one whose name is
+computed at run time is an entry of that module's ``by_name`` dict. A timeout
+is the ``timeout`` of ``put`` / ``get``,
+and a queue that times out raises ``queue.Full`` / ``queue.Empty``; when the
+operation's ``timed out?`` output is used, the call is wrapped in ``try`` /
+``except`` and the output is a local ``bool``. Release Queue shuts the queue
+down, which needs Python 3.13.
 
-These are generic `<Prim class="prim">` XML nodes distinguished only by
-`primResID` (verified against real samples — see phaseB_findings.md), so
-dispatch happens by primResID in `nodes/__init__.py` rather than by
-`node_type` (unlike aInit/aReplace/nMux, which have distinct XML classes).
+Get Queue Status's pane has four same-typed I32 outputs (max size, #pending
+remove, #pending insert, #elements) that type alone can't tell apart; they were
+resolved from the NI connector-pane IMAGE (types by wire colour + top-to-bottom
+layout) plus two corpus wiring anchors (#elements feeds "<=0?" in test Queue Size
+is Zero.vi; error out -> the VI's error in) and termBounds geometry.
 
-Terminals are resolved by the connector-pane INDEX recorded in
-primitives.json (CLAUDE.md's terminal-resolution workflow — never by
-name), and each op emits a call into the small stdlib-only runtime in
-`lvkit.labview_queue`. Error cluster terminals (error_in / error_out) are
-intentionally left unwired here, matching every other primitive handler in
-this package — error propagation is handled by the graph-level error
-model (`codegen/error_handler.py`), not per-primitive.
+These are generic ``<Prim class="prim">`` XML nodes distinguished only by
+``primResID``, so dispatch happens by primResID in ``nodes/__init__.py`` rather
+than by ``node_type``. Terminals are resolved by the connector-pane INDEX
+recorded in primitives.json, never by name. Error cluster terminals are left
+unwired here: errors are Python exceptions.
 """
 
 from __future__ import annotations
@@ -34,33 +35,34 @@ from enum import IntEnum
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import Terminal
 
-from ..ast_utils import build_multi_assign, parse_expr
+from ..ast_utils import default_value_expr, parse_expr
 from ..context import CodeGenContext
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..import_resolver import ImportResolver, ModuleImport
+from ..queue_module import PackageQueues, QueueUse
 
 
 class QueueOp(IntEnum):
-    """LabVIEW queue-operation ``primResID`` codes. ``IntEnum`` because the code
-    IS the raw int carried on ``PrimitiveNode.prim_id`` -- a member
-    compares equal to it and lives in the ``QUEUE_PRIM_IDS`` membership set."""
+    """Queue-operation ``primResID`` codes. ``IntEnum`` because the code IS the
+    raw int carried on ``PrimitiveNode.prim_id`` -- a member compares equal to it
+    and lives in the ``QUEUE_PRIM_IDS`` membership set."""
 
     OBTAIN = 9108
-    ENQUEUE = 9111
-    DEQUEUE = 9113
-    ENQUEUE_OPPOSITE_END = 9129
     RELEASE = 9109
     GET_STATUS = 9110
+    ENQUEUE = 9111
+    PREVIEW = 9112
+    DEQUEUE = 9113
+    FLUSH = 9114
+    ENQUEUE_OPPOSITE_END = 9129
 
 
 # Membership set for the nodes/__init__ dispatcher; an int primResID matches a
 # member (IntEnum hashes/compares as its int).
 QUEUE_PRIM_IDS = frozenset(QueueOp)
 
-_QUEUE_IMPORT = (
-    "from lvkit.labview_queue import ("
-    "dequeue_element, enqueue_element, enqueue_element_at_opposite_end, "
-    "get_queue_status, obtain_queue, release_queue)"
-)
+_QUEUE_IMPORT = "from queue import Empty, Full, Queue"
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -71,16 +73,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if prim_id == QueueOp.OBTAIN:
         return _generate_obtain_queue(node, by_index, ctx)
     if prim_id == QueueOp.ENQUEUE:
-        return _generate_enqueue(node, by_index, ctx, "enqueue_element")
+        return _generate_enqueue(node, by_index, ctx)
     if prim_id == QueueOp.ENQUEUE_OPPOSITE_END:
-        return _generate_enqueue(
-            node,
-            by_index,
-            ctx,
-            "enqueue_element_at_opposite_end",
-        )
+        return _generate_enqueue_opposite_end(node, by_index, ctx)
     if prim_id == QueueOp.DEQUEUE:
         return _generate_dequeue(node, by_index, ctx)
+    if prim_id == QueueOp.PREVIEW:
+        return _generate_preview(node, by_index, ctx)
+    if prim_id == QueueOp.FLUSH:
+        return _generate_flush(node, by_index, ctx)
     if prim_id == QueueOp.RELEASE:
         return _generate_release_queue(node, by_index, ctx)
     if prim_id == QueueOp.GET_STATUS:
@@ -93,53 +94,117 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
 
 
-def _resolve_input(term: Terminal | None, ctx: CodeGenContext, default: str) -> str:
-    """Resolve an input terminal's variable name, or a literal default."""
+def _input(term: Terminal | None, ctx: CodeGenContext) -> str | None:
+    """The expression an input terminal carries, or None when it is unwired."""
     if term is None:
-        return default
+        return None
     value = ctx.resolve(term.id)
-    return value if value else default
+    return value if value else None
 
 
-def _emit_call(
-    node: PrimitiveNode,
-    ctx: CodeGenContext,
-    func_name: str,
-    arg_exprs: list[str],
-    outputs: list[tuple[Terminal | None, str]],
-) -> tuple[list[ast.stmt], dict[str, str]]:
-    """Build `var1, var2 = func_name(args...)` for present output terminals.
+def _queue_input(
+    node: PrimitiveNode, by_index: dict[int, Terminal], ctx: CodeGenContext
+) -> str:
+    queue = _input(by_index.get(0), ctx)
+    if queue is None:
+        raise CodeGenError(f"{node.name} has no queue wired", node)
+    return queue
 
-    `outputs` is (terminal-or-None, descriptive base name) pairs, in the
-    same order — and same LENGTH — as the runtime function's return
-    tuple; call sites always pass one entry per value the runtime
-    function returns. A None terminal means that connector-pane slot
-    isn't in this node's JSON definition (e.g. `created` for Obtain
-    Queue) — its slot is still unpacked (into a throwaway name) since
-    the runtime unconditionally returns the full tuple; only dropping
-    the *assignment* would misalign a partial-arity unpack against the
-    real return value.
-    """
-    call = ast.Call(
-        func=ast.Name(id=func_name, ctx=ast.Load()),
-        args=[parse_expr(e) for e in arg_exprs],
-        keywords=[],
+
+def _consumed(term: Terminal | None, ctx: CodeGenContext) -> Terminal | None:
+    """``term`` when something reads it, else None."""
+    if term is not None and not term.is_error_cluster and ctx.is_wired(term.id):
+        return term
+    return None
+
+
+def _constant(expression: str) -> object:
+    """The value of a constant ``expression``; None when it is not a constant."""
+    try:
+        return ast.literal_eval(expression)
+    except (ValueError, SyntaxError):
+        return None
+
+
+def _timeout_seconds(milliseconds: str | None) -> str | None:
+    """The ``timeout`` argument for a wait of ``milliseconds`` (an expression):
+    None blocks without limit, which is an unwired timeout and any negative one."""
+    if milliseconds is None:
+        return None
+    value = _constant(milliseconds)
+    if value is None:
+        return f"None if {milliseconds} < 0 else {milliseconds} / 1000"
+    if isinstance(value, (int, float)):
+        return None if value < 0 else repr(value / 1000)
+    raise CodeGenError(f"Queue timeout {milliseconds} is not a number")
+
+
+def _call(queue: str, method: str, args: list[str], timeout: str | None) -> ast.expr:
+    """``queue.method(args, timeout=...)``, with no ``timeout`` to block."""
+    call = f"{queue}.{method}({', '.join(args)})"
+    if timeout is not None:
+        call = f"{queue}.{method}({', '.join([*args, f'timeout={timeout}'])})"
+    return parse_expr(call)
+
+
+def _assign(name: str, value: ast.expr) -> ast.stmt:
+    return ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
+
+
+def _flag(name: str, value: bool) -> ast.stmt:
+    return _assign(name, ast.Constant(value=value))
+
+
+def _try_timeout(
+    attempt: list[ast.stmt], exception: str, on_timeout: list[ast.stmt]
+) -> ast.stmt:
+    return ast.Try(
+        body=attempt,
+        handlers=[
+            ast.ExceptHandler(
+                type=ast.Name(id=exception, ctx=ast.Load()),
+                name=None,
+                body=on_timeout,
+            )
+        ],
+        orelse=[],
+        finalbody=[],
     )
-    if not outputs:
-        return [ast.Expr(value=call)], {}
 
-    var_names: list[str] = []
-    bindings: dict[str, str] = {}
-    for i, (term, base) in enumerate(outputs):
-        if term is None:
-            var_names.append(f"_unused_{i}")
-            continue
-        var_name = ctx.make_output_var(base, node.id, terminal_id=term.id)
-        bindings[term.id] = var_name
-        var_names.append(var_name)
 
-    stmt = build_multi_assign(var_names, call)
-    return [stmt], bindings
+def _passthrough(
+    by_index: dict[int, Terminal], index: int, queue: str
+) -> dict[str, str]:
+    """The ``queue out`` output is the queue that went in."""
+    term = by_index.get(index)
+    return {term.id: queue} if term is not None else {}
+
+
+def _obtain_queue_use(
+    node: PrimitiveNode, ctx: CodeGenContext
+) -> tuple[QueueUse, ModuleImport | None]:
+    """How the Obtain Queue ``node`` names its queue, and the import of the
+    package's ``queues`` module. A package answers from the query made over all
+    its VIs; a VI generated alone is asked about itself, and has no module to
+    hold a named queue."""
+    resolver = ctx.import_resolver
+    if isinstance(resolver, ImportResolver) and resolver.has_package_modules:
+        use, module = resolver.queue_use(node)
+        return use, module
+    if ctx.graph is None:
+        raise CodeGenError("An Obtain Queue needs the VI graph", node)
+    use = PackageQueues.from_uses(
+        ctx.graph.obtain_queue_uses([ctx.vi_name or ""])
+    ).use_of(node.id, node)
+    if use.error is not None:
+        raise CodeGenError(use.error, node)
+    if use.computed or use.attribute is not None:
+        raise CodeGenError(
+            f"Queue '{use.name}' is named, and there is no generated package to "
+            "define it in",
+            node,
+        )
+    return use, None
 
 
 def _generate_obtain_queue(
@@ -147,54 +212,113 @@ def _generate_obtain_queue(
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Obtain Queue(name, element_data_type, max_queue_size) -> handle.
+    """Obtain Queue(name, element_data_type, create_if_not_found?, max_queue_size)
+    -> queue.
 
-    `element_data_type` (index 1) is a type-carrying terminal only —
-    Python is dynamically typed, so it has no runtime effect and is not
-    resolved.
-    """
-    name_val = _resolve_input(by_index.get(0), ctx, "''")
-    create_val = _resolve_input(by_index.get(2), ctx, "True")
-    max_size_val = _resolve_input(by_index.get(4), ctx, "-1")
+    ``element_data_type`` (index 1) only carries a type. A constant name is the
+    queue of that name in the ``queues`` module, a name computed at run time is
+    its entry in that module's ``by_name`` dict, and no name is a new ``Queue``.
+    Which of the three it is comes from the package's queries."""
+    use, module = _obtain_queue_use(node, ctx)
+    name_text = _input(by_index.get(0), ctx)
+    max_size_text = _input(by_index.get(4), ctx)
+    size = _constant(max_size_text) if max_size_text is not None else -1
+    bound = str(max(size, 0)) if isinstance(size, int) else f"max({max_size_text}, 0)"
 
-    stmts, bindings = _emit_call(
-        node,
-        ctx,
-        "obtain_queue",
-        [name_val, max_size_val, create_val],
-        [(by_index.get(8), "queue"), (by_index.get(10), "created")],
+    queue_term = _consumed(by_index.get(8), ctx)
+    created_term = _consumed(by_index.get(10), ctx)
+    statements: list[ast.stmt] = []
+    bindings: dict[str, str] = {}
+    imports: set[str] = set()
+    created_var = (
+        ctx.make_output_var("created", node.id, created_term.id)
+        if created_term is not None
+        else None
     )
-    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
+    if created_term is not None and created_var is not None:
+        bindings[created_term.id] = created_var
+    registry = f"{module.alias}.by_name" if module is not None else ""
+    if module is not None and use.computed and name_text is not None:
+        imports.update({module.statement, _QUEUE_IMPORT})
+        if created_var is not None:
+            statements.append(
+                _assign(created_var, parse_expr(f"{name_text} not in {registry}"))
+            )
+        value = parse_expr(
+            f"{registry}.setdefault({name_text}, Queue(maxsize={bound}))"
+        )
+    elif module is not None and use.attribute is not None:
+        imports.add(module.statement)
+        value = parse_expr(f"{module.alias}.{use.attribute}")
+        if created_var is not None:
+            obtained = f"{module.alias}.obtained"
+            statements.append(
+                _assign(created_var, parse_expr(f"{use.name!r} not in {obtained}"))
+            )
+            statements.append(
+                ast.Expr(value=parse_expr(f"{obtained}.add({use.name!r})"))
+            )
+    else:
+        value = parse_expr(f"Queue(maxsize={bound})")
+        imports.add(_QUEUE_IMPORT)
+        if created_var is not None:
+            statements.append(_flag(created_var, True))
+    if queue_term is not None:
+        queue_var = ctx.make_output_var("queue", node.id, queue_term.id)
+        statements.append(_assign(queue_var, value))
+        bindings[queue_term.id] = queue_var
+    elif use.computed:
+        statements.append(ast.Expr(value=value))
+    return CodeFragment(statements=statements, bindings=bindings, imports=imports)
 
 
 def _generate_enqueue(
     node: PrimitiveNode,
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
-    func_name: str,
 ) -> CodeFragment:
-    """Enqueue Element / Enqueue Element At Opposite End(queue, element,
-    timeout_ms) -> timed_out. `queue_out` is a passthrough of `queue`
-    (NI docs: "queue out returns the reference to the queue unchanged").
-    """
-    queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    element_val = _resolve_input(by_index.get(1), ctx, "None")
-    timeout_val = _resolve_input(by_index.get(2), ctx, "-1")
-
-    bindings: dict[str, str] = {}
-    queue_out_term = by_index.get(8)
-    if queue_out_term is not None:
-        bindings[queue_out_term.id] = queue_val
-
-    stmts, call_bindings = _emit_call(
-        node,
-        ctx,
-        func_name,
-        [queue_val, element_val, timeout_val],
-        [(by_index.get(10), "timed_out")],
+    """Enqueue Element(queue, element, timeout_ms) -> timed out?. A full queue
+    waits for room; past the timeout ``put`` raises ``queue.Full``."""
+    queue = _queue_input(node, by_index, ctx)
+    element = _input(by_index.get(1), ctx) or "None"
+    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    bindings = _passthrough(by_index, 8, queue)
+    put = ast.Expr(value=_call(queue, "put", [element], timeout))
+    timed_out = _consumed(by_index.get(10), ctx)
+    if timed_out is None:
+        return CodeFragment(statements=[put], bindings=bindings)
+    flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
+    bindings[timed_out.id] = flag
+    attempt = _try_timeout([put, _flag(flag, False)], "Full", [_flag(flag, True)])
+    return CodeFragment(
+        statements=[attempt], bindings=bindings, imports={_QUEUE_IMPORT}
     )
-    bindings.update(call_bindings)
-    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
+
+
+def _generate_enqueue_opposite_end(
+    node: PrimitiveNode,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """Enqueue Element At Opposite End(queue, element, timeout_ms) -> timed out?.
+    ``queue.Queue`` only puts at the back, so the element goes on the front of
+    its ``deque`` under the queue's lock, waking one waiting ``get``."""
+    queue = _queue_input(node, by_index, ctx)
+    element = _input(by_index.get(1), ctx) or "None"
+    bindings = _passthrough(by_index, 8, queue)
+    front = ast.parse(
+        f"with {queue}.mutex:\n"
+        f"    {queue}.queue.appendleft({element})\n"
+        f"    {queue}.unfinished_tasks += 1\n"
+        f"    {queue}.not_empty.notify()\n"
+    ).body
+    statements: list[ast.stmt] = list(front)
+    timed_out = _consumed(by_index.get(10), ctx)
+    if timed_out is not None:
+        flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
+        statements.append(_flag(flag, False))
+        bindings[timed_out.id] = flag
+    return CodeFragment(statements=statements, bindings=bindings)
 
 
 def _generate_dequeue(
@@ -202,26 +326,112 @@ def _generate_dequeue(
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Dequeue Element(queue, timeout_ms) -> (element, timed_out).
-    `queue_out` is a passthrough of `queue`.
-    """
-    queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    timeout_val = _resolve_input(by_index.get(2), ctx, "-1")
-
-    bindings: dict[str, str] = {}
-    queue_out_term = by_index.get(8)
-    if queue_out_term is not None:
-        bindings[queue_out_term.id] = queue_val
-
-    stmts, call_bindings = _emit_call(
-        node,
-        ctx,
-        "dequeue_element",
-        [queue_val, timeout_val],
-        [(by_index.get(9), "element"), (by_index.get(10), "timed_out")],
+    """Dequeue Element(queue, timeout_ms) -> (element, timed out?). An empty
+    queue waits; past the timeout ``get`` raises ``queue.Empty``, or, when
+    ``timed out?`` is used, the element is the type's default and the flag
+    is true."""
+    queue = _queue_input(node, by_index, ctx)
+    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    bindings = _passthrough(by_index, 8, queue)
+    get = _call(queue, "get", [], timeout)
+    element_term = _consumed(by_index.get(9), ctx)
+    timed_out = _consumed(by_index.get(10), ctx)
+    if timed_out is None:
+        if element_term is None:
+            return CodeFragment(statements=[ast.Expr(value=get)], bindings=bindings)
+        element = ctx.make_output_var("element", node.id, element_term.id)
+        bindings[element_term.id] = element
+        return CodeFragment(statements=[_assign(element, get)], bindings=bindings)
+    flag = ctx.make_output_var("timed_out", node.id, timed_out.id)
+    bindings[timed_out.id] = flag
+    attempt: list[ast.stmt] = []
+    on_timeout: list[ast.stmt] = []
+    if element_term is None:
+        attempt.append(ast.Expr(value=get))
+    else:
+        element = ctx.make_output_var("element", node.id, element_term.id)
+        bindings[element_term.id] = element
+        attempt.append(_assign(element, get))
+        on_timeout.append(_assign(element, default_value_expr(element_term.lv_type)))
+    attempt.append(_flag(flag, False))
+    on_timeout.append(_flag(flag, True))
+    return CodeFragment(
+        statements=[_try_timeout(attempt, "Empty", on_timeout)],
+        bindings=bindings,
+        imports={_QUEUE_IMPORT},
     )
-    bindings.update(call_bindings)
-    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
+
+
+def _generate_preview(
+    node: PrimitiveNode,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """Preview Queue Element(queue, timeout_ms) -> (element, timed out?): the
+    front element, left in the queue. Under the queue's lock, the condition
+    ``not_empty`` waits until the queue holds an element or the timeout passes."""
+    queue = _queue_input(node, by_index, ctx)
+    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    bindings = _passthrough(by_index, 8, queue)
+    element_term = _consumed(by_index.get(9), ctx)
+    timed_out = _consumed(by_index.get(10), ctx)
+    element = (
+        ctx.make_output_var("element", node.id, element_term.id)
+        if element_term is not None
+        else "_element"
+    )
+    flag = (
+        ctx.make_output_var("timed_out", node.id, timed_out.id)
+        if timed_out is not None
+        else None
+    )
+    default = default_value_expr(element_term.lv_type if element_term else None)
+    wait = f"{queue}.not_empty.wait_for(lambda: {queue}.queue"
+    wait += ")" if timeout is None else f", {timeout})"
+    peek = f"{queue}.queue[0] if {queue}.queue else {ast.unparse(default)}"
+    statements = ast.parse(
+        f"with {queue}.not_empty:\n"
+        f"    {'found' if flag else '_'} = {wait}\n"
+        f"    {element} = {peek}\n" + (f"    {flag} = not found\n" if flag else "")
+    ).body
+    if element_term is not None:
+        bindings[element_term.id] = element
+    if timed_out is not None and flag is not None:
+        bindings[timed_out.id] = flag
+    return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _drain(queue: str, into: str) -> list[ast.stmt]:
+    """``into`` is the list of every element taken out of ``queue``, front first."""
+    return ast.parse(
+        f"{into} = []\n"
+        "while True:\n"
+        "    try:\n"
+        f"        {into}.append({queue}.get_nowait())\n"
+        "    except Empty:\n"
+        "        break\n"
+    ).body
+
+
+def _generate_flush(
+    node: PrimitiveNode,
+    by_index: dict[int, Terminal],
+    ctx: CodeGenContext,
+) -> CodeFragment:
+    """Flush Queue(queue) -> remaining elements: take every element out."""
+    queue = _queue_input(node, by_index, ctx)
+    bindings = _passthrough(by_index, 8, queue)
+    remaining = _consumed(by_index.get(9), ctx)
+    name = (
+        ctx.make_output_var("remaining_elements", node.id, remaining.id)
+        if remaining is not None
+        else "_flushed"
+    )
+    if remaining is not None:
+        bindings[remaining.id] = name
+    return CodeFragment(
+        statements=_drain(queue, name), bindings=bindings, imports={_QUEUE_IMPORT}
+    )
 
 
 def _generate_release_queue(
@@ -232,29 +442,34 @@ def _generate_release_queue(
     """Release Queue(queue, force destroy?) -> (queue name, remaining elements).
 
     Observed pane (NI-confirmed): in idx0=queue, idx2=force destroy? (F),
-    idx3=error in; out idx8=queue name (String), idx9=remaining elements
-    (Array, adapts to the queue subtype), idx11=error out. The queue-name
-    output is the queue's own ``.name`` (it survives the destroy), bound as an
-    expression rather than a runtime return; error in/out flow through the
-    general error machinery like the other queue ops.
-    """
-    queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    force_val = _resolve_input(by_index.get(2), ctx, "False")
-
+    idx3=error in; out idx8=queue name (String), idx9=remaining elements,
+    idx11=error out. Releasing shuts the queue down (Python 3.13+): ``shutdown()``
+    stops further puts and ends a waiting ``get`` once the queue is empty;
+    ``shutdown(immediate=True)``, for a true ``force destroy?``, also drops what
+    is left and ends every waiting ``get`` and ``put`` with ``queue.ShutDown``.
+    The remaining elements, when used, are drained out first. A queue has no
+    name of its own, so a used ``queue name`` stops generation."""
+    queue = _queue_input(node, by_index, ctx)
+    if _consumed(by_index.get(8), ctx) is not None:
+        raise CodeGenError(
+            "Release Queue uses its 'queue name' output; a queue.Queue has no name",
+            node,
+        )
+    statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
-    name_term = by_index.get(8)
-    if name_term is not None:
-        bindings[name_term.id] = f"{queue_val}.name"
-
-    stmts, call_bindings = _emit_call(
-        node,
-        ctx,
-        "release_queue",
-        [queue_val, force_val],
-        [(by_index.get(9), "remaining_elements")],
+    remaining = _consumed(by_index.get(9), ctx)
+    if remaining is not None:
+        name = ctx.make_output_var("remaining_elements", node.id, remaining.id)
+        statements.extend(_drain(queue, name))
+        bindings[remaining.id] = name
+    force = _input(by_index.get(2), ctx)
+    call = f"{queue}.shutdown()"
+    if force is not None and _constant(force) is not False:
+        call = f"{queue}.shutdown(immediate={force})"
+    statements.append(ast.Expr(value=parse_expr(call)))
+    return CodeFragment(
+        statements=statements, bindings=bindings, imports={_QUEUE_IMPORT}
     )
-    bindings.update(call_bindings)
-    return CodeFragment(statements=stmts, bindings=bindings, imports={_QUEUE_IMPORT})
 
 
 def _generate_get_queue_status(
@@ -262,7 +477,7 @@ def _generate_get_queue_status(
     by_index: dict[int, Terminal],
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Get Queue Status(queue, return elements?) -> a QueueStatus dataclass.
+    """Get Queue Status(queue, return elements?) -> sizes and elements.
 
     Pane resolved from the corpus + NI's connector-pane image (types by wire
     colour) + two wiring anchors (idx7 feeds "<=0?"; idx11 -> VI error in):
@@ -270,39 +485,36 @@ def _generate_get_queue_status(
       out idx4=max queue size, idx5=elements, idx6=queue name,
           idx7=# elements in queue, idx8=queue out (passthrough),
           idx9=# pending remove, idx10=# pending insert, idx11=error out
-    The runtime returns ONE QueueStatus; each consumed output binds to a field
-    of it (or the queue passthrough). error in/out flow through the general
-    error model like the other queue ops.
-    """
-    queue_val = _resolve_input(by_index.get(0), ctx, "None")
-    return_elems_val = _resolve_input(by_index.get(1), ctx, "False")
-
-    bindings: dict[str, str] = {}
-    queue_out = by_index.get(8)
-    if queue_out is not None:  # queue out is a passthrough of the input queue
-        bindings[queue_out.id] = queue_val
-
-    field_by_index = {
-        4: "max_size",
-        5: "elements",
-        6: "name",
-        7: "n_elements",
-        9: "pending_remove",
-        10: "pending_insert",
-    }
-    wanted = {i: by_index[i] for i in field_by_index if i in by_index}
-    if not wanted:
-        # get_queue_status is a side-effect-free read; if nothing but the queue
-        # passthrough / error is consumed, emit no call.
-        return CodeFragment(statements=[], bindings=bindings, imports={_QUEUE_IMPORT})
-
-    status_var = ctx.make_output_var("queue_status", node.id, terminal_id=node.id)
-    call = ast.Call(
-        func=ast.Name(id="get_queue_status", ctx=ast.Load()),
-        args=[parse_expr(queue_val), parse_expr(return_elems_val)],
-        keywords=[],
-    )
-    stmt = build_multi_assign([status_var], call)
-    for i, term in wanted.items():
-        bindings[term.id] = f"{status_var}.{field_by_index[i]}"
-    return CodeFragment(statements=[stmt], bindings=bindings, imports={_QUEUE_IMPORT})
+    ``queue.Queue`` has the maximum size (0 is unbounded, -1 here), the count
+    and, under its lock, the elements; it has no name and does not count the
+    threads waiting on it, so a used ``queue name``, ``# pending remove`` or
+    ``# pending insert`` stops generation."""
+    queue = _queue_input(node, by_index, ctx)
+    bindings = _passthrough(by_index, 8, queue)
+    statements: list[ast.stmt] = []
+    for index, what in (
+        (6, "queue name"),
+        (9, "# pending remove"),
+        (10, "# pending insert"),
+    ):
+        if _consumed(by_index.get(index), ctx) is not None:
+            raise CodeGenError(
+                f"Get Queue Status uses its '{what}' output, which queue.Queue "
+                "does not provide",
+                node,
+            )
+    expressions = {4: f"{queue}.maxsize or -1", 7: f"{queue}.qsize()"}
+    for index, base in ((4, "max_queue_size"), (7, "elements_in_queue")):
+        term = _consumed(by_index.get(index), ctx)
+        if term is not None:
+            var = ctx.make_output_var(base, node.id, term.id)
+            statements.append(_assign(var, parse_expr(expressions[index])))
+            bindings[term.id] = var
+    elements = _consumed(by_index.get(5), ctx)
+    if elements is not None:
+        var = ctx.make_output_var("elements", node.id, elements.id)
+        statements.extend(
+            ast.parse(f"with {queue}.mutex:\n    {var} = list({queue}.queue)\n").body
+        )
+        bindings[elements.id] = var
+    return CodeFragment(statements=statements, bindings=bindings)

@@ -30,7 +30,7 @@ from lvkit.models import (
     TunnelTerminal,
 )
 from lvkit.pipeline import create_import_resolver, module_stem, unique_module_stems
-from lvkit.type_names import ROOT_CLASS, derive_python_name, is_enum_member_name
+from lvkit.type_names import derive_python_name, is_enum_member_name
 from tests.helpers import make_graph_with_edge
 
 
@@ -63,7 +63,6 @@ class TestClassNames:
             ("TestCase.lvclass", "TestCase"),
             ("Lib.lvlib:Foo Bar.ctl", "FooBar"),
             ("Type Descriptor__ogtk.ctl", "TypeDescriptorOgtk"),
-            (ROOT_CLASS, "LabVIEWObject"),
             ("3D Point.ctl", "_3DPoint"),
         ],
     )
@@ -163,15 +162,6 @@ class TestImportDepth:
         assert at_root.module("A.lvlib:Dep.vi").statement == (
             "from .lib_a import dep_vi as dep_vi_global"
         )
-
-    def test_the_root_class_is_a_runtime_module(self, tmp_path: Path):
-        resolver = self._resolver(tmp_path, "root_vi.py")
-        root = resolver.type_import(ROOT_CLASS)
-        assert root is not None
-        assert root.statement == (
-            "from lvkit.runtime.labview_object import LabVIEWObject"
-        )
-        assert root.name == "LabVIEWObject"
 
     def test_a_type_with_no_graph_is_not_importable(self, tmp_path: Path):
         resolver = self._resolver(tmp_path, "root_vi.py")

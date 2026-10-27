@@ -6,8 +6,8 @@ VI imports it from there:
 
 * An enum or ring typedef is an ``IntEnum`` with the control's items.
 * A cluster typedef is a ``SimpleNamespace`` subclass annotated with its fields.
-* A class descends from its parent class (``LabVIEWObject`` for a root class) and
-  is annotated with its private data.
+* A class descends from its parent class (a root class is a plain class) and is
+  annotated with its private data.
 * Any other typedef is an alias of the type it defines.
 """
 
@@ -18,11 +18,11 @@ from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.models import ClusterField, LVType, LVTypeKind, TypeNamer
-from lvkit.type_names import ROOT_CLASS, derive_python_name, is_enum_member_name
+from lvkit.type_names import derive_python_name, is_enum_member_name
 
 from .ast_utils import build_type_checking_block, parse_expr, to_var_name
 from .context import type_namer
-from .import_resolver import ImportResolver
+from .import_resolver import ImportResolver, NameImport
 
 # What the Python spelling of a field type or an alias can name.
 _TYPING_IMPORTS = {"from pathlib import Path", "from typing import Any"}
@@ -99,31 +99,27 @@ def _class_definition(
 ) -> tuple[set[str], set[str], list[ast.stmt]]:
     name = derive_python_name(Path(key).name)
     parent_key = graph.class_parent_key(key)
+    parent: NameImport | None = None
     if parent_key is not None:
         parent = import_resolver.node_import(parent_key)
-    elif graph.class_parent_name(key) is None:
-        root = import_resolver.type_import(ROOT_CLASS)
-        if root is None:
-            raise ValueError(f"Cannot import the root class for {key}")
-        parent = root
-    else:
+    elif graph.class_parent_name(key) is not None:
         raise ValueError(
             f"Parent class {graph.class_parent_name(key)} of {key} is not loaded"
         )
     fields = graph.class_own_fields(key)
     body: list[ast.stmt] = [
-        ast.Expr(value=ast.Constant(value=f"LabVIEW class {Path(key).name}.")),
+        ast.Expr(value=ast.Constant(value=f"Class {Path(key).name}.")),
         *_field_annotations(fields, type_namer(import_resolver)),
     ]
     definition = ast.ClassDef(
         name=name,
-        bases=[ast.Name(id=parent.name, ctx=ast.Load())],
+        bases=[ast.Name(id=parent.name, ctx=ast.Load())] if parent else [],
         keywords=[],
         body=body,
         decorator_list=[],
     )
     return (
-        {parent.statement, *_TYPING_IMPORTS},
+        {*([parent.statement] if parent else []), *_TYPING_IMPORTS},
         _annotation_imports([f.type for f in fields], import_resolver),
         [definition],
     )

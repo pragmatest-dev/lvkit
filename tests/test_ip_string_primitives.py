@@ -19,7 +19,6 @@ from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import get_resolver
-from lvkit.runtime import tcp
 from tests.helpers import build_graph
 
 _BD_XML = """<?xml version='1.0' encoding='utf-8'?>
@@ -199,8 +198,12 @@ def test_generated_python_unwired_dot_notation_is_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source, ip_test = _generated(dot_notation_wired=False)
-    assert "net_address = _tcp.string_to_ip(host)\n" in source
-    assert "name = _tcp.ip_to_string(net_address, False)\n" in source
+    assert "lvkit" not in source
+    assert (
+        "net_address = int(ipaddress.IPv4Address("
+        "socket.gethostbyname(host or socket.gethostname())))\n"
+    ) in source
+    assert "socket.gethostbyaddr(" in source
     monkeypatch.setattr(socket, "gethostbyname", lambda host: "10.0.0.7")
     monkeypatch.setattr(socket, "gethostbyaddr", lambda ip: ("here.lan", [], [ip]))
     assert ip_test("here").address == "here.lan"
@@ -210,19 +213,20 @@ def test_generated_python_wired_dot_notation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source, ip_test = _generated(dot_notation_wired=True)
-    assert "net_address = _tcp.string_to_ip(host)\n" in source
-    assert "name = _tcp.ip_to_string(net_address, dotted)\n" in source
+    assert "if dotted else" in source
     monkeypatch.setattr(socket, "gethostbyname", lambda host: "10.0.0.7")
     assert ip_test("here", True).address == "10.0.0.7"
 
 
-def test_string_to_ip_dot_notation() -> None:
-    assert tcp.string_to_ip("128.0.0.25") == 0x80000019
+def test_generated_python_dot_notation_literal_address() -> None:
+    _, ip_test = _generated(dot_notation_wired=True)
+    assert ip_test("128.0.0.25", True).address == "128.0.0.25"
 
 
-def test_string_to_ip_empty_name_is_the_current_machine(
+def test_generated_python_empty_name_is_the_current_machine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _, ip_test = _generated(dot_notation_wired=True)
     looked_up: list[str] = []
     monkeypatch.setattr(socket, "gethostname", lambda: "here")
 
@@ -231,34 +235,18 @@ def test_string_to_ip_empty_name_is_the_current_machine(
         return "10.0.0.7"
 
     monkeypatch.setattr(socket, "gethostbyname", resolve)
-    assert tcp.string_to_ip("") == 0x0A000007
+    assert ip_test("", True).address == "10.0.0.7"
     assert looked_up == ["here"]
 
 
-def test_string_to_ip_unresolved_name_is_zero(
+def test_generated_python_unresolved_name_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _, ip_test = _generated(dot_notation_wired=True)
+
     def fail(host: str) -> str:
         raise socket.gaierror("no such host")
 
     monkeypatch.setattr(socket, "gethostbyname", fail)
-    assert tcp.string_to_ip("nowhere") == 0
-
-
-def test_ip_to_string_dot_notation() -> None:
-    assert tcp.ip_to_string(0x80000019, True) == "128.0.0.25"
-
-
-def test_ip_to_string_host_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(socket, "gethostbyaddr", lambda ip: ("here.lan", [], [ip]))
-    assert tcp.ip_to_string(0x0A000007) == "here.lan"
-
-
-def test_ip_to_string_without_a_host_name_is_dot_notation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def fail(ip: str) -> tuple[str, list[str], list[str]]:
-        raise socket.herror("unknown host")
-
-    monkeypatch.setattr(socket, "gethostbyaddr", fail)
-    assert tcp.ip_to_string(0x0A000007) == "10.0.0.7"
+    with pytest.raises(socket.gaierror):
+        ip_test("nowhere", True)

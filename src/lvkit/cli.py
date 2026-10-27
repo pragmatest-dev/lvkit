@@ -451,7 +451,11 @@ def main() -> int:
             "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
             "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
             "VILibResolutionNeeded(...)` in the generated Python so the "
-            "build succeeds and unresolved calls are visible at runtime."
+            "build succeeds and unresolved calls are visible at runtime. "
+            "A property or method of a default object with no Python "
+            "equivalent becomes `raise NotImplementedError(...)`. (A "
+            "primitive entered as a placeholder always becomes `raise "
+            "NotImplementedError(...)`, with or without this flag.)"
         ),
     )
     _add_project_root_arg(gen_parser)

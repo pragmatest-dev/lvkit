@@ -57,7 +57,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Obtain Queue (9108) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.obtain_queue()."
+      "note": "Queue op (ref_type=Queue on idx8). Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9109": {
       "name": "Release Queue",
@@ -232,7 +232,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Enqueue Element (9111) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.enqueue_element()."
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9112": {
       "name": "Preview Queue Element",
@@ -336,7 +336,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Dequeue Element (9113) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template) -- calls lvkit.labview_queue.dequeue_element()."
+      "note": "Queue op. Handled by codegen/nodes/queue_ops.py (dispatched by primResID, not this template)."
     },
     "9114": {
       "name": "Flush Queue",
@@ -430,7 +430,7 @@
       "python_code": {
         "_body": "raise RuntimeError('Enqueue Element At Opposite End (9129) should be dispatched to codegen/nodes/queue_ops.py by primResID -- this stub should be unreachable')"
       },
-      "note": "Queue op (LIFO push for the parser stack). Handled by codegen/nodes/queue_ops.py -> lvkit.labview_queue.enqueue_element_at_opposite_end()."
+      "note": "Queue op (puts the element on the front of the queue). Handled by codegen/nodes/queue_ops.py."
     },
     "9130": {
       "name": "Lossy Enqueue Element",

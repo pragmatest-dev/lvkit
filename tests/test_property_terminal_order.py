@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import getpass
 import types
 
 import pytest
@@ -19,7 +20,6 @@ from lvkit.models import (
     PropertySegment,
     Terminal,
 )
-from lvkit.runtime import lv
 from tests.helpers import make_graph_with_terminals
 
 REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
@@ -83,7 +83,7 @@ def fixture(
     ctx = CodeGenContext(graph=graph)
     if ref_value:
         ctx.bind("ref_in", ref_value)
-    namespace = {"ref": Reference(), "_lv": lv}
+    namespace = {"ref": Reference()}
     for i, term in enumerate(values):
         if term.id not in unwired:
             connect(ctx, term.id, term.direction)
@@ -246,26 +246,32 @@ def test_nested_property_writes_then_reads_its_attribute_chain():
     assert namespace["ref"].label.text == 1000
 
 
-def test_unwired_reference_is_the_defined_default_object_of_its_class():
-    rows = [("Value", "input"), ("Value", "output")]
-    node, ctx, namespace = fixture(rows, ref_value=None, class_name="Application")
-    ctx.qualified_vi_name = "Lib.lvlib:Caller.vi"
+def _generate_unwired_app(rows, ni_name="App.UserName"):
+    node, ctx, namespace = fixture(rows, ref_value=None, class_name="App")
+    node.properties = [PropertyDef(segments=[PropertySegment(name=ni_name, code=1)])]
     fragment = property_node.generate(node, ctx)
-    assert fragment.imports == {"from lvkit.runtime import lv as _lv"}
     code = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
-    exec(compile(code, "property-test", "exec"), namespace)
-    reference = namespace["application"]
-    assert reference is lv.default_reference("Application", "Lib.lvlib:Caller.vi")
-    assert reference.class_name == "Application"
-    assert namespace[fragment.bindings["row_1"]] == 1000
+    return fragment, code, namespace
 
 
-def test_an_unset_property_of_a_default_reference_names_class_and_property():
-    reference = lv.default_reference("VI", "Caller.vi")
-    with pytest.raises(lv.UnavailableReferenceMember, match="VI.*'path'"):
-        reference.path
+def test_unwired_app_user_name_is_the_account_running_the_process():
+    fragment, code, namespace = _generate_unwired_app([("Value", "output")])
+    assert ast.unparse(code) == "appusername = getpass.getuser()"
+    assert fragment.imports == {"import getpass"}
+    exec(compile(code, "property-test", "exec"), {"getpass": getpass}, namespace)
+    assert namespace["appusername"] == getpass.getuser()
+
+
+def test_an_undocumented_default_object_property_stops_generation():
+    with pytest.raises(CodeGenError, match="'App.Kind' of the default App object"):
+        _generate_unwired_app([("Value", "output")], "App.Kind")
+
+
+def test_writing_a_default_object_property_stops_generation():
+    with pytest.raises(CodeGenError, match="'App.UserName' is written on the default"):
+        _generate_unwired_app([("Value", "input")])
 
 
 def test_unwired_reference_without_an_object_class_is_an_error():
@@ -281,3 +287,19 @@ def test_wired_reference_without_a_value_is_an_error():
     connect(ctx, "ref_in", "input")
     with pytest.raises(CodeGenError, match="Wired object reference has no value"):
         property_node.generate(node, ctx)
+
+
+def test_soft_mode_turns_an_undocumented_default_object_property_into_a_raise():
+    node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
+    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=1)])]
+    ctx.soft_unresolved = True
+    fragment = property_node.generate(node, ctx)
+    module = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    source = ast.unparse(module)
+    assert source.splitlines()[-1] == (
+        "raise NotImplementedError(\"Property 'App.Kind' of the default App "
+        'object has no Python equivalent")'
+    )
+    assert fragment.imports == set()

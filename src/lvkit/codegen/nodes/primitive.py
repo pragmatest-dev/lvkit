@@ -27,7 +27,7 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..elementwise import LV_IMPORT, arrayify
+from ..elementwise import arrayify
 from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
 
@@ -166,7 +166,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if op_template is not None:
             resolved.python_code = op_template(node, resolved)
 
-    # Placeholder: emit warning comment + pass, don't raise
+    # A primitive known by name but with no implementation raises where it runs.
     if resolved.confidence == "placeholder":
         return _emit_placeholder(node, resolved, ctx)
 
@@ -839,58 +839,56 @@ def _terminal_signature(
     ]
 
 
+def _unresolved_kwargs(
+    node: PrimitiveNode,
+    prim_id: int | None,
+    ctx: CodeGenContext,
+    reason: str | None = None,
+) -> dict[str, object]:
+    """The arguments of the ``PrimitiveResolutionNeeded`` for ``node``.
+
+    The FULL connector pane — node.terminals carries every terminal the heap
+    serialized, wired AND unwired, each with its declared type. Wired status is
+    marked so the resolver can identify by the whole pane, not just the
+    terminals that happen to have wires in this VI."""
+    kwargs: dict[str, object] = {
+        "prim_id": prim_id,
+        "prim_name": node.name or "unknown",
+        "terminals": _terminal_signature(node, ctx),
+        "vi_name": ctx.vi_name,
+        "qualified_vi_name": ctx.qualified_vi_name,
+    }
+    if reason is not None:
+        kwargs["reason"] = reason
+    if prim_id is None:
+        kwargs["node_kind"] = (
+            get_display_name(node.node_type) if node.node_type else "Node"
+        )
+    return kwargs
+
+
 def _emit_placeholder(
     node: PrimitiveNode,
     resolved: ResolvedPrimitive,
     ctx: CodeGenContext,
 ) -> CodeFragment:
-    """Emit a warning marker for placeholder primitives and bind each wired
-    output to ``_lv.placeholder(...)``.
-
-    Allows generation to proceed while flagging unresolved primitives; readers
-    of the outputs reference a defined variable that raises when used.
-    """
-    import warnings
-
-    prim_id = resolved.prim_id or "?"
-    name = resolved.name or "unknown"
-    msg = f"Placeholder primitive {prim_id} ({name})"
-    warnings.warn(msg, stacklevel=2)
-
+    """A primitive known by name with no implementation: the generated code
+    raises ``NotImplementedError`` where the primitive would run, and its outputs
+    are ``None`` names so the code after it is defined. ``lvkit unresolved``
+    still reports it, tagged apart from a fully-unknown primResID."""
     if ctx.unresolved_sink is not None:
-        # A placeholder is a KNOWN primitive with no implementation — still a
-        # conversion gap. Record it (tagged) so `lvkit unresolved` reports it
-        # distinctly from a fully-unknown primResID.
-        exc = PrimitiveResolutionNeeded(
-            prim_id=prim_id,
-            prim_name=name,
-            terminals=_terminal_signature(node, ctx),
-            vi_name=ctx.vi_name,
-            qualified_vi_name=ctx.qualified_vi_name,
+        needed = PrimitiveResolutionNeeded(
+            **_unresolved_kwargs(node, node.prim_id, ctx)  # type: ignore[arg-type]
         )
-        exc.is_placeholder = True  # type: ignore[attr-defined]
-        ctx.unresolved_sink.append(exc)
-
-    # String literal acts as inline documentation in generated code
-    marker = ast.Expr(
-        value=ast.Constant(value=f"TODO: unresolved primitive {prim_id} ({name})")
+        needed.is_placeholder = True  # type: ignore[attr-defined]
+        ctx.unresolved_sink.append(needed)
+    return emit_soft_unresolved(
+        node=node,
+        ctx=ctx,
+        exception_module="builtins",
+        exception_class="NotImplementedError",
+        positional_args=[f"{resolved.name or node.name} is not converted yet"],
     )
-    statements: list[ast.stmt] = [marker]
-    bindings: dict[str, str] = {}
-    for term in node.terminals:
-        # Error clusters become Python exceptions, so their wires carry nothing.
-        if term.direction != "output" or term.is_error_cluster:
-            continue
-        if not ctx.is_wired(term.id):
-            continue
-        output = term.name or f"out_{term.index}"
-        var_name = ctx.make_output_var(output, node.id, terminal_id=term.id)
-        call = parse_expr(f"_lv.placeholder({name!r}, output={output!r})")
-        statements.append(build_assign(var_name, call))
-        bindings[term.id] = var_name
-    if len(statements) == 1:
-        statements.append(ast.Pass())
-    return CodeFragment(statements=statements, bindings=bindings, imports={LV_IMPORT})
 
 
 def _emit_unknown(
@@ -913,25 +911,7 @@ def _emit_unknown(
     either write a mapping into .lvkit/ or replace the raise with a
     contextual fix.
     """
-    # The FULL connector pane — node.terminals carries every terminal the heap
-    # serialized, wired AND unwired, each with its declared type. Mark wired
-    # status so the resolver can identify by the whole pane, not just the
-    # terminals that happen to have wires in this VI.
-    terminals = _terminal_signature(node, ctx)
-
-    kwargs: dict[str, object] = {
-        "prim_id": prim_id,
-        "prim_name": node.name or "unknown",
-        "terminals": terminals,
-        "vi_name": ctx.vi_name,
-        "qualified_vi_name": ctx.qualified_vi_name,
-    }
-    if reason is not None:
-        kwargs["reason"] = reason
-    if prim_id is None:
-        kwargs["node_kind"] = (
-            get_display_name(node.node_type) if node.node_type else "Node"
-        )
+    kwargs = _unresolved_kwargs(node, prim_id, ctx, reason)
 
     if ctx.unresolved_sink is not None:
         # Batch-collection mode (`lvkit unresolved`): record the gap and keep

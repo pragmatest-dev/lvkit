@@ -66,6 +66,10 @@ VI file
 | `error_path.py` | Which nodes handle an error wire, and the nodes upstream of it |
 | `error_wires.py` | `try`/`except` around the code that raises the error a Clear Errors / error case handles |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
+| `package_modules.py` | `PackageModules` — the package-root modules for state VIs share, from graph queries over the package's VIs (`graph/package_queries.py`) |
+| `queue_module.py` | `queues.py`: one `queue.Queue` per constant queue name, plus `by_name` for names computed at run time |
+| `shared_variable_module.py` | `shared_variables.py`: one module-level name (and `_timestamp`) per Shared Variable |
+| `default_objects.py` | Python value of a property of a VI Server class's default object (`default_objects.json`) |
 | `nodes/` | Per-node-type code generators (see below) |
 
 ## Node Handlers (`nodes/`)
@@ -80,7 +84,9 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | `case.py` | Case structures | `if/elif/else` chains from case frames |
 | `sequence.py` | Flat/stacked sequences | Sequential code blocks, one per frame |
 | `compound.py` | Compound arithmetic (`cpdArith`, `aBuild`) | `x or y or z`, `[a, b, c]` |
-| `property_node.py` | Property read/write (`propNode`) | `obj.attr` / `obj.attr = val` |
+| `property_node.py` | Property read/write (`propNode`) | `obj.attr` / `obj.attr = val`; an unwired reference reads the default object's documented value written in |
+| `queue_ops.py` | Queue Operations | `queue.Queue` calls: `put`/`get(timeout=...)`, `shutdown()`, named queues from `queues.py` |
+| `shared_variable.py` | Shared Variable nodes | attribute read/write on the `shared_variables` module |
 | `invoke_node.py` | Invoke nodes (`invokeNode`) | `obj.method(args)` |
 | `printf.py` | Format Into String | f-string or `%` formatting |
 | `nmux.py` | Node multiplexer | Passthrough / conditional select |

@@ -24,11 +24,11 @@
         }
       ],
       "python_code": {
-        "_import": "from lvkit.runtime import tcp as _tcp",
-        "name": "_tcp.ip_to_string(in_2, in_1)"
+        "name": "str(ipaddress.IPv4Address(in_2 & 0xFFFFFFFF)) if in_1 else socket.gethostbyaddr(str(ipaddress.IPv4Address(in_2 & 0xFFFFFFFF)))[0]"
       },
       "imports": [
-        "from lvkit.runtime import tcp as _tcp"
+        "import ipaddress",
+        "import socket"
       ],
       "inline": true,
       "verified": true,
@@ -51,11 +51,11 @@
         }
       ],
       "python_code": {
-        "_import": "from lvkit.runtime import tcp as _tcp",
-        "net_address": "_tcp.string_to_ip(in_1)"
+        "net_address": "int(ipaddress.IPv4Address(socket.gethostbyname(in_1 or socket.gethostname())))"
       },
       "imports": [
-        "from lvkit.runtime import tcp as _tcp"
+        "import ipaddress",
+        "import socket"
       ],
       "inline": true,
       "verified": true,

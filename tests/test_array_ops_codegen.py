@@ -17,7 +17,6 @@ from lvkit.codegen.nodes import compound
 from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.runtime import lv as _lv
 from tests.helpers import make_ctx
 
 ARRAY_TYPE = LVType(kind=LVTypeKind.ARRAY)
@@ -34,7 +33,7 @@ def _compile_and_run(statements: list, local_vars: dict) -> dict:
     module = ast.Module(body=statements, type_ignores=[])
     ast.fix_missing_locations(module)
     code = compile(module, "<test>", "exec")
-    exec(code, {"copy": copy, "_lv": _lv}, local_vars)
+    exec(code, {"copy": copy}, local_vars)
     return local_vars
 
 

@@ -161,7 +161,7 @@ def make_ctx(*terminal_ids: str) -> CodeGenContext:
     return CodeGenContext(graph=graph)
 
 
-def build_graph(vi_context, vi_name: str, nodes: list):
+def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
     """Build an InMemoryVIGraph for a codegen unit test: stub FP terminals for
     ``vi_context``'s inputs/outputs/constants, register the given (already
     graph-native) ``GraphNode``s as ``vi_name``'s node set, and wire up
@@ -175,9 +175,10 @@ def build_graph(vi_context, vi_name: str, nodes: list):
     derives each parent's forward ``children`` list from those back-links).
     """
     from lvkit.graph import InMemoryVIGraph
-    from lvkit.graph.models import PrimitiveNode, WireEnd
+    from lvkit.graph.models import ConstantNode, PrimitiveNode, WireEnd
 
-    graph = InMemoryVIGraph()
+    if graph is None:
+        graph = InMemoryVIGraph()
     graph._vi_nodes.setdefault(vi_name, set())
 
     def _stub(tid: str, direction: str) -> None:
@@ -202,8 +203,20 @@ def build_graph(vi_context, vi_name: str, nodes: list):
         if out.id:
             _stub(out.id, "input")
     for const in vi_context.constants:
-        if const.id:
-            _stub(const.id, "output")
+        if const.id and f"_fp_{const.id}" not in graph._graph:
+            graph._graph.add_node(
+                f"_fp_{const.id}",
+                node=ConstantNode(
+                    id=f"_fp_{const.id}",
+                    vi_path=vi_name,
+                    name=f"_fp_{const.id}",
+                    value=const.value,
+                    lv_type=const.lv_type,
+                    terminals=[Terminal(id=const.id, index=0, direction="output")],
+                ),
+            )
+            graph._term_to_node[const.id] = f"_fp_{const.id}"
+            graph._vi_nodes[vi_name].add(f"_fp_{const.id}")
 
     register_nodes(graph, nodes, vi_name=vi_name)
 
