@@ -12,7 +12,6 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.package_modules import PackageModules
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     SharedVariableLibrary,
@@ -181,9 +180,10 @@ def test_a_write_in_one_vi_is_read_in_another(tmp_path: Path, imported) -> None:
     assert after.stamp > 0.0
 
 
-def test_a_variable_with_no_library_stops_generation() -> None:
-    with pytest.raises(ConversionGap, match="records no library"):
-        generate(writer(library=None))
+def test_a_variable_with_no_library_raises_where_it_would_run() -> None:
+    source = generate(writer(library=None))
+    assert "raise NotImplementedError(" in source
+    assert "records no library" in source
 
 
 def test_a_variable_needs_a_package() -> None:

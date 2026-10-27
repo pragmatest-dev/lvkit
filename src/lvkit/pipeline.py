@@ -11,7 +11,6 @@ import os
 import re
 import shutil
 import sys
-import textwrap
 import traceback
 from collections import defaultdict
 from collections.abc import Collection
@@ -32,8 +31,10 @@ from lvkit.codegen.errors_module import (
     ERRORS_MODULE_SOURCE,
     LABVIEW_ERROR_NAME,
 )
+from lvkit.codegen.gaps import Gap
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
+from lvkit.codegen.stubs import stub_module
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -297,6 +298,20 @@ def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
         target.write_bytes(content)
 
 
+def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], root: Path | None) -> None:
+    """Print one warning line per gap of a VI that was written, and keep them."""
+    for gap in vi_gaps:
+        vi = gap.vi
+        if root is not None:
+            try:
+                vi = Path(vi).relative_to(root).as_posix()
+            except ValueError:
+                pass
+        where = f"{gap.node_name}: " if gap.node_name else ""
+        print(f"warning: {vi}: {where}{gap.reason}", file=sys.stderr)
+    all_gaps.extend(vi_gaps)
+
+
 def _generate_polymorphic_module(
     wrapper_name: str,
     variants: list[str],
@@ -306,12 +321,13 @@ def _generate_polymorphic_module(
     output_dir: Path,
     vi_paths: dict[str, Path],
     layout: ModuleLayout,
-    soft_unresolved: bool = False,
     data_files: dict[str, bytes] | None = None,
     package_modules: PackageModules | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
-    variants read at run time are added to ``data_files``."""
+    variants read at run time are added to ``data_files``, and the gaps found in
+    the variants to ``gaps``."""
     lines = [
         '"""Polymorphic VI module."""',
         "from __future__ import annotations",
@@ -340,64 +356,58 @@ def _generate_polymorphic_module(
         func_name = to_function_name(Path(variant_name).name)
         variant_funcs.append(func_name)
 
-        try:
-            import_resolver = create_import_resolver(
-                package_name,
-                output_dir,
-                vi_paths,
-                vi_paths[wrapper_name],
-                caller_key=graph.resolve_vi_name(variant_name),
-                graph=graph,
-                vilib_resolver=vilib_resolver,
-                package_modules=package_modules,
-                layout=layout,
-            )
-            code = build_module(
-                vi_context,
-                vi_name=variant_name,
-                import_resolver=import_resolver,
-                graph=graph,
-                soft_unresolved=soft_unresolved,
-                data_files=data_files,
-            )
-            # Take the function and result class; collect imports the body needs
-            # into the shared header rather than dropping them.
-            tree = ast.parse(code)
-            for node in tree.body:
-                if isinstance(node, ast.ClassDef):
-                    lines.append("")
-                    lines.append(ast.unparse(node))
-                    variant_result_classes.append(node.name)
-                elif isinstance(node, ast.FunctionDef):
-                    lines.append("")
-                    lines.append(ast.unparse(node))
-                elif isinstance(node, (ast.Import, ast.ImportFrom)):
-                    imp = ast.unparse(node)
-                    if imp not in _header:
-                        variant_imports.add(imp)
-                elif isinstance(node, ast.If):
-                    variant_annotation_imports.update(
-                        ast.unparse(stmt) for stmt in node.body
-                    )
-
-            # Collect inputs/outputs for union signature
-            for inp in vi_context.inputs:
-                idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
-                if idx not in all_inputs:
-                    all_inputs[idx] = inp
-            for out in vi_context.outputs:
-                idx = getattr(
-                    out,
-                    "slot_index",
-                    getattr(out, "index", len(all_outputs)),
+        import_resolver = create_import_resolver(
+            package_name,
+            output_dir,
+            vi_paths,
+            vi_paths[wrapper_name],
+            caller_key=graph.resolve_vi_name(variant_name),
+            graph=graph,
+            vilib_resolver=vilib_resolver,
+            package_modules=package_modules,
+            layout=layout,
+        )
+        code = build_module(
+            vi_context,
+            vi_name=variant_name,
+            import_resolver=import_resolver,
+            graph=graph,
+            data_files=data_files,
+            gaps=gaps,
+        )
+        # Take the function and result class; collect imports the body needs
+        # into the shared header rather than dropping them.
+        tree = ast.parse(code)
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                lines.append("")
+                lines.append(ast.unparse(node))
+                variant_result_classes.append(node.name)
+            elif isinstance(node, ast.FunctionDef):
+                lines.append("")
+                lines.append(ast.unparse(node))
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                imp = ast.unparse(node)
+                if imp not in _header:
+                    variant_imports.add(imp)
+            elif isinstance(node, ast.If):
+                variant_annotation_imports.update(
+                    ast.unparse(stmt) for stmt in node.body
                 )
-                if idx not in all_outputs:
-                    all_outputs[idx] = out
 
-        except Exception as e:  # noqa: BLE001 — per-variant; continue to next variant on failure
-            # Comment out all lines of the error message
-            error_msg = textwrap.indent(str(e), "# ")
-            lines.append(f"# ERROR generating {variant_name}:\n{error_msg}")
+        # Collect inputs/outputs for union signature
+        for inp in vi_context.inputs:
+            idx = getattr(inp, "slot_index", getattr(inp, "index", len(all_inputs)))
+            if idx not in all_inputs:
+                all_inputs[idx] = inp
+        for out in vi_context.outputs:
+            idx = getattr(
+                out,
+                "slot_index",
+                getattr(out, "index", len(all_outputs)),
+            )
+            if idx not in all_outputs:
+                all_outputs[idx] = out
 
     # A variant that calls a SIBLING variant emits an import for it as a
     # separate module — but siblings are DEFINED inline in this same module, and
@@ -505,7 +515,6 @@ def generate_python(
     output_dir: Path | str,
     search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
-    soft_unresolved: bool = False,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
 ) -> dict:
@@ -517,14 +526,12 @@ def generate_python(
         search_paths: Additional paths for SubVI resolution
         mode: dependency depth (``LoadMode``). Codegen defaults to ``FULL`` (the
             whole SubVI/class-method tree); ``NONE`` generates this VI only.
-        soft_unresolved: When True, unknown primitives / vi.lib VIs are
-            emitted as inline `raise` statements instead of failing the
-            build. See build_module() docstring for details.
         vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
         userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
 
     Returns:
-        Summary dict with keys: vilib, ast, stub, error counts
+        Summary dict with keys: vilib, ast, stub, error, failed counts and
+        ``gaps``, the list of ``Gap`` records (printed as warnings).
     """
     input_path = Path(input_path)
     output_dir_root = Path(output_dir)
@@ -650,6 +657,8 @@ def generate_python(
                 vi_paths[variant_name] = wrapper_path
 
     generated: list[tuple[str, Path | None, str]] = []
+    all_gaps: list[Gap] = []
+    gap_root = project_root(input_path)
 
     for i, vi_name in enumerate(order, 1):
         # Skip variants - they'll be generated with their wrapper
@@ -684,6 +693,7 @@ def generate_python(
 
         # Only create directory structure when we're actually going to write a file
         output_path = vi_paths[vi_name]
+        vi_gaps: list[Gap] = []
         _ensure_packages(output_path, output_dir_resolved)
 
         if has_vilib:
@@ -694,16 +704,11 @@ def generate_python(
             generated.append((vi_name, output_path, "vilib"))
 
         elif is_stub:
-            # Generate stub
-            func_name = to_function_name(vi_name)
-            code = f'''"""Stub: {vi_name}."""
-from __future__ import annotations
-from typing import Any
-
-def {func_name}(*args, **kwargs) -> Any:
-    raise NotImplementedError("{vi_name}")
-'''
+            # A stub: the VI was not found, which is a gap
+            code, stub_gap = stub_module(vi_name)
+            vi_gaps.append(stub_gap)
             output_path.write_text(code, encoding="utf-8")
+            _report_gaps(vi_gaps, all_gaps, gap_root)
             print(f"         -> stub: {output_path.name}")
             generated.append((vi_name, output_path, "stub"))
 
@@ -750,13 +755,14 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     layout,
-                    soft_unresolved=soft_unresolved,
                     data_files=data_files,
                     package_modules=package_modules,
+                    gaps=vi_gaps,
                 )
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code, encoding="utf-8")
                 _write_data_files(output_path.parent, data_files)
+                _report_gaps(vi_gaps, all_gaps, gap_root)
                 print(
                     f"         -> polymorphic: {output_path.name}"
                     f" ({len(variants)} variants)"
@@ -792,14 +798,15 @@ def {func_name}(*args, **kwargs) -> Any:
                     vi_name,
                     import_resolver=import_resolver,
                     graph=graph,
-                    soft_unresolved=soft_unresolved,
                     data_files=data_files,
+                    gaps=vi_gaps,
                 )
 
                 # Validate syntax
                 ast.parse(code)
                 output_path.write_text(code, encoding="utf-8")
                 _write_data_files(output_path.parent, data_files)
+                _report_gaps(vi_gaps, all_gaps, gap_root)
                 print(f"         -> AST: {output_path.name}")
                 generated.append((vi_name, output_path, "ast"))
 
@@ -826,6 +833,7 @@ def {func_name}(*args, **kwargs) -> Any:
             try:
                 _ensure_packages(wrapper_path, output_dir_resolved)
                 data_files: dict[str, bytes] = {}
+                wrapper_gaps: list[Gap] = []
                 code = _generate_polymorphic_module(
                     wrapper_name,
                     variants,
@@ -835,13 +843,14 @@ def {func_name}(*args, **kwargs) -> Any:
                     output_dir_resolved,
                     vi_paths,
                     layout,
-                    soft_unresolved=soft_unresolved,
                     data_files=data_files,
                     package_modules=package_modules,
+                    gaps=wrapper_gaps,
                 )
                 ast.parse(code)
                 wrapper_path.write_text(code, encoding="utf-8")
                 _write_data_files(wrapper_path.parent, data_files)
+                _report_gaps(wrapper_gaps, all_gaps, gap_root)
                 generated.append((wrapper_name, wrapper_path, "ast"))
             except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                 print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
@@ -877,18 +886,26 @@ def {func_name}(*args, **kwargs) -> Any:
             layout=layout,
         )
         builder = ClassBuilder(config=ClassConfig())
-        module = builder.build_class_module(
-            lvclass,
-            method_contexts,
-            import_resolver=import_resolver,
-            graph=graph,
-        )
-        ast.fix_missing_locations(module)
-        class_code = ast.unparse(module)
+        class_gaps: list[Gap] = []
+        try:
+            module = builder.build_class_module(
+                lvclass,
+                method_contexts,
+                import_resolver=import_resolver,
+                graph=graph,
+                gaps=class_gaps,
+            )
+            ast.fix_missing_locations(module)
+            class_code = ast.unparse(module)
 
-        # Write class file
-        class_path.write_text(class_code, encoding="utf-8")
-        print(f"\nGenerated class wrapper: {class_path.name}")
+            # Write class file
+            class_path.write_text(class_code, encoding="utf-8")
+            _report_gaps(class_gaps, all_gaps, gap_root)
+            print(f"\nGenerated class wrapper: {class_path.name}")
+        except Exception as e:  # noqa: BLE001 — a class wrapper that cannot be built stops only itself
+            print(f"\n  [class wrapper] FAILED for {lvclass.name}: {e}")
+            traceback.print_exc()
+            generated.append((lvclass.name, None, "failed"))
 
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
@@ -900,11 +917,14 @@ def {func_name}(*args, **kwargs) -> Any:
     ast_count = sum(1 for _, _, s in generated if s == "ast")
     stub_count = sum(1 for _, _, s in generated if s == "stub")
     error_count = sum(1 for _, _, s in generated if s == "error")
+    failed_count = sum(1 for _, _, s in generated if s == "failed")
 
     print(f"  vilib: {vilib_count}")
     print(f"  ast:   {ast_count}")
     print(f"  stub:  {stub_count}")
     print(f"  error: {error_count}")
+    print(f"  failed: {failed_count}")
+    print(f"  gaps:  {len(all_gaps)}")
 
     if error_count > 0:
         store = find_project_store()
@@ -931,6 +951,8 @@ def {func_name}(*args, **kwargs) -> Any:
         "ast": ast_count,
         "stub": stub_count,
         "error": error_count,
+        "failed": failed_count,
+        "gaps": all_gaps,
         "generated": generated,
         "output_dir": output_dir_resolved,
         "graph": graph,

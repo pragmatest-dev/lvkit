@@ -53,9 +53,7 @@ def _generate(vi: Path, tmp_path: Path) -> Path:
     """The package generated for ``vi`` and everything it depends on."""
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi}")
-    result = generate_python(
-        vi, tmp_path / "out", search_paths=[OPENG], soft_unresolved=True
-    )
+    result = generate_python(vi, tmp_path / "out", search_paths=[OPENG])
     return result["output_dir"]
 
 

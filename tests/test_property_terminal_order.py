@@ -10,6 +10,7 @@ import pytest
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.nodes import generate as generate_node
 from lvkit.codegen.nodes import property_node
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
@@ -290,11 +291,10 @@ def test_wired_reference_without_a_value_is_an_error():
         property_node.generate(node, ctx)
 
 
-def test_soft_mode_turns_an_undocumented_default_object_property_into_a_raise():
+def test_an_undocumented_default_object_property_becomes_a_raise():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
     node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=1)])]
-    ctx.soft_unresolved = True
-    fragment = property_node.generate(node, ctx)
+    fragment = generate_node(node, ctx)
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
@@ -304,3 +304,6 @@ def test_soft_mode_turns_an_undocumented_default_object_property_into_a_raise():
         'object has no Python equivalent")'
     )
     assert fragment.imports == set()
+    assert [g.reason for g in ctx.gaps] == [
+        "Property 'App.Kind' of the default App object has no Python equivalent"
+    ]

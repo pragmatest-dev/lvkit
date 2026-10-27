@@ -16,7 +16,6 @@ from ..fragment import CodeFragment
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
-    soft_default_object_error,
     unwired_ref_class,
 )
 
@@ -32,12 +31,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     default_class = unwired_ref_class(node, ctx)
     if default_class is not None:
-        error = DefaultObjectError(
+        raise DefaultObjectError(
             f"Invoke Node method '{method_name}' on the default {default_class} "
             "object has no Python equivalent",
             node,
         )
-        return soft_default_object_error(error, node, ctx)
     ref_var = resolve_ref_input(node, ctx)
     method_attr = to_var_name(method_name)
 

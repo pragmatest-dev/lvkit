@@ -41,6 +41,7 @@ from .ctypes_module import CtypesModule
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
+from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
 
 
@@ -84,20 +85,12 @@ class CodeGenContext:
     # the error cluster there reads the caught error. None outside a handler,
     # where an error cluster is the no-error one.
     error_var: str | None = None
-    # When True, unknown primitives / vi.lib VIs do NOT raise — instead
-    # the codegen emits a `raise PrimitiveResolutionNeeded(...)` /
-    # `raise VILibResolutionNeeded(...)` statement inline in the generated
-    # Python. The same exception class, same fields, just deferred to
-    # runtime. Lets a downstream LLM see the diagnostic with full context
-    # and either write a mapping into .lvkit/ or replace the raise with a
-    # contextual fix.
-    soft_unresolved: bool = False
-    # When set to a list, every resolution gap (unknown primitive / unmapped
-    # vi.lib VI) is APPENDED to it as the constructed exception object, instead
-    # of (or in addition to) raising. `lvkit unresolved` drives a soft build
-    # with a sink to batch-collect every gap in one pass. Shared across child
-    # contexts so a gap nested in a loop/case is still collected.
-    unresolved_sink: list[Exception] | None = field(default=None, repr=False)
+    # Every gap found while generating this module (see ``gaps.py``). Shared
+    # across child contexts, so a gap nested in a loop or case is still listed.
+    gaps: list[Gap] = field(default_factory=list, repr=False)
+    # The raises of what the function evaluates when it is entered and cannot
+    # be written (a constant with no value to write); the body starts with them.
+    entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
     # Files the generated module reads at run time (an array too large to write
     # into the module, a library of a Call Library Function Node), by path from
     # the module's folder; the caller writes each there.
@@ -478,8 +471,11 @@ class CodeGenContext:
             loop_depth=self.loop_depth + (1 if increment_loop_depth else 0),
             use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
-            soft_unresolved=self.soft_unresolved,
-            unresolved_sink=self.unresolved_sink,  # Shared — one sink per pass
+            gaps=self.gaps,  # Shared — one list per module
+            entry_raises=self.entry_raises,  # Shared — one list per function
+            data_files=self.data_files,  # Shared — one dict per module
+            module_stem=self.module_stem,
+            function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
@@ -687,6 +683,8 @@ class CodeGenContext:
         import_resolver: ImportResolver | None = None,
         data_files: dict[str, bytes] | None = None,
         module_stem: str = "",
+        vi_name: str | None = None,
+        gaps: list[Gap] | None = None,
     ) -> CodeGenContext:
         """Create context from VIContext.
 
@@ -705,6 +703,8 @@ class CodeGenContext:
             import_resolver=import_resolver,
             data_files=data_files,
             module_stem=module_stem,
+            vi_name=vi_name,
+            gaps=gaps if gaps is not None else [],
         )
 
         _bind_inputs_and_constants(ctx, parameters, vi_context.constants)
@@ -775,7 +775,10 @@ def _bind_inputs_and_constants(
                 ctx.array_vars[var] = lv_type.dimensions or 1
     for const in constants:
         if const.id:
-            bound = ctx.constant_expression(const)
+            with catch_entry_gap(ctx, const.label) as entry:
+                bound = ctx.constant_expression(const)
+            if entry.failed:
+                bound = "None"
             ctx.bind(const.id, bound)
             if _needs_simplenamespace(bound):
                 ctx.add_import(_SIMPLENAMESPACE_IMPORT)

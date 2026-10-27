@@ -13,7 +13,7 @@ from lvkit.parser.extfunc_prototype import ExtFuncCall
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .ext_func_marshal import default_value
-from .primitive import _emit_unknown
+from .primitive import raise_unknown
 
 
 def generate_manager_call(
@@ -23,14 +23,14 @@ def generate_manager_call(
     each output side bound to the variable the template assigns."""
     function = manager_functions().get(call.function)
     if function is None:
-        return _emit_unknown(
+        raise_unknown(
             node,
             None,
             ctx,
             reason=f"LabVIEW's function {call.function} has no Python equivalent",
         )
     if len(function.parameters) != len(call.row_terminal_ids) - 1:
-        return _emit_unknown(
+        raise_unknown(
             node,
             None,
             ctx,

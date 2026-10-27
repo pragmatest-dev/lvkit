@@ -39,3 +39,16 @@ class CtypesModule:
         self._declared[key] = name
         self.statements.extend(ast.parse(text).body)
         return name
+
+    def snapshot(self) -> tuple[int, dict[Hashable, str], set[str]]:
+        """What ``restore`` needs to take back every declaration made since."""
+        return len(self.statements), dict(self._declared), set(self._taken)
+
+    def restore(self, state: tuple[int, dict[Hashable, str], set[str]]) -> None:
+        """Drop the declarations made since ``snapshot`` returned ``state``."""
+        count, declared, taken = state
+        del self.statements[count:]
+        self._declared.clear()
+        self._declared.update(declared)
+        self._taken.clear()
+        self._taken.update(taken)

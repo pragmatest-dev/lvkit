@@ -21,7 +21,6 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_codes import describe_error_code
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
     CaseStructureNode,
@@ -1121,20 +1120,23 @@ def test_clear_errors_beside_a_merge_runs_its_branch_and_the_error_reaches_the_c
     assert step_d.calls == [5]
 
 
-def test_clear_errors_with_a_specific_code_is_not_generated_yet() -> None:
-    with pytest.raises(ConversionGap, match="specific error code"):
-        diagram(
-            [step("A", "Step A.vi"), _clear()],
-            [
-                ("x", "A_x"),
-                ("A_eout", "c_ein"),
-                ("seven", "c_code"),
-                ("c_eout", "eout"),
-            ],
-            inputs=[X_IN],
-            outputs=[ERR_OUT],
-            constants=[Constant(id="seven", value="7", lv_type=INT)],
-        )
+def test_clear_errors_with_a_specific_code_raises_where_it_would_run() -> None:
+    source = diagram(
+        [step("A", "Step A.vi"), _clear()],
+        [
+            ("x", "A_x"),
+            ("A_eout", "c_ein"),
+            ("seven", "c_code"),
+            ("c_eout", "eout"),
+        ],
+        inputs=[X_IN],
+        outputs=[ERR_OUT],
+        constants=[Constant(id="seven", value="7", lv_type=INT)],
+    )
+    assert (
+        "raise NotImplementedError("
+        "'Clear Errors with a specific error code is not generated yet')"
+    ) in source
 
 
 def test_unbundling_an_error_outside_a_handler_reads_the_no_error_cluster() -> None:

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 
+from .gaps import is_gap_raise
+
 
 class DeadCodeEliminator(ast.NodeTransformer):
     """Remove unused variable assignments from AST.
@@ -393,11 +395,12 @@ class DeadBranchEliminator(ast.NodeTransformer):
         return node
 
     def _truncate_after_raise(self, stmts: list[ast.stmt]) -> list[ast.stmt]:
-        """Remove statements after a raise in a block."""
+        """Remove statements after a raise in a block. The raise of a gap keeps what
+        follows it: the developer who replaces the raise needs the rest."""
         result = []
         for stmt in stmts:
             result.append(stmt)
-            if isinstance(stmt, ast.Raise):
+            if isinstance(stmt, ast.Raise) and not is_gap_raise(stmt):
                 break
         return result
 

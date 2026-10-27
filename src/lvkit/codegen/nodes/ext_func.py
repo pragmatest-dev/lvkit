@@ -43,7 +43,7 @@ from .ext_func_layout import Layout, c_type, parameter_layout
 from .ext_func_library import loader, static_name, wired_name
 from .ext_func_manager import generate_manager_call
 from .ext_func_marshal import Marshalled, default_value, marshal
-from .primitive import _emit_unknown
+from .primitive import raise_unknown
 
 _FLOAT_TYPES = ("float32", "float64")
 _FLOAT_WIRES = ("NumFloat32", "NumFloat64")
@@ -106,17 +106,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Lower a Call Library Function Node to ``ctypes`` code."""
     call = node.ext_func
     if call is None:
-        return _emit_unknown(node, None, ctx)
+        raise_unknown(node, None, ctx)
     if call.library == LABVIEW_LIBRARY:
         return generate_manager_call(node, call, ctx)
     rows, reason = _rows(node, call)
     if reason is not None:
-        return _emit_unknown(node, None, ctx, reason=reason)
+        raise_unknown(node, None, ctx, reason=reason)
 
     path_id = call.path_in_terminal_id
     path_var = ctx.resolve(path_id) if path_id else None
     if not path_var and not call.library:
-        return _emit_unknown(
+        raise_unknown(
             node, None, ctx, reason="it records no library and its path in is unwired"
         )
 

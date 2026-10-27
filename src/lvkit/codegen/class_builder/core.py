@@ -10,6 +10,7 @@ from lvkit.structure import LVClass, LVMethod
 
 from ..ast_optimizer import optimize_module
 from ..ast_utils import build_type_checking_block, to_var_name
+from ..gaps import Gap
 from ..import_resolver import ImportResolver
 from ._shared import _EMPTY_VI_CONTEXT
 from .config import ClassConfig
@@ -53,6 +54,7 @@ class ClassBuilder(
         parent_class_name: str | None = None,
         import_resolver: ImportResolver | None = None,
         graph: InMemoryVIGraph | None = None,
+        gaps: list[Gap] | None = None,
     ) -> ast.Module:
         """Build complete module with class definition.
 
@@ -61,6 +63,7 @@ class ClassBuilder(
             method_contexts: Dict mapping method name to VI context
             parent_class_name: Parent class name (overrides lvclass.parent_class)
             import_resolver: Callable to resolve import paths for SubVIs
+            gaps: Receives the gaps found in the methods
 
         Returns:
             AST Module with imports and class definition
@@ -68,6 +71,7 @@ class ClassBuilder(
         self._method_contexts = method_contexts or {}
         self._import_resolver = import_resolver
         self._graph = graph
+        self._gaps: list[Gap] = gaps if gaps is not None else []
         self._collected_imports: set[str] = set()
         self._collected_annotation_imports: set[str] = set()
         parent = parent_class_name or lvclass.parent_class

@@ -26,7 +26,6 @@ from lvkit.graph import load_vi_by_path
 from lvkit.load_mode import LoadMode
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from lvkit.parser.extfunc_prototype import ExtFuncParam, ParamKind
-from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from tests.ext_func_vi import build_vi, lv_type
 
 _C_LIBRARY = ctypes.util.find_library("c") or (
@@ -301,16 +300,14 @@ def test_parameter_layout_of_every_wire_type() -> None:
     assert none is None and "padding" in why
 
 
-def test_labview_library_function_the_table_lacks_fails_loudly() -> None:
-    with pytest.raises(PrimitiveResolutionNeeded) as raised:
-        build_vi(
-            "LabVIEW",
-            "FNoSuchFunction",
-            [_NUMBER],
-            ["NumInt32"],
-            controls={},
-            indicators={0: "error"},
-        )
-    assert "LabVIEW's function FNoSuchFunction has no Python equivalent" in str(
-        raised.value
+def test_labview_library_function_the_table_lacks_raises_where_it_runs() -> None:
+    _, source = build_vi(
+        "LabVIEW",
+        "FNoSuchFunction",
+        [_NUMBER],
+        ["NumInt32"],
+        controls={},
+        indicators={0: "error"},
     )
+    assert ("LabVIEW's function FNoSuchFunction has no Python equivalent") in source
+    assert "raise NotImplementedError(" in source

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import inspect
 import os
 import shutil
 import subprocess
@@ -362,17 +363,30 @@ def test_a_library_sits_in_the_package_folder_of_the_modules_beside_it(
     assert list(pair) == [4, 3]
 
 
-def test_a_project_library_that_is_not_on_disk_stops_generation(
-    project: Project,
+def test_a_project_library_that_is_not_on_disk_is_a_gap(
+    project: Project, capsys: pytest.CaptureFixture[str]
 ) -> None:
     vi = project.write_vi("vendorlib.*", ["", "..", "libs", "vendorlib.dll"], "swap")
     out = project.generate(vi)
-    (error,) = out.rglob("*.error.py")
-    message = error.read_text()
-    assert "Clfn_BDHb.xml" in message
-    assert "'swap'" in message
-    assert "'vendorlib.*' at the path '../libs/vendorlib.dll'" in message
-    assert "no file vendorlib.dll or vendorlib.so or vendorlib.framework" in message
+    assert not list(out.rglob("*.error.py"))
+    source = (out / "vis/sub/clfn_bdhbxml.py").read_text()
+    reason = "no file vendorlib.dll or vendorlib.so or vendorlib.framework is in"
+    assert reason in source
+    assert "raise NotImplementedError(" in source
+    # The gap leaves no library load or prototype behind.
+    assert "CDLL" not in source and "argtypes" not in source
+    (gap,) = project.result["gaps"]
+    assert gap.kind == "unsupported_node"
+    assert "'vendorlib.*' at the path '../libs/vendorlib.dll'" in gap.reason
+    assert capsys.readouterr().err.startswith("warning: ")
+    module = _import(out)
+    (function,) = [
+        f
+        for f in vars(module).values()
+        if inspect.isfunction(f) and f.__module__ == module.__name__
+    ]
+    with pytest.raises(NotImplementedError, match="vendorlib.dll or vendorlib.so"):
+        function()
 
 
 def test_a_library_outside_the_project_is_loaded_by_name(project: Project) -> None:

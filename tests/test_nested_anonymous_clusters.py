@@ -223,9 +223,10 @@ def test_bundle_preserves_input(shape, indices, replacements, expected):
 
 
 @pytest.mark.parametrize("index", [None, -1, 99])
-def test_missing_or_invalid_field_indices_fail(index):
-    with pytest.raises(TypeResolutionNeeded, match="positional field"):
-        generated_unbundle("trailing", index)
+def test_missing_or_invalid_field_indices_raise_where_they_run(index):
+    function = generated_unbundle("trailing", index)
+    with pytest.raises(NotImplementedError, match="positional field"):
+        function(example("trailing").value)
 
 
 @pytest.mark.parametrize("operation", ["read", "write"])

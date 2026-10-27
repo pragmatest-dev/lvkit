@@ -441,23 +441,6 @@ def main() -> int:
             "project store."
         ),
     )
-    # User-facing name is --placeholder-on-unresolved (descriptive of the
-    # output the user sees in their generated Python). Internally this
-    # flows to CodeGenContext.soft_unresolved (the codegen-time mode).
-    gen_parser.add_argument(
-        "--placeholder-on-unresolved",
-        action="store_true",
-        help=(
-            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
-            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
-            "VILibResolutionNeeded(...)` in the generated Python so the "
-            "build succeeds and unresolved calls are visible at runtime. "
-            "A property or method of a default object with no Python "
-            "equivalent becomes `raise NotImplementedError(...)`. (A "
-            "primitive entered as a placeholder always becomes `raise "
-            "NotImplementedError(...)`, with or without this flag.)"
-        ),
-    )
     _add_project_root_arg(gen_parser)
     _add_load_mode_arg(gen_parser)
     _add_library_root_args(gen_parser)
@@ -1844,6 +1827,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
 def cmd_generate(args: argparse.Namespace) -> int:
     """Handle the generate command - AST-based Python generation."""
+    from .module_layout import ModuleCollisionError
     from .pipeline import generate_python
 
     input_path = Path(args.input_path)
@@ -1862,12 +1846,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
             args.output,
             search_paths=sp,
             mode=_resolve_load_mode(args, LoadMode.FULL),
-            soft_unresolved=args.placeholder_on_unresolved,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-        return 1 if result["error"] > 0 else 0
+        return 1 if result["error"] > 0 or result["failed"] > 0 else 0
 
+    except ModuleCollisionError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
         print(f"Error: {e}", file=sys.stderr)
         traceback.print_exc()
@@ -1878,6 +1864,7 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     """Handle the unresolved command — batch-list every resolution gap."""
     import json
 
+    from .module_layout import ModuleCollisionError
     from .unresolved import collect_unresolved, format_unresolved_report
 
     input_path = Path(args.input_path)
@@ -1897,7 +1884,13 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-    except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
+    except (
+        ValueError,
+        FileNotFoundError,
+        KeyError,
+        NotImplementedError,
+        ModuleCollisionError,
+    ) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 

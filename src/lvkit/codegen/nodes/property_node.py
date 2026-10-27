@@ -18,7 +18,6 @@ from . import vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
-    soft_default_object_error,
     unwired_ref_class,
 )
 
@@ -86,16 +85,6 @@ def _default_object_read(
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """The node's ordered attribute accesses (see ``_generate``); a property of a
-    default object with no Python value stops generation, or, with
-    ``soft_unresolved``, becomes a ``raise``."""
-    try:
-        return _generate(node, ctx)
-    except DefaultObjectError as exc:
-        return soft_default_object_error(exc, node, ctx)
-
-
-def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
     The caller supplies an object implementing the named Python attributes; a

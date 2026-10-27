@@ -12,9 +12,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import pytest
-
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.gaps import Gap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.lvnet_parse import parse_lvnet
@@ -30,7 +29,6 @@ from lvkit.parser.extfunc_prototype import (
     ParamKind,
     array_handle_problem,
 )
-from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 from lvkit.unresolved import UnresolvedItem, _item_key, format_unresolved_report
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -261,9 +259,15 @@ def test_lvnet_verbose(tmp_path: Path) -> None:
 
 def test_generate_names_the_node(tmp_path: Path) -> None:
     graph, vi_name = _load(tmp_path)
-    with pytest.raises(PrimitiveResolutionNeeded) as raised:
-        build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
-    assert str(raised.value) == (
+    gaps: list[Gap] = []
+    source = build_module(
+        graph.get_vi_context(vi_name), vi_name, graph=graph, gaps=gaps
+    )
+    (gap,) = gaps
+    assert "raise NotImplementedError('Call Library Function Node lib.dll:DoWork" in (
+        source
+    )
+    assert gap.detail == (
         "Call Library Function Node lib.dll:DoWork has no code generation yet: "
         "parameter 1 is a LabVIEW array handle of float64 elements (NI does not say how"
         " many bytes of padding precede its data).\n"
@@ -317,24 +321,19 @@ def test_bare_dco_reference_of_a_bundle_stays_an_input(tmp_path: Path) -> None:
 
 def test_unresolved_report_names_the_node(tmp_path: Path) -> None:
     graph, vi_name = _load(tmp_path)
-    sink: list[Exception] = []
-    build_module(
-        graph.get_vi_context(vi_name),
-        vi_name,
-        graph=graph,
-        soft_unresolved=True,
-        unresolved_sink=sink,
-    )
-    kind, identifier, name = _item_key(sink[0])
+    gaps: list[Gap] = []
+    build_module(graph.get_vi_context(vi_name), vi_name, graph=graph, gaps=gaps)
+    kind, identifier, name = _item_key(gaps[0])
     report = format_unresolved_report(
         [UnresolvedItem(kind, identifier, name, ["Clfn.vi"], 1)], "Clfn.vi"
     )
     assert report == (
-        "# Unresolved dependencies in Clfn.vi\n\n"
+        "# Gaps in Clfn.vi\n\n"
         "1 distinct gap(s): 0 unknown primitive(s), 0 placeholder primitive(s), "
-        "1 node(s) with no code generation, 0 unmapped vi.lib VI(s), "
-        "0 terminal-mapping gap(s).\n\n"
-        "## Nodes with no code generation yet\n"
+        "1 node(s) that cannot be converted, 0 unmapped vi.lib VI(s), "
+        "0 terminal-mapping gap(s), 0 VI(s) or module(s) that cannot be converted."
+        "\n\n"
+        "## Nodes that cannot be converted\n"
         "- Call Library Function Node lib.dll:DoWork — 1x in 1 VI(s)\n"
         "    · Clfn.vi"
     )

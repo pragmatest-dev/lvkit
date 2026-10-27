@@ -32,7 +32,9 @@ class PrimitiveResolutionNeeded(ConversionGap):
         qualified_vi_name: str | None = None,
         node_kind: str | None = None,
         reason: str | None = None,
+        placeholder: bool = False,
     ):
+        self.placeholder = placeholder
         self.prim_id = "" if prim_id is None else str(prim_id)
         self.node_kind = node_kind
         self.reason = reason
@@ -47,6 +49,8 @@ class PrimitiveResolutionNeeded(ConversionGap):
         super().__init__(self._format_message())
 
     def summary(self) -> str:
+        if self.placeholder:
+            return f"{self.prim_name} is not converted yet"
         if self.prim_id:
             return f"primitive {self.prim_id} ({self.prim_name}) is not known"
         because = f": {self.reason}" if self.reason else ""

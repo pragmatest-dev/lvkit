@@ -8,25 +8,11 @@ from lvkit.models import Terminal
 
 from ..context import CodeGenContext
 from ..errors import CodeGenError
-from ..fragment import CodeFragment
-from ..unresolved import emit_soft_unresolved
 
 
 class DefaultObjectError(ConversionGap):
     """A Property or Invoke Node acts on the default object of a VI Server class
     in a way that has no Python equivalent."""
-
-
-def soft_default_object_error(
-    exc: DefaultObjectError, node: AnyGraphNode, ctx: CodeGenContext
-) -> CodeFragment:
-    """With ``soft_unresolved``, the node becomes a ``raise NotImplementedError``
-    with its outputs bound to ``None``; otherwise the error stops generation."""
-    if not ctx.soft_unresolved:
-        raise exc
-    return emit_soft_unresolved(
-        node, ctx, "builtins", "NotImplementedError", positional_args=[str(exc)]
-    )
 
 
 def _ref_terminal(node: AnyGraphNode) -> Terminal | None:

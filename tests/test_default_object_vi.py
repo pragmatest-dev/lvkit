@@ -7,10 +7,7 @@ import getpass
 import sys
 from pathlib import Path
 
-import pytest
-
 from lvkit.codegen.builder import build_module
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
 from lvkit.models import (
     FPTerminal,
@@ -118,7 +115,7 @@ def test_callees_names_list_the_called_functions(tmp_path: Path) -> None:
     assert "[callee.__name__ for callee in (helper,)]" in source
 
 
-def test_properties_with_no_python_meaning_stop_generation() -> None:
+def test_properties_with_no_python_meaning_raise_where_they_run() -> None:
     for class_name, name in (
         ("App", "App.Version"),
         ("App", "App.Kind"),
@@ -126,5 +123,8 @@ def test_properties_with_no_python_meaning_stop_generation() -> None:
         ("App", "Disp.AllMonitors"),
         ("VI", "IsInPackedLibrary"),
     ):
-        with pytest.raises(ConversionGap, match=f"'{name}' of the default"):
-            _vi(class_name, name)
+        source = _vi(class_name, name)
+        assert (
+            f"raise NotImplementedError(\"Property '{name}' of the default "
+            f'{class_name} object has no Python equivalent")'
+        ) in source

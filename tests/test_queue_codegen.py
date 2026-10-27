@@ -19,7 +19,6 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import queue_ops
 from lvkit.codegen.package_modules import PackageModules
-from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
@@ -401,14 +400,17 @@ def test_preview_waits_for_an_element_until_its_timeout() -> None:
 
 
 def test_queue_name_and_waiting_counts_have_no_equivalent() -> None:
+    """Get Queue Status raises where it would run when a used output has no
+    queue.Queue counterpart."""
     for role in ("name", "pending_remove", "pending_insert"):
         vi = Vi()
         vi.add("obtain", "o")
         vi.add("status", "s")
         vi.wires.append(wire("o:queue_out", "s:queue"))
         vi.indicator("value", f"s:{role}", TEXT if role == "name" else INT)
-        with pytest.raises(ConversionGap, match="Get Queue Status uses its"):
-            vi.source()
+        source = vi.source()
+        assert "raise NotImplementedError(" in source
+        assert "Get Queue Status uses its" in source
 
 
 def package(tmp_path: Path, vis: dict[str, Vi], reverse: bool = False) -> Path:
@@ -511,15 +513,16 @@ def test_names_that_make_one_attribute_get_distinct_attributes_in_sorted_order(
     assert reversed_modules.queues.attributes == modules.queues.attributes
 
 
-def test_a_named_queue_with_two_sizes_stops_generation_of_its_nodes() -> None:
+def test_a_named_queue_with_two_sizes_is_a_gap_in_its_nodes() -> None:
     a = obtain_named("Work Items", "A.vi", 0)
     b = obtain_named("Work Items", "B.vi", 5)
     graph, modules = package_of([a, b])
     resolver = create_import_resolver(
         "pkg", Path("/x"), {}, Path("/x/a.py"), package_modules=modules
     )
-    with pytest.raises(ConversionGap, match="Work Items"):
-        a.source(resolver, graph)
+    source = a.source(resolver, graph)
+    assert "raise NotImplementedError(" in source
+    assert "Work Items" in source
 
 
 def test_the_shared_modules_do_not_depend_on_the_order_of_the_vis(

@@ -45,7 +45,15 @@ class _PropertyBuilderMixin:
             # No VI context - assume simple accessor
             return True
 
-        operations = self._graph.top_level_nodes(vi_context.name) if self._graph else []
+        operations = (
+            self._graph.top_level_nodes(
+                self._graph.resolve_vi_name(
+                    vi_context.qualified_name or vi_context.name
+                )
+            )
+            if self._graph
+            else []
+        )
         if not operations:
             # No operations - simple accessor
             return True

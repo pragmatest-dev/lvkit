@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import NoReturn
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
@@ -28,7 +29,6 @@ from ..context import CodeGenContext
 from ..error_path import ERROR_WIRE_VI_NAMES
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..unresolved import emit_soft_unresolved
 from . import error_vi
 
 
@@ -36,7 +36,9 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a SubVI call."""
     subvi_name = node.name or ""
     if not subvi_name:
-        return CodeFragment.empty()
+        raise ConversionGap(
+            "A VI node has no name, so the VI it calls is unknown", node
+        )
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
@@ -53,7 +55,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         vilib_vi = _resolve_poly_variant(subvi_name, node)
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
-            return _emit_vilib_resolution(node, ctx, vilib_vi=None)
+            _raise_vilib_resolution(node, ctx, vilib_vi=None)
 
     else:
         vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
@@ -193,7 +195,7 @@ def _generate_inline(
         if m not in set(vilib_outputs.values())
     }
     if unresolved_inputs:
-        return _emit_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
+        _raise_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
     ref_passthrough: dict[str, str] = {}
@@ -705,58 +707,14 @@ def _is_class_terminal(term: Terminal) -> bool:
     return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
 
 
-def _emit_vilib_resolution(
+def _raise_vilib_resolution(
     node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
-) -> CodeFragment:
-    """Handle an unknown / unresolvable vi.lib SubVI call.
-
-    Default mode: raise VILibResolutionNeeded immediately so the
-    conversion loop catches it.
-
-    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
-    VILibResolutionNeeded(...)` AST statement with the same context.
-    Pre-binds output terminals to None so downstream codegen still has
-    a value to read.
-    """
+) -> NoReturn:
+    """An unknown or unresolvable vi.lib SubVI call is a gap."""
     context = _build_resolution_context(node, ctx, vilib_vi)
-    vi_name = node.name or ""
-
-    if ctx.unresolved_sink is not None:
-        # Batch-collection mode (`lvkit unresolved`): record and keep going.
-        ctx.unresolved_sink.append(VILibResolutionNeeded(vi_name, context=context))
-
-    if not ctx.soft_unresolved:
-        raise VILibResolutionNeeded(vi_name, context=context)
-
-    # Soft mode: emit
-    #   raise VILibResolutionNeeded(<vi_name>,
-    #       context=ResolutionContext(...))
-    # vi_name is a literal positional. The ResolutionContext is a
-    # dataclass call — not a literal — so it goes through source_kwargs
-    # as a pre-formatted Python expression.
-    ctx_kwarg_src = ", ".join(
-        f"{k}={v!r}"
-        for k, v in {
-            "caller_vi": context.caller_vi,
-            "caller_qualified_name": context.caller_qualified_name,
-            "poly_selector": context.poly_selector,
-            "wire_types": context.wire_types,
-            "terminal_names": context.terminal_names,
-            "qualified_path": context.qualified_path,
-        }.items()
-    )
-
-    return emit_soft_unresolved(
-        node=node,
-        ctx=ctx,
-        exception_module="lvkit.vilib_resolver",
-        exception_class="VILibResolutionNeeded",
-        positional_args=[vi_name],
-        source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
-        extra_imports={"from lvkit.vilib_resolver import ResolutionContext"},
-    )
+    raise VILibResolutionNeeded(node.name or "", context=context)
 
 
 def _build_resolution_context(
