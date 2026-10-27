@@ -136,6 +136,9 @@ class VINode(GraphNode):
     # On a polymorphic call node, the identity of the variant the call resolves
     # to (same form as ``callee_key``); None on every other node.
     variant_key: str | None = None
+    # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
+    # the node calls the VI its reference holds. None on every other node.
+    call_save_style: int | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the

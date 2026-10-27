@@ -140,6 +140,8 @@ from lvkit.text_encoding import decode_labview_text
 from .utils import clean_labview_string
 
 _IUVI_IDENT = b"IUVI"
+_SVVI_IDENT = b"SVVI"
+_SCVI_IDENT = b"SCVI"
 _DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
@@ -182,6 +184,16 @@ class LinkTableVersion:
             bugfix=int(version.get("Bugfix", "0")),
             stage=stage,
         )
+
+    @classmethod
+    def of_vi(cls, main_root: ET.Element) -> LinkTableVersion | None:
+        """The version a VI was saved in: its save record's (``LVSR``), else its
+        version block's (``vers``) when pylabview left the save record raw, as it
+        does for LabVIEW 8.2 files. None when the VI records neither."""
+        element = main_root.find(".//LVSR/Section/Version")
+        if element is None:
+            element = main_root.find(".//vers/Section/Version")
+        return cls.from_lvsr(element) if element is not None else None
 
     def at_least(self, major: int, minor: int, bugfix: int, stage: int) -> bool:
         return self >= LinkTableVersion(major, minor, bugfix, stage)
@@ -434,6 +446,8 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
 def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     """The head of a heap-to-VI link record, read from just after its ident."""
     head = _read_basic_head(r, version)
+    if not version.at_least(8, 5, 0, 1):
+        r.u32()  # held by every heap-to-VI record of the 29 LabVIEW 8.2 files
     r.variable_size_u2p2()  # type id of the link's client type
 
     flag_byte = 0xFF
@@ -710,19 +724,30 @@ def read_dyn_links(
 
 
 def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
-    """Every ``IUVI`` record in a ``_LIbd.bin`` sidecar, in file order.
+    """Every ``IUVI``, ``SVVI`` and ``SCVI`` record in a ``_LIbd.bin`` sidecar, in
+    file order. An ``SVVI`` record is how a Static VI Reference names the VI it
+    refers to, an ``SCVI`` record how a Call By Reference or Start Asynchronous
+    Call node whose VI is chosen in the node's setup names it; both have the
+    layout of an ``IUVI`` record and list the uid of every such node.
 
-    Raises ``LinkTableError`` when the table holds an ``IUVI`` record but the
-    saving VI predates the oldest layout read here, or a record does not follow
-    the layout -- an unreadable record is never skipped.
+    Raises ``LinkTableError`` when the table holds such a record but the saving VI
+    predates the oldest layout read here, or a record does not follow the layout
+    -- an unreadable record is never skipped.
     """
+    starts = sorted(
+        (start, ident)
+        for ident in (_IUVI_IDENT, _SVVI_IDENT, _SCVI_IDENT)
+        for start in _record_starts(data, ident)
+    )
     records: list[IUseLink] = []
-    for start in _record_starts(data, _IUVI_IDENT):
+    for start, ident in starts:
         _require_supported(version)
         try:
             records.append(_decode_record(data, start, version))
         except LinkTableError as exc:
-            raise LinkTableError(f"IUVI record at offset {start}: {exc}") from exc
+            raise LinkTableError(
+                f"{ident.decode()} record at offset {start}: {exc}"
+            ) from exc
     return records
 
 

@@ -505,6 +505,11 @@ def topological_sort_tiered(
                 if not source:
                     break
                 src_term = source.src_terminal
+                # The VI's own control is where a value starts: a wire that
+                # also reaches the control (a local variable write) is not a
+                # dependency of the nodes reading it.
+                if source.src_parent_id == ctx.vi_name:
+                    break
                 if src_term in output_to_op:
                     dep_op_id = output_to_op[src_term]
                     if dep_op_id != op.id and dep_op_id in dependencies:

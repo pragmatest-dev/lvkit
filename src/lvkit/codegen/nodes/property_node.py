@@ -13,6 +13,7 @@ from ..context import CodeGenContext
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from . import vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -147,10 +148,14 @@ def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
+            reflected = vi_reference.vi_property_read(node, prop, ref_var)
+            if reflected is not None:
+                imports.add("import inspect")
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=_attribute_chain(ref_var, segment_names, ast.Load()),
+                    value=reflected
+                    or _attribute_chain(ref_var, segment_names, ast.Load()),
                 )
             )
             bindings[term.id] = var_name

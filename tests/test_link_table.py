@@ -30,6 +30,8 @@ LV_ICON = SAMPLES / "ni-labview-icon-editor/resource/plugins/lv_icon.vi"
 V20 = LinkTableVersion(20, 0, 0, 4)
 V12 = LinkTableVersion(12, 0, 0, 4)
 V86 = LinkTableVersion(8, 6, 0, 4)
+V85 = LinkTableVersion(8, 5, 0, 4)
+V82 = LinkTableVersion(8, 2, 0, 4)
 
 
 def _pth0(tokens: list[bytes], tpval: int = 1) -> bytes:
@@ -47,12 +49,13 @@ def build_iuvi_record(
     node_uids: list[int],
     link_flag: int = 0,
     version: LinkTableVersion = V20,
+    ident: bytes = b"IUVI",
 ) -> bytes:
     """One ``IUVI`` record laid out as pylabview writes it, placed at absolute
     ``offset`` in the sidecar (the alignment steps count from the sidecar's
     start). Returns the bytes from the ``00 02`` item marker through the
     record's end."""
-    buf = bytearray(b"\x00\x02IUVI")
+    buf = bytearray(b"\x00\x02" + ident)
 
     def pad(boundary: int) -> None:
         while (offset + len(buf)) % boundary:
@@ -68,6 +71,8 @@ def build_iuvi_record(
         buf += struct.pack(">I", link_flag)
     elif version.at_least(8, 5, 0, 1):
         buf += bytes([link_flag])
+    if not version.at_least(8, 5, 0, 1):
+        buf += struct.pack(">I", 0)  # held by heap-to-VI records before 8.5
     buf += struct.pack(">H", 0)  # type id
     if version.at_least(14, 0, 0, 3):
         buf += bytes([0x42])
@@ -166,7 +171,44 @@ def test_decodes_a_one_part_name_with_every_uid() -> None:
     ]
 
 
-@pytest.mark.parametrize("version", [V20, V12, V86])
+def test_a_static_vi_reference_record_lists_the_reference_uid() -> None:
+    """An ``SVVI`` record is how a Static VI Reference names its VI; it has an
+    ``IUVI`` record's layout."""
+    data = b"\x00\x01BDHP" + build_iuvi_record(
+        offset=6,
+        name_parts=[b"SSR_Write.vi"],
+        path_tokens=[b"", b"utils", b"SSR_Write.vi"],
+        node_uids=[944],
+        link_flag=2,
+        ident=b"SVVI",
+    )
+    assert decode_iuse_links(data, V20) == [
+        IUseLink(
+            name_parts=("SSR_Write.vi",),
+            path_tokens=("", "utils", "SSR_Write.vi"),
+            link_flag=2,
+            node_uids=(944,),
+        )
+    ]
+
+
+def test_a_call_by_reference_setup_record_lists_the_node_uid() -> None:
+    """An ``SCVI`` record names the VI a Call By Reference or Start Asynchronous
+    Call node has chosen in its setup; it has an ``IUVI`` record's layout."""
+    data = b"\x00\x01BDHP" + build_iuvi_record(
+        offset=6,
+        name_parts=[b"niScope Close.vi"],
+        path_tokens=[b"<instrlib>", b"niScope", b"niScope Close.vi"],
+        node_uids=[121],
+        ident=b"SCVI",
+    )
+    (link,) = decode_iuse_links(data, V20)
+    assert link.name_parts == ("niScope Close.vi",)
+    assert link.path_tokens == ("<instrlib>", "niScope", "niScope Close.vi")
+    assert link.node_uids == (121,)
+
+
+@pytest.mark.parametrize("version", [V20, V12, V86, V85, V82])
 @pytest.mark.parametrize("lead", [0, 1, 2, 3])
 def test_follows_alignment_and_version_layout(
     version: LinkTableVersion, lead: int
@@ -658,3 +700,17 @@ def test_dyn_link_reads_the_method_class_path_and_call_uids(
 def test_dyn_link_with_the_wrong_version_size_is_an_error() -> None:
     with pytest.raises(LinkTableError):
         decode_dyn_links(_dyn_record(8, [365]), LinkTableVersion(17, 0, 0, 4))
+
+
+def test_the_saved_version_comes_from_the_save_record_else_the_version_block() -> None:
+    release = 'Major="8" Minor="2" Bugfix="0" Stage="release" Build="0"'
+    save_record = ET.fromstring(
+        f"<VI><LVSR><Section><Version {release} /></Section></LVSR></VI>"
+    )
+    version_block = ET.fromstring(
+        f'<VI><LVSR><Section Format="bin" /></LVSR>'
+        f"<vers><Section><Version {release} /></Section></vers></VI>"
+    )
+    assert LinkTableVersion.of_vi(save_record) == V82
+    assert LinkTableVersion.of_vi(version_block) == V82
+    assert LinkTableVersion.of_vi(ET.fromstring("<VI />")) is None

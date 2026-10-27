@@ -49,6 +49,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         user_event_name=lv_type.user_event_name,
         dotnet_type=lv_type.dotnet_type,
         unreadable=lv_type.unreadable,
+        pane=lv_type.pane,
     )
 
 

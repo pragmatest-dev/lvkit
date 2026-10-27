@@ -110,10 +110,12 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
     [callee] = tmp_path.rglob("create_annotations.py")
     lines = caller.read_text(encoding="utf-8").splitlines()
-    assert (
-        "from ..ni_session_management_v1_clientlvlib.create_annotations "
-        "import create_annotations"
-    ) in lines
+    [call_import] = [ln for ln in lines if " import create_annotations" in ln]
+    assert call_import.startswith("from .")
+    assert call_import.endswith(
+        ".clients.session_management_v1.session_reservation.create_annotations"
+        " import create_annotations"
+    )
     assert (
         "    create_annotations_result = create_annotations("
         "annotation_typedef=SimpleNamespace(key='', value=''), "

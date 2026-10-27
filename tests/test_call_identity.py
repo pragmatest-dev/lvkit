@@ -255,6 +255,31 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
             )
         ],
     )
+    # A static VI reference recorded only by its BDHP link (a bare label), and a
+    # Call By Reference whose VI is chosen in the node's setup (an SCVI record).
+    built.vi(
+        "Lib/bare_ref_holder.vi",
+        "Lib.lvlib:bare_ref_holder.vi",
+        ["Lib.lvlib"],
+        [
+            _Call(
+                node_class="statVIRef",
+                label="target.vi",
+                records=[("SVVI", ["target.vi"], ["", "target.vi"], 2)],
+            )
+        ],
+    )
+    built.vi(
+        "Lib/setup_caller.vi",
+        "Lib.lvlib:setup_caller.vi",
+        ["Lib.lvlib"],
+        [
+            _Call(
+                node_class="callByRefNode",
+                records=[("SCVI", ["target.vi"], ["", "target.vi"], 2)],
+            )
+        ],
+    )
     # A recursive call: a record that names no VI and has no path.
     built.vi("recur.vi", "recur.vi", [], [_Call(records=[("IUVI", [], [], 1)])])
     # A polymorphic call: the polymorphic VI and the variant it resolves to.
@@ -423,6 +448,23 @@ def test_a_static_vi_reference_names_the_vi_its_caller_records(tree: _Tree) -> N
     assert ref.referenced_vi_key == _key(tree, "Lib/target.vi")
 
 
+def test_a_static_vi_reference_recorded_by_its_diagram_link_names_its_vi(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "Lib/bare_ref_holder.vi")
+    (ref,) = [n for n in graph.iter_nodes(key) if isinstance(n, ConstantNode)]
+    assert ref.referenced_vi_key == _key(tree, "Lib/target.vi")
+
+
+def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_names_that_vi(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "Lib/setup_caller.vi")
+    call = _call(graph, key)
+    assert call.callee_key == _key(tree, "Lib/target.vi")
+    assert call.qualified_name == "Lib.lvlib:target.vi"
+
+
 def test_a_recursive_call_names_its_own_vi(tree: _Tree) -> None:
     graph, key = _load(tree, "recur.vi")
     call = _call(graph, key)
@@ -500,6 +542,31 @@ def _generate(tree: _Tree, tmp_path: Path, caller: str) -> Path:
     return out / caller
 
 
+def test_the_layout_does_not_depend_on_the_search_paths(
+    tree: _Tree, tmp_path: Path
+) -> None:
+    """A VI and the project VIs it calls land in the same modules whatever extra
+    search paths are given."""
+    layouts = []
+    for index, search_paths in enumerate(
+        ([tree.root], [tree.root, tree.root / "Util", tree.root / "twins"])
+    ):
+        result = generate_python(
+            tree.root / "caller_case.vi",
+            tmp_path / f"gen{index}",
+            search_paths=search_paths,
+        )
+        layouts.append(
+            {
+                Path(key).name: path.relative_to(result["output_dir"])
+                for key, path in result["vi_paths"].items()
+            }
+        )
+    assert layouts[0] == layouts[1]
+    assert layouts[0]["skip.vi"] == Path("testcase/skip.py")
+    assert layouts[0]["caller_case.vi"] == Path("caller_case.py")
+
+
 def _run(package_dir: Path, module: str) -> types.ModuleType:
     """Import a generated module as part of its package, with its siblings."""
     sys.path.insert(0, str(package_dir.parent))
@@ -520,7 +587,7 @@ def test_each_generated_caller_imports_its_own_callee_and_runs(
         package = _generate(tree, tmp_path, caller)
         source = (package / f"{caller}.py").read_text()
         assert source.splitlines()[2:] == [
-            f"from .{owner}lvclass.{owner}lvclass_skip import skip",
+            f"from .{owner}.skip import skip",
             "",
             f"def {caller}():",
             "    skip()",

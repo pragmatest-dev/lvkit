@@ -385,10 +385,9 @@ def _parse_metadata(
     dyn_links: list[DynamicDispatchLink] = []
     shared_variable_table = SharedVariableTable(links=[], failures=[])
     libd_bin = main_xml.with_name(main_xml.stem + "_LIbd.bin")
-    version_elem = main_root.find(".//LVSR/Section/Version")
+    link_version = LinkTableVersion.of_vi(main_root)
     dotnet_table = _read_dotnet_assemblies(main_root, main_xml)
-    if libd_bin.exists() and version_elem is not None:
-        link_version = LinkTableVersion.from_lvsr(version_elem)
+    if libd_bin.exists() and link_version is not None:
         if main_root.find(".//LIbd//BDHP/IUVI") is None:
             libd_links = read_iuse_links(libd_bin, link_version)
         if main_root.find(".//LIbd//BDHP/DyOM") is None:
@@ -1086,7 +1085,10 @@ def _process_element_terminals(
         # callByRefNode frame terminals (hGrowCItem DCOs: error in/out,
         # VI ref in/out) have no paramIdx and get negative indices so they
         # don't collide with the callee iUseDCO terminals' paramIdx values.
-        if elem_class == "callByRefNode" and dco_class == "hGrowCItem":
+        is_call_frame_terminal = (
+            elem_class == "callByRefNode" and dco_class == "hGrowCItem"
+        )
+        if is_call_frame_terminal:
             parm_index = -(list_position + 1)
 
         # For specialized node classes (aDelete, aIndx, etc.),
@@ -1121,8 +1123,9 @@ def _process_element_terminals(
         # Last resort: use list position as index.
         # Covers sRN terminals, printf expandable terminals, and any
         # other terminal type without explicit parmIndex in the XML.
-        # The termList order IS the natural index.
-        if parm_index == -1:
+        # The termList order IS the natural index. A call frame terminal's
+        # index (-1 for the first) is already final.
+        if parm_index == -1 and not is_call_frame_terminal:
             parm_index = list_position
 
         # Determine direction from wire connectivity
@@ -1461,13 +1464,13 @@ def _read_dotnet_assemblies(
                 table.failures.append(
                     DotNetAssemblyRecordFailure(f"{record.value} record: {exc}")
                 )
-    version_elem = main_root.find(".//LVSR/Section/Version")
+    link_version = LinkTableVersion.of_vi(main_root)
     for suffix in ("_LIbd.bin", "_LIvi.bin"):
         sidecar = main_xml.with_name(main_xml.stem + suffix)
         if not sidecar.exists():
             continue
         data = sidecar.read_bytes()
-        if version_elem is None:
+        if link_version is None:
             if any(record.ident in data for record in DotNetAssemblyRecordKind):
                 table.failures.append(
                     DotNetAssemblyRecordFailure(
@@ -1476,9 +1479,7 @@ def _read_dotnet_assemblies(
                     )
                 )
             continue
-        sidecar_table = decode_dotnet_assemblies(
-            data, LinkTableVersion.from_lvsr(version_elem)
-        )
+        sidecar_table = decode_dotnet_assemblies(data, link_version)
         table.links.extend(sidecar_table.links)
         table.failures.extend(sidecar_table.failures)
     return table
@@ -1643,7 +1644,7 @@ def _extract_subvi_info(
         "BSVR",
         "SVVI",  # statVIRef link types
     )
-    _BDHP_LINK_TAGS = ("IUVI", "PUPV", "DyOM")  # block-diagram iUse path refs
+    _BDHP_LINK_TAGS = ("IUVI", "PUPV", "DyOM", "SVVI", "SCVI")  # diagram path refs
     scopes: list[tuple[str, tuple[str, ...]]] = [
         (".//LIvi//{tag}", _LIVI_LINK_TAGS),
         (".//LIbd//BDHP/{tag}", _BDHP_LINK_TAGS),
@@ -1705,7 +1706,7 @@ def _extract_subvi_info(
     # --- iUse uid -> referenced VI from the BDHP section ---
     # PUPV first (polymorphic wrapper), IUVI overwrites (resolved variant).
     bdhp_links: list[IUseLink] = []
-    for tag in ("PUPV", "IUVI"):
+    for tag in ("PUPV", "IUVI", "SVVI", "SCVI"):
         for elem in main_root.findall(f".//LIbd//BDHP/{tag}"):
             link = _xml_iuse_link(elem)
             if link is not None:

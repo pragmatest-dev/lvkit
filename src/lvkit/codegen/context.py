@@ -40,7 +40,7 @@ from .ast_utils import parameter_names, to_function_name, to_var_name
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
-from .import_resolver import ImportResolver
+from .import_resolver import ImportResolver, NameImport
 
 
 @dataclass
@@ -505,17 +505,23 @@ class CodeGenContext:
         else:
             self.add_import(f"from .{ERRORS_MODULE_NAME} import {LABVIEW_ERROR_NAME}")
 
-    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
-        """Import the function of a VI and return the name this module calls it
-        by. ``callee_key`` is the VI's identity (a call node's ``callee_key``);
-        a VI named without one (a VI reference constant) is found by name."""
+    def function_import(
+        self, vi_name: str, callee_key: str | None = None
+    ) -> NameImport:
+        """The import of the function of a VI and the name a module calls it by.
+        ``callee_key`` is the VI's identity (a call node's ``callee_key``); a VI
+        named without one (a VI reference constant) is found by name."""
         if isinstance(self.import_resolver, ImportResolver):
-            imported = self.import_resolver.function(vi_name, callee_key)
-            self.add_import(imported.statement)
-            return imported.name
+            return self.import_resolver.function(vi_name, callee_key)
         function = to_function_name(vi_name)
-        self.add_import(f"from .{function} import {function}")
-        return function
+        return NameImport(f"from .{function} import {function}", function)
+
+    def import_function(self, vi_name: str, callee_key: str | None = None) -> str:
+        """Import the function of a VI at the top of the module and return the
+        name this module calls it by."""
+        imported = self.function_import(vi_name, callee_key)
+        self.add_import(imported.statement)
+        return imported.name
 
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
@@ -577,6 +583,15 @@ class CodeGenContext:
                 targets=[ast.Name(id=name, ctx=ast.Store())],
                 value=value,
             )
+
+    def add_module_function(self, func_def: ast.FunctionDef) -> None:
+        """Register a module-level helper function, emitted above the VI function.
+        Idempotent by name."""
+        if not any(
+            isinstance(stmt, ast.FunctionDef) and stmt.name == func_def.name
+            for stmt in self.formula_helpers
+        ):
+            self.formula_helpers.append(func_def)
 
     @classmethod
     def from_graph(

@@ -56,6 +56,7 @@ class ImportResolver:
         type_import: Callable[[str], NameImport | None],
         node_import: Callable[[str], NameImport],
         error_import: Callable[[], str],
+        package_spec: Callable[[str], str],
         package_modules: PackageModules | None = None,
         root_module_import: Callable[[str, str], ModuleImport] | None = None,
     ) -> None:
@@ -64,6 +65,7 @@ class ImportResolver:
         self._type_import = type_import
         self._node_import = node_import
         self._error_import = error_import
+        self._package_spec = package_spec
         self._package_modules = package_modules
         self._root_module_import = root_module_import
 
@@ -137,3 +139,9 @@ class ImportResolver:
             root_import(modules.shared_variables_stem, "shared_variables_module"),
             attributes,
         )
+    def package_spec(self, key: str) -> str:
+        """The start of the relative import spec of a module in the folder holding
+        the file ``key``: the dots, then each package and a dot. A module found by
+        a name computed at run time is imported with this, the module's name and
+        ``__package__``."""
+        return self._package_spec(key)

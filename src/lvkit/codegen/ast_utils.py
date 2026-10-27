@@ -365,6 +365,26 @@ def to_function_name(vi_name: str) -> str:
     return to_var_name(name)
 
 
+def module_part(name: str) -> str:
+    """One path part (a folder or a file stem) as the Python module or package
+    name it is generated as: lower case, spaces and hyphens to ``_``, every other
+    character that is not a letter, digit or ``_`` dropped, and ``var_`` in front
+    of a part that does not start with a letter or ``_`` (a name that starts with
+    a digit is a SyntaxError in ``from <name> import ...``), and ``_`` after a
+    Python keyword (a folder named ``Class`` is the package ``class_``).
+
+    Generated code that opens a VI by a path computed when it runs applies this
+    same transform to each part, so the two always agree
+    (``codegen/nodes/vi_reference.py`` ``MODULE_PART_SOURCE``)."""
+    result = name.lower().replace(" ", "_").replace("-", "_")
+    result = "".join(c for c in result if c.isalnum() or c == "_")
+    if result and not result[0].isalpha() and result[0] != "_":
+        result = "var_" + result
+    if keyword.iskeyword(result):
+        result += "_"
+    return result or "module"
+
+
 def to_module_name(vi_name: str) -> str:
     """Convert VI name to Python module name (strips library prefix).
 
@@ -372,23 +392,10 @@ def to_module_name(vi_name: str) -> str:
         "Get Settings Path.vi" -> "get_settings_path"
         "GraphicalTestRunner.lvlib:Run.vi" -> "run"
         "1D Boolean Array Changed.vi" -> "var_1d_boolean_array_changed"
-
-    A LEADING DIGIT (e.g. a VI named "1D ...") is a valid Python FILENAME
-    stem but not a valid MODULE NAME for ``from <name> import ...`` -- that's
-    a SyntaxError ("invalid decimal literal"), since the parser tries to read
-    it as a number. Guard it the same way to_var_name() already does, so a
-    module's own filename and every ``from <module> import`` referencing it
-    agree and are both syntactically valid.
     """
-    # Strip library prefix
     if ":" in vi_name:
         vi_name = vi_name.split(":")[-1]
-    vi_name = strip_vi_extension(vi_name)
-    result = vi_name.lower().replace(" ", "_").replace("-", "_")
-    result = "".join(c for c in result if c.isalnum() or c == "_")
-    if result and not result[0].isalpha() and result[0] != "_":
-        result = "var_" + result
-    return result or "module"
+    return module_part(strip_vi_extension(vi_name))
 
 
 def param_default_expr(inp: Terminal) -> ast.expr:

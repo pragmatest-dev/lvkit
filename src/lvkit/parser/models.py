@@ -13,6 +13,7 @@ from ..models import (
     DisableStructureKind,
     EventFrame,
     LVType,
+    PaneSlot,
     Tunnel,
     UnwritableValue,
 )
@@ -55,6 +56,7 @@ class ParsedType:
     user_event_name: str | None = None  # User Event refnum: its data type label
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
+    pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
 
 
 @dataclass

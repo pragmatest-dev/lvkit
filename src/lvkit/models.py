@@ -205,6 +205,18 @@ _SHARED_VARIABLE_KIND_LABELS: dict[SharedVariableKind, str] = {
 TypeNamer = Callable[["LVType"], str | None]
 
 
+@dataclass(frozen=True)
+class PaneSlot:
+    """One used terminal of a connector pane: its slot ``index``, whether it is an
+    output, the type of the value it carries and, when its descriptor is labelled,
+    the terminal's ``name``."""
+
+    index: int
+    is_output: bool
+    type: LVType
+    name: str | None = None
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
@@ -226,6 +238,11 @@ class LVType:
     values: dict[str, EnumValue] | None = None
     fields: list[ClusterField] | None = None
     element_type: LVType | None = None
+    # A Function type (a VI's connector pane): its used terminals in slot order.
+    # A strictly typed VI refnum holds one as its ``element_type``. None for every
+    # other type.
+    # ``compare=False`` -- what a VI of this type must have, not type identity.
+    pane: tuple[PaneSlot, ...] | None = field(default=None, compare=False)
     # A Map's value type (``element_type`` is its key type); None for every
     # other type.
     value_type: LVType | None = None

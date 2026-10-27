@@ -89,7 +89,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     assert pkgs, f"no package emitted in {outdir}"
     pkg = pkgs[0]
     tgt = _slug(vi.name)
-    mods = list((pkg / "openg").glob("*.py")) if (pkg / "openg").exists() else []
+    mods = sorted(m for m in pkg.rglob("*.py") if not m.name.endswith(".error.py"))
     best = next(
         (m for m in mods if m.stem != "__init__" and tgt in _slug(m.stem)), None
     )
@@ -104,7 +104,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
     try:
         fn = None
         for m in candidate_mods:
-            mn = f"{pkg.name}.openg.{m.stem}"
+            mn = ".".join([pkg.name, *m.relative_to(pkg).with_suffix("").parts])
             mod = importlib.import_module(mn)
             fn = next(
                 (o for n, o in inspect.getmembers(mod, inspect.isfunction)

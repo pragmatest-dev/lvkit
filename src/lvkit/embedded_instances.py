@@ -55,10 +55,9 @@ def _source_link(instance_xml: Path) -> InstanceSourceLink | None:
         return None
     sidecar = table.get("File")
     if sidecar is not None:
-        saved_version = root.find("LVSR/Section/Version")
-        if saved_version is None:
+        version = LinkTableVersion.of_vi(root)
+        if version is None:
             raise LinkTableError("instance records no saving version")
-        version = LinkTableVersion.from_lvsr(saved_version)
         return decode_instance_source(
             (instance_xml.parent / sidecar).read_bytes(), version
         )

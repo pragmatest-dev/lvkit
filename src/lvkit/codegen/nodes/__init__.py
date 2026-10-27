@@ -53,6 +53,7 @@ from . import (
     sequence,
     shared_variable,
     subvi,
+    vi_reference,
 )
 
 
@@ -78,6 +79,8 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     if isinstance(node, EventStructureNode):
         return event.generate(node, ctx)
     if isinstance(node, VINode):
+        if node.node_type == "callByRefNode":
+            return vi_reference.generate_call(node, ctx)
         return subvi.generate(node, ctx)
     if isinstance(node, FormulaNode):
         return formula.generate(node, ctx)
@@ -140,6 +143,16 @@ def _generate_primitive(
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
         return first_call.generate(node, ctx)
+    # Open VI Reference and Close Reference are generic `class="prim"` nodes
+    # too -- see nodes/vi_reference.py.
+    if node.node_type == "prim":
+        if node.prim_id == vi_reference.OPEN_VI_REFERENCE_PRIM_ID:
+            return vi_reference.generate_open(node, ctx)
+        if (
+            node.prim_id == vi_reference.CLOSE_REFERENCE_PRIM_ID
+            and vi_reference.closes_vi_reference(node, ctx)
+        ):
+            return CodeFragment.empty()
     handler = _PRIM_CODEGEN.get(node.node_type or "", primitive.generate)
     return handler(node, ctx)
 
