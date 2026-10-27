@@ -726,14 +726,15 @@ def test_generated_code_loads_a_large_array_from_its_data_file(
     node, _ = _large_array_constant(monkeypatch, element, (2, 3), blob)
     ctx = CodeGenContext(data_files={}, module_stem="my_vi")
     expression = ctx.constant_expression(node)
-    assert "from lvkit.runtime import lv as _lv" in ctx.imports
-    (file_name, content), = ctx.data_files.items()
+    assert {"import struct", "from pathlib import Path"} <= set(ctx.imports)
+    assert "lvkit" not in expression
+    ((file_name, content),) = ctx.data_files.items()
     assert file_name == "my_vi.frame_77.bin"
     assert content == blob
 
     module = tmp_path / "my_vi.py"
     module.write_text(
-        "from lvkit.runtime import lv as _lv\n" f"value = {expression}\n"
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
     )
     (tmp_path / file_name).write_bytes(content)
     namespace: dict = {"__file__": str(module)}
@@ -742,11 +743,45 @@ def test_generated_code_loads_a_large_array_from_its_data_file(
 
 
 def test_a_large_one_dimensional_array_loads_flat(monkeypatch, tmp_path):
-    from lvkit.runtime import lv
+    from lvkit.codegen.context import CodeGenContext
 
-    (tmp_path / "a.bin").write_bytes(struct.pack(">4I", 7, 8, 9, 4000000000))
-    module = tmp_path / "m.py"
-    assert lv.load_array(str(module), "a.bin", "I", (4,)) == [7, 8, 9, 4000000000]
+    blob = struct.pack(">4I", 7, 8, 9, 4000000000)
+    node, _ = _large_array_constant(monkeypatch, "NumUInt32", (4,), blob)
+    ctx = CodeGenContext(data_files={}, module_stem="my_vi")
+    expression = ctx.constant_expression(node)
+    assert expression == (
+        "list(struct.unpack('>4I', "
+        "Path(__file__).with_name('my_vi.frame_77.bin').read_bytes()))"
+    )
+    module = tmp_path / "my_vi.py"
+    module.write_text(
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
+    )
+    (tmp_path / "my_vi.frame_77.bin").write_bytes(blob)
+    namespace: dict = {"__file__": str(module)}
+    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    assert namespace["value"] == [7, 8, 9, 4000000000]
+
+
+def test_a_large_three_dimensional_array_is_grouped_by_its_sizes(monkeypatch, tmp_path):
+    from lvkit.codegen.context import CodeGenContext
+
+    blob = struct.pack(">24h", *range(-12, 12))
+    node, _ = _large_array_constant(monkeypatch, "NumInt16", (2, 3, 4), blob)
+    ctx = CodeGenContext(data_files={}, module_stem="my_vi")
+    expression = ctx.constant_expression(node)
+    module = tmp_path / "my_vi.py"
+    module.write_text(
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
+    )
+    (tmp_path / "my_vi.frame_77.bin").write_bytes(blob)
+    namespace: dict = {"__file__": str(module)}
+    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    values = list(range(-12, 12))
+    assert namespace["value"] == [
+        [values[0:4], values[4:8], values[8:12]],
+        [values[12:16], values[16:20], values[20:24]],
+    ]
 
 
 def test_a_large_array_without_a_place_for_its_file_says_so(monkeypatch):

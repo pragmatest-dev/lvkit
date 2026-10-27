@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Mapping
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
@@ -16,6 +17,7 @@ from lvkit.primitive_resolver import (
     TerminalResolutionNeeded,
     get_resolver,
 )
+from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 from lvkit.vi_files import strip_vi_extension
 
 from ..ast_utils import (
@@ -23,7 +25,6 @@ from ..ast_utils import (
     parse_expr,
     parse_stmt,
     to_var_name,
-    uint_mask,
 )
 from ..context import CodeGenContext
 from ..elementwise import LV_IMPORT, arrayify
@@ -31,14 +32,22 @@ from ..fragment import CodeFragment
 from ..unresolved import emit_soft_unresolved
 
 
-def _has_array_input(node: PrimitiveNode) -> bool:
-    """True if any wired input terminal carries an array type."""
-    return any(
-        t.direction == "input"
-        and t.lv_type is not None
-        and t.lv_type.kind == LVTypeKind.ARRAY
-        for t in node.terminals
-    )
+def _array_operand_ranks(
+    node: PrimitiveNode, input_map: Mapping[str, str]
+) -> dict[str, int]:
+    """The dimension count of each array-typed input, keyed by the source text its
+    operand takes in the template (normalized the way the expression is parsed)."""
+    ranks: dict[str, int] = {}
+    for term in node.terminals:
+        if (
+            term.direction == "input"
+            and term.lv_type is not None
+            and term.lv_type.kind == LVTypeKind.ARRAY
+        ):
+            operand = input_map.get(f"in_{term.index}")
+            if operand:
+                ranks[ast.unparse(parse_expr(operand))] = term.lv_type.dimensions or 1
+    return ranks
 
 
 def _paren_if_compound(expr: str) -> str:
@@ -74,14 +83,21 @@ def _int_input_terminal(node: PrimitiveNode) -> Terminal | None:
     """First input terminal carrying a LabVIEW integer type, else None.
 
     LabVIEW's boolean-logic prims (And/Or/Not) are BITWISE on integer operands;
-    this drives that dispatch (mirrors _has_array_input for the array case)."""
+    this drives that dispatch."""
     for t in node.terminals:
         if t.direction != "input" or t.lv_type is None:
             continue
-        ut = t.lv_type.underlying_type or ""
+        ut = _element_underlying(t.lv_type)
         if ut.startswith("NumInt") or ut.startswith("NumUInt"):
             return t
     return None
+
+
+def _element_underlying(lv_type: LVType) -> str:
+    """The underlying type name of a scalar, or of an array's elements."""
+    while lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        lv_type = lv_type.element_type
+    return lv_type.underlying_type or ""
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -160,8 +176,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     int_in = _int_input_terminal(node)
     if int_in is not None:
         if prim_id == 1064:  # Not -> ~x, masked to width for UNSIGNED ints
-            m = uint_mask(int_in.lv_type)
-            expr = f"(~in_1) & 0x{m:X}" if m is not None else "~in_1"
+            ut = _element_underlying(int_in.lv_type) if int_in.lv_type else ""
+            expr = fixed_width("~in_1", ut) if ut in UNSIGNED_INTEGERS else "~in_1"
+            if ut in UNSIGNED_INTEGERS:
+                resolved.imports = [*(resolved.imports or []), "import ctypes"]
             if isinstance(resolved.python_code, dict) and resolved.python_code:
                 key = next(iter(resolved.python_code))
                 resolved.python_code = {key: expr}
@@ -209,7 +227,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     # Numeric primitives are element-wise over arrays. When this op is flagged
     # elementwise and an operand is an array, broadcast its operators.
-    arrayify_ops = bool(resolved.elementwise and _has_array_input(node))
+    operand_ranks = (
+        _array_operand_ranks(node, input_map) if resolved.elementwise else None
+    )
 
     # Build code based on code type
     if isinstance(resolved.python_code, dict):
@@ -220,7 +240,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             wired_outputs,
             ctx,
             resolved,
-            arrayify_ops,
+            operand_ranks,
         )
     else:
         fragment = _build_string_hint(
@@ -229,7 +249,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             wired_outputs,
             ctx,
             resolved,
-            arrayify_ops,
+            operand_ranks,
         )
 
     # Merge passthrough bindings
@@ -245,7 +265,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         ):
             bound = fragment.bindings.get(term.id)
             if bound and bound.isidentifier():
-                ctx.array_vars.add(bound)
+                ctx.array_vars[bound] = term.lv_type.dimensions or 1
 
     # Add imports from primitive definition (normalize bare module names)
     if resolved.imports:
@@ -619,7 +639,7 @@ def _build_dict_hint(
     wired_outputs: list[tuple[str, str, str, int]],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
-    arrayify_ops: bool = False,
+    operand_ranks: Mapping[str, int] | None = None,
 ) -> CodeFragment:
     """Build code from dict-format hint.
 
@@ -654,13 +674,9 @@ def _build_dict_hint(
             expr_substituted = _substitute_template(
                 exprs[expr_idx], input_map, resolved
             )
-            if "_lv" in expr_substituted:
-                imports.add(LV_IMPORT)
             expr_ast = parse_expr(expr_substituted)
-            if arrayify_ops:
-                expr_ast, used = arrayify(expr_ast)
-                if used:
-                    imports.add(LV_IMPORT)
+            if operand_ranks:
+                expr_ast, _ = arrayify(expr_ast, operand_ranks)
             statements.append(build_assign(var_name, expr_ast))
             bindings[term_id] = var_name
         else:
@@ -677,7 +693,7 @@ def _build_string_hint(
     wired_outputs: list[tuple[str, str, str, int]],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
-    arrayify_ops: bool = False,
+    operand_ranks: Mapping[str, int] | None = None,
 ) -> CodeFragment:
     """Build code from string-format hint."""
     statements: list[ast.stmt] = []
@@ -698,16 +714,9 @@ def _build_string_hint(
     # Substitute inputs
     expr_substituted = _substitute_template(expr, input_map, resolved)
 
-    # A template that calls a runtime helper directly (e.g. the TYPE_CAST op's
-    # `_lv.type_cast(...)`) needs the `_lv` import even when arrayify never fires.
-    if "_lv" in expr_substituted:
-        imports.add(LV_IMPORT)
-
     expr_ast = parse_expr(expr_substituted)
-    if arrayify_ops:
-        expr_ast, used = arrayify(expr_ast)
-        if used:
-            imports.add(LV_IMPORT)
+    if operand_ranks:
+        expr_ast, _ = arrayify(expr_ast, operand_ranks)
 
     # Assign to output variables
     if len(wired_outputs) == 1:

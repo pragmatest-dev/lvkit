@@ -30,8 +30,8 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..elementwise import LV_IMPORT
 from ..fragment import CodeFragment
+from ..native_array import replaced_field
 
 
 def _is_anonymous_cluster(lv_type: LVType | None) -> bool:
@@ -134,47 +134,28 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
         if agg_var:
             if anon:
-                updates: list[ast.expr] = []
+                updates: list[tuple[tuple[int, ...], str]] = []
                 for t in sorted(list_in, key=lambda t: t.index):
                     value = ctx.resolve(t.id)
                     if value is None:
                         raise TypeResolutionNeeded(
                             type_name="bundle value", context=t.id
                         )
-                    path = _position_path(t, class_fields)
-                    updates.append(
-                        ast.Tuple(
-                            elts=[parse_expr(repr(path)), parse_expr(value)],
-                            ctx=ast.Load(),
-                        )
-                    )
+                    updates.append((_position_path(t, class_fields), value))
                 cluster_var = ctx.make_output_var(
                     "cluster", node.id, agg_out[0].id if agg_out else None
                 )
-                statements.append(
-                    build_assign(
-                        cluster_var,
-                        ast.Call(
-                            func=ast.Attribute(
-                                value=ast.Name(id="_lv", ctx=ast.Load()),
-                                attr="replace_fields",
-                                ctx=ast.Load(),
-                            ),
-                            args=[
-                                parse_expr(agg_var),
-                                ast.Tuple(elts=updates, ctx=ast.Load()),
-                            ],
-                            keywords=[],
-                        ),
+                statements.append(build_assign(cluster_var, parse_expr(agg_var)))
+                for path, value in updates:
+                    statements.append(
+                        build_assign(
+                            cluster_var,
+                            parse_expr(replaced_field(cluster_var, path, value)),
+                        )
                     )
-                )
                 for t in agg_out:
                     bindings[t.id] = cluster_var
-                return CodeFragment(
-                    statements=statements,
-                    bindings=bindings,
-                    imports={LV_IMPORT},
-                )
+                return CodeFragment(statements=statements, bindings=bindings)
             # Assign fields on the aggregate cluster. Bundle By Name mutates the
             # object in place, so the aggregate must be a single materialized
             # VARIABLE — when it resolves to an EXPRESSION (a cluster constant

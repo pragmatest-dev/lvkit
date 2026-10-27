@@ -16,4 +16,4 @@ from . import register_op
 
 @register_op("TO_U32")
 def to_u32(node: PrimitiveNode, resolved: ResolvedPrimitive) -> dict[str, str]:
-    return {"u32": "int(round(in_1)) & 0xFFFFFFFF"}
+    return {"u32": "ctypes.c_uint32(round(in_1)).value"}

@@ -37,8 +37,7 @@ from lvkit.models import (
 )
 
 from .ast_utils import parameter_names, to_function_name, to_var_name
-from .data_files import data_file_expression, holds_array_whole
-from .elementwise import LV_IMPORT
+from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .import_resolver import ImportResolver
@@ -106,10 +105,11 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
-    # Variable names bound to array-typed values. A final codegen pass uses
-    # this to broadcast operators over operands that turned out to be arrays
-    # even after single-use expression inlining.
-    array_vars: set[str] = field(default_factory=set, repr=False)
+    # Variable names bound to array-typed values, with each array's dimension
+    # count. A final codegen pass uses this to write operators over operands
+    # that turned out to be arrays as comprehensions, even after single-use
+    # expression inlining.
+    array_vars: dict[str, int] = field(default_factory=dict, repr=False)
     vi_inputs: list[Terminal] = field(default_factory=list)
     # Lives on context because subvi.py reads it at arbitrary depth
     # in the codegen tree. Passing as parameter would thread through
@@ -119,6 +119,10 @@ class CodeGenContext:
     # injects them above the VI function. Shared across child contexts so a
     # formula node nested in a structure still registers its helper.
     formula_helpers: list[ast.stmt] = field(default_factory=list)
+    # The names of the flatten / unflatten / byte-swap functions generated for
+    # this module (keyed by function kind, byte order and type), so a type that
+    # recurs is written once. Shared across child contexts like formula_helpers.
+    flat_functions: dict[tuple, str] = field(default_factory=dict, repr=False)
     # Module-level global variables for persistent per-call-site state:
     # uninitialized shift registers (LV2/functional-global idiom — see
     # codegen/nodes/loop.py) and stateful primitives like First Call?
@@ -474,6 +478,7 @@ class CodeGenContext:
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
+            flat_functions=self.flat_functions,  # Shared — one dict
             module_globals=self.module_globals,  # Shared — one dict
             _body_generator=self._body_generator,
         )
@@ -527,7 +532,8 @@ class CodeGenContext:
         ):
             return self.import_function(const.value, const.referenced_vi_key)
         if const.unwritable is not None:
-            self.add_import(LV_IMPORT)
+            for statement in DATA_FILE_IMPORTS.splitlines():
+                self.add_import(statement)
             return data_file_expression(
                 what="constant",
                 name=const.label,
@@ -743,7 +749,7 @@ def _bind_inputs_and_constants(
             # primitive outputs) — an array parameter is just as array-valued.
             lv_type = getattr(inp, "lv_type", None)
             if lv_type is not None and lv_type.kind == LVTypeKind.ARRAY:
-                ctx.array_vars.add(var)
+                ctx.array_vars[var] = lv_type.dimensions or 1
     for const in constants:
         if const.id:
             bound = ctx.constant_expression(const)

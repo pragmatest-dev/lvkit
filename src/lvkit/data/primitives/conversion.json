@@ -64,8 +64,9 @@
         }
       ],
       "python_code": {
-        "int16_value": "int(in_1) & 0xFFFF"
+        "int16_value": "ctypes.c_int16(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
@@ -109,8 +110,9 @@
         }
       ],
       "python_code": {
-        "result": "int(in_1) & 0xFF"
+        "result": "ctypes.c_uint8(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html"
@@ -132,8 +134,9 @@
         }
       ],
       "python_code": {
-        "uint16_value": "int(in_1) & 0xFFFF"
+        "uint16_value": "ctypes.c_uint16(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html"
@@ -141,6 +144,7 @@
     "1145": {
       "name": "To Unsigned Long Integer",
       "op": "TO_U32",
+      "imports": ["import ctypes"],
       "terminals": [
         {
           "index": 0,
@@ -329,8 +333,9 @@
         }
       ],
       "python_code": {
-        "result": "int(in_1) & 0xFFFFFFFFFFFFFFFF"
+        "result": "ctypes.c_uint64(round(in_1)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "note": "To Unsigned Quad Integer (NI doc) -- completes the To-<T> conversion family (1140-1144), idx0=out/idx1=in. Terminals from 'pco.camera_FloatingMean_Example_IMAQ.vi', 'testNumericU64.vi' (JKI-EasyXML)."
     },

@@ -9,22 +9,23 @@ self-contained Python function instead of C. That keeps the original
 from the parsed AST) while dropping the C compiler / FFI / .so machinery
 entirely — generated code is pure Python and runs anywhere.
 
-LabVIEW numeric semantics (confirmed against a real Formula Node, issue #8)
-are preserved:
-  * ``int / int``                -> real (float) division; a zero divisor
-                                    yields IEEE inf/nan (``_lv.div``) since a
-                                    Formula Node has no error terminal
-  * float assigned to an int var -> round-to-nearest-even then wrap to the
-                                    declared width (``_lv.i16`` etc.)
+Numeric rules carried over from the Formula Node (confirmed against a real
+Formula Node, issue #8):
+  * ``int / int``                -> real (float) division; a zero divisor gives
+                                    an IEEE infinity or NaN
+  * float assigned to an int var -> rounded to nearest (ties to even), then
+                                    wrapped to the declared width with
+                                    ``ctypes.c_int16(...).value`` etc.
   * ``**``                       -> right-assoc, tighter than unary minus; a
-                                    negative base with a non-integer exponent
-                                    is nan (``_lv.powf``), not a complex
-  * ``%`` / ``rem``              -> truncated remainder, sign of dividend;
-                                    ``mod`` is floored, sign of divisor
-  * ``&&`` ``||`` ``!``          -> 1/0 (``_lv.land``/``lor``/``lnot``)
-  * ``abs``                      -> Python ``abs`` (polymorphic int/float)
-  * domain funcs (sqrt/ln/...)   -> non-raising ``_lv.*`` (nan/inf on domain)
+                                    negative base with a fractional exponent is
+                                    NaN
+  * domain functions             -> NaN / ±inf outside their domain (``sqrt(-1)``,
+                                    ``ln(0)``, ``asin(2)``), written inline
+  * ``%`` / ``rem``              -> truncated remainder, sign of dividend
+                                    (``math.fmod``); ``mod`` is Python's ``%``
+  * ``&&`` ``||`` ``!``          -> ``bool(a and b)`` ``bool(a or b)`` ``not``
   * N-D arrays                   -> nested indexing ``a[i][j]``; ``sizeOfDim``
+                                    is a ``len`` of the indexed axis
 
 Unknown functions or type keywords raise FormulaTranspileError — never a
 silent guess.
@@ -34,6 +35,8 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
+
+from lvkit.python_numeric import CTYPES_INTEGER, float_divide
 
 from . import FormulaTranspileError
 from .cparser import parse
@@ -60,88 +63,103 @@ from .nodes import (
 
 # --- type maps -------------------------------------------------------------
 
-# LabVIEW numeric type-name (parser's ParsedType.type_name) -> (kind, _lv int
-# coercion helper). Float types have no coercion helper.
-_LV_INT_HELPER = {
-    "NumInt8": "i8",
-    "NumInt16": "i16",
-    "NumInt32": "i32",
-    "NumInt64": "i64",
-    "NumUInt8": "u8",
-    "NumUInt16": "u16",
-    "NumUInt32": "u32",
-    "NumUInt64": "u64",
-}
+# LabVIEW numeric type-name (parser's ParsedType.type_name) -> the ``ctypes``
+# integer type a store into it wraps to. Float types have none.
+_LV_INT_HELPER = {name: ctype for name, (ctype, _) in CTYPES_INTEGER.items()}
 _LV_FLOAT = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 
-# Formula-node declaration keyword -> _lv int coercion helper. ``float`` is a
+# Formula-node declaration keyword -> ``ctypes`` integer type. ``float`` is a
 # LabVIEW alias for float64.
 _KW_INT_HELPER = {
-    "int8": "i8",
-    "int16": "i16",
-    "int32": "i32",
-    "int64": "i64",
-    "uInt8": "u8",
-    "uInt16": "u16",
-    "uInt32": "u32",
-    "uInt64": "u64",
+    "int8": "c_int8",
+    "int16": "c_int16",
+    "int32": "c_int32",
+    "int64": "c_int64",
+    "uInt8": "c_uint8",
+    "uInt16": "c_uint16",
+    "uInt32": "c_uint32",
+    "uInt64": "c_uint64",
 }
 _KW_FLOAT = {"float32", "float64", "float"}
 
+# A power is NaN for a negative base with a fractional exponent (Python's ``**``
+# would give a complex number).
+_POWER = (
+    "(math.nan if (({t} := {0}) < 0) & (({u} := {1}) != math.floor({u})) "
+    "else {t} ** {u})"
+)
+
 # Formula-node function spelling -> emitted Python callee. Anything not here
-# fails loud. ``int`` rounds to nearest (ties to even); ``intrz`` truncates.
-# Domain-prone functions route through the non-raising _lv.* wrappers (a
-# Formula Node has no error terminal — LabVIEW coerces domain/zero errors to
-# IEEE inf/nan rather than trapping). Functions that never raise on real
-# inputs (sin, cos, atan, exp, …) keep their direct math.* mapping.
+# (and not in ``_FUNC_TEMPLATE``) fails loud. ``int`` rounds to nearest (ties to
+# even); ``intrz`` truncates.
 _FUNC_MAP = {
     "abs": "abs",
-    "sqrt": "_lv.sqrt",
     "exp": "math.exp",
     "expm1": "math.expm1",
-    "ln": "_lv.ln",
     "lnp1": "math.log1p",
-    "log": "_lv.log10",
-    "log2": "_lv.log2",
     "ceil": "math.ceil",
     "floor": "math.floor",
     "sin": "math.sin",
     "cos": "math.cos",
     "tan": "math.tan",
-    "asin": "_lv.asin",
-    "acos": "_lv.acos",
     "atan": "math.atan",
     "atan2": "math.atan2",
     "sinh": "math.sinh",
     "cosh": "math.cosh",
     "tanh": "math.tanh",
     "asinh": "math.asinh",
-    "acosh": "_lv.acosh",
-    "atanh": "_lv.atanh",
-    "pow": "_lv.powf",
     "int": "round",
     "intrz": "math.trunc",
-    "mod": "_lv.lvmod",
-    "rem": "_lv.rem",
-    "sign": "_lv.sign",
-    "getexp": "_lv.getexp",
-    "getman": "_lv.getman",
+    "rem": "math.fmod",
     "max": "max",
     "min": "min",
-    "cot": "_lv.cot",
-    "csc": "_lv.csc",
-    "sec": "_lv.sec",
-    "sinc": "_lv.sinc",
-    "rand": "_lv.rand",
-    "sizeOfDim": "_lv.size_of_dim",
+    "rand": "random.random",
+}
+
+
+# Functions written as an expression over their arguments: the template's ``{0}``
+# and ``{1}`` are the argument expressions.
+# Math functions that give NaN or an infinity outside their domain, written as an
+# expression (a Formula Node has no error terminal to raise into). ``{0}`` and
+# ``{1}`` are the arguments; ``{t}`` and ``{u}`` are fresh names the expression
+# assigns, so an argument is evaluated once.
+def _logarithm(function: str) -> str:
+    return (
+        f"({function}({{t}}) if ({{t}} := {{0}}) > 0 "
+        "else (-math.inf if {t} == 0 else math.nan))"
+    )
+
+
+_FUNC_GUARDED = {
+    "sqrt": "(math.sqrt({t}) if ({t} := {0}) >= 0 else math.nan)",
+    "ln": _logarithm("math.log"),
+    "log": _logarithm("math.log10"),
+    "log2": _logarithm("math.log2"),
+    "asin": "(math.asin({t}) if -1 <= ({t} := {0}) <= 1 else math.nan)",
+    "acos": "(math.acos({t}) if -1 <= ({t} := {0}) <= 1 else math.nan)",
+    "acosh": "(math.acosh({t}) if ({t} := {0}) >= 1 else math.nan)",
+    "atanh": (
+        "(math.atanh({t}) if -1 < ({t} := {0}) < 1 else "
+        "(math.inf if {t} == 1 else (-math.inf if {t} == -1 else math.nan)))"
+    ),
+    "pow": _POWER,
+}
+_FUNC_TEMPLATE = {
+    "mod": "({0} % {1})",
+    "sign": "(({0} > 0) - ({0} < 0))",
+    "getexp": "(math.frexp({0})[1] - 1)",
+    "getman": "(math.frexp({0})[0] * 2)",
+    "cot": "(1 / math.tan({0}))",
+    "csc": "(1 / math.sin({0}))",
+    "sec": "(1 / math.cos({0}))",
+    "sinc": "(math.sin({0}) / {0} if {0} else 1.0)",
 }
 # Functions whose result is an integer (drives int/float inference).
 _INT_RESULT_FUNCS = {"int", "intrz", "sign", "sizeOfDim"}
 
-# Logical operators -> runtime helper. LabVIEW ``&&``/``||`` yield 1/0, not
-# the operand Python ``and``/``or`` would return. Comparisons and bitwise
-# operators map 1:1 onto Python and need no entry here.
-_LOGICAL_OP = {"&&": "_lv.land", "||": "_lv.lor"}
+# Logical operators. Comparisons and bitwise operators map 1:1 onto Python and
+# need no entry here.
+_LOGICAL_OP = {"&&": "and", "||": "or"}
 
 
 @dataclass
@@ -177,6 +195,7 @@ def _kind_and_helper(lv_type: str) -> tuple[str, str | None]:
 
 class _Emitter:
     def __init__(self, variables: list[VarSpec], func_name: str):
+        self._serial = 0
         self.vars = {v.name: v for v in variables}
         self.var_list = variables
         self.func_name = func_name
@@ -232,39 +251,55 @@ class _Emitter:
         if isinstance(e, Index):
             return f"{self._emit_expr(e.base)}[{self._emit_expr(e.index)}]"
         if isinstance(e, Call):
+            if e.name == "sizeOfDim":
+                return self._emit_size_of_dim(e)
+            emitted = [self._emit_expr(a) for a in e.args]
+            guarded = _FUNC_GUARDED.get(e.name)
+            if guarded is not None:
+                return guarded.format(*emitted, **self._temporaries())
+            template = _FUNC_TEMPLATE.get(e.name)
+            if template is not None:
+                return template.format(*emitted)
             callee = _FUNC_MAP.get(e.name)
             if callee is None:
                 raise FormulaTranspileError(f"unsupported function {e.name!r}")
-            args = ", ".join(self._emit_expr(a) for a in e.args)
-            return f"{callee}({args})"
+            return f"{callee}({', '.join(emitted)})"
         if isinstance(e, Unary):
             inner = self._emit_expr(e.operand)
             if e.op == "!":
-                return f"_lv.lnot({inner})"
+                return f"(not {inner})"
             return f"({e.op}{inner})"
         if isinstance(e, Binary):
             left = self._emit_expr(e.left)
             right = self._emit_expr(e.right)
-            # LabVIEW ``%`` is the truncated remainder (sign of dividend) for
-            # both ints and floats — Python ``%`` is floored, so always route
-            # through the helper.
+            # LabVIEW ``%`` is the truncated remainder (sign of dividend);
+            # Python ``%`` is floored.
             if e.op == "%":
-                return f"_lv.rem({left}, {right})"
+                return f"math.fmod({left}, {right})"
             if e.op in _LOGICAL_OP:
-                return f"{_LOGICAL_OP[e.op]}({left}, {right})"
-            # `/` yields IEEE inf/nan on a zero divisor (no error terminal to
-            # raise into). A literal nonzero divisor can't trap, so keep the
-            # plain operator there and only wrap the ambiguous cases.
+                return f"bool({left} {_LOGICAL_OP[e.op]} {right})"
+            # `/` by zero is an IEEE infinity or NaN (a Formula Node has no
+            # error terminal to raise into); a nonzero literal divisor cannot
+            # be zero, so it keeps the plain operator.
             if e.op == "/" and not _is_nonzero_literal(e.right):
-                return f"_lv.div({left}, {right})"
-            # `**` with a negative base and non-integer exponent is nan in
-            # LabVIEW, but Python returns a complex. Route through the helper
-            # unless the base is a provably non-negative literal (the common
-            # ``2 ** n`` case, kept as the plain operator).
+                return float_divide(left, right)
             if e.op == "**" and not _is_nonneg_literal(e.left):
-                return f"_lv.powf({left}, {right})"
+                return _POWER.format(left, right, **self._temporaries())
             return f"({left} {e.op} {right})"
         raise FormulaTranspileError(f"cannot emit expression {e!r}")
+
+    def _temporaries(self) -> dict[str, str]:
+        """Two fresh names for an expression that assigns its arguments."""
+        self._serial += 1
+        return {"t": f"_t{self._serial}", "u": f"_u{self._serial}"}
+
+    def _emit_size_of_dim(self, e: Call) -> str:
+        """``sizeOfDim(a, k)``: the length of axis ``k`` (0 is the outermost),
+        read down the first element of each outer axis."""
+        if len(e.args) != 2 or not isinstance(e.args[1], Num):
+            raise FormulaTranspileError("sizeOfDim needs a literal dimension number")
+        array = self._emit_expr(e.args[0])
+        return f"len({array}{'[0]' * int(e.args[1].text)})"
 
     # --- assignment with int rounding/width coercion ---
 
@@ -274,7 +309,7 @@ class _Emitter:
         coerces a real into an integer terminal); a float target is direct."""
         rhs = self._emit_expr(value)
         helper = self.int_helper.get(name)
-        return f"_lv.{helper}({rhs})" if helper else rhs
+        return f"ctypes.{helper}(round({rhs})).value" if helper else rhs
 
     # --- statement emission ---
 
@@ -507,8 +542,10 @@ class _Emitter:
         imports: set[str] = set()
         if "math." in source:
             imports.add("import math")
-        if "_lv." in source:
-            imports.add("from lvkit.runtime import lv as _lv")
+        if "ctypes." in source:
+            imports.add("import ctypes")
+        if "random." in source:
+            imports.add("import random")
 
         return TranspileResult(
             func_def=func_def,
@@ -529,8 +566,7 @@ def _index_root(e: Expr) -> str:
 
 
 def _is_nonzero_literal(e: Expr) -> bool:
-    """True if ``e`` is a numeric literal that is provably nonzero — so a
-    division by it cannot trap and needs no inf/nan wrapper."""
+    """True if ``e`` is a numeric literal that is provably nonzero."""
     if not isinstance(e, Num):
         return False
     try:
@@ -540,10 +576,9 @@ def _is_nonzero_literal(e: Expr) -> bool:
 
 
 def _is_nonneg_literal(e: Expr) -> bool:
-    """True if ``e`` is a provably non-negative numeric literal — so a power
-    with this base can never hit the negative-base complex-result case and
-    needs no helper. A unary-minus literal parses as Unary, not Num, so it
-    is correctly excluded."""
+    """True if ``e`` is a provably non-negative numeric literal, so a power with
+    this base cannot give a complex result. A unary-minus literal parses as
+    Unary, not Num, so it is correctly excluded."""
     if not isinstance(e, Num):
         return False
     try:

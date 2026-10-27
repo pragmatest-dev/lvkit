@@ -1,10 +1,21 @@
-"""Anonymous tuple updates preserve input values and validate index paths."""
+"""Updating the fields of an anonymous (tuple) cluster by position."""
 
 from __future__ import annotations
 
 import pytest
 
-from lvkit.runtime.lv import replace_fields
+from lvkit.codegen.native_array import replaced_field
+
+
+def updated(incoming, updates):
+    """Apply each update the way the generated code does: one assignment after
+    another to the cluster variable."""
+    namespace = {"cluster": incoming}
+    for path, value in updates:
+        namespace["value"] = value
+        source = replaced_field("cluster", path, "value")
+        namespace["cluster"] = eval(source, namespace)
+    return namespace["cluster"]
 
 
 @pytest.mark.parametrize(
@@ -19,38 +30,22 @@ from lvkit.runtime.lv import replace_fields
 )
 def test_value_updates(updates, expected):
     incoming = (10.0, (20.0, 30.0))
-    assert replace_fields(incoming, updates) == expected
+    assert updated(incoming, updates) == expected
     assert incoming == (10.0, (20.0, 30.0))
 
 
 def test_unchanged_branch_identity_and_input_preservation():
     left, right = (10.0, 20.0), (30.0, 40.0)
     incoming = (left, right)
-    result = replace_fields(incoming, (((1, 0), 99.0),))
+    result = updated(incoming, (((1, 0), 99.0),))
     assert result == (left, (99.0, 40.0))
     assert result[0] is left
     assert result[1] is not right
     assert incoming == (left, right)
 
 
-@pytest.mark.parametrize("incoming", [None, [10.0, 20.0], 10.0])
-def test_non_tuple_clusters_rejected(incoming):
-    with pytest.raises(TypeError, match="must be a tuple"):
-        replace_fields(incoming, (((0,), 99.0),))
-
-
-def test_non_tuple_nested_branch_rejected():
-    with pytest.raises(TypeError, match="must be a tuple"):
-        replace_fields((10.0, 20.0), (((1, 0), 99.0),))
-
-
-@pytest.mark.parametrize("path", [(), (-1,), (True,), (1.0,)])
-def test_invalid_paths_rejected(path):
-    with pytest.raises(ValueError, match="index path"):
-        replace_fields((10.0, 20.0), ((path, 99.0),))
-
-
-@pytest.mark.parametrize("path", [(2,), (1, 2)])
-def test_out_of_range_paths_rejected(path):
-    with pytest.raises(IndexError):
-        replace_fields((10.0, (20.0, 30.0)), ((path, 99.0),))
+def test_the_source_is_slicing_and_concatenation():
+    assert (
+        replaced_field("cluster", (1, 0), "value")
+        == "cluster[:1] + (cluster[1][:0] + (value,) + cluster[1][1:],) + cluster[2:]"
+    )

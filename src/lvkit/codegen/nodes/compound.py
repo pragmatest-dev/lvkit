@@ -9,12 +9,13 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
 
-from ..ast_utils import build_assign, parse_expr, to_var_name, uint_mask
+from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..context import CodeGenContext
-from ..elementwise import LV_IMPORT
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
+from ..native_array import replace_subarray_statements
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -57,7 +58,8 @@ def _invert_expr(
     expr: ast.expr,
     boolean: bool,
     operation: str,
-    lv_type: LVType | None = None,
+    lv_type: LVType | None,
+    ctx: CodeGenContext,
 ) -> ast.expr:
     """Wrap an expression with a Compound-Arithmetic terminal's "Invert".
 
@@ -65,8 +67,8 @@ def _invert_expr(
     - Boolean operand -> logical ``not`` (any mode);
     - Add mode -> arithmetic negation (``-x``), i.e. subtraction;
     - Multiply mode -> reciprocal (``1 / x``);
-    - AND/OR/XOR mode -> bitwise ``~``, masked to the type width for unsigned
-      ints (Python's ``~`` would otherwise yield a negative).
+    - AND/OR/XOR mode -> bitwise ``~``, wrapped to the type width with ``ctypes``
+      for unsigned ints (Python's ``~`` would otherwise yield a negative).
     """
     if boolean:
         return ast.UnaryOp(op=ast.Not(), operand=expr)
@@ -75,9 +77,10 @@ def _invert_expr(
     if operation == "multiply":
         return ast.BinOp(left=ast.Constant(value=1), op=ast.Div(), right=expr)
     inv: ast.expr = ast.UnaryOp(op=ast.Invert(), operand=expr)
-    mask = uint_mask(lv_type)
-    if mask is not None:
-        inv = ast.BinOp(left=inv, op=ast.BitAnd(), right=ast.Constant(value=mask))
+    underlying = (lv_type.underlying_type or "") if lv_type else ""
+    if underlying in UNSIGNED_INTEGERS:
+        ctx.add_import("import ctypes")
+        return parse_expr(fixed_width(ast.unparse(inv), underlying))
     return inv
 
 
@@ -133,7 +136,7 @@ def generate_compound_arith(
         if val:
             expr = parse_expr(val)
             if inp.inverted:
-                expr = _invert_expr(expr, boolean, operation, inp.lv_type)
+                expr = _invert_expr(expr, boolean, operation, inp.lv_type, ctx)
                 val = ast.unparse(expr)
             input_exprs.append(val)
 
@@ -152,7 +155,9 @@ def generate_compound_arith(
     if len(input_exprs) == 1:
         combined = parse_expr(input_exprs[0])
         if output_term.inverted:
-            combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
+            combined = _invert_expr(
+                combined, boolean, operation, output_term.lv_type, ctx
+            )
             stmt = build_assign(var_name, combined)
             return CodeFragment(
                 statements=[stmt],
@@ -213,7 +218,7 @@ def generate_compound_arith(
         )
 
     if output_term.inverted:
-        combined = _invert_expr(combined, boolean, operation, output_term.lv_type)
+        combined = _invert_expr(combined, boolean, operation, output_term.lv_type, ctx)
 
     stmt = build_assign(var_name, combined)
     return CodeFragment(
@@ -469,7 +474,7 @@ def generate_array_replace(
     you specify" -- so each unwired index is 0. The function "crops any
     subarray that is too large to fit" and "If any index is negative or larger
     than the corresponding dimension ... the function has no effect". The rule
-    is the same at every rank and is carried out by ``_lv.replace_array_subset``.
+    is the same at every rank and is written out as indexing on a copy.
 
     A new element with fewer dimensions than the array lands along the array's
     last dimensions, the leading indices picking the cell (a row into a 2-D
@@ -516,26 +521,22 @@ def generate_array_replace(
         element_val = ctx.resolve(element_term.id)
         if element_val is None:
             element_val = "[]" if new_rank else "None"
-        offsets = ", ".join(value or "0" for value in index_vals)
         target = (
             ctx.make_output_var("output_array", node.id, terminal_id=output_term.id)
             if position == len(elements) - 1
             else ctx.make_output_var(f"array_after_{position}", node.id)
         )
-        statements.append(
-            build_assign(
-                target,
-                parse_expr(
-                    f"_lv.replace_array_subset({array_val}, {element_val}, "
-                    f"[{offsets}], {new_rank})"
-                ),
+        offsets = [value or "0" for value in index_vals]
+        statements.extend(
+            replace_subarray_statements(
+                array_val, element_val, offsets, new_rank, target
             )
         )
         array_val = target
     return CodeFragment(
         statements=statements,
         bindings={output_term.id: array_val},
-        imports={LV_IMPORT},
+        imports={"import copy"},
     )
 
 

@@ -11,7 +11,6 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.nodes.base import CodeGenError
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
-from lvkit.runtime import lv
 from tests.helpers import build_graph
 
 
@@ -158,7 +157,8 @@ def test_other_real_inputs_generate(input_type):
         ([[0.0, -1.0], [1.0, math.inf]], [[-math.inf, math.nan], [0.0, math.inf]]),
     ],
 )
-def test_runtime_log10_handles_lists_without_mutation(values, expected):
+def test_generated_arrays_without_mutation(values, expected):
+    rank = 2 if values and isinstance(values[0], list) else 1
     before = fingerprint(values)
-    assert_numeric(lv.log10(values), expected)
+    assert_numeric(generated_log10(rank)(values).log_values, expected)
     assert fingerprint(values) == before

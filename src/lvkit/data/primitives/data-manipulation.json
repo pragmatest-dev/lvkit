@@ -24,8 +24,9 @@
         }
       ],
       "python_code": {
-        "shifted": "(in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)"
+        "shifted": "ctypes.c_uint32((in_1 << in_2) if in_2 >= 0 else (in_1 >> -in_2)).value"
       },
+      "imports": ["import ctypes"],
       "inline": true,
       "verified": true,
       "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
@@ -53,9 +54,10 @@
         }
       ],
       "op": "ROTATE",
+      "imports": ["import ctypes"],
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/rotate.html",
-      "note": "Rotates x left by y bits (y<0 rotates right), modulo x's integer width. Emitted via the ROTATE op handler, which reads the width from x's int type and defers to _lv.rotate. Pane observed on MD5 FGHI functions (x=U32 idx1, y=I32 idx2, out idx0)."
+      "note": "Rotates x left by y bits (y<0 rotates right), modulo x's integer width.. Pane observed on MD5 FGHI functions (x=U32 idx1, y=I32 idx2, out idx0)."
     },
     "1160": {
       "name": "Flatten To String",
@@ -288,7 +290,7 @@
       "op": "TYPE_CAST",
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/type-cast.html",
-      "note": "Reinterprets x's flat bytes as the type-prototype's type (LabVIEW: flatten then unflatten). Emitted via TYPE_CAST op handler, which reads the source type from in_0 and the dest type from the output and defers to _lv.type_cast. Terminal types here are nominal; the handler reads real per-node types. Numeric-scalar/array<->string supported (big-endian, no length prefix); cluster/variant/float pairs raise loudly pending fuller flat-format support."
+      "note": "Reinterprets x's flat bytes as the type-prototype's type (LabVIEW: flatten then unflatten). Emitted via TYPE_CAST op handler, which reads the source type from in_0 and the dest type from the output. Terminal types here are nominal; the handler reads real per-node types. Numeric-scalar/array<->string supported (big-endian, no length prefix); cluster/variant/float pairs raise loudly pending fuller flat-format support."
     },
     "1165": {
       "name": "Unflatten From String",
@@ -347,7 +349,7 @@
       ],
       "op": "UNFLATTEN_FROM_STRING",
       "verified": true,
-      "note": "Confirmed via NI doc (parses binary_string into type's type; error_in/out, byte_order 0/1/2=big/native/little default 0, includes_size default True, rest_of_string = leftover bytes) and via ~15 real corpus instances (dictionary/appcontrol/msgqueue/lvdata, plus JKI-VI-Tester) whose 'type'/'value' terminals (idx 7/2) vary together across Array/Cluster/Refnum/6 numeric types while 'error in'/'error out' (idx 8/0) stay fixed as the error cluster -- confirms the role split, not shape. Emitted via UNFLATTEN_FROM_STRING op handler (mirrors TYPE_CAST's dest-type-from-output-terminal reading), which defers to _lv.unflatten_from_string. Numeric-scalar/array<->string supported (length-prefixed when includes_size, all 3 byte orders); cluster/refnum/float targets (observed in this same corpus, e.g. Strip Units__ogtk.vi) raise loudly pending fuller flat-format support, same policy as Type Cast (1166)."
+      "note": "Confirmed via NI doc (parses binary_string into type's type; error_in/out, byte_order 0/1/2=big/native/little default 0, includes_size default True, rest_of_string = leftover bytes) and via ~15 real corpus instances (dictionary/appcontrol/msgqueue/lvdata, plus JKI-VI-Tester) whose 'type'/'value' terminals (idx 7/2) vary together across Array/Cluster/Refnum/6 numeric types while 'error in'/'error out' (idx 8/0) stay fixed as the error cluster -- confirms the role split, not shape. Emitted via UNFLATTEN_FROM_STRING op handler (mirrors TYPE_CAST's dest-type-from-output-terminal reading), which writes the struct calls for that type. Numeric-scalar/array<->string supported (length-prefixed when includes_size, all 3 byte orders); cluster/refnum/float targets (observed in this same corpus, e.g. Strip Units__ogtk.vi) raise loudly pending fuller flat-format support, same policy as Type Cast (1166)."
     },
     "1170": {
       "name": "Split Number",

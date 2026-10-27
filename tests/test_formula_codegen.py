@@ -81,12 +81,13 @@ def test_injected_helper_is_valid_runnable_python():
     assert ns["_formula_42"](a=5.0)["y"] == 13.0
 
 
-def test_int_output_pulls_in_lv_runtime_import():
-    # An integer-typed output coerces width via _lv, so the import is needed.
+def test_int_output_pulls_in_ctypes_import():
+    # An integer-typed output wraps to its width with ctypes, so it is imported.
     op = _op(script="y = a;", y_type=_i16())
     ctx = CodeGenContext(vi_name="my_vi.vi")
     frag = formula.generate(op, ctx)
-    assert "from lvkit.runtime import lv as _lv" in frag.imports
+    assert "import ctypes" in frag.imports
+    assert not any("lvkit" in statement for statement in frag.imports)
 
 
 def test_formula_does_not_mutate_callers_array():
@@ -125,7 +126,7 @@ def test_formula_does_not_mutate_callers_array():
     mod = ast.Module(body=[ctx.formula_helpers[0], *frag.statements], type_ignores=[])
     ast.fix_missing_locations(mod)
     ns: dict = {"data": [1.0, 2.0, 3.0], "count": 3}
-    exec("import math\nfrom lvkit.runtime import lv as _lv\n" + ast.unparse(mod), ns)
+    exec("import math\nimport ctypes\n" + ast.unparse(mod), ns)
 
     assert ns["data"] == [1.0, 2.0, 3.0], "caller's array was mutated (aliased!)"
     out_var = frag.bindings["t_out"]

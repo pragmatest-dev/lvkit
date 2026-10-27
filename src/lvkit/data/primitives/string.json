@@ -196,7 +196,7 @@
         }
       ],
       "op": "SPREADSHEET_STRING_TO_ARRAY",
-      "imports": ["from lvkit.runtime import lv as _lv"],
+      "imports": ["import re"],
       "verified": false,
       "note": "Spreadsheet String To Array. Op handler splits by output dimensionality (1-D: delimiter or EOL; 2-D: rows by EOL, columns by delimiter) and converts fields to the element type."
     },

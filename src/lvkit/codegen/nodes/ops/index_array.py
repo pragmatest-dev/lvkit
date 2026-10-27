@@ -5,7 +5,8 @@ out-of-range index — it never errors — whereas a plain Python subscript rais
 ``IndexError``. So a scalar-element (1D) index is lowered to a guarded
 expression carrying the element type's real default; a byte value indexing a
 short lookup table (e.g. OpenG Trim Whitespace's 33-entry table) then yields the
-default instead of crashing.
+default instead of crashing. The guard is written inline: ``a[i] if 0 <= i <
+len(a) else default``.
 
 Source-declared one-dimensional arrays use separate output/index rows. Other
 ranks use the expression template, with an empty-array default for subarrays.
@@ -24,9 +25,9 @@ from lvkit.primitive_resolver import ResolvedPrimitive
 
 from ...ast_utils import build_assign, default_value_expr, parse_expr
 from ...context import CodeGenContext
-from ...elementwise import LV_IMPORT
 from ...errors import CodeGenError
 from ...fragment import CodeFragment
+from ...native_array import guarded_index
 from ..terminal_roles import laid_out_roles
 from . import register_op, register_op_fragment
 
@@ -101,23 +102,17 @@ def generate_1d_index_array(
         statements.append(
             build_assign(
                 variable,
-                ast.Call(
-                    func=ast.Attribute(
-                        value=ast.Name(id="_lv", ctx=ast.Load()),
-                        attr="index_array",
-                        ctx=ast.Load(),
-                    ),
-                    args=[
-                        ast.Name(id=array_var, ctx=ast.Load()),
-                        ast.Name(id=index_var, ctx=ast.Load()),
-                        default_value_expr(output.lv_type),
-                    ],
-                    keywords=[],
+                parse_expr(
+                    guarded_index(
+                        array_var,
+                        index_var,
+                        ast.unparse(default_value_expr(output.lv_type)),
+                    )
                 ),
             )
         )
         bindings[output.id] = variable
-    return CodeFragment(statements=statements, bindings=bindings, imports={LV_IMPORT})
+    return CodeFragment(statements=statements, bindings=bindings)
 
 
 @register_op("INDEX_ARRAY")
@@ -128,11 +123,9 @@ def index_array(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
         # Partial index of a multi-dimensional array: indexing one dimension
         # yields a SUBARRAY (e.g. a row of a 2-D array). LabVIEW returns an EMPTY
         # subarray for an out-of-range index rather than raising, so use the
-        # runtime helper with an empty-array default -- a real caller with a
+        # guarded index with an empty-array default -- a real caller with a
         # populated array is unaffected, and an empty/short array no longer
         # IndexErrors (e.g. Sort/Reverse 2D Array on an empty input).
-        return "_lv.index_array(in_0, in_2, [])"
-    # 1D: return the element's real default on out-of-range (LabVIEW semantics)
-    # via the runtime helper, so the array expression is evaluated once.
-    default = ast.unparse(default_value_expr(elem))
-    return f"_lv.index_array(in_0, in_2, {default})"
+        return guarded_index("in_0", "in_2", "[]")
+    # 1D: the element's real default on an out-of-range index.
+    return guarded_index("in_0", "in_2", ast.unparse(default_value_expr(elem)))

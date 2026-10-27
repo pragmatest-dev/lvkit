@@ -2,31 +2,50 @@
 
 Both act on an integer, an array of integers or a cluster, and "swap only the
 integer elements of the cluster" (NI): how many bytes each integer has comes from
-its type, so the type of the data input (index 1) is passed to the runtime as a
-spec (``lvkit.runtime.flat``). The output (index 0) has the data's type.
+its type, so the code is written for the type of the data input (index 1; the
+output, index 0, has the data's type). Swap Bytes swaps the two bytes of every
+16-bit word; Swap Words swaps the two 16-bit halves of every 32-bit long.
 """
 
 from __future__ import annotations
 
+import ast
+
 from lvkit.graph.models import PrimitiveNode
-from lvkit.primitive_resolver import ResolvedPrimitive
 
-from . import register_op
-from .type_cast import _spec
-
-
-def _data_spec(node: PrimitiveNode) -> str | tuple:
-    data = next(
-        (t for t in node.terminals if t.direction == "input" and t.index == 1), None
-    )
-    return _spec(data.lv_type if data else None)
+from ...ast_utils import build_assign, parse_expr
+from ...context import CodeGenContext
+from ...flat import BYTE_ORDER_PREFIX, Functions, UnsupportedLayout, layout_of
+from ...fragment import CodeFragment
+from . import register_op_fragment
+from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 
 
-@register_op("SWAP_BYTES")
-def swap_bytes(node: PrimitiveNode, resolved: ResolvedPrimitive) -> dict[str, str]:
-    return {"swapped": f"_lv.swap_bytes(in_1, {_data_spec(node)!r})"}
+def _swap(
+    node: PrimitiveNode, ctx: CodeGenContext, chunk: int, width_min: int
+) -> CodeFragment:
+    source = terminal(node, "input", 1)
+    result = terminal(node, "output", 0)
+    if result is None or not ctx.is_wired(result.id):
+        return CodeFragment.empty()
+    value = (ctx.resolve(source.id) if source else None) or "None"
+    try:
+        layout = layout_of(source.lv_type if source else None)
+    except UnsupportedLayout as error:
+        raise unsupported_layout_error(node, error) from error
+    fns = Functions(ctx, BYTE_ORDER_PREFIX[0])
+    expression = layout.swap(value, chunk, width_min, 0, fns)
+    variable = ctx.make_output_var("swapped", node.id, terminal_id=result.id)
+    statements: list[ast.stmt] = [build_assign(variable, parse_expr(expression))]
+    add_flat_imports(ctx, statements)
+    return CodeFragment(statements=statements, bindings={result.id: variable})
 
 
-@register_op("SWAP_WORDS")
-def swap_words(node: PrimitiveNode, resolved: ResolvedPrimitive) -> dict[str, str]:
-    return {"swapped": f"_lv.swap_words(in_1, {_data_spec(node)!r})"}
+@register_op_fragment("SWAP_BYTES")
+def swap_bytes(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
+    return _swap(node, ctx, 1, 2)
+
+
+@register_op_fragment("SWAP_WORDS")
+def swap_words(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
+    return _swap(node, ctx, 2, 4)

@@ -11,15 +11,31 @@ from lvkit.codegen.elementwise import arrayify, arrayify_module
 from lvkit.codegen.nodes import primitive
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.runtime import lv
 from tests.helpers import make_ctx
 
 
+def literal_rank(node):
+    depth = 0
+    while isinstance(node, ast.List):
+        depth += 1
+        node = node.elts[0] if node.elts else None
+    return depth
+
+
 def execute_expression(expression, **values):
-    generated, _ = arrayify(ast.parse(expression, mode="eval").body)
+    tree = ast.parse(expression, mode="eval").body
+    ranks = {name: 1 for name in values}
+    ranks.update(
+        {
+            ast.unparse(node): literal_rank(node)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.List)
+        }
+    )
+    generated, _ = arrayify(tree, ranks)
     return eval(
         compile(ast.Expression(generated), "<numeric-add>", "eval"),
-        {"__builtins__": {}, "_lv": lv, **values},
+        {"__builtins__": {"zip": zip}, **values},
     )
 
 
@@ -83,7 +99,7 @@ def test_typed_add_primitive_emits_executable_elementwise_code():
     ctx.bind("bank", "bank")
     ctx.bind("literal", "[0.0, -2.0, -2.0]")
     fragment = primitive.generate(node, ctx)
-    namespace = {"_lv": lv, "bank": [1.0, 4.0, 5.0]}
+    namespace = {"bank": [1.0, 4.0, 5.0]}
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
@@ -105,8 +121,8 @@ def test_typed_add_primitive_emits_executable_elementwise_code():
 )
 def test_module_build_and_replace_concatenation(statement, values, expected):
     body = ast.parse(statement).body
-    arrayify_module(body, frozenset({"bank"}))
-    namespace = {"_lv": lv, **values}
+    arrayify_module(body, {"bank": 1})
+    namespace = dict(values)
     module = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
     exec(compile(module, "<array-concat>", "exec"), namespace)
     assert namespace["result"] == expected
