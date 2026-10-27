@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import os
 import shutil
 import subprocess
 import sys
@@ -135,7 +136,7 @@ def test_wildcards_expand_as_ni_documents(
     fake_sys = types.SimpleNamespace(
         platform=platform, maxsize=2**63 - 1 if bits == 64 else 2**31 - 1
     )
-    namespace: dict[str, object] = {"os": __import__("os"), "sys": fake_sys}
+    namespace: dict[str, object] = {"os": os, "sys": fake_sys}
     exec(LIBRARY_FILE_SOURCE, namespace)  # noqa: S102
     stem = stem.format(bits=bits, wide="_64" if bits == 64 else "")
     suffix = {
@@ -145,15 +146,17 @@ def test_wildcards_expand_as_ni_documents(
     }[platform]
     expand = namespace["_library_file"]
     assert expand(name) == stem + suffix  # type: ignore[operator]
-    assert expand(f"libs/{name}") == f"libs/{stem}{suffix}"  # type: ignore[operator]
+    assert expand(f"libs/{name}") == os.path.join(  # type: ignore[operator]
+        "libs", stem + suffix
+    )
 
 
 def test_a_name_without_a_wildcard_is_left_alone() -> None:
-    namespace: dict[str, object] = {"os": __import__("os"), "sys": sys}
+    namespace: dict[str, object] = {"os": os, "sys": sys}
     exec(LIBRARY_FILE_SOURCE, namespace)  # noqa: S102
     assert namespace["_library_file"]("kernel32.dll") == "kernel32.dll"  # type: ignore[operator]
-    assert namespace["_library_file"]("a/b.dll") == "a/b.dll".replace(  # type: ignore[operator]
-        "/", __import__("os").sep
+    assert namespace["_library_file"]("a/b.dll") == os.path.join(  # type: ignore[operator]
+        "a", "b.dll"
     )
 
 
