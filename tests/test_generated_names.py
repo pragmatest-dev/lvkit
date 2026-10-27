@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import builtins
 import importlib
+import re
 import sys
 from pathlib import Path
 
@@ -70,7 +71,9 @@ def _module_named(package: Path, suffix: str) -> Path:
 def _module_defining(package: Path, class_name: str) -> Path:
     """The module that defines ``class_name``."""
     (module,) = (
-        p for p in _modules(package) if f"\nclass {class_name}(" in p.read_text()
+        p
+        for p in _modules(package)
+        if re.search(rf"^class {class_name}[(:]", p.read_text(), re.MULTILINE)
     )
     return module
 
@@ -177,8 +180,7 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
         ("tearDown", 2),
     ]
     testcase = modules[_module_defining(package, "TestCase").name]
-    root = importlib.import_module("lvkit.runtime.labview_object")
-    assert issubclass(testcase.TestCase, root.LabVIEWObject)
+    assert testcase.TestCase.__bases__ == (object,)
 
 
 def test_enum_constant_is_imported_at_run_time(tmp_path):

@@ -4,14 +4,21 @@ from __future__ import annotations
 
 import ast
 
-from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
+from lvkit.models import Terminal
 
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
+from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from .base import resolve_ref_input
+from .base import (
+    DefaultObjectError,
+    resolve_ref_input,
+    soft_default_object_error,
+    unwired_ref_class,
+)
 
 
 def _attribute_chain(
@@ -30,7 +37,63 @@ def _attribute_chain(
     return expr
 
 
+def _callees(ctx: CodeGenContext) -> str:
+    """A tuple expression of the functions of the VIs this VI calls, in diagram
+    order without repeats, and the imports that bring them in."""
+    names: list[str] = []
+    if ctx.graph is not None and ctx.vi_name:
+        for other in ctx.graph.iter_nodes(ctx.vi_name):
+            if isinstance(other, VINode) and other.callee_key is not None:
+                name = ctx.import_function(other.name or "", other.callee_key)
+                if name != ctx.function_name and name not in names:
+                    names.append(name)
+    tail = "," if len(names) == 1 else ""
+    return f"({', '.join(names)}{tail})"
+
+
+def _default_object_expression(
+    ctx: CodeGenContext, value: DefaultObjectProperty
+) -> str:
+    """``value.python`` with the generating VI's function and callees written in."""
+    expression = value.python.replace("{function}", ctx.function_name)
+    if "{callees}" in expression:
+        expression = expression.replace("{callees}", _callees(ctx))
+    return expression
+
+
+def _default_object_read(
+    node: PrimitiveNode, class_name: str, property_name: str, term: Terminal
+) -> DefaultObjectProperty:
+    """The Python value of a property read on the default object of
+    ``class_name``; a write, or a property with no documented Python value, stops
+    code generation naming the class and the property."""
+    if term.direction != "output":
+        raise DefaultObjectError(
+            f"Property '{property_name}' is written on the default {class_name} "
+            "object, which has no Python equivalent",
+            node,
+        )
+    value = default_object_property(class_name, property_name)
+    if value is None:
+        raise DefaultObjectError(
+            f"Property '{property_name}' of the default {class_name} object has "
+            "no Python equivalent",
+            node,
+        )
+    return value
+
+
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
+    """The node's ordered attribute accesses (see ``_generate``); a property of a
+    default object with no Python value stops generation, or, with
+    ``soft_unresolved``, becomes a ``raise``."""
+    try:
+        return _generate(node, ctx)
+    except DefaultObjectError as exc:
+        return soft_default_object_error(exc, node, ctx)
+
+
+def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
     The caller supplies an object implementing the named Python attributes; a
@@ -50,10 +113,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if node.bound_control_uid:
         raise CodeGenError("Implicit property reference requires a binding model", node)
     fixed = [term for term in node.terminals if term.id not in value_ids]
-    ref = resolve_ref_input(node, ctx)
-    ref_var = ref.name
+    default_class = unwired_ref_class(node, ctx)
+    ref_var = "" if default_class else resolve_ref_input(node, ctx)
 
-    statements: list[ast.stmt] = list(ref.statements)
+    statements: list[ast.stmt] = []
+    imports: set[str] = set()
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
     for prop, term in correlate_property_terminals(
@@ -68,7 +132,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if attr_name in attr_names and attr_names[attr_name] != prop.name:
             raise CodeGenError("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
-        if term.direction == "output":
+        if default_class is not None:
+            value_expr = _default_object_read(node, default_class, prop.name, term)
+            var_name = ctx.make_output_var(attr_name, term.id, term.id)
+            statements.append(
+                ast.Assign(
+                    targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                    value=parse_expr(_default_object_expression(ctx, value_expr)),
+                )
+            )
+            imports.update(value_expr.imports)
+            bindings[term.id] = var_name
+        elif term.direction == "output":
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
@@ -102,6 +177,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             continue
         if term.direction != "output" or not ctx.is_wired(term.id):
             continue
+        if default_class is not None:
+            raise DefaultObjectError(
+                f"Property Node reference output on the default {default_class} "
+                "object has no Python equivalent",
+                node,
+            )
         if (
             term.index == 1
             and term.lv_type
@@ -110,10 +191,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             bindings[term.id] = ref_var
         else:
             raise CodeGenError("Property flow-through output is unresolved", node)
-    if len(statements) == len(ref.statements):
+    if not statements:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
-    return CodeFragment(
-        statements=statements, bindings=bindings, imports=ref.imports
-    )
+    return CodeFragment(statements=statements, bindings=bindings, imports=imports)

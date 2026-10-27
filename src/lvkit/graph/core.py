@@ -158,6 +158,7 @@ from .analysis import AnalysisMixin  # noqa: E402
 from .construction import ConstructionMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
+from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
 
@@ -167,6 +168,7 @@ class InMemoryVIGraph(
     ConstructionMixin,
     QueryMixin,
     OperationsMixin,
+    PackageQueriesMixin,
     AnalysisMixin,
     TypedefMixin,
 ):

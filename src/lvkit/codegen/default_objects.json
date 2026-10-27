@@ -1,0 +1,49 @@
+{
+  "_comment": "Properties of the default object of a VI Server class, the object a Property Node uses when its reference input is unwired. A property is listed only when NI's public documentation says what its value is and that value is available to a Python process. 'python' is the expression generated code reads in place of the property; '{function}' is the name of the function the VI generates and '{callees}' a tuple of the functions of the VIs it calls; 'imports' are the statements the expression needs.",
+  "classes": {
+    "App": {
+      "App.UserName": {
+        "python": "getpass.getuser()",
+        "imports": [
+          "import getpass"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/username.html"
+      },
+      "App.Dir": {
+        "python": "Path(sys.argv[0]).resolve().parent",
+        "imports": [
+          "import sys",
+          "from pathlib import Path"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/application-directory-path.html"
+      },
+      "Application:Directory Path": {
+        "python": "Path(sys.argv[0]).resolve().parent",
+        "imports": [
+          "import sys",
+          "from pathlib import Path"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/application-directory-path.html"
+      }
+    },
+    "VI": {
+      "Name": {
+        "python": "{function}.__name__",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/name.html"
+      },
+      "Path": {
+        "python": "Path(__file__)",
+        "imports": [
+          "from pathlib import Path"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/path.html"
+      },
+      "Callees' Names": {
+        "python": "[callee.__name__ for callee in {callees}]",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/callees-names.html"
+      }
+    }
+  }
+}

@@ -114,7 +114,11 @@ def emit_soft_unresolved(
     raise_src = f"raise {exception_class}({', '.join(parts)})"
     statements.append(ast.parse(raise_src).body[0])
 
-    imports = {f"from {exception_module} import {exception_class}"}
+    imports = (
+        set()
+        if exception_module == "builtins"
+        else {f"from {exception_module} import {exception_class}"}
+    )
     if extra_imports:
         imports |= extra_imports
 

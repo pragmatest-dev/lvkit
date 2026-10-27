@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,8 @@ from lvkit.codegen.nodes.primitive import _emit_placeholder, _emit_unknown
 from lvkit.codegen.nodes.subvi import _emit_vilib_resolution
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.models import Terminal
-from lvkit.primitive_resolver import PrimitiveResolutionNeeded, ResolvedPrimitive
+from lvkit.primitive_resolver import PrimitiveResolutionNeeded
+from lvkit.primitive_resolver.models import ResolvedPrimitive
 from lvkit.unresolved import (
     UnresolvedItem,
     collect_unresolved,
@@ -77,16 +79,10 @@ def test_sink_collects_placeholder_primitive_tagged() -> None:
         prim_id=9105,
     )
     resolved = ResolvedPrimitive(
-        prim_id="9105",
-        name="Wait on Notification",
-        confidence="placeholder",
+        prim_id="9105", name="Wait on Notification", confidence="placeholder"
     )
     sink: list[Exception] = []
-    ctx = CodeGenContext(
-        soft_unresolved=True,
-        unresolved_sink=sink,
-        vi_name="Caller.vi",
-    )
+    ctx = CodeGenContext(unresolved_sink=sink, vi_name="Caller.vi")
     _emit_placeholder(node, resolved, ctx)
     assert len(sink) == 1
     assert isinstance(sink[0], PrimitiveResolutionNeeded)
@@ -203,3 +199,30 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     assert counts["placeholder_primitive"] == 9
     assert counts["terminal_mapping"] == 8
     assert counts["unknown_primitive"] == 1
+
+
+def test_placeholder_primitive_raises_where_it_runs() -> None:
+    """A primitive known by name with no implementation generates a plain
+    ``raise NotImplementedError`` at its place, importing nothing from lvkit."""
+    node = PrimitiveNode(
+        id="p",
+        vi_path="test.vi",
+        name="Wait on Notification",
+        terminals=[
+            Terminal(id="t0", index=0, direction="input", name="notifier"),
+            Terminal(id="t1", index=1, direction="output", name="message"),
+        ],
+        prim_id=9105,
+    )
+    resolved = ResolvedPrimitive(
+        prim_id="9105", name="Wait on Notification", confidence="placeholder"
+    )
+    ctx = CodeGenContext(vi_name="Caller.vi")
+    fragment = _emit_placeholder(node, resolved, ctx)
+    assert fragment.imports == set()
+    module = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    assert ast.unparse(module).splitlines()[-1] == (
+        "raise NotImplementedError('Wait on Notification is not converted yet')"
+    )

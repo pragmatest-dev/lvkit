@@ -67,6 +67,8 @@ class CodeGenContext:
     # Fully qualified name of the VI being generated (library + class +
     # name). Used in resolution diagnostics so an LLM can find the source.
     qualified_vi_name: str | None = None
+    # The name of the Python function this VI generates (what its callers call).
+    function_name: str = ""
     imports: set[str] = field(default_factory=set)
     # Imports of the classes and typedefs the module's annotations name. They are
     # needed only by a type checker, so the module imports them under

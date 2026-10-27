@@ -13,7 +13,12 @@ from lvkit.graph.models import PrimitiveNode
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from .base import resolve_ref_input
+from .base import (
+    DefaultObjectError,
+    resolve_ref_input,
+    soft_default_object_error,
+    unwired_ref_class,
+)
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -25,8 +30,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if not method_name:
         return CodeFragment.empty()
 
-    ref = resolve_ref_input(node, ctx)
-    ref_var = ref.name
+    default_class = unwired_ref_class(node, ctx)
+    if default_class is not None:
+        error = DefaultObjectError(
+            f"Invoke Node method '{method_name}' on the default {default_class} "
+            "object has no Python equivalent",
+            node,
+        )
+        return soft_default_object_error(error, node, ctx)
+    ref_var = resolve_ref_input(node, ctx)
     method_attr = to_var_name(method_name)
 
     # Gather non-ref input arguments
@@ -61,7 +73,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         t for t in node.terminals if t.direction == "output" and ctx.is_wired(t.id)
     ]
 
-    statements: list[ast.stmt] = list(ref.statements)
+    statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
 
     if wired_outputs:
@@ -80,6 +92,4 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     else:
         statements.append(ast.Expr(value=call))
 
-    return CodeFragment(
-        statements=statements, bindings=bindings, imports=ref.imports
-    )
+    return CodeFragment(statements=statements, bindings=bindings)

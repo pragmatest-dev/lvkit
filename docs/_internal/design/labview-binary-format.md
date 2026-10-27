@@ -99,12 +99,15 @@ is Application or VI the `reference` input need not be wired: the Application
 default is the current application instance and the VI default is the VI
 containing the node
 (`https://docs-be.ni.com/api/bundle/labview-api-ref/page/functions/property-node.html`,
-`.../functions/invoke-node.html`). The generated code assigns
-`_lv.default_reference(<class>, owner=<VI>)` for such a node, so every unwired
-node of one class in one VI shares one object. Other classes (the DAQmx System and
-DAQmx Device nodes in `DCAF-DAQModule`'s `Config.vi`) occur unwired in saved VIs
-but the public LabVIEW reference states no default for them; they are represented the same
-way, named by their class. A WIRED reference with no value is a codegen error.
+`.../functions/invoke-node.html`). Code generation reads a property of that
+default object only when `codegen/default_objects.json` lists it (Application's
+`User Name` as `getpass.getuser()` and `Directory Path` as the running program's
+folder; the VI's `Name`, `Path` and `Callees' Names` as its own function name,
+`Path(__file__)` and the called functions); any other property, a write, or
+an Invoke Node on it stops generation naming the class and the property (the
+DAQmx System and DAQmx Device nodes in `DCAF-DAQModule`'s `Config.vi` occur
+unwired in saved VIs, but the public LabVIEW reference states no default for
+them). A WIRED reference with no value is a codegen error.
 
 ## `eventRegNode` (Register For Events, task #56) is a growable property-node-style node — its name and row count are BOTH heap-recorded, never hard-coded
 

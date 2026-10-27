@@ -21,8 +21,6 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping
 
-LV_IMPORT = "from lvkit.runtime import lv as _lv"
-
 # Operators and conversion calls that apply to every element of an array.
 _UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs"})
 _UNARY_OPS = (ast.USub, ast.UAdd, ast.Not, ast.Invert)

@@ -95,6 +95,7 @@ def build_module(
         module_stem=to_function_name(vi_context.name),
     )
     ctx.vi_name = vi_name
+    ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
     ctx.soft_unresolved = soft_unresolved
     ctx.unresolved_sink = unresolved_sink

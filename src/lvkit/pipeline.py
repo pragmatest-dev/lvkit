@@ -32,13 +32,14 @@ from lvkit.codegen.errors_module import (
     LABVIEW_ERROR_NAME,
 )
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
-from lvkit.type_names import ROOT_CLASS, derive_python_name
+from lvkit.type_names import derive_python_name
 from lvkit.vi_files import strip_vi_extension
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
@@ -201,6 +202,7 @@ def create_import_resolver(
     graph: InMemoryVIGraph | None = None,
     vilib_resolver: VILibResolver | None = None,
     defined_names: Collection[str] = (),
+    package_modules: PackageModules | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -217,6 +219,9 @@ def create_import_resolver(
         vilib_resolver: VILib resolver for vilib membership check
         defined_names: Class names the module defines itself; an import of the
             same derived name gets an alias.
+        package_modules: The package's shared state; with it, a VI that obtains a
+            queue by a constant name, or uses a Shared Variable, imports it from
+            the module that defines it at the output root.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -267,9 +272,9 @@ def create_import_resolver(
         return "." * (depth + 1), ".".join(below_root[:-1]), below_root[-1]
 
     # The name each imported class, typedef or function is spelled as in this
-    # module, by the identity of its node (its file path; the root class has no
-    # file). Two with the same derived name, or one with the name of what the
-    # module defines, are told apart by an alias.
+    # module, by the identity of its node (its file path). Two with the same
+    # derived name, or one with the name of what the module defines, are told
+    # apart by an alias.
     spelled: dict[str, str] = {}
     taken = set(defined_names)
     if caller_key is not None:
@@ -306,13 +311,6 @@ def create_import_resolver(
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
     def type_import(type_ref: str) -> NameImport | None:
-        if type_ref == ROOT_CLASS:
-            derived = derive_python_name(ROOT_CLASS)
-            name = spell(ROOT_CLASS, derived)
-            alias = "" if name == derived else f" as {name}"
-            return NameImport(
-                f"from lvkit.runtime.labview_object import {derived}{alias}", name
-            )
         if graph is None or caller_key is None:
             return None
         key = graph.type_key(type_ref, caller_key)
@@ -324,8 +322,18 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{ERRORS_MODULE_NAME}.py")
         return f"from {dots}{module} import {LABVIEW_ERROR_NAME}"
 
+    def root_module_import(stem: str, alias: str) -> ModuleImport:
+        depth = len(caller_dir.relative_to(output_dir).parts)
+        return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
+
     return ImportResolver(
-        function_import, module_import, type_import, node_import, error_import
+        function_import,
+        module_import,
+        type_import,
+        node_import,
+        error_import,
+        package_modules,
+        root_module_import,
     )
 
 
@@ -372,6 +380,7 @@ def _generate_polymorphic_module(
     vi_paths: dict[str, Path],
     soft_unresolved: bool = False,
     data_files: dict[str, bytes] | None = None,
+    package_modules: PackageModules | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
     variants read at run time are added to ``data_files``."""
@@ -412,6 +421,7 @@ def _generate_polymorphic_module(
                 caller_key=graph.resolve_vi_name(variant_name),
                 graph=graph,
                 vilib_resolver=vilib_resolver,
+                package_modules=package_modules,
             )
             code = build_module(
                 vi_context,
@@ -663,8 +673,18 @@ def generate_python(
         for key in order
         if (folder := to_library_name(key, graph=graph, vilib_resolver=vilib_resolver))
     }
+    package_modules = PackageModules.from_graph(
+        graph, order, reserved={*library_folders, ERRORS_MODULE_NAME}
+    )
     module_names = unique_module_stems(
-        order, graph, reserved={*library_folders, ERRORS_MODULE_NAME}
+        order,
+        graph,
+        reserved=[
+            *library_folders,
+            ERRORS_MODULE_NAME,
+            package_modules.queues_stem,
+            package_modules.shared_variables_stem,
+        ],
     )
 
     # Identify polymorphic groups (from VI metadata, not heuristics)
@@ -816,6 +836,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     vi_paths,
                     soft_unresolved=soft_unresolved,
                     data_files=data_files,
+                    package_modules=package_modules,
                 )
                 ast.parse(code)  # Validate syntax
                 output_path.write_text(code, encoding="utf-8")
@@ -853,6 +874,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     caller_key=vi_name,
                     graph=graph,
                     vilib_resolver=vilib_resolver,
+                    package_modules=package_modules,
                 )
                 data_files: dict[str, bytes] = {}
                 code = build_module(
@@ -917,6 +939,7 @@ def {func_name}(*args, **kwargs) -> Any:
                     vi_paths,
                     soft_unresolved=soft_unresolved,
                     data_files=data_files,
+                    package_modules=package_modules,
                 )
                 ast.parse(code)
                 wrapper_path.write_text(code, encoding="utf-8")
@@ -952,6 +975,7 @@ def {func_name}(*args, **kwargs) -> Any:
             class_path,
             graph=graph,
             vilib_resolver=vilib_resolver,
+            package_modules=package_modules,
         )
         builder = ClassBuilder(config=ClassConfig())
         module = builder.build_class_module(
@@ -968,6 +992,8 @@ def {func_name}(*args, **kwargs) -> Any:
         print(f"\nGenerated class wrapper: {class_path.name}")
 
     _write_errors_module(output_dir_resolved)
+    for written in package_modules.write(output_dir_resolved):
+        print(f"\nGenerated shared module: {written.name}")
 
     print(f"\nOutput: {output_dir_resolved}")
 
