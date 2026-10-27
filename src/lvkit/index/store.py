@@ -428,7 +428,9 @@ def _ensure_facts_version(conn: sqlite3.Connection) -> None:
         "id INTEGER PRIMARY KEY CHECK (id = 0), fingerprint TEXT NOT NULL)"
     )
     current = _facts_fingerprint()
-    row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
+    row = conn.execute(
+            "SELECT fingerprint FROM index_meta WHERE id = 0"
+        ).fetchone()
     if row is not None and row[0] == current:
         return
     for table in _ALL_TABLES:
@@ -464,6 +466,7 @@ def facts_digest(f: VIFacts) -> str:
     del payload["impact_score"]
     del payload["callers_count"]
     del payload["dependencies_walked"]
+    del payload["scores_computed"]
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     ).hexdigest()
@@ -604,8 +607,10 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
       (``dependencies_walked`` False) knows nothing about them, so the stored
       lists stay.
     * a stub never replaces a loaded VI.
-    * ``impact_score`` / ``callers_count`` are whole-call-graph results, so the
-      stored ones stay.
+    * ``impact_score`` / ``callers_count`` are whole-call-graph results: the
+      stored ones stay unless ``f`` carries scores computed across the whole
+      graph (``scores_computed``), which replace them and make a changed score
+      count as a change.
 
     The result is compared by :func:`facts_digest`; equal means nothing to write.
     """
@@ -624,10 +629,15 @@ def _facts_to_write(conn: sqlite3.Connection, f: VIFacts) -> VIFacts | None:
             typedef_versions=(
                 f.typedef_versions if f.dependencies_walked else prior.typedef_versions
             ),
-            impact_score=prior.impact_score,
-            callers_count=prior.callers_count,
+            impact_score=f.impact_score if f.scores_computed else prior.impact_score,
+            callers_count=(
+                f.callers_count if f.scores_computed else prior.callers_count
+            ),
         )
-        if prior.facts_digest == facts_digest(effective):
+        if prior.facts_digest == facts_digest(effective) and (
+            prior.impact_score,
+            prior.callers_count,
+        ) == (effective.impact_score, effective.callers_count):
             return None
     return effective
 
@@ -643,9 +653,7 @@ def _probe(project_root: Path) -> sqlite3.Connection | None:
         return None
     try:
         conn = sqlite3.connect(f"{path.as_uri()}?immutable=1", uri=True)
-        row = conn.execute(
-            "SELECT fingerprint FROM index_meta WHERE id = 0"
-        ).fetchone()
+        row = conn.execute("SELECT fingerprint FROM index_meta WHERE id = 0").fetchone()
     except sqlite3.Error:
         return None
     if row is None or row[0] != _facts_fingerprint():
@@ -676,8 +684,7 @@ def save(project_root: Path, vis: Iterable[VIFacts]) -> None:
     for writing, so a repeat load of an unchanged project leaves ``index.db``
     and its WAL files exactly as they were. The terminals/constants/nodes/
     type_uses child tables are intrinsic to a single-VI load and are always
-    rewritten together with their VI's row. (``callee_path`` on the node rows is
-    the one exception filled at merge, like impact_score.)
+    rewritten together with their VI's row.
     """
     pending = list(vis)
     if not pending or _probe_is_current(project_root, pending):
