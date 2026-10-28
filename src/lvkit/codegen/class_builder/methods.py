@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from lvkit.models import TypeNamer
 from lvkit.structure import LVMethod
 
-from ..ast_utils import parameter_names, to_function_name
+from ..ast_utils import interface_names, to_function_name
 from ..builder import CodeGenContext, annotated_terminals, build_args, generate_body
 from ..context import type_namer
 from ..gaps import Gap, vi_body
@@ -94,7 +94,7 @@ class _MethodBuilderMixin:
         args_obj = build_args(
             filtered_inputs,
             vi_context.off_pane_inputs,
-            parameter_names([*inputs, *vi_context.off_pane_inputs]),
+            interface_names(inputs, vi_context.off_pane_inputs, [], []).parameters,
             spell,
         )
 
@@ -159,7 +159,7 @@ class _MethodBuilderMixin:
         args_obj = build_args(
             filtered_inputs,
             vi_context.off_pane_inputs,
-            parameter_names([*inputs, *vi_context.off_pane_inputs]),
+            interface_names(inputs, vi_context.off_pane_inputs, [], []).parameters,
             spell,
         )
 

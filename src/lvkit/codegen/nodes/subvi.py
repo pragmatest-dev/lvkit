@@ -25,6 +25,7 @@ from ..ast_utils import (
     to_function_name,
     to_var_name,
 )
+from ..callee_names import CalleeNames, callee_names
 from ..context import CodeGenContext
 from ..error_path import ERROR_WIRE_VI_NAMES
 from ..fragment import CodeFragment
@@ -393,6 +394,7 @@ def _build_arguments(
 
     args = []
     keywords: dict[str, str] = {}
+    names = callee_names(ctx, node)
 
     for term in ctx.enriched_terminals(node):
         if term.direction != "input" or is_call_frame_terminal(node, term):
@@ -417,6 +419,8 @@ def _build_arguments(
         if vilib_inputs and term_index in vilib_inputs:
             # vilib knows the correct parameter name
             param_name = to_var_name(vilib_inputs[term_index])
+        elif names is not None and term_index in names.parameters:
+            param_name = names.parameters[term_index]
         elif term_name:
             # Use terminal name from node
             param_name = to_var_name(term_name)
@@ -541,6 +545,7 @@ def _build_output_bindings(
     )
 
     bindings = {}
+    names = callee_names(ctx, node)
     for term in ctx.enriched_terminals(node):
         if term.direction != "output" or is_call_frame_terminal(node, term):
             continue
@@ -556,6 +561,8 @@ def _build_output_bindings(
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:
             field = result_field_name(vilib_outputs[term_index])
+        elif names is not None and term_index in names.fields:
+            field = names.fields[term_index]
         elif term_name:
             field = result_field_name(term_name)
         else:
@@ -643,6 +650,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
 
     # Build output bindings
     bindings: dict[str, str] = {}
+    names = callee_names(ctx, node)
     result_var = f"{method_name}_result"
     has_non_class_output = False
 
@@ -656,7 +664,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
             # Class-typed output → passthrough to receiver variable
             bindings[term.id] = receiver_var
         else:
-            field = result_field_name(term.name or f"out_{term.index}")
+            field = _result_field(names, term)
             has_non_class_output = True
             bindings[term.id] = f"{result_var}.{field}"
 
@@ -692,14 +700,22 @@ def _generate_static_fallback(
         value=call,
     )
     bindings: dict[str, str] = {}
+    names = callee_names(ctx, node)
     for term in ctx.enriched_terminals(node):
         if term.direction == "output":
             if term.is_error_cluster:
                 continue
-            field = result_field_name(term.name or f"out_{term.index}")
+            field = _result_field(names, term)
             bindings[term.id] = f"{result_var}.{field}"
 
     return CodeFragment(statements=[stmt], bindings=bindings)
+
+
+def _result_field(names: CalleeNames | None, term: Terminal) -> str:
+    """The field of the called VI's result that ``term`` reads."""
+    if names is not None and term.index in names.fields:
+        return names.fields[term.index]
+    return result_field_name(term.name or f"out_{term.index}")
 
 
 def _is_class_terminal(term: Terminal) -> bool:

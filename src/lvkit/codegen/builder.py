@@ -13,10 +13,9 @@ from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
     build_type_checking_block,
+    interface_names,
     param_default_expr,
-    parameter_names,
     parse_expr,
-    result_field_names,
     to_function_name,
 )
 from .context import CodeGenContext
@@ -133,7 +132,12 @@ def _function_body(
     # already-empty list to [] harmlessly.
     parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
     body.extend(
-        build_array_input_normalization(parameters, parameter_names(parameters))
+        build_array_input_normalization(
+            parameters,
+            interface_names(
+                vi_context.inputs, vi_context.off_pane_inputs, [], []
+            ).parameters,
+        )
     )
 
     if use_error_handling:
@@ -579,7 +583,12 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         return None
 
     result_class = build_result_class_name(vi_context.name)
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Resolve output values, skipping error clusters
     keywords = []
@@ -725,7 +734,12 @@ def build_result_class(
 
     class_name = build_result_class_name(vi_context.name)
 
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Build fields, skipping error clusters
     fields = []
@@ -815,7 +829,7 @@ def build_args(
     defaulting to the control's saved default -- the value such a control holds
     when LabVIEW calls the VI as a subVI.
 
-    ``names`` maps terminal id -> parameter name (``parameter_names`` over every
+    ``names`` maps terminal id -> parameter name (``interface_names`` over every
     control of the VI); when omitted it is computed over ``inputs`` and
     ``off_pane_inputs``.
 
@@ -833,7 +847,7 @@ def build_args(
     args = []
     defaults = []
     if names is None:
-        names = parameter_names([*inputs, *(off_pane_inputs or [])])
+        names = interface_names(inputs, off_pane_inputs or [], [], []).parameters
 
     for inp in inputs:
         if inp.is_error_cluster:

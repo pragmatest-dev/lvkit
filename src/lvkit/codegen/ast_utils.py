@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
+from dataclasses import dataclass
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
@@ -319,6 +320,31 @@ def result_field_names(
         taken.append(name)
         names[t.id] = name
     return names
+
+
+@dataclass(frozen=True)
+class InterfaceNames:
+    """The Python names of a VI's interface: its parameters and result fields, by
+    terminal id."""
+
+    parameters: dict[str, str]
+    fields: dict[str, str]
+
+
+def interface_names(
+    inputs: list[Terminal],
+    off_pane_inputs: list[Terminal],
+    outputs: list[Terminal],
+    off_pane_outputs: list[Terminal],
+) -> InterfaceNames:
+    """The one place a VI's parameter names and result field names are made from
+    its terminals, in interface order, each set distinct. The VI's own function
+    and result class use them, and so does every caller that passes it keyword
+    arguments and reads its result fields."""
+    return InterfaceNames(
+        parameters=parameter_names([*inputs, *off_pane_inputs]),
+        fields=result_field_names(outputs, off_pane_outputs),
+    )
 
 
 # Builtin names a generated variable must not shadow.

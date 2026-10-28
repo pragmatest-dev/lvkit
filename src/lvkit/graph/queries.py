@@ -811,6 +811,19 @@ class QueryMixin:
             results.append(t)
         return ordered_interface(results, "output", gnode.connector_pattern_id)
 
+    def vi_interface(
+        self, vi_name: str
+    ) -> tuple[list[Terminal], list[Terminal], list[Terminal], list[Terminal]]:
+        """A VI's inputs, off-pane inputs, outputs and off-pane outputs, each in
+        interface order: what its function's parameters and result fields are
+        named from."""
+        return (
+            list(self.get_inputs(vi_name)),
+            list(self.get_off_pane_inputs(vi_name)),
+            list(self.get_outputs(vi_name)),
+            list(self.get_off_pane_outputs(vi_name)),
+        )
+
     def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]:
         """Front-panel controls not wired to the connector pane."""
         return [
@@ -1216,10 +1229,7 @@ class QueryMixin:
                     )
                 )
 
-        inputs = list(self.get_inputs(vi_name))
-        outputs = list(self.get_outputs(vi_name))
-        off_pane_inputs = self.get_off_pane_inputs(vi_name)
-        off_pane_outputs = self.get_off_pane_outputs(vi_name)
+        inputs, off_pane_inputs, outputs, off_pane_outputs = self.vi_interface(vi_name)
         constants = list(self.get_constants(vi_name))
         labels = list(self.get_labels(vi_name))
         data_flow = list(self.get_wires(vi_name))

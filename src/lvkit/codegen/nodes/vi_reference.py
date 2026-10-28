@@ -42,7 +42,8 @@ from lvkit.graph.vi_reference import (
 )
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 
-from ..ast_utils import build_assign, parse_expr, result_field_name, to_var_name
+from ..ast_utils import build_assign, parse_expr
+from ..callee_names import pane_names
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -156,24 +157,30 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "parameters by.",
             node,
         )
-    names = {slot.index: slot.name for slot in pane}
+    names = pane_names(pane)
+    labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
     result_var = ctx.make_output_var("vi_reference_result", node.id)
     bindings: dict[str, str] = {}
     for term in ctx.enriched_terminals(node):
         if term.index is None or term.index < 0 or term.is_error_cluster:
             continue
-        name = names.get(term.index)
-        if name is None:
+        if term.index not in labelled:
+            continue
+        if term.index not in (
+            names.parameters if term.direction == "input" else names.fields
+        ):
             continue
         if term.direction == "input":
             value = ctx.resolve(term.id)
             if value is not None:
                 keywords.append(
-                    ast.keyword(arg=to_var_name(name), value=parse_expr(value))
+                    ast.keyword(
+                        arg=names.parameters[term.index], value=parse_expr(value)
+                    )
                 )
         else:
-            bindings[term.id] = f"{result_var}.{result_field_name(name)}"
+            bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
 
 
