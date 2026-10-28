@@ -19,6 +19,10 @@ from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
 from .xml_trees import parsed_xml
 
+# The VI Server class a generic reference's ``CtlFlags`` names
+# (docs/_internal/design/labview-binary-format.md).
+_SERVER_CLASSES = {"0x0001": "Application", "0x0002": "VI"}
+
 
 class TypeMap(dict[int, LVType]):
     """A VI's TypeID -> type table. ``pool_failure`` says why a pre-LV9 VI's heap
@@ -425,6 +429,11 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                 kind=LVTypeKind.PRIMITIVE,
                 underlying_type="Refnum",
                 ref_type=ref_type,
+                server_class=(
+                    _SERVER_CLASSES.get(td.get("CtlFlags", ""))
+                    if ref_type == "LVObjCtl"
+                    else None
+                ),
                 classname=classname,
                 class_file=class_file,
                 element_type=element_type,

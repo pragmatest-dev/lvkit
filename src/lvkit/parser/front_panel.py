@@ -37,6 +37,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         typedef_name=lv_type.typedef_name,
         typedef_file=lv_type.typedef_file,
         ref_type=lv_type.ref_type,
+        server_class=lv_type.server_class,
         classname=lv_type.classname,
         class_file=lv_type.class_file,
         fields=lv_type.fields,

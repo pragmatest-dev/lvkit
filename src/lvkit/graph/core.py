@@ -335,6 +335,7 @@ class InMemoryVIGraph(
             kind=LVTypeKind(parsed_type.kind),
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
+            server_class=parsed_type.server_class,
             classname=parsed_type.classname,
             class_file=parsed_type.class_file,
             typedef_path=parsed_type.typedef_path,

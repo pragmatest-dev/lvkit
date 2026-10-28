@@ -243,6 +243,9 @@ class LVType:
     underlying_type: str | None = None
     ref_type: str | None = None
     classname: str | None = None
+    # The VI Server class a generic reference (``LVObjCtl``) is of, when its type
+    # says: "VI" or "Application". None for any other reference.
+    server_class: str | None = None
     # A User Event refnum's event name: the label of the data type wired to
     # Create User Event (for a type-definition data type, the label on the
     # constant's own instance of it, not the .ctl file name). None for every

@@ -12,6 +12,7 @@ from tests.native_vi import generate, node, scalar
 from tests.test_match_pattern import STRING
 
 I32 = scalar("NumInt32")
+BOOL = scalar("Boolean")
 
 
 def _add(node_id: str):
@@ -203,3 +204,47 @@ def test_reference_naming_no_control_is_one_gap_and_its_consumers_generate() -> 
     assert "re.search('a', this_application)" in text
     with pytest.raises(NotImplementedError, match="This Application"):
         run.function()
+
+
+def test_this_vi_is_the_generated_function_for_every_consumer() -> None:
+    from lvkit.graph.models import LocalVariableNode
+    from lvkit.models import LVType, LVTypeKind, Terminal
+
+    vi_class = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="LVObjCtl",
+        server_class="VI",
+    )
+    reference = LocalVariableNode(
+        id="ref",
+        vi_path="Native Test.vi",
+        name="This VI",
+        node_type="ctlRefConst",
+        control_name="This VI",
+        terminals=[
+            Terminal(
+                id="ref:0",
+                index=0,
+                direction="output",
+                name="This VI",
+                lv_type=vi_class,
+            )
+        ],
+    )
+    equal = node(
+        "eq",
+        1102,
+        [(0, "output", BOOL), (1, "input", vi_class), (2, "input", vi_class)],
+    )
+    gaps: list[Gap] = []
+    run = generate(
+        {},
+        {"same": BOOL},
+        [reference, equal],
+        [("ref:0", "eq:1"), ("ref:0", "eq:2"), ("eq:0", "fp:same")],
+        gaps=gaps,
+    )
+    assert gaps == []
+    assert "native_test == native_test" in run.source
+    assert run.function().same is True

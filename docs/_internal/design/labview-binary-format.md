@@ -1654,3 +1654,9 @@ NI: "To include the multiline? input and enable advanced regular expression sear
 - 6 (all in `IE_Open Help Link.vi`, ni-labview-icon-editor) have `<objFlags>33554432</objFlags>` (0x2000000) and terminal 3 carries no 0x800000.
 
 So the mode is the node's own 0x2000000 bit, read by `ops/search_and_replace.py` from the node's `obj_flags`; the same node shows the hidden bit clear on `multiline?`. Every other field compared (`primIndex` 406, 425, 441 or 454, `shortCount`, `clumpNum`, the per-terminal `dsw`) varies without tracking the mode. Only one corpus node is in Regular Expression mode, so the bit is the whole evidence for the mode; that node's `search string` is the constant `'nihelplauncher://docs/csh'`.
+
+## A generic VI Server reference (`RefType="LVObjCtl"`) names its class in `CtlFlags`: 0x0001 Application, 0x0002 VI
+
+The type descriptor of a generic VI Server reference carries `CtlFlags` next to `RefType="LVObjCtl"`. Across the extracted corpus, every descriptor labelled `This VI` has `CtlFlags="0x0002"` (217 of 217) and every one labelled `This Application` has `0x0001` (109 of 109); the other descriptors with those values carry labels such as `VIRef`, `IE VI Ref`, `vi reference` (0x0002) and `application reference (local)`, `AppInst` (0x0001). Other values (0x0008, 0x001E, 0x001B, 0x0042 ...) are the control classes of control references (a `Font ComboBox` reference is 0x001D); they are not named here.
+
+The `oMId` of the `ctlRefConst` element does NOT identify the class: the `This VI` constants in the corpus carry `061F`, `002E`, `0049`, `02B4`, `000D`, `0033` and `0010`. lvkit reads `CtlFlags` into `LVType.server_class` ("VI" or "Application"; None for anything else), so a `This VI` constant is told from `This Application` by its type, not its label.
