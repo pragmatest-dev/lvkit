@@ -178,7 +178,9 @@ def test_integer_becomes_ring_with_sparse_values() -> None:
         "No filter": 1024,
         "Wait for new data": 8192,
     }
-    assert ring.type_descriptor() == "ring{Filter, No filter, Wait for new data}"
+    assert ring.type_descriptor() == (
+        "ring{Filter = 0, No filter = 1024, Wait for new data = 8192}"
+    )
     assert ring.member_name(1024) == "No filter"
 
 
@@ -277,7 +279,7 @@ def test_lvnet_names_ring_items_with_their_values() -> None:
     assert ring is not None
     assert (
         lvnet_type_lossless_def(ring)
-        == "Ring{ Filter = 0, No filter = 1024, Wait for new data = 8192 }"
+        == "ring{Filter = 0, No filter = 1024, Wait for new data = 8192}"
     )
 
 

@@ -24,6 +24,7 @@ from ..models import (
     DisableStructureKind,
     LVType,
     LVTypeKind,
+    ScalarValue,
     _is_error_cluster,
     _strip_typedef_stem,
 )
@@ -63,6 +64,7 @@ from .lvnet_grammar import (
     _LVNET_LIBRARY_UNREADABLE,
     _LVNET_NAME_CAP,
     _LVNET_NETWORK_PUBLISHED,
+    _LVNET_NUMBER_ITEM_RE,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_READ_KEYWORD,
@@ -251,7 +253,7 @@ def _lvnet_type_label(type_str: str, lv_type: LVType | None) -> str:
     ``LVPoint32TypeDef``) -- its full structure lives ONCE in the ``types :``
     footnote; an ANONYMOUS composite (no name to fall back on) renders its
     full structural form INLINE via the capital lossless grammar
-    (``Cluster{ f : <type> }`` / ``Enum{ m = 0 }``), so its field/member
+    (``Cluster{ f : <type> }`` / ``enum{m = 2}``), so its field/member
     TYPES -- and any named type reachable only through one of its fields --
     are text-recoverable (closing the §10 anonymous-cluster gap). Recurses
     into containers (an array's element, a parametrized refnum's element),
@@ -351,8 +353,9 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
     to its own bare name) and, via ``lvnet_type_ref``, recursively for an
     ANONYMOUS nested composite.
 
-    - enum/ring: ``Enum{ m0 = 0, m1 = 1, ... }`` / ``Ring{ ... }``, ordinals
-      explicit in ORDINAL order.
+    - enum/ring: ``enum{m0, m1, ...}`` / ``ring{m0 = 2, m1 = 3, ...}``, items
+      in value order (``LVType.item_labels``), values listed only when they are
+      not 0, 1, 2, ....
     - cluster/typedef_ref: ``Cluster{ f0 : <type-ref>, f1 : <type-ref>, ... }``
       -- each field's own faithful type via ``lvnet_type_ref`` (by name if
       named, structural if anonymous, a scalar token otherwise).
@@ -366,20 +369,15 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
 
     Never fabricates: a cluster/typedef_ref with no ``fields`` loaded (e.g.
     an unresolved ``TYPEDEF_REF`` placeholder) or an enum/ring with no
-    ``values`` loaded renders the honest ``Cluster{ ? }`` / ``Enum{ ? }``
+    ``values`` loaded renders the honest ``Cluster{ ? }`` / ``enum{?}``
     rather than guessing a member/field list.
     """
     if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         is_enum = lv_type.kind == LVTypeKind.ENUM
         open_token = _LVNET_ENUM_OPEN if is_enum else _LVNET_RING_OPEN
         if not lv_type.values:
-            return f"{open_token} ? }}"
-        members = sorted(lv_type.values.items(), key=lambda kv: kv[1].value)
-        body = ", ".join(
-            f"{lvnet_name_token(name)}{_LVNET_DRIVER_OP}{ev.value}"
-            for name, ev in members
-        )
-        return f"{open_token} {body} }}"
+            return f"{open_token}?}}"
+        return f"{open_token}{', '.join(lv_type.item_labels(lvnet_name_token))}}}"
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         if not lv_type.fields:
             return f"{_LVNET_CLUSTER_OPEN} ? }}"
@@ -428,7 +426,7 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
     EXCEPT a genuinely ANONYMOUS, non-error cluster/enum/ring, whose field/
     member TYPES ``type_descriptor`` drops (rendering names only): those expand
     INLINE in the capital lossless grammar (``Cluster{ f : <ref> }`` /
-    ``Enum{ m = 0 }``).
+    ``enum{m = 2}``).
 
     The leaf-vs-structural split here mirrors ``_lv_type_comparison_shape``'s
     EXACTLY, so ``_parsed_type_ref_shape`` of this text reconstructs the same
@@ -1819,6 +1817,8 @@ def _lvnet_name_reads_as_literal(name: str) -> bool:
         return True
     if name.startswith(_LVNET_RESERVED_CONTROL_PREFIXES):
         return True
+    if _LVNET_NUMBER_ITEM_RE.match(name):
+        return True
     if _LVNET_TERMINAL_SEP in name:
         return True
     if _LVNET_STRUCTURE_NET_TEXT_RE.match(name):
@@ -1863,10 +1863,19 @@ def _lvnet_const_value_str(c: Constant) -> str:
         return _format_error_cluster(c.value)
     formatted = format_numeric_const(c.lv_type, c.value, c.display_format)
     if formatted is not None:
-        return formatted
-    if c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
-        return _lvnet_escape_controls(str(c.value))
-    return lvnet_literal_token(lvnet_typed_scalar(c.value, c.lv_type))
+        text = formatted
+    elif c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
+        text = _lvnet_escape_controls(str(c.value))
+    else:
+        return lvnet_literal_token(lvnet_typed_scalar(c.value, c.lv_type))
+    return text + lvnet_item_suffix(c.lv_type, c.value)
+
+
+def lvnet_item_suffix(lv_type: LVType | None, value: ScalarValue) -> str:
+    """` (verify)` after an enum or ring value that names an item, else ``""``.
+    Shared by constants and by a front-panel control's `default`."""
+    item = lv_type.item_for(value) if lv_type is not None else None
+    return "" if item is None else f" ({lvnet_name_token(item)})"
 
 
 def _lvnet_escape_controls(text: str) -> str:
@@ -1958,6 +1967,7 @@ def _lvnet_boundary_trailing(
         if pane.default is not None:
             parts.append(
                 f"{_LVNET_DEFAULT_KEYWORD} {lvnet_literal_token(pane.default)}"
+                f"{lvnet_item_suffix(pane.lv_type, pane.default)}"
             )
         caption = _lvnet_caption_trailing(pane)
         if caption is not None:

@@ -14,6 +14,7 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
+    LVTypeKind,
     ScalarValue,
     Terminal,
     TunnelTerminal,
@@ -253,7 +254,7 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def default_suffix(default: ScalarValue) -> str:
+def default_suffix(default: ScalarValue, lv_type: LVType | None = None) -> str:
     """`` = <value>`` for a terminal's default, or ``''`` when it has none.
 
     Only a genuinely-set default annotates (``default`` is ``None`` when the
@@ -262,7 +263,15 @@ def default_suffix(default: ScalarValue) -> str:
     """
     if default is None:
         return ""
-    return f' = "{default}"' if isinstance(default, str) else f" = {default}"
+    item = lv_type.item_for(default) if lv_type is not None else None
+    shown = f" ({item})" if item is not None else ""
+    is_item_type = lv_type is not None and lv_type.kind in (
+        LVTypeKind.ENUM,
+        LVTypeKind.RING,
+    )
+    quoted = isinstance(default, str) and not is_item_type
+    value = f'"{default}"' if quoted else f"{default}"
+    return f" = {value}{shown}"
 
 
 def _shown_caption(t: Terminal) -> str | None:
@@ -311,7 +320,7 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
         line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
-    line += default_suffix(t.default_value)
+    line += default_suffix(t.default_value, t.lv_type)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"
     return line
@@ -842,7 +851,9 @@ def _const_type_str(c: Constant) -> str:
 def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
     name = c.label or "(unnamed)"
-    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
+    item = c.lv_type.item_for(c.value) if c.lv_type else None
+    shown = f" ({item})" if item is not None else ""
+    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}{shown}"
 
 
 def _describe_label_line(lbl: Label) -> str:

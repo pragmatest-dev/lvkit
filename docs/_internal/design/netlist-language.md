@@ -308,6 +308,15 @@ string, and `lv_type.unreadable` in verbose JSON). That differs from `?`, which 
 written where a type is *not loaded* (a VI or type definition that was not read at
 all): `(unreadable "…")` says the file was read and this one descriptor could not be.
 
+**An enum or ring value names its item.** A constant of an enum or ring type is a number
+followed by the item it selects, `2 (verify)`, the item a §4 name token (`2 ("a, b")`);
+a value that is no item is the bare number. The same text is a net on the right of `=`
+and in a `constant` line, and describe prints it after `= `. A front-panel control's
+`default` takes the same form (`default 2 (verify)`). A control whose label would
+read as that form (`2 (verify)`) is quoted. A ring whose values are not 0, 1, 2, ...
+lists them in its type, in value order: `ring{verify = 2, commit = 3, reserve = 4}`
+(`ring{a, b, c}` otherwise).
+
 **A terminal name in a net reference** follows the same name-safety rule as its
 declaration: `Property_Node_1845::"Image Parameters : Image Type"` where the
 declaration is `out "Image Parameters : Image Type" : U32`.
@@ -708,7 +717,10 @@ Faithful LVType on every terminal, **never a Python type**:
   word. `Cluster{…}` (capitalized) is reserved for the verbose `types :`
   footnote's own FULL lossless definition (§10.1), which does show every
   field's type.
-- Enum: `Enum{a,b,c}`.
+- Enum: `enum{a, b, c}`; a ring is `ring{a, b, c}`. One spelling everywhere a type is
+  printed, inline or in a `types :` entry; items are written in value order, and an
+  item carries its value (`ring{verify = 2, commit = 3}`) only when the values are not
+  0, 1, 2, … A name needing quotes is quoted (§4). With no items loaded: `enum{?}`.
 - Class: `MyClass.lvclass` (qualified).
 - Refnum: `refnum{…}` — `Queue refnum{Error}`. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `UserEvent refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
 - Typedefs referenced by qualified name, never expanded inline (full field
@@ -753,8 +765,8 @@ full structure lives.
 
 The lossless def grammar, keyed to the same closed set of `LVType` kinds:
 
-- **enum/ring**: `Enum{ m0 = 0, m1 = 1, … }` / `Ring{ … }` — ordinals
-  **explicit**, in ordinal order (never omitted the way the inline form does).
+- **enum/ring**: `enum{m0, m1, …}` / `ring{m0 = 2, m1 = 3, …}` — the same text as the
+  inline form (§10 above), items in value order.
 - **cluster**: `Cluster{ f0 : <type-ref>, f1 : <type-ref>, … }` — every
   field's own faithful type, not just its name. `<type-ref>` is: a NAMED
   sub-type BY NAME (its own footnote entry, never re-inlined — footnotes stay
@@ -773,7 +785,7 @@ The lossless def grammar, keyed to the same closed set of `LVType` kinds:
   entry just shows whatever that type's real structure is.
 - Never fabricated: a cluster/typedef with no field list loaded, or an
   enum/ring with no member list loaded (an unresolved reference), renders the
-  honest `Cluster{ ? }` / `Enum{ ? }` rather than guessing.
+  honest `Cluster{ ? }` / `enum{?}` rather than guessing.
 
 **Known lossy corner case — ambiguous same-name types.** A `.ctl` typedef name
 is not a global identity: the SAME nominal name can genuinely resolve to
@@ -799,8 +811,7 @@ a).** An anonymous cluster renders its field TYPES inline in the capital
 lossless grammar — `Cluster{ Source : U32, Type : lveventtype, Time : U32 }`
 (each field a `<type-ref>`: a named field by name, an anonymous field
 structurally, a nested error cluster as `Error`) — not the old names-only
-`cluster{Source, Type, Time}`; an anonymous enum/ring likewise spells its
-ordinals inline (`Enum{ m0 = 0, m1 = 1 }`). So a named type reachable ONLY
+`cluster{Source, Type, Time}`; an anonymous enum/ring is `enum{m0, m1}` inline. So a named type reachable ONLY
 through an anonymous cluster's field (e.g. that `Type` field's `lveventtype`)
 IS now recoverable from the text and is correctly collected into the footnote
 (`iter_named_subtypes` descends every non-error cluster's fields — named or
@@ -813,7 +824,7 @@ Because an inline `<Type>` can now carry bare ` : ` / ` = ` tokens inside its
 braces, the inline terminal-line parser is **brace-aware**: it finds the
 line's own `= <driver>` / `default` / `@index` operators only at brace/bracket
 DEPTH ZERO (`_top_level_word_index` / `_find_top_level_sep` in `lvnet_parse`),
-so an `Enum{ m0 = 0 }` type's own `=` is never mistaken for a driver. Named
+so a `ring{m0 = 2}` type's own `=` is never mistaken for a driver. Named
 types still render by their bare name (their structure lives once in the
 footnote); an error cluster still renders `Error`; a refnum/array wrapper is
 byte-unchanged (`Queue refnum{Error}`, `[NamedThing]`). An **ambiguous** named

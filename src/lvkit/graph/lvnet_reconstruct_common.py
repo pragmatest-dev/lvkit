@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from ..models import ScalarValue
 from .lvnet_grammar import (
     _LVNET_DEFAULT_PAREN_PREFIX,
+    _LVNET_NUMBER_ITEM_RE,
     _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     split_id_suffix,
@@ -68,6 +69,9 @@ def parse_lvnet_literal(token: str) -> ScalarValue:
     shapes ``lvnet_literal_token`` ever emits (quoted string / ``True`` /
     ``False`` / a bare number) -- never guesses."""
     token = token.strip()
+    number_item = _LVNET_NUMBER_ITEM_RE.match(token)
+    if number_item:
+        token = number_item.group(1)
     if token.startswith('"'):
         end = _scan_quoted_literal(token, 0)
         if end != len(token):
@@ -91,6 +95,9 @@ def parse_lvnet_literal(token: str) -> ScalarValue:
 
 
 def is_numeric_literal(text: str) -> bool:
+    """A number, alone or followed by the enum or ring item it names (`2 (verify)`)."""
+    if _LVNET_NUMBER_ITEM_RE.match(text):
+        return True
     try:
         float(text)
         return True

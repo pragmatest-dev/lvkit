@@ -676,7 +676,7 @@ def test_anonymous_cluster_spells_field_types_inline_and_recovers_named() -> Non
     # ...and that named enum is recovered into the `types :` footnote (it is
     # reachable ONLY through the anonymous cluster's field), so it round-trips.
     assert any(
-        ln.strip().startswith("lveventtype = Enum{") for ln in text.splitlines()
+        ln.strip().startswith("lveventtype = enum{") for ln in text.splitlines()
     ), f"`lveventtype` should appear as a `types :` footnote entry:\n{text}"
 
 

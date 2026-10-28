@@ -69,7 +69,7 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
 - **Types**: a real ``LVType`` is reconstructed for a terminal's type text
   ONLY when doing so is both possible (the text is a bare name resolvable
   through the ``types :`` footnote, an array/refnum wrapper around one, or an
-  anonymous ``Cluster{ f : <type> }`` / ``Enum{ m = 0 }`` spelled inline) and
+  anonymous ``Cluster{ f : <type> }`` / ``enum{m = 2}`` spelled inline) and
   SELF-CONSISTENT (``_lvnet_type_inline`` of the rebuilt type reproduces the
   exact text) -- see ``_maybe_attach_lvtype``. This
   seeds ``_collect_lvnet_named_types`` so the footnote re-renders; every
@@ -96,7 +96,6 @@ from .lvnet_grammar import (
     _LVNET_CLUSTER_OPEN,
     _LVNET_DEFAULT_KEYWORD,
     _LVNET_DISABLE_KEYWORD,
-    _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
@@ -130,6 +129,7 @@ from .lvnet_parse import (
     _split_top_level_commas,
     _unescape_lvnet_string,
     _unquote_name_token,
+    parse_item_labels,
     split_shared_variable_component,
 )
 from .lvnet_reconstruct_common import (
@@ -299,15 +299,8 @@ def _index_handles(
 
 
 def _fill_enum_values(lv: LVType, body: str) -> None:
-    body = body.strip()
-    if not body or body == "?":
-        lv.values = None
-        return
-    values: dict[str, EnumValue] = {}
-    for part in _split_top_level_commas(body):
-        name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        values[_unquote_name_token(name)] = EnumValue(value=int(ordinal_text.strip()))
-    lv.values = values
+    items = parse_item_labels(body)
+    lv.values = {name: EnumValue(value=value) for name, value in items} or None
 
 
 def _fill_cluster_fields(
@@ -377,7 +370,7 @@ def _reconstruct_type_ref(
     footnote field/element type) -> a real ``LVType``. Recognizes, in
     order: an array wrapper (``[...]``); a refnum wrapper (``<ref_type>
     refnum{...}`` / ``<ref_type> refnum`` / bare ``refnum``); the
-    CAPITALIZED lossless structural forms (``Enum{...}``/``Ring{...}``/
+    lossless structural forms (``enum{...}``/``ring{...}``/
     ``Cluster{...}`` -- these appear only INSIDE a footnote's own def text,
     an anonymous nested composite, never as a top-level terse inline
     label); a bare NAME resolving through ``types_dict``; anything else

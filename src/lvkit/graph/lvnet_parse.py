@@ -43,7 +43,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, NamedTuple
 
-from ..models import DisableStructureKind, ScalarValue
+from ..models import DisableStructureKind, LVType, ScalarValue
 from .lvnet_drives import (
     frame_drives,
     is_dead_slot,
@@ -122,6 +122,7 @@ from .render_lvnet import (
     _LvnetHandles,
     _render_lvnet_source,
     lvnet_feedback_attribute,
+    lvnet_item_suffix,
     lvnet_reference_target_token,
     lvnet_source_text,
 )
@@ -394,11 +395,11 @@ class ParsedBoundaryTerminal:
 def _top_level_word_index(words: list[str], target: str) -> int:
     """Index of the first ``target`` word at brace/bracket DEPTH ZERO, or
     ``-1``. A terminal's ``<Type>`` may now be an inline anonymous composite
-    in the capital lossless grammar (``Enum{ m = 0 }`` / ``Cluster{ a : X }``)
+    in the capital lossless grammar (``enum{m = 2}`` / ``Cluster{ a : X }``)
     whose OWN tokens include bare ``=``/``default``/``:`` -- those live at
     depth >= 1 and must never be mistaken for the LINE's own ``= <driver>`` /
     ``default`` operator. Depth is accumulated from the words BEFORE each one
-    (the lossless grammar always spaces its braces -- ``Enum{ ... }`` -- so a
+    (a brace is counted from the word it sits in, so a
     ``{``/``}`` is its own boundary character within a word), so the
     separator words that open a driver/default clause are seen at depth 0."""
     depth = 0
@@ -413,7 +414,7 @@ def _find_top_level_sep(text: str, token: str) -> int:
     """Index of the first ``token`` substring at brace/bracket DEPTH ZERO and
     OUTSIDE any quoted literal in ``text``, or ``-1`` -- the string counterpart of
     ``_top_level_word_index`` for splitters that scan the raw tail (``constant``
-    lines) rather than a word list, so an inline ``Enum{ m = 0 }`` type's own ``=``
+    lines) rather than a word list, so an inline ``enum{m = 2}`` type's own ``=``
     or a quoted ``(unreadable "a : b")`` reason can't be mistaken for the line's own
     separator."""
     depth = 0
@@ -574,7 +575,7 @@ def _split_node_terminal_tail(
     is a later slice).
 
     The line's own ``= <driver>`` / ``default <value>`` operator is found at
-    brace/bracket DEPTH ZERO (so an inline ``Enum{ m = 0 }`` type's own ``=``
+    brace/bracket DEPTH ZERO (so an inline ``enum{m = 2}`` type's own ``=``
     is skipped), and the value after it is taken as a RAW substring -- NEVER
     ``" ".join(split())`` -- so a string literal's or a path's consecutive
     spaces survive verbatim (a multi-space UI status literal; a VI filename
@@ -935,7 +936,7 @@ class ParsedDependency:
 @dataclass(frozen=True)
 class ParsedTypeDef:
     """One ``types :`` footnote entry (§10): the lossless structural
-    ``def_text`` (``Enum{...}``/``Cluster{...}``) and, when the entry carried
+    ``def_text`` (``enum{...}``/``Cluster{...}``) and, when the entry carried
     a ``; ./path`` nav suffix, the ``path`` from it (the ``./`` prefix
     removed) -- kept so ``reconstruct_module`` can restore
     ``LVType.typedef_path`` and re-render the exact ``; ./path``."""
@@ -1380,7 +1381,7 @@ def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
     """``constant <handle> : <Type> = <value>`` (§7). The ``= <value>``
     separator is found at brace DEPTH ZERO (``_find_top_level_sep``): a
-    ``<Type>`` that is an inline anonymous ``Enum{ m = 0 }`` carries its own
+    ``<Type>`` that is an inline anonymous ``enum{m = 2}`` carries its own
     ``=`` tokens, so a naive first-``" = "`` would split inside the type --
     the first DEPTH-ZERO match is always the real operator, regardless of
     what the (possibly quoted, md §4/§10) value afterward contains."""
@@ -2333,7 +2334,7 @@ TypeShape = tuple[Any, ...]
 
 def _split_top_level_commas(text: str) -> list[str]:
     """Split ``text`` on ``,`` at brace/bracket DEPTH ZERO and OUTSIDE any
-    quoted token -- separates an ``Enum{...}``'s members or a ``Cluster{...}``'s
+    quoted token -- separates an ``enum{...}``'s members or a ``Cluster{...}``'s
     fields (§10) without breaking on a comma inside a NESTED structural type
     (a cluster field whose own type is another ``Cluster{...}``/array) NOR on a
     comma inside a QUOTED member/field NAME (a real LabVIEW name like
@@ -2425,21 +2426,21 @@ def _unquote_name_token(raw: str) -> str:
     return raw
 
 
-def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
-    """Parse an ``Enum{...}``/``Ring{...}`` footnote body (§10) into
-    ``(member_name, ordinal)`` pairs, sorted by ordinal -- the SAME
-    canonical order ``netlist._lv_type_comparison_shape`` builds on the
-    module side. ``body`` is the text BETWEEN the outer braces."""
+def parse_item_labels(body: str) -> tuple[tuple[str, int], ...]:
+    """The ``(name, value)`` items of an ``enum{...}`` or ``ring{...}`` body, in
+    value order: an item is ``name = value``, or just ``name`` for the next of
+    0, 1, 2, .... ``?`` or empty is no items."""
     body = body.strip()
     if not body or body == "?":
         return ()
-    members: list[tuple[str, int]] = []
-    for part in _split_top_level_commas(body):
-        # The ordinal (an int) never contains `` = ``, so the LAST `` = `` is
-        # always the name/ordinal separator even when a QUOTED name embeds one.
-        name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        members.append((_unquote_name_token(name), int(ordinal_text.strip())))
-    return tuple(sorted(members, key=lambda kv: kv[1]))
+    items: list[tuple[str, int]] = []
+    for position, part in enumerate(_split_top_level_commas(body)):
+        name, _, value_text = part.rpartition(_LVNET_DRIVER_OP)
+        if name and value_text.strip().lstrip("-").isdigit():
+            items.append((_unquote_name_token(name), int(value_text)))
+        else:
+            items.append((_unquote_name_token(part), position))
+    return tuple(sorted(items, key=lambda item: item[1]))
 
 
 def _parse_lossless_cluster_fields(
@@ -2497,7 +2498,7 @@ def _parsed_type_ref_shape(
     Recognizes, in order: an array wrapper (``[...]``, one or more dims);
     a refnum wrapper (``<ref_type> refnum{...}`` / ``<ref_type> refnum`` /
     bare ``refnum``); the NEW capitalized lossless-grammar structural forms
-    (``Enum{...}``/``Ring{...}``/``Cluster{...}`` -- these NEVER appear in
+    (``enum{...}``/``ring{...}``/``Cluster{...}`` -- these NEVER appear in
     the OLD terse/anonymous inline label, only inside a resolved footnote's
     own def text, so there's no ambiguity with an anonymous cluster's
     lowercase ``cluster{...}`` label); and finally a bare NAME that
@@ -2546,9 +2547,9 @@ def _parsed_type_ref_shape(
     if text.endswith(" refnum") and "{" not in text:
         return ("leaf", text)
     if text.startswith(_LVNET_ENUM_OPEN) and text.endswith("}"):
-        return ("enum", _parse_lossless_members(text[len(_LVNET_ENUM_OPEN) : -1]))
+        return ("enum", parse_item_labels(text[len(_LVNET_ENUM_OPEN) : -1]))
     if text.startswith(_LVNET_RING_OPEN) and text.endswith("}"):
-        return ("ring", _parse_lossless_members(text[len(_LVNET_RING_OPEN) : -1]))
+        return ("ring", parse_item_labels(text[len(_LVNET_RING_OPEN) : -1]))
     if text.startswith(_LVNET_CLUSTER_OPEN) and text.endswith("}"):
         fields = _parse_lossless_cluster_fields(
             text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, seen, ambiguous
@@ -2567,7 +2568,9 @@ def _parsed_type_ref_shape(
     return ("leaf", text)
 
 
-def _module_default_token(default: ScalarValue) -> str | None:
+def _module_default_token(
+    default: ScalarValue, lv_type: LVType | None
+) -> str | None:
     """The comparable ``default`` token for a MODULE-side BOUNDARY terminal
     (``ConnectorPaneTerminal.default``, a raw ``ScalarValue``) -- ``None``
     when the pane genuinely has no default recorded, else the exact literal
@@ -2575,7 +2578,7 @@ def _module_default_token(default: ScalarValue) -> str | None:
     ``lvnet_literal_token`` in ``netlist.py``)."""
     if default is None:
         return None
-    return lvnet_literal_token(default)
+    return lvnet_literal_token(default) + lvnet_item_suffix(lv_type, default)
 
 
 BoundarySignatureEntry = tuple[
@@ -2649,7 +2652,7 @@ def boundary_signature(
                 else ("leaf", inp.type_descriptor),
                 "in",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
@@ -2664,7 +2667,7 @@ def boundary_signature(
                 else ("leaf", o.type_descriptor),
                 "out",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
@@ -2679,7 +2682,7 @@ def boundary_signature(
                 else ("leaf", pane.type),
                 "in" if pane.direction == "input" else "out",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,

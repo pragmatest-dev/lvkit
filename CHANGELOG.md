@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **An enum or ring value names its item, and one spelling of the type everywhere** — `in 5 : I32 = 2 (verify)` and a control `default 2 (verify)`; the type is `ring{verify = 2, commit = 3}` / `enum{a, b}` in lvnet, describe and JSON (#176).
 - **lvnet shows loop control** — a loop header says `(stop if true)` or `(continue if true)`, the count and conditional wires are lines, and an unwired shift register or Feedback Node is `(uninitialized)` (#178).
 - **lvnet shows the wires into and out of every structure** — frames drive their output tunnels, an unread input tunnel and an Event Structure's timeout and dynamic pair are lines, an unwired case output is `(default <Type>)` (#179).
 - **lvnet and JSON put a front-panel terminal in the structure that holds it** — an indicator is driven by a line of that body, a control is `read <Control>`, and JSON adds `scope` (#180).

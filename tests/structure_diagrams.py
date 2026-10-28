@@ -28,6 +28,9 @@ TYPES = [
 _VALUE_HEX = {BOOL: {"True": "01", "False": "00"}, I32: None}
 
 
+RingSpec = tuple[int, list[str], "list[int] | None"]
+
+
 def main_xml(types: list[str] = TYPES) -> str:
     names = [t.split('Type="')[1].split('"')[0] for t in types]
     top = "\n".join(
@@ -328,12 +331,16 @@ def front_panel_xml(
     controls: dict[int, str],
     indicators: dict[int, str],
     pane: dict[int, int] | None = None,
+    rings: dict[int, RingSpec] | None = None,
 ) -> str:
     """The front-panel heap for I32 controls and indicators (``{fPDCO uid: label}``).
     ``pane`` maps connector-pane slot index to the fPDCO uid wired to it; a control
-    in no slot is off the pane. Without ``pane`` the heap has no connector pane."""
+    in no slot is off the pane. Without ``pane`` the heap has no connector pane.
+    ``rings`` makes a control a Ring: ``{fPDCO uid: (default, items, own values)}``."""
 
     def fpdco(uid: int, label: str, indicator: bool) -> str:
+        if rings and uid in rings:
+            return ring_fpdco(uid, label, rings[uid])
         return (
             f'<SL__arrayElement class="fPDCO" uid="{uid}">'
             f"<objFlags>{1 if indicator else 0}</objFlags>"
@@ -410,3 +417,59 @@ VOID_TYPES = [
     '<TypeDesc Type="Void" Format="corrupt-stub" />',
 ]
 VOID, STUB = 3, 4
+
+
+def ring_constant(
+    term_uid: int, value: int, items: list[str], sparse: list[int] | None = None
+) -> str:
+    """A Ring constant (terminal ``term_uid``) with ``items``; ``sparse`` are the
+    items' own values (a ring numbered 0, 1, 2, ... stores none)."""
+    buf = "".join(f'"{item}"' for item in items)
+    values = ""
+    if sparse:
+        elements = "".join(
+            f"<SL__arrayElement>{_signed_hex(v)}</SL__arrayElement>" for v in sparse
+        )
+        values = f"<ringSparseValues>{elements}</ringSparseValues>"
+    return term(
+        term_uid,
+        f'<dco class="bDConstDCO" uid="{term_uid + 1}"><typeDesc>TypeID({I32})'
+        f"</typeDesc><ConstValue>{value & 0xFFFFFFFF:08X}</ConstValue>"
+        f'<ddo class="stdRing" uid="{term_uid + 2}"><partsList>'
+        f'<SL__arrayElement class="multiLabel" uid="{term_uid + 3}">'
+        f"<buf>({len(items)}){buf}</buf></SL__arrayElement></partsList>"
+        f"{values}</ddo></dco>",
+    )
+
+
+def _signed_hex(value: int) -> str:
+    length = 1
+    while not -(1 << (8 * length - 1)) <= value < (1 << (8 * length - 1)):
+        length += 1
+    return value.to_bytes(length, "big", signed=True).hex().upper()
+
+
+def ring_fpdco(uid: int, label: str, ring: RingSpec) -> str:
+    """A Ring control with its default in ``<DefaultData>``."""
+    default, items, sparse = ring
+    buf = f"({len(items)})" + "".join(f'"{item}"' for item in items)
+    values = ""
+    if sparse:
+        elements = "".join(
+            f"<SL__arrayElement>{_signed_hex(v)}</SL__arrayElement>" for v in sparse
+        )
+        values = f"<ringSparseValues>{elements}</ringSparseValues>"
+    raw = (default & 0xFFFFFFFF).to_bytes(4, "big")
+    data = "".join(f"&amp;#x{b:02X};" for b in raw)
+    return (
+        f'<SL__arrayElement class="fPDCO" uid="{uid}"><objFlags>0</objFlags>'
+        f"<typeDesc>TypeID({I32})</typeDesc>"
+        f'<ddo class="stdRing" uid="{uid}1"><typeDesc>TypeID({I32})</typeDesc>'
+        "<partsList>"
+        f'<SL__arrayElement class="label" uid="{uid}2"><textRec class="textHair">'
+        f'<text>"{label}"</text></textRec></SL__arrayElement>'
+        f'<SL__arrayElement class="multiLabel" uid="{uid}3">'
+        f"<buf>{buf}</buf></SL__arrayElement>"
+        f"</partsList>{values}</ddo>"
+        f'<DefaultData>"{data}"</DefaultData></SL__arrayElement>'
+    )

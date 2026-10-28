@@ -402,6 +402,17 @@ class LVType:
         except ValueError:
             return None
 
+    def item_labels(self, spell: Callable[[str], str] = str) -> list[str]:
+        """The items of this enum or ring in value order, each ``name`` when the
+        values are 0, 1, 2, ... and ``name = value`` when they are not (a ring
+        numbered by its own values). ``spell`` writes each name."""
+        if not self.values:
+            return []
+        items = sorted(self.values.items(), key=lambda kv: kv[1].value)
+        if [ev.value for _, ev in items] == list(range(len(items))):
+            return [spell(name) for name, _ in items]
+        return [f"{spell(name)} = {ev.value}" for name, ev in items]
+
     def member_name(self, ordinal: int) -> str | None:
         """The enum/ring item whose value is ``ordinal``, or None when this type
         has no such item (or no items loaded)."""
@@ -478,28 +489,8 @@ class LVType:
                 name = _strip_typedef_stem(self.typedef_name)
                 if not expand_named:
                     return name
-                members = (
-                    [
-                        n
-                        for n, _ev in sorted(
-                            self.values.items(), key=lambda kv: kv[1].value
-                        )
-                    ]
-                    if self.values
-                    else []
-                )
-                return f"{name}{{{', '.join(members)}}}"
-            members = (
-                [
-                    n
-                    for n, _ev in sorted(
-                        self.values.items(), key=lambda kv: kv[1].value
-                    )
-                ]
-                if self.values
-                else []
-            )
-            body = "{" + ", ".join(members) + "}"
+                return f"{name}{{{', '.join(self.item_labels())}}}"
+            body = "{" + ", ".join(self.item_labels()) + "}"
             return ("enum" if self.kind == LVTypeKind.ENUM else "ring") + body
         if self.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
             if _is_error_cluster(self):

@@ -60,8 +60,8 @@ _LVNET_TYPEDEF_NAV_PREFIX = "./"  # the `; ./path` nav clause's own prefix
 # (``render_lvnet_uses``) and parse (``_parse_uses_block``) spell it out
 # as a literal, so it is a genuine cross-file drift risk.
 _LVNET_DEP_PATH_SEP = "; "
-_LVNET_ENUM_OPEN = "Enum{"  # §10 lossless enum/ring/cluster open tokens
-_LVNET_RING_OPEN = "Ring{"
+_LVNET_ENUM_OPEN = "enum{"  # §10 lossless enum/ring/cluster open tokens
+_LVNET_RING_OPEN = "ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"
 # A ``shared-variable`` header's trailing attribute (§7): ``(network-published
 # "<path>")`` for a variable published to the network, ``(library unreadable
@@ -179,6 +179,8 @@ _LVNET_TYPE_CAP = 40
 _LVNET_SCOPE_ID_PREFIX = " (id "
 # The same suffix names a front-panel terminal on its ``front-panel :`` row and on
 # its drive / ``read`` line, when its label is shared: ``Rate (id 5020) = 3``.
+# A number followed by the enum or ring item it names: `2 (verify)`.
+_LVNET_NUMBER_ITEM_RE = re.compile(r"^(-?\d+) \((.+)\)$")
 _LVNET_ID_SUFFIX_RE = re.compile(r" \(id (\d+)\)$")
 
 
