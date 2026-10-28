@@ -166,6 +166,65 @@ def test_a_run_without_gaps_says_complete(
     assert "Complete: 0 VIs generated, no gaps" in capsys.readouterr().out
 
 
+def _two_vis_with_a_gap_each(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """A folder of two VIs that each call the missing library (the loader is told
+    to take the block-diagram files for VIs)."""
+    first = _missing_library_vi(project)
+    folder = first.parent
+    for suffix in ("_BDHb.xml", ".xml"):
+        (folder / f"Second{suffix}").write_text(
+            (folder / f"Clfn{suffix}").read_text()
+        )
+    monkeypatch.setattr(
+        "lvkit.graph.loading.rglob_vi_files",
+        lambda _: [folder / "Clfn_BDHb.xml", folder / "Second_BDHb.xml"],
+    )
+    return folder
+
+
+def _modules(out: Path) -> list[str]:
+    return sorted(p.name for p in out.rglob("*.py") if p.name != "__init__.py")
+
+
+def test_fail_fast_ends_the_run_at_the_first_gap(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = _two_vis_with_a_gap_each(project, monkeypatch)
+    out = project.base / "out"
+    code = _lvkit(monkeypatch, "generate", str(folder), "-o", str(out), "--fail-fast")
+    captured = capsys.readouterr()
+    assert code == 1
+    warnings = [
+        line for line in captured.err.splitlines() if line.startswith("warning: ")
+    ]
+    assert len(warnings) == 1
+    assert "Stopped at the first gap (--fail-fast)" in captured.out
+    assert "Complete" not in captured.out and "Partial" not in captured.out
+    assert _modules(out) == []
+
+
+def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_two(
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = _two_vis_with_a_gap_each(project, monkeypatch)
+    out = project.base / "out"
+    code = _lvkit(monkeypatch, "generate", str(folder), "-o", str(out))
+    captured = capsys.readouterr()
+    assert code == 2
+    warnings = [
+        line for line in captured.err.splitlines() if line.startswith("warning: ")
+    ]
+    assert len(warnings) == 2
+    assert _modules(out) == ["clfn_bdhbxml.py", "second_bdhbxml.py"]
+    assert "Partial: 2 VIs generated, 2 with gaps (2 gaps)" in captured.out
+
+
 # ---------------------------------------------------------------------------
 # Gaps in no node
 # ---------------------------------------------------------------------------

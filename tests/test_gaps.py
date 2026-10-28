@@ -494,3 +494,18 @@ def test_a_result_variable_named_from_a_receiver_expression_is_a_plain_name() ->
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     assert ast.unparse(module) == "itemsi_get_value_result = items[i].get_value()"
+
+
+def test_a_fail_fast_log_stops_at_the_gap_it_records_and_a_rollback_does_not() -> None:
+    from lvkit.codegen.gaps import GapLog, GapStop
+
+    node = PrimitiveNode(id="p", vi_path="t.vi", name="Call", terminals=[])
+    ctx = CodeGenContext(vi_name="t.vi", gaps=GapLog(fail_fast=True))
+    with pytest.raises(GapStop) as stop:
+        with catch_gap(node, ctx):
+            raise ConversionGap("no way", node)
+    assert stop.value.gap.reason == "no way"
+    assert [g.reason for g in ctx.gaps] == ["no way"]
+    # Taking a snapshot of a log that already holds a gap records nothing.
+    with catch_gap(node, CodeGenContext(vi_name="t.vi", gaps=ctx.gaps)):
+        pass

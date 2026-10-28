@@ -426,7 +426,8 @@ def main() -> int:
             "     converted; each is a warning and a NotImplementedError in the\n"
             "     generated code where the node would run (see `lvkit unresolved`)\n"
             "  1  a VI could not be written, or the package could not be\n"
-            "     (two files for one module)"
+            "     (two files for one module), or --fail-fast ended the run at\n"
+            "     the first gap"
         ),
     )
     gen_parser.add_argument(
@@ -449,6 +450,15 @@ def main() -> int:
             "root (nearest enclosing .lvkit/) is auto-detected and "
             "searched, so this is only needed for VIs outside a "
             "project store."
+        ),
+    )
+    gen_parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help=(
+            "End the run at the first gap: its warning is printed, nothing more "
+            "is generated, and the exit code is 1 (the output is incomplete). "
+            "What a gap generates is unchanged."
         ),
     )
     _add_project_root_arg(gen_parser)
@@ -1869,6 +1879,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            fail_fast=args.fail_fast,
         )
         if result["error"] > 0 or result["failed"] > 0:
             return 1

@@ -26,6 +26,7 @@ lvkit generate <input_path> [options]
 |--------|-------------|
 | `-o OUTPUT`, `--output OUTPUT` | Output directory. Default: `outputs`. Generated files land in a VI-named subfolder beneath it (see [Output layout](#output-layout)). |
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. Codegen defaults to `full` — it compiles the whole SubVI/class-method tree. `--load-mode none` generates only the top-level VI, not the [SubVIs](subvi-resolution.md) it calls: the SubVI calls still appear in the output, but no module is generated for them. |
+| `--fail-fast` | End the run at the first gap: its warning is printed, nothing more is generated, and the exit code is `1` because the output is incomplete. What a gap generates is unchanged; use it to avoid waiting for a long run. |
 | SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
@@ -79,7 +80,7 @@ a bare success line.
 |-----------|---------|
 | `0` | Every VI converted, no gaps. |
 | `2` | Partial: every VI was written, some nodes could not be converted. |
-| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`. |
+| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`, and so does a `--fail-fast` run that reached a gap. |
 
 `lvkit unresolved <input-path> [--format json]` lists the same gaps, grouped by kind
 with the VIs each occurs in.

@@ -11,7 +11,6 @@ wrong, stop generation.
 from __future__ import annotations
 
 import ast
-import copy
 import dataclasses
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -82,6 +81,29 @@ class Gap:
             lines.append(f"node: {self.node_name}")
         lines.extend(self.diagnostic())
         return "\n".join(lines)
+
+
+class GapStop(BaseException):
+    """A fail-fast run reached its first gap. Not an ``Exception``, so no handler
+    that keeps a run going after a stopped VI catches it."""
+
+    def __init__(self, gap: Gap) -> None:
+        self.gap = gap
+        super().__init__(gap.reason)
+
+
+class GapLog(list[Gap]):
+    """The gaps of a run, in the order found. Recording a gap is the one place a
+    fail-fast run ends: it raises ``GapStop`` right after the gap is added."""
+
+    def __init__(self, fail_fast: bool = False) -> None:
+        super().__init__()
+        self.fail_fast = fail_fast
+
+    def append(self, gap: Gap) -> None:
+        super().append(gap)
+        if self.fail_fast:
+            raise GapStop(gap)
 
 
 def gap_of(
@@ -201,7 +223,13 @@ class ModuleState:
             if isinstance(value, CtypesModule):
                 self._saved[field.name] = value.snapshot()
             elif isinstance(value, (set, dict, list)):
-                self._saved[field.name] = copy.copy(value)
+                self._saved[field.name] = (
+                    set(value)
+                    if isinstance(value, set)
+                    else dict(value)
+                    if isinstance(value, dict)
+                    else list(value)
+                )
 
     def restore(self) -> None:
         """Put every store back to what it held when this state was taken."""
