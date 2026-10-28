@@ -33,6 +33,7 @@ from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
 from .nodes import generate as generate_node
+from .references import REFERENCE_KINDS, generated_nodes
 
 
 def build_module(
@@ -115,7 +116,11 @@ def _function_body(
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
-        ctx.graph.top_level_nodes(vi_name) if ctx.graph is not None else []
+        generated_nodes(
+            ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS)
+        )
+        if ctx.graph is not None
+        else []
     )
 
     # The held error model is on when Merge Errors is anywhere in the VI.
@@ -646,8 +651,9 @@ def build_module_ast(
     # Module-level helper functions generated for Formula Nodes.
     module_body.extend(ctx.formula_helpers)
 
-    # Module-level ctypes declarations of Call Library Function Nodes.
-    module_body.extend(ctx.ctypes_module.statements)
+    # Module-level declarations of nodes: ctypes libraries, prototypes,
+    # structures and helper functions.
+    module_body.extend(ctx.module_declarations.statements)
 
     # Module-level globals for persistent per-call-site state
     # (uninitialized shift registers, First Call?). Sorted by name for

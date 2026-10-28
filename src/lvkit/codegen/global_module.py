@@ -17,7 +17,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.core import _uid_of
+from lvkit.graph.core import uid_of
 from lvkit.graph.models import Constant, VINode
 from lvkit.models import LVTypeKind, Terminal
 
@@ -53,7 +53,7 @@ def _saved_default(
         text = data_file_expression(
             what="control",
             name=control.name,
-            uid=_uid_of(control.id),
+            uid=uid_of(control.id),
             module_stem=module_stem,
             unwritable=control.unwritable,
             lv_type=lv_type,

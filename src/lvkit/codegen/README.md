@@ -100,7 +100,7 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 (not `pos=`, so a leading `^` anchors at the offset). A constant `regular expression`
 is translated while generating (`match_pattern_regex.to_python_regex`) and written as
 the `re` pattern; a computed one calls `_match_pattern_regex`, the source of that same
-function, written once into the module through `ctx.ctypes_module.declare`.
+function, written once into the module through `ctx.module_declarations.declare`.
 
 Search and Replace String (`nodes/ops/search_and_replace.py`) shares the input reading,
 the search start and the translator declaration with Match Pattern

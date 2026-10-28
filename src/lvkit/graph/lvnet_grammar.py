@@ -126,7 +126,7 @@ _LVNET_TYPE_CAP = 40
 # carries it, byte-identical to before this constant existed). Every
 # ``NetlistScope`` -- case/for-loop/while-loop/flat-sequence/stacked-
 # sequence/diagram-disable/conditional-disable/type-specialization/
-# event-structure -- carries a real BD ``uid`` (``netlist_build._uid_of``),
+# event-structure -- carries a real BD ``uid`` (``netlist_build.uid_of``),
 # but only a structure that also happens to drive an output tunnel (case/
 # loop's shift-register/output-tunnel merges, or a sequence/disabled/event
 # structure's own output tunnel -- see ``_frame_net_name_gn``) ever spells

@@ -29,6 +29,7 @@ def build(
     regex: bool = False,
     outs: tuple[str, ...] = ("r",),
     gaps: list[Gap] | None = None,
+    names: dict[str, str] | None = None,
 ) -> Generated:
     """``inputs`` maps a terminal ('ra', 'ic', 'ml', 'search', 'repl', 'o') to
     ``"ctl"`` (a control of that name) or a constant's value."""
@@ -56,8 +57,9 @@ def build(
     constants: dict = {}
     for name, value in inputs.items():
         if value == "ctl":
-            controls[name] = types[name]
-            wires.append((f"fp:{name}", f"sr:{_INPUT_TERMINAL[name]}"))
+            control = (names or {}).get(name, name)
+            controls[control] = types[name]
+            wires.append((f"fp:{control}", f"sr:{_INPUT_TERMINAL[name]}"))
         else:
             constants[f"c_{name}"] = (value, types[name])
             wires.append((f"c_{name}", f"sr:{_INPUT_TERMINAL[name]}"))
@@ -123,6 +125,15 @@ class TestPlainMode:
         assert tuple(run.function("AaAa", 1)) == ("Axxx", 3)
         assert tuple(run.function("AaAa", -4)) == ("xxxx", 4)
         assert tuple(run.function("AaAa", 9)) == ("AaAa", 0)
+
+    def test_replace_string_named_match_is_not_the_lambda_parameter(self) -> None:
+        run = build(
+            {"search": "a", "repl": "ctl", "o": "ctl"},
+            outs=("r", "n"),
+            names={"repl": "match"},
+        )
+        assert "lambda matched: match" in body(run)
+        assert tuple(run.function("banana", "X", 0)) == ("bXnana", 1)
 
     def test_search_string_is_text_not_a_pattern(self) -> None:
         run = build({"search": "a.c", "repl": "-", "o": "ctl"}, outs=("r", "n"))

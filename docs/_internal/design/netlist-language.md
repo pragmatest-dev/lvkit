@@ -339,7 +339,7 @@ wiring; the handle just gives its copies distinct, variable-like names.
 
 **The handle** is *our* label: the node's display name with its **file extension
 stripped** and **spaces replaced by `_`**, suffixed **`_<uid>`** — the node's own
-stable BD `uid` (`netlist_build._uid_of`), not a positional occurrence counter —
+stable BD `uid` (`netlist_build.uid_of`), not a positional occurrence counter —
 for every instance, including the first (schematics don't leave `U1` blank).
 Because a `uid` is globally unique on its own, every instance carries its
 handle regardless of whether its base name repeats elsewhere in the VI, with
@@ -587,7 +587,7 @@ in different places.
   MODEL's own internal storage keeps a `.` separator here instead of `::` —
   `_lvnet_net_separator` reformats it for this render only).
 - **Instance suffix `_<uid>`:** every node/constant instance carries
-  `_<uid>` — the node's own stable BD `uid` (`netlist_build._uid_of`), not a
+  `_<uid>` — the node's own stable BD `uid` (`netlist_build.uid_of`), not a
   positional occurrence counter — the first copy included: the handle's
   uniquifier and the stable diff/round-trip identity. (Replaces the old
   `#n`; `#` is now the comment marker, §6.)

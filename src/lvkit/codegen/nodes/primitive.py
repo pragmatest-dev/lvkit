@@ -7,9 +7,8 @@ import re
 from collections.abc import Mapping
 from typing import NoReturn
 
-from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.core import _uid_of
-from lvkit.graph.models import LocalVariableNode, PrimitiveNode
+from lvkit.graph.core import uid_of
+from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
@@ -367,7 +366,6 @@ def _build_input_map(
         if not value and ctx.is_wired(term_id) and not term.is_error_cluster:
             value = ctx.resolve(term_id, allow_none=True)
             if not value:
-                _raise_for_local_variable(ctx, term_id, node)
                 raise CodeGenError(
                     f"The wired input {term_name or term_index!r} of "
                     f"{node.name!r} has no variable (from {_sources(ctx, term_id)})",
@@ -824,31 +822,16 @@ def _substitute_template(
     return result
 
 
-def _raise_for_local_variable(
-    ctx: CodeGenContext, terminal_id: str, node: PrimitiveNode
-) -> None:
-    """A wire from a local variable or control reference that names no
-    front-panel control carries no value code generation can write: a gap."""
-    assert ctx.graph is not None
-    for edge in ctx.graph.incoming_edges(terminal_id):
-        source = ctx.graph.get_graph_node(edge.node_id)
-        if isinstance(source, LocalVariableNode) and source.control_terminal_id is None:
-            raise ConversionGap(
-                f"The reference {source.name!r} names no front-panel control, so "
-                "there is no value to read",
-                node,
-            )
-
-
 def _sources(ctx: CodeGenContext, terminal_id: str) -> str:
-    """The nodes whose terminals wire into ``terminal_id``, for an error message."""
+    """The nodes whose terminals wire into ``terminal_id``, in LabVIEW's words,
+    for an error message."""
     assert ctx.graph is not None
     found = []
     for edge in ctx.graph.incoming_edges(terminal_id):
         source = ctx.graph.get_graph_node(edge.node_id)
-        name = source.name if source else None
-        kind = type(source).__name__
-        found.append(f"{kind} {name!r} terminal {_uid_of(edge.terminal_id)}")
+        if source is None:
+            continue
+        found.append(f"{source.display_name}, terminal {uid_of(edge.terminal_id)}")
     return ", ".join(found) or "nothing"
 
 

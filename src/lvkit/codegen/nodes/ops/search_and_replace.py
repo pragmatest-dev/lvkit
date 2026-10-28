@@ -192,7 +192,7 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
             if isinstance(search_value, str)
             else f"re.escape({search_text})"
         )
-        replacement = f"lambda match: {replace_text}"
+        replacement = ""
     if replace_all is True:
         limit = ""
     elif replace_all is False:
@@ -203,6 +203,11 @@ def search_and_replace(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment
     head = "" if start is None else f"{string}[:{start}] + "
     if 10 not in wired:
         keeps_head = start is not None
+        if not regex_mode:
+            parameter = ctx.make_output_var("match", node.id)
+            if parameter == replace_text:
+                parameter = ctx.make_output_var("matched", node.id)
+            replacement = f"lambda {parameter}: {replace_text}"
         replaced = (
             output_variable(4)
             if 4 in wired and not keeps_head

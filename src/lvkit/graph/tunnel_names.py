@@ -15,7 +15,7 @@ from ..parser.constants import (
     TUNNEL_CLASS_LOOP_TUNNEL,
     TUNNEL_CLASS_RIGHT_SR,
 )
-from .core import _uid_of
+from .core import uid_of
 from .op_walk import _const_value_str, _terminal_display_name
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ def outer_tunnels(op: AnyGraphNode) -> list[TunnelTerminal]:
     diagram reads, left to right), then by uid for a deterministic order."""
 
     def uid_key(t: TunnelTerminal) -> tuple[int, object]:
-        uid = _uid_of(t.id)
+        uid = uid_of(t.id)
         return (0, int(uid)) if uid.isdigit() else (1, uid)
 
     return sorted(

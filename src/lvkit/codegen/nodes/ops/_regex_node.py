@@ -84,6 +84,6 @@ def declare_translator(
 ) -> str:
     """Write ``function`` into the generated module as ``name`` (once, whatever
     the number of nodes using it); the name it is declared under."""
-    return ctx.ctypes_module.declare(
+    return ctx.module_declarations.declare(
         ("helper", name), name, lambda declared: function_source(function, declared)
     )

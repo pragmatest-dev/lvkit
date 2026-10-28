@@ -877,7 +877,7 @@ def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, s
 def _assign_lvnet_handles(module: NetlistModule) -> _LvnetHandles:
     """Build the ONE handle map for this module (lvnet §7/§9): every CLOSED
     instance/constant gets ``<base>_<uid>`` -- Phase 3: ``uid`` is the
-    node's own stable BD uid (``_uid_of``), not a positional occurrence
+    node's own stable BD uid (``uid_of``), not a positional occurrence
     counter, so every instance carries its handle regardless of whether its
     base name repeats elsewhere in the VI (a uid is globally unique on its
     own, so no VI-wide grouping/visitation-order bookkeeping is needed to

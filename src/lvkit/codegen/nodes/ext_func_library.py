@@ -31,8 +31,8 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.parser.extfunc_prototype import ExtFuncCall, LibraryPathKind
 
 from ..context import CodeGenContext
-from ..ctypes_module import CtypesModule
 from ..library_dependencies import LibraryFormat, library_format, needed_in
+from ..module_declarations import ModuleDeclarations
 
 # The file names a wildcard name can expand to: the extensions and bit counts.
 _EXTENSIONS = (".dll", ".so", ".framework")
@@ -196,7 +196,7 @@ def _project_copy(
     return f"os.path.join(os.path.dirname(__file__), {joined})"
 
 
-def declare_library_file(module: CtypesModule) -> str:
+def declare_library_file(module: ModuleDeclarations) -> str:
     """Declare ``_library_file`` once in the module; return its name."""
     return module.declare(
         ("helper", _LIBRARY_FILE_NAME),
@@ -214,7 +214,10 @@ def loader(call: ExtFuncCall) -> str:
 
 
 def static_name(
-    ctx: CodeGenContext, node: PrimitiveNode, call: ExtFuncCall, module: CtypesModule
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    call: ExtFuncCall,
+    module: ModuleDeclarations,
 ) -> tuple[str, set[str]]:
     """The expression of the library a node's setup names, evaluated when the
     module is imported, and the imports it needs."""
@@ -235,7 +238,7 @@ def static_name(
     return expression, imports
 
 
-def wired_name(path_var: str, module: CtypesModule) -> tuple[str, set[str]]:
+def wired_name(path_var: str, module: ModuleDeclarations) -> tuple[str, set[str]]:
     """The expression of the library a wired ``path in`` names, evaluated when the
     node runs."""
     declare_library_file(module)

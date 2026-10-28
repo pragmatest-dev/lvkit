@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 from lvkit.parser.extfunc_prototype import ExtFuncParam, ParamKind
 
-from ..ctypes_module import CtypesModule
+from ..module_declarations import ModuleDeclarations
 from .ext_func_layout import (
     ArrayHandle,
     Cluster,
@@ -66,7 +66,7 @@ def marshal(
     layout: Layout | None,
     value: str | None,
     prefix: str,
-    module: CtypesModule,
+    module: ModuleDeclarations,
     *,
     text_in: bool,
     text_out: bool,
@@ -130,7 +130,7 @@ def marshal(
 
 
 def _adapt(
-    layout: Layout | None, value: str | None, prefix: str, module: CtypesModule
+    layout: Layout | None, value: str | None, prefix: str, module: ModuleDeclarations
 ) -> Marshalled:
     """An Adapt to Type parameter: a pointer to the wire value's C layout."""
     if isinstance(layout, Scalar):

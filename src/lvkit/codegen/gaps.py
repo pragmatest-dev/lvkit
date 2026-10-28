@@ -26,9 +26,9 @@ from lvkit.primitive_resolver import PrimitiveResolutionNeeded, TerminalResoluti
 from lvkit.vilib_resolver import VILibResolutionNeeded
 
 from .ast_utils import build_assign, to_var_name
-from .ctypes_module import CtypesModule
 from .errors import MissingVIError
 from .fragment import CodeFragment
+from .module_declarations import ModuleDeclarations
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -224,7 +224,7 @@ class ModuleState:
         self._saved: dict[str, Any] = {}
         for field in dataclasses.fields(ctx):
             value = getattr(ctx, field.name)
-            if isinstance(value, CtypesModule):
+            if isinstance(value, ModuleDeclarations):
                 self._saved[field.name] = value.snapshot()
             elif isinstance(value, (set, dict, list)):
                 self._saved[field.name] = (
@@ -239,7 +239,7 @@ class ModuleState:
         """Put every store back to what it held when this state was taken."""
         for name, saved in self._saved.items():
             current = getattr(self._ctx, name)
-            if isinstance(current, CtypesModule):
+            if isinstance(current, ModuleDeclarations):
                 current.restore(saved)
             elif isinstance(current, set):
                 current.clear()

@@ -19,6 +19,7 @@ from lvkit.graph.models import (
     FormulaNode,
     GlobalVariableNode,
     InPlaceNode,
+    LocalVariableNode,
     LoopNode,
     PrimitiveNode,
     SequenceNode,
@@ -44,6 +45,7 @@ from . import (
     global_variable,
     in_place,
     invoke_node,
+    local_variable,
     loop,
     nmux,
     primitive,
@@ -111,6 +113,8 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return _generate_primitive(node, ctx)
     if isinstance(node, ConstantNode):
         return constant.generate(node, ctx)
+    if isinstance(node, LocalVariableNode):
+        return local_variable.generate(node, ctx)
     return _generate_unknown(node)
 
 

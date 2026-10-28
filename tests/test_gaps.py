@@ -417,7 +417,7 @@ def test_a_gap_takes_back_what_the_node_added_to_the_module() -> None:
     ctx.add_import("import before")
     with catch_gap(node, ctx) as guard:
         ctx.add_import("import ctypes")
-        ctx.ctypes_module.declare(("library", "x"), "_lib", lambda n: f"{n} = 1")
+        ctx.module_declarations.declare(("library", "x"), "_lib", lambda n: f"{n} = 1")
         ctx.formula_helpers.append(ast.parse("x = 1").body[0])
         ctx.module_globals["g"] = ast.parse("g = 0").body[0]
         ctx.flat_functions[("k",)] = "f"
@@ -425,7 +425,7 @@ def test_a_gap_takes_back_what_the_node_added_to_the_module() -> None:
         raise ConversionGap("no way", node)
     assert guard.fragment is not None
     assert ctx.imports == {"import before"}
-    assert ctx.ctypes_module.statements == []
+    assert ctx.module_declarations.statements == []
     assert ctx.formula_helpers == [] and ctx.module_globals == {}
     assert ctx.flat_functions == {}
     assert [g.reason for g in ctx.gaps] == ["no way"]

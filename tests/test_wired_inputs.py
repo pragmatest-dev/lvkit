@@ -153,3 +153,53 @@ def test_node_class_without_a_generator_is_a_gap_when_a_wire_leaves_it() -> None
     assert [g.node_id for g in gaps] == ["sc"]
     with pytest.raises(NotImplementedError):
         generated.function("1")
+
+
+def test_reference_naming_no_control_is_one_gap_and_its_consumers_generate() -> None:
+    from lvkit.graph.models import LocalVariableNode
+    from lvkit.models import Terminal
+    from tests.test_match_pattern import _OUTPUT_WIRES, _OUTPUTS, _node
+
+    reference = LocalVariableNode(
+        id="ref",
+        vi_path="Native Test.vi",
+        name="This Application",
+        node_type="ctlRefConst",
+        control_name="This Application",
+        terminals=[
+            Terminal(
+                id="ref:0",
+                index=0,
+                direction="output",
+                name="This Application",
+                lv_type=STRING,
+            )
+        ],
+    )
+    length = node("ln", 1502, [(0, "output", I32), (1, "input", STRING)])
+    gaps: list[Gap] = []
+    run = generate(
+        {},
+        {**_OUTPUTS, "n": I32},
+        [reference, length, _node()],
+        [
+            ("ref:0", "ln:1"),
+            ("ln:0", "fp:n"),
+            ("ref:0", "mp:0"),
+            ("c1", "mp:1"),
+            *_OUTPUT_WIRES,
+        ],
+        constants={"c1": ("a", STRING)},
+        gaps=gaps,
+    )
+    (gap,) = gaps
+    assert gap.reason == (
+        "The reference 'This Application' names no front-panel control, so there "
+        "is no value to read"
+    )
+    text = run.source[run.source.index("def native_test") :]
+    assert "this_application = None\n" in text
+    assert "len(this_application)" in text
+    assert "re.search('a', this_application)" in text
+    with pytest.raises(NotImplementedError, match="This Application"):
+        run.function()
