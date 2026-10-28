@@ -91,6 +91,11 @@ def _beside_project(key: str, root: str) -> tuple[str, ...]:
     )
 
 
+def _packages(folders: Sequence[str]) -> tuple[str, ...]:
+    """The package of each folder: the one transform every placement uses."""
+    return tuple(module_part(f) for f in folders if f != ".")
+
+
 def _is_path(key: str) -> bool:
     return os.path.isabs(key) or len(_tokens(key)) > 1
 
@@ -139,6 +144,12 @@ class ModuleLayout:
                 self.unplaced[key] = unplaced
         self._check_unique()
 
+    def placed_folder(self, folder: Path) -> tuple[str, ...] | None:
+        """The packages a project ``folder`` is generated as (the ones its VI
+        modules sit in); None when it is not inside the project."""
+        inside = _below(str(folder.resolve()), self._root)
+        return None if inside is None else _packages(inside)
+
     def _tokens_of(self, key: str) -> list[str]:
         """The folders and the file name that place ``key``."""
         recorded = (
@@ -173,9 +184,7 @@ class ModuleLayout:
         except KeyError:
             node_type = None
         stem = strip_vi_extension(name) if node_type in (None, NodeType.VI) else name
-        return ModulePlace(
-            tuple(module_part(f) for f in folders if f != "."), module_part(stem)
-        )
+        return ModulePlace(_packages(folders), module_part(stem))
 
     def place_beside(self, key: str, sibling_keys: list[str]) -> ModulePlace:
         """``key`` (a polymorphic wrapper with no file) in the package of the first
@@ -201,7 +210,7 @@ class ModuleLayout:
     def packages_of(self, key: str) -> tuple[str, ...]:
         """The packages that hold the file ``key`` (a folder, a library or a
         class file): where its members' modules are looked for."""
-        return tuple(module_part(f) for f in self._tokens_of(key)[:-1] if f != ".")
+        return _packages(self._tokens_of(key)[:-1])
 
     @property
     def root_names(self) -> set[str]:

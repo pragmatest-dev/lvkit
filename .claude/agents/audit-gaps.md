@@ -15,7 +15,7 @@ Check for:
 1. **Unanswered "what if" questions** — the page shows the happy path but leaves failure modes unstated:
    - What happens if the VI/library/class path doesn't exist or isn't a valid LabVIEW file?
    - What happens if a SubVI can't be found on `--search-path`?
-   - What if a primitive or vi.lib VI is unmapped — does the command fail, or produce a placeholder? (Depends on `--placeholder-on-unresolved`.)
+   - What if a primitive or vi.lib VI is unmapped — does the command fail, or write a `raise NotImplementedError(...)` at that node and warn?
    - What happens if `--vilib`/`--userlib` isn't given and auto-detection finds nothing?
    Flag only where the answer matters for the page's audience and isn't obvious from context.
 
@@ -32,14 +32,14 @@ Check for:
 4. **Missing "how do I know it worked" guidance** — no way for a reader to verify their own setup:
    - No example of successful output (generated Python, HTML doc, diff report, JSON)
    - No CLI command or flag to check the result
-   - No error message (e.g. `PrimitiveResolutionNeeded`, `VILibResolutionNeeded`) shown so the reader recognizes it when it happens
+   - No warning line (`warning: <VI path>: <node>: <reason>`) or `NotImplementedError` text shown so the reader recognizes a gap when it happens
 
 5. **Implicit assumptions about project structure** — the page assumes a specific directory layout without stating it:
    - Example uses `--search-path .lvkit/cache/samples/OpenG/extracted` without saying what that directory needs to contain or how it relates to the VI being processed
    - Example uses `--project-root` without explaining how it relates to the `.lvkit/` store
 
 6. **Missing "why would I do this differently" branching** — when two approaches exist, the page presents one without acknowledging the tradeoff with the other:
-   - Shows `generate` without mentioning `--placeholder-on-unresolved` as the alternative to fixing every unresolved call before the build succeeds
+   - Shows `generate` without saying that an unresolved call is a warning and a `raise NotImplementedError(...)` rather than a failed build
    - Shows explicit `--vilib`/`--userlib` without mentioning auto-detection (or vice versa) and when you'd want one over the other
 
 ## Process

@@ -1567,3 +1567,73 @@ for an exception in the called code.
 `<threadInfo>` is 0 (absent) for "Run in UI thread" and `01` for "Run in any thread"
 (28 of the 46 corpus nodes have `01`). LabVIEW draws the node's top band orange for the
 UI thread and pale yellow for any thread.
+
+**`Ptr` and `PtrTo` String prototype fields (2026-10-26).** Two more `funcTD` field types
+occur in the protobuf/gRPC nodes (`labview_grpc_server.dll`, and the nodes whose library
+comes from the path-in terminal), none of them in the sample corpus tree: they were read
+from the extracted diagrams of those VIs in the per-user extraction cache, whose source
+paths are not recorded, so no corpus VI can be named for them.
+
+- A bare `Ptr` (pylabview `TD_FULL_TYPE.Ptr`, type code `0x80`) has no child type
+  descriptor: `<TypeDesc Type="Ptr" Format="inline" Label="data" />`. The only information
+  about the pointee is the DCO's wire type, so lvkit reads it as a pointer to the wired
+  value's C layout, the same as Adapt to Type (`Void`): a scalar by reference, a cluster
+  as a pointer to a structure. Nodes seen: `GetRequestData` param 2 and `SetResponseData`
+  param 2 (wire type Cluster, or a unit-tagged `UnitUInt32`), `PackToAny` params 3 and 4
+  (Cluster), `UnpackFromAny` param 4 (Cluster), `CompleteClientUnaryCall2` param 4
+  (Cluster).
+- `PtrTo` (`0x83`) whose child is a `String` with `Prop1="0xFFFFFFFF"` (the same String
+  descriptor as a string handle, see above): `<TypeDesc Type="PtrTo" Format="inline">
+  <TypeDesc TypeID="N" /></TypeDesc>` with the child flat type `<TypeDesc Type="String"
+  Prop1="0xFFFFFFFF" Format="inline" Label="errorMessage" />`. lvkit reads it as a
+  pointer to a string handle (one more level of pointer than the `String` field, which
+  is the handle itself). Node seen: `CompleteClientUnaryCall2` param 3 (wire type
+  String). A `PtrTo` whose child is a number is the existing "pass pointer to value".
+
+## A Call Library Function Node's library is named by the `NEXF` link-table record, found by the node's uid; `DSEF` records the same name by data-space offset
+
+A node's `<libPath>` holds the path LabVIEW resolved the library to. The name as
+typed in the node's setup (wildcards unresolved) and the recorded path are in the
+VI's link records, measured on the corpus extraction cache (39 VIs with an
+`extFunc` node, 68 main XMLs with a `DSEF`):
+
+- `NEXF` ("Node To ExtFunc Link"), under `LIbd`/`BDHP` of the main XML. Fields:
+  `LinkSaveQualName` (the typed name, `nilvaiu.*`), `LinkSavePathRef` (`PTH0`
+  with `TpVal`: 0 absolute, 1 relative; one `<String>` per token, an empty
+  `<String />` is an empty token), `LinkOffsetList` (the heap uid of every node
+  that calls the function, in hex) and `ExtFuncLinkStr` (the function). In
+  `Get Client Machine Details.xml` the offset `0x03AA` is `uid="938"` of the
+  `extFunc` node in `_BDHb.xml`. 34 of 34 nodes in the 26 VIs with a `NEXF` record
+  and a node matched by uid; no record lacked a node. One record per distinct
+  (library, function, path); two nodes calling the same function share it
+  (`Write Environment Variable`: one record, uids 538 and 598).
+- `DSEF` ("DS To ExtFunc Link"), under `VIDS`: the same fields, but
+  `LinkOffsetList` holds data-space offsets, never node uids (0 of 118 offsets
+  equal an `extFunc` uid). Where a VI has both, the (name, path, function) of the
+  two agree (22 of 22). 24 VIs hold a `DSEF` with no node of their own (the
+  data space of a DAQ master file). It identifies a node only by (library,
+  function).
+- Neither record exists for the 12 VIs whose nodes take the library from the
+  `path in` terminal (`libPath` of type 2, not a path).
+- When pylabview leaves `LIbd` as the raw `_LIbd.bin` sidecar (`Get User Interface
+  Details`, library `LabVIEW`), `NEXF` is read from it: the basic link head (name,
+  path, flag), the node uid list (u32 count, uids), the function as a pascal string
+  padded to an even length, then two property bytes (and a third from LabVIEW
+  11.0.0.3), laid out as pylabview `parseExtFuncLinkSaveInfo` reads it. The record
+  for that VI lists uid 3101, the `extFunc` node in its `_BDHb.xml`.
+
+A recorded path is read by its tokens: a leading empty token is the VI's folder and
+each further empty token one folder up (the rule `LinkSavePathRef` has for VIs); a
+single token (`kernel32.dll`) is a name the operating system searches for; a path
+rooted in a LabVIEW folder (`<resource>`, `lvanlys.*` in the corpus) is not a file on
+disk. The corpus records only these two forms (9 distinct records, none a path to a
+shipped file; there are no `.dll` files in it).
+
+Wildcards in the typed name (NI LabVIEW User Manual, "Configuring the Call Library
+Function Node", docs-be.ni.com/bundle/labview, page 2113332): `.*` is replaced by the
+platform's extension (`myshared.dll`, `myshared.so`, `myshared.framework`), `*` by
+`32` or `64`, and `**` by nothing on a 32-bit platform and `_64` on a 64-bit one
+(`myshared**.*` is `myshared.*` or `myshared_64.*`); the star may sit anywhere left of
+the extension. When the replacement happens follows how the name is defined: a library
+named in the node's setup is resolved when the VI loads, a library wired to `path in`
+when the node runs (maintainer, on the reporter's issue).

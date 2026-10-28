@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 
-class AmbiguousVIReferenceError(Exception):
+
+class AmbiguousVIReferenceError(ConversionGap):
     """A bare name/qname lookup (``resolve_vi_name``) matched two or more
     on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
     not duplicate copies of the same VI -- or a caller's recorded VI, absent at

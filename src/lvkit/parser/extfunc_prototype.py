@@ -4,9 +4,9 @@ convention, and how each parameter is passed.
 The node's ``<funcTD>`` is a Cluster whose fields are the C prototype, one per
 row (the return value first). Each field's type descriptor says how that
 parameter reaches the function: a number by value, ``PtrTo`` a number, a
-``CString`` (C string pointer), or an ``ArrayDataPtr`` to numbers. Any other
-descriptor (a LabVIEW string or array handle, ``Adapt to Type``) is kept as an
-unsupported parameter with the reason.
+``CString`` (C string pointer), an ``ArrayDataPtr`` to numbers, a LabVIEW string
+or array handle, or a pointer to the wired value (``Adapt to Type``, ``Ptr``).
+Any other descriptor is kept as an unsupported parameter with the reason.
 """
 
 from __future__ import annotations
@@ -27,10 +27,12 @@ class ParamKind(str, Enum):
     ARRAY_DATA = "array_data"  # a pointer to the elements of a 1-D numeric array
     # Adapt to Type: a scalar is passed as a pointer to it (NI: "Scalars are passed
     # by reference"), so its C type is that of the wire type, known only on the
-    # graph (see ``codegen.nodes.ext_func``).
+    # graph (see ``codegen.nodes.ext_func``). A bare pointer (``Ptr``) points at
+    # the wired value the same way.
     ADAPT_TO_TYPE = "adapt_to_type"
     NO_VALUE = "no_value"  # a function with no return value
     STRING_HANDLE = "string_handle"  # a LabVIEW string handle
+    STRING_HANDLE_POINTER = "string_handle_pointer"  # a pointer to a string handle
     ARRAY_HANDLE = "array_handle"  # a LabVIEW array handle
     UNSUPPORTED = "unsupported"
 
@@ -60,12 +62,23 @@ class ExtFuncParam:
 UNPASSABLE_KINDS = frozenset({ParamKind.UNSUPPORTED})
 
 
+class LibraryPathKind(str, Enum):
+    """How the path recorded for a node's library locates it."""
+
+    BY_NAME = "by_name"  # a bare file name: the operating system's search finds it
+    RELATIVE_TO_VI = "relative_to_vi"  # leading empty tokens: from the VI's folder
+    OTHER = "other"  # rooted in a LabVIEW folder or absolute: loaded by its name
+
+
 @dataclass(frozen=True)
 class ExtFuncCall:
     """A Call Library Function Node's call.
 
     ``calling_convention`` is ``stdcall`` or ``c``. ``library`` is None when the
-    node records no library (its path comes from the ``path in`` terminal).
+    node records no library (its path comes from the ``path in`` terminal); else
+    it is the name as typed in the node's setup, wildcards (``vendorlib.*``)
+    included. ``library_path_tokens`` and ``library_path_kind`` are the path
+    LabVIEW recorded for it (see ``extfunc_links``).
     ``row_terminal_ids`` is each row's (input, output) terminal id, the return
     value first; the return value has no input terminal (None)."""
 
@@ -77,6 +90,8 @@ class ExtFuncCall:
     func_td: int | None = None
     thread: ExtFuncThread | None = None
     params: tuple[ExtFuncParam, ...] = field(default=())
+    library_path_tokens: tuple[str, ...] = ()
+    library_path_kind: LibraryPathKind = LibraryPathKind.BY_NAME
 
 
 NUMERIC_C_TYPES = {
@@ -166,6 +181,11 @@ def _param(
         return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
     if kind_name == "String":
         return ExtFuncParam(ParamKind.STRING_HANDLE)
+    if kind_name == "Ptr":
+        return ExtFuncParam(ParamKind.ADAPT_TO_TYPE)
+    if kind_name == "PtrTo" and (target := _child(td, flat)) is not None:
+        if target.get("Type") == "String":
+            return ExtFuncParam(ParamKind.STRING_HANDLE_POINTER)
     if kind_name == "Array":
         element = _number(_child(td, flat))
         dimensions = len(td.findall("Dimension"))

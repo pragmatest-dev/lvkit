@@ -21,11 +21,11 @@ from __future__ import annotations
 import ast
 from collections.abc import Callable
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, CaseStructureNode
 
 from .context import CodeGenContext
 from .error_path import ErrorRole, error_inputs, trace_error_path
-from .errors import CodeGenError
 from .errors_module import LABVIEW_ERROR_NAME
 from .nodes import case
 
@@ -85,7 +85,7 @@ def _clear_errors(
         t.direction == "input" and not t.is_error_cluster and ctx.is_wired(t.id)
         for t in op.terminals
     ):
-        raise CodeGenError(
+        raise ConversionGap(
             "Clear Errors with a specific error code is not generated yet", op
         )
     path = trace_error_path(error_inputs(op), operations, ctx)

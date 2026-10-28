@@ -88,13 +88,13 @@ lvkit docs <input-path> <output-dir> [--search-path <libraries/>]
 ```
 
 ### Generate Python (experimental)
-This is lvkit's least mature capability, and the one most likely to need hand-finishing. It walks the graph to emit a Python transliteration of a `.vi`, `.lvlib`, or `.lvclass`. The transliteration is deterministic (same VI in, same Python out, no LLM), but coverage is incremental: a VI only converts cleanly when every primitive and vi.lib VI it uses is already mapped, so how far it gets varies widely. Expect to resolve unknowns and clean up the output — see [Cleanroom approach](#cleanroom-approach).
+This is lvkit's least mature capability, and the one most likely to need hand-finishing. It walks the graph to emit a Python transliteration of a `.vi`, `.lvlib`, or `.lvclass`. The transliteration is deterministic (same VI in, same Python out, no LLM), but coverage is incremental: a node that lvkit has no mapping for becomes a `raise NotImplementedError(...)` where the node would run, so how much of a VI runs as generated varies widely. Expect to resolve those gaps and clean up the output — see [Cleanroom approach](#cleanroom-approach).
 
 ```
-lvkit generate <input-path> -o <output-dir> [--search-path <libraries>] [--placeholder-on-unresolved]
+lvkit generate <input-path> -o <output-dir> [--search-path <libraries>]
 ```
 
-`--placeholder-on-unresolved` lets the build succeed when mappings are missing — unresolved calls become inline `raise PrimitiveResolutionNeeded(...)` in the output so you can track them down at runtime.
+For each node it cannot convert, `generate` prints `warning: <VI path>: <node>: <reason>` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps. `generate` exits `0` when every VI converted, `2` when the result is partial (it has gaps), `1` when a VI could not be written.
 
 ## How it works
 
@@ -178,10 +178,10 @@ You can supplement the bundled mappings with a `.lvkit/` directory in your proje
 
 Run `lvkit setup --no-skills` to create the store with a README that documents the file layout and JSON formats for adding primitive and vi.lib mappings manually.
 
-When `lvkit generate` hits an unknown, you have two options:
+When `lvkit generate` warns about an unknown primitive or vi.lib VI, you have two options:
 
-1. **Resolve up front** — run `lvkit setup` to install the resolve skills and let your AI agent write the mapping into `.lvkit/`.
-2. **Defer to runtime** — pass `--placeholder-on-unresolved`. lvkit emits an inline `raise PrimitiveResolutionNeeded(...)` in the generated Python with full diagnostic context. The build succeeds; runtime fails at the unresolved call.
+1. **Resolve it** — run `lvkit setup` to install the resolve skills and let your AI agent write the mapping into `.lvkit/`, then generate again.
+2. **Leave it** — the generated Python raises `NotImplementedError` at that node and runs everywhere else.
 
 ## Development
 

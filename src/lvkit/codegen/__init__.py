@@ -13,15 +13,13 @@ from .expressions import ExpressionBuilder
 from .fragment import CodeFragment
 from .function import FunctionBuilder
 from .imports import ImportBuilder
-from .nodes import CodeGenError, MissingDependencyError, UnknownNodeError
-from .stubs import StubGenerator
+from .nodes import CodeGenError, UnknownNodeError
 
 __all__ = [
     "DataFlowTracer",
     "ImportBuilder",
     "ExpressionBuilder",
     "FunctionBuilder",
-    "StubGenerator",
     # New API
     "build_module",
     "build_class",
@@ -31,6 +29,5 @@ __all__ = [
     "ClassConfig",
     # Exceptions
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
 ]

@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import NoReturn
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
@@ -24,11 +25,11 @@ from ..ast_utils import (
     to_function_name,
     to_var_name,
 )
+from ..callee_names import CalleeNames, callee_names
 from ..context import CodeGenContext
 from ..error_path import ERROR_WIRE_VI_NAMES
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..unresolved import emit_soft_unresolved
 from . import error_vi
 
 
@@ -36,7 +37,9 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate code for a SubVI call."""
     subvi_name = node.name or ""
     if not subvi_name:
-        return CodeFragment.empty()
+        raise ConversionGap(
+            "A VI node has no name, so the VI it calls is unknown", node
+        )
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
@@ -53,7 +56,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         vilib_vi = _resolve_poly_variant(subvi_name, node)
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
-            return _emit_vilib_resolution(node, ctx, vilib_vi=None)
+            _raise_vilib_resolution(node, ctx, vilib_vi=None)
 
     else:
         vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
@@ -193,7 +196,7 @@ def _generate_inline(
         if m not in set(vilib_outputs.values())
     }
     if unresolved_inputs:
-        return _emit_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
+        _raise_vilib_resolution(node, ctx, vilib_vi=vilib_vi)
 
     # Build ref_terminals passthrough map: output_param -> input variable
     ref_passthrough: dict[str, str] = {}
@@ -336,7 +339,7 @@ def _get_vilib_vi(
             )
 
             if wired_node_terminals:
-                # Auto-update terminals (raises VILibConflict on conflict)
+                # Auto-update terminals
                 vi = resolver.auto_update_terminals(
                     vi_name=subvi_name,
                     wired_terminals=wired_node_terminals,
@@ -391,6 +394,7 @@ def _build_arguments(
 
     args = []
     keywords: dict[str, str] = {}
+    names = callee_names(ctx, node)
 
     for term in ctx.enriched_terminals(node):
         if term.direction != "input" or is_call_frame_terminal(node, term):
@@ -415,6 +419,8 @@ def _build_arguments(
         if vilib_inputs and term_index in vilib_inputs:
             # vilib knows the correct parameter name
             param_name = to_var_name(vilib_inputs[term_index])
+        elif names is not None and term_index in names.parameters:
+            param_name = names.parameters[term_index]
         elif term_name:
             # Use terminal name from node
             param_name = to_var_name(term_name)
@@ -539,6 +545,7 @@ def _build_output_bindings(
     )
 
     bindings = {}
+    names = callee_names(ctx, node)
     for term in ctx.enriched_terminals(node):
         if term.direction != "output" or is_call_frame_terminal(node, term):
             continue
@@ -554,6 +561,8 @@ def _build_output_bindings(
         # Priority: vilib name > terminal name (enriched from callee)
         if vilib_outputs and term_index in vilib_outputs:
             field = result_field_name(vilib_outputs[term_index])
+        elif names is not None and term_index in names.fields:
+            field = names.fields[term_index]
         elif term_name:
             field = result_field_name(term_name)
         else:
@@ -641,6 +650,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
 
     # Build output bindings
     bindings: dict[str, str] = {}
+    names = callee_names(ctx, node)
     result_var = f"{method_name}_result"
     has_non_class_output = False
 
@@ -654,7 +664,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
             # Class-typed output → passthrough to receiver variable
             bindings[term.id] = receiver_var
         else:
-            field = result_field_name(term.name or f"out_{term.index}")
+            field = _result_field(names, term)
             has_non_class_output = True
             bindings[term.id] = f"{result_var}.{field}"
 
@@ -690,14 +700,22 @@ def _generate_static_fallback(
         value=call,
     )
     bindings: dict[str, str] = {}
+    names = callee_names(ctx, node)
     for term in ctx.enriched_terminals(node):
         if term.direction == "output":
             if term.is_error_cluster:
                 continue
-            field = result_field_name(term.name or f"out_{term.index}")
+            field = _result_field(names, term)
             bindings[term.id] = f"{result_var}.{field}"
 
     return CodeFragment(statements=[stmt], bindings=bindings)
+
+
+def _result_field(names: CalleeNames | None, term: Terminal) -> str:
+    """The field of the called VI's result that ``term`` reads."""
+    if names is not None and term.index in names.fields:
+        return names.fields[term.index]
+    return result_field_name(term.name or f"out_{term.index}")
 
 
 def _is_class_terminal(term: Terminal) -> bool:
@@ -705,58 +723,14 @@ def _is_class_terminal(term: Terminal) -> bool:
     return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
 
 
-def _emit_vilib_resolution(
+def _raise_vilib_resolution(
     node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
-) -> CodeFragment:
-    """Handle an unknown / unresolvable vi.lib SubVI call.
-
-    Default mode: raise VILibResolutionNeeded immediately so the
-    conversion loop catches it.
-
-    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
-    VILibResolutionNeeded(...)` AST statement with the same context.
-    Pre-binds output terminals to None so downstream codegen still has
-    a value to read.
-    """
+) -> NoReturn:
+    """An unknown or unresolvable vi.lib SubVI call is a gap."""
     context = _build_resolution_context(node, ctx, vilib_vi)
-    vi_name = node.name or ""
-
-    if ctx.unresolved_sink is not None:
-        # Batch-collection mode (`lvkit unresolved`): record and keep going.
-        ctx.unresolved_sink.append(VILibResolutionNeeded(vi_name, context=context))
-
-    if not ctx.soft_unresolved:
-        raise VILibResolutionNeeded(vi_name, context=context)
-
-    # Soft mode: emit
-    #   raise VILibResolutionNeeded(<vi_name>,
-    #       context=ResolutionContext(...))
-    # vi_name is a literal positional. The ResolutionContext is a
-    # dataclass call — not a literal — so it goes through source_kwargs
-    # as a pre-formatted Python expression.
-    ctx_kwarg_src = ", ".join(
-        f"{k}={v!r}"
-        for k, v in {
-            "caller_vi": context.caller_vi,
-            "caller_qualified_name": context.caller_qualified_name,
-            "poly_selector": context.poly_selector,
-            "wire_types": context.wire_types,
-            "terminal_names": context.terminal_names,
-            "qualified_path": context.qualified_path,
-        }.items()
-    )
-
-    return emit_soft_unresolved(
-        node=node,
-        ctx=ctx,
-        exception_module="lvkit.vilib_resolver",
-        exception_class="VILibResolutionNeeded",
-        positional_args=[vi_name],
-        source_kwargs={"context": f"ResolutionContext({ctx_kwarg_src})"},
-        extra_imports={"from lvkit.vilib_resolver import ResolutionContext"},
-    )
+    raise VILibResolutionNeeded(node.name or "", context=context)
 
 
 def _build_resolution_context(

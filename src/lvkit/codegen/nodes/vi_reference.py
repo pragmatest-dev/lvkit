@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
 from lvkit.graph.vi_reference import (
     OPEN_VI_PATH_INDEX,
@@ -41,7 +42,8 @@ from lvkit.graph.vi_reference import (
 )
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 
-from ..ast_utils import build_assign, parse_expr, result_field_name, to_var_name
+from ..ast_utils import build_assign, parse_expr
+from ..callee_names import pane_names
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -77,8 +79,8 @@ def _label(node: AnyGraphNode) -> str:
     return node.label or node.name or "VI reference node"
 
 
-def _fail(node: AnyGraphNode, problem: VIReferenceUnresolved) -> CodeGenError:
-    return CodeGenError(f"{_label(node)}: {problem}", node)
+def _fail(node: AnyGraphNode, problem: VIReferenceUnresolved) -> ConversionGap:
+    return ConversionGap(f"{_label(node)}: {problem}", node)
 
 
 def _frame_terminal(
@@ -92,7 +94,7 @@ def _call_style(node: VINode) -> CallStyle:
     try:
         return CallStyle(0 if saved is None else saved)
     except ValueError:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: this kind of call by reference (saved style "
             f"{saved:#x}) is not supported yet; Wait On Asynchronous Call has no "
             "code generation yet.",
@@ -115,12 +117,12 @@ def _reference_input(node: VINode, ctx: CodeGenContext) -> Terminal:
     reference = _frame_terminal(node, ctx, _REFERENCE_IN)
     if reference is None or not ctx.is_wired(reference.id) or ctx.graph is None:
         if node.qualified_path:
-            raise CodeGenError(
+            raise ConversionGap(
                 f"{_label(node)}: the VI chosen in the node's setup, "
                 f"{node.qualified_path!r}, is not loaded with this VI.",
                 node,
             )
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: the VI reference input is not wired and the node "
             "records no VI of its own.",
             node,
@@ -135,7 +137,7 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
     assert ctx.graph is not None
     callee = node.model_copy(update={"callee_key": target.key, "name": target.name})
     if ctx.graph.loaded_callee_key(callee) is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: the VI {target.name!r} is not loaded with this VI.",
             node,
         )
@@ -149,30 +151,36 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
     function = ctx.resolve(reference.id)
     pane = pane_of(reference.lv_type)
     if function is None or pane is None:
-        raise CodeGenError(
+        raise ConversionGap(
             f"{_label(node)}: which VI the reference holds is only known when the "
             "diagram runs, and its type records no connector pane to name the "
             "parameters by.",
             node,
         )
-    names = {slot.index: slot.name for slot in pane}
+    names = pane_names(pane)
+    labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
     result_var = ctx.make_output_var("vi_reference_result", node.id)
     bindings: dict[str, str] = {}
     for term in ctx.enriched_terminals(node):
         if term.index is None or term.index < 0 or term.is_error_cluster:
             continue
-        name = names.get(term.index)
-        if name is None:
+        if term.index not in labelled:
+            continue
+        if term.index not in (
+            names.parameters if term.direction == "input" else names.fields
+        ):
             continue
         if term.direction == "input":
             value = ctx.resolve(term.id)
             if value is not None:
                 keywords.append(
-                    ast.keyword(arg=to_var_name(name), value=parse_expr(value))
+                    ast.keyword(
+                        arg=names.parameters[term.index], value=parse_expr(value)
+                    )
                 )
         else:
-            bindings[term.id] = f"{result_var}.{result_field_name(name)}"
+            bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
 
 
@@ -391,7 +399,7 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
         return True
     if kinds == {"Path"}:
         return False
-    raise CodeGenError(
+    raise ConversionGap(
         "Open VI Reference: the computed VI path is neither a path nor a string.",
     )
 

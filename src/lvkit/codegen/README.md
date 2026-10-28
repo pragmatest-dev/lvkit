@@ -64,6 +64,7 @@ VI file
 | `dataflow.py` | `DataFlowTracer` — trace wires to find producing operations |
 | `error_handler.py` | Held-error model for parallel branches with error clusters |
 | `error_path.py` | Which nodes handle an error wire, and the nodes upstream of it |
+| `gaps.py` | `Gap`, `catch_gap`: a node that cannot be converted raises `NotImplementedError(<reason>)` where it would run, and is recorded as a gap |
 | `error_wires.py` | `try`/`except` around the code that raises the error a Clear Errors / error case handles |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
 | `package_modules.py` | `PackageModules` — the package-root modules for state VIs share, from graph queries over the package's VIs (`graph/package_queries.py`) |
@@ -88,9 +89,40 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | `queue_ops.py` | Queue Operations | `queue.Queue` calls: `put`/`get(timeout=...)`, `shutdown()`, named queues from `queues.py` |
 | `shared_variable.py` | Shared Variable nodes | attribute read/write on the `shared_variables` module |
 | `invoke_node.py` | Invoke nodes (`invokeNode`) | `obj.method(args)` |
+| `ext_func.py` | Call Library Function Node (`extFunc`) | module-level `ctypes` library, prototype and structures; a call that packs each parameter and reads it back (library loading: `ext_func_library.py`, below) |
 | `printf.py` | Format Into String | f-string or `%` formatting |
 | `nmux.py` | Node multiplexer | Passthrough / conditional select |
 | `constant.py` | Constants | Literal values (handled during context init, rarely needs handler) |
+
+### Call Library Function Node libraries
+
+`nodes/ext_func_library.py` decides how a generated module loads the library a node
+names. The loader is `ctypes.CDLL`, or `getattr(ctypes, "WinDLL", ctypes.CDLL)` for
+a `stdcall` node (`WinDLL` exists only on Windows). As in LabVIEW, a library typed in
+the node's setup is loaded when the module is imported and a library wired to
+`path in` when the node runs.
+
+- **Wildcards** in the typed name (`.*` the platform's extension, `*` 32 or 64, `**`
+  nothing or `_64`, per NI's "Configuring the Call Library Function Node") are
+  expanded by a small `_library_file` function written into the module only when a
+  library needs it; a wired path has its file name expanded at the call.
+- **By name** (a name with no folder, or a path rooted in a LabVIEW folder): the
+  operating system finds it.
+- **A library recorded relative to the VI, inside the project root**: copied into the
+  generated package in the package folder its project folder is generated as (the
+  folders go through `module_part` like module packages; file names under it stay
+  as they are) (a file at a path from the module's
+  folder in `data_files`, written by `pipeline._write_data_files`) and loaded with
+  `os.path.join(os.path.dirname(__file__), ...)`. Every file another platform or
+  bitness expansion of a wildcard name selects is copied too, and so is each library
+  the copied file needs (`library_dependencies.py`: PE imports and delay-load
+  imports, ELF `DT_NEEDED`, Mach-O `@loader_path`/`@rpath` names, told apart by the
+  file's first bytes) that sits in its own folder inside the project, recursively;
+  PE names match case-insensitively, the others exactly. A needed library found
+  nowhere in that folder is a system library and is left to the operating system.
+- **A project library that is not on disk** stops generation, naming the VI, the node
+  and the recorded path. A library recorded outside the project root is loaded by
+  name.
 
 ## Tiered Topological Sort
 

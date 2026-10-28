@@ -8,8 +8,10 @@ strategy these exceptions are the escape hatch for.
 
 from __future__ import annotations
 
+from lvkit.conversion_gap import ConversionGap
 
-class PrimitiveResolutionNeeded(Exception):
+
+class PrimitiveResolutionNeeded(ConversionGap):
     """Raised when a primitive has no definition in primitives.json.
 
     Same pattern as VILibResolutionNeeded — the whole primitive is unknown,
@@ -30,7 +32,9 @@ class PrimitiveResolutionNeeded(Exception):
         qualified_vi_name: str | None = None,
         node_kind: str | None = None,
         reason: str | None = None,
+        placeholder: bool = False,
     ):
+        self.placeholder = placeholder
         self.prim_id = "" if prim_id is None else str(prim_id)
         self.node_kind = node_kind
         self.reason = reason
@@ -44,8 +48,24 @@ class PrimitiveResolutionNeeded(Exception):
         self.qualified_vi_name = qualified_vi_name
         super().__init__(self._format_message())
 
-    def _format_message(self) -> str:
+    def summary(self) -> str:
+        if self.placeholder:
+            return f"{self.prim_name} is not converted yet"
         if self.prim_id:
+            return f"primitive {self.prim_id} ({self.prim_name}) is not known"
+        because = f": {self.reason}" if self.reason else ""
+        return (
+            f"{self.node_kind or 'Node'} {self.prim_name} has no code "
+            f"generation yet{because}"
+        )
+
+    def _format_message(self) -> str:
+        if self.placeholder:
+            msg = (
+                f"Primitive {self.prim_id} ({self.prim_name}) is known by name and "
+                "has no implementation yet.\n"
+            )
+        elif self.prim_id:
             msg = (
                 f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
             )
@@ -80,7 +100,13 @@ class PrimitiveResolutionNeeded(Exception):
             msg += f"    - {' '.join(parts)}\n"
         if not self.terminals:
             msg += "    (none)\n"
-        if self.prim_id:
+        if self.placeholder:
+            msg += (
+                f"\n  Fix: give primitive {self.prim_id} a python_code in"
+                f" .lvkit/primitives.json (project-local) or"
+                f" data/primitives.json (cleanroom upstream)"
+            )
+        elif self.prim_id:
             msg += (
                 f"\n  Fix: add primitive {self.prim_id} to"
                 f" .lvkit/primitives.json (project-local) or"
@@ -89,7 +115,7 @@ class PrimitiveResolutionNeeded(Exception):
         return msg.rstrip("\n")
 
 
-class TerminalResolutionNeeded(Exception):
+class TerminalResolutionNeeded(ConversionGap):
     """Raised when a specific wired terminal cannot be resolved to a known index.
 
     kind="primitive": a built-in LabVIEW primitive with a missing terminal index
@@ -115,6 +141,12 @@ class TerminalResolutionNeeded(Exception):
         self.vi_name = vi_name
         self.kind = kind
         super().__init__(self._format_message())
+
+    def summary(self) -> str:
+        return (
+            f"the {self.terminal_direction} terminal of {self.prim_name} "
+            f"(type {self.terminal_type}) has no known index"
+        )
 
     def _format_message(self) -> str:
         if self.kind == "vilib":

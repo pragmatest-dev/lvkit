@@ -1,7 +1,7 @@
 """LabVIEW's own library functions (the ``LabVIEW`` library a Call Library
-Function Node names), and the Python that stands in for each.
+Function Node names), and the Python each is generated as.
 
-Loaded from ``data/labview_manager.json``; see its ``_comment`` for the call
+Loaded from ``data/labview_manager.json``; see its ``_comment`` for the template
 contract.
 """
 
@@ -18,14 +18,25 @@ LABVIEW_LIBRARY = "LabVIEW"
 
 
 @dataclass(frozen=True)
+class ManagerDeclaration:
+    """A module-level definition a function's statements use: the ``name`` it is
+    defined under and its source lines (``{name}`` stands for the name)."""
+
+    key: str
+    name: str
+    source: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ManagerFunction:
-    """One LabVIEW function: the Python callable that stands in for it, the
-    import that provides it, and NI's parameter names."""
+    """One LabVIEW function: NI's parameter names, the Python that replaces the
+    call, and the imports and declarations it needs."""
 
     name: str
-    python: str
-    import_statement: str
     parameters: tuple[str, ...]
+    imports: tuple[str, ...]
+    declarations: tuple[ManagerDeclaration, ...]
+    statements: tuple[str, ...]
     doc_url: str
 
 
@@ -33,14 +44,19 @@ class ManagerFunction:
 def manager_functions() -> dict[str, ManagerFunction]:
     """Every LabVIEW function with a Python equivalent, by name."""
     with open(data_dir() / "labview_manager.json", encoding="utf-8") as handle:
-        entries = json.load(handle)["functions"]
+        data = json.load(handle)
+    declarations = {
+        key: ManagerDeclaration(key, entry["name"], tuple(entry["source"]))
+        for key, entry in data["declarations"].items()
+    }
     return {
         name: ManagerFunction(
             name=name,
-            python=entry["python"],
-            import_statement=entry["import"],
             parameters=tuple(entry["parameters"]),
+            imports=tuple(entry["imports"]),
+            declarations=tuple(declarations[key] for key in entry["declarations"]),
+            statements=tuple(entry["statements"]),
             doc_url=entry["doc_url"],
         )
-        for name, entry in entries.items()
+        for name, entry in data["functions"].items()
     }

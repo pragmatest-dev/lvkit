@@ -4,15 +4,15 @@ RUN on real temporary files, with their outputs asserted.
 Every corpus VI that holds a Call Library Function Node, and how it is checked
 here:
 
-- Runs here against LabVIEW's own functions (``runtime/lv_manager.py``, no
-  library): File Info, LFU Create File Handle, LFU Retrieve File Handle.
-- Calls ``kernel32.dll`` (Windows only). OpenG's large-file VIs run end to end
-  through ``tests/fake_kernel32.py``, a stand-in built on ordinary file
-  descriptors that follows Microsoft's documentation of each function; so does
-  Read Discovery Service Key File (success, missing file, failed open). The
-  Windows-only calls of Write Environment Variable and Get Client Machine
-  Details are checked to reach the library (error 7 here, the real effect on
-  Windows).
+- Runs here against LabVIEW's own functions (written out as Python, no library):
+  File Info, LFU Create File Handle, LFU Retrieve File Handle.
+- Calls ``kernel32.dll`` (a Windows library: the generated module loads it with
+  ``ctypes.WinDLL``). OpenG's large-file VIs run end to end through
+  ``tests/fake_kernel32.py``, a stand-in for ``ctypes.WinDLL`` built on ordinary
+  file descriptors that follows Microsoft's documentation of each function; so
+  does Read Discovery Service Key File (success, missing file, failed open).
+  Write Environment Variable and Get Client Machine Details call the real library
+  and run on Windows only.
 - Blocked: the 12 protobuf VIs (their SubVI ``Get Server DLL Path.vi`` is not in
   the corpus) and the 3 VIs whose node is inside a Match Regular Expression
   XNode (an XNode has no code generation).
@@ -34,7 +34,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from lvkit.labview_error import LabVIEWError
 from tests.fake_kernel32 import Kernel32
 
 pytestmark = pytest.mark.needs_samples
@@ -106,11 +105,12 @@ def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) 
     assert (info.bfolder, info.data_size) == (True, 2)
 
 
-def test_file_info_missing_file_is_error_7(generated_vi, tmp_path: Path) -> None:
+def test_file_info_of_a_missing_file_raises_file_not_found(
+    generated_vi, tmp_path: Path
+) -> None:
     module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
-    with pytest.raises(_generated_error(module)) as raised:
+    with pytest.raises(FileNotFoundError):
         module.file_info__ogtk(file=tmp_path / "nope", file_info=SimpleNamespace())
-    assert raised.value.code == 7
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="permissions are POSIX modes")
@@ -150,15 +150,6 @@ def test_file_refnum_round_trips_a_file_handle(generated_vi, tmp_path: Path) -> 
     assert first != second
     assert retrieve.lfu_retrieve_file_handle__ogtk(file_refnum=first).handle_out == 4660
     assert retrieve.lfu_retrieve_file_handle__ogtk(file_refnum=second).handle_out == 9
-
-
-def test_an_unknown_file_refnum_is_error_1(generated_vi) -> None:
-    retrieve = generated_vi(
-        _vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"), _OPENG
-    )
-    with pytest.raises(_generated_error(retrieve)) as raised:
-        retrieve.lfu_retrieve_file_handle__ogtk(file_refnum=987654321)
-    assert raised.value.code == 1
 
 
 # ------------------------------------------------- OpenG large-file VIs (kernel32)
@@ -282,56 +273,51 @@ def test_a_missing_file_fails_to_open(
 
 # ----------------------------------------------- kernel32 on a Windows machine
 
+_WINDOWS = sys.platform == "win32"
+
 
 @pytest.mark.parametrize(
     "name,value", [("LVKIT_CLFN_TEST", "text"), ("LVKIT_CLFN_EMPTY", "")]
 )
 def test_write_environment_variable(generated_vi, name: str, value: str) -> None:
-    module = generated_vi(
-        _vi(
-            _PLUGIN
-            / "Source/Tests/Tests.Runtime/Measurement Server/Helpers"
-            / "Write Environment Variable.vi"
-        ),
-        _PLUGIN,
+    vi = _vi(
+        _PLUGIN
+        / "Source/Tests/Tests.Runtime/Measurement Server/Helpers"
+        / "Write Environment Variable.vi"
     )
-    if sys.platform == "win32":
-        # SetEnvironmentVariableA changes the process environment block, which
-        # os.environ (a snapshot from interpreter start) never sees: read it back
-        # through the Windows API, and remove the variable afterwards.
-        module.write_environment_variable(name=name, value=value)
-        try:
-            buffer = ctypes.create_unicode_buffer(256)
-            length = ctypes.windll.kernel32.GetEnvironmentVariableW(
-                name, buffer, len(buffer)
-            )
-            assert (buffer.value if length else None) == (value or None)
-        finally:
-            ctypes.windll.kernel32.SetEnvironmentVariableW(name, None)
-    else:
-        # kernel32.dll is Windows only: the generated call reaches the library.
-        with pytest.raises(LabVIEWError) as raised:
-            module.write_environment_variable(name=name, value="x")
-        assert (raised.value.code, raised.value.source) == (7, "kernel32.dll")
+    if not _WINDOWS:
+        # kernel32.dll is Windows only: the module loads it when it is imported.
+        with pytest.raises(OSError, match="kernel32.dll"):
+            generated_vi(vi, _PLUGIN)
+        return
+    module = generated_vi(vi, _PLUGIN)
+    # SetEnvironmentVariableA changes the process environment block, which
+    # os.environ (a snapshot from interpreter start) never sees: read it back
+    # through the Windows API, and remove the variable afterwards.
+    module.write_environment_variable(name=name, value=value)
+    try:
+        buffer = ctypes.create_unicode_buffer(256)
+        length = ctypes.windll.kernel32.GetEnvironmentVariableW(
+            name, buffer, len(buffer)
+        )
+        assert (buffer.value if length else None) == (value or None)
+    finally:
+        ctypes.windll.kernel32.SetEnvironmentVariableW(name, None)
 
 
 def test_get_client_machine_details(generated_vi) -> None:
-    module = generated_vi(
-        _vi(
-            _PLUGIN
-            / "Source/Runtime/Clients/Session Management V1/Session Reservation"
-            / "Get Client Machine Details.vi"
-        ),
-        _PLUGIN,
+    vi = _vi(
+        _PLUGIN
+        / "Source/Runtime/Clients/Session Management V1/Session Reservation"
+        / "Get Client Machine Details.vi"
     )
-    if sys.platform == "win32":
-        details = module.get_client_machine_details()
-        assert details.hostname.lower() == socket.gethostname().lower()[:15]
-        assert details.username == getpass.getuser()
-    else:
-        with pytest.raises(LabVIEWError) as raised:
-            module.get_client_machine_details()
-        assert (raised.value.code, raised.value.source) == (7, "kernel32.dll")
+    if not _WINDOWS:
+        with pytest.raises(OSError, match="kernel32.dll"):
+            generated_vi(vi, _PLUGIN)
+        return
+    details = generated_vi(vi, _PLUGIN).get_client_machine_details()
+    assert details.hostname.lower() == socket.gethostname().lower()[:15]
+    assert details.username == getpass.getuser()
 
 
 _KEY_FILE_VI = (

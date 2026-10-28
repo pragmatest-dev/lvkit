@@ -8,8 +8,9 @@ from functools import cache
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.nodes import primitive
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VIContext, Wire, WireEnd
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 from tests.helpers import build_graph, make_ctx
@@ -271,7 +272,7 @@ def test_invalid_saved_rows_fail_explicitly(invalid):
         node.terminals[1].lv_type = None
     else:
         node.terminals[1].lv_type = node.terminals[0].lv_type
-    with pytest.raises(CodeGenError, match="1D Index Array"):
+    with pytest.raises(ConversionGap, match="1D Index Array"):
         primitive.generate(node, wire_context(node))
 
 

@@ -418,6 +418,17 @@ def main() -> int:
     gen_parser = subparsers.add_parser(
         "generate",
         help="Generate Python from VI files using deterministic AST pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Exit codes:\n"
+            "  0  every VI converted, no gaps\n"
+            "  2  partial: every VI was written, but some nodes could not be\n"
+            "     converted; each is a warning and a NotImplementedError in the\n"
+            "     generated code where the node would run (see `lvkit unresolved`)\n"
+            "  1  a VI could not be written, or the package could not be\n"
+            "     (two files for one module), or --fail-fast ended the run at\n"
+            "     the first gap"
+        ),
     )
     gen_parser.add_argument(
         "input_path",
@@ -441,21 +452,13 @@ def main() -> int:
             "project store."
         ),
     )
-    # User-facing name is --placeholder-on-unresolved (descriptive of the
-    # output the user sees in their generated Python). Internally this
-    # flows to CodeGenContext.soft_unresolved (the codegen-time mode).
     gen_parser.add_argument(
-        "--placeholder-on-unresolved",
+        "--fail-fast",
         action="store_true",
         help=(
-            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
-            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
-            "VILibResolutionNeeded(...)` in the generated Python so the "
-            "build succeeds and unresolved calls are visible at runtime. "
-            "A property or method of a default object with no Python "
-            "equivalent becomes `raise NotImplementedError(...)`. (A "
-            "primitive entered as a placeholder always becomes `raise "
-            "NotImplementedError(...)`, with or without this flag.)"
+            "End the run at the first gap: its warning is printed, nothing more "
+            "is generated, and the exit code is 1 (the output is incomplete). "
+            "What a gap generates is unchanged."
         ),
     )
     _add_project_root_arg(gen_parser)
@@ -712,7 +715,17 @@ def main() -> int:
         help="Extra SubVI search path (repeatable). See `generate --help`.",
     )
     unresolved_parser.add_argument(
-        "--json", action="store_true", help="Output the gaps as JSON"
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text). json is the machine-readable gap list.",
+    )
+    unresolved_parser.add_argument(
+        "--json",
+        action="store_const",
+        const="json",
+        dest="format",
+        help="Same as --format json",
     )
     _add_project_root_arg(unresolved_parser)
     _add_load_mode_arg(unresolved_parser)
@@ -1844,6 +1857,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
 def cmd_generate(args: argparse.Namespace) -> int:
     """Handle the generate command - AST-based Python generation."""
+    from .conversion_gap import ConversionGap
+    from .module_layout import ModuleCollisionError
     from .pipeline import generate_python
 
     input_path = Path(args.input_path)
@@ -1862,12 +1877,19 @@ def cmd_generate(args: argparse.Namespace) -> int:
             args.output,
             search_paths=sp,
             mode=_resolve_load_mode(args, LoadMode.FULL),
-            soft_unresolved=args.placeholder_on_unresolved,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            fail_fast=args.fail_fast,
         )
-        return 1 if result["error"] > 0 else 0
+        if result["error"] > 0 or result["failed"] > 0:
+            return 1
+        return 2 if result["gaps"] else 0
 
+    except (ModuleCollisionError, ConversionGap) as e:
+        # A collision stops the package; a gap found while loading the graph
+        # (two files that a call could mean) belongs to no node to raise in.
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
     except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
         print(f"Error: {e}", file=sys.stderr)
         traceback.print_exc()
@@ -1878,6 +1900,8 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     """Handle the unresolved command — batch-list every resolution gap."""
     import json
 
+    from .conversion_gap import ConversionGap
+    from .module_layout import ModuleCollisionError
     from .unresolved import collect_unresolved, format_unresolved_report
 
     input_path = Path(args.input_path)
@@ -1897,11 +1921,18 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-    except (ValueError, FileNotFoundError, KeyError, NotImplementedError) as e:
+    except (
+        ValueError,
+        FileNotFoundError,
+        KeyError,
+        NotImplementedError,
+        ModuleCollisionError,
+        ConversionGap,
+    ) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    if args.json:
+    if args.format == "json":
         print(
             json.dumps(
                 [

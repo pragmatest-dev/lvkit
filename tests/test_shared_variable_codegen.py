@@ -180,9 +180,10 @@ def test_a_write_in_one_vi_is_read_in_another(tmp_path: Path, imported) -> None:
     assert after.stamp > 0.0
 
 
-def test_a_variable_with_no_library_stops_generation() -> None:
-    with pytest.raises(CodeGenError, match="records no library"):
-        generate(writer(library=None))
+def test_a_variable_with_no_library_raises_where_it_would_run() -> None:
+    source = generate(writer(library=None))
+    assert "raise NotImplementedError(" in source
+    assert "records no library" in source
 
 
 def test_a_variable_needs_a_package() -> None:

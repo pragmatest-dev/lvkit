@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import DisableStructureNode
 from lvkit.models import CaseFrame
 
@@ -24,7 +25,7 @@ def generate(node: DisableStructureNode, ctx: CodeGenContext) -> CodeFragment:
     """
     frames = ctx.frame_children(node)
     if node.active_frame is None or not 0 <= node.active_frame < len(frames):
-        raise CodeGenError(
+        raise ConversionGap(
             "Disable structure has no readable enabled subdiagram "
             f"(active_frame={node.active_frame})",
             node,

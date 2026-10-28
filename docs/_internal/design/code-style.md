@@ -152,11 +152,11 @@ territory — labels/captions belong to controls).
 ## Unknown node types must cause errors, not silent warning strings in output
 <!-- was memory: feedback_no_silent_warnings -->
 
-Unknown node types in the codegen must FAIL LOUDLY (raise an error), not silently emit warning strings into the generated code. Silent warnings hide bugs and produce garbage output that looks like it succeeded.
+Unknown node types in the codegen are a gap, handled like every other gap (see "ONE rule for every gap" in `CLAUDE.md`): `nodes.generate` raises `UnknownNodeError` (a `ConversionGap`), generation prints a warning naming the VI, node and reason, and the generated code raises `NotImplementedError("<reason>")` where the node would run. Never emit warning strings into the generated code.
 
-**Why:** The user explicitly requires this. Warning strings like `"# WARNING: Unknown node type"` embedded in generated Python are invisible failures that make the output look cleaner than it is.
+**Why:** Warning strings like `"# WARNING: Unknown node type"` embedded in generated Python are invisible failures that make the output look cleaner than it is.
 
-**How to apply:** The `UnknownNodeCodeGen` class in `base.py` should raise an error, not return a CodeFragment with a warning string. The caller must handle every node type or explicitly skip structural infrastructure nodes.
+**How to apply:** Raise a `ConversionGap` subclass for anything in the VI that cannot be converted; raise `CodeGenError` only for an invariant that fails because lvkit is wrong (a stop).
 
 ## NEVER use heuristic guesswork — either we know something from data or we don't and we fail clearly
 <!-- was memory: feedback_no_heuristics -->

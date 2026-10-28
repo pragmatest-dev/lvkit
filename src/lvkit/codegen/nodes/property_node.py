@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import Terminal
@@ -17,7 +18,6 @@ from . import vi_reference
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
-    soft_default_object_error,
     unwired_ref_class,
 )
 
@@ -85,16 +85,6 @@ def _default_object_read(
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """The node's ordered attribute accesses (see ``_generate``); a property of a
-    default object with no Python value stops generation, or, with
-    ``soft_unresolved``, becomes a ``raise``."""
-    try:
-        return _generate(node, ctx)
-    except DefaultObjectError as exc:
-        return soft_default_object_error(exc, node, ctx)
-
-
-def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """Use saved dcoList identities and order, separately from fixed ports.
 
     The caller supplies an object implementing the named Python attributes; a
@@ -112,7 +102,9 @@ def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if len({term.id for term in node.terminals}) != len(node.terminals):
         raise CodeGenError("Property node terminal identities are duplicated", node)
     if node.bound_control_uid:
-        raise CodeGenError("Implicit property reference requires a binding model", node)
+        raise ConversionGap(
+            "Implicit property reference requires a binding model", node
+        )
     fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
@@ -128,10 +120,10 @@ def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise CodeGenError("Property value terminal is missing", node)
         segment_names = [seg.name for seg in prop.segments]
         if not segment_names or not all(segment_names):
-            raise CodeGenError("Property name is unresolved", node)
+            raise ConversionGap("Property name is unresolved", node)
         attr_name = to_var_name("_".join(segment_names))
         if attr_name in attr_names and attr_names[attr_name] != prop.name:
-            raise CodeGenError("Normalized property names collide", node)
+            raise ConversionGap("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
         if default_class is not None:
             value_expr = _default_object_read(node, default_class, prop.name, term)
@@ -161,7 +153,7 @@ def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             bindings[term.id] = var_name
         elif term.direction == "input":
             if not ctx.is_wired(term.id):
-                raise CodeGenError(
+                raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
             value = ctx.resolve(term.id)
@@ -195,7 +187,7 @@ def _generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         ):
             bindings[term.id] = ref_var
         else:
-            raise CodeGenError("Property flow-through output is unresolved", node)
+            raise ConversionGap("Property flow-through output is unresolved", node)
     if not statements:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))

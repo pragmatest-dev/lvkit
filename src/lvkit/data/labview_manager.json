@@ -1,28 +1,70 @@
 {
-  "_comment": "LabVIEW's own library functions that Call Library Function Nodes call by the library name LabVIEW (NI: \"LabVIEW Manager Functions\"). Each has a Python equivalent in lvkit.runtime.lv_manager, called with the input value of every parameter row (the return value excluded) and returning the return value followed by each parameter's value after the call. `parameters` are NI's names, in call order.",
+  "_comment": "LabVIEW's own library functions that Call Library Function Nodes call by the library name LabVIEW (NI: \"LabVIEW Manager Functions\"), and the Python each is generated as. `parameters` are NI's names in call order (the return value excluded). `statements` are the Python source lines written in place of the call: {name} is the Python expression of the input of parameter `name`, and {out0} (the MgErr return value), {out1}, {out2} ... are the variables the output sides of the return value and of each parameter row are bound to; they are the only names a statement may assign for the node's results. `imports` and `declarations` (keys of the top-level `declarations`, each `{name}` of which is substituted by the module-level name it is defined under) are added to the module. A failure is the Python exception of the call.",
+  "declarations": {
+    "FInfoRec": {
+      "name": "_FInfoRec",
+      "source": [
+        "class {name}(ctypes.Structure):",
+        "    _fields_ = [('type', ctypes.c_int32), ('creator', ctypes.c_int32), ('permissions', ctypes.c_int32), ('size', ctypes.c_int32), ('rf_size', ctypes.c_int32), ('cdate', ctypes.c_uint32), ('mdate', ctypes.c_uint32), ('folder', ctypes.c_int32), ('is_invisible', ctypes.c_int32), ('location_v', ctypes.c_int16), ('location_h', ctypes.c_int16), ('owner', ctypes.c_ubyte * 256), ('group', ctypes.c_ubyte * 256)]"
+      ]
+    }
+  },
   "functions": {
     "FNewRefNum": {
-      "python": "_lv_manager.new_ref_num",
-      "import": "from lvkit.runtime import lv_manager as _lv_manager",
       "parameters": ["path", "fd", "refNumPtr"],
+      "imports": [],
+      "declarations": [],
+      "statements": [
+        "{out0} = 0",
+        "{out1} = {path}",
+        "{out2} = {fd}",
+        "{out3} = {fd}"
+      ],
       "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fnewrefnum.html"
     },
     "FRefNumToFD": {
-      "python": "_lv_manager.ref_num_to_fd",
-      "import": "from lvkit.runtime import lv_manager as _lv_manager",
       "parameters": ["refNum", "fdp"],
+      "imports": [],
+      "declarations": [],
+      "statements": [
+        "{out0} = 0",
+        "{out1} = {refNum}",
+        "{out2} = {refNum}"
+      ],
       "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/frefnumtofd.html"
     },
     "FGetInfo": {
-      "python": "_lv_manager.get_info",
-      "import": "from lvkit.runtime import lv_manager as _lv_manager",
       "parameters": ["path", "infop"],
+      "imports": ["import ctypes", "import os", "import stat", "from pathlib import Path"],
+      "declarations": ["FInfoRec"],
+      "statements": [
+        "_status = os.stat({path})",
+        "_created = getattr(_status, 'st_birthtime', _status.st_ctime)",
+        "_folder = stat.S_ISDIR(_status.st_mode)",
+        "try:",
+        "    _owner = Path({path}).owner().encode('latin-1', 'replace')[:255]",
+        "    _group = Path({path}).group().encode('latin-1', 'replace')[:255]",
+        "except (NotImplementedError, KeyError):",
+        "    _owner = _group = b''",
+        "{out2} = list(bytes({FInfoRec}(permissions=stat.S_IMODE(_status.st_mode), size=len(os.listdir({path})) if _folder else min(_status.st_size, 2147483647), cdate=int(_created) + 2082844800, mdate=int(_status.st_mtime) + 2082844800, folder=int(_folder), owner=(ctypes.c_ubyte * 256)(len(_owner), *_owner), group=(ctypes.c_ubyte * 256)(len(_group), *_group))))",
+        "{out0} = 0",
+        "{out1} = {path}"
+      ],
       "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fgetinfo.html"
     },
     "FSetInfo": {
-      "python": "_lv_manager.set_info",
-      "import": "from lvkit.runtime import lv_manager as _lv_manager",
       "parameters": ["path", "infop"],
+      "imports": ["import ctypes", "import os"],
+      "declarations": ["FInfoRec"],
+      "statements": [
+        "_record = {FInfoRec}.from_buffer_copy(bytes({infop}))",
+        "_before = os.stat({path})",
+        "os.chmod({path}, _record.permissions & 4095)",
+        "os.utime({path}, (_before.st_atime, _record.mdate - 2082844800))",
+        "{out0} = 0",
+        "{out1} = {path}",
+        "{out2} = {infop}"
+      ],
       "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fsetinfo.html"
     }
   }

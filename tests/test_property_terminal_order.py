@@ -9,8 +9,10 @@ import types
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
+from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.nodes import generate as generate_node
 from lvkit.codegen.nodes import property_node
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import (
     ClusterField,
@@ -222,7 +224,7 @@ def test_unresolved_or_unsupported_nodes_fail_without_guessing(failure):
     else:
         node.terminals[1].lv_type = None
         connect(ctx, "ref_out", "output")
-    with pytest.raises(CodeGenError):
+    with pytest.raises((CodeGenError, ConversionGap)):
         property_node.generate(node, ctx)
     assert namespace["ref"].events == []
 
@@ -265,18 +267,18 @@ def test_unwired_app_user_name_is_the_account_running_the_process():
 
 
 def test_an_undocumented_default_object_property_stops_generation():
-    with pytest.raises(CodeGenError, match="'App.Kind' of the default App object"):
+    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
         _generate_unwired_app([("Value", "output")], "App.Kind")
 
 
 def test_writing_a_default_object_property_stops_generation():
-    with pytest.raises(CodeGenError, match="'App.UserName' is written on the default"):
+    with pytest.raises(ConversionGap, match="'App.UserName' is written on the default"):
         _generate_unwired_app([("Value", "input")])
 
 
 def test_unwired_reference_without_an_object_class_is_an_error():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None)
-    with pytest.raises(CodeGenError, match="no object class"):
+    with pytest.raises(ConversionGap, match="no object class"):
         property_node.generate(node, ctx)
 
 
@@ -289,17 +291,20 @@ def test_wired_reference_without_a_value_is_an_error():
         property_node.generate(node, ctx)
 
 
-def test_soft_mode_turns_an_undocumented_default_object_property_into_a_raise():
+def test_an_undocumented_default_object_property_becomes_a_raise():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
     node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=1)])]
-    ctx.soft_unresolved = True
-    fragment = property_node.generate(node, ctx)
+    fragment = generate_node(node, ctx)
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     source = ast.unparse(module)
     assert source.splitlines()[-1] == (
         "raise NotImplementedError(\"Property 'App.Kind' of the default App "
-        'object has no Python equivalent")'
+        'object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n'
+        'node: Property Node")'
     )
     assert fragment.imports == set()
+    assert [g.reason for g in ctx.gaps] == [
+        "Property 'App.Kind' of the default App object has no Python equivalent"
+    ]

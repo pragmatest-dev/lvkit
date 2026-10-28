@@ -7,7 +7,6 @@ No classes — each module exposes generate(node, ctx) + helpers.
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Callable
 
 from lvkit.graph.core import _graph_node_to_op_kind
@@ -28,8 +27,9 @@ from lvkit.graph.models import (
 )
 
 from ..context import CodeGenContext
-from ..errors import CodeGenError, MissingDependencyError, UnknownNodeError
+from ..errors import CodeGenError, UnknownNodeError
 from ..fragment import CodeFragment
+from ..gaps import catch_gap
 
 # Import modules (not classes) for dispatch
 from . import (
@@ -58,7 +58,17 @@ from . import (
 
 
 def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate code for a graph node.
+    """Generate code for a graph node. A node that cannot be converted (a
+    ``ConversionGap``) is recorded as a gap and generates the ``raise`` that
+    stands where it would run (see ``gaps.py``)."""
+    with catch_gap(node, ctx) as guard:
+        return _generate(node, ctx)
+    assert guard.fragment is not None
+    return guard.fragment
+
+
+def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
+    """Dispatch a graph node to the module that generates it.
 
     isinstance-based dispatch on the typed ``GraphNode`` subtype, calling the
     right module. A ``PrimitiveNode`` fans out to property/invoke/primitive
@@ -90,13 +100,10 @@ def generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return shared_variable.generate(node, ctx)
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
-        # graph. Faithful Python codegen isn't implemented yet -- fail loud
-        # rather than emit a silently wrong body (describe/netlist DO model it).
+        # graph. Faithful Python codegen is not implemented: it is a gap
+        # (describe/netlist do model it).
         if ctx.is_feedback_node(node):
-            raise UnknownNodeError(
-                f"Feedback Node codegen not yet supported "
-                f"(id={node.id}, name={node.name or 'Feedback Node'})"
-            )
+            raise UnknownNodeError("Feedback Node codegen not yet supported", node)
         if node.properties:
             return property_node.generate(node, ctx)
         if node.method_name:
@@ -158,17 +165,13 @@ def _generate_primitive(
 
 
 def _generate_unknown(node: AnyGraphNode) -> CodeFragment:
-    """Emit a warning comment for unsupported node types."""
-    node_name = node.name or "unknown"
+    """A node type with no generator is a gap."""
     kind = _graph_node_to_op_kind(node)
-    warning = f"# WARNING: Unknown node type {kind} (id={node.id}, name={node_name})"
-    stmt = ast.Expr(value=ast.Constant(value=warning))
-    return CodeFragment(statements=[stmt])
+    raise UnknownNodeError(f"Unknown node type {kind}", node)
 
 
 __all__ = [
     "CodeGenError",
-    "MissingDependencyError",
     "UnknownNodeError",
     "generate",
 ]

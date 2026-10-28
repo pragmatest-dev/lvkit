@@ -10,7 +10,6 @@ import math
 
 import pytest
 
-from lvkit.codegen.errors import CodeGenError
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.native_vi import Generated, array, generate, node, scalar
 
@@ -487,9 +486,9 @@ def test_type_cast_cluster_both_ways():
     no_lvkit(back)
 
 
-def test_type_cast_of_a_type_with_no_flattened_form_stops_generation():
-    with pytest.raises(CodeGenError, match="does not handle.*Variant"):
-        cast(scalar("Variant"), U32)
+def test_type_cast_of_a_type_with_no_flattened_form_raises_where_it_runs():
+    with pytest.raises(NotImplementedError, match="does not handle.*Variant"):
+        run(cast(scalar("Variant"), U32), 0)
 
 
 EXTENDED_QUARTER = "3ffd" + "00" * 14

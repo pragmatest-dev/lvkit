@@ -12,11 +12,11 @@ import ast
 import re
 from typing import TYPE_CHECKING
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.formula.emit import VarSpec, transpile
 from lvkit.graph.models import FormulaNode
 from lvkit.models import LVTypeKind
 
-from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ def _varspecs(op: FormulaNode) -> list[VarSpec]:
     for name in order:
         info = by_name[name]
         if info["lv"] is None:
-            raise CodeGenError(f"Formula Node variable {name!r} has no resolved type")
+            raise ConversionGap(f"Formula Node variable {name!r} has no resolved type")
         direction = (
             "inout" if info["dirs"] == {"in", "out"} else next(iter(info["dirs"]))
         )
@@ -61,7 +61,7 @@ def _varspecs(op: FormulaNode) -> list[VarSpec]:
 
 def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     if not node.script:
-        raise CodeGenError(f"Formula Node {node.id} has no script")
+        raise ConversionGap(f"Formula Node {node.id} has no script")
 
     uid = node.id.split("::")[-1]
     suffix = re.sub(r"\W", "_", uid)

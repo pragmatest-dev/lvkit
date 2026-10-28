@@ -14,7 +14,7 @@ import copy
 import pytest
 
 from lvkit.codegen.nodes import compound
-from lvkit.codegen.nodes.base import CodeGenError
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVType, LVTypeKind, Terminal
 from tests.helpers import make_ctx
@@ -575,7 +575,7 @@ class TestArrayReplaceResized:
         ctx.bind("el0", "row")
         ctx.bind("ix0_1", "c")
         op = _replace_op_nd(2, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
-        with pytest.raises(CodeGenError, match="leading 1 index"):
+        with pytest.raises(ConversionGap, match="leading 1 index"):
             compound.generate_array_replace(op, ctx)
 
 
@@ -761,7 +761,7 @@ class TestArrayInsertResized:
         ctx.bind("elem0", "col")
 
         op = _insert_op_nd(2, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
-        with pytest.raises(CodeGenError, match="dimension 1"):
+        with pytest.raises(ConversionGap, match="dimension 1"):
             compound.generate_array_insert(op, ctx)
 
     def test_two_wired_indexes_is_a_diagnostic(self):
@@ -770,7 +770,7 @@ class TestArrayInsertResized:
             ctx.bind(tid, tid)
 
         op = _insert_op_nd(2, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
-        with pytest.raises(CodeGenError, match="more than one index"):
+        with pytest.raises(ConversionGap, match="more than one index"):
             compound.generate_array_insert(op, ctx)
 
 

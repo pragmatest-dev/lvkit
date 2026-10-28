@@ -494,9 +494,8 @@ def test_build_module_real_vi():
 
 
 def test_unknown_primitive_raises_at_runtime():
-    """Test that unknown primitives raise PrimitiveResolutionNeeded."""
+    """An unknown primitive is a gap: the function raises where it would run."""
     from lvkit.codegen import build_module
-    from lvkit.primitive_resolver import PrimitiveResolutionNeeded
 
     vi_context = VIContext(
         name="Unknown Prim.vi",
@@ -509,15 +508,22 @@ def test_unknown_primitive_raises_at_runtime():
         prim_id=99999,
     )
 
-    with pytest.raises(PrimitiveResolutionNeeded) as exc_info:
-        _g = build_graph(vi_context, "Unknown Prim.vi", [prim_node])
-        build_module(vi_context, "Unknown Prim.vi", graph=_g)
+    _g = build_graph(vi_context, "Unknown Prim.vi", [prim_node])
+    gaps = []
+    source = build_module(vi_context, "Unknown Prim.vi", graph=_g, gaps=gaps)
 
-    assert "99999" in str(exc_info.value)
+    assert (
+        "raise NotImplementedError('primitive 99999 (Mystery Primitive) is not known\\n"
+        "gap kind: unknown_primitive\\nVI: Unknown Prim.vi\\nnode: Mystery Primitive\\n"
+    ) in source
+    assert "Fix: add primitive 99999 to .lvkit/primitives.json" in source
+    assert [(g.kind, g.identifier, g.name) for g in gaps] == [
+        ("unknown_primitive", "99999", "Mystery Primitive")
+    ]
 
 
-def test_unknown_node_type_emits_warning():
-    """Test that unknown node types emit a warning comment."""
+def test_unknown_node_type_raises_where_it_would_run():
+    """An unknown node type is a gap."""
     from lvkit.codegen import build_module
 
     vi_context = VIContext(
@@ -536,8 +542,8 @@ def test_unknown_node_type_emits_warning():
     # Should be valid Python
     ast.parse(result)
 
-    # Should have warning comment
-    assert "WARNING" in result or "Unknown node type" in result
+    # An unknown node type is a gap: the function raises where it would run
+    assert "raise NotImplementedError('Unknown node type" in result
 
 
 # === CodeFragment Tests ===

@@ -85,9 +85,10 @@ The format mirrors lvkit's shipped `data/` exactly. Copy an example from
 
 ## Populating it
 
-When `lvkit generate` hits an unknown primitive or vi.lib VI, it raises a
-`PrimitiveResolutionNeeded` or `VILibResolutionNeeded` exception with full
-diagnostic context — including the qualified path of the unknown VI. An
+When `lvkit generate` hits an unknown primitive or vi.lib VI, it warns and
+the generated code raises `NotImplementedError` at that node; `lvkit
+unresolved` lists the full diagnostic context of each — including the
+qualified path of the unknown VI. An
 LLM with access to your LabVIEW sources can use this to author the
 mapping and write it here.
 

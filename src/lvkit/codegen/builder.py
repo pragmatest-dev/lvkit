@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import warnings
 from collections import deque
 
 from lvkit.graph import InMemoryVIGraph
@@ -14,10 +13,9 @@ from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
     build_type_checking_block,
+    interface_names,
     param_default_expr,
-    parameter_names,
     parse_expr,
-    result_field_names,
     to_function_name,
 )
 from .context import CodeGenContext
@@ -30,6 +28,8 @@ from .error_handler import (
 )
 from .error_path import ErrorRole, classify_error_node
 from .error_wires import generate_error_handler
+from .errors import CodeGenError
+from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
 from .nodes import generate as generate_node
@@ -40,9 +40,8 @@ def build_module(
     vi_name: str,
     import_resolver: ImportResolver | None = None,
     graph: InMemoryVIGraph | None = None,
-    soft_unresolved: bool = False,
-    unresolved_sink: list[Exception] | None = None,
     data_files: dict[str, bytes] | None = None,
+    gaps: list[Gap] | None = None,
 ) -> str:
     """Build complete Python module from VI context.
 
@@ -51,19 +50,13 @@ def build_module(
         vi_name: Name of the VI (used for function name)
         import_resolver: Optional callable (subvi_name) -> import statement string
         graph: The nx.MultiDiGraph. resolve() walks this directly.
-        soft_unresolved: When True, unknown primitives / vi.lib VIs are
-            emitted as inline `raise PrimitiveResolutionNeeded(...)` /
-            `raise VILibResolutionNeeded(...)` statements instead of
-            failing the build. Generated Python is syntactically valid;
-            running it raises the same exception that hard mode would
-            raise at codegen time.
-        unresolved_sink: When a list, each resolution gap (unknown primitive /
-            unmapped vi.lib VI) is appended to it as the constructed exception.
-            `lvkit unresolved` uses this to batch-collect every gap in one pass.
         data_files: When a dict, every data file the module reads at run time (an
-            array too large to write into the module) is added to it by file name;
-            the caller writes each beside the module. Without it, a VI that needs
+            array too large to write into the module, a library of a Call Library
+            Function Node) is added to it by its path from the module's folder; the
+            caller writes each there. Without it, a VI that needs
             one fails with an error saying so.
+        gaps: When a list, every gap found in the VI (see ``gaps.py``) is added
+            to it; the caller prints them as warnings.
 
     Returns:
         Python source code as string
@@ -84,7 +77,7 @@ def build_module(
     if graph is not None and vi_context.properties.is_global_vi:
         vi_node = graph.get_graph_node(vi_name)
         assert isinstance(vi_node, VINode)
-        return build_global_module(vi_node, import_resolver, data_files)
+        return build_global_module(vi_node, import_resolver, data_files, gaps)
 
     # Initialize context with inputs and constants
     ctx = CodeGenContext.from_vi_context(
@@ -93,12 +86,29 @@ def build_module(
         import_resolver=import_resolver,
         data_files=data_files,
         module_stem=to_function_name(vi_context.name),
+        vi_name=vi_name,
+        gaps=gaps,
     )
-    ctx.vi_name = vi_name
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
-    ctx.soft_unresolved = soft_unresolved
-    ctx.unresolved_sink = unresolved_sink
+
+    body = vi_body(ctx, vi_name, lambda: _function_body(vi_context, vi_name, ctx))
+
+    # Build module structure
+    module = build_module_ast(vi_context, vi_name, body, ctx)
+
+    # Optimize AST (duplicate imports, dead code)
+    module = optimize_module(module)
+
+    # Fix locations and unparse
+    ast.fix_missing_locations(module)
+    return ast.unparse(module)
+
+
+def _function_body(
+    vi_context: VIContext, vi_name: str, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """The statements of the VI's function."""
     for term in annotated_terminals(vi_context):
         ctx.import_types(term.lv_type, at_run_time=False)
 
@@ -112,8 +122,9 @@ def build_module(
     use_error_handling = needs_error_handling(top_nodes, ctx)
     ctx.use_held_error_model = use_error_handling
 
-    # Generate function body
-    body: list[ast.stmt] = []
+    # What the function evaluates when it is entered and cannot be written
+    # raises first.
+    body: list[ast.stmt] = list(ctx.entry_raises)
 
     # Normalize unwired array inputs: they default to None (a mutable [] default
     # would be shared across calls), so map None -> [] up front, matching
@@ -121,7 +132,12 @@ def build_module(
     # already-empty list to [] harmlessly.
     parameters = [*vi_context.inputs, *vi_context.off_pane_inputs]
     body.extend(
-        build_array_input_normalization(parameters, parameter_names(parameters))
+        build_array_input_normalization(
+            parameters,
+            interface_names(
+                vi_context.inputs, vi_context.off_pane_inputs, [], []
+            ).parameters,
+        )
     )
 
     if use_error_handling:
@@ -143,16 +159,7 @@ def build_module(
     # Final pass: write numeric operators over array-valued operands that were
     # inlined (single-use) into a consumer as comprehensions.
     arrayify_module(body, ctx.array_vars)
-
-    # Build module structure
-    module = build_module_ast(vi_context, vi_name, body, ctx)
-
-    # Optimize AST (duplicate imports, dead code)
-    module = optimize_module(module)
-
-    # Fix locations and unparse
-    ast.fix_missing_locations(module)
-    return ast.unparse(module)
+    return body
 
 
 def generate_body(
@@ -216,12 +223,20 @@ def generate_body(
         # A handler wraps the statements that produce the error it handles,
         # which are all in earlier tiers or earlier in this one.
         for op in handlers:
-            if not generate_error_handler(op, roles[op.id], operations, ctx, tagged):
+            with catch_gap(op, ctx) as guard:
+                handled = generate_error_handler(
+                    op, roles[op.id], operations, ctx, tagged
+                )
+            if guard.fragment is not None:
+                fragment = guard.fragment
+            elif handled:
+                continue
+            else:
                 fragment = generate_node(op, ctx)
-                for s in fragment.statements:
-                    tagged.append(({op.id}, s))
-                ctx.merge(fragment.bindings)
-                ctx.imports.update(fragment.imports)
+            for s in fragment.statements:
+                tagged.append(({op.id}, s))
+            ctx.merge(fragment.bindings)
+            ctx.imports.update(fragment.imports)
 
     return [stmt for _, stmt in tagged]
 
@@ -568,7 +583,12 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         return None
 
     result_class = build_result_class_name(vi_context.name)
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Resolve output values, skipping error clusters
     keywords = []
@@ -626,6 +646,9 @@ def build_module_ast(
     # Module-level helper functions generated for Formula Nodes.
     module_body.extend(ctx.formula_helpers)
 
+    # Module-level ctypes declarations of Call Library Function Nodes.
+    module_body.extend(ctx.ctypes_module.statements)
+
     # Module-level globals for persistent per-call-site state
     # (uninitialized shift registers, First Call?). Sorted by name for
     # deterministic output — dict iteration order is insertion order, but
@@ -667,8 +690,8 @@ def build_imports(
         try:
             tree = ast.parse(imp)
             imports.extend(tree.body)
-        except SyntaxError:
-            warnings.warn(f"Skipping unparseable import: {imp!r}", stacklevel=2)
+        except SyntaxError as e:
+            raise CodeGenError(f"Unparseable import: {imp!r} — {e}") from e
 
     imports.extend(build_type_checking_block(ctx.annotation_imports))
     return imports
@@ -711,7 +734,12 @@ def build_result_class(
 
     class_name = build_result_class_name(vi_context.name)
 
-    field_names = result_field_names(vi_context.outputs, vi_context.off_pane_outputs)
+    field_names = interface_names(
+        vi_context.inputs,
+        vi_context.off_pane_inputs,
+        vi_context.outputs,
+        vi_context.off_pane_outputs,
+    ).fields
 
     # Build fields, skipping error clusters
     fields = []
@@ -801,7 +829,7 @@ def build_args(
     defaulting to the control's saved default -- the value such a control holds
     when LabVIEW calls the VI as a subVI.
 
-    ``names`` maps terminal id -> parameter name (``parameter_names`` over every
+    ``names`` maps terminal id -> parameter name (``interface_names`` over every
     control of the VI); when omitted it is computed over ``inputs`` and
     ``off_pane_inputs``.
 
@@ -819,7 +847,7 @@ def build_args(
     args = []
     defaults = []
     if names is None:
-        names = parameter_names([*inputs, *(off_pane_inputs or [])])
+        names = interface_names(inputs, off_pane_inputs or [], [], []).parameters
 
     for inp in inputs:
         if inp.is_error_cluster:

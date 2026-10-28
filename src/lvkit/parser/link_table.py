@@ -145,6 +145,7 @@ _SCVI_IDENT = b"SCVI"
 _DYOM_IDENT = b"DyOM"
 _IVOV_IDENT = b"IVOV"
 _VIVI_IDENT = b"VIVI"
+_NEXF_IDENT = b"NEXF"
 # Every list item in the link table is introduced by this 2-byte "next link"
 # marker (pylabview ``LinkObjRefs``); an ident not preceded by it is not a
 # record start.
@@ -213,6 +214,20 @@ class DynamicDispatchLink:
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
     link_flag: int
+    node_uids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class ExtFuncLink:
+    """One ``NEXF`` record: the library a Call Library Function Node names as
+    typed in its setup (``name_parts``, last part), the path LabVIEW recorded for
+    it (``path_type`` and ``path_tokens``), the function, and the heap uid of
+    every node that calls it."""
+
+    name_parts: tuple[str, ...]
+    path_type: int | None
+    path_tokens: tuple[str, ...]
+    function: str
     node_uids: tuple[int, ...]
 
 
@@ -355,6 +370,7 @@ class _LinkHead:
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
     link_flag: int
+    path_type: int | None = None
 
 
 class _Reader:
@@ -404,14 +420,21 @@ class _Reader:
         return val
 
     def path(self) -> tuple[str, ...]:
+        return self.typed_path()[1]
+
+    def typed_path(self) -> tuple[int | None, tuple[str, ...]]:
+        """A path's type (``PTH0`` only: 0 absolute, 1 relative, 2 not a path,
+        3 UNC) and its tokens."""
         ident = self.take(4)
         total = self.u32()
         if ident == b"PTH0":
-            self.u16()  # path type
+            path_type = self.u16()
             count = self.u16()
             if count > _MAX_PATH_COMPONENTS:
                 raise LinkTableError(f"path with {count} components")
-            return tuple(decode_labview_text(self.pascal()) for _ in range(count))
+            return path_type, tuple(
+                decode_labview_text(self.pascal()) for _ in range(count)
+            )
         if ident in (b"PTH1", b"PTH2"):
             self.take(4)  # path type ident
             tokens: list[str] = []
@@ -420,7 +443,7 @@ class _Reader:
                 part = self.take(self.u16())
                 tokens.append(decode_labview_text(part))
                 done += 2 + len(part)
-            return tuple(tokens)
+            return None, tuple(tokens)
         raise LinkTableError(f"unrecognized path class {ident!r}")
 
 
@@ -433,14 +456,14 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
         raise LinkTableError(f"qualified name with {count} parts")
     name_parts = tuple(decode_labview_text(r.pascal()) for _ in range(count))
     r.align(2)
-    path_tokens = r.path()
+    path_type, path_tokens = r.typed_path()
 
     link_flag = 0
     if version.at_least(8, 6, 0, 1):
         link_flag = r.u32()
     elif version.at_least(8, 5, 0, 1):
         link_flag = r.u8()
-    return _LinkHead(name_parts, path_tokens, link_flag)
+    return _LinkHead(name_parts, path_tokens, link_flag, path_type)
 
 
 def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
@@ -748,6 +771,43 @@ def decode_iuse_links(data: bytes, version: LinkTableVersion) -> list[IUseLink]:
             raise LinkTableError(
                 f"{ident.decode()} record at offset {start}: {exc}"
             ) from exc
+    return records
+
+
+def _decode_ext_func_record(
+    data: bytes, ident_pos: int, version: LinkTableVersion
+) -> ExtFuncLink:
+    """A ``NEXF`` record, field by field as pylabview ``parseExtFuncLinkSaveInfo``
+    reads it (LabVIEW 8.0.0.3 and later): the basic link head, the node uid list,
+    then the function name as a pascal string padded to an even length."""
+    if not version.at_least(8, 0, 0, 3):
+        raise LinkTableError("NEXF record of a VI older than 8.0")
+    r = _Reader(data, ident_pos + len(_NEXF_IDENT))
+    head = _read_basic_head(r, version)
+    uids = _read_node_uids(r)
+    raw = r.pascal()
+    if (len(raw) + 1) % 2:
+        r.take(1)
+    function = decode_labview_text(raw)
+    return ExtFuncLink(
+        name_parts=head.name_parts,
+        path_type=head.path_type,
+        path_tokens=head.path_tokens,
+        function=function,
+        node_uids=uids,
+    )
+
+
+def decode_ext_func_links(data: bytes, version: LinkTableVersion) -> list[ExtFuncLink]:
+    """Every ``NEXF`` record in a ``_LIbd.bin`` sidecar, in file order. An
+    unreadable record raises ``LinkTableError``, never skipped."""
+    records: list[ExtFuncLink] = []
+    for start in _record_starts(data, _NEXF_IDENT):
+        _require_supported(version)
+        try:
+            records.append(_decode_ext_func_record(data, start, version))
+        except LinkTableError as exc:
+            raise LinkTableError(f"NEXF record at offset {start}: {exc}") from exc
     return records
 
 

@@ -198,9 +198,7 @@ def _import_generated(name: str, source: str, package: types.ModuleType):
 
 def test_generated_caller_and_global_module_share_state() -> None:
     graph, key = load_corpus_vi(LOAD_TEMPLATES, ICON)
-    caller_src = build_module(
-        graph.get_vi_context(key), key, graph=graph, soft_unresolved=True
-    )
+    caller_src = build_module(graph.get_vi_context(key), key, graph=graph)
     (global_key, _) = graph.global_vi_control(_globals(graph, key)[0])
     global_src = build_module(graph.get_vi_context(global_key), global_key, graph=graph)
     assert "from . import data as data_global" in caller_src

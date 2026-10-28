@@ -20,7 +20,7 @@ import pytest
 
 from lvkit.codegen.ast_utils import module_part, to_function_name
 from lvkit.codegen.builder import build_module
-from lvkit.codegen.errors import CodeGenError
+from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
@@ -87,9 +87,16 @@ def _lvnet(loaded: d.Loaded) -> str:
 
 
 def _failure(loaded: d.Loaded) -> str:
-    with pytest.raises(CodeGenError) as caught:
-        _source(loaded)
-    return str(caught.value)
+    """The reason of the first gap the caller has; its source raises there."""
+    gaps: list[Gap] = []
+    source = build_module(
+        loaded.graph.get_vi_context(loaded.caller),
+        loaded.caller,
+        graph=loaded.graph,
+        gaps=gaps,
+    )
+    assert "raise NotImplementedError(" in source
+    return gaps[0].reason
 
 
 def test_call_by_reference_frame_terminals_have_their_own_indices(
@@ -193,7 +200,7 @@ def test_open_vi_reference_of_a_constant_name_calls_the_vi_of_that_name(
     )
 
 
-def test_open_vi_reference_of_a_name_no_loaded_vi_has_stops_generation(
+def test_open_vi_reference_of_a_name_no_loaded_vi_is_a_gap(
     tmp_path: Path,
 ) -> None:
     other = d.Constant(300, "'Other.vi'", "String", 23)
@@ -273,7 +280,7 @@ def test_the_options_of_an_open_vi_reference_are_folded_from_constants(
     assert loaded.graph.opened_vi(open_node).options == 0x80
 
 
-def test_a_call_style_no_corpus_node_has_stops_generation(tmp_path: Path) -> None:
+def test_a_call_style_no_corpus_node_is_a_gap(tmp_path: Path) -> None:
     wait = d.call_through_reference(30, "Wait On Asynchronous Call", save_style="02")
     loaded = d.load(tmp_path, [_STATIC, wait], [d.wire(100, 11, 31)], [_X])
     assert _failure(loaded) == (
@@ -397,7 +404,7 @@ def test_a_computed_name_with_no_owner_in_the_project_finds_nothing(
     assert "_vi_owners = {}\n" in _source(loaded)
 
 
-def test_open_vi_reference_of_an_untyped_computed_value_stops_generation(
+def test_open_vi_reference_of_an_untyped_computed_value_is_a_gap(
     tmp_path: Path,
 ) -> None:
     loaded = _computed(tmp_path, None)
@@ -448,9 +455,12 @@ def test_the_name_helpers_are_defined_once_for_the_module(tmp_path: Path) -> Non
 def test_open_vi_reference_with_no_path_is_not_converted(tmp_path: Path) -> None:
     loaded = d.load(tmp_path, [_OPEN], [])
     source = _source(loaded)
-    assert "raise NotImplementedError('Open VI Reference is not converted yet')" in (
-        source
-    )
+    assert (
+        "raise NotImplementedError('Open VI Reference is not converted yet\\n"
+        "gap kind: placeholder_primitive\\n"
+    ) in source
+    assert "primitive 8010 to" not in source
+    assert "give primitive 8010 a python_code" in source
 
 
 def test_call_with_no_reference_wired_says_so(tmp_path: Path) -> None:
@@ -461,7 +471,7 @@ def test_call_with_no_reference_wired_says_so(tmp_path: Path) -> None:
     )
 
 
-def test_call_with_a_reference_passed_on_by_another_call_stops_generation(
+def test_call_with_a_reference_passed_on_by_another_call_is_a_gap(
     tmp_path: Path,
 ) -> None:
     second = d.call_through_reference(50)

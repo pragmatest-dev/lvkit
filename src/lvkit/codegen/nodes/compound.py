@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
@@ -98,7 +99,7 @@ def generate_compound_arith(
     terminals = node.terminals
     operation = node.operation or "add"
     if operation not in _CPD_OPERATIONS:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Compound Arithmetic: operation {operation!r} is not supported. "
             "Its objFlags mode enum (bits 16-18) was outside the known set "
             "add/multiply/and/or/xor. Add the code to "
@@ -487,7 +488,7 @@ def generate_array_replace(
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
     if rank is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Replace Array Subset's array input has no known array type", node
         )
     elements = roles.get(2, [])
@@ -504,7 +505,7 @@ def generate_array_replace(
         ]
         new_rank = _array_rank(element_term) or 0
         if new_rank > rank:
-            raise CodeGenError(
+            raise ConversionGap(
                 "Replace Array Subset's new element has more dimensions than "
                 "the array.",
                 node,
@@ -512,7 +513,7 @@ def generate_array_replace(
         index_vals = [ctx.resolve(t.id) for t in indices]
         leading = rank - new_rank
         if new_rank and not all(index_vals[:leading]):
-            raise CodeGenError(
+            raise ConversionGap(
                 "Replace Array Subset with a subarray needs the leading "
                 f"{leading} index input(s) wired: NI's page does not say along "
                 "which axis the subarray runs otherwise.",
@@ -576,7 +577,7 @@ def generate_array_insert(
     output_term = roles[1][0][1]
     rank = _array_rank(array_term)
     if rank is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Insert Into Array's array input has no known array type, so the "
             "number of index inputs is unknown.",
             node,
@@ -593,14 +594,14 @@ def generate_array_insert(
         if ctx.resolve(t.id)
     ]
     if len(wired) > 1:
-        raise CodeGenError(
+        raise ConversionGap(
             "Insert Into Array with more than one index wired; LabVIEW allows "
             "only one.",
             node,
         )
     axis, index_val = wired[0] if wired else (0, None)
     if axis > 0:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Insert Into Array along dimension {axis} (inserting columns or "
             "pages) is not supported: NI's page says only \"LabVIEW pads the "
             'resulting array as necessary" without saying which cells are '
@@ -675,13 +676,13 @@ def generate_array_reshape(
     dim_terms = [t for t in inputs if t.index >= 2]
     target_ndim = len(dim_terms)
     if target_ndim == 0:
-        raise CodeGenError(
+        raise ConversionGap(
             "Reshape Array has no dimension-size terminal to reshape "
             f"into (node {node.id}).",
             node,
         )
     if target_ndim > 2:
-        raise CodeGenError(
+        raise ConversionGap(
             f"Reshape Array with {target_ndim} target dimensions is not "
             "supported -- only 1-D and 2-D target shapes are implemented "
             "(no 3-D+ sample exists to verify the reshape-nesting code "
@@ -691,7 +692,7 @@ def generate_array_reshape(
 
     lv_type = array_term.lv_type
     if lv_type is None or lv_type.kind != LVTypeKind.ARRAY or not lv_type.dimensions:
-        raise CodeGenError(
+        raise ConversionGap(
             "Reshape Array requires the source array's resolved LabVIEW "
             f"type (to know its dimensionality) for node {node.id}, but "
             "type info is unavailable for this terminal.",

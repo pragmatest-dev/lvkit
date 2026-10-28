@@ -1,12 +1,12 @@
 ---
 name: lvkit-resolve-primitive
-description: MANDATORY for ALL LabVIEW primitive (primResID) and terminal work in lvkit — invoke this BEFORE editing data/primitives.json or any vilib terminal index, and before reasoning about a terminal's role, parmIndex, or operand order. Triggers include: PrimitiveResolutionNeeded during lvkit generate; a render/describe showing unknown_primitive_N (#<id>); a request to identify, VERIFY, or CORRECT a primResID (a user saying "X should be Y", a suspected-wrong mapping, or a duplicate name in primitives.json); and resolving which parmIndex is which terminal (delimiter vs format, operand order, same-typed terminals). Enforces the no-guess process: identify by full connector-pane TYPES plus observed caller WIRING — never by terminal shape or by NI doc/reading order — one primitive at a time.
+description: MANDATORY for ALL LabVIEW primitive (primResID) and terminal work in lvkit — invoke this BEFORE editing data/primitives.json or any vilib terminal index, and before reasoning about a terminal's role, parmIndex, or operand order. Triggers include: an unknown-primitive warning from lvkit generate; a render/describe showing unknown_primitive_N (#<id>); a request to identify, VERIFY, or CORRECT a primResID (a user saying "X should be Y", a suspected-wrong mapping, or a duplicate name in primitives.json); and resolving which parmIndex is which terminal (delimiter vs format, operand order, same-typed terminals). Enforces the no-guess process: identify by full connector-pane TYPES plus observed caller WIRING — never by terminal shape or by NI doc/reading order — one primitive at a time.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebSearch, WebFetch
 ---
 
 # Resolve Unknown Primitive
 
-**Invoke this skill for ALL `primitives.json` / terminal work — not only unknown primitives.** That means: an unknown primitive (`PrimitiveResolutionNeeded`), **verifying or correcting a suspected-wrong mapping** (a user reports "X should be Y"), and **resolving which `parmIndex` is which terminal role / operand order**. If you are about to hand-edit `primitives.json`, or you catch yourself inferring a terminal role from NI **doc/reading order**, STOP — that is this skill's job, and doc order does NOT map to `parmIndex` (roles come from observed `termBounds` geometry + the NI connector-pane image, Step 5c/6). This skill resolves it by identifying the function and writing a JSON mapping. Follow ALL steps IN ORDER. Do NOT skip. Do NOT guess.
+**Invoke this skill for ALL `primitives.json` / terminal work — not only unknown primitives.** That means: an unknown primitive (a `lvkit generate` warning, listed in full by `lvkit unresolved`), **verifying or correcting a suspected-wrong mapping** (a user reports "X should be Y"), and **resolving which `parmIndex` is which terminal role / operand order**. If you are about to hand-edit `primitives.json`, or you catch yourself inferring a terminal role from NI **doc/reading order**, STOP — that is this skill's job, and doc order does NOT map to `parmIndex` (roles come from observed `termBounds` geometry + the NI connector-pane image, Step 5c/6). This skill resolves it by identifying the function and writing a JSON mapping. Follow ALL steps IN ORDER. Do NOT skip. Do NOT guess.
 
 (`TerminalResolutionNeeded` is a separate exception for known primitives where a specific terminal index doesn't match — that's a different problem with the same workflow.)
 
@@ -48,11 +48,11 @@ Write down the EXACT diagnostic output:
 
 **IMPORTANT: the heap carries the primitive's FULL connector pane — identify by it, not just wired terminals.** LabVIEW serializes EVERY terminal of a primitive in its `termList`, including UNWIRED ones, each with its own index, direction (from `objFlags`), and declared type (from its own `typeDesc`). So the full terminal count + per-terminal type signature ARE available in the parsed data (verified in-tree: prim 1302 carries an unwired output typed `NumUInt32`; prim 1056 an unwired output typed `NumFloat64`). This full connector-pane signature is the strongest discriminator — use it.
 
-**The `PrimitiveResolutionNeeded` diagnostic already lists this full pane.** It reports EVERY terminal — each marked `wired` or `UNWIRED` — with its index, direction, and declared type (the graph carries unwired terminals; the diagnostic does not drop them). So identify from the whole signature shown in the diagnostic: total terminal count + each terminal's direction + type. Do NOT match only the wired subset, and do NOT assume the count is short.
+**The diagnostic `lvkit unresolved` prints for the gap already lists this full pane.** It reports EVERY terminal — each marked `wired` or `UNWIRED` — with its index, direction, and declared type (the graph carries unwired terminals; the diagnostic does not drop them). So identify from the whole signature shown in the diagnostic: total terminal count + each terminal's direction + type. Do NOT match only the wired subset, and do NOT assume the count is short.
 
 ### No exception? COLLECT the pane from the graph yourself — never skip it, never guess
 
-You are often here WITHOUT a `PrimitiveResolutionNeeded` diagnostic: a `render`/`describe` shows an `unknown_primitive_N` (drawn as `#<id>`), or you're handed a primResID (or a list) to resolve. The full signature is NOT exclusive to the generate exception — it is in the parsed graph. **Collect it yourself before doing anything else.** Load the calling VI and dump the node's every terminal with its FULL type, including the array ELEMENT type:
+You are often here WITHOUT that diagnostic: a `render`/`describe` shows an `unknown_primitive_N` (drawn as `#<id>`), or you're handed a primResID (or a list) to resolve. The full signature is NOT exclusive to the gap diagnostic — it is in the parsed graph. **Collect it yourself before doing anything else.** Load the calling VI and dump the node's every terminal with its FULL type, including the array ELEMENT type:
 
 ```bash
 python3 -c "
@@ -513,9 +513,9 @@ A placeholder allows generation to proceed with a warning instead of crashing:
 }
 ```
 
-Placeholder entries emit a `warnings.warn()` and generate `pass` + a TODO comment. They NEVER silently succeed — they always leave a visible marker in the output.
+A placeholder entry is a gap: `lvkit generate` prints a warning for it and the generated Python raises `NotImplementedError` at that node. It NEVER silently succeeds.
 
-**Alternative: soft codegen mode.** Instead of authoring a placeholder, you can re-run `lvkit generate --placeholder-on-unresolved`. The generated Python contains an inline `raise PrimitiveResolutionNeeded(...)` statement with the same diagnostic context. You can fix the gap contextually in the Python (or come back and write a real mapping later).
+**Alternative:** leave the gap. The generated Python already raises `NotImplementedError` at the unresolved node, so you can fix it contextually in the Python (or come back and write a real mapping later).
 
 **You MUST run this skill for EVERY unknown primitive.** No exceptions. No skipping steps. No adding placeholders without completing the full investigation first.
 

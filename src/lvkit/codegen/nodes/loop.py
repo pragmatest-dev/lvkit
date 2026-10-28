@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+import keyword
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, LoopNode
 from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelMode, TunnelTerminal
 
@@ -15,7 +17,6 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..context import CodeGenContext
-from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 
@@ -29,7 +30,7 @@ def _when_condition(
         return write
     condition = ctx.resolve(tunnel.condition_terminal_uid)
     if condition is None:
-        raise CodeGenError(
+        raise ConversionGap(
             "Conditional tunnel's condition terminal is not wired", node
         )
     return ast.If(test=parse_expr(condition), body=[write], orelse=[])
@@ -474,10 +475,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     # Add initialization for while loop stop condition
     # (condition is computed inside loop, so we init to False before)
     # Skip if the variable is already a function parameter or if the
-    # resolved value is an expression (not a valid assignment target)
+    # resolved value is an expression or a constant such as True (not a valid
+    # assignment target)
     if stop_condition_var:
         param_names = ctx.parameter_var_names()
-        is_identifier = stop_condition_var.isidentifier()
+        is_identifier = (
+            stop_condition_var.isidentifier()
+            and not keyword.iskeyword(stop_condition_var)
+        )
         if is_identifier and stop_condition_var not in param_names:
             pre_loop_stmts.append(
                 build_assign(stop_condition_var, ast.Constant(value=False))

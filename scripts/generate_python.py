@@ -36,13 +36,9 @@ def main():
         help="Additional search paths",
     )
     parser.add_argument(
-        "--placeholder-on-unresolved",
+        "--fail-fast",
         action="store_true",
-        help=(
-            "Don't fail on unknown primitives or vi.lib VIs. Instead emit "
-            "an inline `raise PrimitiveResolutionNeeded(...)` / `raise "
-            "VILibResolutionNeeded(...)` in the generated Python."
-        ),
+        help="End the run at the first gap (its warning is printed).",
     )
     parser.add_argument(
         "--vilib",
@@ -63,7 +59,7 @@ def main():
         args.output,
         search_paths=[Path(p) for p in args.search_paths],
         mode=LoadMode.FULL,
-        soft_unresolved=args.placeholder_on_unresolved,
+        fail_fast=args.fail_fast,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
     )

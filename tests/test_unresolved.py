@@ -8,8 +8,11 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.context import CodeGenContext
-from lvkit.codegen.nodes.primitive import _emit_placeholder, _emit_unknown
-from lvkit.codegen.nodes.subvi import _emit_vilib_resolution
+from lvkit.codegen.gaps import gap_of
+from lvkit.codegen.nodes import generate as generate_node
+from lvkit.codegen.nodes.primitive import raise_placeholder, raise_unknown
+from lvkit.codegen.nodes.subvi import _raise_vilib_resolution
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.models import Terminal
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded
@@ -22,12 +25,17 @@ from lvkit.unresolved import (
 from lvkit.vilib_resolver import VILibResolutionNeeded
 
 # ---------------------------------------------------------------------------
-# The sink: emit sites APPEND the constructed exception, then continue.
+# The kind of each gap.
 # ---------------------------------------------------------------------------
 
 
-def test_sink_collects_unknown_primitive() -> None:
-    """An unresolved_sink collects the primitive gap and does not raise."""
+def _caught(raiser, *args, **kwargs) -> ConversionGap:
+    with pytest.raises(ConversionGap) as caught:
+        raiser(*args, **kwargs)
+    return caught.value
+
+
+def test_unknown_primitive_gap() -> None:
     node = PrimitiveNode(
         id="p",
         vi_path="test.vi",
@@ -35,21 +43,18 @@ def test_sink_collects_unknown_primitive() -> None:
         terminals=[Terminal(id="t0", index=0, direction="output", name="result")],
         prim_id=99999,
     )
-    sink: list[Exception] = []
-    ctx = CodeGenContext(
-        soft_unresolved=True,
-        unresolved_sink=sink,
-        vi_name="Caller.vi",
+    ctx = CodeGenContext(vi_name="Caller.vi")
+    exc = _caught(raise_unknown, node, 99999, ctx)
+    assert isinstance(exc, PrimitiveResolutionNeeded)
+    gap = gap_of(exc, "Caller.vi", node)
+    assert (gap.kind, gap.identifier, gap.name) == (
+        "unknown_primitive",
+        "99999",
+        "Mystery",
     )
-    # No raise — soft mode + sink continues.
-    _emit_unknown(node, prim_id=99999, ctx=ctx)
-    assert len(sink) == 1
-    assert isinstance(sink[0], PrimitiveResolutionNeeded)
-    assert sink[0].prim_id == "99999"
 
 
-def test_sink_collects_unmapped_vilib() -> None:
-    """An unresolved_sink collects the vi.lib gap and does not raise."""
+def test_unmapped_vilib_gap() -> None:
     node = VINode(
         id="s",
         vi_path="test.vi",
@@ -57,20 +62,13 @@ def test_sink_collects_unmapped_vilib() -> None:
         terminals=[Terminal(id="t1", index=0, direction="input", name="in1")],
         node_type="iUse",
     )
-    sink: list[Exception] = []
-    ctx = CodeGenContext(
-        soft_unresolved=True,
-        unresolved_sink=sink,
-        vi_name="Caller.vi",
-    )
-    _emit_vilib_resolution(node, ctx, vilib_vi=None)
-    assert len(sink) == 1
-    assert isinstance(sink[0], VILibResolutionNeeded)
-    assert sink[0].vi_name == "Imaginary VI.vi"
+    exc = _caught(_raise_vilib_resolution, node, CodeGenContext(vi_name="C.vi"), None)
+    assert isinstance(exc, VILibResolutionNeeded)
+    gap = gap_of(exc, "C.vi", node)
+    assert (gap.kind, gap.identifier) == ("unmapped_vilib", "Imaginary VI.vi")
 
 
-def test_sink_collects_placeholder_primitive_tagged() -> None:
-    """A placeholder primitive is collected and tagged distinctly from unknown."""
+def test_placeholder_primitive_gap_is_tagged_apart_from_unknown() -> None:
     node = PrimitiveNode(
         id="p",
         vi_path="test.vi",
@@ -81,26 +79,31 @@ def test_sink_collects_placeholder_primitive_tagged() -> None:
     resolved = ResolvedPrimitive(
         prim_id="9105", name="Wait on Notification", confidence="placeholder"
     )
-    sink: list[Exception] = []
-    ctx = CodeGenContext(unresolved_sink=sink, vi_name="Caller.vi")
-    _emit_placeholder(node, resolved, ctx)
-    assert len(sink) == 1
-    assert isinstance(sink[0], PrimitiveResolutionNeeded)
-    assert getattr(sink[0], "is_placeholder", False) is True
+    exc = _caught(raise_placeholder, node, resolved, CodeGenContext(vi_name="C.vi"))
+    gap = gap_of(exc, "C.vi", node)
+    assert gap.kind == "placeholder_primitive"
+    assert gap.reason == "Wait on Notification is not converted yet"
 
 
-def test_sink_absent_preserves_hard_raise() -> None:
-    """With no sink and hard mode, the gap still raises (unchanged behavior)."""
+def test_any_other_node_gap_is_an_unsupported_node() -> None:
     node = PrimitiveNode(
-        id="p",
-        vi_path="test.vi",
-        name="Mystery",
-        terminals=[],
-        prim_id=99999,
+        id="p", vi_path="t.vi", name="Property Node", node_type="propNode", terminals=[]
     )
-    ctx = CodeGenContext(soft_unresolved=False, vi_name="Caller.vi")
-    with pytest.raises(PrimitiveResolutionNeeded):
-        _emit_unknown(node, prim_id=99999, ctx=ctx)
+    gap = gap_of(ConversionGap("no Python equivalent", node), "C.vi", node)
+    assert (gap.kind, gap.name, gap.node_name) == (
+        "unsupported_node",
+        "no Python equivalent",
+        "Property Node",
+    )
+
+
+def test_a_gap_in_no_node_is_an_unsupported_vi() -> None:
+    gap = gap_of(ConversionGap("no parent"), "Lib/Class.lvclass", None)
+    assert (gap.kind, gap.identifier, gap.node_name) == (
+        "unsupported_vi",
+        "Lib/Class.lvclass",
+        None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +112,7 @@ def test_sink_absent_preserves_hard_raise() -> None:
 
 
 def test_format_empty_report() -> None:
-    assert "No unresolved" in format_unresolved_report([], "Foo.vi")
+    assert format_unresolved_report([], "Foo.vi") == "No gaps in Foo.vi."
 
 
 def test_format_groups_and_counts() -> None:
@@ -184,8 +187,8 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    18 distinct gaps = 9 placeholder primitives + 8 terminal-mapping + 1
-    unknown primitive (the generic eventRegNode)."""
+    23 distinct gaps = 6 placeholder primitives + 4 unknown primitives + 1 Event
+    Structure + 12 VIs that were not found."""
     from collections import Counter
 
     if not _TESTCASE_CLASS.exists():
@@ -195,10 +198,12 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         search_paths=[_TESTCASE_CLASS.parents[2]],
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 18, f"expected 18 distinct gaps, got {len(items)}: {counts}"
-    assert counts["placeholder_primitive"] == 9
-    assert counts["terminal_mapping"] == 8
-    assert counts["unknown_primitive"] == 1
+    assert len(items) == 23, f"expected 23 distinct gaps, got {len(items)}: {counts}"
+    assert counts["placeholder_primitive"] == 6
+    assert counts["terminal_mapping"] == 0
+    assert counts["unknown_primitive"] == 4
+    assert counts["unsupported_node"] == 1
+    assert counts["missing_vi"] == 12
 
 
 def test_placeholder_primitive_raises_where_it_runs() -> None:
@@ -214,15 +219,16 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
         ],
         prim_id=9105,
     )
-    resolved = ResolvedPrimitive(
-        prim_id="9105", name="Wait on Notification", confidence="placeholder"
-    )
     ctx = CodeGenContext(vi_name="Caller.vi")
-    fragment = _emit_placeholder(node, resolved, ctx)
+    fragment = generate_node(node, ctx)
     assert fragment.imports == set()
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
-    assert ast.unparse(module).splitlines()[-1] == (
-        "raise NotImplementedError('Wait on Notification is not converted yet')"
+    raised = ast.unparse(module).splitlines()[-1]
+    assert raised.startswith(
+        "raise NotImplementedError('Wait on Notification is not converted yet\\n"
+        "gap kind: placeholder_primitive\\nVI: Caller.vi\\n"
+        "node: Wait on Notification\\n"
     )
+    assert "index=0 direction=input" in raised

@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import re
 from collections.abc import Mapping
+from typing import NoReturn
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
@@ -29,7 +30,6 @@ from ..ast_utils import (
 from ..context import CodeGenContext
 from ..elementwise import arrayify
 from ..fragment import CodeFragment
-from ..unresolved import emit_soft_unresolved
 
 
 def _array_operand_ranks(
@@ -131,7 +131,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if not resolved:
         # A node class captured GENERICALLY (not in the handled allowlist —
         # e.g. decimate, interLeave, extFunc, exprNode) reaches here with no
-        # primResID. Fail loudly via _emit_unknown rather than silently drop it
+        # primResID. A gap via raise_unknown rather than silently drop it
         # to empty code. A class in OPERATION_NODE_CLASSES that still lacks a
         # handler keeps prior behavior rather than being flagged unknown.
         is_generic_unknown = bool(
@@ -142,7 +142,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         )
         if prim_id is None and not is_generic_unknown:
             return CodeFragment.empty()
-        return _emit_unknown(node, prim_id, ctx)
+        raise_unknown(node, prim_id, ctx)
 
     # Generator-owned op handler: a neutral ``op`` tag in the data maps to a
     # Python emission template here (codegen/nodes/ops/), keeping target-language
@@ -168,7 +168,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A primitive known by name but with no implementation raises where it runs.
     if resolved.confidence == "placeholder":
-        return _emit_placeholder(node, resolved, ctx)
+        raise_placeholder(node, resolved, ctx)
 
     # LabVIEW And/Or/Not are BITWISE on integer operands. When an input carries
     # an integer type, prefer the primitive's integer template; Not (1064) needs
@@ -198,7 +198,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
     if is_unknown:
         # Unknown primitive - emit explicit error
-        return _emit_unknown(node, prim_id, ctx)
+        raise_unknown(node, prim_id, ctx)
 
     # Resolve input values from context (use resolved terminals for names)
     input_map = _build_input_map(node, ctx, resolved)
@@ -839,97 +839,54 @@ def _terminal_signature(
     ]
 
 
-def _unresolved_kwargs(
+def _unresolved(
     node: PrimitiveNode,
     prim_id: int | None,
     ctx: CodeGenContext,
     reason: str | None = None,
-) -> dict[str, object]:
-    """The arguments of the ``PrimitiveResolutionNeeded`` for ``node``.
+    placeholder_name: str | None = None,
+) -> PrimitiveResolutionNeeded:
+    """The gap for ``node``, a primitive with no implementation (known by name
+    when ``placeholder_name`` is given) or a node with no primResID.
 
     The FULL connector pane — node.terminals carries every terminal the heap
     serialized, wired AND unwired, each with its declared type. Wired status is
     marked so the resolver can identify by the whole pane, not just the
     terminals that happen to have wires in this VI."""
-    kwargs: dict[str, object] = {
-        "prim_id": prim_id,
-        "prim_name": node.name or "unknown",
-        "terminals": _terminal_signature(node, ctx),
-        "vi_name": ctx.vi_name,
-        "qualified_vi_name": ctx.qualified_vi_name,
-    }
-    if reason is not None:
-        kwargs["reason"] = reason
-    if prim_id is None:
-        kwargs["node_kind"] = (
-            get_display_name(node.node_type) if node.node_type else "Node"
-        )
-    return kwargs
-
-
-def _emit_placeholder(
-    node: PrimitiveNode,
-    resolved: ResolvedPrimitive,
-    ctx: CodeGenContext,
-) -> CodeFragment:
-    """A primitive known by name with no implementation: the generated code
-    raises ``NotImplementedError`` where the primitive would run, and its outputs
-    are ``None`` names so the code after it is defined. ``lvkit unresolved``
-    still reports it, tagged apart from a fully-unknown primResID."""
-    if ctx.unresolved_sink is not None:
-        needed = PrimitiveResolutionNeeded(
-            **_unresolved_kwargs(node, node.prim_id, ctx)  # type: ignore[arg-type]
-        )
-        needed.is_placeholder = True  # type: ignore[attr-defined]
-        ctx.unresolved_sink.append(needed)
-    return emit_soft_unresolved(
-        node=node,
-        ctx=ctx,
-        exception_module="builtins",
-        exception_class="NotImplementedError",
-        positional_args=[f"{resolved.name or node.name} is not converted yet"],
+    return PrimitiveResolutionNeeded(
+        prim_id=prim_id,
+        prim_name=placeholder_name or node.name or "unknown",
+        terminals=_terminal_signature(node, ctx),
+        vi_name=ctx.vi_name,
+        qualified_vi_name=ctx.qualified_vi_name,
+        node_kind=(
+            (get_display_name(node.node_type) if node.node_type else "Node")
+            if prim_id is None
+            else None
+        ),
+        reason=reason,
+        placeholder=placeholder_name is not None,
     )
 
 
-def _emit_unknown(
+def raise_placeholder(
+    node: PrimitiveNode,
+    resolved: ResolvedPrimitive,
+    ctx: CodeGenContext,
+) -> NoReturn:
+    """A primitive known by name with no implementation is a gap."""
+    name = resolved.name or node.name or "unknown"
+    raise _unresolved(node, node.prim_id, ctx, placeholder_name=name)
+
+
+def raise_unknown(
     node: PrimitiveNode,
     prim_id: int | None,
     ctx: CodeGenContext,
     reason: str | None = None,
-) -> CodeFragment:
-    """Handle an unknown primitive.
-
-    Default mode: raise PrimitiveResolutionNeeded immediately so the
-    conversion loop catches it and the user can resolve it before
-    proceeding.
-
-    Soft mode (ctx.soft_unresolved=True): emit an inline `raise
-    PrimitiveResolutionNeeded(...)` AST statement with the same kwargs.
-    The generated Python is syntactically valid; running it raises the
-    exact same exception that hard mode would have raised at codegen
-    time. This lets a downstream LLM see the diagnostic in context and
-    either write a mapping into .lvkit/ or replace the raise with a
-    contextual fix.
-    """
-    kwargs = _unresolved_kwargs(node, prim_id, ctx, reason)
-
-    if ctx.unresolved_sink is not None:
-        # Batch-collection mode (`lvkit unresolved`): record the gap and keep
-        # generating so every gap in the VI is surfaced in one pass.
-        ctx.unresolved_sink.append(
-            PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
-        )
-
-    if not ctx.soft_unresolved:
-        raise PrimitiveResolutionNeeded(**kwargs)  # type: ignore[arg-type]
-
-    return emit_soft_unresolved(
-        node=node,
-        ctx=ctx,
-        exception_module="lvkit.primitive_resolver",
-        exception_class="PrimitiveResolutionNeeded",
-        literal_kwargs=kwargs,
-    )
+) -> NoReturn:
+    """An unknown primitive (or a node with no primResID) is a gap."""
+    raise _unresolved(node, prim_id, ctx, reason)
 
 
 def _raise_terminal_resolution(

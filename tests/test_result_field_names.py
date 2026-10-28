@@ -88,22 +88,26 @@ def test_result_field_and_return_agree(label: str, field: str):
 
 
 @pytest.mark.parametrize(
-    "labels",
+    "labels,fields",
     [
-        ("_status", "output_status"),
-        ("-status", "_status"),
-        ("A B", "A-B"),
-        ("", "output"),
-        ("!", "?"),
+        (("_status", "output_status"), ("output_status", "output_status_2")),
+        (("-status", "_status"), ("output_status", "output_status_2")),
+        (("A B", "A-B"), ("a_b", "a_b_2")),
+        (("", "output"), ("output", "output_2")),
+        (("!", "?"), ("var", "var_2")),
     ],
 )
-def test_colliding_fields_fail_during_generation(labels: tuple[str, str]):
+def test_colliding_labels_get_distinct_fields(
+    labels: tuple[str, str], fields: tuple[str, str]
+):
     context = VIContext(
         name="Collision.vi",
         outputs=[output(label, index) for index, label in enumerate(labels)],
     )
-    with pytest.raises(ValueError, match="Output labels collide"):
-        build_module(context, context.name)
+    source = build_module(context, context.name)
+    namespace: dict = {}
+    exec(compile(source, context.name, "exec"), namespace)
+    assert namespace["collision"]()._fields == fields
 
 
 def test_error_cluster_is_excluded_before_collision_check():

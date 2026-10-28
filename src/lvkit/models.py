@@ -25,6 +25,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
 from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
 from .type_names import derive_python_name, is_enum_member_name
@@ -643,7 +644,7 @@ def _control_kind(control_type: str | None) -> LVTypeKind | None:
     return _CONTROL_FAMILY_KIND.get(control_type)
 
 
-class TypeResolutionNeeded(Exception):
+class TypeResolutionNeeded(ConversionGap):
     """Raised when a named type dependency cannot be resolved.
 
     Same pattern as VILibResolutionNeeded / TerminalResolutionNeeded.

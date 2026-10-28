@@ -43,8 +43,9 @@ same-name collision loss.
 ## Convert
 
 - [generate](generate.md) — deterministically generate Python from a VI, library, or
-  class. Unlike the commands above, `generate` requires every primitive and vi.lib
-  call it hits to resolve — see [Unresolved calls](generate.md#unresolved-calls).
+  class. What it cannot convert — an unknown primitive or vi.lib call, for
+  example — is a warning and a `raise NotImplementedError(...)` at that node; see
+  [Gaps](generate.md#gaps).
 
 ## Set up & integrate
 
