@@ -499,6 +499,31 @@ class SequenceLocalUnreadable:
     reason: str
 
 
+@dataclass(frozen=True)
+class FrameOutputDrive:
+    """The value ONE frame of a Sequence, Disable or Event structure passes out:
+    the net (``sequence_<uid>.out<K>``, or ``event_<uid>.dynamic`` for the right
+    terminal of an Event Structure's dynamic pair) driven by ``value`` inside
+    frame ``frame`` (the frame's ``NetlistFrame.value``). Only a frame that wires
+    the tunnel has one -- data leaves each frame as it finishes."""
+
+    net: str
+    frame: str
+    value: NetRef
+
+
+@dataclass(frozen=True)
+class StructureInput:
+    """A wire into a structure that is written as a line of the structure's own
+    block: an input tunnel no frame reads (``sequence_<uid>.in<K>``, ``K``
+    counting ALL of the structure's input tunnels), an Event Structure's timeout
+    (``event_<uid>.timeout``) and the wire into the left terminal of its dynamic
+    pair (``event_<uid>.dynamic``)."""
+
+    net: str
+    value: NetRef
+
+
 ScopeOutput = (
     GammaMerge
     | MuMerge
@@ -506,6 +531,7 @@ ScopeOutput = (
     | InPlaceBorderDrive
     | SequenceLocalDrive
     | SequenceLocalUnreadable
+    | FrameOutputDrive
 )
 
 
@@ -554,6 +580,9 @@ class NetlistScope:
     # For-Loop-only: the wire into the count terminal (N); ``None`` when
     # nothing is wired (an auto-indexing input tunnel then sets the count).
     count: NetRef | None = None
+    # Wires into the structure written as lines first in its block -- see
+    # ``StructureInput``.
+    inputs: list[StructureInput] = field(default_factory=list)
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
     # One merge per structural value-merge point on this scope: a case
     # (kind == "case") carries one ``GammaMerge`` per output tunnel (see

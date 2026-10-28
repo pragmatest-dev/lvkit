@@ -102,6 +102,15 @@ from .netlist_models import (
     SequenceLocalDrive,
     SequenceLocalUnreadable,
 )
+from .netlist_structure_io import (
+    EVENT_DYNAMIC_TUNNEL,
+    FRAME_ONLY_NET_PREFIX,
+    StructureWires,
+    build_event_outputs,
+    build_frame_output_drives,
+    build_structure_inputs,
+    frame_output_tunnel_outers,
+)
 from .node_kinds import NodeType
 from .op_walk import (
     ComponentPort,
@@ -596,25 +605,17 @@ def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
 # (``for``/``while``) to one net-vocabulary word (``loop``), each of these
 # three kinds already IS its own net-vocabulary word, so no such mapping is
 # needed beyond the node-type -> kind-string lookup below.
-_FRAME_ONLY_NET_PREFIX: dict[type, str] = {
-    SequenceNode: "sequence",
-    DisableStructureNode: "disabled",
-    EventStructureNode: "event",
-}
-
-
-def _frame_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
-    """Output-tunnel outer terminals for a frame-only structure (sequence/
-    disabled/event) -- the analogue of ``_case_output_tunnel_outers_gn``/
-    ``_loop_output_tunnel_outers_gn`` for the structure kinds with no
-    dedicated merge model of their own."""
-    return [
-        t
-        for t in node.terminals
-        if isinstance(t, TunnelTerminal)
-        and t.boundary == "outer"
-        and t.direction == "output"
-    ]
+def _is_event_dynamic_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True for a terminal that reads the Event Structure's dynamic-event value:
+    the inside left terminal (read in a frame) or the outside right terminal. Both
+    are the one net ``event_<uid>.dynamic`` -- a frame that does not wire the right
+    terminal passes the left value through."""
+    return (
+        isinstance(node, EventStructureNode)
+        and isinstance(term, TunnelTerminal)
+        and term.tunnel_type == EVENT_DYNAMIC_TUNNEL
+        and term.direction == "output"
+    )
 
 
 def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
@@ -630,21 +631,22 @@ def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
     already apply uniformly to their own output tunnels (§ ``_tunnel_net_
     name_gn``), extended to the frame-only kinds that never got a merge
     model to carry it."""
-    if type(node) not in _FRAME_ONLY_NET_PREFIX:
+    if type(node) not in FRAME_ONLY_NET_PREFIX:
         return False
     return (
         isinstance(term, TunnelTerminal)
         and term.boundary == "outer"
         and term.direction == "output"
+        and term.tunnel_type != EVENT_DYNAMIC_TUNNEL
     )
 
 
 def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     """``<prefix>_<uid>.out<k>`` for a frame-only structure's output tunnel
-    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``_FRAME_ONLY_NET_PREFIX``'s
+    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``FRAME_ONLY_NET_PREFIX``'s
     lookup for ``node``'s own type."""
-    prefix = _FRAME_ONLY_NET_PREFIX[type(node)]
-    return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
+    prefix = FRAME_ONLY_NET_PREFIX[type(node)]
+    return _tunnel_net_name_gn(node, term, frame_output_tunnel_outers, prefix)
 
 
 def sequence_local_read_gn(
@@ -679,7 +681,7 @@ def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
     a border ``decomposeRecomposeTunnel``'s outer-output terminal AND a plain
     In-Place-In/Out-Element output port (e.g. the Error passed through a DVR
     element), which -- unlike a loop/case/sequence output tunnel -- is NOT a
-    ``TunnelTerminal`` at all, so the frame-only ``_frame_output_tunnel_outers_gn``
+    ``TunnelTerminal`` at all, so the frame-only ``frame_output_tunnel_outers``
     (TunnelTerminal-only) can't name it. Ordered by ``.index`` so the ``outK``
     numbering is stable/byte-reproducible."""
     outers = [
@@ -864,6 +866,7 @@ class StructureBorder(Enum):
     SEQUENCE_LOCAL = "sequence local"
     IN_PLACE_OUTPUT = "In Place Element output"
     FEEDBACK_NODE = "Feedback Node"
+    EVENT_DYNAMIC = "Event Structure dynamic terminal"
 
 
 @dataclass(frozen=True)
@@ -897,6 +900,8 @@ def _border_of_gn(
         return StructureBorder.SHIFT_REGISTER
     if _is_loop_iteration_terminal_gn(owner, term):
         return StructureBorder.ITERATION_TERMINAL
+    if _is_event_dynamic_gn(owner, term):
+        return StructureBorder.EVENT_DYNAMIC
     if _is_frame_output_tunnel_gn(owner, term):
         return StructureBorder.FRAME_OUTPUT_TUNNEL
     if sequence_local_read_gn(owner, term.id) is not None:
@@ -926,6 +931,8 @@ def _border_net_name_gn(
             return _loop_iteration_net_name_gn(owner)
         case StructureBorder.FRAME_OUTPUT_TUNNEL:
             return _frame_net_name_gn(owner, term)
+        case StructureBorder.EVENT_DYNAMIC:
+            return f"event_{uid_of(owner.id)}.dynamic"
         case StructureBorder.SEQUENCE_LOCAL:
             local_net = _sequence_local_net_name_gn(owner, term.id)
             assert local_net is not None
@@ -1760,6 +1767,24 @@ def _build_case_scope_gn(
         selector=selector,
         frames=frames,
         outputs=outputs,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+    )
+
+
+def _wires_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+) -> StructureWires:
+    """The wire lookups a structure's border builders (``netlist_structure_io``)
+    use."""
+    return StructureWires(
+        wire=lambda tid: _resolve_source_gn(graph, ctx, vi_name, tid, build_ctx),
+        wire_or_default=lambda tid, *fallbacks: _resolve_or_default_gn(
+            graph, ctx, vi_name, build_ctx, tid, *fallbacks
+        ),
+        has_reader=lambda tid: bool(graph.outgoing_edges(tid)),
     )
 
 
@@ -1796,6 +1821,12 @@ def _build_disabled_scope_gn(
         selector=None,
         frames=frames,
         disable_kind=node.kind,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+        outputs=[
+            *build_frame_output_drives(
+                _wires_gn(graph, ctx, vi_name, build_ctx), node, frames
+            )
+        ],
     )
 
 
@@ -1826,8 +1857,14 @@ def _build_event_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
-        uid=uid_of(node.id), kind="event", selector=None, frames=frames
+        uid=uid_of(node.id),
+        kind="event",
+        selector=None,
+        frames=frames,
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_event_outputs(wires, node, frames),
     )
 
 
@@ -1885,8 +1922,14 @@ def _build_sequence_scope_gn(
         kind="sequence",
         selector=None,
         frames=frames,
-        outputs=drives,
+        outputs=[
+            *drives,
+            *build_frame_output_drives(
+                _wires_gn(graph, ctx, vi_name, build_ctx), node, frames
+            ),
+        ],
         sequence_is_flat=node.is_flat,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
     )
 
 
@@ -2056,6 +2099,7 @@ def _build_loop_scope_gn(
         frames=[frame],
         parallel=node.parallel,
         parallel_static_workers=node.parallel_static_workers,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
         condition_mode=_loop_condition_mode_gn(node),
         count=_loop_count_ref_gn(graph, ctx, vi_name, node, build_ctx),
         tunnels=tunnel_info,

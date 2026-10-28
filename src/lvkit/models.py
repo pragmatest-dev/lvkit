@@ -985,6 +985,9 @@ class TunnelTerminal(Terminal):
     condition_terminal: str | None = None
     sr_initialized: bool | None = None
     sr_stack_depth: int | None = None
+    # Position of the frame an inner tunnel terminal sits in (see
+    # ``Tunnel.frame_position``); ``frame`` above keeps the case selector value.
+    frame_position: int | None = None
 
 
 class Tunnel(BaseModel):
@@ -1018,6 +1021,10 @@ class Tunnel(BaseModel):
     #   1 for a normal (unstacked) shift register, N for an N-deep stacked
     #   one. Set on tunnel_type == "rSR" tunnels only.
     sr_stack_depth: int | None = None
+    # Position, in its structure's frame list, of the frame this tunnel's inner
+    # face sits in. Set for the structures whose inner faces are per frame
+    # (Event, Sequence); None elsewhere.
+    frame_position: int | None = None
 
 
 class PropertySegment(BaseModel):

@@ -80,7 +80,6 @@ from .netlist import (
     DefaultValue,
     DependencyKind,
     EtaMerge,
-    GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
@@ -94,6 +93,7 @@ from .netlist import (
 from .netlist_models import LoopCondition
 from .render_lvnet import (
     _assign_lvnet_handles,
+    _frame_drives,
     _is_void_type,
     _loop_condition_drives,
     _loop_count_drives,
@@ -109,7 +109,7 @@ from .render_lvnet import (
     _LvnetHandles,
     _quoted_frame_label,
     _render_lvnet_source,
-    _sequence_frame_drives,
+    _structure_input_drives,
     lvnet_feedback_attribute,
     lvnet_literal_token,
 )
@@ -775,6 +775,9 @@ class ParsedScope:
     # Drive lines of a structure with a single implicit body: a loop's count /
     # conditional-terminal wires, an In Place Element's border inputs.
     drives: tuple[ParsedDrive, ...] = ()
+    # Case / Sequence / Disable / Event: the drive lines that open the block
+    # before the first frame (wires into the structure that no frame reads).
+    inputs: tuple[ParsedDrive, ...] = ()
     # Loop only: how the conditional terminal reads its Boolean (a
     # ``LoopCondition`` value); ``None`` for a For Loop with none.
     condition_mode: str | None = None
@@ -1536,6 +1539,7 @@ def _parse_case_scope(
     selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
     frame_indent = indent + _LVNET_INDENT_WIDTH
     body_indent = indent + _LVNET_INDENT_WIDTH * 2
+    inputs = _parse_block_inputs(cursor, frame_indent)
     frames: list[ParsedFrame] = []
     while True:
         line = cursor.peek()
@@ -1570,30 +1574,50 @@ def _parse_case_scope(
         raise LvnetParseError(
             f"line {line_no}: case scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind="case", selector=selector, frames=tuple(frames), uid=uid)
+    return ParsedScope(
+        kind="case",
+        selector=selector,
+        frames=tuple(frames),
+        inputs=tuple(inputs),
+        uid=uid,
+    )
+
+
+def _parse_block_inputs(cursor: _Cursor, frame_indent: int) -> list[ParsedDrive]:
+    """The drive lines that open a frame-bearing structure's block -- wires into
+    the structure that no frame reads -- ahead of its first ``frame`` header."""
+    inputs: list[ParsedDrive] = []
+    while True:
+        line = cursor.peek()
+        if line is None or line.strip() == "" or _indent_len(line) != frame_indent:
+            break
+        content = line[frame_indent:]
+        if content.startswith("frame "):
+            break
+        drive = _parse_drive_line(content, cursor.line_no)
+        if drive is None:
+            break
+        cursor.take()
+        inputs.append(drive)
+    return inputs
 
 
 def _parse_labeled_frames(
     cursor: _Cursor,
     frame_indent: int,
     body_indent: int,
-    *,
-    allow_drives: bool = False,
-) -> list[ParsedFrame]:
-    """Parse a run of ``frame <label> :`` blocks (§8) at EXACTLY
-    ``frame_indent`` spaces -- shared by the sequence/disabled/event-
+) -> tuple[list[ParsedDrive], list[ParsedFrame]]:
+    """Parse the opening input lines and a run of ``frame <label> :`` blocks (§8)
+    at EXACTLY ``frame_indent`` spaces -- shared by the sequence/disabled/event-
     structure families (``_parse_sequence_scope``/``_parse_disabled_scope``/
     ``_parse_event_scope``), unlike ``_parse_case_scope`` which requires its
     label to be quoted: these families render some labels bare (``[0]``,
     ``Enabled``) and some quoted (a Conditional Disable symbol condition, an
     event label) -- so ``label`` is kept VERBATIM, quotes and all, exactly as
     ``_parse_case_scope`` already does for its own (always-quoted) labels.
-
-    Only a sequence frame may carry ``net = source`` drive lines (the
-    sequence locals it writes, ``allow_drives``); for disabled/event frames
-    encountering one is a genuine grammar violation, raised rather than
-    silently accepted.
+    A frame ends with the ``net = source`` drive lines of what it passes out.
     """
+    inputs = _parse_block_inputs(cursor, frame_indent)
     frames: list[ParsedFrame] = []
     while True:
         line = cursor.peek()
@@ -1613,12 +1637,6 @@ def _parse_labeled_frames(
         header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         label, is_default = _split_trailing_default(header)
         items, drives = _parse_items(cursor, body_indent)
-        if drives and not allow_drives:
-            raise LvnetParseError(
-                f"line {frame_line_no}: this scope family has no output "
-                f"merge to drive, so its frames must not contain bare "
-                f"'net = source' lines (§8): {drives!r}"
-            )
         frames.append(
             ParsedFrame(
                 label=label,
@@ -1627,7 +1645,7 @@ def _parse_labeled_frames(
                 is_default=is_default,
             )
         )
-    return frames
+    return inputs, frames
 
 
 def _parse_sequence_scope(
@@ -1636,17 +1654,16 @@ def _parse_sequence_scope(
     """``flat-sequence :`` / ``stacked-sequence :`` (§8) -- ``frame [i] :``
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
     kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor,
         indent + _LVNET_INDENT_WIDTH,
         indent + _LVNET_INDENT_WIDTH * 2,
-        allow_drives=True,
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
+    return ParsedScope(kind=kind, frames=tuple(frames), inputs=tuple(inputs), uid=uid)
 
 
 def _parse_disabled_scope(
@@ -1658,14 +1675,14 @@ def _parse_disabled_scope(
     ``" :"``), so ``netlist_signature`` compares it directly against
     ``_LVNET_DISABLE_KEYWORD[scope.disable_kind]`` with no extra mapping."""
     kind = content[: -len(_LVNET_BLOCK_OPEN)]
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
+    return ParsedScope(kind=kind, frames=tuple(frames), inputs=tuple(inputs), uid=uid)
 
 
 def _parse_inplace_scope(
@@ -1692,14 +1709,16 @@ def _parse_event_scope(
 ) -> ParsedScope:
     """``event-structure :`` (§8) -- ``frame "<event>" :`` per event case,
     matching ``_render_lvnet_event_scope`` exactly."""
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: event-structure scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind="event-structure", frames=tuple(frames), uid=uid)
+    return ParsedScope(
+        kind="event-structure", frames=tuple(frames), inputs=tuple(inputs), uid=uid
+    )
 
 
 def _parse_drive_line(content: str, line_no: int) -> ParsedDrive | None:
@@ -2657,24 +2676,21 @@ def _module_case_scope_signature(
         if scope.selector is not None
         else "?"
     )
-    gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
-    frames: list[tuple] = []
-    for frame in scope.frames:
-        label = _lvnet_case_header(frame.values, frame.is_default)
-        body_sig = _module_body_signature(frame.body, handles, ambiguous)
-        frame_key = "default" if frame.is_default else frame.label
-        drive_entries: list[tuple[str, str]] = []
-        for gamma in gammas:
-            case_entry = next(
-                (c for c in gamma.cases if c.frame_key == frame_key), None
-            )
-            if case_entry is None:
-                continue
-            source_str = _render_lvnet_source(case_entry.source, handles)
-            net = _lvnet_net_separator(gamma.net)
-            drive_entries.append((net, source_str))
-        frames.append((label, body_sig, tuple(drive_entries)))
-    return ("scope", "case", sel, tuple(frames))
+    frames = tuple(
+        (
+            _lvnet_case_header(frame.values, frame.is_default),
+            _module_body_signature(frame.body, handles, ambiguous),
+            tuple(_frame_drives(scope, frame, handles)),
+        )
+        for frame in scope.frames
+    )
+    return (
+        "scope",
+        "case",
+        sel,
+        frames,
+        tuple(_structure_input_drives(scope, handles)),
+    )
 
 
 def _module_loop_scope_signature(
@@ -2714,6 +2730,7 @@ def _module_loop_scope_signature(
         scope.condition_mode.value if scope.condition_mode is not None else None
     )
     drives = (
+        *_structure_input_drives(scope, handles),
         *_loop_count_drives(scope, handles),
         *_loop_condition_drives(scope, handles),
     )
@@ -2730,26 +2747,32 @@ def _module_loop_scope_signature(
 
 def _module_frame_only_scope_signature(
     kind_word: str,
-    frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
+    scope: NetlistScope,
+    frame_labels: list[str],
     handles: _LvnetHandles,
     ambiguous: frozenset[str],
-    frame_drives: list[list[tuple[str, str]]] | None = None,
 ) -> tuple:
     """Shared by the three frame-only scope families (sequence/disabled/
     event, see ``_parse_labeled_frames``'s docstring for why they share one
     shape): a frame's signature is its already-rendered label, its body and
-    its drive lines -- ``frame_drives`` (one list per frame) for a sequence's
-    sequence locals, empty for disabled/event frames. The 3-tuple matches a
-    case frame's shape, so ``_parsed_item_signature``'s matching branch needs
-    no special case."""
-    drives = frame_drives or [[] for _ in frame_labels_and_bodies]
+    its drive lines, then the structure's opening input lines. The tuple
+    matches a case scope's shape, so ``_parsed_item_signature``'s matching
+    branch needs no special case."""
     frames = tuple(
-        (label, _module_body_signature(body, handles, ambiguous), tuple(frame_drive))
-        for (label, body), frame_drive in zip(
-            frame_labels_and_bodies, drives, strict=True
+        (
+            label,
+            _module_body_signature(frame.body, handles, ambiguous),
+            tuple(_frame_drives(scope, frame, handles)),
         )
+        for label, frame in zip(frame_labels, scope.frames, strict=True)
     )
-    return ("scope", kind_word, None, frames)
+    return (
+        "scope",
+        kind_word,
+        None,
+        frames,
+        tuple(_structure_input_drives(scope, handles)),
+    )
 
 
 def _module_sequence_scope_signature(
@@ -2761,10 +2784,10 @@ def _module_sequence_scope_signature(
     kind_word = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
     return _module_frame_only_scope_signature(
         kind_word,
-        [(f"[{frame.value}]", frame.body) for frame in scope.frames],
+        scope,
+        [f"[{frame.value}]" for frame in scope.frames],
         handles,
         ambiguous,
-        [_sequence_frame_drives(scope, f.value, handles) for f in scope.frames],
     )
 
 
@@ -2781,13 +2804,8 @@ def _module_disabled_scope_signature(
     quote = scope.disable_kind is DisableStructureKind.CONDITIONAL
     return _module_frame_only_scope_signature(
         kind_word,
-        [
-            (
-                _quoted_frame_label(frame.label) if quote else frame.label,
-                frame.body,
-            )
-            for frame in scope.frames
-        ],
+        scope,
+        [_quoted_frame_label(f.label) if quote else f.label for f in scope.frames],
         handles,
         ambiguous,
     )
@@ -2796,11 +2814,12 @@ def _module_disabled_scope_signature(
 def _module_event_scope_signature(
     scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
-    """``event-structure`` (§8) -- every frame label quoted, matching
+    """``event-structure`` (§8) -- every frame label a string literal, matching
     ``_render_lvnet_event_scope`` exactly."""
     return _module_frame_only_scope_signature(
         "event-structure",
-        [(_quoted_frame_label(frame.label), frame.body) for frame in scope.frames],
+        scope,
+        [lvnet_literal_token(f.label) for f in scope.frames],
         handles,
         ambiguous,
     )
@@ -2927,7 +2946,13 @@ def _parsed_item_signature(
                 )
                 for f in item.frames
             )
-            return ("scope", item.kind, item.selector, frames)
+            return (
+                "scope",
+                item.kind,
+                item.selector,
+                frames,
+                tuple((d.net, d.source) for d in item.inputs),
+            )
         body_sig = tuple(
             _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
         )

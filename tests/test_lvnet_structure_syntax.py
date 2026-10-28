@@ -18,6 +18,8 @@ from lvkit.graph.netlist import (
     ConnectorPane,
     ConnectorPaneTerminal,
     DefaultValue,
+    GammaCase,
+    GammaMerge,
     MuMerge,
     NetlistBoundaryInput,
     NetlistFeedback,
@@ -28,7 +30,12 @@ from lvkit.graph.netlist import (
     NetRef,
     render_lvnet,
 )
-from lvkit.graph.netlist_models import LoopCondition, ScopeOutput
+from lvkit.graph.netlist_models import (
+    FrameOutputDrive,
+    LoopCondition,
+    ScopeOutput,
+    StructureInput,
+)
 from lvkit.graph.render_lvnet import _lvnet_const_value_str, lvnet_literal_token
 from lvkit.models import LVType, LVTypeKind
 
@@ -335,3 +342,110 @@ def test_a_feedback_node_marks_an_unwired_initializer(uninitialized: bool) -> No
     rebuilt_fb = rebuilt.body[0]
     assert isinstance(rebuilt_fb, NetlistFeedback)
     assert isinstance(rebuilt_fb.init, DefaultValue) is uninitialized
+
+
+# ---------------------------------------------------------------------------
+# Frame outputs, defaults at drive positions, structure inputs (#179)
+# ---------------------------------------------------------------------------
+
+
+def _frames(*labels: str, values: list[str] | None = None) -> list[NetlistFrame]:
+    return [
+        NetlistFrame(
+            label=label, value=(values or list(labels))[i], is_default=False, body=[]
+        )
+        for i, label in enumerate(labels)
+    ]
+
+
+def test_every_unwired_drive_position_says_default_and_its_type() -> None:
+    """A case output left unwired in one frame is ``(default TF)``, never a bare
+    ``False`` that reads as a wired constant; the reconstruction keeps it
+    unwired."""
+    frames = _frames("A", "B")
+    for frame in frames:
+        frame.values = (frame.label,)
+    wired_false = NetRef(
+        node=None, terminal="", occurrence=None, bare="False", lvnet_value="False"
+    )
+    merge = GammaMerge(
+        net="case_5.out0",
+        selector=None,
+        cases=[
+            GammaCase("A", wired_false),
+            GammaCase("B", DefaultValue("False", "TF")),
+        ],
+    )
+    scope = NetlistScope(
+        uid="5",
+        kind="case",
+        selector=_control_ref("sel"),
+        frames=frames,
+        outputs=[merge],
+    )
+    text, rebuilt = _identity_round_trip(_module(["sel"], [scope]))
+    assert "case_5::out0 = False" in text
+    assert "case_5::out0 = (default TF)" in text
+    out = rebuilt.body[0].outputs[0]  # type: ignore[union-attr]
+    assert isinstance(out, GammaMerge)
+    assert isinstance(out.cases[0].source, NetRef)
+    assert isinstance(out.cases[1].source, DefaultValue)
+
+
+def test_event_frames_drive_their_tunnels_and_the_dynamic_pair() -> None:
+    labels = ['[0] Timeout', '[1] "stop": Value Change']
+    frames = _frames(*labels)
+    out0 = GammaMerge(
+        net="event_70.out0",
+        selector=None,
+        cases=[
+            GammaCase(labels[0], DefaultValue("False", "TF")),
+            GammaCase(labels[1], _control_ref("v")),
+        ],
+    )
+    dynamic = FrameOutputDrive(
+        net="event_70.dynamic", frame=labels[1], value=_control_ref("w")
+    )
+    scope = NetlistScope(
+        uid="70",
+        kind="event",
+        selector=None,
+        frames=frames,
+        outputs=[out0, dynamic],
+        inputs=[
+            StructureInput("event_70.timeout", _control_ref("t")),
+            StructureInput("event_70.dynamic", _control_ref("d")),
+        ],
+    )
+    text, rebuilt = _identity_round_trip(_module(["v", "w", "t", "d"], [scope]))
+    assert 'frame "[1] \\"stop\\": Value Change" :' in text
+    assert text.index("event_70::timeout = t") < text.index("frame ")
+    assert "event_70::dynamic = d" in text
+    assert "event_70::out0 = (default TF)" in text
+    assert text.count("event_70::dynamic = ") == 2
+    event = rebuilt.body[0]
+    assert isinstance(event, NetlistScope)
+    assert [f.label for f in event.frames] == labels
+    assert not any(
+        isinstance(o, GammaMerge) and o.net.endswith("dynamic") for o in event.outputs
+    )
+
+
+def test_a_sequence_drives_a_tunnel_only_in_the_frame_that_wires_it() -> None:
+    frames = _frames("0", "1")
+    scope = NetlistScope(
+        uid="9",
+        kind="sequence",
+        selector=None,
+        frames=frames,
+        outputs=[FrameOutputDrive("sequence_9.out0", "1", _control_ref("v"))],
+        inputs=[StructureInput("sequence_9.in0", _control_ref("u"))],
+        sequence_is_flat=True,
+    )
+    text, rebuilt = _identity_round_trip(_module(["u", "v"], [scope]))
+    assert "sequence_9::in0 = u" in text
+    assert text.count("sequence_9::out0 = v") == 1
+    assert text.index("frame [1]") < text.index("sequence_9::out0 = v")
+    rebuilt_scope = rebuilt.body[0]
+    assert isinstance(rebuilt_scope, NetlistScope)
+    assert [type(o).__name__ for o in rebuilt_scope.outputs] == ["FrameOutputDrive"]

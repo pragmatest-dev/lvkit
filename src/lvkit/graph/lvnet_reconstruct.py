@@ -116,6 +116,7 @@ from .lvnet_parse import (
     ParsedBodyItem,
     ParsedConstant,
     ParsedDependency,
+    ParsedDrive,
     ParsedFeedback,
     ParsedGlobalVariable,
     ParsedLocalVariable,
@@ -159,10 +160,12 @@ from .netlist import (
     NetRef,
 )
 from .netlist_models import (
+    FrameOutputDrive,
     LoopCondition,
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
+    StructureInput,
 )
 from .render_lvnet import _lvnet_type_inline, lvnet_control_name_token
 
@@ -353,13 +356,8 @@ def _parse_source_token(
 
     A plain literal token (quoted string / ``True``/``False``/number) is
     reconstructed as a ``NetRef`` with ``node=None`` and ``lvnet_value`` set
-    to the SAME text -- indistinguishable in render output from a
-    ``DefaultValue`` carrying a real (non-``"?"``) literal, since both
-    render through the identical code path (``_lvnet_default_token``
-    returns the literal alone when it isn't ``"?"``) -- so either
-    reconstruction re-renders byte-identically; there is no information in
-    the text itself to tell the two apart, and none is needed for
-    render idempotence.
+    to the SAME text. A drive-position ``(default <Type>)`` is always an
+    unwired default, never a wired constant.
     """
     # Only LEADING whitespace is stripped; a TRAILING space is preserved
     # because it can be part of a real net/terminal NAME (a LabVIEW control
@@ -965,10 +963,60 @@ def _structure_uid_from_net(net: str) -> str | None:
     return uid if uid.isdigit() else None
 
 
+def _frame_output_drive(
+    drive: ParsedDrive, frame: str, registry: dict[str, _HandleTarget]
+) -> FrameOutputDrive:
+    return FrameOutputDrive(
+        net=drive.net,
+        frame=frame,
+        value=_require_netref(
+            _parse_source_token(drive.source, registry), f"{drive.net} drive"
+        ),
+    )
+
+
+_SEQUENCE_LOCAL_RE = re.compile(rf"{re.escape(_LVNET_TERMINAL_SEP)}local\d+$")
+
+
+def _frame_output_or_local(
+    drive: ParsedDrive, frame: str, registry: dict[str, _HandleTarget]
+) -> ScopeOutput:
+    """A sequence frame's drive line: a sequence local it writes
+    (``sequence_<uid>::localK``) or a value it passes out (``::outK``)."""
+    if _SEQUENCE_LOCAL_RE.search(drive.net):
+        return SequenceLocalDrive(
+            net=drive.net,
+            frame=frame,
+            value=_require_netref(
+                _parse_source_token(drive.source, registry), f"{drive.net} drive"
+            ),
+        )
+    return _frame_output_drive(drive, frame, registry)
+
+
 _LOOP_DRIVE_RE = re.compile(
     rf"^loop_(\d+){re.escape(_LVNET_TERMINAL_SEP)}"
     rf"({_LVNET_LOOP_COUNT_TERMINAL}|{_LVNET_LOOP_CONDITION_TERMINAL})$"
 )
+
+
+_STRUCTURE_INPUT_RE = re.compile(
+    rf"^(?:case|loop|sequence|disabled|event)_\d+{re.escape(_LVNET_TERMINAL_SEP)}"
+    r"(?:in\d+|timeout|dynamic)$"
+)
+
+
+def _structure_input(
+    drive: ParsedDrive, registry: dict[str, _HandleTarget]
+) -> StructureInput:
+    """A structure's opening ``<kind>_<uid>::in<K>`` / ``::timeout`` /
+    ``::dynamic`` line."""
+    return StructureInput(
+        net=drive.net,
+        value=_require_netref(
+            _parse_source_token(drive.source, registry), f"{drive.net} input"
+        ),
+    )
 
 
 def _loop_drive(net: str) -> tuple[str, str] | None:
@@ -1034,6 +1082,7 @@ def _reconstruct_scope(
             selector=selector,
             frames=frames,
             outputs=outputs,
+            inputs=[_structure_input(d, registry) for d in item.inputs],
         )
 
     if item.kind in ("for-loop", "while-loop"):
@@ -1053,7 +1102,11 @@ def _reconstruct_scope(
         selector: NetRef | None = None
         has_condition_line = False
         drive_uids: list[str] = []
+        structure_inputs: list[StructureInput] = []
         for d in item.drives:
+            if _STRUCTURE_INPUT_RE.match(d.net):
+                structure_inputs.append(_structure_input(d, registry))
+                continue
             drive = _loop_drive(d.net)
             if drive is None:
                 raise LvnetReconstructError(
@@ -1091,6 +1144,7 @@ def _reconstruct_scope(
             selector=selector,
             frames=[frame],
             outputs=[*mu_list, *eta_list],
+            inputs=structure_inputs,
             condition_mode=condition_mode,
             count=count,
         )
@@ -1113,23 +1167,14 @@ def _reconstruct_scope(
                         SequenceLocalUnreadable(net=d.net, frame=value, reason=reason)
                     )
                     continue
-                local_drives.append(
-                    SequenceLocalDrive(
-                        net=d.net,
-                        frame=value,
-                        value=_require_netref(
-                            _parse_source_token(d.source, registry),
-                            f"{d.net} drive",
-                        ),
-                    )
-                )
+                local_drives.append(_frame_output_or_local(d, value, registry))
         sequence_uid = item.uid
         if sequence_uid is None:
             sequence_uid = next(
                 (
                     uid
                     for d in local_drives
-                    if isinstance(d, SequenceLocalDrive)
+                    if isinstance(d, SequenceLocalDrive | FrameOutputDrive)
                     and (uid := _structure_uid_from_net(d.net)) is not None
                 ),
                 None,
@@ -1143,6 +1188,7 @@ def _reconstruct_scope(
             frames=frames,
             outputs=local_drives,
             sequence_is_flat=(item.kind == "flat-sequence"),
+            inputs=[_structure_input(d, registry) for d in item.inputs],
         )
 
     if item.kind in ("diagram-disable", "conditional-disable", "type-specialization"):
@@ -1158,29 +1204,60 @@ def _reconstruct_scope(
             )
             for f in item.frames
         ]
+        disabled_outputs: list[ScopeOutput] = [
+            _frame_output_drive(d, f.label, registry)
+            for f in item.frames
+            for d in f.drives
+        ]
         return NetlistScope(
             uid=item.uid if item.uid is not None else fresh_uid.next("disabled"),
             kind="disabled",
             selector=None,
             frames=frames,
             disable_kind=disable_kind,
+            outputs=disabled_outputs,
+            inputs=[_structure_input(d, registry) for d in item.inputs],
         )
 
     if item.kind == "event-structure":
+        labels = [_unescape_lvnet_string(f.label) for f in item.frames]
         frames = [
             NetlistFrame(
-                label=f.label,
-                value=f.label,
+                label=label,
+                value=label,
                 is_default=False,
                 body=_reconstruct_items(f.body, registry, types_dict, memo, fresh_uid),
             )
-            for f in item.frames
+            for f, label in zip(item.frames, labels, strict=True)
         ]
+        net_order: list[str] = []
+        cases_by_net: dict[str, list[GammaCase]] = {}
+        event_drives: list[ScopeOutput] = []
+        for f, label in zip(item.frames, labels, strict=True):
+            for d in f.drives:
+                if d.net.endswith(f"{_LVNET_TERMINAL_SEP}dynamic"):
+                    event_drives.append(_frame_output_drive(d, label, registry))
+                    continue
+                if d.net not in cases_by_net:
+                    cases_by_net[d.net] = []
+                    net_order.append(d.net)
+                cases_by_net[d.net].append(
+                    GammaCase(
+                        frame_key=label, source=_parse_source_token(d.source, registry)
+                    )
+                )
+        event_outputs: list[ScopeOutput] = [
+            GammaMerge(net=net, selector=None, cases=cases_by_net[net])
+            for net in net_order
+        ]
+        event_outputs.extend(event_drives)
         return NetlistScope(
             uid=item.uid if item.uid is not None else fresh_uid.next("event"),
             kind="event",
             selector=None,
             frames=frames,
+            outputs=event_outputs,
+            inputs=[_structure_input(d, registry) for d in item.inputs],
         )
 
     if item.kind == _LVNET_INPLACE_SCOPE_KEYWORD:

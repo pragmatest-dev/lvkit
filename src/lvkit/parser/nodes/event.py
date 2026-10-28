@@ -220,7 +220,7 @@ def _extract_event_tunnels(elem: ET.Element) -> list[Tunnel]:
         dco_class = dco.get("class", "")
         if dco_class not in EVENT_TUNNEL_DCO_CLASSES:
             continue
-        tunnels.extend(extract_tunnel_mapping(dco, dco_class))
+        tunnels.extend(extract_tunnel_mapping(dco, dco_class, per_frame=True))
     return tunnels
 
 

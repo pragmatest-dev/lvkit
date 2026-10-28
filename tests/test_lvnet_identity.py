@@ -73,6 +73,7 @@ from lvkit.graph.netlist import (
 from lvkit.graph.netlist_models import (
     DefaultValue,
     EtaMerge,
+    FrameOutputDrive,
     GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
@@ -295,14 +296,6 @@ def _compare_net(
     if isinstance(a, DefaultValue) and isinstance(b, DefaultValue):
         return
     if isinstance(a, DefaultValue) or isinstance(b, DefaultValue):
-        default, other = (a, b) if isinstance(a, DefaultValue) else (b, a)
-        assert isinstance(default, DefaultValue)
-        if (
-            default.literal != "?"
-            and isinstance(other, NetRef)
-            and other.bare == default.literal
-        ):
-            return
         errors.append(f"{path}: default-vs-wired mismatch: {a!r} vs {b!r}")
         return
     if a is None and b is None:
@@ -470,6 +463,17 @@ def _compare_scope(
         _compare_net(a.selector, b.selector, f"{path}.condition", errors, ctx)
         _compare_net(a.count, b.count, f"{path}.count", errors, ctx)
 
+    if len(a.inputs) != len(b.inputs):
+        errors.append(
+            f"{path}: input count mismatch: {len(a.inputs)} vs {len(b.inputs)}"
+        )
+    else:
+        for i, (ia, ib) in enumerate(zip(a.inputs, b.inputs)):
+            if _lvnet_net_separator(ia.net) != _lvnet_net_separator(ib.net):
+                errors.append(
+                    f"{path}.inputs[{i}]: net mismatch: {ia.net!r} vs {ib.net!r}"
+                )
+            _compare_net(ia.value, ib.value, f"{path}.inputs[{i}]", errors, ctx)
     if len(a.frames) != len(b.frames):
         errors.append(
             f"{path}: frame count mismatch: {len(a.frames)} vs {len(b.frames)}"
@@ -485,6 +489,10 @@ def _compare_scope(
             # ACTIVE one -- previously dropped by ``lvnet_reconstruct``, now
             # recovered via the same ``, default`` marker. sequence/event/loop
             # frames have no default concept (always ``is_default=False``).
+            if a.kind == "event" and fa.label != fb.label:
+                errors.append(
+                    f"{frame_path}: event label mismatch: {fa.label!r} vs {fb.label!r}"
+                )
             if a.kind in ("case", "disabled"):
                 if fa.is_default != fb.is_default:
                     errors.append(
@@ -538,6 +546,14 @@ def _compare_scope(
                 errors.append(
                     f"{merge_path}: drive net mismatch: {ma.net!r} vs {mb.net!r}"
                 )
+            _compare_net(ma.value, mb.value, f"{merge_path}.value", errors, ctx)
+        elif isinstance(ma, FrameOutputDrive):
+            assert isinstance(mb, FrameOutputDrive)
+            if (_lvnet_net_separator(ma.net), ma.frame) != (
+                _lvnet_net_separator(mb.net),
+                mb.frame,
+            ):
+                errors.append(f"{merge_path}: frame output mismatch: {ma!r} vs {mb!r}")
             _compare_net(ma.value, mb.value, f"{merge_path}.value", errors, ctx)
         elif isinstance(ma, GammaMerge):
             assert isinstance(mb, GammaMerge)

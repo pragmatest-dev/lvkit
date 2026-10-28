@@ -235,7 +235,10 @@ in   GUID        : String           default ""                            # UNWI
   would just echo the same column twice. A **drive-position** default (no
   type column of its own — a case-output tunnel left unwired in one frame,
   `case0::out2 = (default TestSuite.lvclass)`) keeps naming the type, since
-  there's nothing else on that line to read it from.
+  there's nothing else on that line to read it from. EVERY drive-position
+  default renders `(default <Type>)`, a scalar's zero included
+  (`case_951::out1 = (default TF)`): a bare `False` there would read as a wired
+  constant. Reconstruction restores "unwired, use default" from it.
 
 **Net vs. constant is told apart lexically (the Verilog convention):** a literal
 (quoted string / number / boolean) is a constant; an identifier is a net.
@@ -491,10 +494,10 @@ frame** (never hoisted to a bottom-of-block merge).
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
 | For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the wire into the count terminal is the first line of the block, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | While Loop | `while-loop (stop if true) :` / `while-loop (continue if true) :` | single implicit body; the header always says how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
-| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, … |
+| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, …; the frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>` (no line in a frame that does not: data leaves each frame as it finishes) |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
-| Event Structure | `event-structure :` | `frame "<event>" :` per event case |
-| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`) |
+| Event Structure | `event-structure :` | `frame "<event>" :` per event case; the label is a §4 string literal (`frame "[1] \"stop\": Value Change" :`). Each frame ends with the values it drives onto the structure's output tunnels, `event_<uid>::outK = <source>` (an unwired frame: `(default <Type>)`), like a case frame. The dynamic terminal pair is one net, `event_<uid>::dynamic`: readers use it, a block line `event_<uid>::dynamic = <src>` is the wire into the left terminal, and a frame that wires the inside right terminal drives it (`event_<uid>::dynamic = <src>`); a frame that does not passes the left value through, so it is never `(default …)`. |
+| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`); a frame that wires an output tunnel ends with `disabled_<uid>::outK = <source>` |
 | Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
 | Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
 | In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value wired into a border node's input — a Bundle Elements element the body supplies, or the cluster/array/index the outside feeds through the structure's In Element port (the port and the border terminal name the same heap DCO) — is a drive line at the end of the body, `inplace_<uid>::putK = <source>`, the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
@@ -549,6 +552,13 @@ text and could resolve the wrong frame's source for the other). Scoped to the
 case/select structure only — sequence/disabled/event frames keep their plain
 `frame <label> :` header; none of them encode a comparable "default" concept
 in their own header text.
+
+**Structure inputs no frame reads.** Lines first in a structure's block (before its
+first frame, or before the body of a loop): `event_70::timeout = -1`,
+`event_1444::dynamic = <src>`, and for every structure kind an input tunnel nothing
+inside reads, `sequence_3252::in0 = case_910::out2`. `K` in `inK` counts ALL of the
+structure's plain input tunnels, read or not (like `localK`), so adding a reader never
+renames another input.
 
 ### Border constructs
 

@@ -1679,6 +1679,7 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
+                frame_position=tunnel.frame_position,
                 mode=tun_mode,
                 conditional=tun_conditional,
                 condition_terminal=q_condition,

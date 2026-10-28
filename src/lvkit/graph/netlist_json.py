@@ -28,6 +28,7 @@ from .netlist_models import (
     ConnectorPaneTerminal,
     DefaultValue,
     EtaMerge,
+    FrameOutputDrive,
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
@@ -48,6 +49,7 @@ from .netlist_models import (
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
+    StructureInput,
 )
 from .typedef import TypedefField, TypedefInfo, TypedefRef
 
@@ -168,6 +170,19 @@ def _sequence_local_unreadable_to_dict(
     }
 
 
+def _frame_output_drive_to_dict(drive: FrameOutputDrive) -> dict[str, Any]:
+    return {
+        "net": drive.net,
+        "kind": "frame_output",
+        "frame": drive.frame,
+        "value": _netref_to_dict(drive.value),
+    }
+
+
+def _structure_input_to_dict(item: StructureInput) -> dict[str, Any]:
+    return {"net": item.net, "value": _netref_to_dict(item.value)}
+
+
 def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
     if isinstance(merge, GammaMerge):
         return _gamma_to_dict(merge)
@@ -179,6 +194,8 @@ def _merge_to_dict(merge: ScopeOutput) -> dict[str, Any]:
         return _sequence_local_drive_to_dict(merge)
     if isinstance(merge, SequenceLocalUnreadable):
         return _sequence_local_unreadable_to_dict(merge)
+    if isinstance(merge, FrameOutputDrive):
+        return _frame_output_drive_to_dict(merge)
     return _eta_to_dict(merge)
 
 
@@ -413,7 +430,13 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     # Loop-only facts (see NetlistScope docstring) -- omitted for non-loop
     # scope kinds rather than always-present-but-empty, to keep the JSON
     # shape for case/sequence/disabled/event scopes unchanged.
+    if item.inputs:
+        d["inputs"] = [_structure_input_to_dict(i) for i in item.inputs]
     if item.kind in ("for", "while"):
+        d["condition"] = (
+            item.condition_mode.name.lower() if item.condition_mode else None
+        )
+        d["count"] = _netref_to_dict(item.count) if item.count else None
         d["parallel"] = item.parallel
         d["parallel_static_workers"] = item.parallel_static_workers
         d["tunnels"] = [

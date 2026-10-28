@@ -83,12 +83,14 @@ from .netlist_models import (
     ConnectorPaneTerminal,
     DefaultValue,
     EtaMerge,
+    FrameOutputDrive,
     GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
     NetlistDependency,
     NetlistFeedback,
+    NetlistFrame,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -221,22 +223,12 @@ def _render_term_group(entries: list[_TermLine], indent: str) -> list[str]:
 
 
 def _lvnet_default_token(dv: DefaultValue) -> str:
-    """The ``default <value>`` VALUE token (lvnet §4) for an unwired
-    terminal -- reuses ``_type_default``/``_default_literal``'s already-
-    resolved facts, never re-deriving a default. A type with a real literal
-    default (``_default_literal`` returned something other than the honest
-    ``"?"``) shows just that literal (``""``, ``0``, ``False``, ...) -- the
-    ``: <Type>`` on the SAME line already names the type, so repeating it
-    here (the OLD inline-annotation form's ``"0 (I32 default)"`` shape --
-    see ``DefaultValue.render``) would be redundant. A type with NO literal
-    default (a class/refnum reference --
-    ``_default_literal`` fell through to ``"?"``) instead shows
-    ``(default <Type>)`` -- the golden's ``(default TestSuite.lvclass)`` --
-    naming what LabVIEW substitutes, since there is no bare literal to show.
-    """
-    if dv.literal == "?":
-        return f"{_LVNET_DEFAULT_PAREN_PREFIX}{dv.type_descriptor})"
-    return dv.literal
+    """The drive-position form of an unwired terminal's default (lvnet §4):
+    ``(default <Type>)``. A drive position (a case-output tunnel left unwired in
+    one frame, an unwired write) has no ``: <Type>`` column of its own, so it
+    names the type, and it never shows the type's zero as a bare literal -- that
+    would read as a wired constant."""
+    return f"{_LVNET_DEFAULT_PAREN_PREFIX}{dv.type_descriptor})"
 
 
 def _lvnet_default_trailing(dv: DefaultValue) -> str:
@@ -1352,6 +1344,7 @@ def _render_lvnet_loop_scope(
     header = _lvnet_loop_header_words(scope)
     lines.append(f"{indent}{header}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
+    _render_structure_input_lines(scope, body_indent, lines, handles)
     for net, source in _loop_count_drives(scope, handles):
         lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source}")
     _render_lvnet_items(
@@ -1438,43 +1431,69 @@ def _render_lvnet_case_scope(
     )
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(f"{indent}case {sel_str}{id_suffix}{_LVNET_BLOCK_OPEN}")
-    gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
+    _render_structure_input_lines(scope, indent + _LVNET_INDENT, lines, handles)
     body_indent = indent + _LVNET_INDENT * 2
     for frame in scope.frames:
         header = _lvnet_case_header(frame.values, frame.is_default)
         lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
-        frame_key = "default" if frame.is_default else frame.label
-        for gamma in gammas:
-            case_entry = next(
-                (c for c in gamma.cases if c.frame_key == frame_key), None
-            )
-            if case_entry is None:
-                continue
-            source_str = _render_lvnet_source(case_entry.source, handles)
-            net = _lvnet_net_separator(gamma.net)
+        for net, source_str in _frame_drives(scope, frame, handles):
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
 
-def _sequence_frame_drives(
-    scope: NetlistScope, frame_value: str, handles: _LvnetHandles
+def _structure_input_drives(
+    scope: NetlistScope, handles: _LvnetHandles
 ) -> list[tuple[str, str]]:
-    """The ``(net, source)`` drive lines of one sequence frame -- each sequence
-    local the frame writes (``sequence_<uid>::local<K> = <source>``), or, for
-    a local wired in a way LabVIEW does not allow, ``= (sequence local
-    unreadable "<reason>")``."""
+    """The ``(net, source)`` lines a structure opens its block with: each wire
+    into it that no frame reads (``sequence_<uid>::in0 = <source>``), an Event
+    Structure's ``timeout`` and the wire into the left terminal of its
+    ``dynamic`` pair."""
+    return [
+        (_lvnet_net_separator(i.net), _render_lvnet_source(i.value, handles))
+        for i in scope.inputs
+    ]
+
+
+def _render_structure_input_lines(
+    scope: NetlistScope, indent: str, lines: list[str], handles: _LvnetHandles
+) -> None:
+    for net, source in _structure_input_drives(scope, handles):
+        lines.append(f"{indent}{net}{_LVNET_DRIVER_OP}{source}")
+
+
+def _frame_drives(
+    scope: NetlistScope, frame: NetlistFrame, handles: _LvnetHandles
+) -> list[tuple[str, str]]:
+    """The ``(net, source)`` drive lines closing one frame: the value it puts on
+    each case / event output tunnel (an unwired frame takes ``(default <Type>)``),
+    then each sequence local it writes, each output tunnel a Sequence or Disable
+    structure's frame wires, and the dynamic-pair value an Event frame wires."""
     lines: list[tuple[str, str]] = []
-    for d in scope.outputs:
-        if isinstance(d, SequenceLocalDrive) and d.frame == frame_value:
-            lines.append(
-                (_lvnet_net_separator(d.net), _render_lvnet_source(d.value, handles))
-            )
-        elif isinstance(d, SequenceLocalUnreadable) and d.frame == frame_value:
+    frame_key = "default" if frame.is_default else frame.label
+    for merge in scope.outputs:
+        if isinstance(merge, GammaMerge):
+            entry = next((c for c in merge.cases if c.frame_key == frame_key), None)
+            if entry is not None:
+                lines.append(
+                    (
+                        _lvnet_net_separator(merge.net),
+                        _render_lvnet_source(entry.source, handles),
+                    )
+                )
+        elif isinstance(merge, SequenceLocalDrive | FrameOutputDrive):
+            if merge.frame == frame.value:
+                lines.append(
+                    (
+                        _lvnet_net_separator(merge.net),
+                        _render_lvnet_source(merge.value, handles),
+                    )
+                )
+        elif isinstance(merge, SequenceLocalUnreadable) and merge.frame == frame.value:
             attribute = (
                 f"({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "
-                f"{lvnet_literal_token(d.reason)})"
+                f"{lvnet_literal_token(merge.reason)})"
             )
-            lines.append((_lvnet_net_separator(d.net), attribute))
+            lines.append((_lvnet_net_separator(merge.net), attribute))
     return lines
 
 
@@ -1496,12 +1515,13 @@ def _render_lvnet_sequence_scope(
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
+    _render_structure_input_lines(scope, body_indent, lines, handles)
     for frame in scope.frames:
         lines.append(f"{body_indent}frame [{frame.value}]{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in _sequence_frame_drives(scope, frame.value, handles):
+        for net, source_str in _frame_drives(scope, frame, handles):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1530,6 +1550,7 @@ def _render_lvnet_disabled_scope(
     lines.append(f"{indent}{keyword}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
+    _render_structure_input_lines(scope, body_indent, lines, handles)
     for frame in scope.frames:
         label = _quoted_frame_label(frame.label) if quote_labels else frame.label
         # A disable structure's ACTIVE frame (the enabled diagram-disable
@@ -1545,6 +1566,10 @@ def _render_lvnet_disabled_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
+        for net, source_str in _frame_drives(scope, frame, handles):
+            lines.append(
+                f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
+            )
 
 
 def _render_lvnet_event_scope(
@@ -1555,16 +1580,25 @@ def _render_lvnet_event_scope(
     *,
     verbose: bool,
 ) -> None:
-    """``event-structure :`` (§8), ``frame "<event>" :`` per event case."""
+    """``event-structure :`` (§8), ``frame "<event>" :`` per event case. The
+    label is a §4 string literal (``frame "[1] \\"stop\\": Value Change" :``). Each
+    frame ends with the values it drives onto the structure's output tunnels
+    (``event_<uid>::out<K> = ...``) and, when it wires the inside right terminal
+    of the dynamic pair, ``event_<uid>::dynamic = ...``."""
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
     lines.append(f"{indent}event-structure{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
+    _render_structure_input_lines(scope, body_indent, lines, handles)
     for frame in scope.frames:
-        label = _quoted_frame_label(frame.label)
+        label = lvnet_literal_token(frame.label)
         lines.append(f"{body_indent}frame {label}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
+        for net, source_str in _frame_drives(scope, frame, handles):
+            lines.append(
+                f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
+            )
 
 
 def _render_lvnet_inplace_scope(
