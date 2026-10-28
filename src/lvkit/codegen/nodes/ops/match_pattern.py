@@ -24,7 +24,6 @@ from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 from ...fragment import CodeFragment
 from ...match_pattern_regex import function_source, to_python_regex
 from . import register_op_fragment
@@ -34,14 +33,10 @@ _TRANSLATOR_NAME = "_match_pattern_regex"
 
 
 def _input(ctx: CodeGenContext, node: PrimitiveNode, index: int) -> str | None:
-    """The expression feeding input ``index``; None when it is unwired."""
+    """The expression feeding input ``index``; None when nothing resolves to it
+    (the input is unwired, or its source has no variable)."""
     term = terminal(node, "input", index)
-    if term is None:
-        return None
-    text = ctx.resolve(term.id)
-    if text is None and ctx.is_wired(term.id):
-        raise CodeGenError("Unresolved wired Match Pattern input", node)
-    return text
+    return ctx.resolve(term.id) if term is not None else None
 
 
 def _literal(text: str | None) -> object | None:
