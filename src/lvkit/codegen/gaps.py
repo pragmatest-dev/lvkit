@@ -27,6 +27,7 @@ from lvkit.vilib_resolver import VILibResolutionNeeded
 
 from .ast_utils import build_assign, to_var_name
 from .ctypes_module import CtypesModule
+from .errors import MissingVIError
 from .fragment import CodeFragment
 
 if TYPE_CHECKING:
@@ -35,13 +36,14 @@ if TYPE_CHECKING:
 # The kinds `lvkit unresolved` lists. A gap fits the first four by what it is;
 # every other node gap is an "unsupported_node", and a gap in no node at all (a
 # class whose parent is not loaded, a constant with no value to write) is an
-# "unsupported_vi".
+# "unsupported_vi". A call of a VI that was not found is a "missing_vi".
 UNKNOWN_PRIMITIVE = "unknown_primitive"
 PLACEHOLDER_PRIMITIVE = "placeholder_primitive"
 UNSUPPORTED_NODE = "unsupported_node"
 UNMAPPED_VILIB = "unmapped_vilib"
 TERMINAL_MAPPING = "terminal_mapping"
 UNSUPPORTED_VI = "unsupported_vi"
+MISSING_VI = "missing_vi"
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,8 @@ def gap_of(
             identifier, name = exc.prim_id, exc.prim_name or "unknown"
     elif isinstance(exc, VILibResolutionNeeded):
         kind, identifier, name = UNMAPPED_VILIB, exc.vi_name, exc.vi_name
+    elif isinstance(exc, MissingVIError):
+        kind, identifier, name = MISSING_VI, exc.name, exc.name
     elif isinstance(exc, TerminalResolutionNeeded):
         kind, identifier, name = TERMINAL_MAPPING, exc.prim_name, exc.prim_name
     elif node is not None:
@@ -247,6 +251,16 @@ class ModuleState:
                 current[:] = saved
 
 
+def _wired_terminals(node: AnyGraphNode, ctx: CodeGenContext) -> list[str]:
+    """The wired terminals of a call, as ``input index=0 type=NumInt32``."""
+    return [
+        f"{t.direction} index={t.index} type="
+        f"{(t.lv_type.underlying_type or t.lv_type.kind.value) if t.lv_type else '?'}"
+        for t in node.terminals
+        if ctx.is_wired(t.id)
+    ]
+
+
 class GapGuard:
     """The outcome of ``catch_gap``: the fragment of the gap, when one occurred."""
 
@@ -265,6 +279,8 @@ def catch_gap(node: AnyGraphNode, ctx: CodeGenContext) -> Iterator[GapGuard]:
         yield guard
     except ConversionGap as exc:
         state.restore()
+        if isinstance(exc, MissingVIError):
+            exc.call_terminals = _wired_terminals(node, ctx)
         gap = gap_of(exc, ctx.vi_name or "", node)
         ctx.gaps.append(gap)
         guard.fragment = gap_fragment(node, ctx, gap.message)

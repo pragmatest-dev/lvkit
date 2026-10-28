@@ -31,7 +31,6 @@ lvkit generate "<vi-path>" -o outputs --search-path "<library-path>"
 ```
   vilib: 3
   ast:   12
-  stub:  0
   error: 0
 ```
 

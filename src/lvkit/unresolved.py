@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .codegen.gaps import (
+    MISSING_VI,
     PLACEHOLDER_PRIMITIVE,
     TERMINAL_MAPPING,
     UNKNOWN_PRIMITIVE,
@@ -110,6 +111,7 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
         UNSUPPORTED_NODE: "Nodes that cannot be converted",
         UNMAPPED_VILIB: "Unmapped vi.lib VIs",
         TERMINAL_MAPPING: "Terminal-mapping gaps",
+        MISSING_VI: "VIs that were not found",
         UNSUPPORTED_VI: "VIs and modules that cannot be converted",
     }
     _order = tuple(_labels)
@@ -126,6 +128,7 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
         f"{_n(UNSUPPORTED_NODE)} node(s) that cannot be converted, "
         f"{_n(UNMAPPED_VILIB)} unmapped vi.lib VI(s), "
         f"{_n(TERMINAL_MAPPING)} terminal-mapping gap(s), "
+        f"{_n(MISSING_VI)} VI(s) not found, "
         f"{_n(UNSUPPORTED_VI)} VI(s) or module(s) that cannot be converted.",
     ]
     for kind in _order:

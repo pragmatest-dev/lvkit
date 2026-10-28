@@ -50,16 +50,18 @@ it as unresolved and keeps going:
 - [`describe`](describe.md), `diff`, `visualize`, `docs`, and `render` just
   show it by name, without a signature or description (`describe` documents
   this for its own output in its [Notes](describe.md#notes)).
-- `generate` writes a stub Python module for it instead: a function that
-  raises `NotImplementedError` if actually called at runtime, and prints a
-  warning for it. Only calling that specific SubVI fails, and only then.
+- `generate` reports each call of it as one `missing_vi` [gap](generate.md#gaps):
+  a warning naming the VI and the path its caller recorded, and a `raise
+  NotImplementedError(...)` where the call would run, which lists the types and
+  directions of the terminals the call wires. No module is written for the
+  missing VI.
 
 This is why the CI setup above (`--no-auto-vilib`, no `--vilib`) doesn't
 block on every `<vilib>`/`<userlib>` call: lvkit ships its own mapping data
 for a large set of common vi.lib, OpenG, and driver VIs, matched by name and
 independent of `--vilib`/`--userlib`/auto-detection. Those still generate
 working Python with no LabVIEW install anywhere. A `<vilib>`/`<userlib>` VI
-lvkit doesn't already know about falls back to the stub behavior above at
+lvkit doesn't already know about is that same `missing_vi` gap at
 `generate` time. A call lvkit *does* know about, but can't fully map (an
 unmapped terminal, an unresolved primitive), is a [gap](generate.md#gaps) at
 that call: a warning, and a `raise NotImplementedError(...)` where it would

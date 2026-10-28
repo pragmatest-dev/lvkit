@@ -353,3 +353,124 @@ def test_a_global_control_with_no_value_to_write_raises_where_it_is_defined() ->
     assert "'Logo'" in lines[-1] and "Picture of 3 bytes" in lines[-1]
     (gap,) = gaps
     assert (gap.kind, gap.node_name) == ("unsupported_vi", "Logo")
+
+
+# ---------------------------------------------------------------------------
+# A call of a VI that was not found
+# ---------------------------------------------------------------------------
+
+
+def _caller_of(callee_key: str, found: bool, tmp_path: Path):
+    """A VI ``caller.vi`` that calls ``callee_key`` (a stub in the graph unless
+    ``found``) with one wired input and one wired output, and the import resolver
+    of its package."""
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.pipeline import create_import_resolver
+
+    graph = InMemoryVIGraph()
+    graph._dep_graph.add_node(  # noqa: SLF001
+        callee_key,
+        node_type="vi",
+        path_tokens=["<vilib>", "daqmx", "Flatten Channel String.vi"],
+    )
+    if not found:
+        graph._stubs.add(callee_key)  # noqa: SLF001
+    out = tmp_path / "pkg"
+    out.mkdir()
+    vi_paths = {callee_key: out / "flatten.py", "caller.vi": out / "caller.py"}
+    resolver = create_import_resolver(
+        "pkg", out, vi_paths, out / "caller.py", caller_key="caller.vi", graph=graph
+    )
+    call = VINode(
+        id="call",
+        vi_path="caller.vi",
+        name="Flatten Channel String.vi",
+        node_type="iUse",
+        callee_key=callee_key,
+        terminals=[
+            FPTerminal(
+                id="k:in",
+                index=0,
+                direction="input",
+                lv_type=LVType(kind=LVTypeKind.ARRAY),
+            ),
+            FPTerminal(
+                id="k:out",
+                index=1,
+                direction="output",
+                name="result",
+                lv_type=_STRING,
+            ),
+        ],
+    )
+    context = VIContext(
+        name="caller.vi",
+        inputs=[
+            FPTerminal(
+                id="fp:x",
+                index=0,
+                direction="input",
+                name="x",
+                is_public=True,
+                is_indicator=False,
+                lv_type=LVType(kind=LVTypeKind.ARRAY),
+            )
+        ],
+        outputs=[
+            FPTerminal(
+                id="fp:y",
+                index=0,
+                direction="output",
+                name="y",
+                is_public=True,
+                is_indicator=True,
+                lv_type=_STRING,
+            )
+        ],
+        data_flow=[
+            Wire.from_terminals(from_terminal_id="fp:x", to_terminal_id="k:in"),
+            Wire.from_terminals(from_terminal_id="k:out", to_terminal_id="fp:y"),
+        ],
+    )
+    graph_ = build_graph(context, "caller.vi", [call], graph=graph)
+    gaps: list[Gap] = []
+    source = build_module(
+        context, "caller.vi", import_resolver=resolver, graph=graph_, gaps=gaps
+    )
+    return source, gaps
+
+
+_STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+
+
+def test_a_call_of_a_vi_that_was_not_found_is_one_missing_vi_gap(
+    tmp_path: Path,
+) -> None:
+    key = "<vilib>/daqmx/Flatten Channel String.vi"
+    source, gaps = _caller_of(key, False, tmp_path)
+    (gap,) = gaps
+    assert (gap.kind, gap.identifier, gap.node_name) == (
+        "missing_vi",
+        "Flatten Channel String.vi",
+        "Flatten Channel String.vi",
+    )
+    assert gap.reason == (
+        "The VI 'Flatten Channel String.vi' (<vilib>/daqmx/Flatten Channel String.vi)"
+        " was not found; add it to the project or to a --search-path and generate "
+        "again"
+    )
+    # The raise carries the types and directions of the terminals the call wires.
+    assert "input index=0 type=array" in gap.message
+    assert "output index=1 type=String" in gap.message
+    # Nothing is imported, and the rest of the caller is there after the raise.
+    assert "from .flatten" not in source
+    assert source.index("raise NotImplementedError(") < source.index("return ")
+    assert not list(tmp_path.rglob("flatten.py"))
+
+
+def test_a_call_of_a_found_vi_with_an_unmapped_terminal_is_a_terminal_mapping_gap(
+    tmp_path: Path,
+) -> None:
+    source, gaps = _caller_of("/proj/flatten.vi", True, tmp_path)
+    assert [g.kind for g in gaps] == ["terminal_mapping"]
+    assert "from .flatten import" not in source

@@ -26,6 +26,7 @@ from lvkit.codegen.ast_utils import (
     unique_names,
 )
 from lvkit.codegen.error_path import is_error_wire_vi
+from lvkit.codegen.errors import MissingVIError
 from lvkit.codegen.errors_module import (
     ERRORS_MODULE_NAME,
     ERRORS_MODULE_SOURCE,
@@ -34,7 +35,6 @@ from lvkit.codegen.errors_module import (
 from lvkit.codegen.gaps import Gap, GapLog, GapStop
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
-from lvkit.codegen.stubs import stub_module
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -57,7 +57,6 @@ class GenerationResult:
 
     vilib: int = 0
     ast: int = 0
-    stub: int = 0
     error: int = 0
     generated: list[tuple[str, Path | None, str]] = field(default_factory=list)
 
@@ -110,7 +109,6 @@ def create_import_resolver(
     defined_names: Collection[str] = (),
     package_modules: PackageModules | None = None,
     layout: ModuleLayout | None = None,
-    named_only: dict[Path, str] | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -133,9 +131,6 @@ def create_import_resolver(
         layout: Where every module lives; gives the package of an owner (a
             library or class) for generated code that imports a VI by a name it
             computes.
-        named_only: Receives the output file and name of each VI that a module
-            imports by name alone, with no VI of that name generated; the caller
-            writes a stub module for it.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -156,24 +151,28 @@ def create_import_resolver(
                 qualified = graph.resolve_vi_name(vi_name) or vi_name
             except AmbiguousVIReferenceError:
                 pass
-        if qualified in vi_paths:
-            return vi_paths[qualified]
-        if vi_name in vi_paths:
-            return vi_paths[vi_name]
-        if layout is None:
-            path = output_dir / f"{to_module_name(qualified)}.py"
-        else:
-            place = layout.place_of_name(qualified)
-            path = output_dir.joinpath(*place.packages) / f"{place.module}.py"
-        if named_only is not None:
-            named_only[path] = qualified
-        return path
+        for key in (qualified, vi_name):
+            if key in vi_paths:
+                return found(key, vi_name)
+        raise MissingVIError(
+            vi_name, graph.recorded_path(qualified) if graph is not None else None
+        )
+
+    def found(key: str, name: str) -> Path:
+        """The output file of the VI at ``key``; a VI the graph holds only as a
+        stub, with no implementation of its own, was not found."""
+        implemented = vilib_resolver is not None and vilib_resolver.has_implementation(
+            key
+        )
+        if graph is not None and graph.is_stub(key) and not implemented:
+            raise MissingVIError(name, graph.recorded_path(key))
+        return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
         """The output file of the VI a call names: the one generated for
         ``callee_key``, else the one for ``subvi_name`` (see ``locate_by_name``)."""
         if callee_key is not None and callee_key in vi_paths:
-            return vi_paths[callee_key]
+            return found(callee_key, subvi_name)
         return locate_by_name(subvi_name)
 
     def relative(dep_path: Path) -> tuple[str, str, str]:
@@ -334,7 +333,6 @@ def _generate_polymorphic_module(
     data_files: dict[str, bytes] | None = None,
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
-    named_only: dict[Path, str] | None = None,
 ) -> str:
     """Generate a module containing all variants and wrapper. Data files the
     variants read at run time are added to ``data_files``, and the gaps found in
@@ -377,7 +375,6 @@ def _generate_polymorphic_module(
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
             layout=layout,
- named_only=named_only,
         )
         code = build_module(
             vi_context,
@@ -545,7 +542,7 @@ def generate_python(
             more is generated, and the run counts as a stopped VI.
 
     Returns:
-        Summary dict with keys: vilib, ast, stub, error, failed counts and
+        Summary dict with keys: vilib, ast, error, failed counts and
         ``gaps``, the list of ``Gap`` records (printed as warnings).
     """
     input_path = Path(input_path)
@@ -673,7 +670,6 @@ def generate_python(
 
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
-    named_only: dict[Path, str] = {}
     gap_root = project_root(input_path)
 
     try:
@@ -721,13 +717,9 @@ def generate_python(
                 generated.append((vi_name, output_path, "vilib"))
 
             elif is_stub:
-                # A stub: the VI was not found, which is a gap
-                code, stub_gap = stub_module(vi_name)
-                vi_gaps.append(stub_gap)
-                output_path.write_text(code, encoding="utf-8")
-                _report_gaps(vi_gaps, all_gaps, gap_root)
-                print(f"         -> stub: {output_path.name}")
-                generated.append((vi_name, output_path, "stub"))
+                # Not found: nothing to write. Each call of it is a gap.
+                print("         -> (not found: no module)")
+                continue
 
             elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
                 try:
@@ -744,7 +736,6 @@ def generate_python(
                             vilib_resolver=vilib_resolver,
                             defined_names=[derive_python_name(Path(vi_name).name)],
                             layout=layout,
-     named_only=named_only,
                         ),
                         gaps=vi_gaps,
                     )
@@ -778,8 +769,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=vi_gaps,
-                        named_only=named_only,
-                    )
+                        )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
@@ -812,7 +802,6 @@ def generate_python(
                         vilib_resolver=vilib_resolver,
                         package_modules=package_modules,
                         layout=layout,
-     named_only=named_only,
                     )
                     data_files: dict[str, bytes] = {}
                     code = build_module(
@@ -868,8 +857,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=wrapper_gaps,
-                        named_only=named_only,
-                    )
+                        )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
@@ -879,20 +867,7 @@ def generate_python(
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                     traceback.print_exc()
 
-        # A VI a module imports by name alone and that was not found has a stub module.
-        for stub_path, stub_name in sorted(named_only.items()):
-            if stub_path.exists():
-                continue
-            _ensure_packages(stub_path, output_dir_resolved)
-            code, stub_gap = stub_module(stub_name)
-            stub_path.write_text(code, encoding="utf-8")
-            stub_log = GapLog(fail_fast)
-            stub_log.append(stub_gap)
-            _report_gaps(stub_log, all_gaps, gap_root)
-            print(f"  -> stub: {stub_path.name}")
-            generated.append((stub_name, stub_path, "stub"))
-
-        # Generate minimal __init__.py (just makes it a package)
+    # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
@@ -920,7 +895,6 @@ def generate_python(
                 vilib_resolver=vilib_resolver,
                 package_modules=package_modules,
                 layout=layout,
-     named_only=named_only,
             )
             builder = ClassBuilder(config=ClassConfig())
             class_gaps = GapLog(fail_fast)
@@ -957,13 +931,11 @@ def generate_python(
 
     vilib_count = sum(1 for _, _, s in generated if s == "vilib")
     ast_count = sum(1 for _, _, s in generated if s == "ast")
-    stub_count = sum(1 for _, _, s in generated if s == "stub")
     error_count = sum(1 for _, _, s in generated if s == "error")
     failed_count = sum(1 for _, _, s in generated if s == "failed")
 
     print(f"  vilib: {vilib_count}")
     print(f"  ast:   {ast_count}")
-    print(f"  stub:  {stub_count}")
     print(f"  error: {error_count}")
     print(f"  failed: {failed_count}")
     print(f"  gaps:  {len(all_gaps)}")
@@ -1004,7 +976,6 @@ def generate_python(
     return {
         "vilib": vilib_count,
         "ast": ast_count,
-        "stub": stub_count,
         "error": error_count,
         "failed": failed_count,
         "gaps": all_gaps,
