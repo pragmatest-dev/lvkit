@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from lvkit.cli_run import add_fail_fast_arg, command_run, finish, run_command
 from lvkit.graph.loading import LoadMode
 from lvkit.pipeline import generate_python
 
@@ -35,11 +36,7 @@ def main():
         default=[],
         help="Additional search paths",
     )
-    parser.add_argument(
-        "--fail-fast",
-        action="store_true",
-        help="End the run at the first gap (its warning is printed).",
-    )
+    add_fail_fast_arg(parser)
     parser.add_argument(
         "--vilib",
         default=None,
@@ -53,17 +50,23 @@ def main():
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
     args = parser.parse_args()
+    return run_command(_generate, args)
 
-    generate_python(
-        args.input,
+
+def _generate(args: argparse.Namespace) -> int:
+    input_path = Path(args.input)
+    run = command_run(args, input_path)
+    result = generate_python(
+        input_path,
         args.output,
         search_paths=[Path(p) for p in args.search_paths],
         mode=LoadMode.FULL,
-        fail_fast=args.fail_fast,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        run=run,
     )
+    return finish(run, bool(result["error"] or result["failed"]))
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

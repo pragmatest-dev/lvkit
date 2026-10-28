@@ -30,8 +30,10 @@ from ...index.build import sync_index
 from ...index.model import VIFacts
 from ...index.project import resolve_project_files
 from ...index.store import db_path as store_db_path
+from ...run_report import Problem
 from ._compat import Context
 from .app import mcp
+from .problems import new_run, with_problems
 from .resolvers import _configure_resolvers_for_vi
 from .roots import _client_roots
 
@@ -40,6 +42,9 @@ from .roots import _client_roots
 # never collide, and there is no session-wide `clear` that wipes another caller's
 # state.
 _indexes: dict[str, list[VIFacts]] = {}
+# The problems of the sync that filled each entry of ``_indexes`` (a VI the index
+# is missing because it could not be read), shown again by a call that hits it.
+_index_problems: dict[str, tuple[Problem, ...]] = {}
 
 
 def _require_vis(root: Path, vi_paths: list[Path]) -> None:
@@ -80,7 +85,11 @@ def _get_index(project: str, *, rebuild: bool = False) -> tuple[Path, list[VIFac
         # A cold store gets one whole-repo build; a warm/partial one (populated
         # progressively by single-VI loads) is gap-filled and its impact
         # recomputed across the merged set.
-        _indexes[key] = sync_index(root, vi_paths, ctl_paths, rebuild=rebuild).facts
+        run = new_run(root)
+        _indexes[key] = sync_index(
+            root, vi_paths, ctl_paths, rebuild=rebuild, run=run
+        ).facts
+        _index_problems[key] = run.report().problems
     return root, _indexes[key]
 
 
@@ -122,7 +131,9 @@ async def index(
     dependencies no longer match — a ``.ctl`` it reads changed shape, even
     though the VI's own file did not. Returns the VI count (full build) or the
     rebuilt/deleted counts (refresh), the number of ``.ctl`` controls indexed
-    (``controls``), plus the resolved project root.
+    (``controls``), plus the resolved project root, ``status`` (Complete / Partial /
+    Stopped) and ``problems`` (every VI that could not be read; the rest is
+    indexed).
     """
     project = await _facade._resolve_project(project, ctx)
 
@@ -131,25 +142,33 @@ async def index(
         root, vi_paths, ctl_paths = resolve_project_files(Path(project))
         _require_vis(root, vi_paths)
         _configure_resolvers_for_vi(root)
-        done = sync_index(root, vi_paths, ctl_paths, rebuild=not refresh)
+        run = new_run(root)
+        done = sync_index(root, vi_paths, ctl_paths, rebuild=not refresh, run=run)
         _indexes[str(root)] = done.facts
+        _index_problems[str(root)] = run.report().problems
         ms = round((time.monotonic() - start) * 1000)
         if done.refresh is not None:
-            return {
+            return with_problems(
+                {
+                    "project_root": str(root),
+                    "rebuilt": len(done.refresh.rebuilt),
+                    "deleted": len(done.refresh.deleted),
+                    "total": done.refresh.total,
+                    "controls": done.controls.controls,
+                    "ms": ms,
+                },
+                run,
+            )
+        return with_problems(
+            {
                 "project_root": str(root),
-                "rebuilt": len(done.refresh.rebuilt),
-                "deleted": len(done.refresh.deleted),
-                "total": done.refresh.total,
+                "vis": len(done.facts),
                 "controls": done.controls.controls,
+                "collisions": done.collisions,
                 "ms": ms,
-            }
-        return {
-            "project_root": str(root),
-            "vis": len(done.facts),
-            "controls": done.controls.controls,
-            "collisions": done.collisions,
-            "ms": ms,
-        }
+            },
+            run,
+        )
 
     return await asyncio.to_thread(_work)
 
@@ -184,7 +203,9 @@ async def query(
         WHERE type_descriptor = 'Error' AND direction = 'output'
         GROUP BY name ORDER BY n DESC
 
-    Returns ``{columns, rows, row_count, truncated}`` (columnar). Only a single
+    Returns ``{columns, rows, row_count, truncated, status, problems}``
+    (columnar); ``problems`` lists the VIs the index is missing because they could
+    not be read. Only a single
     SELECT/CTE is allowed — writes, ``PRAGMA``, ``ATTACH`` and stacked statements
     are refused. The index is built/refreshed automatically on first use.
     ``project`` defaults to the client's workspace root. The call graph is the
@@ -196,7 +217,9 @@ async def query(
 
     def _work() -> dict[str, Any]:
         root, _ = _get_index(project)
-        return asdict(isql.run_query(root, sql))
+        run = new_run(root)
+        run.take(_index_problems.get(str(root), ()), announce=False)
+        return with_problems(asdict(isql.run_query(root, sql)), run)
 
     return await asyncio.to_thread(_work)
 
@@ -211,6 +234,7 @@ async def query_schema() -> list[dict[str, Any]]:
 
 __all__ = [
     "_indexes",
+    "_index_problems",
     "_require_vis",
     "_get_index",
     "list_projects",

@@ -5,7 +5,6 @@ build/refresh; both feed the same shared ``types`` catalog."""
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,11 +17,10 @@ from ..graph.typedef import (
     field_default_literal,
     walk_typedef_fields,
 )
+from ..run_report import RunProblems
 from .model import TypedefFacts, TypedefFieldFact, TypedefRefFact, TypedefRel
 from .store import apply_typedefs, load_typedef_dependents, load_typedef_shas
 from .types import TypeCatalog
-
-logger = logging.getLogger(__name__)
 
 
 def _facts_from_info(
@@ -66,27 +64,29 @@ def _facts_from_info(
 
 
 def build_typedef_facts(
-    project_root: Path, ctl_path: Path, sha: str | None = None
-) -> TypedefFacts:
-    """The facts of one control. A control that cannot be read yields a stub fact
-    naming the reason (its content hash recorded, so it is retried only when the
-    file changes). ``sha`` is the file's content hash when the caller has it."""
+    project_root: Path,
+    ctl_path: Path,
+    sha: str | None = None,
+    run: RunProblems | None = None,
+) -> TypedefFacts | None:
+    """The facts of one control, or None when it cannot be read: the problem is
+    recorded on the control's node (and in ``run``) and nothing is stored for it,
+    so it is tried and reported again on every sync. ``sha`` is the file's content
+    hash when the caller has it."""
     resolved = ctl_path.resolve()
     sha = sha or cache_paths.sha256_file(resolved)
+    run = run or RunProblems()
+    graph = run.new_graph(tracked=False)
     try:
-        graph, key = load_ctl_by_path(resolved, search_paths=[project_root])
+        _, key = load_ctl_by_path(resolved, search_paths=[project_root], graph=graph)
         info = graph.get_typedef(key)
         catalog = TypeCatalog(lambda t: graph.get_type_fields(t, key))
         return _facts_from_info(info, catalog, sha, str(resolved))
     except Exception as e:  # noqa: BLE001 -- one unreadable control must not stop a sync
-        logger.warning("index: %s could not be read as a control: %s", resolved, e)
-        return TypedefFacts(
-            path=str(resolved),
-            name=resolved.name,
-            is_stub=True,
-            stub_reason=f"{type(e).__name__}: {e}",
-            content_sha=sha,
-        )
+        graph.record_load_failure(resolved, e, node_type=NodeType.TYPEDEF)
+        return None
+    finally:
+        run.collect(graph)
 
 
 @dataclass
@@ -120,15 +120,27 @@ def _rebuild_facts(
     to_rebuild: set[str],
     current: dict[str, Path],
     shas: dict[str, str],
-) -> list[TypedefFacts]:
-    return [
-        build_typedef_facts(project_root, current[path], shas[path])
-        for path in sorted(to_rebuild)
-    ]
+    run: RunProblems | None = None,
+) -> tuple[list[TypedefFacts], list[str]]:
+    """The facts of the controls in ``to_rebuild`` and the paths of those that could
+    not be read (nothing is stored for them)."""
+    built: list[TypedefFacts] = []
+    unreadable: list[str] = []
+    for path in sorted(to_rebuild):
+        facts = build_typedef_facts(project_root, current[path], shas[path], run)
+        if facts is None:
+            unreadable.append(path)
+        else:
+            built.append(facts)
+    return built, unreadable
 
 
 def sync_typedefs(
-    project_root: Path, ctl_paths: list[Path], *, rebuild: bool = False
+    project_root: Path,
+    ctl_paths: list[Path],
+    *,
+    rebuild: bool = False,
+    run: RunProblems | None = None,
 ) -> TypedefSyncResult:
     """Make the stored control facts match the files: rebuild new / changed
     controls, every control that (transitively) uses one of them -- its own
@@ -146,10 +158,12 @@ def sync_typedefs(
         to_rebuild = _with_dependents(
             dirty | set(deleted), current, load_typedef_dependents(project_root)
         )
-    changed = _rebuild_facts(project_root, to_rebuild, current, shas)
-    apply_typedefs(project_root, changed, deleted)
+    changed, unreadable = _rebuild_facts(project_root, to_rebuild, current, shas, run)
+    apply_typedefs(project_root, changed, [*deleted, *unreadable])
     return TypedefSyncResult(
-        controls=len(current), rebuilt=[t.path for t in changed], deleted=deleted
+        controls=len(current) - len(unreadable),
+        rebuilt=[t.path for t in changed],
+        deleted=deleted,
     )
 
 
@@ -162,6 +176,6 @@ def warm_typedefs(project_root: Path, ctl_paths: list[Path]) -> None:
     stored = load_typedef_shas(project_root)
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     changed_paths = {path for path in current if stored.get(path) != shas[path]}
-    changed = _rebuild_facts(project_root, changed_paths, current, shas)
-    if changed:
-        apply_typedefs(project_root, changed, [])
+    changed, unreadable = _rebuild_facts(project_root, changed_paths, current, shas)
+    if changed or unreadable:
+        apply_typedefs(project_root, changed, unreadable)

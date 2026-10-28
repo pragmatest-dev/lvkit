@@ -185,7 +185,7 @@ SET_FP_CONTROL_VI = Path(
 
 def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
-    subprocess.run(
+    proc = subprocess.run(
         [
             sys.executable,
             "scripts/generate_python.py",
@@ -196,10 +196,11 @@ def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
             ".lvkit/cache/samples/OpenG/extracted",
         ],
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    assert proc.returncode in (0, 3), proc.stderr  # 3: partial, a gap warned
 
 
 def _tree_bytes(root: Path) -> dict[str, bytes]:

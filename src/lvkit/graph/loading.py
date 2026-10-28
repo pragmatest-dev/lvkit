@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -20,7 +20,7 @@ import networkx as nx
 
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
-from ..extractor import extract_llb, extract_vi_xml
+from ..extractor import extract_llb, extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType
@@ -36,6 +36,13 @@ from ..parser import (
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.type_mapping import parse_type_map_rich
+from ..run_report import (
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunSettings,
+    UnreadableVIError,
+)
 from ..structure import (
     LVClass,
     get_project_classes,
@@ -296,6 +303,26 @@ class LoadingMixin:
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
+        def load_vi_recording(
+            self,
+            vi_path: Path | str,
+            mode: LoadMode,
+            search_paths: list[Path] | None = None,
+        ) -> str | None: ...
+        def record_load_failure(
+            self,
+            vi_path: Path | str,
+            exc: Exception,
+            stage: ProblemStage | None = None,
+            node_type: NodeType = ...,
+        ) -> None: ...
+        def record_file_problem(self, path: Path | str, problem: Problem) -> None: ...
+        def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]: ...
+        def record_problem(
+            self, vi_key: str, problem: Problem, node_type: NodeType = ...
+        ) -> None: ...
+        def clear_problems(self, vi_key: str) -> None: ...
+        def vi_label(self, path: Path | str) -> str: ...
         def clear(self) -> None: ...
         def _add_vi_to_graph(
             self,
@@ -583,7 +610,7 @@ class LoadingMixin:
                             lvlib_path.parent,
                         )
                     if vi_path and vi_path.exists():
-                        member_key = self.load_vi(vi_path, mode, search_paths)
+                        member_key = self.load_vi_recording(vi_path, mode, search_paths)
                         # Ownership edge — to the member's RETURN key (its path).
                         if member_key and member_key in self._dep_graph:
                             self._dep_graph.add_edge(
@@ -611,13 +638,18 @@ class LoadingMixin:
                     # expect to resolve later", which is wrong here): warn and
                     # move on rather than sending a non-VI file to load_vi
                     # (which raises ValueError and would abort the whole load).
-                    logger.warning(
-                        'library %s declares member %r as Type="VI" but its '
-                        "URL %r is not a loadable VI (.vi/.vim/.vit) or .ctl "
-                        "file — skipping it.",
-                        lvlib_path.name,
-                        member.name,
-                        member.url,
+                    self.record_file_problem(
+                        lvlib_path,
+                        Problem(
+                            vi=self.vi_label(lvlib_path),
+                            stage=ProblemStage.LOAD,
+                            kind=ProblemKind.UNREADABLE,
+                            reason=(
+                                f'declares member {member.name!r} as Type="VI" but '
+                                f"its URL {member.url!r} is not a loadable VI "
+                                "(.vi/.vim/.vit) or .ctl file; it is skipped"
+                            ),
+                        ),
                     )
             elif member.member_type == "LVClass":
                 class_name = Path(member.url).name
@@ -849,7 +881,7 @@ class LoadingMixin:
         for method in cls.methods:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
-                method_key = self.load_vi(vi_path, mode, search_paths)
+                method_key = self.load_vi_recording(vi_path, mode, search_paths)
                 # Ownership edge — carries scope/accessor info for docs (class
                 # landing pages, access-level badges). A method VI's identity is
                 # its file path (the vi_key it loaded under), which is unique, so
@@ -895,17 +927,13 @@ class LoadingMixin:
         is readable but has no cluster root: a control that isn't a cluster is
         not a class's private data, so it is not edged (it stays a typedef
         node). An unreadable control stays edged as a stub, so staging can
-        still name it, and is logged."""
+        still name it; the problem is on the control."""
         ctl = self._find_private_data_ctl(lvclass_path.parent, cls.private_data_ctl)
         if ctl is None:
             return []
         ctl_key = self.load_typedef(ctl, search_paths=search_paths)
         if ctl_key in self._stubs:
-            logger.warning(
-                "class %s: private-data control %s could not be read",
-                cls.name,
-                ctl.name,
-            )
+            pass  # the control's own node says why it could not be read
         elif not self._dep_graph.nodes[ctl_key].get("fields"):
             return []
         self._dep_graph.add_edge(cls_key, ctl_key, rel=EdgeRel.PRIVATE_DATA)
@@ -1174,7 +1202,7 @@ class LoadingMixin:
 
         for vi_name, vi_path in get_project_vis(proj):
             if vi_path.exists():
-                self.load_vi(vi_path, mode, search_paths)
+                self.load_vi_recording(vi_path, mode, search_paths)
             else:
                 key = str(vi_path.resolve())
                 self._add_stub(
@@ -1212,7 +1240,7 @@ class LoadingMixin:
 
         try:
             for vi_path in vi_paths:
-                self.load_vi(vi_path, mode, search_paths)
+                self.load_vi_recording(vi_path, mode, search_paths)
 
             for llb_path in sorted(dir_path.rglob("*.llb")):
                 if llb_path.is_file():
@@ -1239,18 +1267,28 @@ class LoadingMixin:
             return
 
         try:
-            cache_dir = extract_llb(llb_path)
-        except RuntimeError:
-            return  # Unreadable LLB — silently skip
+            cache_dir, failures = extract_llb_members(llb_path)
+        except RuntimeError as exc:
+            self.record_load_failure(
+                llb_path, UnreadableVIError(str(exc)), node_type=NodeType.LIBRARY
+            )
+            return
+        for failure in failures:
+            # A member that could not be extracted is a problem on its own VI,
+            # labelled by the archive's path; a failure of the whole archive's
+            # content block belongs to the archive.
+            member = cache_dir / failure.member if failure.member else llb_path
+            self.record_load_failure(
+                member,
+                UnreadableVIError(failure.reason),
+                node_type=NodeType.VI if failure.member else NodeType.LIBRARY,
+            )
 
         if search_paths is None:
             search_paths = [cache_dir]
 
         for vi_path in glob_vi_files(cache_dir):
-            try:
-                self.load_vi(vi_path, mode, search_paths)
-            except (RuntimeError, ValueError):
-                pass  # Skip VIs that have no block diagram (compiled-only)
+            self.load_vi_recording(vi_path, mode, search_paths)
 
     def _resolve_through_llb(self, candidate: Path) -> Path | None:
         """Walk ``candidate``'s path components for a ``.llb`` file.
@@ -1545,6 +1583,7 @@ class LoadingMixin:
         # infinite recursion the old unconditional _loaded_vis check prevented.
         self._loaded_vis.add(vi_key)
         self._stubs.discard(vi_key)
+        self.clear_problems(vi_key)
         self._dep_load_mode[vi_key] = mode
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
@@ -1794,13 +1833,22 @@ class LoadingMixin:
         try:
             bd_xml, fp_xml, main_xml = self._extract(ctl_path)
             if not (main_xml and main_xml.exists()):
+                self.record_load_failure(
+                    ctl_path,
+                    UnreadableVIError("no control data could be read", path=ctl_path),
+                    node_type=NodeType.TYPEDEF,
+                )
                 return None, {}, None
             type_map = parse_type_map_rich(main_xml)
             root_type_id = _get_fp_root_type_id(fp_xml)
             front_panel = parse_vi(
                 bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml
             ).front_panel
-        except (RuntimeError, OSError, ValueError, ET.ParseError):
+        except (RuntimeError, OSError, ValueError, ET.ParseError) as exc:
+            # Only an unreadable file is "unreadable"; anything else (a malformed
+            # extraction, a parse bug) is an lvkit error. Either way the control's
+            # node carries it and the contract below holds.
+            self.record_load_failure(ctl_path, exc, node_type=NodeType.TYPEDEF)
             return None, {}, None
         if root_type_id is None:
             root_type_id = 1  # cluster control default
@@ -1895,6 +1943,12 @@ class LoadingMixin:
                     )
         else:
             # XML not produced, or no root type — stub with what we know
+            if not self.problems([ctl_key]):
+                self.record_load_failure(
+                    ctl_path,
+                    UnreadableVIError("the control has no root type", path=ctl_path),
+                    node_type=NodeType.TYPEDEF,
+                )
             self._dep_graph.add_node(
                 ctl_key, node_type=NodeType.TYPEDEF, path_tokens=None
             )
@@ -2242,12 +2296,15 @@ class LoadingMixin:
                 ):
                     self._cache_vilib_terminal_layout(loaded_name, dep_ref)
             return loaded_name
-        except (RuntimeError, OSError):
+        except Exception as exc:
             # The file isn't present (e.g. web round 1: it hasn't been staged
-            # yet). Stub it BY PATH and EDGE it to the caller, so the recorded
+            # yet), or it cannot be read (recorded in the run's report). Stub it
+            # BY PATH and EDGE it to the caller, so the recorded
             # path surfaces in get_dependency_paths — otherwise the extension has
             # nothing to stage and the SubVI never appears. A later round finds
             # the file and this upgrades to a real leaf-load.
+            if resolved.is_file():
+                self.record_load_failure(resolved, exc)
             stub_key = str(resolved.resolve())
             self._stub_subvi(qualified_name, dep_ref=dep_ref, key=stub_key)
             if caller_qname:
@@ -2600,6 +2657,8 @@ def load_vi_by_path(
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
     layout: bool = False,
+    run_settings: RunSettings | None = None,
+    graph: InMemoryVIGraph | None = None,
 ) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI, by its on-disk PATH, into a fresh graph and return
     ``(graph, vi_key)``.
@@ -2622,7 +2681,8 @@ def load_vi_by_path(
     from .core import InMemoryVIGraph  # local: avoid a core<->loading cycle
 
     path = Path(path)
-    graph = InMemoryVIGraph()
+    if graph is None:
+        graph = InMemoryVIGraph(run_settings)
     if vilib_root or userlib_root:
         graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
     key = graph.load_vi(str(path), mode, search_paths=search_paths, layout=layout)

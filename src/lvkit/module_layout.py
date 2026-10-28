@@ -27,7 +27,6 @@ from pathlib import Path
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
-from lvkit.project_store import PROJECT_STORE_DIR, global_home
 from lvkit.vi_files import strip_vi_extension
 
 # The package a file outside the project and every search path is placed in.
@@ -54,24 +53,6 @@ class ModulePlace:
     @property
     def parts(self) -> tuple[str, ...]:
         return (*self.packages, self.module)
-
-
-def project_root(input_path: Path) -> Path:
-    """The project folder of the VI (or folder) being generated: the nearest folder
-    above it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project
-    store; the VI's own folder when there is none."""
-    start = input_path.resolve()
-    own = start if start.is_dir() else start.parent
-    home = global_home().resolve()
-    for folder in [own, *own.parents]:
-        store = folder / PROJECT_STORE_DIR
-        if (
-            any(folder.glob("*.lvproj"))
-            or (folder / ".git").exists()
-            or (store.is_dir() and store.resolve() != home)
-        ):
-            return folder
-    return own
 
 
 def _tokens(path: str) -> list[str]:
@@ -217,11 +198,17 @@ class ModuleLayout:
         """The names at the package root that VI modules and packages take."""
         return {place.parts[0] for place in self.places.values()}
 
+    def _shown(self, key: str) -> str:
+        """A key as a message shows it: a file below the project by its
+        project-relative path, never an absolute one."""
+        parts = _below(key, self._root) if os.path.isabs(key) else None
+        return "/".join(parts) if parts else key
+
     def _check_unique(self) -> None:
         for key, place in self.places.items():
             if place.parts[0] in self._reserved:
                 raise ModuleCollisionError(
-                    f"{key!r} generates {'.'.join(place.parts)}, but "
+                    f"{self._shown(key)!r} generates {'.'.join(place.parts)}, but "
                     f"{place.parts[0]!r} at the package root is the generated "
                     "shared module of that name."
                 )
@@ -229,7 +216,8 @@ class ModuleLayout:
         for key, place in self.places.items():
             if place.parts in owner:
                 raise ModuleCollisionError(
-                    f"{owner[place.parts]!r} and {key!r} both generate the module "
+                    f"{self._shown(owner[place.parts])!r} and {self._shown(key)!r} "
+                    "both generate the module "
                     f"{'.'.join(place.parts)}."
                 )
             owner[place.parts] = key
@@ -238,7 +226,7 @@ class ModuleLayout:
                 other = owner.get(place.parts[:depth])
                 if other is not None:
                     raise ModuleCollisionError(
-                        f"{other!r} generates the module "
+                        f"{self._shown(other)!r} generates the module "
                         f"{'.'.join(place.parts[:depth])}, which is also the "
-                        f"package of {key!r}."
+                        f"package of {self._shown(key)!r}."
                     )

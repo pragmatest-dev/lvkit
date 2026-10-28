@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..cache_paths import _project_root_for
+from ..cache_paths import store_root
 from ..vi_files import is_vi_file
 
 
@@ -23,7 +23,7 @@ def resolve_project_files(target: Path | str) -> tuple[Path, list[Path], list[Pa
       every ``.vi`` and ``.ctl`` under it is enumerated, exactly like
       ``load_directory``.
     - A single file (``.lvproj``/``.lvlib``/``.lvclass``/``.vi``) resolves to
-      its enclosing project root via ``cache_paths._project_root_for`` (the
+      its enclosing project root via ``cache_paths.store_root`` (the
       nearest ancestor holding a ``.lvkit/`` store, a ``.git`` root, or a
       ``*.lvproj`` — same rule the extraction cache uses), falling back to the
       file's own parent directory when no such ancestor exists.
@@ -36,7 +36,7 @@ def resolve_project_files(target: Path | str) -> tuple[Path, list[Path], list[Pa
     if resolved.is_dir():
         root = resolved
     else:
-        root = _project_root_for(resolved) or resolved.parent
+        root = store_root(resolved)
 
     vi_paths: list[Path] = []
     ctl_paths: list[Path] = []

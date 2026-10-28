@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import project_root, store_root
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.module_layout import (
@@ -14,7 +15,6 @@ from lvkit.module_layout import (
     ModuleLayout,
     ModulePlace,
     UnplacedVIError,
-    project_root,
 )
 
 
@@ -162,8 +162,10 @@ def test_two_files_that_transform_to_one_module_stop_generation_naming_both(
     first, second = tree.key("Foo Bar", "x.vi"), tree.key("foo_bar", "x.vi")
     with pytest.raises(ModuleCollisionError) as caught:
         _layout(first, second, root=tree.proj)
-    assert repr(first) in str(caught.value)
-    assert repr(second) in str(caught.value)
+    # named by their project-relative paths, never absolute ones
+    assert repr("Foo Bar/x.vi") in str(caught.value)
+    assert repr("foo_bar/x.vi") in str(caught.value)
+    assert str(tree.proj) not in str(caught.value)
 
 
 def test_a_module_and_a_package_of_one_name_stop_generation(tree: _Tree) -> None:
@@ -182,6 +184,34 @@ def test_the_project_is_the_nearest_folder_with_a_project_marker(
     inner = tmp_path / "src" / ".git"
     inner.mkdir()
     assert project_root(vi) == (tmp_path / "src").resolve()
+
+
+def test_a_lvproj_folder_inside_a_git_repo_is_the_project_but_the_repo_is_the_store(
+    tmp_path: Path,
+) -> None:
+    """A git repo whose ``.lvproj`` is in a subfolder: generated modules and every
+    shown name are relative to the ``.lvproj`` folder (the project); the cache and
+    the index are keyed by the repo (the store)."""
+    (tmp_path / ".git").mkdir()
+    labview = tmp_path / "LabVIEW"
+    (labview / "sub").mkdir(parents=True)
+    (labview / "My.lvproj").write_text("<Project/>")
+    vi = labview / "sub" / "A.vi"
+    vi.write_text("")
+    assert project_root(vi) == labview.resolve()
+    assert store_root(vi) == tmp_path.resolve()
+
+
+def test_a_git_repo_inside_a_store_is_its_own_project_but_shares_the_store(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".lvkit").mkdir()
+    vendored = tmp_path / "vendor" / "lib"
+    (vendored / ".git").mkdir(parents=True)
+    vi = vendored / "x.vi"
+    vi.write_text("")
+    assert project_root(vi) == vendored.resolve()
+    assert store_root(vi) == tmp_path.resolve()
 
 
 def test_with_no_marker_the_project_is_the_vis_own_folder(tmp_path: Path) -> None:

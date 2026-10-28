@@ -91,7 +91,7 @@ def test_render_and_diff_return_a_path_not_the_content(tmp_path: Path) -> None:
         assert isinstance(resp, dict)
         # The response carries a path + a byte count + input-VI identification
         # (#114) — no markup, no blob key.
-        assert set(resp) == {path_key, "bytes", *extra_keys}
+        assert set(resp) == {path_key, "bytes", "status", "problems", *extra_keys}
         blob = json.dumps(resp)
         assert "<svg" not in blob and "<html" not in blob.lower()
         # The real content is substantial and lives on disk, not in the response.

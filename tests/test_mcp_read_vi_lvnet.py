@@ -49,7 +49,11 @@ def test_read_vi_format_lvnet_terse() -> None:
             str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)], format="lvnet"
         )
     )
-    assert result == {"lvnet": _expected(verbose=False)}
+    assert result == {
+        "lvnet": _expected(verbose=False),
+        "status": "Complete",
+        "problems": [],
+    }
 
 
 def test_read_vi_format_lvnet_verbose() -> None:
@@ -64,7 +68,7 @@ def test_read_vi_format_lvnet_verbose() -> None:
         )
     )
     expected = _expected(verbose=True)
-    assert result == {"lvnet": expected}
+    assert result == {"lvnet": expected, "status": "Complete", "problems": []}
     assert "types :" in expected
 
 
@@ -80,4 +84,4 @@ def test_read_vi_default_format_unchanged() -> None:
     expected = netlist_to_dict(build_netlist_from_graph(graph, vi_name))
 
     result = _run(srv.read_vi(str(_GOLDEN_VI), search_paths=[str(_JKI_SOURCE_ROOT)]))
-    assert result == expected
+    assert result == {**expected, "status": "Complete", "problems": []}

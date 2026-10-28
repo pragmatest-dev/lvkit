@@ -127,13 +127,13 @@ def test_with_name_returns_the_same_body_plus_the_typedef_name():
 
     result = render_ctl_body_with_name(_CTL, fmt="svg", theme_mode="light")
     assert result is not None
-    svg, name, _ = result
+    svg, name = result.body, result.name
     assert svg == render_ctl_body(_CTL, fmt="svg", theme_mode="light")
     assert name == "API_Test Settings.ctl"
 
     result_html = render_ctl_body_with_name(_CTL, fmt="html", ref="abc1234")
     assert result_html is not None
-    _, name_html, _ = result_html
+    name_html = result_html.name
     assert name_html == "API_Test Settings.ctl"  # the ref suffix is NOT in name
 
 
@@ -146,7 +146,7 @@ def test_the_output_cache_serves_a_control_render(tmp_path, monkeypatch):
         _CTL, fmt="svg", options=opts, version="t", theme_mode="light"
     )
     assert first is not None
-    assert lookup_render(_CTL, "svg", opts, "t") == first  # now a fresh cache hit
+    assert lookup_render(_CTL, "svg", opts, "t") == first.body  # a fresh cache hit
 
 
 @pytest.mark.needs_samples

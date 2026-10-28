@@ -22,6 +22,7 @@ from ..models import (
     contains_class_instance,
 )
 from ..parser.models import ParsedType, ParsedVI
+from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
 
 if TYPE_CHECKING:
@@ -156,6 +157,7 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
 # Import mixins - these define methods that InMemoryVIGraph inherits
 from .analysis import AnalysisMixin  # noqa: E402
 from .construction import ConstructionMixin  # noqa: E402
+from .load_problems import LoadProblemsMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .operations import OperationsMixin  # noqa: E402
 from .package_queries import PackageQueriesMixin  # noqa: E402
@@ -165,6 +167,7 @@ from .vi_reference import VIReferenceMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
+    LoadProblemsMixin,
     LoadingMixin,
     ConstructionMixin,
     QueryMixin,
@@ -188,7 +191,9 @@ class InMemoryVIGraph(
                     # ... generate code ...
     """
 
-    def __init__(self) -> None:
+    def __init__(self, run_settings: RunSettings | None = None) -> None:
+        # How a problem recorded on a VI's node is announced (echo, fail-fast).
+        self.run_settings: RunSettings = run_settings or RunSettings()
         # Unified graph: all VIs, all nodes, all edges
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         # Per-VI node index: vi_name -> set of node UIDs in that VI
@@ -284,6 +289,11 @@ class InMemoryVIGraph(
         self._vilib_root = vilib_root
         self._userlib_root = userlib_root
         self._instrlib_root = instrlib_root
+        self.run_settings.library_roots = {
+            "<vilib>": vilib_root,
+            "<userlib>": userlib_root,
+            "<instrlib>": instrlib_root,
+        }
         # The run's library roots feed the cache classifier; set them on the
         # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
         from lvkit import cache_paths

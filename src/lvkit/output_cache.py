@@ -44,9 +44,11 @@ import shutil
 import time
 from collections.abc import Iterable
 from pathlib import Path
+from typing import NamedTuple
 
 from lvkit import cache_paths, staging
 from lvkit.build_options import BuildOptions
+from lvkit.run_report import Problem, ProblemStage, RunSettings, problem_from_json
 from lvkit.text_encoding import labview_text_encoding
 
 # Retirement is decoupled from correctness (a removed file is indistinguishable
@@ -201,6 +203,43 @@ def _write(
     _sweep_once()
 
 
+class CachedBody(NamedTuple):
+    """An output body with the problems found building it. ``cached`` says the
+    body came from the cache, so its problems were stored, not just found."""
+
+    body: str
+    problems: tuple[Problem, ...]
+    cached: bool
+
+
+def _about_vis(problems: Iterable[Problem]) -> list[Problem]:
+    """The problems worth storing with an output: those about the VIs it was built
+    from. A problem about the cache itself (it could not be written) says nothing
+    about the VIs and would be repeated by every later hit."""
+    return [p for p in problems if p.stage is not ProblemStage.CACHE]
+
+
+def _read_problems(meta_path: Path) -> tuple[Problem, ...]:
+    """The problems stored in a slot's meta (none when it holds none)."""
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        return tuple(problem_from_json(p) for p in meta.get("problems", ()))
+    except (OSError, ValueError, KeyError):
+        return ()
+
+
+def render_problems(input_path: Path, fmt: str) -> tuple[Problem, ...]:
+    """The problems stored with the cached render of ``input_path``/``fmt``."""
+    return _read_problems(_render_paths(input_path, fmt)[1])
+
+
+def diff_problems(
+    before_path: Path, after_path: Path, fmt: str
+) -> tuple[Problem, ...]:
+    """The problems stored with the cached diff of ``(before, after)``/``fmt``."""
+    return _read_problems(_diff_paths(before_path, after_path, fmt)[1])
+
+
 def render_slot(input_path: Path, fmt: str) -> Path:
     """The cache slot path a render of ``input_path`` occupies (for reporting)."""
     return _render_paths(input_path, fmt)[0]
@@ -235,8 +274,10 @@ def store_render(
     *,
     name: str | None = None,
     dependencies: Iterable[Path] = (),
+    problems: Iterable[Problem] = (),
 ) -> Path:
     """Cache ``body`` as the render of ``input_path``; return the slot path.
+    ``problems`` are stored with it, so a hit reports what the build did.
 
     ``dependencies`` are the files the render read besides the VI (its SubVIs
     and controls); their content stamps are recorded so a later lookup is a miss
@@ -259,6 +300,7 @@ def store_render(
         # itself — record the real path (mirrors extraction's meta.json).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if name is not None:
         extra["name"] = name
@@ -312,6 +354,7 @@ def store_diff(
     before_name: str | None = None,
     after_name: str | None = None,
     dependencies: Iterable[Path] = (),
+    problems: Iterable[Problem] = (),
 ) -> Path:
     """Cache ``body`` as the diff of ``(before, after)``; return the slot path.
     ``dependencies`` are recorded the way :func:`store_render` records them.
@@ -333,6 +376,7 @@ def store_diff(
         # itself — record the AFTER VI's real path (mirrors extraction).
         "source": source_label,
         "dependencies": cache_paths.dependency_stamps(dependencies),
+        "problems": [p.to_json() for p in _about_vis(problems)],
     }
     if before_name is not None:
         extra["before_name"] = before_name
@@ -410,8 +454,9 @@ def cached_render(
     options: str,
     version: str,
     return_cached: bool = True,
+    run_settings: RunSettings | None = None,
     **build_kw: object,
-) -> str | None:
+) -> CachedBody | None:
     """Render ``input_path`` to ``fmt`` through the output cache.
 
     ``return_cached`` gates the READ only — when true, a fresh slot short-circuits
@@ -419,17 +464,24 @@ def cached_render(
     refreshes the slot, so ``return_cached=False`` means "ignore any existing hit
     and rebuild" (the ``--no-cache`` semantics) — never "don't cache". ``build_kw``
     forwards to :func:`lvkit.render.body.render_body` on a miss. Returns the body, or
-    ``None`` if the render declines (nothing is stored then)."""
+    ``None`` if the render declines (nothing is stored then). The result carries the
+    problems of the VIs the render loaded: stored with a hit, found by a miss
+    (announced per ``run_settings`` as they are recorded)."""
     if return_cached:
         hit = lookup_render(input_path, fmt, options, version)
         if hit is not None:
-            return hit
+            return CachedBody(hit, render_problems(input_path, fmt), True)
     from lvkit.render.body import render_body_with_name
 
     # render_body_with_name has already loaded the graph to build the body --
     # capturing its name here is free; store it so a later HIT can read it
     # back via read_render_identity without loading anything (#114 follow-up).
-    result = render_body_with_name(input_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
+    result = render_body_with_name(
+        input_path,
+        fmt=fmt,
+        run_settings=run_settings,
+        **build_kw,  # type: ignore[arg-type]
+    )
     if result is None:
         return None
     store_render(
@@ -440,8 +492,9 @@ def cached_render(
         result.body,
         name=result.name,
         dependencies=result.dependencies,
+        problems=result.problems,
     )
-    return result.body
+    return CachedBody(result.body, result.problems, False)
 
 
 def cached_diff(
@@ -452,8 +505,9 @@ def cached_diff(
     options: str,
     version: str,
     return_cached: bool = True,
+    run_settings: RunSettings | None = None,
     **build_kw: object,
-) -> str | None:
+) -> CachedBody | None:
     """Diff ``(before, after)`` to ``fmt`` through the output cache — the diff twin
     of :func:`cached_render` (same ``return_cached`` read-gate / always-refresh
     semantics). ``build_kw`` forwards to :func:`lvkit.vi_diff.diff_vi_files` on a
@@ -461,13 +515,19 @@ def cached_diff(
     if return_cached:
         hit = lookup_diff(before_path, after_path, fmt, options, version)
         if hit is not None:
-            return hit
+            return CachedBody(hit, diff_problems(before_path, after_path, fmt), True)
     from lvkit.vi_diff import diff_vi_files
 
     # diff_vi_files has already loaded both graphs -- capturing each side's
     # name here is free; store it so a later HIT can read it back via
     # read_diff_identity without loading anything (#114 follow-up).
-    result = diff_vi_files(before_path, after_path, fmt=fmt, **build_kw)  # type: ignore[arg-type]
+    result = diff_vi_files(
+        before_path,
+        after_path,
+        fmt=fmt,
+        run_settings=run_settings,
+        **build_kw,  # type: ignore[arg-type]
+    )
     if result is None:
         return None
     store_diff(
@@ -480,8 +540,9 @@ def cached_diff(
         before_name=result.before_name,
         after_name=result.after_name,
         dependencies=result.dependencies,
+        problems=result.problems,
     )
-    return result.body
+    return CachedBody(result.body, result.problems, False)
 
 
 # ── TTL sweep (opportunistic, once per process) ─────────────────────────────

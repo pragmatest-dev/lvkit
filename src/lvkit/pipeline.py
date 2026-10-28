@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lvkit.cache_paths import project_root
 from lvkit.codegen import ClassBuilder, ClassConfig, build_module
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
@@ -32,15 +33,24 @@ from lvkit.codegen.errors_module import (
     ERRORS_MODULE_SOURCE,
     LABVIEW_ERROR_NAME,
 )
-from lvkit.codegen.gaps import Gap, GapLog, GapStop
+from lvkit.codegen.gaps import Gap, GapLog, gap_problem
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
-from lvkit.module_layout import ModuleLayout, project_root
+from lvkit.module_layout import ModuleLayout
 from lvkit.project_store import find_project_store
+from lvkit.run_report import (
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunProblems,
+    RunSettings,
+    RunStopped,
+    problem_for_exception,
+)
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
 from lvkit.vi_files import strip_vi_extension
@@ -72,12 +82,14 @@ def _write_syntax_error(
     error: SyntaxError,
     vi_name: str,
     generated: list[tuple[str, Path | None, str]],
+    graph: InMemoryVIGraph,
 ) -> None:
     """Write a .error.py file beside the module for a SyntaxError during
     generation."""
     error_path = module_path.with_suffix(".error.py")
     error_path.write_text(f"# SYNTAX ERROR: {error}\n\n{code}", encoding="utf-8")
     print(f"         -> SYNTAX ERROR: {error_path.name}")
+    _record_failure(graph, vi_name, error)
     generated.append((vi_name, error_path, "error"))
 
 
@@ -305,20 +317,26 @@ def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
         target.write_bytes(content)
 
 
-def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], root: Path | None) -> None:
-    """Print one warning line per gap of a VI that was written, and keep them."""
-    for gap in vi_gaps:
-        vi = gap.vi
-        if root is not None:
-            try:
-                vi = Path(vi).relative_to(root).as_posix()
-            except ValueError:
-                pass
-        where = f"{gap.node_name}: " if gap.node_name else ""
-        print(f"warning: {vi}: {where}{gap.reason} [{gap.kind}]", file=sys.stderr)
-        for line in gap.diagnostic():
-            print(f"    {line}", file=sys.stderr)
+def _report_gaps(
+    vi_gaps: list[Gap], all_gaps: list[Gap], graph: InMemoryVIGraph
+) -> None:
+    """Put every gap of a VI that was written on the VI's node (which announces
+    its warning), and keep them."""
+    if graph.run_settings.gaps_are_problems:
+        for gap in vi_gaps:
+            graph.record_problem(gap.vi, gap_problem(gap, graph))
     all_gaps.extend(vi_gaps)
+
+
+def _record_failure(graph: InMemoryVIGraph, vi_name: str, exc: Exception) -> None:
+    """Record that generating ``vi_name`` failed with ``exc``; an lvkit error also
+    prints its traceback, the same in every command."""
+    problem = problem_for_exception(
+        graph.key_label(vi_name), ProblemStage.GENERATE, exc
+    )
+    graph.record_problem(vi_name, problem)
+    if problem.kind is ProblemKind.LVKIT_ERROR:
+        traceback.print_exception(exc)
 
 
 def _generate_polymorphic_module(
@@ -526,7 +544,7 @@ def generate_python(
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
-    fail_fast: bool = False,
+    run: RunProblems | None = None,
 ) -> dict:
     """Generate Python from VI files.
 
@@ -538,15 +556,19 @@ def generate_python(
             whole SubVI/class-method tree); ``NONE`` generates this VI only.
         vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
         userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
-        fail_fast: End the run at the first gap: its warning is printed, nothing
-            more is generated, and the run counts as a stopped VI.
+        run: The run's problems (``run_report.py``). Each gap and each VI
+            that cannot be written is recorded on its VI's node and collected in
+            it; with ``fail_fast`` on, the run ends at the first problem.
 
     Returns:
         Summary dict with keys: vilib, ast, error, failed counts and
-        ``gaps``, the list of ``Gap`` records (printed as warnings).
+        ``gaps``, the list of ``Gap`` records.
     """
     input_path = Path(input_path)
     output_dir_root = Path(output_dir)
+    run = run or RunProblems(
+        RunSettings(echo=True, root=project_root(input_path))
+    )
 
     # Create VI-named subfolder within output directory
     vi_folder_name = input_path.stem
@@ -562,7 +584,7 @@ def generate_python(
 
     print(f"Loading: {input_path}")
 
-    graph = InMemoryVIGraph()
+    graph = run.new_graph()
     if vilib_root or userlib_root:
         graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
     search_path_list = list(search_paths) if search_paths else []
@@ -670,7 +692,6 @@ def generate_python(
 
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
-    gap_root = project_root(input_path)
 
     try:
         for i, vi_name in enumerate(order, 1):
@@ -700,13 +721,22 @@ def generate_python(
                     continue
 
             if vi_name in layout.unplaced:
+                graph.record_problem(
+                    vi_name,
+                    Problem(
+                        vi=graph.key_label(vi_name),
+                        stage=ProblemStage.GENERATE,
+                        kind=ProblemKind.UNWRITABLE,
+                        reason=str(layout.unplaced[vi_name]),
+                    ),
+                )
                 print(f"         -> FAILED: {layout.unplaced[vi_name]}")
                 generated.append((vi_name, None, "failed"))
                 continue
 
             # Only create directory structure when we're actually going to write a file
             output_path = vi_paths[vi_name]
-            vi_gaps = GapLog(fail_fast)
+            vi_gaps = GapLog(graph)
             _ensure_packages(output_path, output_dir_resolved)
 
             if has_vilib:
@@ -741,10 +771,11 @@ def generate_python(
                     )
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-type; keep generating remaining modules
+                    _record_failure(graph, vi_name, e)
                     error_path = output_path.with_suffix(".error.py")
                     error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
                     print(f"         -> FAILED: {e}")
@@ -773,17 +804,19 @@ def generate_python(
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, graph)
                     print(
                         f"         -> polymorphic: {output_path.name}"
                         f" ({len(variants)} variants)"
                     )
                     generated.append((vi_name, output_path, "ast"))
                 except SyntaxError as e:
-                    _write_syntax_error(output_path, code, e, vi_name, generated)
+                    _write_syntax_error(
+                        output_path, code, e, vi_name, generated, graph
+                    )
                 except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
+                    _record_failure(graph, vi_name, e)
                     print(f"         -> FAILED: {e}")
-                    traceback.print_exc()
                     generated.append((vi_name, None, "failed"))
 
             else:
@@ -817,14 +850,17 @@ def generate_python(
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, graph)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
 
                 except SyntaxError as e:
-                    _write_syntax_error(output_path, code, e, vi_name, generated)
+                    _write_syntax_error(
+                        output_path, code, e, vi_name, generated, graph
+                    )
 
                 except Exception as e:  # noqa: BLE001 — per-VI; keep generating remaining VIs
+                    _record_failure(graph, vi_name, e)
                     error_path = output_path.with_suffix(".error.py")
                     error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
                     print(f"         -> FAILED: {e}")
@@ -844,7 +880,7 @@ def generate_python(
                 try:
                     _ensure_packages(wrapper_path, output_dir_resolved)
                     data_files: dict[str, bytes] = {}
-                    wrapper_gaps = GapLog(fail_fast)
+                    wrapper_gaps = GapLog(graph)
                     code = _generate_polymorphic_module(
                         wrapper_name,
                         variants,
@@ -861,11 +897,11 @@ def generate_python(
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
-                    _report_gaps(wrapper_gaps, all_gaps, gap_root)
+                    _report_gaps(wrapper_gaps, all_gaps, graph)
                     generated.append((wrapper_name, wrapper_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
+                    _record_failure(graph, wrapper_name, e)
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
-                    traceback.print_exc()
 
     # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
@@ -897,7 +933,7 @@ def generate_python(
                 layout=layout,
             )
             builder = ClassBuilder(config=ClassConfig())
-            class_gaps = GapLog(fail_fast)
+            class_gaps = GapLog(graph)
             try:
                 module = builder.build_class_module(
                     lvclass,
@@ -911,17 +947,16 @@ def generate_python(
 
                 # Write class file
                 class_path.write_text(class_code, encoding="utf-8")
-                _report_gaps(class_gaps, all_gaps, gap_root)
+                _report_gaps(class_gaps, all_gaps, graph)
                 print(f"\nGenerated class wrapper: {class_path.name}")
             except Exception as e:  # noqa: BLE001 — a class wrapper that cannot be built stops only itself
+                _record_failure(graph, str(input_path.resolve()), e)
                 print(f"\n  [class wrapper] FAILED for {lvclass.name}: {e}")
-                traceback.print_exc()
                 generated.append((lvclass.name, None, "failed"))
 
-    except GapStop as stop:
-        _report_gaps([stop.gap], all_gaps, gap_root)
-        print("Stopped at the first gap (--fail-fast): the output is incomplete.")
-        generated.append((stop.gap.vi, None, "failed"))
+    except RunStopped as stop:
+        print("Stopped at the first problem (--fail-fast): the output is incomplete.")
+        generated.append((stop.problem.vi, None, "failed"))
 
     _write_errors_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):

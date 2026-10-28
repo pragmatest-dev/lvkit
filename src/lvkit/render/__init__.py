@@ -23,6 +23,7 @@ from typing import Literal
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
+from ..run_report import Problem, ProblemStage, RunSettings
 from .backend import SvgBackend
 from .composite import draw_scene
 from .connector_pane import pane_terminals, render_connector_pane_help
@@ -593,7 +594,12 @@ def render_vi_with_subvis(
                 # ``data-node`` — so the docs NAV map matches the SVG (and neither
                 # carries the abspath vi_key).
                 subvis[rn.dom_id] = target
-    return _render_scene_svg(scene, vi_name, theme), subvis
+    return (
+        _render_scene_svg(
+            scene, vi_name, theme, display_name=graph.vi_display_name(vi_name)
+        ),
+        subvis,
+    )
 
 
 def render_vi_file(
@@ -645,6 +651,31 @@ def render_vi_file_titled(
     (fully qualified, e.g. ``Class.lvclass:vi.vi``) name — for use as a viewer
     title — and the sorted file paths of the dependencies the load reached.
     Same load/degrade behaviour."""
+    svg, title, dependencies, _ = render_vi_file_report(
+        path,
+        search_paths=search_paths,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        mode=mode,
+        theme=theme,
+        theme_mode=theme_mode,
+    )
+    return svg, title, dependencies
+
+
+def render_vi_file_report(
+    path: Path,
+    *,
+    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    mode: LoadMode = LoadMode.MINIMAL,
+    theme: Theme = DEFAULT_THEME,
+    theme_mode: ThemeMode = "light",
+    run_settings: RunSettings | None = None,
+) -> tuple[str | None, str, tuple[Path, ...], tuple[Problem, ...]]:
+    """Like :func:`render_vi_file_titled`, but also returns the problems recorded
+    on the nodes of the VIs the load reached (a SubVI that cannot be read)."""
     path = Path(path)
     vi_name_hint = (
         path.name.replace("_BDHb.xml", ".vi")
@@ -652,22 +683,36 @@ def render_vi_file_titled(
         else path.name
     )
 
+    # What a failed shallow load recorded about the VIs it reached: the retry
+    # starts a new graph.
+    failed_attempt: list[Problem] = []
+
     def _load(load_mode: LoadMode) -> tuple[InMemoryVIGraph, str | None]:
-        graph = InMemoryVIGraph()
+        graph = InMemoryVIGraph(run_settings)
         if vilib_root or userlib_root:
             graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-        vi_key = graph.load_vi(
-            path, mode=load_mode, search_paths=search_paths, layout=True
-        )
+        try:
+            vi_key = graph.load_vi(
+                path, mode=load_mode, search_paths=search_paths, layout=True
+            )
+        except Exception:
+            failed_attempt.extend(graph.problems())
+            raise
         return graph, vi_key
 
+    shallow_failure: Exception | None = None
     try:
         graph, vi_key = _load(mode)
-    except Exception:
+    except Exception as exc:
         if mode is LoadMode.NONE:
             raise
-        # degrade: still render this VI's own diagram
+        # degrade: still render this VI's own diagram. If this load fails too the
+        # error reaches the caller, who records it once.
+        shallow_failure = exc
         graph, vi_key = _load(LoadMode.NONE)
+    if shallow_failure is not None:
+        # The degraded render succeeded: say what it lost.
+        graph.record_load_failure(path, shallow_failure, ProblemStage.RENDER)
     # Use the exact vi_key that load_vi assigned to THIS file as the render
     # identity. Never re-resolve by bare filename: several loaded VIs can share
     # a name (e.g. every class's own run.vi under a MINIMAL SubVI load), so a
@@ -685,7 +730,12 @@ def render_vi_file_titled(
     # `name` is the vi_key (canonical source path) — the render identity. The
     # TITLE is display-only: the qualified name, never the abspath key.
     dependencies = tuple(sorted(graph.get_dependency_paths(name), key=str))
-    return svg, graph.vi_display_name(name), dependencies
+    return (
+        svg,
+        graph.vi_display_name(name),
+        dependencies,
+        (*failed_attempt, *graph.problems()),
+    )
 
 
 def render_vi_body_with_name(
@@ -698,6 +748,7 @@ def render_vi_body_with_name(
     mode: LoadMode = LoadMode.MINIMAL,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
+    run_settings: RunSettings | None = None,
 ) -> RenderedBody | None:
     """Like :func:`render_vi_body`, but also returns the VI's resolved
     qualified name (e.g. ``Class.lvclass:vi.vi``, else its bare stem) —
@@ -707,21 +758,24 @@ def render_vi_body_with_name(
     wrapper that discards it. Lets a cache layer persist VI identity
     alongside the body without a second graph load just to recover it later
     (#114's follow-up)."""
-    svg, vi_title, dependencies = render_vi_file_titled(
+    svg, vi_title, dependencies, problems = render_vi_file_report(
         path,
         search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         mode=mode,
         theme_mode=theme_mode,
+        run_settings=run_settings,
     )
     if svg is None:
         return None
     name = vi_title or path.stem.replace("_BDHb", "")
     if fmt != "html":
-        return RenderedBody(svg, name, dependencies)
+        return RenderedBody(svg, name, dependencies, problems)
     title = f"{name} ({ref})" if ref else name
-    return RenderedBody(build_render_viewer(svg, title=title), name, dependencies)
+    return RenderedBody(
+        build_render_viewer(svg, title=title), name, dependencies, problems
+    )
 
 
 def render_vi_body(
