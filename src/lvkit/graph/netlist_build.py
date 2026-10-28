@@ -70,6 +70,11 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+from .netlist_fp_placement import (
+    FrontPanelPlacements,
+    PlacedTerminals,
+    PlacementKey,
+)
 from .netlist_models import (
     BoundaryOutput,
     ConnectorPane,
@@ -85,9 +90,11 @@ from .netlist_models import (
     NetlistBoundaryInput,
     NetlistComponent,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -377,6 +384,9 @@ class _GraphBuildCtx:
     const_by_id: dict[str, Constant]
     feedback_id_by_uid: dict[str, int]
     constant_occurrence_by_uid: dict[str, int]
+    # The front-panel terminals that sit inside a structure; filled once the
+    # boundary terminals are built (see ``FrontPanelPlacements``).
+    placements: FrontPanelPlacements
 
 
 def _display_name_gn(node: AnyGraphNode) -> str:
@@ -1750,6 +1760,7 @@ def _build_case_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
@@ -1810,6 +1821,7 @@ def _build_disabled_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
@@ -1852,6 +1864,7 @@ def _build_event_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
@@ -1889,6 +1902,7 @@ def _build_sequence_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=False,
         )
@@ -2062,6 +2076,7 @@ def _build_loop_scope_gn(
         _body_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -2178,6 +2193,7 @@ def _build_inplace_scope_gn(
         _ipes_regular_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -2203,6 +2219,7 @@ def _build_items_gn(
     nodes: list[AnyGraphNode],
     build_ctx: _GraphBuildCtx,
     owner_children: list[str] | tuple[str, ...] = (),
+    placement: PlacementKey | None = None,
 ) -> list[NetlistItem]:
     """Build the body items (instances, scopes, feedback nodes, promoted
     labeled constants) for one container -- a VI's top level or a
@@ -2216,9 +2233,19 @@ def _build_items_gn(
     list. Every labeled constant among ``owner_children`` is placed FIRST
     (see ``_labeled_constant_items_gn``); callers with no meaningful raw
     child list (there are none left after Phase A -- every caller now passes
-    one) default to ``()``, meaning "no constants to promote here"."""
+    one) default to ``()``, meaning "no constants to promote here".
+
+    ``placement`` names the structure body being built: the controls read in
+    it come first and the drive lines of the indicators it holds come last. The
+    VI's own diagram passes none."""
+    placed = (
+        build_ctx.placements.take(placement)
+        if placement is not None
+        else PlacedTerminals()
+    )
     items: list[NetlistItem] = [
-        *_labeled_constant_items_gn(graph, owner_children, build_ctx)
+        *placed.reads,
+        *_labeled_constant_items_gn(graph, owner_children, build_ctx),
     ]
     for node in nodes:
         if isinstance(node, CaseStructureNode):
@@ -2249,6 +2276,7 @@ def _build_items_gn(
                 items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
         else:
             items.append(_build_instance_gn(graph, ctx, vi_name, node, build_ctx))
+    items.extend(placed.drives)
     return items
 
 
@@ -2639,6 +2667,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             ),
         ),
         constant_occurrence_by_uid=_assign_constant_occurrences(ctx.constants),
+        placements=FrontPanelPlacements(),
     )
 
     inputs = [
@@ -2657,13 +2686,21 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
     # holder of the label is listed, in row order, so a drive line maps to
     # exactly one row).
     label_counts = Counter(t.name or "output" for t in ctx.off_pane_outputs)
-    off_pane_outputs = [
-        out
+    off_pane_pairs = [
+        (t, out)
         for t in ctx.off_pane_outputs
         if (out := _boundary_output(graph, ctx, vi_name, t, build_ctx)).source
         is not None
         or label_counts[out.name] > 1
     ]
+    off_pane_outputs = [out for _, out in off_pane_pairs]
+
+    # A control or indicator whose terminal sits inside a structure is a line
+    # of that structure's body, not of the diagram (see ``FrontPanelPlacements``).
+    for t in (*ctx.inputs, *ctx.off_pane_inputs):
+        build_ctx.placements.add_control(t)
+    for t, out in (*zip(ctx.outputs, outputs, strict=True), *off_pane_pairs):
+        build_ctx.placements.add_indicator(t, out)
 
     # On-pane terminals first (unchanged order/identity -- `@<index>` rows),
     # THEN every off-pane front-panel control/indicator (`is_public=False`,
@@ -2690,6 +2727,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         build_ctx,
         owner_children=top_level_children,
     )
+    build_ctx.placements.release_unclaimed()
     components = _build_components_gn(graph, vi_name, flat)
     dependencies = _build_dependency_manifest(graph, vi_name)
 
@@ -2742,6 +2780,8 @@ def index_module(
                 case NetlistConstant():
                     # Not indexed here either -- diff.py's use of this index
                     # predates Phase A's constant promotion.
+                    pass
+                case NetlistIndicatorDrive() | NetlistControlRead():
                     pass
 
     walk(module.body)

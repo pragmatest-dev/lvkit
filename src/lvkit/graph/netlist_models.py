@@ -658,7 +658,34 @@ class NetlistConstant:
     lvnet_value: str
 
 
-NetlistItem = NetlistInstance | NetlistScope | NetlistFeedback | NetlistConstant
+@dataclass(frozen=True)
+class NetlistIndicatorDrive:
+    """The drive line of a front-panel indicator whose terminal sits inside a
+    structure: ``Rate = Subtract_3734::difference`` as a line of the loop body
+    or case frame that holds the terminal. ``output`` is the SAME
+    ``BoundaryOutput`` the module lists (its ``placed`` flag is set), so the
+    name, type and source are never written twice."""
+
+    output: BoundaryOutput
+
+
+@dataclass(frozen=True)
+class NetlistControlRead:
+    """``read <Control>``: a front-panel control whose terminal sits inside a
+    structure is read in that scope -- once per frame run, or every iteration
+    of a loop. A control on the VI's own diagram has no such item."""
+
+    name: str
+
+
+NetlistItem = (
+    NetlistInstance
+    | NetlistScope
+    | NetlistFeedback
+    | NetlistConstant
+    | NetlistIndicatorDrive
+    | NetlistControlRead
+)
 
 
 @dataclass
@@ -698,6 +725,9 @@ class BoundaryOutput:
     # facts ``ConnectorPaneTerminal`` carries for this terminal).
     caption: str | None = None
     caption_visible: bool = False
+    # True when the drive line is a ``NetlistIndicatorDrive`` inside the
+    # structure that holds the terminal, not a line at the end of the diagram.
+    placed: bool = False
 
 
 @dataclass(frozen=True)

@@ -81,6 +81,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..models import (
@@ -114,11 +115,14 @@ from .lvnet_grammar import (
 from .lvnet_parse import (
     _FRAME_ONLY_SCOPE_KINDS,
     ParsedBodyItem,
+    ParsedBoundaryTerminal,
     ParsedConstant,
+    ParsedControlRead,
     ParsedDependency,
     ParsedDrive,
     ParsedFeedback,
     ParsedGlobalVariable,
+    ParsedIndicatorDrive,
     ParsedLocalVariable,
     ParsedLvnet,
     ParsedNode,
@@ -162,6 +166,8 @@ from .netlist import (
 from .netlist_models import (
     FrameOutputDrive,
     LoopCondition,
+    NetlistControlRead,
+    NetlistIndicatorDrive,
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
@@ -963,6 +969,48 @@ def _structure_uid_from_net(net: str) -> str | None:
     return uid if uid.isdigit() else None
 
 
+FrameDrive = SequenceLocalDrive | SequenceLocalUnreadable | FrameOutputDrive
+_TRAILING_NUMBER_RE = re.compile(r"(\d+)$")
+
+
+def _disabled_frame_value(label: str, kind: DisableStructureKind) -> str:
+    """A Disable frame's value from its header label: a Conditional Disable
+    frame's label is its symbol condition in quotes."""
+    quoted = len(label) >= 2 and label.startswith('"') and label.endswith('"')
+    if kind is DisableStructureKind.CONDITIONAL and quoted:
+        return label[1:-1]
+    return label
+
+
+def _in_tunnel_order(
+    drives: Sequence[FrameDrive], frame_values: list[str]
+) -> list[FrameDrive]:
+    """The per-frame drives in the order the structure's builder makes them:
+    sequence locals, then output tunnels; each by the number ending its net,
+    then by frame. The text lists them frame by frame."""
+
+    def key(drive: FrameDrive) -> tuple[int, int, int]:
+        m = _TRAILING_NUMBER_RE.search(drive.net)
+        is_output = isinstance(drive, FrameOutputDrive)
+        return (
+            int(is_output),
+            int(m.group(1)) if m else 0,
+            frame_values.index(drive.frame),
+        )
+
+    return sorted(drives, key=key)
+
+
+def _sequence_drives(
+    drives: list[ScopeOutput], frame_values: list[str]
+) -> list[ScopeOutput]:
+    return list(
+        _in_tunnel_order(
+            [d for d in drives if isinstance(d, FrameDrive)], frame_values
+        )
+    )
+
+
 def _frame_output_drive(
     drive: ParsedDrive, frame: str, registry: dict[str, _HandleTarget]
 ) -> FrameOutputDrive:
@@ -1186,7 +1234,7 @@ def _reconstruct_scope(
             kind="sequence",
             selector=None,
             frames=frames,
-            outputs=local_drives,
+            outputs=_sequence_drives(local_drives, [f.value for f in frames]),
             sequence_is_flat=(item.kind == "flat-sequence"),
             inputs=[_structure_input(d, registry) for d in item.inputs],
         )
@@ -1195,20 +1243,28 @@ def _reconstruct_scope(
         disable_kind = _REVERSE_DISABLE_KEYWORD.get(item.kind)
         if disable_kind is None:
             raise LvnetReconstructError(f"unrecognized disable kind: {item.kind!r}")
+        labels = [
+            _disabled_frame_value(f.label, disable_kind) for f in item.frames
+        ]
         frames = [
             NetlistFrame(
-                label=f.label,
-                value=f.label,
+                label=label,
+                value=label,
                 is_default=f.is_default,
                 body=_reconstruct_items(f.body, registry, types_dict, memo, fresh_uid),
             )
-            for f in item.frames
+            for f, label in zip(item.frames, labels, strict=True)
         ]
-        disabled_outputs: list[ScopeOutput] = [
-            _frame_output_drive(d, f.label, registry)
-            for f in item.frames
-            for d in f.drives
-        ]
+        disabled_outputs: list[ScopeOutput] = list(
+            _in_tunnel_order(
+                [
+                    _frame_output_drive(d, label, registry)
+                    for f, label in zip(item.frames, labels, strict=True)
+                    for d in f.drives
+                ],
+                labels,
+            )
+        )
         return NetlistScope(
             uid=item.uid if item.uid is not None else fresh_uid.next("disabled"),
             kind="disabled",
@@ -1298,6 +1354,39 @@ def _reconstruct_scope(
     raise LvnetReconstructError(f"unrecognized scope kind: {item.kind!r}")
 
 
+def _indicator_drive_output(
+    item: ParsedIndicatorDrive,
+    registry: dict[str, _HandleTarget],
+    *,
+    placed: bool = True,
+) -> BoundaryOutput:
+    """The indicator a drive line names, with the source it is driven from. Its
+    type and caption come from the ``front-panel :`` row that
+    ``_claim_indicator_drives`` matches it to."""
+    source = (
+        None
+        if item.source == _LVNET_UNWIRED
+        else _require_netref(
+            _parse_source_token(item.source, registry), f"{item.name} drive"
+        )
+    )
+    return BoundaryOutput(
+        name=item.name, type_descriptor="", source=source, placed=placed
+    )
+
+
+def _placed_drives(items: list[NetlistItem]) -> list[NetlistIndicatorDrive]:
+    """Every indicator drive inside a structure, in document order."""
+    found: list[NetlistIndicatorDrive] = []
+    for item in items:
+        if isinstance(item, NetlistIndicatorDrive):
+            found.append(item)
+        elif isinstance(item, NetlistScope):
+            for frame in item.frames:
+                found.extend(_placed_drives(frame.body))
+    return found
+
+
 def _reconstruct_items(
     items: tuple[ParsedBodyItem, ...],
     registry: dict[str, _HandleTarget],
@@ -1321,6 +1410,10 @@ def _reconstruct_items(
             out.append(_reconstruct_feedback(item, registry, fresh_uid))
         elif isinstance(item, ParsedScope):
             out.append(_reconstruct_scope(item, registry, types_dict, memo, fresh_uid))
+        elif isinstance(item, ParsedIndicatorDrive):
+            out.append(NetlistIndicatorDrive(_indicator_drive_output(item, registry)))
+        elif isinstance(item, ParsedControlRead):
+            out.append(NetlistControlRead(item.name))
         else:  # pragma: no cover -- exhaustive over ParsedBodyItem
             raise LvnetReconstructError(f"unrecognized parsed body item: {item!r}")
     return out
@@ -1374,6 +1467,26 @@ def _reconstruct_dependency(
     )
 
 
+def _claim_indicator_drive(
+    row: ParsedBoundaryTerminal,
+    drives: list[BoundaryOutput],
+    types_dict: dict[str, ParsedTypeDef],
+    memo: dict[str, LVType],
+) -> BoundaryOutput | None:
+    """The indicator ``row`` of the ``front-panel :`` block, completed from the
+    first unclaimed drive line that names it (the drive is removed from
+    ``drives``); ``None`` when no drive line names it."""
+    at = next((i for i, d in enumerate(drives) if d.name == row.name), None)
+    if at is None:
+        return None
+    drive = drives.pop(at)
+    drive.type_descriptor = row.type
+    drive.lv_type = _maybe_attach_lvtype(row.type, types_dict, memo)
+    drive.caption = row.caption
+    drive.caption_visible = row.caption_visible
+    return drive
+
+
 def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
     """Build a ``NetlistModule`` from ``parse_lvnet``'s output such that
     ``render_lvnet(reconstruct_module(parsed), verbose=True)`` reproduces
@@ -1399,9 +1512,18 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
 
     body = _reconstruct_items(parsed.body, registry, types_dict, memo, fresh_uid)
 
+    # Every indicator drive line, in document order: the ones inside a
+    # structure, then the ones at the end of the diagram.
+    drives = [
+        *(d.output for d in _placed_drives(body)),
+        *(
+            _indicator_drive_output(d, registry, placed=False)
+            for d in parsed.output_drives
+        ),
+    ]
     inputs: list[NetlistBoundaryInput] = []
     outputs: list[BoundaryOutput] = []
-    off_pane_outputs: list[BoundaryOutput] = []
+    off_pane_rows: list[ParsedBoundaryTerminal] = []
     pane_terminals: list[ConnectorPaneTerminal] = []
     for t in parsed.boundary:
         lv_type = _maybe_attach_lvtype(t.type, types_dict, memo)
@@ -1436,8 +1558,10 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
         # A boundary line with NO ``@<index>`` is an OFF-PANE front-panel
         # control/indicator (``ConnectorPaneTerminal.index is None``): it is a
         # ``connector_pane.terminals`` entry only. An off-pane indicator that
-        # something drives also has an output-drive line, matched below.
+        # something drives also has an indicator drive line, matched below.
         if t.index is None:
+            if t.direction == "out":
+                off_pane_rows.append(t)
             continue
         if t.direction == "in":
             inputs.append(
@@ -1450,77 +1574,34 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 )
             )
         else:
-            outputs.append(
-                BoundaryOutput(
-                    name=t.name,
-                    type_descriptor=t.type,
-                    source=None,
-                    lv_type=lv_type,
-                    caption=t.caption,
-                    caption_visible=t.caption_visible,
+            claimed = _claim_indicator_drive(t, drives, types_dict, memo)
+            if claimed is None:
+                raise LvnetReconstructError(
+                    f"output {t.name!r} has no drive line (§2): write "
+                    f"'{lvnet_control_name_token(t.name)} = <source>' or '= ?'"
                 )
-            )
+            outputs.append(claimed)
 
-    if len(outputs) > len(parsed.output_drives):
-        raise LvnetReconstructError(
-            f"boundary output count ({len(outputs)}) exceeds the "
-            f"number of output-drive lines ({len(parsed.output_drives)})"
-        )
-    for out_bo, drive in zip(outputs, parsed.output_drives, strict=False):
-        if drive.net != out_bo.name:
-            raise LvnetReconstructError(
-                f"output-drive name {drive.net!r} does not match boundary "
-                f"output {out_bo.name!r} at the same position"
-            )
-        if drive.source == "?":
-            out_bo.source = None
-        else:
-            out_bo.source = _require_netref(
-                _parse_source_token(drive.source, registry),
-                f"output drive {drive.net!r}",
-            )
-
-    # Drive lines past the on-pane outputs belong to wired off-pane
-    # indicators, in the order their rows appear.
-    off_pane_rows = [
-        t for t in parsed.boundary if t.index is None and t.direction == "out"
+    off_pane_outputs = [
+        out
+        for row in off_pane_rows
+        if (out := _claim_indicator_drive(row, drives, types_dict, memo)) is not None
     ]
-    row_counts = Counter(t.name for t in off_pane_rows)
-    drive_counts = Counter(d.net for d in parsed.output_drives[len(outputs) :])
+    if drives:
+        raise LvnetReconstructError(
+            f"indicator drive {drives[0].name!r} matches no front-panel "
+            f"indicator row"
+        )
+    # A shared label is only unambiguous when every holder has its drive line.
+    row_counts = Counter(row.name for row in off_pane_rows)
+    claimed_counts = Counter(out.name for out in off_pane_outputs)
     for name, rows in row_counts.items():
-        # A shared label is only unambiguous when every holder has its drive
-        # line (rendered in row order).
-        if rows > 1 and drive_counts[name] != rows:
+        if rows > 1 and claimed_counts[name] != rows:
             raise LvnetReconstructError(
                 f"{rows} off-pane indicators are labelled {name!r} but "
-                f"{drive_counts[name]} drive line(s) name it: a drive line "
+                f"{claimed_counts[name]} drive line(s) name it: a drive line "
                 f"cannot be matched to one of them"
             )
-    unmatched_off_pane = list(off_pane_rows)
-    for drive in parsed.output_drives[len(outputs) :]:
-        match = next((t for t in unmatched_off_pane if t.name == drive.net), None)
-        if match is None:
-            raise LvnetReconstructError(
-                f"output-drive {drive.net!r} matches no off-pane indicator"
-            )
-        unmatched_off_pane.remove(match)
-        off_pane_outputs.append(
-            BoundaryOutput(
-                name=match.name,
-                type_descriptor=match.type,
-                source=(
-                    None
-                    if drive.source == "?"
-                    else _require_netref(
-                        _parse_source_token(drive.source, registry),
-                        f"output drive {drive.net!r}",
-                    )
-                ),
-                lv_type=_maybe_attach_lvtype(match.type, types_dict, memo),
-                caption=match.caption,
-                caption_visible=match.caption_visible,
-            )
-        )
 
     dependencies = [_reconstruct_dependency(d, types_dict, memo) for d in parsed.uses]
 

@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from .netlist_models import (
     NetlistConstant,
+    NetlistControlRead,
     NetlistFeedback,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistItem,
     NetlistModule,
@@ -62,6 +64,10 @@ def _collect_refs(items: list[NetlistItem]) -> list[NetRef]:
                 # (its net is a plain identifier built at the point of use,
                 # already collected there via a consumer's
                 # ``NetlistTerminalBinding.net`` -- see ``_resolve_source_gn``).
+                pass
+            case NetlistIndicatorDrive() | NetlistControlRead():
+                # Like the end-of-diagram drive lines, not a disambiguation
+                # source: the indicator's source is a net some node declared.
                 pass
     return refs
 

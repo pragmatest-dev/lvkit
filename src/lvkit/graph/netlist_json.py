@@ -24,6 +24,7 @@ from .models import (
     vi_health_to_dict,
     vi_properties_to_dict,
 )
+from .netlist_fp_placement import placed_scopes
 from .netlist_models import (
     ConnectorPaneTerminal,
     DefaultValue,
@@ -35,9 +36,11 @@ from .netlist_models import (
     MuMerge,
     NetlistComponent,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -369,7 +372,9 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     additionally nests each wired input/output's own structured ``lv_type``
     (see ``_instance_input_to_dict``/``_instance_output_to_dict``) -- terse
     output is completely unaffected."""
-    if isinstance(item, NetlistConstant):
+    if isinstance(item, NetlistConstant | NetlistIndicatorDrive | NetlistControlRead):
+        # A placed terminal's line is the ``scope`` of its own ``inputs`` /
+        # ``outputs`` entry (``_scope_entry``), not a body item.
         return None
     if isinstance(item, NetlistInstance):
         # Phase A: ``item.inputs`` now carries EVERY real terminal, wired or
@@ -453,6 +458,17 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     return d
 
 
+def _scope_entry(where: tuple[str, str] | None) -> dict[str, Any]:
+    """``{"scope": {"uid": <structure uid>, "frame": <frame value>}}`` for a
+    front-panel terminal that sits inside a structure (a loop or In Place
+    Element body has ``"frame": null``); empty for one on the VI's own diagram,
+    so those entries keep their shape."""
+    if where is None:
+        return {}
+    uid, frame = where
+    return {"scope": {"uid": uid, "frame": frame or None}}
+
+
 def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str, Any]:
     """The netlist IR as a faithful JSON-able tree — the STRUCTURED counterpart
     to :func:`render_lvnet`'s text projection.
@@ -481,6 +497,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
     (and the netlist-from-graph parity test, which compares non-verbose
     output) is byte/JSON-identical to pre-verbose output.
     """
+    placed = placed_scopes(module)
     result: dict[str, Any] = {
         "vi": module.vi_name,
         # Authored connector pane (pattern + canonically-ordered terminals), a
@@ -497,6 +514,11 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "default": p.default,
                     "caption": p.caption,
                     "caption_visible": p.caption_visible,
+                    **(
+                        _scope_entry(placed.reads.get(p.name))
+                        if p.direction == "input"
+                        else {}
+                    ),
                     **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
                         {"lv_type": _lv_type_to_dict(p.lv_type)}
@@ -513,6 +535,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "type": inp.type_descriptor,
                 "caption": inp.caption,
                 "caption_visible": inp.caption_visible,
+                **_scope_entry(placed.reads.get(inp.name)),
                 **(
                     {"lv_type": _lv_type_to_dict(inp.lv_type)}
                     if verbose and inp.lv_type is not None
@@ -528,6 +551,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "source": _netref_to_dict(o.source) if o.source else None,
                 "caption": o.caption,
                 "caption_visible": o.caption_visible,
+                **_scope_entry(placed.drives.get(id(o))),
                 **(
                     {"lv_type": _lv_type_to_dict(o.lv_type)}
                     if verbose and o.lv_type is not None

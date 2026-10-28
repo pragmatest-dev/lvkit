@@ -64,6 +64,7 @@ from .lvnet_grammar import (
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
+    _LVNET_READ_KEYWORD,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_TERMINAL_SEP,
@@ -83,7 +84,9 @@ from .netlist import (
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
+    NetlistControlRead,
     NetlistFeedback,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -677,12 +680,30 @@ class ParsedGlobalVariable:
 
 @dataclass(frozen=True)
 class ParsedDrive:
-    """A bare ``<net> = <source>`` line -- a case frame's own contribution
-    to a case-output tunnel (§8), OR (at the very end of the document,
-    outside any scope) a VI boundary output being driven (§2)."""
+    """A bare ``<structure>_<uid>::<terminal> = <source>`` line -- a case
+    frame's own contribution to a case-output tunnel, a loop's count or
+    condition wire, any structure's output or input tunnel (§8). A drive whose
+    sink is a front-panel indicator is a ``ParsedIndicatorDrive``."""
 
     net: str
     source: str
+
+
+@dataclass(frozen=True)
+class ParsedIndicatorDrive:
+    """``<Indicator> = <source>``: the drive line of a front-panel indicator --
+    at the end of the diagram, or inside the structure that holds its terminal.
+    Its sink is a control name, never a ``<structure>_<uid>::<terminal>`` net."""
+
+    name: str
+    source: str
+
+
+@dataclass(frozen=True)
+class ParsedControlRead:
+    """``read <Control>``: a control whose terminal sits inside this structure."""
+
+    name: str
 
 
 @dataclass(frozen=True)
@@ -800,6 +821,8 @@ ParsedBodyItem = (
     | ParsedConstant
     | ParsedLocalVariable
     | ParsedGlobalVariable
+    | ParsedIndicatorDrive
+    | ParsedControlRead
 )
 
 
@@ -871,7 +894,7 @@ class ParsedLvnet:
     pattern_id: int | None = None
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
-    output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
+    output_drives: tuple[ParsedIndicatorDrive, ...] = field(default_factory=tuple)
     types: dict[str, ParsedTypeDef] = field(default_factory=dict)
 
 
@@ -1595,7 +1618,7 @@ def _parse_block_inputs(cursor: _Cursor, frame_indent: int) -> list[ParsedDrive]
         if content.startswith("frame "):
             break
         drive = _parse_drive_line(content, cursor.line_no)
-        if drive is None:
+        if not isinstance(drive, ParsedDrive):
             break
         cursor.take()
         inputs.append(drive)
@@ -1721,7 +1744,9 @@ def _parse_event_scope(
     )
 
 
-def _parse_drive_line(content: str, line_no: int) -> ParsedDrive | None:
+def _parse_drive_line(
+    content: str, line_no: int
+) -> ParsedDrive | ParsedIndicatorDrive | None:
     """A ``<net> = <source>`` drive line, or ``None`` when ``content`` is not
     one. A line with a top-level `` = `` and no top-level `` : `` before it is a
     drive line whatever its first word is -- a node, constant or variable line
@@ -1735,7 +1760,13 @@ def _parse_drive_line(content: str, line_no: int) -> ParsedDrive | None:
         return None
     source = content[sep + len(_LVNET_DRIVER_OP) :]
     _validate_if_quoted(source, line_no)
-    return ParsedDrive(net=_unquote_name_token(content[:sep]), source=source)
+    sink = content[:sep]
+    net = _unquote_name_token(sink)
+    # A structure net is never quoted and always holds ``::``; a control name
+    # that holds it is written quoted (``lvnet_control_name_token``).
+    if not sink.startswith('"') and _LVNET_TERMINAL_SEP in net:
+        return ParsedDrive(net=net, source=source)
+    return ParsedIndicatorDrive(name=net, source=source)
 
 
 def _parse_one_item_or_drive(
@@ -1744,6 +1775,10 @@ def _parse_one_item_or_drive(
     drive = _parse_drive_line(content, line_no)
     if drive is not None:
         return drive
+    if content.startswith(f"{_LVNET_READ_KEYWORD} "):
+        return ParsedControlRead(
+            name=_unquote_name_token(content[len(_LVNET_READ_KEYWORD) + 1 :])
+        )
     if content.startswith("local-variable "):
         return _parse_local_variable(content, line_no)
     if content.startswith("global-variable "):
@@ -2150,16 +2185,28 @@ def parse_lvnet(text: str) -> ParsedLvnet:
     cursor = _Cursor(lines, pos=1)
     uses = _parse_uses_block(cursor)
     pattern_id, boundary = _parse_front_panel_block(cursor)
-    body_items, output_drives = _parse_block_diagram_block(cursor)
+    body_items, structure_drives = _parse_block_diagram_block(cursor)
     type_defs = _parse_types_block(cursor)
+    if structure_drives:
+        raise LvnetParseError(
+            f"the diagram drives {structure_drives[0].net!r}, which is a "
+            f"structure's terminal (§8): that line belongs inside the structure"
+        )
+    if any(isinstance(item, ParsedControlRead) for item in body_items):
+        raise LvnetParseError(
+            "'read <Control>' belongs inside a structure (§8): a control on the "
+            "VI's own diagram has no line"
+        )
 
     return ParsedLvnet(
         vi_name=vi_name,
         uses=uses,
         pattern_id=pattern_id,
         boundary=tuple(boundary),
-        body=tuple(body_items),
-        output_drives=tuple(output_drives),
+        body=tuple(i for i in body_items if not isinstance(i, ParsedIndicatorDrive)),
+        output_drives=tuple(
+            i for i in body_items if isinstance(i, ParsedIndicatorDrive)
+        ),
         types=type_defs,
     )
 
@@ -2871,6 +2918,18 @@ def _module_body_signature(
             out.append(_module_feedback_signature(item, handles))
         elif isinstance(item, NetlistConstant):
             out.append(_module_constant_signature(item, handles))
+        elif isinstance(item, NetlistIndicatorDrive):
+            out.append(
+                (
+                    "indicator-drive",
+                    item.output.name,
+                    _render_lvnet_source(item.output.source, handles)
+                    if item.output.source is not None
+                    else "?",
+                )
+            )
+        elif isinstance(item, NetlistControlRead):
+            out.append(("read", item.name))
     return tuple(out)
 
 
@@ -2922,6 +2981,10 @@ def _parsed_item_signature(
         return ("global-variable", item.handle, "read", item.global_vi, item.control)
     if isinstance(item, ParsedFeedback):
         return ("feedback", item.net, item.attribute, item.init, item.each)
+    if isinstance(item, ParsedIndicatorDrive):
+        return ("indicator-drive", item.name, item.source)
+    if isinstance(item, ParsedControlRead):
+        return ("read", item.name)
     if isinstance(item, ParsedScope):
         if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
             # Same 3-tuple frame shape as a case scope (label, body, drives)
@@ -3074,7 +3137,7 @@ def netlist_signature(
         body = tuple(
             _parsed_item_signature(item, types_dict, ambiguous) for item in parsed.body
         )
-        drives = tuple((d.net, d.source) for d in parsed.output_drives)
+        drives = tuple((d.name, d.source) for d in parsed.output_drives)
         return (uses, parsed.pattern_id, boundary, body, drives)
 
     module = module_or_parsed
@@ -3102,5 +3165,6 @@ def netlist_signature(
             _render_lvnet_source(o.source, handles) if o.source is not None else "?",
         )
         for o in (*module.outputs, *module.off_pane_outputs)
+        if not o.placed
     )
     return (uses, module.connector_pane.pattern_id, boundary, body, drives)

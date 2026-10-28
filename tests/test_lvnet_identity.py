@@ -60,8 +60,11 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import (
+    BoundaryOutput,
     NetlistConstant,
+    NetlistControlRead,
     NetlistFeedback,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistItem,
     NetlistModule,
@@ -583,6 +586,25 @@ def _compare_feedback(
     _compare_net(a.recur, b.recur, f"{path}.recur", errors, ctx)
 
 
+def _compare_indicator(
+    a: BoundaryOutput,
+    b: BoundaryOutput,
+    path: str,
+    errors: list[str],
+    ctx: _IdentityCtx,
+) -> None:
+    """One indicator: its name, the wire driving it, whether its drive line is
+    inside a structure, and its caption."""
+    if (a.name, a.placed) != (b.name, b.placed):
+        errors.append(
+            f"{path}: indicator mismatch: "
+            f"{(a.name, a.placed)!r} vs {(b.name, b.placed)!r}"
+        )
+    if (a.caption, a.caption_visible) != (b.caption, b.caption_visible):
+        errors.append(f"{path}: indicator caption mismatch for {a.name!r}")
+    _compare_net(a.source, b.source, f"{path}({a.name!r})", errors, ctx)
+
+
 def _compare_items(
     a_items: list[NetlistItem],
     b_items: list[NetlistItem],
@@ -613,6 +635,13 @@ def _compare_items(
         elif isinstance(a, NetlistFeedback):
             assert isinstance(b, NetlistFeedback)
             _compare_feedback(a, b, item_path, errors, ctx)
+        elif isinstance(a, NetlistIndicatorDrive):
+            assert isinstance(b, NetlistIndicatorDrive)
+            _compare_indicator(a.output, b.output, item_path, errors, ctx)
+        elif isinstance(a, NetlistControlRead):
+            assert isinstance(b, NetlistControlRead)
+            if a.name != b.name:
+                errors.append(f"{item_path}: read of {a.name!r} vs {b.name!r}")
         else:  # pragma: no cover -- exhaustive over NetlistItem
             raise TypeError(f"unhandled NetlistItem kind: {type(a)!r}")
 
@@ -663,9 +692,7 @@ def _assert_graph_identity(
         )
     else:
         for i, (oa, ob) in enumerate(zip(orig.outputs, recon.outputs)):
-            _compare_net(
-                oa.source, ob.source, f"outputs[{i}]({oa.name!r})", errors, ctx
-            )
+            _compare_indicator(oa, ob, f"outputs[{i}]", errors, ctx)
 
     if len(orig.off_pane_outputs) != len(recon.off_pane_outputs):
         errors.append(
@@ -676,13 +703,7 @@ def _assert_graph_identity(
         for i, (oa, ob) in enumerate(
             zip(orig.off_pane_outputs, recon.off_pane_outputs)
         ):
-            if oa.name != ob.name:
-                errors.append(
-                    f"off_pane_outputs[{i}] name mismatch: {oa.name!r} vs {ob.name!r}"
-                )
-            _compare_net(
-                oa.source, ob.source, f"off_pane_outputs[{i}]({oa.name!r})", errors, ctx
-            )
+            _compare_indicator(oa, ob, f"off_pane_outputs[{i}]", errors, ctx)
 
     assert not errors, (
         f"lvnet graph-identity round-trip found {len(errors)} mismatch(es) "

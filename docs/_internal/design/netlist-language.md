@@ -124,13 +124,16 @@ vi <VIName.vi> :
   contains `"` or `\`, stays on one physical line. The label (`<name>`)
   remains the control's identity; the caption is display text only.
 - **`block-diagram :`** (always present) — the body, in graph order
-  (`_node_order_key`), followed by the boundary-output-drive lines at its
-  own end: `<out name> = <source-net>` (`error out = case_139::out0`). So a
-  boundary output is declared once (in `front-panel :`) and driven once (at
-  the end of `block-diagram :`) — follow its net name to connect the two.
-  An off-pane indicator that something drives gets a drive line too (after the
-  on-pane outputs'); an off-pane indicator nothing drives has none. An
-  off-pane control's net is named by its label, like an on-pane one.
+  (`_node_order_key`), followed by the indicator-drive lines of the terminals on
+  the VI's own diagram at its end: `<out name> = <source-net>`
+  (`error out = case_139::out0`). So an indicator is declared once (in
+  `front-panel :`) and driven once — follow its net name to connect the two. An
+  indicator whose terminal sits inside a loop or a case, event, sequence or
+  disable frame has its drive line in that body instead (see "Front-panel
+  terminals inside a structure", §8). An off-pane indicator that something drives
+  gets a drive line too (after the on-pane outputs'); an off-pane indicator
+  nothing drives has none. An off-pane control's net is named by its label, like
+  an on-pane one.
 - **`types :`** (§10.1, verbose-only) — the bottom lossless-types footnote,
   omitted entirely when the VI has no named types.
 - **Indentation is structural** — 2 spaces per scope level; blocks open with a
@@ -403,14 +406,14 @@ field plumbed). It emits its handle + typed terminals with a
 | Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. |
 | Global Variable | `global-variable` | a TAP on one control of a Global VI, shaped like a local variable but naming its target: a **read** is a SOURCE, `global-variable <handle> : read <Global VI>::<control>`; a **write** is a SINK, `global-variable <handle> : write <Global VI>::<control> = <source>`. The handle base is the control name (`Debug_18698`). `<Global VI>` is the qualified name the calling VI's block-diagram link table records for the VI, `<control>` the control of it that the node's connector cluster names at the node's control index; both halves follow the §4 name-safety rule, and the Global VI half is also quoted when it contains `::`. The Global VI additionally appears under `uses :` as a `global` entry. The node has no wire to any control of the calling VI. |
 | Shared Variable | `shared-variable` | a node reading or writing a variable of a project library: `shared-variable <handle> : <library>::<variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`, and on a read node that shows it `timestamp`; a terminal whose ID is not a confirmed one shows its number). `<library>` is the qualified name the calling VI's block-diagram link table records for the variable's library (found by the node's uid, never from the node's label text); both halves are §4 name tokens, and a half that contains `::` or opens with a quote is quoted. When the link table holds no record for the node, the `<library>::` half is absent: `shared-variable <handle> : <variable name> : read|write`. The library additionally appears under `uses :` as a `library` entry. A trailing parenthetical **attribute** after `read`/`write` (like a Feedback Node's `(N iterations)`) carries the rest: `(network-published "<path>")` for a variable published to the network (the path the link table records, a §4 quoted literal; a single-process variable carries none), and `(library unreadable "<reason>")` for a node whose link-table record could not be decoded (the library is then absent and the reason is the decoder's, a quoted literal) -- at most one. The first ` : ` outside a quoted name ends the target; `read`/`write` and the attribute follow it. |
-| Control / Indicator (internal) | `control` / `indicator` | a front-panel control/indicator **not** on the connector pane → a body node. `control` = source, `indicator` = sink. |
 | Formula Node | `formula-node` | C-like text body; the `script` is lossless-required. *(rendering: OPEN)* |
 | Free label / comment | `comment` | non-executing text. |
 
-**Boundary vs. internal front panel:** an FP control/indicator **on** the
-connector pane is the `vi` block's `in`/`out`. One **off** the connector pane is
-an internal `control`/`indicator` **node** in the body. Local/global variables
-are extra taps on that net. **Multiple writes to one control = one net, several
+**Boundary vs. off-pane front panel:** an FP control/indicator **on** the
+connector pane is a `front-panel :` row with a pane slot (`@<index>`); one
+**off** the connector pane is a row without one. Neither is a body node: a
+control is the net of its label and an indicator is driven by a line (§2, §8).
+Local/global variables are extra taps on that net. **Multiple writes to one control = one net, several
 drivers** (LabVIEW's race/ordering) — surface it plainly, don't hide it.
 
 ## 7a. The `uses :` dependency manifest
@@ -559,6 +562,34 @@ first frame, or before the body of a loop): `event_70::timeout = -1`,
 inside reads, `sequence_3252::in0 = case_910::out2`. `K` in `inK` counts ALL of the
 structure's plain input tunnels, read or not (like `localK`), so adding a reader never
 renames another input.
+
+### Front-panel terminals inside a structure
+
+A control or indicator has one terminal on the block diagram. When it sits inside a
+loop, or inside a case, event, sequence or disable frame, it belongs to that body,
+not to the VI's own diagram: an indicator is written (once per iteration of a loop,
+only when its frame runs) and a control is read there.
+
+- An **indicator**'s drive line is a line of the body that holds its terminal,
+  after the body's nodes and before the structure's own output lines:
+  `Rate = Subtract_3734::difference` in a While Loop body, `Timer =
+  High_Resolution_Relative_Seconds_1114::relative seconds` in `frame "No Error"`.
+  It is the same `<name> = <source>` line as at the end of the diagram (§2), so
+  `Running = True` inside a frame is a wired constant and `Running = ?` an unwired
+  indicator. A VI that calls this VI and runs another frame does not get that output
+  written -- the line says which frame writes it.
+- A **control**'s terminal inside a body is `read <Control>`, a line of that body
+  before its nodes (name per §4: `read "read x"`). It reads the value once per run
+  of the frame, or on every iteration of a loop. Readers of the control keep
+  referencing its net, `Control`. A control on the VI's own diagram has no line.
+- A line of either kind is valid only inside a structure: the same text on the VI's
+  own diagram is a parse error. An indicator's drive line is told from a structure
+  net's drive (`case_951::out1 = …`) by its sink: a structure net is never quoted and
+  holds `::`, a control name holding `::` is quoted (§4).
+- JSON: an `inputs[]` / `outputs[]` entry (and the `connector_pane.terminals` entry
+  of a control) of a placed terminal carries `"scope": {"uid": <structure uid>,
+  "frame": <frame value, null for a loop or In Place Element body>}`; an entry on the
+  VI's own diagram has no `scope` key. The body items of JSON do not repeat them.
 
 ### Border constructs
 

@@ -96,6 +96,8 @@ _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 _LVNET_RESERVED_CONTROL_NAMES = frozenset(
     {"True", "False", "NotAPath", "default", "?"}
 )
+# A control whose terminal sits inside a structure is read there: ``read <Control>``.
+_LVNET_READ_KEYWORD = "read"
 # A control name that opens with one of these reads as the construct the
 # prefix introduces: a ``Path(...)`` literal, a ``(default <Type>)`` or other
 # parenthesised form, the ``read <control>`` line, and the border constructs a
@@ -103,7 +105,7 @@ _LVNET_RESERVED_CONTROL_NAMES = frozenset(
 _LVNET_RESERVED_CONTROL_PREFIXES = (
     "Path(",
     "(",
-    "read ",
+    f"{_LVNET_READ_KEYWORD} ",
     "shift-register ",
     "tunnel ",
 )

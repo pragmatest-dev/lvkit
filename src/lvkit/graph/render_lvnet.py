@@ -58,6 +58,7 @@ from .lvnet_grammar import (
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
+    _LVNET_READ_KEYWORD,
     _LVNET_RESERVED_CONTROL_NAMES,
     _LVNET_RESERVED_CONTROL_PREFIXES,
     _LVNET_RING_OPEN,
@@ -80,6 +81,7 @@ from .lvnet_grammar import (
 from .lvnet_scalar import lvnet_typed_scalar
 from .models import Constant
 from .netlist_models import (
+    BoundaryOutput,
     ConnectorPaneTerminal,
     DefaultValue,
     EtaMerge,
@@ -88,9 +90,11 @@ from .netlist_models import (
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -878,7 +882,7 @@ def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, s
             case NetlistScope():
                 for frame in item.frames:
                     found.extend(_collect_lvnet_handle_targets(frame.body))
-            case NetlistFeedback():
+            case NetlistFeedback() | NetlistIndicatorDrive() | NetlistControlRead():
                 pass
     return found
 
@@ -1700,6 +1704,21 @@ def _render_lvnet_feedback(
         lines.append(f"{indent + _LVNET_INDENT}each{_LVNET_DRIVER_OP}{recur_str}")
 
 
+def _lvnet_indicator_drive_line(
+    output: BoundaryOutput, indent: str, handles: _LvnetHandles
+) -> str:
+    """``<Indicator> = <source>`` (``?`` when nothing drives it): at the end of
+    the diagram, or in the structure that holds the indicator's terminal."""
+    source = (
+        _render_lvnet_source(output.source, handles)
+        if output.source is not None
+        else "?"
+    )
+    return (
+        f"{indent}{lvnet_control_name_token(output.name)}{_LVNET_DRIVER_OP}{source}"
+    )
+
+
 def _render_lvnet_items(
     items: list[NetlistItem],
     indent: str,
@@ -1718,6 +1737,11 @@ def _render_lvnet_items(
                 _render_lvnet_constant(item, indent, lines, handles)
             case NetlistFeedback():
                 _render_lvnet_feedback(item, indent, lines, handles)
+            case NetlistIndicatorDrive():
+                lines.append(_lvnet_indicator_drive_line(item.output, indent, handles))
+            case NetlistControlRead():
+                name = lvnet_control_name_token(item.name)
+                lines.append(f"{indent}{_LVNET_READ_KEYWORD} {name}")
 
 
 def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
@@ -2224,13 +2248,8 @@ def render_lvnet(
     # generic bare-drive path every other scope's own drives use (see
     # ``lvnet_parse._parse_items``/``_parse_one_item_or_drive``).
     for o in (*module.outputs, *module.off_pane_outputs):
-        source_str = (
-            _render_lvnet_source(o.source, handles) if o.source is not None else "?"
-        )
-        lines.append(
-            f"{body_indent}{lvnet_control_name_token(o.name)}"
-            f"{_LVNET_DRIVER_OP}{source_str}"
-        )
+        if not o.placed:
+            lines.append(_lvnet_indicator_drive_line(o, body_indent, handles))
 
     if verbose:
         _render_lvnet_types(module, lines)
