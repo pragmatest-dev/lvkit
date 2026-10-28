@@ -429,3 +429,48 @@ def test_the_raise_is_a_plain_builtin() -> None:
     assert isinstance(raised.exc, ast.Call)
     assert isinstance(raised.exc.func, ast.Name)
     assert hasattr(builtins, raised.exc.func.id)
+
+
+def test_a_result_variable_named_from_a_receiver_expression_is_a_plain_name() -> None:
+    """An Invoke Node called on ``items[i]`` (a loop's indexed element) names its
+    result variable from a valid identifier, not from the expression."""
+    from lvkit.codegen.nodes import invoke_node
+    from lvkit.graph import InMemoryVIGraph
+    from lvkit.graph.models import WireEnd
+    from tests.helpers import make_node
+
+    graph = InMemoryVIGraph()
+    for tid, nid in (("ref_t", "src_ref"), ("out_sink", "sink")):
+        graph._graph.add_node(nid, node=make_node(nid, [tid]))
+        graph._term_to_node[tid] = nid
+    graph._graph.add_node("invoke_1", node=make_node("invoke_1", ["ref_in", "out_t"]))
+    for tid in ("ref_in", "out_t"):
+        graph._term_to_node[tid] = "invoke_1"
+    for src, dst, src_nid, dst_nid in (
+        ("ref_t", "ref_in", "src_ref", "invoke_1"),
+        ("out_t", "out_sink", "invoke_1", "sink"),
+    ):
+        graph._graph.add_edge(
+            src_nid,
+            dst_nid,
+            source=WireEnd(terminal_id=src, node_id=src_nid),
+            dest=WireEnd(terminal_id=dst, node_id=dst_nid),
+        )
+    ctx = CodeGenContext(graph=graph)
+    ctx.bind("ref_t", "items[i]")
+    node = PrimitiveNode(
+        id="invoke_1",
+        vi_path="t.vi",
+        name="Invoke",
+        node_type="invokeNode",
+        method_name="Get Value",
+        terminals=[
+            Terminal(id="ref_in", index=0, direction="input"),
+            Terminal(id="out_t", index=1, direction="output"),
+        ],
+    )
+    fragment = invoke_node.generate(node, ctx)
+    module = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    assert ast.unparse(module) == "itemsi_get_value_result = items[i].get_value()"

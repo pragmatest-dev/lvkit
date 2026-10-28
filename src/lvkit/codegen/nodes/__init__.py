@@ -100,13 +100,10 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
         return shared_variable.generate(node, ctx)
     if isinstance(node, PrimitiveNode):
         # A Feedback Node is a PrimitiveNode carrying feedback attrs on the
-        # graph. Faithful Python codegen isn't implemented yet -- fail loud
-        # rather than emit a silently wrong body (describe/netlist DO model it).
+        # graph. Faithful Python codegen is not implemented: it is a gap
+        # (describe/netlist do model it).
         if ctx.is_feedback_node(node):
-            raise UnknownNodeError(
-                f"Feedback Node codegen not yet supported "
-                f"(id={node.id}, name={node.name or 'Feedback Node'})"
-            )
+            raise UnknownNodeError("Feedback Node codegen not yet supported", node)
         if node.properties:
             return property_node.generate(node, ctx)
         if node.method_name:
@@ -170,10 +167,7 @@ def _generate_primitive(
 def _generate_unknown(node: AnyGraphNode) -> CodeFragment:
     """A node type with no generator is a gap."""
     kind = _graph_node_to_op_kind(node)
-    raise UnknownNodeError(
-        f"Unknown node type {kind} (id={node.id}, name={node.name or 'unknown'})",
-        node,
-    )
+    raise UnknownNodeError(f"Unknown node type {kind}", node)
 
 
 __all__ = [

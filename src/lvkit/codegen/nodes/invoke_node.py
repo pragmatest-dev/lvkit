@@ -75,7 +75,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     bindings: dict[str, str] = {}
 
     if wired_outputs:
-        result_var = f"{ref_var}_{method_attr}_result"
+        result_var = ctx.make_output_var(f"{ref_var}_{method_attr}_result", node.id)
         stmt = ast.Assign(
             targets=[ast.Name(id=result_var, ctx=ast.Store())],
             value=call,
