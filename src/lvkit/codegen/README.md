@@ -102,6 +102,15 @@ is translated while generating (`match_pattern_regex.to_python_regex`) and writt
 the `re` pattern; a computed one calls `_match_pattern_regex`, the source of that same
 function, written once into the module through `ctx.ctypes_module.declare`.
 
+Search and Replace String (`nodes/ops/search_and_replace.py`) shares the input reading,
+the search start and the translator declaration with Match Pattern
+(`nodes/ops/_regex_node.py`). In plain mode the search string is `re.escape`d (a call
+needing nothing more is `str.replace`); in Regular Expression mode (the node's
+`objFlags` bit 0x2000000) `pcre_regex.py` reads the search string as PCRE and the
+replace string's `$n` / `${n}` / `\$` as a Python template, both translated while
+generating for a constant and by functions written once into the module for a computed
+one.
+
 ### Call Library Function Node libraries
 
 `nodes/ext_func_library.py` decides how a generated module loads the library a node

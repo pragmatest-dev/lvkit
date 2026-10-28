@@ -15,7 +15,8 @@ import re
 
 import pytest
 
-from lvkit.codegen.match_pattern_regex import function_source, to_python_regex
+from lvkit.codegen.match_pattern_regex import to_python_regex
+from lvkit.codegen.module_function import function_source
 from tests.native_vi import generate, node, scalar
 
 STRING = scalar("String")
@@ -367,7 +368,7 @@ def test_two_computed_patterns_share_one_translator() -> None:
 
 def test_translator_source_matches_the_function_codegen_calls() -> None:
     namespace: dict = {"re": re}
-    exec(function_source("translate"), namespace)
+    exec(function_source(to_python_regex, "translate"), namespace)
     for pattern in ["", "[", "[~]", "a*?", "^x[a-c]+\\21$", "\\"]:
         assert namespace["translate"](pattern) == to_python_regex(pattern)
 

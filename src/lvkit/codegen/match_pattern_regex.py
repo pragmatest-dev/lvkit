@@ -2,13 +2,12 @@
 
 ``to_python_regex`` is one self-contained function that needs only ``re``. The
 code generator calls it to translate a constant pattern, and writes its source
-into a generated module (``function_source``) when a pattern is computed at run
-time, so both read the same text.
+into a generated module (``module_function.function_source``) when a pattern is
+computed at run time, so both read the same text.
 """
 
 from __future__ import annotations
 
-import inspect
 import re
 
 
@@ -143,10 +142,3 @@ def to_python_regex(pattern: str) -> str:
             i += 1
         quantifiable, quantified = True, False
     return "".join(units)
-
-
-def function_source(name: str) -> str:
-    """The source of ``to_python_regex`` defined under ``name``."""
-    return inspect.getsource(to_python_regex).replace(
-        "def to_python_regex(", f"def {name}(", 1
-    )

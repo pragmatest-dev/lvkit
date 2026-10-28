@@ -24,85 +24,56 @@ from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 from ...fragment import CodeFragment
-from ...match_pattern_regex import function_source, to_python_regex
+from ...match_pattern_regex import to_python_regex
 from . import register_op_fragment
 from ._flat_node import terminal
+from ._regex_node import (
+    declare_translator,
+    input_expression,
+    is_wired_output,
+    literal,
+    search_start,
+    string_variable,
+)
 
 _TRANSLATOR_NAME = "_match_pattern_regex"
 
-
-def _input(ctx: CodeGenContext, node: PrimitiveNode, index: int) -> str | None:
-    """The expression feeding input ``index``; None when it is unwired."""
-    term = terminal(node, "input", index)
-    if term is None:
-        return None
-    text = ctx.resolve(term.id)
-    if text is None and ctx.is_wired(term.id):
-        text = ctx.resolve(term.id, allow_none=True)
-        if text is None:
-            raise CodeGenError("Unresolved wired Match Pattern input", node)
-    return text
-
-
-def _literal(text: str | None) -> object | None:
-    """The value of an expression that is a literal; None for anything else."""
-    if text is None:
-        return None
-    try:
-        return ast.literal_eval(text)
-    except (ValueError, SyntaxError):
-        return None
+_OUTPUTS = {
+    3: "before_substring",
+    4: "match_substring",
+    5: "after_substring",
+    6: "offset_past_match",
+}
 
 
 @register_op_fragment("MATCH_PATTERN")
 def match_pattern(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
-    outputs = {
-        index: term
-        for index in (3, 4, 5, 6)
-        if (term := terminal(node, "output", index)) is not None
-        and ctx.is_wired(term.id)
-    }
-    if not outputs:
+    wired = [index for index in _OUTPUTS if is_wired_output(ctx, node, index)]
+    if not wired:
         return CodeFragment.empty()
 
     statements: list[ast.stmt] = []
-    string = _input(ctx, node, 0) or "''"
-    if not string.isidentifier():
-        text = ctx.make_output_var("string", node.id)
-        statements.append(build_assign(text, parse_expr(string)))
-        string = text
+    string = string_variable(
+        ctx, node, input_expression(ctx, node, 0) or "''", statements
+    )
 
-    pattern = _input(ctx, node, 1)
-    constant = _literal(pattern) if pattern is not None else ""
+    pattern = input_expression(ctx, node, 1)
+    constant = literal(pattern) if pattern is not None else ""
     if isinstance(constant, str):
         regex = repr(to_python_regex(constant))
     else:
-        translate = ctx.ctypes_module.declare(
-            ("helper", _TRANSLATOR_NAME), _TRANSLATOR_NAME, function_source
-        )
+        translate = declare_translator(ctx, _TRANSLATOR_NAME, to_python_regex)
         regex = f"{translate}({pattern})"
 
-    offset = _input(ctx, node, 2)
-    start = _literal(offset) if offset is not None else 0
-    if isinstance(start, int) and not isinstance(start, bool):
-        start_expr = str(max(start, 0))
-    else:
-        start_expr = f"max({offset}, 0)"
-    if start_expr == "0":
-        subject = string
-        start_name = None
-    else:
-        start_name = ctx.make_output_var("search_start", node.id)
-        statements.append(build_assign(start_name, parse_expr(start_expr)))
-        subject = f"{string}[{start_name}:]"
+    start = search_start(ctx, node, input_expression(ctx, node, 2), statements)
+    subject = string if start is None else f"{string}[{start}:]"
 
     found = ctx.make_output_var("pattern_match", node.id)
     statements.append(build_assign(found, parse_expr(f"re.search({regex}, {subject})")))
 
     def shifted(position: str) -> str:
-        return position if start_name is None else f"{start_name} + {position}"
+        return position if start is None else f"{start} + {position}"
 
     expressions = {
         3: f"{string} if {found} is None else {string}[:{shifted(found + '.start()')}]",
@@ -110,17 +81,11 @@ def match_pattern(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | No
         5: f"'' if {found} is None else {string}[{shifted(found + '.end()')}:]",
         6: f"-1 if {found} is None else {shifted(found + '.end()')}",
     }
-    labels = {
-        3: "before_substring",
-        4: "match_substring",
-        5: "after_substring",
-        6: "offset_past_match",
-    }
     bindings: dict[str, str] = {}
-    for index in sorted(outputs):
-        variable = ctx.make_output_var(
-            labels[index], node.id, terminal_id=outputs[index].id
-        )
+    for index in wired:
+        term = terminal(node, "output", index)
+        assert term is not None
+        variable = ctx.make_output_var(_OUTPUTS[index], node.id, terminal_id=term.id)
         statements.append(build_assign(variable, parse_expr(expressions[index])))
-        bindings[outputs[index].id] = variable
+        bindings[term.id] = variable
     return CodeFragment(statements=statements, bindings=bindings, imports={"import re"})

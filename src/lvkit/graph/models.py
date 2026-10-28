@@ -165,6 +165,8 @@ class PrimitiveNode(GraphNode):
     kind: Literal["primitive"] = "primitive"
     prim_id: int | None = None
     prim_index: int | None = None
+    # The node's own ``objFlags``; a primitive reads the modes it records here.
+    obj_flags: int = 0
     operation: str | None = None  # cpdArith: "or", "and", "add"
     object_name: str | None = None  # property/invoke
     object_method_id: str | None = None

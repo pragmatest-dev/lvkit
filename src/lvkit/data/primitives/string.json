@@ -404,6 +404,7 @@
     },
     "3914": {
       "name": "Search and Replace String",
+      "op": "SEARCH_AND_REPLACE_STRING",
       "terminals": [
         {
           "index": 0,
@@ -479,10 +480,6 @@
           "type": "ErrorCluster"
         }
       ],
-      "python_code": {
-        "result string": "in_0.replace(in_5, in_7) if in_1 else in_0.replace(in_5, in_7, 1)"
-      },
-      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",
