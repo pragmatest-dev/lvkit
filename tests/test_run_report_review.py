@@ -333,8 +333,15 @@ def test_non_ascii_names_keep_their_letters_and_stay_distinct(tmp_path: Path) ->
 
 
 def test_names_that_differ_only_in_case_do_not_share_a_page(tmp_path: Path) -> None:
-    names = _names(tmp_path, ["sub/A.vi", "sub/a.vi"])
-    assert len({stem.casefold() for _, stem in names.values()}) == 2
+    """No files on disk: a case-insensitive file system cannot hold both, but the
+    naming function must still tell them apart (the output folder may be one)."""
+    project = tmp_path / "proj"
+    keys = [str(project / "sub" / "A.vi"), str(project / "sub" / "a.vi")]
+    graph = SimpleNamespace(get_vi_source_path=lambda key: Path(key))
+    found = page_names(graph, keys, project)  # type: ignore[arg-type]
+    stems = [found[key].stem for key in keys]
+    assert len({stem.casefold() for stem in stems}) == 2
+    assert stems == ["sub_A", "sub_a-2"] or stems == ["sub_a", "sub_A-2"]
 
 
 def test_a_vi_outside_the_project_is_grouped_by_its_real_root(tmp_path: Path) -> None:
