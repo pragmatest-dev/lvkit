@@ -49,6 +49,7 @@ from .netlist_models import (
     NetlistPropertyAccess,
     NetlistTerminalBinding,
     NetRef,
+    ReferenceTargetKind,
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
@@ -410,6 +411,18 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             instance["global_vi"] = item.global_vi
             instance["control"] = item.name
             instance["access"] = item.access
+        elif item.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
+            # A Control Reference constant: what it references -- ``target`` is
+            # "This VI", "This Application" or "control" (then ``control`` names
+            # it); ``null`` when the reference's type does not say.
+            assert item.reference is not None
+            instance["kind"] = "vi_server_reference"
+            instance["target"] = (
+                None
+                if item.reference.kind is ReferenceTargetKind.UNKNOWN
+                else item.reference.kind.value
+            )
+            instance["control"] = item.reference.control
         elif item.kind == NetlistInstanceKind.SHARED_VARIABLE:
             instance["kind"] = "shared_variable"
             instance["library"] = item.library

@@ -65,6 +65,8 @@ from .lvnet_grammar import (
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_READ_KEYWORD,
+    _LVNET_REFERENCE_KEYWORD,
+    _LVNET_REFERENCE_TARGET_WORDS,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_TERMINAL_SEP,
@@ -93,7 +95,7 @@ from .netlist import (
     NetlistModule,
     NetlistScope,
 )
-from .netlist_models import LoopCondition
+from .netlist_models import LoopCondition, ReferenceTarget, ReferenceTargetKind
 from .render_lvnet import (
     _assign_lvnet_handles,
     _frame_drives,
@@ -115,6 +117,7 @@ from .render_lvnet import (
     _structure_input_drives,
     lvnet_feedback_attribute,
     lvnet_literal_token,
+    lvnet_reference_target_token,
 )
 
 # lvnet §5's three real dispositions -- ``unknown`` never renders a keyword
@@ -665,6 +668,15 @@ class ParsedLocalVariable:
 
 
 @dataclass(frozen=True)
+class ParsedVIServerReference:
+    """``vi-server-reference <handle> : <target>`` (§7): a Control Reference
+    constant, one line with no terminal block."""
+
+    handle: str
+    target: ReferenceTarget
+
+
+@dataclass(frozen=True)
 class ParsedGlobalVariable:
     """``global-variable <handle> : read <Global VI>::<control>`` (a SOURCE) or
     ``global-variable <handle> : write <Global VI>::<control> = <source>`` (a
@@ -820,6 +832,7 @@ ParsedBodyItem = (
     | ParsedFeedback
     | ParsedConstant
     | ParsedLocalVariable
+    | ParsedVIServerReference
     | ParsedGlobalVariable
     | ParsedIndicatorDrive
     | ParsedControlRead
@@ -1078,6 +1091,30 @@ def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
             f"line {line_no}: local-variable write has an empty source: {content!r}"
         )
     return ParsedLocalVariable(handle=handle, is_write=True, source=source)
+
+
+def _parse_vi_server_reference(content: str, line_no: int) -> ParsedVIServerReference:
+    """``vi-server-reference <handle> : <target>`` (§7) -- a single line."""
+    rest = content[len(_LVNET_REFERENCE_KEYWORD) + 1 :]
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    handle = rest[:sep_idx] if sep_idx != -1 else ""
+    if not handle or " " in handle:
+        raise LvnetParseError(
+            f"line {line_no}: expected 'vi-server-reference <handle> : <target>' "
+            f"with a single space-free handle (§7): {content!r}"
+        )
+    text = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
+    for kind, word in _LVNET_REFERENCE_TARGET_WORDS.items():
+        if text == word:
+            return ParsedVIServerReference(handle, ReferenceTarget(kind))
+    name = _unquote_name_token(text)
+    if not name:
+        raise LvnetParseError(
+            f"line {line_no}: a vi-server-reference needs a target (§7): {content!r}"
+        )
+    return ParsedVIServerReference(
+        handle, ReferenceTarget(ReferenceTargetKind.CONTROL, name)
+    )
 
 
 def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
@@ -1781,6 +1818,8 @@ def _parse_one_item_or_drive(
         )
     if content.startswith("local-variable "):
         return _parse_local_variable(content, line_no)
+    if content.startswith(f"{_LVNET_REFERENCE_KEYWORD} "):
+        return _parse_vi_server_reference(content, line_no)
     if content.startswith("global-variable "):
         return _parse_global_variable(content, line_no)
     if content.startswith("constant "):
@@ -2668,6 +2707,13 @@ def _module_instance_signature(
                 source_str = _lvnet_default_token(binding.default)
             return ("local-variable", handle, "write", source_str)
         return ("local-variable", handle, "read")
+    if instance.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
+        assert instance.reference is not None
+        return (
+            "vi-server-reference",
+            handles.by_uid[instance.uid],
+            lvnet_reference_target_token(instance.reference),
+        )
     if instance.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
         # Matches ``_parsed_item_signature``'s ``ParsedGlobalVariable`` branch
         # exactly -- see ``_render_lvnet_global_variable``.
@@ -2966,6 +3012,12 @@ def _parsed_item_signature(
         if item.is_write:
             return ("local-variable", item.handle, "write", item.source)
         return ("local-variable", item.handle, "read")
+    if isinstance(item, ParsedVIServerReference):
+        return (
+            "vi-server-reference",
+            item.handle,
+            lvnet_reference_target_token(item.target),
+        )
     if isinstance(item, ParsedGlobalVariable):
         # Matches ``_module_instance_signature``'s ``NetlistInstanceKind.
         # GLOBAL_VARIABLE`` branch exactly.

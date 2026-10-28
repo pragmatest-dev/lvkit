@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from ..models import DisableStructureKind, TunnelMode
-from .netlist_models import NetlistInstanceKind
+from .netlist_models import NetlistInstanceKind, ReferenceTargetKind
 
 # ------------------------------------------------------------------
 # Grammar delimiters -- the exact punctuation/keyword literals §2-§10 is
@@ -98,6 +98,7 @@ _LVNET_RESERVED_CONTROL_NAMES = frozenset(
 )
 # A control whose terminal sits inside a structure is read there: ``read <Control>``.
 _LVNET_READ_KEYWORD = "read"
+_LVNET_REFERENCE_KEYWORD = "vi-server-reference"
 # A control name that opens with one of these reads as the construct the
 # prefix introduces: a ``Path(...)`` literal, a ``(default <Type>)`` or other
 # parenthesised form, the ``read <control>`` line, and the border constructs a
@@ -206,6 +207,17 @@ _LVNET_STRUCTURE_NET_TEXT_RE = re.compile(
 # ``_render_lvnet_instance`` -- kept OUT of ``_LVNET_INSTANCE_KEYWORDS`` below
 # for the same reason ``feedback-node`` is: its shape doesn't fit the generic
 # dict-lookup + terminal-block path.
+
+# ``VI_SERVER_REFERENCE``: a Control Reference constant, one line
+# ``vi-server-reference <handle> : <target>`` with no terminal block. The target is
+# ``This VI`` / ``This Application`` (the class its type records), ``?`` (neither
+# is decoded) or the control it references as a §4 control-name token (a control
+# named like one of the three is quoted).
+_LVNET_REFERENCE_TARGET_WORDS: dict[ReferenceTargetKind, str] = {
+    ReferenceTargetKind.THIS_VI: "This VI",
+    ReferenceTargetKind.THIS_APPLICATION: "This Application",
+    ReferenceTargetKind.UNKNOWN: "?",
+}
 
 # The §7 header keyword for every instance kind that DOES declare itself via
 # the generic ``<keyword> <handle> : <component>`` + terminal-block form

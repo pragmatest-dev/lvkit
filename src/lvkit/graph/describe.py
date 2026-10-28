@@ -63,6 +63,7 @@ from .op_walk import (
     selector_values_quoted_one_by_one,
 )
 from .queries import collect_class_context
+from .reference_target import is_reference_constant, reference_phrase, reference_target
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -631,10 +632,15 @@ def _structure_word(node: AnyGraphNode) -> str:
     return f'{type_word} "{author}"' if author else type_word
 
 
-def _node_output_name(node: AnyGraphNode, term: Terminal) -> str:
-    """A node's output as a selector/stop wire's source: a local variable by
-    its control, any other node by its identity plus the terminal's name (the
-    bare node when it has one output and this terminal is unnamed)."""
+def _node_output_name(
+    graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
+) -> str:
+    """A node's output as a selector/stop wire's source: a reference constant
+    by what it references, a local variable by its control, any other node by
+    its identity plus the terminal's name (the bare node when it has one output
+    and this terminal is unnamed)."""
+    if is_reference_constant(node):
+        return reference_phrase(reference_target(graph, node))
     if isinstance(node, LocalVariableNode):
         return f"{node.control_name or node.display_name} (local variable)"
     identity = node.display_name if node.name else _structure_word(node)
@@ -679,12 +685,12 @@ def _name_traced_source(
     if traced.owner is not None and traced.term is not None:
         if isinstance(traced.owner, StructureNode):
             return _border_name(traced.owner, traced.term, traced.border)
-        return _node_output_name(traced.owner, traced.term)
+        return _node_output_name(graph, traced.owner, traced.term)
     if traced.element_net is not None:
         node = graph.get_graph_node(src.node_id)
         term = graph.get_terminal(src.terminal_id)
         if node is not None and term is not None:
-            return _node_output_name(node, term)
+            return _node_output_name(graph, node, term)
         return None
     if traced.boundary is not None:
         return traced.boundary.name

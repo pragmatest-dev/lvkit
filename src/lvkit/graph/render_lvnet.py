@@ -59,6 +59,8 @@ from .lvnet_grammar import (
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_READ_KEYWORD,
+    _LVNET_REFERENCE_KEYWORD,
+    _LVNET_REFERENCE_TARGET_WORDS,
     _LVNET_RESERVED_CONTROL_NAMES,
     _LVNET_RESERVED_CONTROL_PREFIXES,
     _LVNET_RING_OPEN,
@@ -101,6 +103,7 @@ from .netlist_models import (
     NetlistModule,
     NetlistScope,
     NetRef,
+    ReferenceTarget,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
 )
@@ -1057,6 +1060,9 @@ def _render_lvnet_instance(
     if instance.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
         _render_lvnet_global_variable(instance, indent, lines, handles)
         return
+    if instance.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
+        _render_lvnet_vi_server_reference(instance, indent, lines, handles)
+        return
 
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
     handle = handles.by_uid[instance.uid]
@@ -1217,6 +1223,37 @@ def _render_lvnet_local_variable(
         )
         return
     lines.append(f"{indent}{instance.kind.value} {handle}{_LVNET_TYPE_SEP}read")
+
+
+def lvnet_reference_target_token(target: ReferenceTarget) -> str:
+    """The target of a ``vi-server-reference`` line: ``This VI``, ``This
+    Application`` or ``?``, else the referenced control as a §4 control-name
+    token (quoted when it is spelled like one of those words)."""
+    word = _LVNET_REFERENCE_TARGET_WORDS.get(target.kind)
+    if word is not None:
+        return word
+    assert target.control is not None
+    if target.control in _LVNET_REFERENCE_TARGET_WORDS.values():
+        return lvnet_literal_token(target.control)
+    return lvnet_control_name_token(target.control)
+
+
+def _render_lvnet_vi_server_reference(
+    instance: NetlistInstance,
+    indent: str,
+    lines: list[str],
+    handles: _LvnetHandles,
+) -> None:
+    """``vi-server-reference <handle> : <target>`` (§7): a Control Reference
+    constant -- a source whose single output is the reference itself, not the
+    value of the control it names (a reader references it as
+    ``<handle>::<port>`` like any node's output). No terminal block: the
+    consumer's terminal line spells the refnum type."""
+    assert instance.reference is not None
+    lines.append(
+        f"{indent}{_LVNET_REFERENCE_KEYWORD} {handles.by_uid[instance.uid]}"
+        f"{_LVNET_TYPE_SEP}{lvnet_reference_target_token(instance.reference)}"
+    )
 
 
 def _render_lvnet_constant(

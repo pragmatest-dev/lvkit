@@ -130,6 +130,7 @@ from .lvnet_parse import (
     ParsedShiftRegister,
     ParsedTunnel,
     ParsedTypeDef,
+    ParsedVIServerReference,
     _find_first_top_level,
     _scan_quoted_literal,
     _split_event_name,
@@ -280,6 +281,9 @@ def _index_handles(
             name = _derive_instance_name(item.kind, item.handle, item.component)
             _, uid = _handle_base_and_suffix(item.handle)
             registry[item.handle] = _HandleTarget(name=name, uid=uid, is_constant=False)
+        elif isinstance(item, ParsedVIServerReference):
+            base, uid = _handle_base_and_suffix(item.handle)
+            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=False)
         elif isinstance(item, ParsedLocalVariable):
             # Same base+uid derivation as a plain node (no ``component`` to
             # feed ``_derive_instance_name`` with -- a local-variable's own
@@ -693,6 +697,31 @@ def _reconstruct_local_variable(
         inputs=[],
         outputs=[NetlistOutput(net=ref, type="?", pane_rank=0, lv_type=None)],
         kind=NetlistInstanceKind.LOCAL_VARIABLE,
+    )
+
+
+def _reconstruct_vi_server_reference(
+    item: ParsedVIServerReference, registry: dict[str, _HandleTarget]
+) -> NetlistInstance:
+    """The reverse of ``_render_lvnet_vi_server_reference``: a SOURCE with one
+    output, like a local-variable read, that a later ``<handle>::<port>``
+    reference resolves through ``producer_uid``."""
+    target = registry[item.handle]
+    ref = NetRef(
+        node=target.name,
+        terminal=target.name,
+        occurrence=None,
+        bare=f"{item.handle}{_LVNET_TERMINAL_SEP}{target.name}",
+        producer_uid=target.uid,
+    )
+    return NetlistInstance(
+        uid=target.uid,
+        name=target.name,
+        occurrence=None,
+        inputs=[],
+        outputs=[NetlistOutput(net=ref, type="?", pane_rank=0, lv_type=None)],
+        kind=NetlistInstanceKind.VI_SERVER_REFERENCE,
+        reference=item.target,
     )
 
 
@@ -1402,6 +1431,8 @@ def _reconstruct_items(
             )
         elif isinstance(item, ParsedLocalVariable):
             out.append(_reconstruct_local_variable(item, registry))
+        elif isinstance(item, ParsedVIServerReference):
+            out.append(_reconstruct_vi_server_reference(item, registry))
         elif isinstance(item, ParsedGlobalVariable):
             out.append(_reconstruct_global_variable(item, registry))
         elif isinstance(item, ParsedConstant):

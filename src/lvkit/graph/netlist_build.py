@@ -130,6 +130,7 @@ from .op_walk import (
 )
 from .operations import frame_key
 from .queries import ClassContext, collect_class_context
+from .reference_target import is_reference_constant, reference_target
 from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
@@ -1247,6 +1248,8 @@ def _instance_kind_gn(
     plain primitive)."""
     if isinstance(node, VINode):
         return NetlistInstanceKind.SUBVI
+    if is_reference_constant(node):
+        return NetlistInstanceKind.VI_SERVER_REFERENCE
     if is_property:
         return NetlistInstanceKind.PROPERTY_NODE
     if is_invoke:
@@ -1370,6 +1373,9 @@ def _build_instance_gn(
         ),
         library_unreadable=(
             node.library_unreadable if isinstance(node, SharedVariableNode) else None
+        ),
+        reference=(
+            reference_target(graph, node) if is_reference_constant(node) else None
         ),
     )
 

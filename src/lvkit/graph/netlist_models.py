@@ -231,10 +231,30 @@ class NetlistInstanceKind(str, Enum):
     PROPERTY_NODE = "property-node"
     INVOKE_NODE = "invoke-node"
     LOCAL_VARIABLE = "local-variable"
+    VI_SERVER_REFERENCE = "vi-server-reference"
     GLOBAL_VARIABLE = "global-variable"
     SHARED_VARIABLE = "shared-variable"
     IN_PLACE_ELEMENT = "in-place-element"
     FORMULA_NODE = "formula-node"
+
+
+class ReferenceTargetKind(Enum):
+    """What a VI Server reference constant references."""
+
+    THIS_VI = "This VI"
+    THIS_APPLICATION = "This Application"
+    CONTROL = "control"
+    # The reference's type does not name its class and it names no control.
+    UNKNOWN = "?"
+
+
+@dataclass(frozen=True)
+class ReferenceTarget:
+    """What a VI Server reference constant references: the VI or the application
+    (the class its type records), or the front-panel control named ``control``."""
+
+    kind: ReferenceTargetKind
+    control: str | None = None
 
 
 @dataclass
@@ -303,6 +323,9 @@ class NetlistInstance:
     # record for it did not decode) -- ``None`` for every other instance kind and
     # for a variable whose library is known.
     library_unreadable: str | None = None
+    # What a VI Server reference constant references (``kind`` is
+    # ``VI_SERVER_REFERENCE``) -- ``None`` for every other instance kind.
+    reference: ReferenceTarget | None = None
 
 
 @dataclass
