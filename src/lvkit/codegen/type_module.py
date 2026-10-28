@@ -55,7 +55,7 @@ def build_type_module(
         if gaps is not None:
             gaps.append(gap)
         runtime_imports, annotation_imports = set(), set()
-        definition = [raise_statement(gap.reason)]
+        definition = [raise_statement(gap.message)]
     body: list[ast.stmt] = [
         ast.ImportFrom(
             module="__future__", names=[ast.alias(name="annotations")], level=0

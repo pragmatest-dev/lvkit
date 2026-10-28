@@ -316,7 +316,9 @@ def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], root: Path | None) -> 
             except ValueError:
                 pass
         where = f"{gap.node_name}: " if gap.node_name else ""
-        print(f"warning: {vi}: {where}{gap.reason}", file=sys.stderr)
+        print(f"warning: {vi}: {where}{gap.reason} [{gap.kind}]", file=sys.stderr)
+        for line in gap.diagnostic():
+            print(f"    {line}", file=sys.stderr)
     all_gaps.extend(vi_gaps)
 
 
@@ -954,6 +956,19 @@ def generate_python(
     print(f"  error: {error_count}")
     print(f"  failed: {failed_count}")
     print(f"  gaps:  {len(all_gaps)}")
+    gap_vis = len({gap.vi for gap in all_gaps})
+    if error_count or failed_count:
+        print(
+            f"Stopped: {error_count + failed_count} VI(s) could not be written"
+            f" ({ast_count} generated, {gap_vis} with gaps)"
+        )
+    elif all_gaps:
+        print(
+            f"Partial: {ast_count} VIs generated, {gap_vis} with gaps"
+            f" ({len(all_gaps)} gaps) — see warnings"
+        )
+    else:
+        print(f"Complete: {ast_count} VIs generated, no gaps")
 
     if error_count > 0:
         store = find_project_store()

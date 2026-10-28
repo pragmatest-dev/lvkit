@@ -204,6 +204,26 @@ def _build(context: VIContext, nodes: list) -> tuple[str, list[Gap]]:
     return build_module(context, context.name, graph=graph, gaps=gaps), gaps
 
 
+def _with_the_raise_shown_as(source: str, marker: str) -> list[str]:
+    """The lines of ``source`` with the one gap raise (a message of several lines
+    in one source line) replaced by ``marker``, after checking what it says."""
+    lines = source.splitlines()
+    (index,) = [
+        i for i, line in enumerate(lines) if "raise NotImplementedError(" in line
+    ]
+    raised = lines[index].strip()
+    assert raised.startswith(
+        "raise NotImplementedError('primitive 99999 (Mystery) is not known\\n"
+        "gap kind: unknown_primitive\\nVI: Gap.vi\\nnode: Mystery\\n"
+    )
+    assert "Full connector pane" in raised
+    assert "index=0 direction=output type=NumInt32 wired name=result" in raised
+    assert "Fix: add primitive 99999 to .lvkit/primitives.json" in raised
+    indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+    lines[index] = indent + marker
+    return lines
+
+
 def _run(source: str, function: str, *args):
     namespace: dict = {}
     exec(compile(source, "gap_test", "exec"), namespace)  # noqa: S102
@@ -221,18 +241,18 @@ def test_an_unknown_primitive_at_the_top_raises_and_the_code_after_it_stays() ->
         ],
     )
     source, gaps = _build(context, [_mystery()])
-    assert source == (
-        "from __future__ import annotations\n"
-        "from typing import Any, NamedTuple\n"
-        "\n"
-        "class GapResult(NamedTuple):\n"
-        "    y: int\n"
-        "\n"
-        "def gap(x: int=0) -> GapResult:\n"
-        "    result = None\n"
-        "    raise NotImplementedError('primitive 99999 (Mystery) is not known')\n"
-        "    return GapResult(y=result)"
-    )
+    assert _with_the_raise_shown_as(source, "<raise>") == [
+        "from __future__ import annotations",
+        "from typing import Any, NamedTuple",
+        "",
+        "class GapResult(NamedTuple):",
+        "    y: int",
+        "",
+        "def gap(x: int=0) -> GapResult:",
+        "    result = None",
+        "    <raise>",
+        "    return GapResult(y=result)",
+    ]
     (gap,) = gaps
     assert (gap.vi, gap.node_id, gap.node_name) == ("Gap.vi", "mystery", "Mystery")
     assert (gap.kind, gap.identifier, gap.name) == (
@@ -284,11 +304,11 @@ def test_an_unknown_primitive_in_a_loop_raises_in_the_loop() -> None:
         ],
     )
     source, gaps = _build(context, [loop, _mystery(parent="loop1")])
-    assert source.splitlines()[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
         "def gap(x: int=0) -> GapResult:",
         "    while True:",
         "        result = None",
-        "        raise NotImplementedError('primitive 99999 (Mystery) is not known')",
+        "        <raise>",
         "        break",
         "    return GapResult(y=None)",
     ]
@@ -342,12 +362,12 @@ def test_an_unknown_primitive_in_a_case_raises_in_its_frame_only() -> None:
         ],
     )
     source, gaps = _build(context, [case, _mystery(parent="case1", frame="True")])
-    assert source.splitlines()[6:] == [
+    assert _with_the_raise_shown_as(source, "<raise>")[6:] == [
         "def gap(flag: bool=False) -> GapResult:",
         "    case_output = 0",
         "    if flag:",
         "        result = None",
-        "        raise NotImplementedError('primitive 99999 (Mystery) is not known')",
+        "        <raise>",
         "        case_output = result",
         "    return GapResult(y=case_output)",
     ]
@@ -386,8 +406,8 @@ def test_a_gap_of_a_structure_replaces_the_gaps_inside_it() -> None:
     )
     assert ast.unparse(module) == (
         "out_0 = None\n"
-        "raise NotImplementedError("
-        '"Conditional tunnel\'s condition terminal is not wired")'
+        "raise NotImplementedError(\"Conditional tunnel's condition terminal is not "
+        'wired\\ngap kind: unsupported_node\\nVI: t.vi\\nnode: Loop")'
     )
 
 

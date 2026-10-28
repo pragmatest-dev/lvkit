@@ -94,7 +94,7 @@ This is lvkit's least mature capability, and the one most likely to need hand-fi
 lvkit generate <input-path> -o <output-dir> [--search-path <libraries>]
 ```
 
-For each node it cannot convert, `generate` prints `warning: <VI path>: <node>: <reason>` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps.
+For each node it cannot convert, `generate` prints `warning: <VI path>: <node>: <reason>` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps. `generate` exits `0` when every VI converted, `2` when the result is partial (it has gaps), `1` when a VI could not be written.
 
 ## How it works
 

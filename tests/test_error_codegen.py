@@ -1135,7 +1135,8 @@ def test_clear_errors_with_a_specific_code_raises_where_it_would_run() -> None:
     )
     assert (
         "raise NotImplementedError("
-        "'Clear Errors with a specific error code is not generated yet')"
+        "'Clear Errors with a specific error code is not generated yet\\n"
+        "gap kind: unsupported_node\\nVI: caller.vi\\nnode: Clear Errors.vi')"
     ) in source
 
 

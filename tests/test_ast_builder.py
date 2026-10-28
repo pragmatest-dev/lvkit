@@ -513,9 +513,10 @@ def test_unknown_primitive_raises_at_runtime():
     source = build_module(vi_context, "Unknown Prim.vi", graph=_g, gaps=gaps)
 
     assert (
-        "raise NotImplementedError('primitive 99999 (Mystery Primitive) is not known')"
-        in source
-    )
+        "raise NotImplementedError('primitive 99999 (Mystery Primitive) is not known\\n"
+        "gap kind: unknown_primitive\\nVI: Unknown Prim.vi\\nnode: Mystery Primitive\\n"
+    ) in source
+    assert "Fix: add primitive 99999 to .lvkit/primitives.json" in source
     assert [(g.kind, g.identifier, g.name) for g in gaps] == [
         ("unknown_primitive", "99999", "Mystery Primitive")
     ]

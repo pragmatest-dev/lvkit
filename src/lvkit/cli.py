@@ -418,6 +418,16 @@ def main() -> int:
     gen_parser = subparsers.add_parser(
         "generate",
         help="Generate Python from VI files using deterministic AST pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Exit codes:\n"
+            "  0  every VI converted, no gaps\n"
+            "  2  partial: every VI was written, but some nodes could not be\n"
+            "     converted; each is a warning and a NotImplementedError in the\n"
+            "     generated code where the node would run (see `lvkit unresolved`)\n"
+            "  1  a VI could not be written, or the package could not be\n"
+            "     (two files for one module)"
+        ),
     )
     gen_parser.add_argument(
         "input_path",
@@ -695,7 +705,17 @@ def main() -> int:
         help="Extra SubVI search path (repeatable). See `generate --help`.",
     )
     unresolved_parser.add_argument(
-        "--json", action="store_true", help="Output the gaps as JSON"
+        "--format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text). json is the machine-readable gap list.",
+    )
+    unresolved_parser.add_argument(
+        "--json",
+        action="store_const",
+        const="json",
+        dest="format",
+        help="Same as --format json",
     )
     _add_project_root_arg(unresolved_parser)
     _add_load_mode_arg(unresolved_parser)
@@ -1850,7 +1870,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-        return 1 if result["error"] > 0 or result["failed"] > 0 else 0
+        if result["error"] > 0 or result["failed"] > 0:
+            return 1
+        return 2 if result["gaps"] else 0
 
     except (ModuleCollisionError, ConversionGap) as e:
         # A collision stops the package; a gap found while loading the graph
@@ -1899,7 +1921,7 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    if args.json:
+    if args.format == "json":
         print(
             json.dumps(
                 [

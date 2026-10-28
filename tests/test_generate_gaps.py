@@ -44,7 +44,7 @@ def _lvkit(monkeypatch: pytest.MonkeyPatch, *argv: str) -> int:
     return cli.main()
 
 
-def test_generate_warns_once_per_gap_and_exits_zero(
+def test_generate_warns_once_per_gap_and_exits_two(
     project: Project,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -52,7 +52,7 @@ def test_generate_warns_once_per_gap_and_exits_zero(
     vi = _missing_library_vi(project)
     code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
     captured = capsys.readouterr()
-    assert code == 0
+    assert code == 2
     warnings = [
         line for line in captured.err.splitlines() if line.startswith("warning: ")
     ]
@@ -63,6 +63,12 @@ def test_generate_warns_once_per_gap_and_exits_zero(
     )
     assert "no file vendorlib.dll or vendorlib.so or vendorlib.framework" in warnings[0]
     assert "  gaps:  1\n" in captured.out
+    assert (
+        "Partial: 1 VIs generated, 1 with gaps (1 gaps) — see warnings\n"
+        in captured.out
+    )
+    # The warning carries the kind and the diagnostic, not only the reason.
+    assert warnings[0].endswith("[unsupported_node]")
 
 
 def test_generate_result_carries_the_gap_records(project: Project) -> None:
@@ -116,18 +122,48 @@ def test_a_module_collision_prints_its_message_and_exits_nonzero(
     assert "Traceback" not in err
 
 
-def test_a_stopped_vi_makes_the_exit_code_nonzero(
+@pytest.mark.parametrize(
+    "result,code",
+    [
+        ({"error": 0, "failed": 0, "gaps": []}, 0),
+        ({"error": 0, "failed": 0, "gaps": [object()]}, 2),
+        ({"error": 1, "failed": 0, "gaps": []}, 1),
+        ({"error": 0, "failed": 1, "gaps": []}, 1),
+        ({"error": 1, "failed": 0, "gaps": [object()]}, 1),
+    ],
+)
+def test_exit_code_is_0_for_complete_2_for_partial_1_for_a_stopped_vi(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    result: dict,
+    code: int,
 ) -> None:
     vi = tmp_path / "Any.vi"
     vi.write_bytes(b"")
-    for status in ("error", "failed"):
-        result = {"error": 0, "failed": 0, status: 1}
-        monkeypatch.setattr(
-            "lvkit.pipeline.generate_python", lambda *a, _r=result, **k: _r
-        )
-        assert _lvkit(monkeypatch, "generate", str(vi), "-o", str(tmp_path)) == 1
+    monkeypatch.setattr("lvkit.pipeline.generate_python", lambda *a, **k: result)
+    assert _lvkit(monkeypatch, "generate", str(vi), "-o", str(tmp_path)) == code
+
+
+def test_generate_help_documents_the_exit_codes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit):
+        _lvkit(monkeypatch, "generate", "--help")
+    help_text = capsys.readouterr().out
+    assert "0  every VI converted, no gaps" in help_text
+    assert "2  partial" in help_text
+    assert "1  a VI could not be written" in help_text
+
+
+def test_a_run_without_gaps_says_complete(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from lvkit.pipeline import generate_python
+    # A directory with no VIs is a run with nothing to convert.
+    (tmp_path / "empty").mkdir()
+    result = generate_python(tmp_path / "empty", tmp_path / "out")
+    assert result["gaps"] == []
+    assert "Complete: 0 VIs generated, no gaps" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +243,8 @@ def test_a_class_whose_parent_is_not_loaded_raises_when_its_module_runs() -> Non
     assert source == (
         "from __future__ import annotations\n"
         "raise NotImplementedError("
-        "'Parent class Base.lvclass of /p/Child.lvclass is not loaded')"
+        "'Parent class Base.lvclass of /p/Child.lvclass is not loaded\\n"
+        "gap kind: unsupported_vi\\nVI: Child.lvclass')"
     )
     (gap,) = gaps
     assert (gap.kind, gap.vi, gap.node_id) == (

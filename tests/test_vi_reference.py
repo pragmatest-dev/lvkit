@@ -455,9 +455,12 @@ def test_the_name_helpers_are_defined_once_for_the_module(tmp_path: Path) -> Non
 def test_open_vi_reference_with_no_path_is_not_converted(tmp_path: Path) -> None:
     loaded = d.load(tmp_path, [_OPEN], [])
     source = _source(loaded)
-    assert "raise NotImplementedError('Open VI Reference is not converted yet')" in (
-        source
-    )
+    assert (
+        "raise NotImplementedError('Open VI Reference is not converted yet\\n"
+        "gap kind: placeholder_primitive\\n"
+    ) in source
+    assert "primitive 8010 to" not in source
+    assert "give primitive 8010 a python_code" in source
 
 
 def test_call_with_no_reference_wired_says_so(tmp_path: Path) -> None:

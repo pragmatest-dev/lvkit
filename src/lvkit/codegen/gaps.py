@@ -16,6 +16,7 @@ import dataclasses
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lvkit.conversion_gap import ConversionGap
@@ -59,10 +60,28 @@ class Gap:
     # The full diagnostic the error carries.
     detail: str
 
+    def diagnostic(self) -> list[str]:
+        """The lines of the error's own diagnostic that say more than the reason
+        (the primitive's connector pane, the fix to make)."""
+        if not self.detail or " ".join(self.detail.split()) == self.reason:
+            return []
+        return [
+            line
+            for line in self.detail.splitlines()
+            if line.strip() and not line.strip().startswith("In VI:")
+        ]
+
     @property
-    def where(self) -> str:
-        """The node the warning names (the VI itself for a gap in no node)."""
-        return self.node_name or "(VI)"
+    def message(self) -> str:
+        """What the generated ``NotImplementedError`` says: the reason, then the
+        kind, VI and node, then the diagnostic the error carries (the primitive's
+        connector pane, the paths tried), enough to finish the conversion without
+        running lvkit again."""
+        lines = [self.reason, f"gap kind: {self.kind}", f"VI: {Path(self.vi).name}"]
+        if self.node_name:
+            lines.append(f"node: {self.node_name}")
+        lines.extend(self.diagnostic())
+        return "\n".join(lines)
 
 
 def gap_of(
@@ -220,7 +239,7 @@ def catch_gap(node: AnyGraphNode, ctx: CodeGenContext) -> Iterator[GapGuard]:
         state.restore()
         gap = gap_of(exc, ctx.vi_name or "", node)
         ctx.gaps.append(gap)
-        guard.fragment = gap_fragment(node, ctx, gap.reason)
+        guard.fragment = gap_fragment(node, ctx, gap.message)
 
 
 class EntryGuard:
@@ -244,7 +263,7 @@ def catch_entry_gap(ctx: CodeGenContext, label: str | None) -> Iterator[EntryGua
         state.restore()
         gap = gap_of(exc, ctx.vi_name or "", None, label)
         ctx.gaps.append(gap)
-        ctx.entry_raises.append(raise_statement(gap.reason))
+        ctx.entry_raises.append(raise_statement(gap.message))
         guard.failed = True
 
 
@@ -261,4 +280,4 @@ def vi_body(
         state.restore()
         gap = gap_of(exc, vi_name, None)
         ctx.gaps.append(gap)
-        return [*ctx.entry_raises, raise_statement(gap.reason)]
+        return [*ctx.entry_raises, raise_statement(gap.message)]

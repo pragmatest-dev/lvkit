@@ -187,8 +187,8 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    22 distinct gaps = 6 placeholder primitives + 11 terminal-mapping + 4
-    unknown primitives + 1 Event Structure."""
+    34 distinct gaps = 6 placeholder primitives + 11 terminal-mapping + 4
+    unknown primitives + 1 Event Structure + 12 VIs that were not found."""
     from collections import Counter
 
     if not _TESTCASE_CLASS.exists():
@@ -198,11 +198,12 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         search_paths=[_TESTCASE_CLASS.parents[2]],
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 22, f"expected 22 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 34, f"expected 34 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 6
     assert counts["terminal_mapping"] == 11
     assert counts["unknown_primitive"] == 4
     assert counts["unsupported_node"] == 1
+    assert counts["unsupported_vi"] == 12
 
 
 def test_placeholder_primitive_raises_where_it_runs() -> None:
@@ -224,6 +225,10 @@ def test_placeholder_primitive_raises_where_it_runs() -> None:
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
-    assert ast.unparse(module).splitlines()[-1] == (
-        "raise NotImplementedError('Wait on Notification is not converted yet')"
+    raised = ast.unparse(module).splitlines()[-1]
+    assert raised.startswith(
+        "raise NotImplementedError('Wait on Notification is not converted yet\\n"
+        "gap kind: placeholder_primitive\\nVI: Caller.vi\\n"
+        "node: Wait on Notification\\n"
     )
+    assert "index=0 direction=input" in raised

@@ -19,20 +19,9 @@ def stub_module(vi_name: str) -> tuple[str, Gap]:
     """The module for the unavailable VI ``vi_name``, and its gap."""
     reason = (
         f"The VI {strip_vi_extension(vi_name)!r} was not found, so no code "
-        "was generated for it"
+        "was generated for it; add it to the project or to a --search-path and "
+        "generate again"
     )
-    function = ast.parse(
-        f"def {to_function_name(vi_name)}(*args: Any, **kwargs: Any) -> Any: ..."
-    ).body[0]
-    assert isinstance(function, ast.FunctionDef)
-    function.body = [raise_statement(reason)]
-    module = ast.parse(
-        f'"""Stub: {vi_name}."""\n'
-        "from __future__ import annotations\n"
-        "from typing import Any\n"
-    )
-    module.body.append(function)
-    ast.fix_missing_locations(module)
     gap = Gap(
         vi=vi_name,
         node_id=None,
@@ -43,4 +32,16 @@ def stub_module(vi_name: str) -> tuple[str, Gap]:
         reason=reason,
         detail=reason,
     )
+    function = ast.parse(
+        f"def {to_function_name(vi_name)}(*args: Any, **kwargs: Any) -> Any: ..."
+    ).body[0]
+    assert isinstance(function, ast.FunctionDef)
+    function.body = [raise_statement(gap.message)]
+    module = ast.parse(
+        f'"""Stub: {vi_name}."""\n'
+        "from __future__ import annotations\n"
+        "from typing import Any\n"
+    )
+    module.body.append(function)
+    ast.fix_missing_locations(module)
     return ast.unparse(module) + "\n", gap

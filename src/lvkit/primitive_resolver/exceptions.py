@@ -60,7 +60,12 @@ class PrimitiveResolutionNeeded(ConversionGap):
         )
 
     def _format_message(self) -> str:
-        if self.prim_id:
+        if self.placeholder:
+            msg = (
+                f"Primitive {self.prim_id} ({self.prim_name}) is known by name and "
+                "has no implementation yet.\n"
+            )
+        elif self.prim_id:
             msg = (
                 f"Primitive resolution needed for {self.prim_id} ({self.prim_name}).\n"
             )
@@ -95,7 +100,13 @@ class PrimitiveResolutionNeeded(ConversionGap):
             msg += f"    - {' '.join(parts)}\n"
         if not self.terminals:
             msg += "    (none)\n"
-        if self.prim_id:
+        if self.placeholder:
+            msg += (
+                f"\n  Fix: give primitive {self.prim_id} a python_code in"
+                f" .lvkit/primitives.json (project-local) or"
+                f" data/primitives.json (cleanroom upstream)"
+            )
+        elif self.prim_id:
             msg += (
                 f"\n  Fix: add primitive {self.prim_id} to"
                 f" .lvkit/primitives.json (project-local) or"

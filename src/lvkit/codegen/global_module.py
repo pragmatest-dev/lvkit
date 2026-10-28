@@ -120,7 +120,7 @@ def build_global_module(
             gap = gap_of(exc, vi_node.id, None, label=control.name)
             if gaps is not None:
                 gaps.append(gap)
-            assignments.append(raise_statement(gap.reason))
+            assignments.append(raise_statement(gap.message))
             continue
         if control.unwritable is not None:
             needs_runtime = True

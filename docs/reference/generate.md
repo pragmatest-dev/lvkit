@@ -66,12 +66,22 @@ was not found. `generate` handles every gap the same way:
   parent is not loaded, a constant with no value to write) makes the module
   raise where that definition runs.
 
-A run that has only gaps exits `0`. It exits non-zero when a VI could not be
-written at all (`error` or `failed` in the summary), and when two VIs would be
-written to the same module, in which case it prints the message and writes
-nothing.
+Every warning and every generated `raise` carries what is needed to finish the
+conversion without running lvkit again: the reason, the gap kind, the VI and the
+node, and the diagnostic of the gap (for an unknown primitive its full connector
+pane with each terminal's type; for a missing library the paths tried).
 
-`lvkit unresolved <input-path> [--json]` lists the same gaps, grouped by kind
+A run with gaps is a **partial** success, and `generate` says so: its summary
+reads `Partial: 87 VIs generated, 12 with gaps (31 gaps) — see warnings`, never
+a bare success line.
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Every VI converted, no gaps. |
+| `2` | Partial: every VI was written, some nodes could not be converted. |
+| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`. |
+
+`lvkit unresolved <input-path> [--format json]` lists the same gaps, grouped by kind
 with the VIs each occurs in.
 
 Resolving a primitive or vi.lib VI is a one-time step: lvkit saves the mapping

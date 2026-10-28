@@ -301,7 +301,8 @@ def test_an_undocumented_default_object_property_becomes_a_raise():
     source = ast.unparse(module)
     assert source.splitlines()[-1] == (
         "raise NotImplementedError(\"Property 'App.Kind' of the default App "
-        'object has no Python equivalent")'
+        'object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n'
+        'node: Property Node")'
     )
     assert fragment.imports == set()
     assert [g.reason for g in ctx.gaps] == [
