@@ -46,6 +46,7 @@ class ParsedType:
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
     typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
+    server_class: str | None = None  # a generic reference's VI Server class
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
     class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
@@ -79,7 +80,9 @@ class ParsedConstant:
 
     uid: str
     type_desc: str
-    value: str
+    # The value as hex; None when the block diagram holds none (the VI keeps it in
+    # its default data, which is not decoded).
+    value: str | None
     label: str | None = None
     caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
     # Raw printf-style display-format string from the constant's own numeric

@@ -1637,3 +1637,26 @@ platform's extension (`myshared.dll`, `myshared.so`, `myshared.framework`), `*` 
 the extension. When the replacement happens follows how the name is defined: a library
 named in the node's setup is resolved when the VI loads, a library wired to `path in`
 when the node runs (maintainer, on the reporter's issue).
+
+## A diagram constant with no `DefaultData` in the heap keeps its value in the VI's DFDS (LabVIEW 8.2 VIs) — the parser drops it today
+
+`Trim Whitespace__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi` (JKI-VI-Tester, LabVIEW 8.2) has two Match Pattern nodes whose `regular expression` input is wired straight from a string constant inside a case frame (signal `201`: constant terminal `184` to Match Pattern terminal `162`; the other frame's constant is terminal `90`). Neither is a case output tunnel, so no "Use Default If Unwired" flag is involved.
+
+- In the block-diagram heap each constant is a `dco class="bDConstDCO"` under the frame's `sRN` terminal list, with `ddo`, `tdOffset`, `typeDesc`, `dsw`, `objFlags`, `termList` and **no `DefaultData`**. `parser/nodes/constant.py::extract_constants` keeps only constants that have a value, so both are dropped and the Match Pattern input reads as an unresolved wire.
+- The values are in the VI's `DFDS` section. pylabview cannot decode it for this VI (`Block b'DFDS' section 0 parse exception: No support for the LV7.1 default data format`, the same VI also fails `LVSR`, `CONP`, `TM80`), so the extraction leaves `vi_DFDS.bin`. After the 4-byte length, the bytes are zlib data; the inflated 572 bytes hold, each as a 4-byte big-endian length followed by the text, `0x0c` + `[\t\n\r\s]*$` and `0x0c` + `^[\t\n\r\s]*` — a trim of trailing and leading whitespace, which is what the VI is named for.
+- Corpus evidence that this is rare: in 200 extracted block diagrams, 679 constants under an `sRN` have `DefaultData` and 4 do not (this string and three cluster constants in one other VI, all with the same `dsw` field).
+
+## Search and Replace String records its Regular Expression mode in the node's `objFlags` (bit 0x2000000), and then shows the `multiline?` terminal
+
+NI: "To include the multiline? input and enable advanced regular expression searches, right-click the function and select Regular Expression" (labview-api-ref, `functions/search-and-replace-string.html`). A `prim` element with `primResID` 3914 always lists all twelve terminals (`parmIndex` 0 to 5, 7 to 11 and 15). Across 273 such nodes in 32 extracted VIs:
+
+- 267 have no `<objFlags>` of their own and the terminal `parmIndex` 3 (`multiline?`) has `objFlags` `8388608` (0x800000, hidden) or `8392704` (0x800000 | 0x1000).
+- 6 (all in `IE_Open Help Link.vi`, ni-labview-icon-editor) have `<objFlags>33554432</objFlags>` (0x2000000) and terminal 3 carries no 0x800000.
+
+So the mode is the node's own 0x2000000 bit, read by `ops/search_and_replace.py` from the node's `obj_flags`; the same node shows the hidden bit clear on `multiline?`. Every other field compared (`primIndex` 406, 425, 441 or 454, `shortCount`, `clumpNum`, the per-terminal `dsw`) varies without tracking the mode. Only one corpus node is in Regular Expression mode, so the bit is the whole evidence for the mode; that node's `search string` is the constant `'nihelplauncher://docs/csh'`.
+
+## A generic VI Server reference (`RefType="LVObjCtl"`) names its class in `CtlFlags`: 0x0001 Application, 0x0002 VI
+
+The type descriptor of a generic VI Server reference carries `CtlFlags` next to `RefType="LVObjCtl"`. Across the extracted corpus, every descriptor labelled `This VI` has `CtlFlags="0x0002"` (217 of 217) and every one labelled `This Application` has `0x0001` (109 of 109); the other descriptors with those values carry labels such as `VIRef`, `IE VI Ref`, `vi reference` (0x0002) and `application reference (local)`, `AppInst` (0x0001). Other values (0x0008, 0x001E, 0x001B, 0x0042 ...) are the control classes of control references (a `Font ComboBox` reference is 0x001D); they are not named here.
+
+The `oMId` of the `ctlRefConst` element does NOT identify the class: the `This VI` constants in the corpus carry `061F`, `002E`, `0049`, `02B4`, `000D`, `0033` and `0010`. lvkit reads `CtlFlags` into `LVType.server_class` ("VI" or "Application"; None for anything else), so a `This VI` constant is told from `This Application` by its type, not its label.

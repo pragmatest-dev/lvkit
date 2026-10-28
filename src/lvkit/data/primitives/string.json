@@ -104,6 +104,7 @@
     },
     "1535": {
       "name": "Match Pattern",
+      "op": "MATCH_PATTERN",
       "terminals": [
         {
           "index": 0,
@@ -149,14 +150,6 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "_import": "from lvkit.runtime.match_pattern import match_pattern as _match_pattern",
-        "_body": "_m = _match_pattern(in_0, in_1, in_2)",
-        "before_substring": "_m[0]",
-        "match_substring": "_m[1]",
-        "after_substring": "_m[2]",
-        "offset_past_match": "_m[3]"
-      },
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/match-pattern.html"
     },
@@ -411,6 +404,7 @@
     },
     "3914": {
       "name": "Search and Replace String",
+      "op": "SEARCH_AND_REPLACE_STRING",
       "terminals": [
         {
           "index": 0,
@@ -486,10 +480,6 @@
           "type": "ErrorCluster"
         }
       ],
-      "python_code": {
-        "result string": "in_0.replace(in_5, in_7) if in_1 else in_0.replace(in_5, in_7, 1)"
-      },
-      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/search-and-replace-string.html",

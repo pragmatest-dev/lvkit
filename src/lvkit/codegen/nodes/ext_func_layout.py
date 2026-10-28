@@ -11,8 +11,8 @@ the elements. A top-level string or array depends on the Data Format setting,
 which no corpus node uses and so is not decoded.
 
 Each layout becomes a ``ctypes.Structure`` defined once in the generated module
-(``CtypesModule``); ``fill`` and ``read`` return the statements and expression that
-move a Python value into and out of it.
+(``ModuleDeclarations``); ``fill`` and ``read`` return the statements and expression
+that move a Python value into and out of it.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from lvkit.models import LVType, LVTypeKind, unique_names
 from lvkit.parser.extfunc_prototype import NUMERIC_C_TYPES, array_handle_problem
 
 from ..ast_utils import to_var_name
-from ..ctypes_module import CtypesModule
+from ..module_declarations import ModuleDeclarations
 
 CTYPES_NAMES = {
     "int8": "c_int8",
@@ -160,7 +160,7 @@ def parameter_layout(lv_type: LVType | None, label: str) -> tuple[Layout | None,
 # ------------------------------------------------------------- declarations
 
 
-def string_struct(module: CtypesModule) -> str:
+def string_struct(module: ModuleDeclarations) -> str:
     """The structure behind a string handle."""
     return module.declare(
         "LStr",
@@ -172,7 +172,7 @@ def string_struct(module: CtypesModule) -> str:
     )
 
 
-def array_struct(module: CtypesModule, layout: ArrayHandle) -> str:
+def array_struct(module: ModuleDeclarations, layout: ArrayHandle) -> str:
     """The structure behind an array handle: the dimension sizes, then the elements."""
     dims = "".join(f"('dim{i}', ctypes.c_int32), " for i in range(layout.dimensions))
     preferred = f"_Array{layout.dimensions}{layout.element.capitalize()}"
@@ -186,7 +186,7 @@ def array_struct(module: CtypesModule, layout: ArrayHandle) -> str:
     )
 
 
-def ctype_of(layout: Layout, module: CtypesModule) -> str:
+def ctype_of(layout: Layout, module: ModuleDeclarations) -> str:
     """The source of the ``ctypes`` type of a value of ``layout`` as it sits in a
     structure or behind a pointer, defining the structures it needs."""
     if isinstance(layout, Scalar):
@@ -198,7 +198,7 @@ def ctype_of(layout: Layout, module: CtypesModule) -> str:
     return _cluster_struct(module, layout)
 
 
-def _cluster_struct(module: CtypesModule, layout: Cluster) -> str:
+def _cluster_struct(module: ModuleDeclarations, layout: Cluster) -> str:
     fields = [(m.name, ctype_of(m.layout, module)) for m in layout.members]
     listing = ", ".join(f"({name!r}, {ctype})" for name, ctype in fields)
     return module.declare(
@@ -220,7 +220,7 @@ def fill_handle(
     value: str,
     target: str,
     prefix: str,
-    module: CtypesModule,
+    module: ModuleDeclarations,
 ) -> list[str]:
     """Statements that build the block of ``value`` and store a handle to it in
     ``target``. The block lives as long as the local ``{prefix}_block``."""
@@ -266,7 +266,7 @@ def fill_handle(
 
 
 def fill(
-    layout: Layout, value: str, target: str, prefix: str, module: CtypesModule
+    layout: Layout, value: str, target: str, prefix: str, module: ModuleDeclarations
 ) -> list[str]:
     """Statements that store ``value`` in ``target``, a field or cell of
     ``ctype_of(layout)`` (a cluster's structure already exists)."""
@@ -288,7 +288,10 @@ def fill(
 
 
 def read_handle(
-    layout: StringHandle | ArrayHandle, handle: str, prefix: str, module: CtypesModule
+    layout: StringHandle | ArrayHandle,
+    handle: str,
+    prefix: str,
+    module: ModuleDeclarations,
 ) -> tuple[list[str], str]:
     """Statements and the expression for the value behind ``handle`` (a NULL
     handle or block is empty)."""
@@ -326,7 +329,7 @@ def _nest(flat: str, dims: list[str], prefix: str) -> str:
 
 
 def read(
-    layout: Layout, source: str, prefix: str, module: CtypesModule
+    layout: Layout, source: str, prefix: str, module: ModuleDeclarations
 ) -> tuple[list[str], str]:
     """Statements and the expression for the Python value of ``source``, a field or
     cell of ``ctype_of(layout)`` read after the call."""

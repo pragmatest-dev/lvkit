@@ -200,7 +200,7 @@ class _HandleTarget:
 def _handle_base_and_suffix(handle: str) -> tuple[str, str]:
     """Split a rendered ``<base>_<uid>`` handle (lvnet §7/§9) into its base
     and its trailing uid -- Phase 3: that suffix is the node's own stable BD
-    uid (see ``_uid_of``), not a positional occurrence counter. Every real
+    uid (see ``uid_of``), not a positional occurrence counter. Every real
     uid is a decimal-digit string, so a non-digit (or missing) suffix is a
     genuine grammar violation, raised rather than guessed at."""
     base, sep, suffix = handle.rpartition("_")

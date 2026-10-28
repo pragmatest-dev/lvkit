@@ -78,20 +78,30 @@ class PackageQueues:
         sizes: dict[str, set[int]] = {}
         for use in uses:
             name = ""
-            if use.name is not None:
+            error: str | None = None
+            if use.name is not None and use.name.unwritable is not None:
+                error = (
+                    f"Obtain Queue has a name that holds {use.name.unwritable.reason()}"
+                )
+            elif use.name is not None:
                 value = _constant_value(use.name)
                 name = value if isinstance(value, str) else ""
             size: int | None = -1
-            error: str | None = None
-            if use.max_size is not None:
+            unwritable = use.max_size.unwritable if use.max_size is not None else None
+            if use.max_size is not None and unwritable is None:
                 value = _constant_value(use.max_size)
                 size = value if isinstance(value, int) else None
-            elif use.max_size_wired:
+            elif use.max_size_wired or unwritable is not None:
                 size = None
-            if name and size is None:
+            if name and size is None and error is None:
                 error = (
-                    f"Obtain Queue '{name}' has a maximum size computed at run "
-                    "time; a named queue is defined once, with a constant size"
+                    f"Obtain Queue '{name}' has a maximum size "
+                    + (
+                        f"that holds {unwritable.reason()}"
+                        if unwritable is not None
+                        else "computed at run time"
+                    )
+                    + "; a named queue is defined once, with a constant size"
                 )
             if name and size is not None:
                 sizes.setdefault(name, set()).add(max(size, 0))

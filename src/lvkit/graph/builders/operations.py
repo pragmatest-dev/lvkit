@@ -180,6 +180,7 @@ class PrimitiveBuildHandler(NodeBuildHandler):
         if isinstance(node, ParserPrimitiveNode):
             prim_kwargs["prim_id"] = node.prim_res_id
             prim_kwargs["prim_index"] = node.prim_index
+            prim_kwargs["obj_flags"] = node.obj_flags
         if isinstance(node, CpdArithNode):
             prim_kwargs["operation"] = node.operation
         if isinstance(node, (PropertyNode, InvokeNode, EventRegNode)):

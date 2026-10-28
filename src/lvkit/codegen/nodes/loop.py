@@ -7,7 +7,14 @@ import keyword
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, LoopNode
-from lvkit.models import LVType, LVTypeKind, Tunnel, TunnelMode, TunnelTerminal
+from lvkit.models import (
+    LVType,
+    LVTypeKind,
+    Terminal,
+    Tunnel,
+    TunnelMode,
+    TunnelTerminal,
+)
 
 from ..ast_utils import (
     build_assign,
@@ -289,6 +296,29 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             (outer_var, inner) for outer_var, inner, _ in lpTun_array_inputs
         ]
 
+        # The count terminal read inside the loop is the number of iterations:
+        # the wired count, or the shortest auto-indexed array.
+        count_inners = [
+            t.inner_terminal_uid
+            for t in tunnels
+            if t.tunnel_type == "lMax"
+            and t.inner_terminal_uid
+            and ctx.is_wired(t.inner_terminal_uid)
+        ]
+        count_parts = [f"len({array})" for array, _ in for_input_arrays]
+        if n_terminal_var:
+            count_parts.append(n_terminal_var)
+        if count_inners and count_parts:
+            count_var = ctx.make_output_var("count", node.id)
+            count_expr = (
+                count_parts[0]
+                if len(count_parts) == 1
+                else f"min({', '.join(count_parts)})"
+            )
+            pre_loop_stmts.append(build_assign(count_var, parse_expr(count_expr)))
+            for inner in count_inners:
+                inner_ctx.bind(inner, count_var)
+
         # Bind scalar inputs directly - same value each iteration
         for outer_var, inner_term in lpTun_scalar_inputs:
             inner_ctx.bind(inner_term, outer_var)
@@ -301,14 +331,7 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # Terminal, not a tunnel) is the Python loop index. Bind it so code inside
         # the body reads `i`, not the terminal's default 0. Both the enumerate and
         # the range(...) forms emit `idx_var` as the loop variable.
-        iter_term = next(
-            (
-                t
-                for t in node.terminals
-                if t.direction == "output" and not isinstance(t, TunnelTerminal)
-            ),
-            None,
-        )
+        iter_term = _iteration_terminal(node)
         if iter_term is not None:
             inner_ctx.bind(iter_term.id, idx_var)
 
@@ -321,6 +344,18 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
             # Multiple arrays or N terminal: use indexed access
             for outer_var, inner_term, _ in lpTun_array_inputs:
                 inner_ctx.bind(inner_term, f"{outer_var}[{idx_var}]")
+
+    # A While Loop's iteration terminal counts from 0; Python has no counter in
+    # `while True`, so a wired one is a local that starts at 0 and steps at the
+    # end of each iteration.
+    while_counter: str | None = None
+    if loop_type == "whileLoop":
+        iter_term = _iteration_terminal(node)
+        if iter_term is not None and ctx.is_wired(iter_term.id):
+            depth = ctx.loop_depth
+            while_counter = "ijklmn"[depth] if depth < 6 else f"idx_{depth}"
+            inner_ctx.bind(iter_term.id, while_counter)
+            pre_loop_stmts.append(build_assign(while_counter, ast.Constant(value=0)))
 
     # 4. Generate inner node code
     inner_stmts = _generate_inner(inner_nodes, inner_ctx)
@@ -452,6 +487,14 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
     loop_ast: ast.While | ast.For
     if loop_type == "whileLoop":
         loop_ast, stop_condition_var = _build_while_loop(node, inner_stmts, inner_ctx)
+        if while_counter is not None:
+            loop_ast.body.append(
+                ast.AugAssign(
+                    target=ast.Name(id=while_counter, ctx=ast.Store()),
+                    op=ast.Add(),
+                    value=ast.Constant(value=1),
+                )
+            )
     else:
         loop_ast = _build_for_loop(
             node, inner_stmts, inner_ctx, n_terminal_var, for_input_arrays
@@ -738,6 +781,19 @@ def _generate_inner(
 ) -> list[ast.stmt]:
     """Generate code for inner loop nodes."""
     return ctx.generate_body(inner_nodes)
+
+
+def _iteration_terminal(node: LoopNode) -> Terminal | None:
+    """The loop's iteration terminal (the LabVIEW `i` counter): its plain output
+    terminal, not a tunnel."""
+    return next(
+        (
+            t
+            for t in node.terminals
+            if t.direction == "output" and not isinstance(t, TunnelTerminal)
+        ),
+        None,
+    )
 
 
 def _build_while_loop(

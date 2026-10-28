@@ -1,5 +1,7 @@
-"""The module-level ``ctypes`` code of a generated module: the libraries it loads,
-the function prototypes it sets and the ``ctypes.Structure`` classes it defines.
+"""The module-level code of a generated module that nodes declare: the libraries it
+loads, the function prototypes it sets, the ``ctypes.Structure`` classes it defines
+and the helper functions (library-name expansion, regular-expression translators)
+written into it.
 
 Each declaration is registered once under a key and emitted in the order it was
 first needed, so a declaration always follows the ones it refers to.
@@ -13,7 +15,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class CtypesModule:
+class ModuleDeclarations:
     """Declarations of one generated module, in definition order."""
 
     statements: list[ast.stmt] = field(default_factory=list)

@@ -44,7 +44,7 @@ from ..models import (
     _is_error_cluster,
 )
 from ..parser.node_types import get_display_name
-from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, _uid_of
+from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
 from .models import (
     AnyGraphNode,
@@ -348,7 +348,7 @@ class _GraphBuildCtx:
     (see ``_owning_node_gn``) -- no precomputed node-tree index needed.
 
     No ``case_id_by_uid``/``loop_id_by_uid`` here -- a case/loop's own stable
-    BD uid (``_uid_of(node.id)``, the SAME id ``NetlistScope.uid`` already
+    BD uid (``uid_of(node.id)``, the SAME id ``NetlistScope.uid`` already
     carries) names its merge nets directly (see
     ``_tunnel_net_name_gn``/``_mu_net_name_gn``), so no separate per-structure
     sequential counter is needed.
@@ -537,9 +537,9 @@ def _tunnel_net_name_gn(
     prefix: str,
 ) -> str:
     """A tunnel merge's net name (``<prefix>_<uid>.out<k>``) -- the
-    structure's own stable BD uid (``_uid_of``, the SAME id
+    structure's own stable BD uid (``uid_of``, the SAME id
     ``NetlistScope.uid`` already uses) names the net directly."""
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     outers = outers_fn(node)
     k = next(i for i, t in enumerate(outers) if t.id == term.id)
     return f"{prefix}_{uid}.out{k}"
@@ -555,7 +555,7 @@ def _eta_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
 
 def _mu_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     """Phase 3: ``loop_<uid>.shift<k>`` -- see ``_tunnel_net_name_gn``."""
-    loop_uid = _uid_of(node.id)
+    loop_uid = uid_of(node.id)
     pairs = _loop_shift_register_pairs_gn(node)
     k = next(
         i
@@ -579,7 +579,7 @@ def _is_loop_iteration_terminal_gn(node: AnyGraphNode, term: Terminal) -> bool:
 
 def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
     """``loop_<uid>.i`` -- a loop's iteration count, read inside its body."""
-    return f"loop_{_uid_of(node.id)}.i"
+    return f"loop_{uid_of(node.id)}.i"
 
 
 # Frame-only structures (sequence/disabled/event, ``_FRAME_STRUCTURE_TYPES``
@@ -665,7 +665,7 @@ def _sequence_local_net_name_gn(node: AnyGraphNode, terminal_id: str) -> str | N
     hit = sequence_local_read_gn(node, terminal_id)
     if hit is None:
         return None
-    return f"sequence_{_uid_of(node.id)}.local{hit[0]}"
+    return f"sequence_{uid_of(node.id)}.local{hit[0]}"
 
 
 def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
@@ -766,7 +766,7 @@ def _inplace_border_read_net_gn(
     k = next((i for i, t in enumerate(outputs) if t.id == terminal_id), None)
     if k is None:
         return None
-    return f"inplace_{_uid_of(ipes.id)}.get{k}"
+    return f"inplace_{uid_of(ipes.id)}.get{k}"
 
 
 def _is_feedback_output_read_gn(
@@ -930,7 +930,7 @@ def _border_net_name_gn(
         case StructureBorder.IN_PLACE_OUTPUT:
             return _inplace_net_name_gn(owner, term)
         case StructureBorder.FEEDBACK_NODE:
-            return f"fb{build_ctx.feedback_id_by_uid[_uid_of(owner.id)]}"
+            return f"fb{build_ctx.feedback_id_by_uid[uid_of(owner.id)]}"
 
 
 def trace_source_gn(
@@ -1009,7 +1009,7 @@ def _resolve_source_gn(
             )
             return NetRef(node=None, terminal=name, occurrence=None, bare=name)
         node_name = _display_name_gn(traced.owner)
-        occurrence = build_ctx.occurrence_by_uid.get(_uid_of(traced.owner.id))
+        occurrence = build_ctx.occurrence_by_uid.get(uid_of(traced.owner.id))
         # Tag this reference with its producer's own uid
         # (``NetRef.producer_uid``) so ``render_lvnet`` can resolve it
         # straight to the producer's ``<base>_<uid>`` handle via
@@ -1019,7 +1019,7 @@ def _resolve_source_gn(
         # ``producer_uid``.
         return replace(
             _term_ref(node_name, occurrence, traced.term),
-            producer_uid=_uid_of(traced.owner.id),
+            producer_uid=uid_of(traced.owner.id),
         )
 
     if traced.element_net is not None:
@@ -1052,11 +1052,11 @@ def _resolve_source_gn(
             terminal=value_str,
             occurrence=None,
             bare=value_str,
-            constant_uid=_uid_of(const.id),
+            constant_uid=uid_of(const.id),
             lvnet_value=_lvnet_const_value_str(const),
         )
 
-    node_name = src.name or _uid_of(src.node_id)
+    node_name = src.name or uid_of(src.node_id)
     terminal = str(src.index) if src.index is not None else src.terminal_id
     return NetRef(
         node=node_name,
@@ -1260,7 +1260,7 @@ def _build_instance_gn(
     that drops a Void binding (by its own ``type`` field, at render
     time -- see ``_is_void_type``) and shows an unwired one.
     """
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     name = _display_name_gn(node)
     occurrence = build_ctx.occurrence_by_uid.get(uid)
     terminals = graph.enriched_terminals(node, vi_name)
@@ -1367,7 +1367,7 @@ def _build_feedback_gn(
     fb = graph.get_feedback_info(node.id)
     assert fb is not None
     _, partner_uid, delay = fb
-    k = build_ctx.feedback_id_by_uid[_uid_of(node.id)]
+    k = build_ctx.feedback_id_by_uid[uid_of(node.id)]
 
     init_term = next((t for t in node.terminals if t.direction == "input"), None)
     out_term = next((t for t in node.terminals if t.direction == "output"), None)
@@ -1389,7 +1389,7 @@ def _build_feedback_gn(
             recur = _resolve_source_gn(graph, ctx, vi_name, recur_term.id, build_ctx)
 
     return NetlistFeedback(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         net=f"fb{k}",
         init=init,
         recur=recur,
@@ -1549,7 +1549,7 @@ def _assign_occurrences_gn(
     for node, name in zip(insts, names, strict=True):
         if counts[name] > 1:
             running[name] = running.get(name, 0) + 1
-            occurrence_by_uid[_uid_of(node.id)] = running[name]
+            occurrence_by_uid[uid_of(node.id)] = running[name]
     return occurrence_by_uid
 
 
@@ -1563,7 +1563,7 @@ def _assign_sequential_ids_gn(
     next_id = 0
     for node in flat:
         if predicate(node):
-            ids[_uid_of(node.id)] = next_id
+            ids[uid_of(node.id)] = next_id
             next_id += 1
     return ids
 
@@ -1616,7 +1616,7 @@ def _build_constant_gn(
     )
     occurrence = build_ctx.constant_occurrence_by_uid.get(node.id)
     return NetlistConstant(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         name=label,
         occurrence=occurrence,
         type=type_desc,
@@ -1745,14 +1745,14 @@ def _build_case_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
-    case_uid = _uid_of(node.id)
+    case_uid = uid_of(node.id)
     outputs: list[ScopeOutput] = [
         *_build_case_outputs_gn(
             graph, ctx, vi_name, node, build_ctx, case_uid, selector, frames
         ),
     ]
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="case",
         selector=selector,
         frames=frames,
@@ -1788,7 +1788,7 @@ def _build_disabled_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="disabled",
         selector=None,
         frames=frames,
@@ -1824,7 +1824,7 @@ def _build_event_scope_gn(
         for i, frame in enumerate(node.frames)
     ]
     return NetlistScope(
-        uid=_uid_of(node.id), kind="event", selector=None, frames=frames
+        uid=uid_of(node.id), kind="event", selector=None, frames=frames
     )
 
 
@@ -1854,7 +1854,7 @@ def _build_sequence_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
-    seq_uid = _uid_of(node.id)
+    seq_uid = uid_of(node.id)
     drives: list[ScopeOutput] = []
     for k, link in enumerate(node.sequence_locals):
         if link.unreadable is not None and link.unreadable_frame is not None:
@@ -1998,7 +1998,7 @@ def _build_loop_scope_gn(
         )
         for t in tunnels
     ]
-    loop_uid = _uid_of(node.id)
+    loop_uid = uid_of(node.id)
     outputs: list[ScopeOutput] = [
         *_build_loop_shift_registers_gn(
             graph, ctx, vi_name, node, build_ctx, loop_uid, term_by_id
@@ -2008,7 +2008,7 @@ def _build_loop_scope_gn(
         ),
     ]
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind=kind,
         selector=selector,
         frames=[frame],
@@ -2033,7 +2033,7 @@ def _build_inplace_border_drives_gn(
     its own that names the same DCO as one of the structure's input ports (the
     In Element port carrying the outer cluster/array in, the array index
     port) is driven by what feeds that port."""
-    uid = _uid_of(node.id)
+    uid = uid_of(node.id)
     drives: list[InPlaceBorderDrive] = []
     for k, term in enumerate(_ipes_border_terminals_gn(graph, node, "input")):
         value = _resolve_source_gn(graph, ctx, vi_name, term.id, build_ctx)
@@ -2100,7 +2100,7 @@ def _build_inplace_scope_gn(
     )
     drives = _build_inplace_border_drives_gn(graph, ctx, vi_name, node, build_ctx)
     return NetlistScope(
-        uid=_uid_of(node.id),
+        uid=uid_of(node.id),
         kind="inplace",
         selector=None,
         frames=[frame],

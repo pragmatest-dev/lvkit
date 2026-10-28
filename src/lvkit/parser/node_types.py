@@ -42,6 +42,8 @@ class PrimitiveNode(ParsedNode):
 
     prim_index: int | None = None
     prim_res_id: int | None = None
+    # The node's own ``objFlags`` (0 when the element has none).
+    obj_flags: int = 0
 
 
 @dataclass
@@ -330,6 +332,7 @@ class PrimitiveHandler(NodeTypeHandler):
             **common,
             prim_index=prim_index,
             prim_res_id=prim_res_id,
+            obj_flags=safe_int(elem.find("objFlags")),
         )
 
 

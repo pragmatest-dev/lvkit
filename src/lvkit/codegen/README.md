@@ -94,6 +94,23 @@ Each handler takes an `Operation` and `CodeGenContext`, returns a `CodeFragment`
 | `nmux.py` | Node multiplexer | Passthrough / conditional select |
 | `constant.py` | Constants | Literal values (handled during context init, rarely needs handler) |
 
+### Match Pattern
+
+`nodes/ops/match_pattern.py` writes Match Pattern as `re.search` on `string[start:]`
+(not `pos=`, so a leading `^` anchors at the offset). A constant `regular expression`
+is translated while generating (`match_pattern_regex.to_python_regex`) and written as
+the `re` pattern; a computed one calls `_match_pattern_regex`, the source of that same
+function, written once into the module through `ctx.module_declarations.declare`.
+
+Search and Replace String (`nodes/ops/search_and_replace.py`) shares the input reading,
+the search start and the translator declaration with Match Pattern
+(`nodes/ops/_regex_node.py`). In plain mode the search string is `re.escape`d (a call
+needing nothing more is `str.replace`); in Regular Expression mode (the node's
+`objFlags` bit 0x2000000) `pcre_regex.py` reads the search string as PCRE and the
+replace string's `$n` / `${n}` / `\$` as a Python template, both translated while
+generating for a constant and by functions written once into the module for a computed
+one.
+
 ### Call Library Function Node libraries
 
 `nodes/ext_func_library.py` decides how a generated module loads the library a node

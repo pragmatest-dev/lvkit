@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .models import AnyGraphNode, ConstantNode, PrimitiveNode
+from .models import AnyGraphNode, ConstantNode, LocalVariableNode, PrimitiveNode
 from .node_kinds import NodeType
 from .op_walk import correlate_property_terminals
 from .wire_origin import PathNotConstant, WireOriginMixin
@@ -99,6 +99,9 @@ class VIReferenceMixin(WireOriginMixin):
         if _is_open_vi_reference_output(node, source):
             assert isinstance(node, PrimitiveNode)
             return self.opened_vi(node)
+        key = self.terminal_vi(source.terminal_id)
+        if is_this_vi(node) and key is not None:
+            return ReferencedVI(self.vi_display_name(key), key)
         raise VIReferenceUnresolved(
             f"The VI reference is wired from {_describe(node)}, so which VI it "
             "holds is only known when the diagram runs."
@@ -111,6 +114,7 @@ class VIReferenceMixin(WireOriginMixin):
         return bool(origins) and all(
             (isinstance(n, ConstantNode) and _is_vi_reference(n))
             or _is_open_vi_reference_output(n, s)
+            or is_this_vi(n)
             for n, s in origins
         )
 
@@ -198,6 +202,18 @@ class VIReferenceMixin(WireOriginMixin):
             if os.path.normpath(key) == wanted:
                 return ReferencedVI(self.vi_display_name(key), key)
         raise VIReferenceUnresolved(f"The VI at {text!r} is not loaded with this VI.")
+
+
+def is_this_vi(node: AnyGraphNode) -> bool:
+    """Whether ``node`` is the "This VI" constant: a reference to the VI holding
+    the diagram, a VI Server reference of class VI that names no front-panel
+    control."""
+    return (
+        isinstance(node, LocalVariableNode)
+        and not node.is_write
+        and node.control_terminal_id is None
+        and any(t.lv_type and t.lv_type.server_class == "VI" for t in node.terminals)
+    )
 
 
 def _same_vi(found: list[ReferencedVI]) -> ReferencedVI:

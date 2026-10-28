@@ -58,7 +58,7 @@ def generate_manager_call(
         values[f"out{row}"] = name
         bindings[output_id] = name
     for declaration in function.declarations:
-        values[declaration.key] = ctx.ctypes_module.declare(
+        values[declaration.key] = ctx.module_declarations.declare(
             ("manager", declaration.key),
             declaration.name,
             lambda n, d=declaration: "\n".join(d.source).format(name=n) + "\n",

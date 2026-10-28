@@ -658,3 +658,22 @@ def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_is_a_direct_call(
     for refs in _package(tmp_path, _source(loaded), _CALLEE):
         refs.refs()  # type: ignore[attr-defined]
         assert [x for x, _ in sys.modules["generated_refs.callee"].calls] == [5]
+
+
+def test_this_vi_is_the_function_being_generated(tmp_path: Path) -> None:
+    """ "This VI" wired into a Property Node reading Name: the reference is the
+    generated function, so Name is ``refs.__name__``; the value runs into a call."""
+    name = d.vi_name_property(60, 500, "Name")
+    loaded = d.load(
+        tmp_path,
+        [d.this_vi(80), _STATIC, name, _CALL],
+        [d.wire(100, 81, 61), d.wire(101, 11, 31), d.wire(102, 69, 41)],
+    )
+    d.type_terminal(loaded, 81, d.this_vi_type())
+    source = _source(loaded)
+    assert "refs.__name__" in source
+    assert "NotImplementedError" not in source
+    for refs in _package(tmp_path, source, _CALLEE):
+        refs.refs()  # type: ignore[attr-defined]
+        callee = sys.modules["generated_refs.callee"]
+        assert callee.calls[0][0] == "refs"

@@ -112,7 +112,7 @@ def _node_order_key(uid: str) -> tuple[str, int, str]:
     return (base, int(tail), "") if tail.isdigit() else (uid, -1, uid)
 
 
-def _uid_of(op_id: str) -> str:
+def uid_of(op_id: str) -> str:
     """Trailing UID from an op.id ('...run.vi::1065' -> '1065') — the stable,
     path-prefix-independent node identity shared by the netlist + diff layers."""
     return op_id.rsplit("::", 1)[-1]
@@ -335,6 +335,7 @@ class InMemoryVIGraph(
             kind=LVTypeKind(parsed_type.kind),
             underlying_type=parsed_type.type_name,
             ref_type=parsed_type.ref_type,
+            server_class=parsed_type.server_class,
             classname=parsed_type.classname,
             class_file=parsed_type.class_file,
             typedef_path=parsed_type.typedef_path,

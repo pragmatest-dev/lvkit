@@ -23,6 +23,7 @@ from ..models import (
     TunnelMode,
     TunnelTerminal,
     UnwritableValue,
+    ValueNotStored,
     bundle_unbundle_name,
     control_type_to_lvtype,
     enum_values_from_labels,
@@ -215,6 +216,10 @@ def decode_constant(
         lv_type: LVType from the graph (authoritative type info)
     """
     value = const.value
+    if value is None:
+        py_type = lv_type.to_python() if lv_type is not None else "raw"
+        marker = ValueNotStored()
+        return DecodedConstant(py_type, str(marker), None, marker)
 
     if lv_type is not None:
         raw_bytes = bytes.fromhex(value)

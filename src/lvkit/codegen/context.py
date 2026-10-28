@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.core import _uid_of
+from lvkit.graph.core import uid_of
 from lvkit.graph.models import (
     AnyGraphNode,
     Constant,
@@ -37,12 +37,13 @@ from lvkit.models import (
 )
 
 from .ast_utils import interface_names, to_function_name, to_var_name
-from .ctypes_module import CtypesModule
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
+from .module_declarations import ModuleDeclarations
+from .references import REFERENCE_KINDS, generated_nodes
 
 
 @dataclass
@@ -122,7 +123,7 @@ class CodeGenContext:
     flat_functions: dict[tuple, str] = field(default_factory=dict, repr=False)
     # The module-level ``ctypes`` code of Call Library Function Nodes (libraries,
     # prototypes, structures); shared across child contexts.
-    ctypes_module: CtypesModule = field(default_factory=CtypesModule)
+    module_declarations: ModuleDeclarations = field(default_factory=ModuleDeclarations)
     # Module-level global variables for persistent per-call-site state:
     # uninitialized shift registers (LV2/functional-global idiom — see
     # codegen/nodes/loop.py) and stateful primitives like First Call?
@@ -185,8 +186,11 @@ class CodeGenContext:
         if self.graph is not None:
             self.graph.set_var_name(terminal_id, var_name)
 
-    def resolve(self, terminal_id: str) -> str | None:
+    def resolve(self, terminal_id: str, *, allow_none: bool = False) -> str | None:
         """Get variable name for a terminal by walking the graph.
+
+        A source bound to ``None`` (a constant that is a gap) counts as no
+        variable, unless ``allow_none`` accepts it.
 
         BFS through incoming edges until a terminal with var_name is found.
         One graph. No separate bindings dict. No scoping issues. The walk stays
@@ -208,7 +212,7 @@ class CodeGenContext:
 
             # Check var_name on this terminal
             var = self.graph.get_var_name(tid)
-            if var and var != "None":
+            if var and (allow_none or var != "None"):
                 return var
 
             # Walk incoming edges
@@ -397,7 +401,11 @@ class CodeGenContext:
         graph."""
         if self.graph is None:
             return []
-        return self.graph.child_nodes(node.id, self.vi_name or "")
+        return generated_nodes(
+            self.graph.child_nodes(
+                node.id, self.vi_name or "", extra_kinds=REFERENCE_KINDS
+            )
+        )
 
     def enriched_terminals(self, node: AnyGraphNode) -> list[Terminal]:
         """``node``'s terminals with SubVI-call terminals enriched with the
@@ -482,7 +490,7 @@ class CodeGenContext:
             import_resolver=self.import_resolver,
             formula_helpers=self.formula_helpers,  # Shared — one list
             flat_functions=self.flat_functions,  # Shared — one dict
-            ctypes_module=self.ctypes_module,  # Shared — one per module
+            module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
             _body_generator=self._body_generator,
         )
@@ -547,7 +555,7 @@ class CodeGenContext:
             return data_file_expression(
                 what="constant",
                 name=const.label,
-                uid=_uid_of(const.id),
+                uid=uid_of(const.id),
                 module_stem=self.module_stem,
                 unwritable=const.unwritable,
                 lv_type=lv_type,

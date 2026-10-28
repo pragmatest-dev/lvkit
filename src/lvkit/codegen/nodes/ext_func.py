@@ -120,7 +120,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             node, None, ctx, reason="it records no library and its path in is unwired"
         )
 
-    module = ctx.ctypes_module
+    module = ctx.module_declarations
     function = (
         call.function if call.function.isidentifier() else to_var_name(call.function)
     )
