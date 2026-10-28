@@ -7,7 +7,9 @@ import re
 from collections.abc import Mapping
 from typing import NoReturn
 
-from lvkit.graph.models import PrimitiveNode
+from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.core import _uid_of
+from lvkit.graph.models import LocalVariableNode, PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
@@ -29,6 +31,7 @@ from ..ast_utils import (
 )
 from ..context import CodeGenContext
 from ..elementwise import arrayify
+from ..errors import CodeGenError
 from ..fragment import CodeFragment
 
 
@@ -141,6 +144,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             and node_type not in OPERATION_NODE_CLASSES
         )
         if prim_id is None and not is_generic_unknown:
+            # A node class with no generator yet makes nothing; that is a gap when
+            # a wire leaves it, since the wire then carries no value.
+            if any(
+                t.direction == "output" and ctx.is_wired(t.id) for t in node.terminals
+            ):
+                raise_unknown(node, prim_id, ctx)
             return CodeFragment.empty()
         raise_unknown(node, prim_id, ctx)
 
@@ -351,8 +360,19 @@ def _build_input_map(
             if not term_name:
                 term_name = resolved_name
 
-        # Resolve from context - None means unwired
+        # Resolve from context. A wired data input always has a variable (a constant
+        # that is a gap is bound to None; its function raises where it starts); an
+        # error cluster has none, errors being exceptions.
         value = ctx.resolve(term_id)
+        if not value and ctx.is_wired(term_id) and not term.is_error_cluster:
+            value = ctx.resolve(term_id, allow_none=True)
+            if not value:
+                _raise_for_local_variable(ctx, term_id, node)
+                raise CodeGenError(
+                    f"The wired input {term_name or term_index!r} of "
+                    f"{node.name!r} has no variable (from {_sources(ctx, term_id)})",
+                    node,
+                )
         if value:
             # Wired terminal with -1 index: resolution failure
             if term_index == -1:
@@ -790,12 +810,46 @@ def _substitute_template(
 
     result = re.sub(combined, _replace, template)
 
-    # Replace any remaining unsubstituted in_N placeholders with
-    # type default. This happens for unwired optional inputs — the
-    # terminal exists in the primitive definition but has no wire.
-    result = re.sub(r"\bin_(\d+)\b", "None", result)
+    # Every input the template names has a terminal on the node (unwired ones
+    # take their default in the input map), so a placeholder left over is a
+    # template that names a terminal the node does not have.
+    leftover = re.search(r"\bin_(\d+)\b", result)
+    if leftover:
+        name = resolved.name if resolved else "a primitive"
+        raise CodeGenError(
+            f"The template of {name!r} names {leftover.group()}, which the node "
+            "has no terminal for"
+        )
 
     return result
+
+
+def _raise_for_local_variable(
+    ctx: CodeGenContext, terminal_id: str, node: PrimitiveNode
+) -> None:
+    """A wire from a local variable or control reference that names no
+    front-panel control carries no value code generation can write: a gap."""
+    assert ctx.graph is not None
+    for edge in ctx.graph.incoming_edges(terminal_id):
+        source = ctx.graph.get_graph_node(edge.node_id)
+        if isinstance(source, LocalVariableNode) and source.control_terminal_id is None:
+            raise ConversionGap(
+                f"The reference {source.name!r} names no front-panel control, so "
+                "there is no value to read",
+                node,
+            )
+
+
+def _sources(ctx: CodeGenContext, terminal_id: str) -> str:
+    """The nodes whose terminals wire into ``terminal_id``, for an error message."""
+    assert ctx.graph is not None
+    found = []
+    for edge in ctx.graph.incoming_edges(terminal_id):
+        source = ctx.graph.get_graph_node(edge.node_id)
+        name = source.name if source else None
+        kind = type(source).__name__
+        found.append(f"{kind} {name!r} terminal {_uid_of(edge.terminal_id)}")
+    return ", ".join(found) or "nothing"
 
 
 def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:

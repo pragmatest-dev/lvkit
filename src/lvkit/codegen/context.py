@@ -185,8 +185,11 @@ class CodeGenContext:
         if self.graph is not None:
             self.graph.set_var_name(terminal_id, var_name)
 
-    def resolve(self, terminal_id: str) -> str | None:
+    def resolve(self, terminal_id: str, *, allow_none: bool = False) -> str | None:
         """Get variable name for a terminal by walking the graph.
+
+        A source bound to ``None`` (a constant that is a gap) counts as no
+        variable, unless ``allow_none`` accepts it.
 
         BFS through incoming edges until a terminal with var_name is found.
         One graph. No separate bindings dict. No scoping issues. The walk stays
@@ -208,7 +211,7 @@ class CodeGenContext:
 
             # Check var_name on this terminal
             var = self.graph.get_var_name(tid)
-            if var and var != "None":
+            if var and (allow_none or var != "None"):
                 return var
 
             # Walk incoming edges
