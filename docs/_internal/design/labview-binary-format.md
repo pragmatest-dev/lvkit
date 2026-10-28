@@ -1637,3 +1637,11 @@ platform's extension (`myshared.dll`, `myshared.so`, `myshared.framework`), `*` 
 the extension. When the replacement happens follows how the name is defined: a library
 named in the node's setup is resolved when the VI loads, a library wired to `path in`
 when the node runs (maintainer, on the reporter's issue).
+
+## A diagram constant with no `DefaultData` in the heap keeps its value in the VI's DFDS (LabVIEW 8.2 VIs) — the parser drops it today
+
+`Trim Whitespace__JKI_RIGHT_CLICK_BUILD_SUPPORT.vi` (JKI-VI-Tester, LabVIEW 8.2) has two Match Pattern nodes whose `regular expression` input is wired straight from a string constant inside a case frame (signal `201`: constant terminal `184` to Match Pattern terminal `162`; the other frame's constant is terminal `90`). Neither is a case output tunnel, so no "Use Default If Unwired" flag is involved.
+
+- In the block-diagram heap each constant is a `dco class="bDConstDCO"` under the frame's `sRN` terminal list, with `ddo`, `tdOffset`, `typeDesc`, `dsw`, `objFlags`, `termList` and **no `DefaultData`**. `parser/nodes/constant.py::extract_constants` keeps only constants that have a value, so both are dropped and the Match Pattern input reads as an unresolved wire.
+- The values are in the VI's `DFDS` section. pylabview cannot decode it for this VI (`Block b'DFDS' section 0 parse exception: No support for the LV7.1 default data format`, the same VI also fails `LVSR`, `CONP`, `TM80`), so the extraction leaves `vi_DFDS.bin`. After the 4-byte length, the bytes are zlib data; the inflated 572 bytes hold, each as a 4-byte big-endian length followed by the text, `0x0c` + `[\t\n\r\s]*$` and `0x0c` + `^[\t\n\r\s]*` — a trim of trailing and leading whitespace, which is what the VI is named for.
+- Corpus evidence that this is rare: in 200 extracted block diagrams, 679 constants under an `sRN` have `DefaultData` and 4 do not (this string and three cluster constants in one other VI, all with the same `dsw` field).
