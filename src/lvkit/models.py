@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
 from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
+from .string_literal import quote_string
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -235,6 +236,14 @@ class PaneSlot:
     name: str | None = None
 
 
+class ServerClass(str, Enum):
+    """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
+    says (``CtlFlags``, ``labview-binary-format.md``)."""
+
+    VI = "VI"
+    APPLICATION = "Application"
+
+
 @dataclass
 class LVType:
     """LabVIEW type structure - unified representation for all types."""
@@ -244,8 +253,8 @@ class LVType:
     ref_type: str | None = None
     classname: str | None = None
     # The VI Server class a generic reference (``LVObjCtl``) is of, when its type
-    # says: "VI" or "Application". None for any other reference.
-    server_class: str | None = None
+    # says. None for any other reference.
+    server_class: ServerClass | None = None
     # A User Event refnum's event name: the label of the data type wired to
     # Create User Event (for a type-definition data type, the label on the
     # constant's own instance of it, not the .ctl file name). None for every
@@ -450,7 +459,7 @@ class LVType:
             readable = replace(self, unreadable=None)
             return (
                 f"{readable.type_descriptor(expand_named=expand_named)} "
-                f"(unreadable: {self.unreadable})"
+                f"(unreadable {quote_string(self.unreadable)})"
             )
         if self.dotnet_type is not None:
             if self._refnum_leaf():

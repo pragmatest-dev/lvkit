@@ -263,6 +263,8 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     - every other ``LVType`` field carried through verbatim.
     - ``dotnet_type``: the full assembly-qualified .NET type of a .NET node's
       terminal; the key is absent for every other type.
+    - ``unreadable``: why a type's descriptor could not be read; the key is
+      absent for every type that read.
     """
     result: dict[str, Any] = {
         "kind": lv_type.kind.value,
@@ -305,6 +307,9 @@ def _lv_type_to_dict(lv_type: LVType) -> dict[str, Any]:
     if lv_type.dotnet_type is not None:
         # Only a .NET node's terminal has one: the assembly-qualified name.
         result["dotnet_type"] = lv_type.dotnet_type.qualified
+    if lv_type.unreadable is not None:
+        # Only a type whose descriptor could not be read has one: why.
+        result["unreadable"] = lv_type.unreadable
     return result
 
 
@@ -423,6 +428,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
                 else item.reference.kind.value
             )
             instance["control"] = item.reference.control
+            instance["control_uid"] = item.reference.control_uid
         elif item.kind == NetlistInstanceKind.SHARED_VARIABLE:
             instance["kind"] = "shared_variable"
             instance["library"] = item.library
@@ -471,7 +477,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     return d
 
 
-def _scope_entry(where: tuple[str, str] | None) -> dict[str, Any]:
+def _scope_entry(where: tuple[str, str | None] | None) -> dict[str, Any]:
     """``{"scope": {"uid": <structure uid>, "frame": <frame value>}}`` for a
     front-panel terminal that sits inside a structure (a loop or In Place
     Element body has ``"frame": null``); empty for one on the VI's own diagram,
@@ -479,7 +485,7 @@ def _scope_entry(where: tuple[str, str] | None) -> dict[str, Any]:
     if where is None:
         return {}
     uid, frame = where
-    return {"scope": {"uid": uid, "frame": frame or None}}
+    return {"scope": {"uid": uid, "frame": frame}}
 
 
 def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str, Any]:
@@ -527,10 +533,10 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "default": p.default,
                     "caption": p.caption,
                     "caption_visible": p.caption_visible,
-                    **(
-                        _scope_entry(placed.reads.get(p.name))
-                        if p.direction == "input"
-                        else {}
+                    **_scope_entry(
+                        (placed.reads if p.direction == "input" else placed.drives).get(
+                            p.terminal_uid or p.name
+                        )
                     ),
                     **({"wiring_rule": p.wiring_requirement.value} if verbose else {}),
                     **(
@@ -548,7 +554,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "type": inp.type_descriptor,
                 "caption": inp.caption,
                 "caption_visible": inp.caption_visible,
-                **_scope_entry(placed.reads.get(inp.name)),
+                **_scope_entry(placed.reads.get(inp.terminal_uid or inp.name)),
                 **(
                     {"lv_type": _lv_type_to_dict(inp.lv_type)}
                     if verbose and inp.lv_type is not None
@@ -564,7 +570,7 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                 "source": _netref_to_dict(o.source) if o.source else None,
                 "caption": o.caption,
                 "caption_visible": o.caption_visible,
-                **_scope_entry(placed.drives.get(id(o))),
+                **_scope_entry(placed.drives_by_output.get(id(o))),
                 **(
                     {"lv_type": _lv_type_to_dict(o.lv_type)}
                     if verbose and o.lv_type is not None

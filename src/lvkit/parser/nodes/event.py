@@ -57,6 +57,7 @@ from pathlib import Path
 
 from lvkit.models import EventFrame, Tunnel
 
+from ..constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_EVENT_TIMEOUT
 from ..models import ParsedEventStructure
 from ..utils import clean_labview_string, extract_label, heap_color
 from ..xml_trees import parsed_xml
@@ -69,7 +70,11 @@ from .base import (
 # dco classes on an eventStruct's OWN termList that carry data across the
 # structure boundary. All four share the SAME per-frame-array shape as a
 # case's selTun (see extract_tunnel_mapping) — no per-class branching needed.
-EVENT_TUNNEL_DCO_CLASSES = ("selTun", "eventDynDCO", "eventTimeOut")
+EVENT_TUNNEL_DCO_CLASSES = (
+    "selTun",
+    TUNNEL_CLASS_EVENT_DYNAMIC,
+    TUNNEL_CLASS_EVENT_TIMEOUT,
+)
 
 # The heap class an eventStruct frame's data/filter node uses — shared by
 # BOTH the Event Data Node and the Event Filter Node (see module docstring).

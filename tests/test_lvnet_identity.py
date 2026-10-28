@@ -51,12 +51,15 @@ _lvnet_scope_id_suffix``, ``lvnet_parse._split_scope_header_id``, and
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph.core import InMemoryVIGraph
+from lvkit.graph.lvnet_drives import is_dead_slot
+from lvkit.graph.lvnet_grammar import lvnet_net_separator
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import (
@@ -81,11 +84,6 @@ from lvkit.graph.netlist_models import (
     InPlaceBorderDrive,
     MuMerge,
     NetlistInstanceKind,
-)
-from lvkit.graph.render_lvnet import (
-    _is_void_type,
-    _lvnet_net_separator,
-    _quoted_frame_label,
 )
 from tests.corpus_graphs import load_corpus_vi
 
@@ -244,6 +242,16 @@ class _IdentityCtx:
 
     instance_uids: frozenset[str]
     constant_uids: frozenset[str]
+    # ``(direction, label)`` of every front-panel label two terminals share: the
+    # terminals whose uid the text keeps.
+    shared_labels: frozenset[tuple[str, str]] = frozenset()
+    # The labels more than one terminal has in either direction (a reference to a
+    # control names it by uid then).
+    shared_names: frozenset[str] = frozenset()
+
+    def shown_uid(self, direction: str, name: str, uid: str | None) -> str | None:
+        """A front-panel terminal's uid as the text keeps it."""
+        return uid if (direction, name) in self.shared_labels else None
 
 
 def _collect_declared_uids(items: list[NetlistItem]) -> _IdentityCtx:
@@ -306,6 +314,12 @@ def _compare_net(
     if a is None or b is None:
         errors.append(f"{path}: net presence mismatch: {a!r} vs {b!r}")
         return
+    if a.boundary or b.boundary:
+        shown = ctx.shown_uid("input", a.bare, a.boundary_uid)
+        if shown != b.boundary_uid:
+            errors.append(
+                f"{path}: control terminal mismatch: {shown!r} vs {b.boundary_uid!r}"
+            )
     if a.producer_uid in ctx.instance_uids or b.producer_uid in ctx.instance_uids:
         if a.producer_uid != b.producer_uid:
             errors.append(
@@ -354,11 +368,11 @@ def _compare_net(
     # applies to either, so the display text is the only thing left to
     # compare. Normalize the ``.``/``::`` separator first: the ORIGINAL
     # module's stored text always uses ``.`` (``render_lvnet``'s own
-    # ``_lvnet_net_separator`` reformats it to ``::`` at RENDER TIME only,
+    # ``lvnet_net_separator`` reformats it to ``::`` at RENDER TIME only,
     # never mutating the stored field -- see its docstring), while
     # RECONSTRUCTED text captures the ALREADY-``::``-reformed form verbatim
     # -- a real difference in stored representation, not an identity bug.
-    if _lvnet_net_separator(a.bare) != _lvnet_net_separator(b.bare):
+    if lvnet_net_separator(a.bare) != lvnet_net_separator(b.bare):
         errors.append(f"{path}: bare net-text mismatch: {a.bare!r} vs {b.bare!r}")
 
 
@@ -376,6 +390,16 @@ def _compare_instance(
         )
     if a.kind != b.kind:
         errors.append(f"{path}: instance kind mismatch: {a.kind!r} vs {b.kind!r}")
+    if a.reference is not None or b.reference is not None:
+        # What a reference constant references: the target, and for a control the
+        # terminal that tells it from another with its label.
+        ra, rb = a.reference, b.reference
+        if ra is None or rb is None:
+            errors.append(f"{path}: reference presence mismatch: {ra!r} vs {rb!r}")
+        else:
+            shown = ra.control_uid if ra.control in ctx.shared_names else None
+            if (ra.kind, ra.control, shown) != (rb.kind, rb.control, rb.control_uid):
+                errors.append(f"{path}: reference mismatch: {ra!r} vs {rb!r}")
     if a.kind in (
         NetlistInstanceKind.GLOBAL_VARIABLE,
         NetlistInstanceKind.SHARED_VARIABLE,
@@ -397,7 +421,7 @@ def _compare_instance(
                     f"{getattr(a, attr)!r} vs {getattr(b, attr)!r}"
                 )
     # A Void-typed binding is a dead pane slot ``render_lvnet`` itself drops
-    # (``_is_void_type``/``_is_void_binding``, md §3/§7: "the one consumer
+    # (``is_dead_slot``, md §3/§7: "the one consumer
     # that must drop a dead pane slot") -- never rendered, so never present
     # to recover on reconstruction. Filtering the ORIGINAL side the same
     # way before comparing puts both sides back in the SAME domain: what
@@ -410,7 +434,7 @@ def _compare_instance(
     # ORIGINAL side the same way before zipping, or position ``i`` names two
     # entirely different terminals on the two sides.
     a_inputs = sorted(
-        (ia for ia in a.inputs if not _is_void_type(ia.type)),
+        (ia for ia in a.inputs if not is_dead_slot(ia.type, ia.net is not None)),
         key=lambda ia: ia.pane_rank,
     )
     if len(a_inputs) != len(b.inputs):
@@ -428,7 +452,7 @@ def _compare_instance(
     # directly via `.uid` above), never a reference to some OTHER
     # producer. There is no additional identity claim to check there --
     # only that the same number of (non-Void) outputs survived.
-    a_outputs = [oa for oa in a.outputs if not _is_void_type(oa.type)]
+    a_outputs = [oa for oa in a.outputs if not is_dead_slot(oa.type, oa.read)]
     if len(a_outputs) != len(b.outputs):
         errors.append(
             f"{path}: output count mismatch: {len(a_outputs)} vs {len(b.outputs)}"
@@ -472,7 +496,7 @@ def _compare_scope(
         )
     else:
         for i, (ia, ib) in enumerate(zip(a.inputs, b.inputs)):
-            if _lvnet_net_separator(ia.net) != _lvnet_net_separator(ib.net):
+            if lvnet_net_separator(ia.net) != lvnet_net_separator(ib.net):
                 errors.append(
                     f"{path}.inputs[{i}]: net mismatch: {ia.net!r} vs {ib.net!r}"
                 )
@@ -510,9 +534,7 @@ def _compare_scope(
                 if a.kind == "case":
                     same_values = fa.values == fb.values
                 else:
-                    same_values = _quoted_frame_label(fa.label) == _quoted_frame_label(
-                        fb.label
-                    )
+                    same_values = fa.label == fb.label
                 if not same_values:
                     errors.append(
                         f"{frame_path}: selector value mismatch: "
@@ -545,15 +567,15 @@ def _compare_scope(
             )
         elif isinstance(ma, InPlaceBorderDrive):
             assert isinstance(mb, InPlaceBorderDrive)
-            if _lvnet_net_separator(ma.net) != _lvnet_net_separator(mb.net):
+            if lvnet_net_separator(ma.net) != lvnet_net_separator(mb.net):
                 errors.append(
                     f"{merge_path}: drive net mismatch: {ma.net!r} vs {mb.net!r}"
                 )
             _compare_net(ma.value, mb.value, f"{merge_path}.value", errors, ctx)
         elif isinstance(ma, FrameOutputDrive):
             assert isinstance(mb, FrameOutputDrive)
-            if (_lvnet_net_separator(ma.net), ma.frame) != (
-                _lvnet_net_separator(mb.net),
+            if (lvnet_net_separator(ma.net), ma.frame) != (
+                lvnet_net_separator(mb.net),
                 mb.frame,
             ):
                 errors.append(f"{merge_path}: frame output mismatch: {ma!r} vs {mb!r}")
@@ -595,10 +617,12 @@ def _compare_indicator(
 ) -> None:
     """One indicator: its name, the wire driving it, whether its drive line is
     inside a structure, and its caption."""
-    if (a.name, a.placed) != (b.name, b.placed):
+    uid_a = ctx.shown_uid("output", a.name, a.terminal_uid)
+    if (a.name, a.placed, uid_a) != (b.name, b.placed, b.terminal_uid):
         errors.append(
             f"{path}: indicator mismatch: "
-            f"{(a.name, a.placed)!r} vs {(b.name, b.placed)!r}"
+            f"{(a.name, a.placed, uid_a)!r} vs "
+            f"{(b.name, b.placed, b.terminal_uid)!r}"
         )
     if (a.caption, a.caption_visible) != (b.caption, b.caption_visible):
         errors.append(f"{path}: indicator caption mismatch for {a.name!r}")
@@ -640,8 +664,12 @@ def _compare_items(
             _compare_indicator(a.output, b.output, item_path, errors, ctx)
         elif isinstance(a, NetlistControlRead):
             assert isinstance(b, NetlistControlRead)
-            if a.name != b.name:
-                errors.append(f"{item_path}: read of {a.name!r} vs {b.name!r}")
+            uid_a = ctx.shown_uid("input", a.name, a.terminal_uid)
+            if (a.name, uid_a) != (b.name, b.terminal_uid):
+                errors.append(
+                    f"{item_path}: read of {(a.name, uid_a)!r} vs "
+                    f"{(b.name, b.terminal_uid)!r}"
+                )
         else:  # pragma: no cover -- exhaustive over NetlistItem
             raise TypeError(f"unhandled NetlistItem kind: {type(a)!r}")
 
@@ -653,7 +681,23 @@ def _assert_graph_identity(
     # Built from the ORIGINAL module only -- the domain of uids the lvnet
     # text actually gives a recoverable identity marker to (see
     # ``_IdentityCtx``'s own docstring).
-    ctx = _collect_declared_uids(orig.body)
+    ctx = replace(
+        _collect_declared_uids(orig.body),
+        shared_labels=frozenset(
+            key
+            for key, n in Counter(
+                (t.direction, t.name) for t in orig.connector_pane.terminals
+            ).items()
+            if n > 1
+        ),
+        shared_names=frozenset(
+            name
+            for name, n in Counter(
+                t.name for t in orig.connector_pane.terminals
+            ).items()
+            if n > 1
+        ),
+    )
 
     if orig.connector_pane.pattern_id != recon.connector_pane.pattern_id:
         errors.append(
@@ -671,6 +715,13 @@ def _assert_graph_identity(
         for i, (ta, tb) in enumerate(
             zip(orig.connector_pane.terminals, recon.connector_pane.terminals)
         ):
+            if ctx.shown_uid(ta.direction, ta.name, ta.terminal_uid) != (
+                tb.terminal_uid
+            ):
+                errors.append(
+                    f"connector_pane.terminals[{i}] ({ta.name!r}) terminal uid "
+                    f"mismatch: {ta.terminal_uid!r} vs {tb.terminal_uid!r}"
+                )
             if ta.index != tb.index:
                 errors.append(
                     f"connector_pane.terminals[{i}] ({ta.name!r}) index "

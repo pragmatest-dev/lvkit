@@ -33,7 +33,7 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
   instead of trying to re-derive a name that happens to hash to the same
   handle, we go the other way: recover ``name``/``uid`` FROM the handle
   text (see ``_derive_instance_name``/``_handle_base_and_suffix``), then
-  thread that identity through a handle -> identity map (``_HandleTarget``,
+  thread that identity through a handle -> identity map (``HandleTarget``,
   built by ``_index_handles`` in one pass over the WHOLE body before any
   terminal is resolved) so every ``<handle>::<terminal>`` reference
   elsewhere resolves to the identical ``uid`` the declaration itself
@@ -79,10 +79,8 @@ derivation) and §10/§10.1 (types) for the grammar this reverses, and
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 from ..models import (
     ClusterField,
@@ -97,20 +95,17 @@ from .interface_order import WiringRequirement
 from .lvnet_grammar import (
     _LVNET_CLUSTER_OPEN,
     _LVNET_DEFAULT_KEYWORD,
-    _LVNET_DEFAULT_PAREN_PREFIX,
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LOOP_CONDITION_TERMINAL,
-    _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_RING_OPEN,
-    _LVNET_SEQUENCE_LOCAL_UNREADABLE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TUNNEL_MODE_WORD,
     _LVNET_TYPE_SEP,
-    _LVNET_UNWIRED,
+    lvnet_id_suffix,
 )
 from .lvnet_parse import (
     _FRAME_ONLY_SCOPE_KINDS,
@@ -119,7 +114,6 @@ from .lvnet_parse import (
     ParsedConstant,
     ParsedControlRead,
     ParsedDependency,
-    ParsedDrive,
     ParsedFeedback,
     ParsedGlobalVariable,
     ParsedIndicatorDrive,
@@ -132,12 +126,36 @@ from .lvnet_parse import (
     ParsedTypeDef,
     ParsedVIServerReference,
     _find_first_top_level,
-    _scan_quoted_literal,
     _split_event_name,
     _split_top_level_commas,
     _unescape_lvnet_string,
     _unquote_name_token,
     split_shared_variable_component,
+)
+from .lvnet_reconstruct_common import (
+    HandleTarget,
+    LvnetReconstructError,
+    check_shared_references,
+    parse_lvnet_literal,
+    parse_source_token,
+    referenced_terminals,
+    require_netref,
+)
+from .lvnet_reconstruct_front_panel import (
+    check_control_reads,
+    claim_indicator_drives,
+    control_reads,
+    indicator_drive_output,
+    mark_read_outputs,
+    placed_drives,
+)
+from .lvnet_reconstruct_scopes import (
+    LoopWires,
+    case_outputs,
+    disabled_frame_value,
+    event_outputs,
+    sequence_outputs,
+    structure_input,
 )
 from .netlist import (
     BoundaryOutput,
@@ -146,8 +164,6 @@ from .netlist import (
     DefaultValue,
     DependencyKind,
     EtaMerge,
-    GammaCase,
-    GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistBoundaryInput,
@@ -165,51 +181,15 @@ from .netlist import (
     NetRef,
 )
 from .netlist_models import (
-    FrameOutputDrive,
     LoopCondition,
     NetlistControlRead,
     NetlistIndicatorDrive,
-    ScopeOutput,
-    SequenceLocalDrive,
-    SequenceLocalUnreadable,
-    StructureInput,
 )
 from .render_lvnet import _lvnet_type_inline, lvnet_control_name_token
-
-
-class LvnetReconstructError(ValueError):
-    """A parsed lvnet document could not be reconstructed into a renderable
-    ``NetlistModule`` -- a genuine shape this module doesn't (yet) know how
-    to reverse, named explicitly rather than guessed. Kept a separate
-    exception from ``LvnetParseError`` (the TEXT-level grammar failure):
-    this one fires only on a document that parsed fine but whose semantic
-    shape this reconstructor can't rebuild a model for.
-    """
-
 
 # ============================================================
 # Pass 1: handle -> (name, uid) identity map
 # ============================================================
-
-
-@dataclass(frozen=True)
-class _HandleTarget:
-    """What a declared handle resolves to, for every later ``<handle>::
-    <terminal>`` (or bare, for a labeled constant) reference to it: ``name``
-    (so ``_assign_lvnet_handles`` re-derives the SAME BASE on the way back
-    out) and ``uid`` -- Phase 3: the node's own real BD uid, RECOVERED from
-    the handle's own ``_<uid>`` suffix (``_handle_base_and_suffix``), not
-    minted. ``uid`` serves both as the reconstructed instance/constant's own
-    ``NetlistInstance.uid``/``NetlistConstant.uid`` and, for a later node-
-    terminal reference, as ``NetRef.producer_uid`` -- the SAME identity
-    ``_assign_lvnet_handles``/``_render_lvnet_source`` resolve through
-    ``handles.by_uid`` on the way back out."""
-
-    name: str
-    uid: str
-    is_constant: bool
-    # A front-panel control's quoted name (see ``reconstruct_module``).
-    is_boundary: bool = False
 
 
 def _handle_base_and_suffix(handle: str) -> tuple[str, str]:
@@ -268,7 +248,7 @@ def _derive_instance_name(kind: str, handle: str, component: str) -> str:
 
 def _index_handles(
     items: tuple[ParsedBodyItem, ...],
-    registry: dict[str, _HandleTarget],
+    registry: dict[str, HandleTarget],
 ) -> None:
     """Walk the parsed body ONCE, in the SAME order ``_collect_lvnet_handle_
     targets`` walks the real model, registering every declared handle's
@@ -280,10 +260,10 @@ def _index_handles(
             assert item.handle is not None and item.component is not None
             name = _derive_instance_name(item.kind, item.handle, item.component)
             _, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(name=name, uid=uid, is_constant=False)
+            registry[item.handle] = HandleTarget(name=name, uid=uid, is_constant=False)
         elif isinstance(item, ParsedVIServerReference):
             base, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=False)
+            registry[item.handle] = HandleTarget(name=base, uid=uid, is_constant=False)
         elif isinstance(item, ParsedLocalVariable):
             # Same base+uid derivation as a plain node (no ``component`` to
             # feed ``_derive_instance_name`` with -- a local-variable's own
@@ -291,17 +271,17 @@ def _index_handles(
             # ``_render_lvnet_local_variable``, so the handle's own text is
             # enough).
             base, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=False)
+            registry[item.handle] = HandleTarget(name=base, uid=uid, is_constant=False)
         elif isinstance(item, ParsedGlobalVariable):
             # The handle's base is a despaced form of the control's name, so
             # the name comes from the line's own ``<Global VI>::<control>``.
             _, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(
+            registry[item.handle] = HandleTarget(
                 name=item.control, uid=uid, is_constant=False
             )
         elif isinstance(item, ParsedConstant):
             base, uid = _handle_base_and_suffix(item.handle)
-            registry[item.handle] = _HandleTarget(name=base, uid=uid, is_constant=True)
+            registry[item.handle] = HandleTarget(name=base, uid=uid, is_constant=True)
         elif isinstance(item, ParsedFeedback):
             pass  # referenced by its own bare `fbK` net text, never a handle
         elif isinstance(item, ParsedScope):
@@ -315,140 +295,6 @@ def _index_handles(
 # ============================================================
 # Net / literal token parsing (the reverse of _render_lvnet_source /
 # lvnet_literal_token)
-# ============================================================
-
-
-def _parse_lvnet_literal(token: str) -> ScalarValue:
-    """The reverse of ``render_lvnet.lvnet_literal_token``: a rendered literal
-    VALUE token (a boundary control's own ``default <value>`` text) back to
-    a raw ``ScalarValue``. Raises on anything that isn't one of the four
-    shapes ``lvnet_literal_token`` ever emits (quoted string / ``True`` /
-    ``False`` / a bare number) -- never guesses."""
-    token = token.strip()
-    if token.startswith('"'):
-        end = _scan_quoted_literal(token, 0)
-        if end != len(token):
-            raise LvnetReconstructError(
-                f"trailing text after quoted literal: {token!r}"
-            )
-        return _unescape_lvnet_string(token)
-    if token == "True":
-        return True
-    if token == "False":
-        return False
-    try:
-        return int(token)
-    except ValueError:
-        pass
-    try:
-        return float(token)
-    except ValueError:
-        pass
-    raise LvnetReconstructError(f"cannot parse lvnet literal token: {token!r}")
-
-
-def _is_numeric_literal(text: str) -> bool:
-    try:
-        float(text)
-        return True
-    except ValueError:
-        return False
-
-
-def _parse_source_token(
-    text: str, registry: dict[str, _HandleTarget]
-) -> NetRef | DefaultValue:
-    """The reverse of ``netlist._render_lvnet_source``: a rendered
-    ``= <driver>``/merge-source VALUE token back to a ``NetRef`` (a net
-    reference: node-terminal, boundary control, structural net, or an inlined
-    literal) or a ``DefaultValue`` (the drive-position ``(default <Type>)``
-    form -- an unwired case-output tunnel/shift-register/feedback init).
-
-    A plain literal token (quoted string / ``True``/``False``/number) is
-    reconstructed as a ``NetRef`` with ``node=None`` and ``lvnet_value`` set
-    to the SAME text. A drive-position ``(default <Type>)`` is always an
-    unwired default, never a wired constant.
-    """
-    # Only LEADING whitespace is stripped; a TRAILING space is preserved
-    # because it can be part of a real net/terminal NAME (a LabVIEW control
-    # literally named ``"Analog Acquisition "``) -- ``_render_lvnet_source``
-    # re-emits the stored ``terminal`` verbatim, so stripping it here would
-    # lose it on round-trip. The value is extracted raw (no alignment padding
-    # trails a driver), so there is no spurious trailing whitespace to shed.
-    text = text.lstrip()
-    if text.startswith(_LVNET_DEFAULT_PAREN_PREFIX) and text.endswith(")"):
-        return DefaultValue(
-            literal="?", type_descriptor=text[len(_LVNET_DEFAULT_PAREN_PREFIX) : -1]
-        )
-    if text.startswith('"'):
-        end = _scan_quoted_literal(text, 0)
-        if end != len(text):
-            raise LvnetReconstructError(
-                f"trailing text after quoted literal in source: {text!r}"
-            )
-        control = registry.get(text)
-        if control is not None and control.is_boundary:
-            return NetRef(
-                node=None,
-                terminal=control.name,
-                occurrence=None,
-                bare=control.name,
-                boundary=True,
-            )
-        return NetRef(
-            node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
-        )
-    if text in ("True", "False") or _is_numeric_literal(text):
-        return NetRef(
-            node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
-        )
-    if _LVNET_TERMINAL_SEP in text:
-        handle_part, _, terminal = text.partition(_LVNET_TERMINAL_SEP)
-        target = registry.get(handle_part)
-        if target is not None and not target.is_constant:
-            # Phase 3: ``producer_uid`` is the recovered identity --
-            # ``_render_lvnet_source`` resolves it straight through
-            # ``handles.by_uid`` on the way back out (mirrors a labeled
-            # constant's ``constant_uid``); ``occurrence`` is no longer
-            # part of that resolution (see ``_HandleTarget``).
-            return NetRef(
-                node=target.name,
-                terminal=terminal,
-                occurrence=None,
-                bare=text,
-                producer_uid=target.uid,
-            )
-        # Not a registered node handle -- a structure-scoped net
-        # (`case_UID::outK`/`loop_UID::shiftK`/`loop_UID::outK`) never IS
-        # one; fall through to the bare/structural-net form below.
-        return NetRef(node=None, terminal="", occurrence=None, bare=text)
-    target = registry.get(text)
-    if target is not None and target.is_constant:
-        return NetRef(
-            node=None, terminal="", occurrence=None, bare=text, constant_uid=target.uid
-        )
-    if target is not None and target.is_boundary:
-        return NetRef(
-            node=None,
-            terminal=target.name,
-            occurrence=None,
-            bare=target.name,
-            boundary=True,
-        )
-    # A bare structural net (`fbK`) renders via the "node is None" fallback.
-    return NetRef(node=None, terminal="", occurrence=None, bare=text)
-
-
-def _require_netref(source: NetRef | DefaultValue, where: str) -> NetRef:
-    if not isinstance(source, NetRef):
-        raise LvnetReconstructError(
-            f"expected a net reference at {where}, got a bare default: {source!r}"
-        )
-    return source
-
-
-# ============================================================
-# Types (the reverse of lvnet_type_lossless_def / lvnet_type_ref)
 # ============================================================
 
 
@@ -647,7 +493,7 @@ _REVERSE_DISABLE_KEYWORD: dict[str, DisableStructureKind] = {
 
 
 def _reconstruct_local_variable(
-    item: ParsedLocalVariable, registry: dict[str, _HandleTarget]
+    item: ParsedLocalVariable, registry: dict[str, HandleTarget]
 ) -> NetlistInstance:
     """The reverse of ``_render_lvnet_local_variable`` (§7, now designed): a
     ``read`` becomes a SOURCE (one output, no inputs) so a LATER
@@ -663,7 +509,7 @@ def _reconstruct_local_variable(
     target = registry[item.handle]
     if item.is_write:
         assert item.source is not None
-        source = _parse_source_token(item.source, registry)
+        source = parse_source_token(item.source, registry)
         net = source if isinstance(source, NetRef) else None
         default = source if isinstance(source, DefaultValue) else None
         binding = NetlistTerminalBinding(
@@ -701,7 +547,7 @@ def _reconstruct_local_variable(
 
 
 def _reconstruct_vi_server_reference(
-    item: ParsedVIServerReference, registry: dict[str, _HandleTarget]
+    item: ParsedVIServerReference, registry: dict[str, HandleTarget]
 ) -> NetlistInstance:
     """The reverse of ``_render_lvnet_vi_server_reference``: a SOURCE with one
     output, like a local-variable read, that a later ``<handle>::<port>``
@@ -726,7 +572,7 @@ def _reconstruct_vi_server_reference(
 
 
 def _reconstruct_global_variable(
-    item: ParsedGlobalVariable, registry: dict[str, _HandleTarget]
+    item: ParsedGlobalVariable, registry: dict[str, HandleTarget]
 ) -> NetlistInstance:
     """The reverse of ``_render_lvnet_global_variable``: a ``read`` becomes a
     SOURCE (one output, no inputs), a ``write`` a SINK (one input driven by the
@@ -736,7 +582,7 @@ def _reconstruct_global_variable(
     target = registry[item.handle]
     if item.is_write:
         assert item.source is not None
-        source = _parse_source_token(item.source, registry)
+        source = parse_source_token(item.source, registry)
         net = source if isinstance(source, NetRef) else None
         default = source if isinstance(source, DefaultValue) else None
         binding = NetlistTerminalBinding(
@@ -779,7 +625,7 @@ def _reconstruct_global_variable(
 
 def _reconstruct_instance(
     item: ParsedNode,
-    registry: dict[str, _HandleTarget],
+    registry: dict[str, HandleTarget],
     types_dict: dict[str, ParsedTypeDef],
     memo: dict[str, LVType],
     fresh_uid: _UidSource,
@@ -819,8 +665,8 @@ def _reconstruct_instance(
         lv_type = _maybe_attach_lvtype(t.type, types_dict, memo)
         if t.direction == "in":
             if t.driver is not None:
-                net = _require_netref(
-                    _parse_source_token(t.driver, registry),
+                net = require_netref(
+                    parse_source_token(t.driver, registry),
                     f"{item.handle}.{t.name} driver",
                 )
                 default = None
@@ -854,7 +700,12 @@ def _reconstruct_instance(
                 producer_uid=target.uid,
             )
             outputs.append(
-                NetlistOutput(net=ref, type=t.type, pane_rank=out_rank, lv_type=lv_type)
+                NetlistOutput(
+                    net=ref,
+                    type=t.type,
+                    pane_rank=out_rank,
+                    lv_type=lv_type,
+                )
             )
             out_rank += 1
 
@@ -876,7 +727,7 @@ def _reconstruct_instance(
 
 
 def _reconstruct_constant(
-    item: ParsedConstant, registry: dict[str, _HandleTarget]
+    item: ParsedConstant, registry: dict[str, HandleTarget]
 ) -> NetlistConstant:
     target = registry[item.handle]
     return NetlistConstant(
@@ -896,7 +747,7 @@ def _uninitialized_register() -> DefaultValue:
 
 
 def _reconstruct_feedback(
-    item: ParsedFeedback, registry: dict[str, _HandleTarget], fresh_uid: _UidSource
+    item: ParsedFeedback, registry: dict[str, HandleTarget], fresh_uid: _UidSource
 ) -> NetlistFeedback:
     depth = item.attribute.split(", ")[0]
     if depth == "? iterations":
@@ -906,10 +757,10 @@ def _reconstruct_feedback(
     init = (
         _uninitialized_register()
         if item.init is None
-        else _parse_source_token(item.init, registry)
+        else parse_source_token(item.init, registry)
     )
     recur = (
-        _require_netref(_parse_source_token(item.each, registry), f"{item.net} each")
+        require_netref(parse_source_token(item.each, registry), f"{item.net} each")
         if item.each is not None
         else None
     )
@@ -923,15 +774,15 @@ def _reconstruct_feedback(
 
 
 def _reconstruct_shift_register(
-    sr: ParsedShiftRegister, registry: dict[str, _HandleTarget]
+    sr: ParsedShiftRegister, registry: dict[str, HandleTarget]
 ) -> MuMerge:
     init = (
         _uninitialized_register()
         if sr.init is None
-        else _parse_source_token(sr.init, registry)
+        else parse_source_token(sr.init, registry)
     )
     recur = (
-        _require_netref(_parse_source_token(sr.each, registry), f"{sr.net} each")
+        require_netref(parse_source_token(sr.each, registry), f"{sr.net} each")
         if sr.each is not None
         else None
     )
@@ -939,7 +790,7 @@ def _reconstruct_shift_register(
 
 
 def _reconstruct_tunnel(
-    t: ParsedTunnel, registry: dict[str, _HandleTarget]
+    t: ParsedTunnel, registry: dict[str, HandleTarget]
 ) -> EtaMerge:
     mode_text = t.mode
     conditional = False
@@ -949,10 +800,10 @@ def _reconstruct_tunnel(
     mode = _REVERSE_TUNNEL_MODE_WORD.get(mode_text)
     if mode is None:
         raise LvnetReconstructError(f"unrecognized tunnel mode word: {t.mode!r}")
-    value = _parse_source_token(t.source, registry)
+    value = parse_source_token(t.source, registry)
     condition = (
-        _require_netref(
-            _parse_source_token(t.condition, registry), f"{t.net} condition"
+        require_netref(
+            parse_source_token(t.condition, registry), f"{t.net} condition"
         )
         if t.condition is not None
         else None
@@ -964,16 +815,6 @@ def _reconstruct_tunnel(
         value=value,
         condition=condition,
     )
-
-
-def _sequence_local_unreadable_reason(source: str) -> str | None:
-    """The reason in a sequence-local drive written as ``(sequence local
-    unreadable "<reason>")``, or ``None`` for an ordinary source."""
-    prefix = f'({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "'
-    text = source.lstrip()
-    if not (text.startswith(prefix) and text.endswith(")")):
-        return None
-    return _unescape_lvnet_string(text[len(prefix) - 1 : -1])
 
 
 def _structure_uid_from_net(net: str) -> str | None:
@@ -998,174 +839,59 @@ def _structure_uid_from_net(net: str) -> str | None:
     return uid if uid.isdigit() else None
 
 
-FrameDrive = SequenceLocalDrive | SequenceLocalUnreadable | FrameOutputDrive
-_TRAILING_NUMBER_RE = re.compile(r"(\d+)$")
-
-
-def _disabled_frame_value(label: str, kind: DisableStructureKind) -> str:
-    """A Disable frame's value from its header label: a Conditional Disable
-    frame's label is its symbol condition in quotes."""
-    quoted = len(label) >= 2 and label.startswith('"') and label.endswith('"')
-    if kind is DisableStructureKind.CONDITIONAL and quoted:
-        return label[1:-1]
-    return label
-
-
-def _in_tunnel_order(
-    drives: Sequence[FrameDrive], frame_values: list[str]
-) -> list[FrameDrive]:
-    """The per-frame drives in the order the structure's builder makes them:
-    sequence locals, then output tunnels; each by the number ending its net,
-    then by frame. The text lists them frame by frame."""
-
-    def key(drive: FrameDrive) -> tuple[int, int, int]:
-        m = _TRAILING_NUMBER_RE.search(drive.net)
-        is_output = isinstance(drive, FrameOutputDrive)
-        return (
-            int(is_output),
-            int(m.group(1)) if m else 0,
-            frame_values.index(drive.frame),
-        )
-
-    return sorted(drives, key=key)
-
-
-def _sequence_drives(
-    drives: list[ScopeOutput], frame_values: list[str]
-) -> list[ScopeOutput]:
-    return list(
-        _in_tunnel_order(
-            [d for d in drives if isinstance(d, FrameDrive)], frame_values
-        )
-    )
-
-
-def _frame_output_drive(
-    drive: ParsedDrive, frame: str, registry: dict[str, _HandleTarget]
-) -> FrameOutputDrive:
-    return FrameOutputDrive(
-        net=drive.net,
-        frame=frame,
-        value=_require_netref(
-            _parse_source_token(drive.source, registry), f"{drive.net} drive"
-        ),
-    )
-
-
-_SEQUENCE_LOCAL_RE = re.compile(rf"{re.escape(_LVNET_TERMINAL_SEP)}local\d+$")
-
-
-def _frame_output_or_local(
-    drive: ParsedDrive, frame: str, registry: dict[str, _HandleTarget]
-) -> ScopeOutput:
-    """A sequence frame's drive line: a sequence local it writes
-    (``sequence_<uid>::localK``) or a value it passes out (``::outK``)."""
-    if _SEQUENCE_LOCAL_RE.search(drive.net):
-        return SequenceLocalDrive(
-            net=drive.net,
-            frame=frame,
-            value=_require_netref(
-                _parse_source_token(drive.source, registry), f"{drive.net} drive"
-            ),
-        )
-    return _frame_output_drive(drive, frame, registry)
-
-
-_LOOP_DRIVE_RE = re.compile(
-    rf"^loop_(\d+){re.escape(_LVNET_TERMINAL_SEP)}"
-    rf"({_LVNET_LOOP_COUNT_TERMINAL}|{_LVNET_LOOP_CONDITION_TERMINAL})$"
-)
-
-
-_STRUCTURE_INPUT_RE = re.compile(
-    rf"^(?:case|loop|sequence|disabled|event)_\d+{re.escape(_LVNET_TERMINAL_SEP)}"
-    r"(?:in\d+|timeout|dynamic)$"
-)
-
-
-def _structure_input(
-    drive: ParsedDrive, registry: dict[str, _HandleTarget]
-) -> StructureInput:
-    """A structure's opening ``<kind>_<uid>::in<K>`` / ``::timeout`` /
-    ``::dynamic`` line."""
-    return StructureInput(
-        net=drive.net,
-        value=_require_netref(
-            _parse_source_token(drive.source, registry), f"{drive.net} input"
-        ),
-    )
-
-
-def _loop_drive(net: str) -> tuple[str, str] | None:
-    """``(loop uid, terminal)`` for a loop's own drive line (``loop_<uid>::N`` or
-    ``loop_<uid>::condition``), else ``None``."""
-    m = _LOOP_DRIVE_RE.match(net)
-    return (m.group(1), m.group(2)) if m is not None else None
-
-
 def _reconstruct_scope(
     item: ParsedScope,
-    registry: dict[str, _HandleTarget],
+    registry: dict[str, HandleTarget],
     types_dict: dict[str, ParsedTypeDef],
     memo: dict[str, LVType],
     fresh_uid: _UidSource,
 ) -> NetlistScope:
+    def body_of(parsed_body: tuple[ParsedBodyItem, ...]) -> list[NetlistItem]:
+        return _reconstruct_items(parsed_body, registry, types_dict, memo, fresh_uid)
+
+    inputs = [structure_input(d, registry) for d in item.inputs]
+
     if item.kind == "case":
-        frames: list[NetlistFrame] = []
-        for f in item.frames:
-            body = _reconstruct_items(f.body, registry, types_dict, memo, fresh_uid)
-            frames.append(
-                NetlistFrame(
-                    label=f.label,
-                    value=f.label,
-                    is_default=f.is_default,
-                    body=body,
-                    values=f.values,
-                )
+        frames = [
+            NetlistFrame(
+                label=f.label,
+                value=f.label,
+                is_default=f.is_default,
+                body=body_of(f.body),
+                values=f.values,
             )
-        net_order: list[str] = []
-        cases_by_net: dict[str, list[GammaCase]] = {}
-        for f, frame_obj in zip(item.frames, frames, strict=True):
-            # Matches ``netlist_build._build_case_outputs``'s OWN frame_key
-            # convention exactly ("default" if is_default else label) -- both
-            # sides must agree, or a default frame's ``GammaCase`` fails to
-            # find its match by key and its case-output drive is silently
-            # dropped (the TextTestRunner/run.vi bug this closes: two frames
-            # both labeled "Error", only one of which is the default).
-            frame_key = "default" if frame_obj.is_default else frame_obj.label
-            for d in f.drives:
-                if d.net not in cases_by_net:
-                    cases_by_net[d.net] = []
-                    net_order.append(d.net)
-                source = _parse_source_token(d.source, registry)
-                cases_by_net[d.net].append(
-                    GammaCase(frame_key=frame_key, source=source)
-                )
+            for f in item.frames
+        ]
+        # The builder keys a frame's output by "default" if is_default else its
+        # label: both sides must agree, or a default frame's case is dropped
+        # (two frames both labeled "Error", only one the default).
+        outputs = case_outputs(
+            item.frames,
+            ["default" if f.is_default else f.label for f in frames],
+            registry,
+        )
         selector = None
         if item.selector is not None and item.selector != "?":
-            selector = _require_netref(
-                _parse_source_token(item.selector, registry), "case selector"
+            selector = require_netref(
+                parse_source_token(item.selector, registry), "case selector"
             )
-        outputs: list[ScopeOutput] = [
-            GammaMerge(net=net, selector=None, cases=cases_by_net[net])
-            for net in net_order
-        ]
         case_uid = item.uid
-        if case_uid is None and net_order:
-            case_uid = _structure_uid_from_net(net_order[0])
+        if case_uid is None:
+            case_uid = _first_structure_uid(outputs)
         return NetlistScope(
             uid=case_uid if case_uid is not None else fresh_uid.next("case"),
             kind="case",
             selector=selector,
             frames=frames,
             outputs=outputs,
-            inputs=[_structure_input(d, registry) for d in item.inputs],
+            inputs=inputs,
         )
 
     if item.kind in ("for-loop", "while-loop"):
         kind = "while" if item.kind == "while-loop" else "for"
-        body = _reconstruct_items(item.body, registry, types_dict, memo, fresh_uid)
-        frame = NetlistFrame(label="", value="", is_default=False, body=body)
+        frame = NetlistFrame(
+            label="", value="", is_default=False, body=body_of(item.body)
+        )
         mu_list = [
             _reconstruct_shift_register(sr, registry) for sr in item.shift_registers
         ]
@@ -1175,87 +901,36 @@ def _reconstruct_scope(
             if item.condition_mode is not None
             else None
         )
-        count: NetRef | None = None
-        selector: NetRef | None = None
-        has_condition_line = False
-        drive_uids: list[str] = []
-        structure_inputs: list[StructureInput] = []
-        for d in item.drives:
-            if _STRUCTURE_INPUT_RE.match(d.net):
-                structure_inputs.append(_structure_input(d, registry))
-                continue
-            drive = _loop_drive(d.net)
-            if drive is None:
-                raise LvnetReconstructError(
-                    f"unrecognized drive line in a {item.kind} body: {d.net!r}"
-                )
-            drive_uids.append(drive[0])
-            if drive[1] == _LVNET_LOOP_COUNT_TERMINAL:
-                count = _require_netref(
-                    _parse_source_token(d.source, registry), f"{d.net} drive"
-                )
-            else:
-                has_condition_line = True
-                if d.source != _LVNET_UNWIRED:
-                    selector = _require_netref(
-                        _parse_source_token(d.source, registry), f"{d.net} drive"
-                    )
-        if (condition_mode is not None) != has_condition_line:
+        wires = LoopWires(item, registry)
+        if (condition_mode is not None) != wires.has_condition:
             raise LvnetReconstructError(
                 f"a {item.kind} with a conditional terminal needs exactly one "
                 f"'{_LVNET_LOOP_CONDITION_TERMINAL}' line, and one without has none"
             )
         loop_uid = item.uid
         if loop_uid is None:
-            loop_uid = next(
-                (
-                    uid
-                    for net in (*(m.net for m in mu_list), *(m.net for m in eta_list))
-                    if (uid := _structure_uid_from_net(net)) is not None
-                ),
-                drive_uids[0] if drive_uids else None,
+            loop_uid = (
+                _first_structure_uid([*mu_list, *eta_list]) or wires.structure_uid
             )
         return NetlistScope(
             uid=loop_uid if loop_uid is not None else fresh_uid.next("loop"),
             kind=kind,
-            selector=selector,
+            selector=wires.selector,
             frames=[frame],
             outputs=[*mu_list, *eta_list],
-            inputs=structure_inputs,
+            inputs=wires.inputs,
             condition_mode=condition_mode,
-            count=count,
+            count=wires.count,
         )
 
     if item.kind in ("flat-sequence", "stacked-sequence"):
-        frames = []
-        local_drives: list[ScopeOutput] = []
-        for f in item.frames:
-            value = f.label
-            if value.startswith("[") and value.endswith("]"):
-                value = value[1:-1]
-            body = _reconstruct_items(f.body, registry, types_dict, memo, fresh_uid)
-            frames.append(
-                NetlistFrame(label=value, value=value, is_default=False, body=body)
-            )
-            for d in f.drives:
-                reason = _sequence_local_unreadable_reason(d.source)
-                if reason is not None:
-                    local_drives.append(
-                        SequenceLocalUnreadable(net=d.net, frame=value, reason=reason)
-                    )
-                    continue
-                local_drives.append(_frame_output_or_local(d, value, registry))
-        sequence_uid = item.uid
-        if sequence_uid is None:
-            sequence_uid = next(
-                (
-                    uid
-                    for d in local_drives
-                    if isinstance(d, SequenceLocalDrive | FrameOutputDrive)
-                    and (uid := _structure_uid_from_net(d.net)) is not None
-                ),
-                None,
-            )
+        values = [_sequence_frame_value(f.label) for f in item.frames]
+        frames = [
+            NetlistFrame(label=v, value=v, is_default=False, body=body_of(f.body))
+            for f, v in zip(item.frames, values, strict=True)
+        ]
+        outputs = sequence_outputs(item.frames, values, registry)
+        sequence_uid = item.uid or _first_structure_uid(outputs)
         return NetlistScope(
             uid=sequence_uid
             if sequence_uid is not None
@@ -1263,86 +938,54 @@ def _reconstruct_scope(
             kind="sequence",
             selector=None,
             frames=frames,
-            outputs=_sequence_drives(local_drives, [f.value for f in frames]),
+            outputs=outputs,
             sequence_is_flat=(item.kind == "flat-sequence"),
-            inputs=[_structure_input(d, registry) for d in item.inputs],
+            inputs=inputs,
         )
 
     if item.kind in ("diagram-disable", "conditional-disable", "type-specialization"):
         disable_kind = _REVERSE_DISABLE_KEYWORD.get(item.kind)
         if disable_kind is None:
             raise LvnetReconstructError(f"unrecognized disable kind: {item.kind!r}")
-        labels = [
-            _disabled_frame_value(f.label, disable_kind) for f in item.frames
-        ]
+        labels = [disabled_frame_value(f.label, disable_kind) for f in item.frames]
         frames = [
             NetlistFrame(
                 label=label,
                 value=label,
                 is_default=f.is_default,
-                body=_reconstruct_items(f.body, registry, types_dict, memo, fresh_uid),
+                body=body_of(f.body),
             )
             for f, label in zip(item.frames, labels, strict=True)
         ]
-        disabled_outputs: list[ScopeOutput] = list(
-            _in_tunnel_order(
-                [
-                    _frame_output_drive(d, label, registry)
-                    for f, label in zip(item.frames, labels, strict=True)
-                    for d in f.drives
-                ],
-                labels,
-            )
-        )
         return NetlistScope(
             uid=item.uid if item.uid is not None else fresh_uid.next("disabled"),
             kind="disabled",
             selector=None,
             frames=frames,
             disable_kind=disable_kind,
-            outputs=disabled_outputs,
-            inputs=[_structure_input(d, registry) for d in item.inputs],
+            outputs=case_outputs(
+                item.frames,
+                ["default" if f.is_default else f.label for f in frames],
+                registry,
+            ),
+            inputs=inputs,
         )
 
     if item.kind == "event-structure":
         labels = [_unescape_lvnet_string(f.label) for f in item.frames]
         frames = [
             NetlistFrame(
-                label=label,
-                value=label,
-                is_default=False,
-                body=_reconstruct_items(f.body, registry, types_dict, memo, fresh_uid),
+                label=label, value=label, is_default=False, body=body_of(f.body)
             )
             for f, label in zip(item.frames, labels, strict=True)
         ]
-        net_order: list[str] = []
-        cases_by_net: dict[str, list[GammaCase]] = {}
-        event_drives: list[ScopeOutput] = []
-        for f, label in zip(item.frames, labels, strict=True):
-            for d in f.drives:
-                if d.net.endswith(f"{_LVNET_TERMINAL_SEP}dynamic"):
-                    event_drives.append(_frame_output_drive(d, label, registry))
-                    continue
-                if d.net not in cases_by_net:
-                    cases_by_net[d.net] = []
-                    net_order.append(d.net)
-                cases_by_net[d.net].append(
-                    GammaCase(
-                        frame_key=label, source=_parse_source_token(d.source, registry)
-                    )
-                )
-        event_outputs: list[ScopeOutput] = [
-            GammaMerge(net=net, selector=None, cases=cases_by_net[net])
-            for net in net_order
-        ]
-        event_outputs.extend(event_drives)
         return NetlistScope(
             uid=item.uid if item.uid is not None else fresh_uid.next("event"),
             kind="event",
             selector=None,
             frames=frames,
-            outputs=event_outputs,
-            inputs=[_structure_input(d, registry) for d in item.inputs],
+            outputs=event_outputs(item.frames, labels, registry),
+            inputs=inputs,
         )
 
     if item.kind == _LVNET_INPLACE_SCOPE_KEYWORD:
@@ -1351,27 +994,19 @@ def _reconstruct_scope(
         # ``(id <uid>)`` suffix is the preferred uid source; a drive net
         # spells it too, and a fresh uid is the honest fallback when the text
         # was terse and drove nothing.
-        body = _reconstruct_items(item.body, registry, types_dict, memo, fresh_uid)
-        frame = NetlistFrame(label="", value="", is_default=False, body=body)
+        frame = NetlistFrame(
+            label="", value="", is_default=False, body=body_of(item.body)
+        )
         border_drives = [
             InPlaceBorderDrive(
                 net=d.net,
-                value=_require_netref(
-                    _parse_source_token(d.source, registry), f"{d.net} drive"
+                value=require_netref(
+                    parse_source_token(d.source, registry), f"{d.net} drive"
                 ),
             )
             for d in item.drives
         ]
-        inplace_uid = item.uid
-        if inplace_uid is None:
-            inplace_uid = next(
-                (
-                    uid
-                    for d in border_drives
-                    if (uid := _structure_uid_from_net(d.net)) is not None
-                ),
-                None,
-            )
+        inplace_uid = item.uid or _first_structure_uid(border_drives)
         return NetlistScope(
             uid=inplace_uid if inplace_uid is not None else fresh_uid.next("inplace"),
             kind="inplace",
@@ -1383,42 +1018,48 @@ def _reconstruct_scope(
     raise LvnetReconstructError(f"unrecognized scope kind: {item.kind!r}")
 
 
-def _indicator_drive_output(
-    item: ParsedIndicatorDrive,
-    registry: dict[str, _HandleTarget],
-    *,
-    placed: bool = True,
-) -> BoundaryOutput:
-    """The indicator a drive line names, with the source it is driven from. Its
-    type and caption come from the ``front-panel :`` row that
-    ``_claim_indicator_drives`` matches it to."""
-    source = (
-        None
-        if item.source == _LVNET_UNWIRED
-        else _require_netref(
-            _parse_source_token(item.source, registry), f"{item.name} drive"
-        )
-    )
-    return BoundaryOutput(
-        name=item.name, type_descriptor="", source=source, placed=placed
-    )
+def _sequence_frame_value(label: str) -> str:
+    """A Sequence frame's value from its ``[i]`` header label."""
+    if label.startswith("[") and label.endswith("]"):
+        return label[1:-1]
+    return label
 
 
-def _placed_drives(items: list[NetlistItem]) -> list[NetlistIndicatorDrive]:
-    """Every indicator drive inside a structure, in document order."""
-    found: list[NetlistIndicatorDrive] = []
+def _first_structure_uid(nets: Sequence[object]) -> str | None:
+    """The structure uid the first net with one spells (a defensive fallback for
+    text that predates the header's ``(id <uid>)``)."""
+    for entry in nets:
+        net = getattr(entry, "net", None)
+        if isinstance(net, str) and (uid := _structure_uid_from_net(net)) is not None:
+            return uid
+    return None
+
+
+def _check_terminal_line_order(items: tuple[ParsedBodyItem, ...]) -> None:
+    """A body writes its ``read`` lines before everything else and its indicator
+    drive lines after everything else."""
+    stage = 0  # 0: reads, 1: the rest, 2: indicator drives
     for item in items:
-        if isinstance(item, NetlistIndicatorDrive):
-            found.append(item)
-        elif isinstance(item, NetlistScope):
-            for frame in item.frames:
-                found.extend(_placed_drives(frame.body))
-    return found
+        here = (
+            0
+            if isinstance(item, ParsedControlRead)
+            else 2
+            if isinstance(item, ParsedIndicatorDrive)
+            else 1
+        )
+        if here < stage:
+            line = "'read <Control>'" if here == 0 else "an item"
+            after = "an indicator drive" if stage == 2 else "another item"
+            raise LvnetReconstructError(
+                f"{line} comes after {after}: a body writes its 'read' lines "
+                f"first and its indicator drives last"
+            )
+        stage = max(stage, here)
 
 
 def _reconstruct_items(
     items: tuple[ParsedBodyItem, ...],
-    registry: dict[str, _HandleTarget],
+    registry: dict[str, HandleTarget],
     types_dict: dict[str, ParsedTypeDef],
     memo: dict[str, LVType],
     fresh_uid: _UidSource,
@@ -1442,11 +1083,16 @@ def _reconstruct_items(
         elif isinstance(item, ParsedScope):
             out.append(_reconstruct_scope(item, registry, types_dict, memo, fresh_uid))
         elif isinstance(item, ParsedIndicatorDrive):
-            out.append(NetlistIndicatorDrive(_indicator_drive_output(item, registry)))
+            out.append(
+                NetlistIndicatorDrive(
+                    indicator_drive_output(item, registry, placed=True)
+                )
+            )
         elif isinstance(item, ParsedControlRead):
-            out.append(NetlistControlRead(item.name))
+            out.append(NetlistControlRead(item.name, item.uid))
         else:  # pragma: no cover -- exhaustive over ParsedBodyItem
             raise LvnetReconstructError(f"unrecognized parsed body item: {item!r}")
+    _check_terminal_line_order(items)
     return out
 
 
@@ -1498,24 +1144,39 @@ def _reconstruct_dependency(
     )
 
 
-def _claim_indicator_drive(
-    row: ParsedBoundaryTerminal,
-    drives: list[BoundaryOutput],
+def _pane_terminal_of_row(
+    t: ParsedBoundaryTerminal,
     types_dict: dict[str, ParsedTypeDef],
     memo: dict[str, LVType],
-) -> BoundaryOutput | None:
-    """The indicator ``row`` of the ``front-panel :`` block, completed from the
-    first unclaimed drive line that names it (the drive is removed from
-    ``drives``); ``None`` when no drive line names it."""
-    at = next((i for i, d in enumerate(drives) if d.name == row.name), None)
-    if at is None:
-        return None
-    drive = drives.pop(at)
-    drive.type_descriptor = row.type
-    drive.lv_type = _maybe_attach_lvtype(row.type, types_dict, memo)
-    drive.caption = row.caption
-    drive.caption_visible = row.caption_visible
-    return drive
+) -> ConnectorPaneTerminal:
+    """The connector-pane terminal one ``front-panel :`` row says."""
+    requirement = (
+        WiringRequirement.UNKNOWN
+        if t.requirement is None
+        else WiringRequirement(t.requirement)
+    )
+    default_scalar: ScalarValue = None
+    if t.default is not None:
+        if t.default == _LVNET_DEFAULT_KEYWORD:
+            raise LvnetReconstructError(
+                f"boundary terminal {t.name!r} has a bare 'default' "
+                f"keyword with no value -- not a shape a boundary line "
+                f"is expected to carry (only a NODE terminal line's "
+                f"default can be bare)"
+            )
+        default_scalar = parse_lvnet_literal(t.default)
+    return ConnectorPaneTerminal(
+        name=t.name,
+        type=t.type,
+        direction="input" if t.direction == "in" else "output",
+        index=t.index,
+        wiring_requirement=requirement,
+        default=default_scalar,
+        lv_type=_maybe_attach_lvtype(t.type, types_dict, memo),
+        caption=t.caption,
+        caption_visible=t.caption_visible,
+        terminal_uid=t.uid,
+    )
 
 
 def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
@@ -1529,102 +1190,76 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
     memo: dict[str, LVType] = {}
     fresh_uid = _UidSource()
 
-    registry: dict[str, _HandleTarget] = {}
+    registry: dict[str, HandleTarget] = {}
     _index_handles(parsed.body, registry)
 
     for terminal in parsed.boundary:
         token = lvnet_control_name_token(terminal.name)
-        registry.setdefault(
-            token,
-            _HandleTarget(
-                name=terminal.name, uid="", is_constant=False, is_boundary=True
-            ),
+        target = HandleTarget(
+            name=terminal.name,
+            uid=terminal.uid or "",
+            is_constant=False,
+            is_boundary=True,
         )
+        registry.setdefault(token, target)
+        if terminal.uid is not None:
+            registry[token + lvnet_id_suffix(terminal.uid)] = target
 
+    check_shared_references(parsed, registry)
     body = _reconstruct_items(parsed.body, registry, types_dict, memo, fresh_uid)
+    mark_read_outputs(body, referenced_terminals(parsed, registry))
 
+    # A boundary line with NO ``@<index>`` is an OFF-PANE front-panel
+    # control/indicator: a ``connector_pane.terminals`` entry only (an off-pane
+    # indicator something drives also has an indicator drive line).
+    panes = [(t, _pane_terminal_of_row(t, types_dict, memo)) for t in parsed.boundary]
+
+    def rows_of(
+        direction: str, *, on_pane: bool
+    ) -> list[tuple[ParsedBoundaryTerminal, ConnectorPaneTerminal]]:
+        return [
+            (t, p)
+            for t, p in panes
+            if t.direction == direction and (t.index is not None) == on_pane
+        ]
+
+    on_pane_inputs = rows_of("in", on_pane=True)
+    on_pane_outputs = rows_of("out", on_pane=True)
+    off_pane_outputs_rows = rows_of("out", on_pane=False)
+
+    check_control_reads(
+        [t for t in parsed.boundary if t.direction == "in"], control_reads(body)
+    )
     # Every indicator drive line, in document order: the ones inside a
     # structure, then the ones at the end of the diagram.
     drives = [
-        *(d.output for d in _placed_drives(body)),
+        *placed_drives(body),
         *(
-            _indicator_drive_output(d, registry, placed=False)
+            indicator_drive_output(d, registry, placed=False)
             for d in parsed.output_drives
         ),
     ]
-    inputs: list[NetlistBoundaryInput] = []
-    outputs: list[BoundaryOutput] = []
-    off_pane_rows: list[ParsedBoundaryTerminal] = []
-    pane_terminals: list[ConnectorPaneTerminal] = []
-    for t in parsed.boundary:
-        lv_type = _maybe_attach_lvtype(t.type, types_dict, memo)
-        requirement = (
-            WiringRequirement.UNKNOWN
-            if t.requirement is None
-            else WiringRequirement(t.requirement)
-        )
-        default_scalar: ScalarValue = None
-        if t.default is not None:
-            if t.default == _LVNET_DEFAULT_KEYWORD:
-                raise LvnetReconstructError(
-                    f"boundary terminal {t.name!r} has a bare 'default' "
-                    f"keyword with no value -- not a shape a boundary line "
-                    f"is expected to carry (only a NODE terminal line's "
-                    f"default can be bare)"
-                )
-            default_scalar = _parse_lvnet_literal(t.default)
-        pane_terminals.append(
-            ConnectorPaneTerminal(
-                name=t.name,
-                type=t.type,
-                direction="input" if t.direction == "in" else "output",
-                index=t.index,
-                wiring_requirement=requirement,
-                default=default_scalar,
-                lv_type=lv_type,
-                caption=t.caption,
-                caption_visible=t.caption_visible,
-            )
-        )
-        # A boundary line with NO ``@<index>`` is an OFF-PANE front-panel
-        # control/indicator (``ConnectorPaneTerminal.index is None``): it is a
-        # ``connector_pane.terminals`` entry only. An off-pane indicator that
-        # something drives also has an indicator drive line, matched below.
-        if t.index is None:
-            if t.direction == "out":
-                off_pane_rows.append(t)
-            continue
-        if t.direction == "in":
-            inputs.append(
-                NetlistBoundaryInput(
-                    name=t.name,
-                    type_descriptor=t.type,
-                    lv_type=lv_type,
-                    caption=t.caption,
-                    caption_visible=t.caption_visible,
-                )
-            )
-        else:
-            claimed = _claim_indicator_drive(t, drives, types_dict, memo)
-            if claimed is None:
-                raise LvnetReconstructError(
-                    f"output {t.name!r} has no drive line (§2): write "
-                    f"'{lvnet_control_name_token(t.name)} = <source>' or '= ?'"
-                )
-            outputs.append(claimed)
+    claimed = claim_indicator_drives(
+        [t for t, _ in (*on_pane_outputs, *off_pane_outputs_rows)], drives
+    )
+    on_pane_claims = claimed[: len(on_pane_outputs)]
+    off_pane_claims = claimed[len(on_pane_outputs) :]
 
+    outputs: list[BoundaryOutput] = []
+    for (t, pane), drive in zip(on_pane_outputs, on_pane_claims, strict=True):
+        if drive is None:
+            raise LvnetReconstructError(
+                f"output {t.name!r} has no drive line (§2): write "
+                f"'{lvnet_control_name_token(t.name)} = <source>' or '= ?'"
+            )
+        outputs.append(_complete_indicator(drive, pane))
     off_pane_outputs = [
-        out
-        for row in off_pane_rows
-        if (out := _claim_indicator_drive(row, drives, types_dict, memo)) is not None
+        _complete_indicator(drive, pane)
+        for (t, pane), drive in zip(off_pane_outputs_rows, off_pane_claims, strict=True)
+        if drive is not None
     ]
-    if drives:
-        raise LvnetReconstructError(
-            f"indicator drive {drives[0].name!r} matches no front-panel "
-            f"indicator row"
-        )
     # A shared label is only unambiguous when every holder has its drive line.
-    row_counts = Counter(row.name for row in off_pane_rows)
+    row_counts = Counter(t.name for t, _ in off_pane_outputs_rows)
     claimed_counts = Counter(out.name for out in off_pane_outputs)
     for name, rows in row_counts.items():
         if rows > 1 and claimed_counts[name] != rows:
@@ -1634,6 +1269,17 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
                 f"cannot be matched to one of them"
             )
 
+    inputs = [
+        NetlistBoundaryInput(
+            name=pane.name,
+            type_descriptor=pane.type,
+            lv_type=pane.lv_type,
+            caption=pane.caption,
+            caption_visible=pane.caption_visible,
+            terminal_uid=pane.terminal_uid,
+        )
+        for _, pane in on_pane_inputs
+    ]
     dependencies = [_reconstruct_dependency(d, types_dict, memo) for d in parsed.uses]
 
     return NetlistModule(
@@ -1643,7 +1289,19 @@ def reconstruct_module(parsed: ParsedLvnet) -> NetlistModule:
         off_pane_outputs=off_pane_outputs,
         body=body,
         connector_pane=ConnectorPane(
-            pattern_id=parsed.pattern_id, terminals=pane_terminals
+            pattern_id=parsed.pattern_id, terminals=[p for _, p in panes]
         ),
         dependencies=dependencies,
     )
+
+
+def _complete_indicator(
+    drive: BoundaryOutput, pane: ConnectorPaneTerminal
+) -> BoundaryOutput:
+    """The drive line's indicator with the type and caption of its row."""
+    drive.type_descriptor = pane.type
+    drive.lv_type = pane.lv_type
+    drive.caption = pane.caption
+    drive.caption_visible = pane.caption_visible
+    drive.terminal_uid = pane.terminal_uid
+    return drive

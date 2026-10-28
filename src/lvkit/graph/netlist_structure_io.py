@@ -14,6 +14,9 @@ from dataclasses import dataclass
 
 from ..models import Terminal, TunnelTerminal
 from ..parser.constants import (
+    TUNNEL_CLASS_CASE_SEL,
+    TUNNEL_CLASS_EVENT_DYNAMIC,
+    TUNNEL_CLASS_EVENT_TIMEOUT,
     TUNNEL_CLASS_INIT_FEEDBACK,
     TUNNEL_CLASS_LEFT_SR,
     TUNNEL_CLASS_LMAX,
@@ -38,9 +41,6 @@ from .netlist_models import (
     StructureInput,
 )
 
-EVENT_DYNAMIC_TUNNEL = "eventDynDCO"
-EVENT_TIMEOUT_TUNNEL = "eventTimeOut"
-
 # The net-vocabulary word of each structure kind: ``<word>_<uid>.out<K>``.
 FRAME_ONLY_NET_PREFIX: dict[type, str] = {
     SequenceNode: "sequence",
@@ -55,14 +55,15 @@ STRUCTURE_NET_PREFIX: dict[type, str] = {
 
 # Tunnel classes that are not plain input tunnels: a loop's shift register and
 # count, a Feedback Node initializer, an Event Structure's timeout and dynamic
-# pair. A structure's ``in<K>`` numbering skips them.
+# pair, a Case structure's selector. A structure's ``in<K>`` numbering skips them.
 _NON_PLAIN_INPUT_TUNNELS = frozenset(
     {
+        TUNNEL_CLASS_CASE_SEL,
         TUNNEL_CLASS_LEFT_SR,
         TUNNEL_CLASS_LMAX,
         TUNNEL_CLASS_INIT_FEEDBACK,
-        EVENT_DYNAMIC_TUNNEL,
-        EVENT_TIMEOUT_TUNNEL,
+        TUNNEL_CLASS_EVENT_DYNAMIC,
+        TUNNEL_CLASS_EVENT_TIMEOUT,
     }
 )
 
@@ -74,8 +75,14 @@ class StructureWires:
     terminal feeds anything."""
 
     wire: Callable[[str], NetRef | None]
-    wire_or_default: Callable[..., NetRef | DefaultValue]
+    # (terminal id, inner face, outer face): the type default is the first of the
+    # two faces that has a type.
+    wire_or_default: Callable[
+        [str | None, Terminal | None, Terminal | None], NetRef | DefaultValue
+    ]
     has_reader: Callable[[str], bool]
+    # The id of the node a wire into a terminal leaves, ``None`` when unwired.
+    source_node: Callable[[str], str | None]
 
 
 def frame_output_tunnel_outers(node: AnyGraphNode) -> list[Terminal]:
@@ -88,7 +95,7 @@ def frame_output_tunnel_outers(node: AnyGraphNode) -> list[Terminal]:
         if isinstance(t, TunnelTerminal)
         and t.boundary == "outer"
         and t.direction == "output"
-        and t.tunnel_type != EVENT_DYNAMIC_TUNNEL
+        and t.tunnel_type != TUNNEL_CLASS_EVENT_DYNAMIC
     ]
 
 
@@ -133,7 +140,10 @@ def build_structure_inputs(
 ) -> list[StructureInput]:
     """The wires into ``node`` that no frame reads (a plain input tunnel whose
     inner faces feed nothing) plus, for an Event Structure, its timeout and the
-    wire into the left terminal of its dynamic pair."""
+    wire into the left terminal of its dynamic pair. A Flat Sequence tunnel that
+    hands a value from one frame to the next is not an input: it is wired from the
+    structure's own output (`out<K>`), which the producing frame writes and later
+    frames read."""
     prefix = STRUCTURE_NET_PREFIX[type(node)]
     uid = uid_of(node.id)
     inputs: list[StructureInput] = []
@@ -141,12 +151,12 @@ def build_structure_inputs(
         if any(wires.has_reader(i.id) for i in _inner_faces(node, outer)):
             continue
         value = wires.wire(outer.id)
-        if value is not None:
+        if value is not None and wires.source_node(outer.id) != node.id:
             inputs.append(StructureInput(net=f"{prefix}_{uid}.in{k}", value=value))
     if isinstance(node, EventStructureNode):
         for tunnel_class, name in (
-            (EVENT_TIMEOUT_TUNNEL, "timeout"),
-            (EVENT_DYNAMIC_TUNNEL, "dynamic"),
+            (TUNNEL_CLASS_EVENT_TIMEOUT, "timeout"),
+            (TUNNEL_CLASS_EVENT_DYNAMIC, "dynamic"),
         ):
             for outer in _event_outers(node, tunnel_class, "input"):
                 value = wires.wire(outer.id)
@@ -173,8 +183,8 @@ def _frame_inner(
 def build_frame_output_drives(
     wires: StructureWires, node: AnyGraphNode, frames: list[NetlistFrame]
 ) -> list[FrameOutputDrive]:
-    """For each output tunnel of a Sequence or Disable structure, the value each
-    frame that WIRES it passes out (no line for a frame that leaves it unwired)."""
+    """For each output tunnel of a Sequence, the value each frame that WIRES it
+    passes out (no line for a frame that leaves it unwired: every frame runs)."""
     prefix = STRUCTURE_NET_PREFIX[type(node)]
     uid = uid_of(node.id)
     drives: list[FrameOutputDrive] = []
@@ -191,13 +201,14 @@ def build_frame_output_drives(
     return drives
 
 
-def build_event_outputs(
-    wires: StructureWires, node: EventStructureNode, frames: list[NetlistFrame]
+def build_gamma_outputs(
+    wires: StructureWires, node: AnyGraphNode, frames: list[NetlistFrame]
 ) -> list[ScopeOutput]:
-    """An Event Structure's output tunnels, each frame driving its tunnel like a
-    case frame (an unwired frame takes the type default), then the frames that
-    wire the inside right terminal of the dynamic pair, which replaces the value
-    for what follows (an unwired frame passes the left value through)."""
+    """The output tunnels of a structure of which exactly one frame runs (an Event
+    or Disable structure): each frame drives its tunnel like a case frame, and an
+    unwired frame takes the type default. The text keys the frame that is the
+    structure's default as ``default``."""
+    prefix = STRUCTURE_NET_PREFIX[type(node)]
     uid = uid_of(node.id)
     outputs: list[ScopeOutput] = []
     for k, outer in enumerate(frame_output_tunnel_outers(node)):
@@ -207,11 +218,24 @@ def build_event_outputs(
             source = wires.wire_or_default(
                 inner.id if inner is not None else None, inner, outer
             )
-            cases.append(GammaCase(frame_key=frame.label, source=source))
+            key = "default" if frame.is_default else frame.label
+            cases.append(GammaCase(frame_key=key, source=source))
         outputs.append(
-            GammaMerge(net=f"event_{uid}.out{k}", selector=None, cases=cases)
+            GammaMerge(net=f"{prefix}_{uid}.out{k}", selector=None, cases=cases)
         )
-    for outer in _event_outers(node, EVENT_DYNAMIC_TUNNEL, "output"):
+    return outputs
+
+
+def build_event_outputs(
+    wires: StructureWires, node: EventStructureNode, frames: list[NetlistFrame]
+) -> list[ScopeOutput]:
+    """An Event Structure's output tunnels (see ``build_gamma_outputs``), then the
+    frames that wire the inside right terminal of the dynamic pair, which
+    replaces the value for what follows (an unwired frame passes the left value
+    through)."""
+    uid = uid_of(node.id)
+    outputs = build_gamma_outputs(wires, node, frames)
+    for outer in _event_outers(node, TUNNEL_CLASS_EVENT_DYNAMIC, "output"):
         for i, frame in enumerate(frames):
             inner = _frame_inner(node, outer, i)
             value = wires.wire(inner.id) if inner is not None else None

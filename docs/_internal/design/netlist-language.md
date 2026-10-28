@@ -297,6 +297,21 @@ front-panel default and a `uses :` interface default alike.
 drive line, whatever its first word; a node, constant or variable line carries its
 ` : ` first.
 
+**A `Void` terminal.** A `Void` terminal nothing is wired to is a dead
+connector-pane slot and is not written. One with a wire is a real terminal whose type
+the file does not record (a DAQmx Task property's value, say): it keeps its line
+(`out  NumChans : Void`) so every net a reader names is declared. A type the file
+records but lvnet cannot read is not `Void` either: it keeps its own descriptor
+followed by `(unreadable "<reason>")` -- the reason a §4 quoted literal, like
+`(library unreadable "<reason>")` -- in lvnet, describe and JSON alike (the `type`
+string, and `lv_type.unreadable` in verbose JSON). That differs from `?`, which is
+written where a type is *not loaded* (a VI or type definition that was not read at
+all): `(unreadable "…")` says the file was read and this one descriptor could not be.
+
+**A terminal name in a net reference** follows the same name-safety rule as its
+declaration: `Property_Node_1845::"Image Parameters : Image Type"` where the
+declaration is `out "Image Parameters : Image Type" : U32`.
+
 **Direction is `sink = source`** — target on the left, source on the right —
 because a terminal reads like a named argument (`f(name = "runTest")`), the most
 universal target-left pattern in text languages. **Not `<=`** (reads as ≤, HDL
@@ -496,14 +511,14 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the wire into the count terminal is the first line of the block, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the block opens with the wires into the loop that nothing in the body reads (`loop_<uid>::inK = <src>`), then the wire into the count terminal, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
 | While Loop | `while-loop (stop if true) :` / `while-loop (continue if true) :` | single implicit body; the header always says how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
-| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, …; the frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>` (no line in a frame that does not: data leaves each frame as it finishes) |
-| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
+| Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, …; the frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>` (no line in a frame that does not: data leaves each frame as it finishes). A tunnel that hands a value from one frame to the next is the same net: the producing frame ends with `sequence_<uid>::outK = <source>` and a reader in a later frame references `sequence_<uid>::outK`; there is no `sequence_<uid>::inK` line, since the value does not come from outside |
+| Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>`, as a Flat Sequence does (none in a frame that does not). A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case; the label is a §4 string literal (`frame "[1] \"stop\": Value Change" :`). Each frame ends with the values it drives onto the structure's output tunnels, `event_<uid>::outK = <source>` (an unwired frame: `(default <Type>)`), like a case frame. The dynamic terminal pair is one net, `event_<uid>::dynamic`: readers use it, a block line `event_<uid>::dynamic = <src>` is the wire into the left terminal, and a frame that wires the inside right terminal drives it (`event_<uid>::dynamic = <src>`); a frame that does not passes the left value through, so it is never `(default …)`. |
-| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`); a frame that wires an output tunnel ends with `disabled_<uid>::outK = <source>` |
-| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (matched frame carries `, default`) |
-| Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`) |
+| Diagram Disable | `diagram-disable :` | `frame Enabled/Disabled :` (active frame carries `, default`, e.g. `frame Enabled, default :`); every frame ends with the value it drives onto each output tunnel, `disabled_<uid>::outK = <source>`, or `(default <Type>)` when it leaves the tunnel unwired (exactly one frame runs, like a case) |
+| Conditional Disable | `conditional-disable :` | `frame "<symbol cond>" :` (the label a §4 string literal; matched frame carries `, default`); every frame ends with `disabled_<uid>::outK = <source>` or `(default <Type>)`, as a Diagram Disable's |
+| Type Specialization | `type-specialization :` | `frame [i] :` (active frame carries `, default`); every frame ends with `disabled_<uid>::outK = <source>` or `(default <Type>)`, as a Diagram Disable's |
 | In Place Element | `in-place-element :` | a single implicit body (like a loop, **not** a per-frame family). Its border nodes (Unbundle/Bundle Elements, Array Index/Replace) emit no declaration of their own; their ports are structure-scoped nets (§9). A reader of one of the structure's output ports resolves to `inplace_<uid>::outK`, exactly as the frame-only families resolve their own output tunnels. A reader inside the body of a value a border node supplies (an Unbundle Elements element output) resolves to `inplace_<uid>::getK`. Each value wired into a border node's input — a Bundle Elements element the body supplies, or the cluster/array/index the outside feeds through the structure's In Element port (the port and the border terminal name the same heap DCO) — is a drive line at the end of the body, `inplace_<uid>::putK = <source>`, the same `net = source` form a case frame uses for its output tunnels. Faithful + round-trippable, **not** execution-worthy (an IPES is transparent — mutable references — with no headless-Python analogue, so the scope projects its structure/containment without inventing decompose/recompose semantics the model doesn't carry). |
 | Timed Loop / Sequence | `timed-loop` | **PROPOSED — coverage unverified in the model** |
 
@@ -587,10 +602,22 @@ only when its frame runs) and a control is read there.
   own diagram is a parse error. An indicator's drive line is told from a structure
   net's drive (`case_951::out1 = …`) by its sink: a structure net is never quoted and
   holds `::`, a control name holding `::` is quoted (§4).
+- **Two terminals with one label.** A label does not identify a terminal: two
+  indicators (or two controls) may share it. In verbose text each of them carries
+  ` (id <uid>)`, the terminal's uid on the block diagram, after its name on its
+  `front-panel :` row and on its drive or `read` line (`Rate (id 5020) = 3`,
+  `read c (id 5001)`) and wherever a wire reads a control (`in x : I32 = x (id 5020)`), the same suffix a structure header carries. A name that
+  itself ends in ` (id <digits>)` is quoted. Reconstruction claims a row by that
+  uid. Terse text has no uid, so a label shared by several indicators, one of them
+  driven inside a structure, or by several controls, one of them read inside one,
+  cannot be read back and is an error that asks for verbose text (a wire reading one of several same-labelled controls is the same error). A `read` names a
+  control of the `front-panel :` block and appears once; reads come before a body's
+  other lines and indicator drives after them.
 - JSON: an `inputs[]` / `outputs[]` entry (and the `connector_pane.terminals` entry
-  of a control) of a placed terminal carries `"scope": {"uid": <structure uid>,
-  "frame": <frame value, null for a loop or In Place Element body>}`; an entry on the
-  VI's own diagram has no `scope` key. The body items of JSON do not repeat them.
+  of a control or an indicator) of a placed terminal carries `"scope": {"uid":
+  <structure uid>, "frame": <frame value, null for a loop or In Place Element body>}`;
+  an entry on the VI's own diagram has no `scope` key. The body items of JSON do not
+  repeat them.
 
 ### Border constructs
 

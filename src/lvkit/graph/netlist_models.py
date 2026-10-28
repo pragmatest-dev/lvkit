@@ -72,6 +72,9 @@ class NetRef:
     # (``bare`` is its label), so it renders as a NAME (quoted when the label
     # needs it), never as a literal.
     boundary: bool = False
+    # A control's net: the control's terminal on the block diagram, which tells two
+    # controls with one label apart (written ` (id <uid>)` then).
+    boundary_uid: str | None = None
     # Phase 3, ``render_lvnet``-ONLY (mirrors ``constant_uid`` above): the
     # producing NODE's own uid (the SAME id ``NetlistInstance.uid`` uses) for
     # a genuine node-terminal reference -- lets ``render_lvnet`` resolve the
@@ -203,6 +206,9 @@ class NetlistOutput:
     pane_rank: int = 0
     # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+    # Whether a wire leaves this output. A ``Void`` output nothing reads is a
+    # dead connector-pane slot and is not shown; one that is read keeps its line.
+    read: bool = False
 
 
 class LoopCondition(str, Enum):
@@ -255,6 +261,9 @@ class ReferenceTarget:
 
     kind: ReferenceTargetKind
     control: str | None = None
+    # The control's terminal on the block diagram: tells two controls with one
+    # label apart.
+    control_uid: str | None = None
 
 
 @dataclass
@@ -696,9 +705,12 @@ class NetlistIndicatorDrive:
 class NetlistControlRead:
     """``read <Control>``: a front-panel control whose terminal sits inside a
     structure is read in that scope -- once per frame run, or every iteration
-    of a loop. A control on the VI's own diagram has no such item."""
+    of a loop. A control on the VI's own diagram has no such item.
+    ``terminal_uid`` is the control's terminal on the block diagram, which tells
+    two controls with one label apart."""
 
     name: str
+    terminal_uid: str | None = None
 
 
 NetlistItem = (
@@ -751,6 +763,9 @@ class BoundaryOutput:
     # True when the drive line is a ``NetlistIndicatorDrive`` inside the
     # structure that holds the terminal, not a line at the end of the diagram.
     placed: bool = False
+    # The indicator's terminal on the block diagram (its ``fPTerm`` uid): the
+    # identity two indicators with one label are told apart by.
+    terminal_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -770,6 +785,8 @@ class NetlistBoundaryInput:
     # facts ``ConnectorPaneTerminal`` carries for this terminal).
     caption: str | None = None
     caption_visible: bool = False
+    # The control's terminal on the block diagram -- see ``BoundaryOutput``.
+    terminal_uid: str | None = None
 
 
 @dataclass
@@ -797,6 +814,9 @@ class ConnectorPaneTerminal:
     # label (``name``) stays the identity; the caption is display text.
     caption: str | None = None
     caption_visible: bool = False
+    # The control's or indicator's terminal on the block diagram -- see
+    # ``BoundaryOutput``.
+    terminal_uid: str | None = None
 
     @property
     def is_required(self) -> bool:

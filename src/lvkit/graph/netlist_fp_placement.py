@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..models import FPTerminal, Terminal
+from .core import uid_of
 from .netlist_models import (
     BoundaryOutput,
     NetlistControlRead,
@@ -25,6 +26,11 @@ from .netlist_models import (
     NetlistModule,
     NetlistScope,
 )
+
+
+class PlacementError(ValueError):
+    """A front-panel terminal sits inside a structure the netlist has no body for."""
+
 
 # ``(structure node id, frame key)``: the key ``operations.frame_key`` gives a
 # frame, ``None`` for a loop or In Place Element body.
@@ -56,39 +62,58 @@ class FrontPanelPlacements:
     def add_control(self, terminal: Terminal) -> None:
         group = self._group(terminal)
         if group is not None:
-            group.reads.append(NetlistControlRead(terminal.name or "input"))
+            group.reads.append(
+                NetlistControlRead(terminal.name or "input", uid_of(terminal.id))
+            )
 
     def add_indicator(self, terminal: Terminal, output: BoundaryOutput) -> None:
         group = self._group(terminal)
         if group is not None:
-            output.placed = True
             group.drives.append(NetlistIndicatorDrive(output))
 
     def take(self, key: PlacementKey) -> PlacedTerminals:
         """The reads and drives of the body ``key`` names. The structure builder
         calls this for every body it builds."""
         self._claimed.add(key)
-        return self._groups.get(key, PlacedTerminals())
+        group = self._groups.get(key, PlacedTerminals())
+        for drive in group.drives:
+            drive.output.placed = True
+        return group
 
-    def release_unclaimed(self) -> None:
-        """Back to the end of the diagram: the indicators of every body no
-        structure builder asked for."""
-        for key, group in self._groups.items():
-            if key in self._claimed:
+    def check_all_claimed(self) -> None:
+        """Every placed terminal sits in a body the netlist built, else the
+        netlist would drop its line."""
+        for (owner, frame), group in self._groups.items():
+            if (owner, frame) in self._claimed:
                 continue
-            for drive in group.drives:
-                drive.output.placed = False
+            names = [r.name for r in group.reads] + [
+                d.output.name for d in group.drives
+            ]
+            where = f"structure {uid_of(owner)}"
+            if frame is not None:
+                where += f", frame {frame}"
+            raise PlacementError(
+                f"front-panel terminals {', '.join(names)} sit inside {where}, "
+                f"which lvnet does not write"
+            )
+
+
+# Where a placed terminal's line sits: ``(structure uid, frame value)``; the frame
+# value is ``None`` for a loop or In Place Element body.
+Scope = tuple[str, str | None]
+_SINGLE_BODY_KINDS = frozenset({"for", "while", "inplace"})
 
 
 @dataclass(frozen=True)
 class PlacedScopes:
-    """Where each placed terminal's line sits, as ``(structure uid, frame
-    value)`` (a loop body has frame value ``""``): ``reads`` by control name,
-    ``drives`` by the identity of the module's ``BoundaryOutput``. A terminal on
-    the VI's own diagram is in neither."""
+    """Where each placed terminal's line sits. A terminal is keyed by its uid on the
+    block diagram (its name when a hand-built module has none); ``drives`` is also
+    keyed by the identity of the module's ``BoundaryOutput``. A terminal on the VI's
+    own diagram is in neither."""
 
-    reads: dict[str, tuple[str, str]] = field(default_factory=dict)
-    drives: dict[int, tuple[str, str]] = field(default_factory=dict)
+    reads: dict[str, Scope] = field(default_factory=dict)
+    drives: dict[str, Scope] = field(default_factory=dict)
+    drives_by_output: dict[int, Scope] = field(default_factory=dict)
 
 
 def placed_scopes(module: NetlistModule) -> PlacedScopes:
@@ -100,12 +125,17 @@ def placed_scopes(module: NetlistModule) -> PlacedScopes:
             if not isinstance(item, NetlistScope):
                 continue
             for frame in item.frames:
-                where = (item.uid, frame.value)
+                where: Scope = (
+                    item.uid,
+                    None if item.kind in _SINGLE_BODY_KINDS else frame.value,
+                )
                 for inner in frame.body:
                     if isinstance(inner, NetlistControlRead):
-                        found.reads.setdefault(inner.name, where)
+                        found.reads[inner.terminal_uid or inner.name] = where
                     elif isinstance(inner, NetlistIndicatorDrive):
-                        found.drives[id(inner.output)] = where
+                        out = inner.output
+                        found.drives[out.terminal_uid or out.name] = where
+                        found.drives_by_output[id(out)] = where
                 walk(frame.body)
 
     walk(module.body)

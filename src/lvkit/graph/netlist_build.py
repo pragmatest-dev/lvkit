@@ -43,7 +43,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
-from ..parser.constants import TUNNEL_CLASS_LMAX
+from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
@@ -110,11 +110,11 @@ from .netlist_models import (
     SequenceLocalUnreadable,
 )
 from .netlist_structure_io import (
-    EVENT_DYNAMIC_TUNNEL,
     FRAME_ONLY_NET_PREFIX,
     StructureWires,
     build_event_outputs,
     build_frame_output_drives,
+    build_gamma_outputs,
     build_structure_inputs,
     frame_output_tunnel_outers,
 )
@@ -280,6 +280,12 @@ def _build_class_context(
     return collect_class_context(graph, ctx)
 
 
+def _fp_terminal_uid(t: Terminal) -> str | None:
+    """A front-panel terminal's uid on the block diagram; a terminal that is not a
+    front-panel control has none."""
+    return uid_of(t.id) if isinstance(t, FPTerminal) else None
+
+
 def _fp_caption(t: Terminal) -> tuple[str | None, bool]:
     """A front-panel terminal's ``(caption, caption_visible)``; a terminal that is
     not a front-panel control has none."""
@@ -310,6 +316,7 @@ def _pane_terminal(
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -624,7 +631,7 @@ def _is_event_dynamic_gn(node: AnyGraphNode, term: Terminal) -> bool:
     return (
         isinstance(node, EventStructureNode)
         and isinstance(term, TunnelTerminal)
-        and term.tunnel_type == EVENT_DYNAMIC_TUNNEL
+        and term.tunnel_type == TUNNEL_CLASS_EVENT_DYNAMIC
         and term.direction == "output"
     )
 
@@ -648,7 +655,7 @@ def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
         isinstance(term, TunnelTerminal)
         and term.boundary == "outer"
         and term.direction == "output"
-        and term.tunnel_type != EVENT_DYNAMIC_TUNNEL
+        and term.tunnel_type != TUNNEL_CLASS_EVENT_DYNAMIC
     )
 
 
@@ -1048,9 +1055,15 @@ def _resolve_source_gn(
         return NetRef(node=None, terminal=net, occurrence=None, bare=net)
 
     if traced.boundary is not None:
-        bare = traced.boundary.name or str(traced.boundary.index)
+        # An unnamed control reads under the name its front-panel row gives it.
+        bare = traced.boundary.name or traced.boundary.direction
         return NetRef(
-            node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
+            node=None,
+            terminal=bare,
+            occurrence=None,
+            bare=bare,
+            boundary=True,
+            boundary_uid=uid_of(traced.boundary.id),
         )
 
     const = build_ctx.const_by_id.get(src.node_id)
@@ -1078,7 +1091,7 @@ def _resolve_source_gn(
         )
 
     node_name = src.name or uid_of(src.node_id)
-    terminal = str(src.index) if src.index is not None else src.terminal_id
+    terminal = str(src.index) if src.index is not None else uid_of(src.terminal_id)
     return NetRef(
         node=node_name,
         terminal=terminal,
@@ -1309,6 +1322,7 @@ def _build_instance_gn(
             type=t.type_descriptor() or "?",
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,
+            read=bool(graph.outgoing_edges(t.id)),
         )
         for t in terminals
         if t.direction == "output"
@@ -1798,10 +1812,13 @@ def _wires_gn(
     use."""
     return StructureWires(
         wire=lambda tid: _resolve_source_gn(graph, ctx, vi_name, tid, build_ctx),
-        wire_or_default=lambda tid, *fallbacks: _resolve_or_default_gn(
-            graph, ctx, vi_name, build_ctx, tid, *fallbacks
+        wire_or_default=lambda tid, inner, outer: _resolve_or_default_gn(
+            graph, ctx, vi_name, build_ctx, tid, inner, outer
         ),
         has_reader=lambda tid: bool(graph.outgoing_edges(tid)),
+        source_node=lambda tid: next(
+            (e.node_id for e in graph.incoming_edges(tid)), None
+        ),
     )
 
 
@@ -1833,18 +1850,15 @@ def _build_disabled_scope_gn(
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
         uid=uid_of(node.id),
         kind="disabled",
         selector=None,
         frames=frames,
         disable_kind=node.kind,
-        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
-        outputs=[
-            *build_frame_output_drives(
-                _wires_gn(graph, ctx, vi_name, build_ctx), node, frames
-            )
-        ],
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_gamma_outputs(wires, node, frames),
     )
 
 
@@ -1937,19 +1951,15 @@ def _build_sequence_scope_gn(
                     value=value,
                 )
             )
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
         uid=seq_uid,
         kind="sequence",
         selector=None,
         frames=frames,
-        outputs=[
-            *drives,
-            *build_frame_output_drives(
-                _wires_gn(graph, ctx, vi_name, build_ctx), node, frames
-            ),
-        ],
+        outputs=[*drives, *build_frame_output_drives(wires, node, frames)],
         sequence_is_flat=node.is_flat,
-        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+        inputs=build_structure_inputs(wires, node),
     )
 
 
@@ -2645,6 +2655,7 @@ def _boundary_output(
         source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
         caption=_fp_caption(t)[0],
         caption_visible=_fp_caption(t)[1],
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -2683,6 +2694,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             lv_type=t.lv_type,
             caption=_fp_caption(t)[0],
             caption_visible=_fp_caption(t)[1],
+            terminal_uid=_fp_terminal_uid(t),
         )
         for t in ctx.inputs
     ]
@@ -2733,7 +2745,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         build_ctx,
         owner_children=top_level_children,
     )
-    build_ctx.placements.release_unclaimed()
+    build_ctx.placements.check_all_claimed()
     components = _build_components_gn(graph, vi_name, flat)
     dependencies = _build_dependency_manifest(graph, vi_name)
 

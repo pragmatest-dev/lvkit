@@ -7,29 +7,37 @@ everything it exclusively depends on: see
 every character here traces to (an OPEN construct, §17, emits its header
 keyword plus a literal ``# TODO(lvnet): ...`` and no invented inner syntax).
 
-``_quoted_frame_label`` is used internally by this module's frame-label
-rendering, and imported by ``lvnet_parse.py`` so parsing lvnet text back
-applies the identical quoting convention.
+A frame label that is text (an event, a Conditional Disable condition) is a §4
+string literal (``lvnet_literal_token``), written and read back one way.
 """
 
 from __future__ import annotations
 
 import os
+from collections import Counter
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 
 from ..models import (
     DisableStructureKind,
     LVType,
     LVTypeKind,
-    ScalarValue,
     _is_error_cluster,
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
 from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
+from .lvnet_drives import (
+    SourceText,
+    frame_drives,
+    is_dead_slot,
+    loop_condition_drives,
+    loop_count_drives,
+    structure_input_drives,
+)
 from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
@@ -48,12 +56,11 @@ from .lvnet_grammar import (
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
+    _LVNET_ID_SUFFIX_RE,
     _LVNET_INDENT,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LIBRARY_UNREADABLE,
-    _LVNET_LOOP_CONDITION_TERMINAL,
-    _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_NAME_CAP,
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
@@ -65,37 +72,32 @@ from .lvnet_grammar import (
     _LVNET_RESERVED_CONTROL_PREFIXES,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
-    _LVNET_SEQUENCE_LOCAL_UNREADABLE,
-    _LVNET_STRING_ESCAPES,
-    _LVNET_STRUCTURE_NET_RE,
     _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
     _LVNET_UNINITIALIZED,
-    _LVNET_UNWIRED,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
+    lvnet_id_suffix,
+    lvnet_net_separator,
 )
-from .lvnet_scalar import lvnet_typed_scalar
+from .lvnet_scalar import lvnet_literal_token, lvnet_typed_scalar
 from .models import Constant
 from .netlist_models import (
     BoundaryOutput,
     ConnectorPaneTerminal,
     DefaultValue,
     EtaMerge,
-    FrameOutputDrive,
-    GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
     NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
-    NetlistFrame,
     NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
@@ -104,28 +106,8 @@ from .netlist_models import (
     NetlistScope,
     NetRef,
     ReferenceTarget,
-    SequenceLocalDrive,
-    SequenceLocalUnreadable,
 )
 from .op_walk import _format_error_cluster
-
-
-def _quoted_frame_label(label: str) -> str:
-    """Wrap a case/disabled frame label in ONE pair of quotes for netlist
-    display.
-
-    Most labels (``No Error``, ``True``, ``Default``, an enum item name, an
-    integer range) carry no quoting of their own and need one pair added
-    here. A STRING selector is the exception: ``op_walk._selector_label``
-    already returns it pre-quoted (``'"TestCase.lvclass"'``) so the renderer
-    -- ``render/scene.py`` -- can show it as-is with no extra formatting.
-    Re-wrapping that case here would double-quote it (``""...""``), so
-    detect an already-quoted label and pass it through unchanged instead.
-    """
-    if len(label) >= 2 and label.startswith('"') and label.endswith('"'):
-        return label
-    return f'"{label}"'
-
 
 # ============================================================
 # render_lvnet -- the lvnet surface (docs/_internal/design/netlist-language.md)
@@ -153,6 +135,9 @@ class _TermLine:
     # A front-panel control/indicator row: its name is also read as a net
     # reference, so it is quoted when it would read as a literal (§4).
     control: bool = False
+    # The terminal's identity, written ` (id <uid>)` after the name when two
+    # terminals of a direction share the label (verbose only).
+    uid: str | None = None
 
 
 def _lvnet_capped_pad(text: str, width: int, cap: int) -> str:
@@ -205,7 +190,12 @@ def _render_term_group(entries: list[_TermLine], indent: str) -> list[str]:
     display = [
         (
             e,
-            lvnet_control_name_token(e.name) if e.control else lvnet_name_token(e.name),
+            (
+                lvnet_control_name_token(e.name)
+                if e.control
+                else lvnet_name_token(e.name)
+            )
+            + lvnet_id_suffix(e.uid),
         )
         for e in entries
     ]
@@ -854,6 +844,14 @@ class _LvnetHandles:
     """
 
     by_uid: dict[str, str]
+    # ``(direction, label)`` of every front-panel label two terminals share: the
+    # ones whose rows, drive lines and ``read`` lines carry ` (id <uid>)`.
+    shared_labels: frozenset[tuple[str, str]] = frozenset()
+    # The labels more than one front-panel terminal has, in either direction.
+    shared_names: frozenset[str] = frozenset()
+    # Whether a front-panel terminal is named by its uid where its label is shared
+    # (verbose text).
+    show_ids: bool = False
 
 
 def _collect_lvnet_handle_targets(items: list[NetlistItem]) -> list[tuple[str, str]]:
@@ -900,25 +898,43 @@ def _assign_lvnet_handles(module: NetlistModule) -> _LvnetHandles:
     stay collision-free)."""
     targets = _collect_lvnet_handle_targets(module.body)
     by_uid = {uid: f"{base}_{uid}" for uid, base in targets}
-    return _LvnetHandles(by_uid=by_uid)
+    shared = _shared_labels(module)
+    return _LvnetHandles(
+        by_uid=by_uid,
+        shared_labels=shared,
+        shared_names=frozenset(
+            name
+            for name, n in Counter(
+                t.name for t in module.connector_pane.terminals
+            ).items()
+            if n > 1
+        ),
+    )
 
 
-def _lvnet_net_separator(bare: str) -> str:
-    """Reformat a structure-scoped net name's separator from the model's
-    stored ``.`` to lvnet's ``::`` (§9) -- a RENDER-TIME-ONLY transform of a
-    string this same module deterministically constructs in exactly this
-    shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``/``_frame_net_name_gn``);
-    the model's own
-    stored string is never mutated, so ``netlist_to_dict`` (which must keep
-    ``.``) is untouched. A boundary control's bare name or
-    an ``fbK`` feedback net (neither ever contains this shape) pass through
-    unchanged.
-    """
-    m = _LVNET_STRUCTURE_NET_RE.match(bare)
-    if m is None:
-        return bare
-    prefix, rest = m.groups()
-    return f"{prefix}{_LVNET_TERMINAL_SEP}{rest}"
+def _shared_labels(module: NetlistModule) -> frozenset[tuple[str, str]]:
+    """The ``(direction, label)`` pairs more than one front-panel terminal has."""
+    counts = Counter((t.direction, t.name) for t in module.connector_pane.terminals)
+    return frozenset(key for key, n in counts.items() if n > 1)
+
+
+def _shared_terminal_uid(
+    shared: frozenset[tuple[str, str]],
+    direction: str,
+    name: str,
+    uid: str | None,
+    *,
+    verbose: bool,
+) -> str | None:
+    """The uid a front-panel terminal's line carries: only in verbose text, and
+    only when another terminal of that direction has the same label."""
+    return uid if verbose and (direction, name) in shared else None
+
+
+def lvnet_source_text(handles: _LvnetHandles) -> SourceText:
+    """``_render_lvnet_source`` bound to ``handles``: how the drive helpers of
+    ``lvnet_drives`` spell a source."""
+    return partial(_render_lvnet_source, handles=handles)
 
 
 def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) -> str:
@@ -961,8 +977,9 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
             if source.producer_uid is not None
             else None
         )
+        terminal = lvnet_name_token(source.terminal)
         if handle is not None:
-            return f"{handle}{_LVNET_TERMINAL_SEP}{source.terminal}"
+            return f"{handle}{_LVNET_TERMINAL_SEP}{terminal}"
         # A genuinely unresolved producer -- ``_resolve_source_gn`` fell all
         # the way through to its raw structural fallback (the wire's own
         # carried ``name``/``index``, no owning graph node found at all), so
@@ -972,26 +989,24 @@ def _render_lvnet_source(source: NetRef | DefaultValue, handles: _LvnetHandles) 
         # terminal separator lvnet §9 mandates) keeps the render from
         # crashing without fabricating a handle scheme for a node this
         # module never identified.
-        return f"{source.node}{_LVNET_TERMINAL_SEP}{source.terminal}"
+        return f"{source.node}{_LVNET_TERMINAL_SEP}{terminal}"
     # An inlined (unlabeled) constant's literal value: ``lvnet_value`` is
-    # the lvnet-escaped text (md §4/§10) -- ``_lvnet_net_separator`` is a
+    # the lvnet-escaped text (md §4/§10) -- ``lvnet_net_separator`` is a
     # no-op on it (a quoted/``True``/``False``/numeric token never matches
     # the ``case_UID.outK``-shaped structure-net regex), so routing it
     # through unconditionally is safe and keeps one call site for every
     # ``bare`` shape (net name, structure net, or literal).
     if source.boundary:
-        return lvnet_control_name_token(source.bare)
+        uid = _shared_terminal_uid(
+            handles.shared_labels,
+            "input",
+            source.bare,
+            source.boundary_uid,
+            verbose=handles.show_ids,
+        )
+        return lvnet_control_name_token(source.bare) + lvnet_id_suffix(uid)
     literal = source.lvnet_value if source.lvnet_value is not None else source.bare
-    return _lvnet_net_separator(literal)
-
-
-def _is_void_type(type_descriptor: str) -> bool:
-    """The stored-``type``-string counterpart of ``_is_real_terminal`` --
-    used by ``render_lvnet`` (the one consumer that must drop a dead pane
-    slot) directly off ``NetlistTerminalBinding.type``/``NetlistOutput.type``,
-    since Phase A's STORED model keeps every terminal Void-included -- see
-    ``_build_instance_gn``."""
-    return type_descriptor == "Void"
+    return lvnet_net_separator(literal)
 
 
 def _lvnet_component(instance: NetlistInstance) -> str:
@@ -1026,6 +1041,8 @@ def _render_lvnet_instance(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """One ``<keyword> <handle> : <component>`` node (§3/§7) -- EVERY
     instance kind except Local/Global Variable, which renders its own
@@ -1061,7 +1078,9 @@ def _render_lvnet_instance(
         _render_lvnet_global_variable(instance, indent, lines, handles)
         return
     if instance.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
-        _render_lvnet_vi_server_reference(instance, indent, lines, handles)
+        _render_lvnet_vi_server_reference(
+            instance, indent, lines, handles, verbose=verbose
+        )
         return
 
     header_kw = _LVNET_INSTANCE_KEYWORDS[instance.kind]
@@ -1071,7 +1090,7 @@ def _render_lvnet_instance(
 
     entries: list[_TermLine] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
-        if _is_void_type(b.type):
+        if is_dead_slot(b.type, b.net is not None):
             continue
         if b.net is not None:
             net_str = _render_lvnet_source(b.net, handles)
@@ -1087,7 +1106,7 @@ def _render_lvnet_instance(
         type_label = _lvnet_type_label(b.type, b.lv_type)
         entries.append(_TermLine("in ", b.terminal, type_label, trailing))
     for o in sorted(instance.outputs, key=lambda o: o.pane_rank):
-        if _is_void_type(o.type):
+        if is_dead_slot(o.type, o.read):
             continue
         type_label = _lvnet_type_label(o.type, o.lv_type)
         entries.append(_TermLine("out", o.net.terminal, type_label, None))
@@ -1225,17 +1244,22 @@ def _render_lvnet_local_variable(
     lines.append(f"{indent}{instance.kind.value} {handle}{_LVNET_TYPE_SEP}read")
 
 
-def lvnet_reference_target_token(target: ReferenceTarget) -> str:
+def lvnet_reference_target_token(
+    target: ReferenceTarget, *, show_uid: bool = False
+) -> str:
     """The target of a ``vi-server-reference`` line: ``This VI``, ``This
     Application`` or ``?``, else the referenced control as a §4 control-name
-    token (quoted when it is spelled like one of those words)."""
+    token (quoted when it is spelled like one of those words), followed by
+    ` (id <uid>)` when ``show_uid`` (its label is shared)."""
     word = _LVNET_REFERENCE_TARGET_WORDS.get(target.kind)
     if word is not None:
         return word
     assert target.control is not None
     if target.control in _LVNET_REFERENCE_TARGET_WORDS.values():
-        return lvnet_literal_token(target.control)
-    return lvnet_control_name_token(target.control)
+        token = lvnet_literal_token(target.control)
+    else:
+        token = lvnet_control_name_token(target.control)
+    return token + lvnet_id_suffix(target.control_uid if show_uid else None)
 
 
 def _render_lvnet_vi_server_reference(
@@ -1243,6 +1267,8 @@ def _render_lvnet_vi_server_reference(
     indent: str,
     lines: list[str],
     handles: _LvnetHandles,
+    *,
+    verbose: bool,
 ) -> None:
     """``vi-server-reference <handle> : <target>`` (§7): a Control Reference
     constant -- a source whose single output is the reference itself, not the
@@ -1250,9 +1276,13 @@ def _render_lvnet_vi_server_reference(
     ``<handle>::<port>`` like any node's output). No terminal block: the
     consumer's terminal line spells the refnum type."""
     assert instance.reference is not None
+    target = lvnet_reference_target_token(
+        instance.reference,
+        show_uid=verbose and instance.reference.control in handles.shared_names,
+    )
     lines.append(
         f"{indent}{_LVNET_REFERENCE_KEYWORD} {handles.by_uid[instance.uid]}"
-        f"{_LVNET_TYPE_SEP}{lvnet_reference_target_token(instance.reference)}"
+        f"{_LVNET_TYPE_SEP}{target}"
     )
 
 
@@ -1291,42 +1321,6 @@ def _lvnet_scope_id_suffix(uid: str, *, verbose: bool) -> str:
     ``_LVNET_SCOPE_ID_PREFIX``'s own docstring in ``lvnet_grammar.py``.
     """
     return f"{_LVNET_SCOPE_ID_PREFIX}{uid})" if verbose else ""
-
-
-def _lvnet_loop_net(scope: NetlistScope, terminal: str) -> str:
-    """A loop's own terminal as a net name: ``loop_<uid>::<terminal>``."""
-    return f"loop_{scope.uid}{_LVNET_TERMINAL_SEP}{terminal}"
-
-
-def _loop_count_drives(
-    scope: NetlistScope, handles: _LvnetHandles
-) -> list[tuple[str, str]]:
-    """The ``(net, source)`` line for a For Loop's count wire
-    (``loop_<uid>::N = <source>``); none when nothing is wired to it."""
-    if scope.count is None:
-        return []
-    return [
-        (
-            _lvnet_loop_net(scope, _LVNET_LOOP_COUNT_TERMINAL),
-            _render_lvnet_source(scope.count, handles),
-        )
-    ]
-
-
-def _loop_condition_drives(
-    scope: NetlistScope, handles: _LvnetHandles
-) -> list[tuple[str, str]]:
-    """The ``(net, source)`` line for the wire on a loop's conditional terminal
-    (``loop_<uid>::condition = <source>``, ``?`` when it is unwired); none for a
-    loop with no conditional terminal."""
-    if scope.condition_mode is None:
-        return []
-    source = (
-        _render_lvnet_source(scope.selector, handles)
-        if scope.selector is not None
-        else _LVNET_UNWIRED
-    )
-    return [(_lvnet_loop_net(scope, _LVNET_LOOP_CONDITION_TERMINAL), source)]
 
 
 def _lvnet_loop_keyword(scope: NetlistScope) -> str:
@@ -1378,7 +1372,7 @@ def _render_lvnet_loop_scope(
 
     ``merge.net`` (``MuMerge``/``EtaMerge``) is the model's OWN stored
     string (shared verbatim with other consumers, e.g. ``netlist_to_dict``,
-    which must keep its ``.`` separator) -- ``_lvnet_net_separator`` reformats
+    which must keep its ``.`` separator) -- ``lvnet_net_separator`` reformats
     it to ``::`` for THIS render only, never mutating the stored field (§9).
     """
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
@@ -1386,16 +1380,16 @@ def _render_lvnet_loop_scope(
     lines.append(f"{indent}{header}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
-    for net, source in _loop_count_drives(scope, handles):
+    for net, source in loop_count_drives(scope, lvnet_source_text(handles)):
         lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source}")
     _render_lvnet_items(
         scope.frames[0].body, body_indent, lines, handles, verbose=verbose
     )
-    for net, source in _loop_condition_drives(scope, handles):
+    for net, source in loop_condition_drives(scope, lvnet_source_text(handles)):
         lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source}")
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
-            net = _lvnet_net_separator(merge.net)
+            net = lvnet_net_separator(merge.net)
             uninitialized = isinstance(merge.init, DefaultValue)
             attribute = f" ({_LVNET_UNINITIALIZED})" if uninitialized else ""
             lines.append(
@@ -1411,7 +1405,7 @@ def _render_lvnet_loop_scope(
         elif isinstance(merge, EtaMerge):
             mode_word = _lvnet_tunnel_mode_word(merge.mode)
             value_str = _render_lvnet_source(merge.value, handles)
-            net = _lvnet_net_separator(merge.net)
+            net = lvnet_net_separator(merge.net)
             header = f"{body_indent}tunnel {net}{_LVNET_TYPE_SEP}{mode_word}"
             if not merge.conditional:
                 lines.append(f"{header}{_LVNET_DRIVER_OP}{value_str}")
@@ -1478,64 +1472,15 @@ def _render_lvnet_case_scope(
         header = _lvnet_case_header(frame.values, frame.is_default)
         lines.append(f"{indent + _LVNET_INDENT}frame {header}{_LVNET_BLOCK_OPEN}")
         _render_lvnet_items(frame.body, body_indent, lines, handles, verbose=verbose)
-        for net, source_str in _frame_drives(scope, frame, handles):
+        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
-
-
-def _structure_input_drives(
-    scope: NetlistScope, handles: _LvnetHandles
-) -> list[tuple[str, str]]:
-    """The ``(net, source)`` lines a structure opens its block with: each wire
-    into it that no frame reads (``sequence_<uid>::in0 = <source>``), an Event
-    Structure's ``timeout`` and the wire into the left terminal of its
-    ``dynamic`` pair."""
-    return [
-        (_lvnet_net_separator(i.net), _render_lvnet_source(i.value, handles))
-        for i in scope.inputs
-    ]
 
 
 def _render_structure_input_lines(
     scope: NetlistScope, indent: str, lines: list[str], handles: _LvnetHandles
 ) -> None:
-    for net, source in _structure_input_drives(scope, handles):
+    for net, source in structure_input_drives(scope, lvnet_source_text(handles)):
         lines.append(f"{indent}{net}{_LVNET_DRIVER_OP}{source}")
-
-
-def _frame_drives(
-    scope: NetlistScope, frame: NetlistFrame, handles: _LvnetHandles
-) -> list[tuple[str, str]]:
-    """The ``(net, source)`` drive lines closing one frame: the value it puts on
-    each case / event output tunnel (an unwired frame takes ``(default <Type>)``),
-    then each sequence local it writes, each output tunnel a Sequence or Disable
-    structure's frame wires, and the dynamic-pair value an Event frame wires."""
-    lines: list[tuple[str, str]] = []
-    frame_key = "default" if frame.is_default else frame.label
-    for merge in scope.outputs:
-        if isinstance(merge, GammaMerge):
-            entry = next((c for c in merge.cases if c.frame_key == frame_key), None)
-            if entry is not None:
-                lines.append(
-                    (
-                        _lvnet_net_separator(merge.net),
-                        _render_lvnet_source(entry.source, handles),
-                    )
-                )
-        elif isinstance(merge, SequenceLocalDrive | FrameOutputDrive):
-            if merge.frame == frame.value:
-                lines.append(
-                    (
-                        _lvnet_net_separator(merge.net),
-                        _render_lvnet_source(merge.value, handles),
-                    )
-                )
-        elif isinstance(merge, SequenceLocalUnreadable) and merge.frame == frame.value:
-            attribute = (
-                f"({_LVNET_SEQUENCE_LOCAL_UNREADABLE} "
-                f"{lvnet_literal_token(merge.reason)})"
-            )
-            lines.append((_lvnet_net_separator(merge.net), attribute))
-    return lines
 
 
 def _render_lvnet_sequence_scope(
@@ -1562,7 +1507,7 @@ def _render_lvnet_sequence_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in _frame_drives(scope, frame, handles):
+        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1593,7 +1538,7 @@ def _render_lvnet_disabled_scope(
     quote_labels = scope.disable_kind is DisableStructureKind.CONDITIONAL
     _render_structure_input_lines(scope, body_indent, lines, handles)
     for frame in scope.frames:
-        label = _quoted_frame_label(frame.label) if quote_labels else frame.label
+        label = lvnet_literal_token(frame.label) if quote_labels else frame.label
         # A disable structure's ACTIVE frame (the enabled diagram-disable
         # frame, the matched conditional-disable/type-spec frame) carries
         # ``is_default`` -- encoded with the SAME ``, default`` marker as a
@@ -1607,7 +1552,7 @@ def _render_lvnet_disabled_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in _frame_drives(scope, frame, handles):
+        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1636,7 +1581,7 @@ def _render_lvnet_event_scope(
         _render_lvnet_items(
             frame.body, body_indent + _LVNET_INDENT, lines, handles, verbose=verbose
         )
-        for net, source_str in _frame_drives(scope, frame, handles):
+        for net, source_str in frame_drives(scope, frame, lvnet_source_text(handles)):
             lines.append(
                 f"{body_indent + _LVNET_INDENT}{net}{_LVNET_DRIVER_OP}{source_str}"
             )
@@ -1673,7 +1618,7 @@ def _render_lvnet_inplace_scope(
     )
     for drive in scope.outputs:
         if isinstance(drive, InPlaceBorderDrive):
-            net = _lvnet_net_separator(drive.net)
+            net = lvnet_net_separator(drive.net)
             source_str = _render_lvnet_source(drive.value, handles)
             lines.append(f"{body_indent}{net}{_LVNET_DRIVER_OP}{source_str}")
 
@@ -1714,7 +1659,7 @@ def _render_lvnet_feedback(
     all: every downstream reference to this net already resolves via the
     bare ``fbK`` string directly (``_resolve_source_gn`` builds it with
     ``node=None``, so ``_render_lvnet_source`` takes the plain
-    ``_lvnet_net_separator`` path, which is a no-op here -- ``fbK`` has no
+    ``lvnet_net_separator`` path, which is a no-op here -- ``fbK`` has no
     ``.`` to reformat).
 
     A Feedback Node is a state REGISTER, not a computation, so (like a
@@ -1742,7 +1687,7 @@ def _render_lvnet_feedback(
 
 
 def _lvnet_indicator_drive_line(
-    output: BoundaryOutput, indent: str, handles: _LvnetHandles
+    output: BoundaryOutput, indent: str, handles: _LvnetHandles, *, verbose: bool
 ) -> str:
     """``<Indicator> = <source>`` (``?`` when nothing drives it): at the end of
     the diagram, or in the structure that holds the indicator's terminal."""
@@ -1751,8 +1696,16 @@ def _lvnet_indicator_drive_line(
         if output.source is not None
         else "?"
     )
+    uid = _shared_terminal_uid(
+        handles.shared_labels,
+        "output",
+        output.name,
+        output.terminal_uid,
+        verbose=verbose,
+    )
     return (
-        f"{indent}{lvnet_control_name_token(output.name)}{_LVNET_DRIVER_OP}{source}"
+        f"{indent}{lvnet_control_name_token(output.name)}{lvnet_id_suffix(uid)}"
+        f"{_LVNET_DRIVER_OP}{source}"
     )
 
 
@@ -1767,7 +1720,7 @@ def _render_lvnet_items(
     for item in items:
         match item:
             case NetlistInstance():
-                _render_lvnet_instance(item, indent, lines, handles)
+                _render_lvnet_instance(item, indent, lines, handles, verbose=verbose)
             case NetlistScope():
                 _render_lvnet_scope(item, indent, lines, handles, verbose=verbose)
             case NetlistConstant():
@@ -1775,10 +1728,23 @@ def _render_lvnet_items(
             case NetlistFeedback():
                 _render_lvnet_feedback(item, indent, lines, handles)
             case NetlistIndicatorDrive():
-                lines.append(_lvnet_indicator_drive_line(item.output, indent, handles))
+                lines.append(
+                    _lvnet_indicator_drive_line(
+                        item.output, indent, handles, verbose=verbose
+                    )
+                )
             case NetlistControlRead():
                 name = lvnet_control_name_token(item.name)
-                lines.append(f"{indent}{_LVNET_READ_KEYWORD} {name}")
+                uid = _shared_terminal_uid(
+                    handles.shared_labels,
+                    "input",
+                    item.name,
+                    item.terminal_uid,
+                    verbose=verbose,
+                )
+                lines.append(
+                    f"{indent}{_LVNET_READ_KEYWORD} {name}{lvnet_id_suffix(uid)}"
+                )
 
 
 def _lvnet_requirement_trailing(term: ConnectorPaneTerminal) -> str | None:
@@ -1817,10 +1783,14 @@ def _lvnet_name_is_safe_bare(name: str) -> bool:
     desync ``_find_first_top_level`` / ``_split_top_level_commas``'s quote/depth
     tracking. A name with BALANCED embedded quotes/parens (``methodName
     ("runTest")``) stays bare, since the tracking still lands on the real
-    separator."""
+    separator. A name that OPENS with a quote would read as a quoted token, and
+    one that ENDS with `` (id <digits>)`` as a terminal's identity suffix, so both
+    are quoted."""
     return bool(
         name
         and name == name.strip()
+        and not name.startswith('"')
+        and not _LVNET_ID_SUFFIX_RE.search(name)
         and not any(ord(ch) < 0x20 for ch in name)
         and not any(seq in name for seq in _LVNET_NAME_UNSAFE_SEQS)
         and name.count('"') % 2 == 0
@@ -1869,41 +1839,6 @@ def lvnet_control_name_token(name: str) -> str:
     if _lvnet_name_reads_as_literal(name):
         return lvnet_literal_token(name)
     return lvnet_name_token(name)
-
-
-def lvnet_literal_token(value: ScalarValue) -> str:
-    """THE single lvnet §4/§10 literal-value TOKEN renderer for a raw
-    ``ScalarValue`` -- a connector-pane control's own authored default
-    (``ConnectorPaneTerminal.default``), a wired-constant driver, or a
-    labeled ``constant`` node's own value (see ``_lvnet_const_value_str``,
-    which feeds the last two through this for their plain-scalar case).
-    Escapes a string value rather than quoting it verbatim with NO escaping
-    at all -- the bug this closes (md §4/§10/§17 item 5's "scalar string
-    escaping" note): a raw control char (a CRLF, a bare
-    ``"``) rendered VERBATIM inside the quotes, so the literal's own text
-    could span multiple physical lines and break ``parse_lvnet``'s line-
-    oriented grammar (the ``Graphical Test Runner - Main UI - .vi`` xfail).
-
-    A ``str`` renders double-quoted with standard backslash escapes
-    (``\\\\``, ``\\"``, ``\\n``, ``\\r``, ``\\t`` -- ``_LVNET_STRING_ESCAPES``);
-    any OTHER C0 control char (U+0000-U+001F) as ``\\xHH``. A ``bool`` checks
-    FIRST (Python's ``bool`` is an ``int`` subclass) -> ``True``/``False``;
-    ``int``/``float`` -> plain ``str()``. Never called with ``None``.
-    """
-    if isinstance(value, bool):
-        return str(value)
-    if isinstance(value, str):
-        out: list[str] = []
-        for ch in value:
-            escaped = _LVNET_STRING_ESCAPES.get(ch)
-            if escaped is not None:
-                out.append(escaped)
-            elif ord(ch) < 0x20:
-                out.append(f"\\x{ord(ch):02X}")
-            else:
-                out.append(ch)
-        return '"' + "".join(out) + '"'
-    return str(value)
 
 
 def _lvnet_const_value_str(c: Constant) -> str:
@@ -2070,23 +2005,25 @@ def _render_lvnet_front_panel(
     output_panes = pane_terminals[n_in : n_in + n_out]
     off_pane_panes = pane_terminals[n_in + n_out :]
 
-    boundary_entries: list[_TermLine] = [
-        _TermLine(
-            "in ",
-            inp.name,
-            _lvnet_type_label(inp.type_descriptor, inp.lv_type),
+    shared = _shared_labels(module)
+
+    def row(keyword: str, name: str, pane: ConnectorPaneTerminal) -> _TermLine:
+        return _TermLine(
+            keyword,
+            name,
+            _lvnet_type_label(pane.type, pane.lv_type),
             _lvnet_boundary_trailing(pane, verbose=verbose),
             control=True,
+            uid=_shared_terminal_uid(
+                shared, pane.direction, pane.name, pane.terminal_uid, verbose=verbose
+            ),
         )
+
+    boundary_entries: list[_TermLine] = [
+        row("in ", inp.name, pane)
         for inp, pane in zip(module.inputs, input_panes, strict=True)
     ] + [
-        _TermLine(
-            "out",
-            o.name,
-            _lvnet_type_label(o.type_descriptor, o.lv_type),
-            _lvnet_boundary_trailing(pane, verbose=verbose),
-            control=True,
-        )
+        row("out", o.name, pane)
         for o, pane in zip(module.outputs, output_panes, strict=True)
     ]
 
@@ -2095,13 +2032,7 @@ def _render_lvnet_front_panel(
     # column -- `_lvnet_boundary_trailing` already renders that correctly
     # with no extra branching, since `pane.index` is `None` here.
     off_pane_entries: list[_TermLine] = [
-        _TermLine(
-            "in " if pane.direction == "input" else "out",
-            pane.name,
-            _lvnet_type_label(pane.type, pane.lv_type),
-            _lvnet_boundary_trailing(pane, verbose=verbose),
-            control=True,
-        )
+        row("in " if pane.direction == "input" else "out", pane.name, pane)
         for pane in off_pane_panes
     ]
 
@@ -2264,7 +2195,7 @@ def render_lvnet(
     reconstruct-idempotence + regenerated golden, never byte-identity with
     the old layout.
     """
-    handles = _assign_lvnet_handles(module)
+    handles = replace(_assign_lvnet_handles(module), show_ids=verbose)
     header_name = display_name if display_name is not None else module.vi_name
     lines: list[str] = [f"vi {header_name}{_LVNET_BLOCK_OPEN}"]
     render_lvnet_uses(module.dependencies, lines, verbose=verbose)
@@ -2286,7 +2217,9 @@ def render_lvnet(
     # ``lvnet_parse._parse_items``/``_parse_one_item_or_drive``).
     for o in (*module.outputs, *module.off_pane_outputs):
         if not o.placed:
-            lines.append(_lvnet_indicator_drive_line(o, body_indent, handles))
+            lines.append(
+                _lvnet_indicator_drive_line(o, body_indent, handles, verbose=verbose)
+            )
 
     if verbose:
         _render_lvnet_types(module, lines)

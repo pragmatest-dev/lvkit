@@ -208,13 +208,13 @@ def test_reference_naming_no_control_is_one_gap_and_its_consumers_generate() -> 
 
 def test_this_vi_is_the_generated_function_for_every_consumer() -> None:
     from lvkit.graph.models import LocalVariableNode
-    from lvkit.models import LVType, LVTypeKind, Terminal
+    from lvkit.models import LVType, LVTypeKind, ServerClass, Terminal
 
     vi_class = LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
         ref_type="LVObjCtl",
-        server_class="VI",
+        server_class=ServerClass.VI,
     )
     reference = LocalVariableNode(
         id="ref",

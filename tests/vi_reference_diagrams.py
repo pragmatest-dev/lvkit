@@ -8,7 +8,14 @@ from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import ConstantNode, VINode, WireEnd
-from lvkit.models import FPTerminal, LVType, LVTypeKind, PaneSlot, Terminal
+from lvkit.models import (
+    FPTerminal,
+    LVType,
+    LVTypeKind,
+    PaneSlot,
+    ServerClass,
+    Terminal,
+)
 
 CALLEE_FILE = "Callee_BDHb.xml"
 CALLEE_NAME = "Callee.vi"
@@ -64,7 +71,7 @@ def this_vi_type() -> LVType:
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
         ref_type="LVObjCtl",
-        server_class="VI",
+        server_class=ServerClass.VI,
     )
 
 
@@ -74,7 +81,7 @@ def application_type() -> LVType:
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
         ref_type="LVObjCtl",
-        server_class="Application",
+        server_class=ServerClass.APPLICATION,
     )
 
 

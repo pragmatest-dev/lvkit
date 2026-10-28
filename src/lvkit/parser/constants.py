@@ -200,6 +200,12 @@ TUNNEL_CLASS_INIT_FEEDBACK = "initFeedback"
 # named by the lpTun's <LpTunConditionDCO>; termList [inner, outer])
 TUNNEL_CLASS_LOOP_TUNNEL_CONDITION = "lpTunConditionDCO"
 
+# A Case structure's selector terminal (not a data tunnel)
+TUNNEL_CLASS_CASE_SEL = "caseSel"
+# An Event Structure's timeout input and its dynamic-registration pair
+TUNNEL_CLASS_EVENT_TIMEOUT = "eventTimeOut"
+TUNNEL_CLASS_EVENT_DYNAMIC = "eventDynDCO"
+
 # Shift register node (contains inner tunnel terminals)
 NODE_CLASS_SHIFT_REG = "sRN"  # Shift register node - holds inner ends of tunnels
 

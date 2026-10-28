@@ -57,6 +57,7 @@ from .constants import (
     STRUCTURE_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
+    TUNNEL_CLASS_CASE_SEL,
 )
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
@@ -949,7 +950,7 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
 # Case/select tunnel dco classes: pass-through (no array<->element transform),
 # so every face shares the dco's own <typeDesc> -- unlike an lpTun, whose inner
 # face has a DISTINCT type in <innerLpTunDCO>.
-_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", "caseSel"})
+_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", TUNNEL_CLASS_CASE_SEL})
 
 
 def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:

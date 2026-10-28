@@ -177,6 +177,21 @@ _LVNET_TYPE_CAP = 40
 # (``render_lvnet._lvnet_scope_id_suffix``) and parse
 # (``lvnet_parse._split_scope_header_id``) spell it out as a literal.
 _LVNET_SCOPE_ID_PREFIX = " (id "
+# The same suffix names a front-panel terminal on its ``front-panel :`` row and on
+# its drive / ``read`` line, when its label is shared: ``Rate (id 5020) = 3``.
+_LVNET_ID_SUFFIX_RE = re.compile(r" \(id (\d+)\)$")
+
+
+def lvnet_id_suffix(uid: str | None) -> str:
+    """`` (id <uid>)``, or nothing for a terminal without an identity."""
+    return f"{_LVNET_SCOPE_ID_PREFIX}{uid})" if uid is not None else ""
+
+
+def split_id_suffix(token: str) -> tuple[str, str | None]:
+    """A name token and the uid of its trailing `` (id <uid>)``, if it has one."""
+    m = _LVNET_ID_SUFFIX_RE.search(token)
+    return (token[: m.start()], m.group(1)) if m is not None else (token, None)
+
 
 # A structure-scoped net name (``case_UID.outK``/``loop_UID.shiftK``/
 # ``loop_UID.outK``/``sequence_UID.outK``/``disabled_UID.outK``/
@@ -287,13 +302,6 @@ _LVNET_DISABLE_KEYWORD: dict[DisableStructureKind, str] = {
 # corpus but not excludable -- falls through to a `\xHH` escape below rather
 # than being guessed at. This is the ONE lvnet literal-value escape table;
 # ``lvnet_parse._LVNET_STRING_UNESCAPES`` is its exact reverse.
-_LVNET_STRING_ESCAPES: dict[str, str] = {
-    "\\": "\\\\",
-    '"': '\\"',
-    "\n": "\\n",
-    "\r": "\\r",
-    "\t": "\\t",
-}
 
 # §14-style column-alignment caps for the ``uses :`` manifest (mirrors
 # ``_LVNET_NAME_CAP``/``_LVNET_TYPE_CAP`` above) -- a long qualified identity
@@ -308,3 +316,21 @@ _LVNET_DEP_QUALIFIED_CAP = 60
 # own in/out block nests at ``indent + _LVNET_INDENT`` under its declaration --
 # see ``_render_lvnet_instance``).
 _LVNET_DEP_INTERFACE_INDENT = _LVNET_INDENT * 3
+
+
+def lvnet_net_separator(bare: str) -> str:
+    """Reformat a structure-scoped net name's separator from the model's
+    stored ``.`` to lvnet's ``::`` (§9) -- a RENDER-TIME-ONLY transform of a
+    string this same module deterministically constructs in exactly this
+    shape (``_tunnel_net_name_gn``/``_mu_net_name_gn``/``_frame_net_name_gn``);
+    the model's own
+    stored string is never mutated, so ``netlist_to_dict`` (which must keep
+    ``.``) is untouched. A boundary control's bare name or
+    an ``fbK`` feedback net (neither ever contains this shape) pass through
+    unchanged.
+    """
+    m = _LVNET_STRUCTURE_NET_RE.match(bare)
+    if m is None:
+        return bare
+    prefix, rest = m.groups()
+    return f"{prefix}{_LVNET_TERMINAL_SEP}{rest}"

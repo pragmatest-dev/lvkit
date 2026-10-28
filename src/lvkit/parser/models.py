@@ -14,6 +14,7 @@ from ..models import (
     EventFrame,
     LVType,
     PaneSlot,
+    ServerClass,
     Tunnel,
     UnwritableValue,
 )
@@ -46,7 +47,7 @@ class ParsedType:
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
     typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
-    server_class: str | None = None  # a generic reference's VI Server class
+    server_class: ServerClass | None = None  # a generic reference's VI Server class
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
     class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields

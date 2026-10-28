@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeGuard
 
+from ..models import ServerClass
 from ..parser.constants import NODE_CLASS_CTL_REF_CONST
+from .core import uid_of
 from .models import AnyGraphNode, LocalVariableNode
 from .netlist_models import ReferenceTarget, ReferenceTargetKind
 
@@ -37,14 +39,16 @@ def reference_target(
     if node.control_terminal_id is not None:
         control = graph.get_terminal(node.control_terminal_id)
         if control is not None and control.name:
-            return ReferenceTarget(ReferenceTargetKind.CONTROL, control.name)
+            return ReferenceTarget(
+                ReferenceTargetKind.CONTROL, control.name, uid_of(control.id)
+            )
         return ReferenceTarget(ReferenceTargetKind.UNKNOWN)
     server_class = next(
         (t.lv_type.server_class for t in node.terminals if t.lv_type), None
     )
-    if server_class == "VI":
+    if server_class is ServerClass.VI:
         return ReferenceTarget(ReferenceTargetKind.THIS_VI)
-    if server_class == "Application":
+    if server_class is ServerClass.APPLICATION:
         return ReferenceTarget(ReferenceTargetKind.THIS_APPLICATION)
     return ReferenceTarget(ReferenceTargetKind.UNKNOWN)
 

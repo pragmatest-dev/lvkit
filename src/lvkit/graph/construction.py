@@ -35,6 +35,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -1538,7 +1539,7 @@ class ConstructionMixin:
             "lSR",
             "lMax",
             "lpTun",
-            "caseSel",
+            TUNNEL_CLASS_CASE_SEL,
             "seqTun",
             "flatSeqTun",
         }
