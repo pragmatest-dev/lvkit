@@ -23,6 +23,7 @@ from ..models import (
     TunnelMode,
     TunnelTerminal,
     UnwritableValue,
+    ValueNotStored,
     bundle_unbundle_name,
     control_type_to_lvtype,
     enum_values_from_labels,
@@ -84,6 +85,7 @@ def _array_rank_lookup(
 ) -> Callable[[int], int | None]:
     """Dimension count of the array on a node terminal, by terminal index."""
     return lambda index: array_rank(types_by_index.get(index))
+
 
 # All node types that represent a SubVI call (dynamic or static). Single source
 # of truth lives with the SubVI build handler; callByRefNode is included for node
@@ -215,6 +217,10 @@ def decode_constant(
         lv_type: LVType from the graph (authoritative type info)
     """
     value = const.value
+    if value is None:
+        py_type = lv_type.to_python() if lv_type is not None else "raw"
+        marker = ValueNotStored()
+        return DecodedConstant(py_type, str(marker), None, marker)
 
     if lv_type is not None:
         raw_bytes = bytes.fromhex(value)
@@ -1316,9 +1322,7 @@ class ConstructionMixin:
         for call_term in gnode.terminals:
             callee_t = None
             if call_term.index is not None and call_term.index >= 0:
-                callee_t = callee_term_map.get(
-                    (call_term.index, call_term.direction)
-                )
+                callee_t = callee_term_map.get((call_term.index, call_term.direction))
             else:
                 # idx=-1: match by elimination — find unmatched callee
                 # terminal with same direction
@@ -1367,7 +1371,6 @@ class ConstructionMixin:
                 g.add_edge(nid, callee_name, source=src_we, dest=dst_we)
             else:
                 g.add_edge(callee_name, nid, source=dst_we, dest=src_we)
-
 
     @staticmethod
     def _resolve_terminal_indices(

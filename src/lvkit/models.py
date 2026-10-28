@@ -93,13 +93,30 @@ class UnreadPrivateData:
         return f"an object of {self.class_name} whose private data is not read"
 
 
-UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData
+@dataclass(frozen=True)
+class ValueNotStored:
+    """A constant whose value is not in the block diagram: the VI keeps it in its
+    default data (DFDS), which this does not decode yet."""
+
+    def __str__(self) -> str:
+        return "<value stored in the VI's default data, not decoded>"
+
+    def reason(self) -> str:
+        return (
+            "a value the VI stores in its default data (DFDS), which lvkit does "
+            "not decode yet"
+        )
+
+
+UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored
 
 
 def find_unwritable(value: object) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
     recursively) that holds no value code generation could write, else None."""
-    if isinstance(value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData)):
+    if isinstance(
+        value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData, ValueNotStored)
+    ):
         return value
     if isinstance(value, dict):
         children: Iterable[object] = value.values()

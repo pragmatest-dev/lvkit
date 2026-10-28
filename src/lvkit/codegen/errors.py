@@ -28,13 +28,20 @@ class UnknownNodeError(ConversionGap):
 
 
 def unwritable_value_error(
-    what: str, name: str | None, value: UnwritableValue
+    what: str, name: str | None, value: UnwritableValue, uid: str | None = None
 ) -> ConversionGap:
-    """The gap for a ``what`` ("constant" or "control") named ``name`` that holds
-    a part (``value``) code generation has no value to write for."""
+    """The gap for a ``what`` ("constant" or "control") named ``name`` (or, with no
+    name, identified by its ``uid``) that holds a part (``value``) code
+    generation has no value to write for."""
+    if name:
+        subject = f"The {what} {name!r}"
+    elif uid:
+        subject = f"The {what} (uid {uid})"
+    else:
+        subject = f"A {what}"
     return ConversionGap(
-        f"The {what} {name!r} holds {value.reason()}; code generation has no "
-        "value to write for it."
+        f"{subject} holds {value.reason()}; code generation has no value to write "
+        "for it."
     )
 
 

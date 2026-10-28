@@ -86,7 +86,7 @@ def data_file_expression(
     if unwritable is None:
         raise ValueError("data_file_expression needs an unwritable value")
     if not isinstance(unwritable, ValuesNotKept) or not whole_value:
-        raise unwritable_value_error(what, name, unwritable)
+        raise unwritable_value_error(what, name, unwritable, uid)
     coded = array_typecode(unwritable.element_type)
     if coded is None:
         raise ConversionGap(

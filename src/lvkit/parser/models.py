@@ -79,7 +79,9 @@ class ParsedConstant:
 
     uid: str
     type_desc: str
-    value: str
+    # The value as hex; None when the block diagram holds none (the VI keeps it in
+    # its default data, which is not decoded).
+    value: str | None
     label: str | None = None
     caption: str | None = None  # LabVIEW caption (partID 82), see extract_caption
     # Raw printf-style display-format string from the constant's own numeric

@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from types import ModuleType
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
-from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, ValueNotStored
 from tests.helpers import build_graph
 
 
@@ -56,6 +57,7 @@ def generate(
     nodes: list[PrimitiveNode],
     wires: list[tuple[str, str]],
     constants: dict[str, tuple[object, LVType]] | None = None,
+    gaps: list[Gap] | None = None,
 ) -> Generated:
     """``inputs`` / ``outputs`` are the VI's controls and indicators by name;
     ``wires`` connect terminal ids (``in:<name>``, ``out:<name>``,
@@ -86,7 +88,12 @@ def generate(
         for i, (name, lv_type) in enumerate(outputs.items())
     ]
     constant_nodes = [
-        Constant(id=terminal, value=value, lv_type=lv_type)
+        Constant(
+            id=terminal,
+            value="" if isinstance(value, ValueNotStored) else value,
+            lv_type=lv_type,
+            unwritable=value if isinstance(value, ValueNotStored) else None,
+        )
         for terminal, (value, lv_type) in (constants or {}).items()
     ]
     context = VIContext(
@@ -97,7 +104,7 @@ def generate(
         data_flow=[Wire.from_terminals(a, b) for a, b in wires],
     )
     graph = build_graph(context, context.name, nodes)
-    source = build_module(context, context.name, graph=graph)
+    source = build_module(context, context.name, graph=graph, gaps=gaps)
     namespace: dict = {"__name__": "native_test"}
     exec(compile(source, "native_test.py", "exec"), namespace)
     module = ModuleType("native_test")
