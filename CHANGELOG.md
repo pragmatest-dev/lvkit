@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Match Pattern generates plain `re` code that imports nothing from lvkit** — a constant pattern is translated when the code is generated and written as the `re` pattern, a pattern computed at run time is translated by a function written into the module once, and `lvkit.runtime` is gone.
 - **Whatever `generate` cannot convert is a warning and a `raise NotImplementedError(...)` where it would run** — one `warning: <VI path>: <node>: <reason>` per gap, the node's outputs `None`, the code after it kept; `generate` exits 0 when complete, 2 when partial and 1 when a VI could not be written (`--fail-fast` ends the run at the first gap), `lvkit unresolved` lists the same gaps, and `--placeholder-on-unresolved` is gone.
 - **Call Library Function Node libraries load as LabVIEW does** — a `stdcall` library loads with `WinDLL` only on Windows (`CDLL` elsewhere), wildcard names (`.*`, `*`, `**`) expand when the module is imported or, for a wired path, when the node runs, and a library inside the project is copied into the generated package with the project libraries it needs and loaded from there (#211).
 - **Call Library Function Nodes generate plain `ctypes` code that imports nothing from lvkit** — the library loads once at module level, string and array handles and Adapt to Type clusters are `ctypes.Structure` classes in the module, and `FGetInfo`/`FSetInfo` are `os.stat`/`os.chmod`/`os.utime`; pointers to a string handle and bare `Ptr` parameters now generate too (#185).
