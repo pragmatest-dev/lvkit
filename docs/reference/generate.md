@@ -26,7 +26,6 @@ lvkit generate <input_path> [options]
 |--------|-------------|
 | `-o OUTPUT`, `--output OUTPUT` | Output directory. Default: `outputs`. Generated files land in a VI-named subfolder beneath it (see [Output layout](#output-layout)). |
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. Codegen defaults to `full` — it compiles the whole SubVI/class-method tree. `--load-mode none` generates only the top-level VI, not the [SubVIs](subvi-resolution.md) it calls: the SubVI calls still appear in the output, but no module is generated for them. |
-| `--placeholder-on-unresolved` | Keep the build succeeding when a primitive or vi.lib VI is unresolved — see [Unresolved calls](#unresolved-calls). |
 | SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
@@ -51,16 +50,29 @@ every VI it contains into that one subfolder, in dependency order.
 If `input_path` doesn't exist, `generate` prints `Error: Path not found` and
 exits non-zero without writing anything.
 
-## Unresolved calls
+## Gaps
 
-Coverage is incremental. By default, an unknown primitive or vi.lib VI **fails
-the build** with a `PrimitiveResolutionNeeded` or `VILibResolutionNeeded` error
-that names exactly what's missing.
+Coverage is incremental. A **gap** is anything `generate` cannot convert: an
+unknown primitive or vi.lib VI, a primitive entered as a placeholder, a property
+with no Python meaning, a Call Library Function Node whose library file is not
+there, a VI reference with nothing to resolve to, an Event Structure, a VI that
+was not found. `generate` handles every gap the same way:
 
-Pass `--placeholder-on-unresolved` to keep the build succeeding instead: each
-unresolved call becomes an inline `raise PrimitiveResolutionNeeded(...)` /
-`raise VILibResolutionNeeded(...)` in the generated Python, so you see every
-unresolved call in one pass rather than fixing them one failure at a time.
+- It prints `warning: <VI path>: <node>: <reason>` and counts the gaps in its
+  summary.
+- The generated code raises `NotImplementedError("<reason>")` where the node
+  would run, and the node's outputs are set to `None`, so the code after it is
+  still there for you to finish. A gap that belongs to no node (a class whose
+  parent is not loaded, a constant with no value to write) makes the module
+  raise where that definition runs.
+
+A run that has only gaps exits `0`. It exits non-zero when a VI could not be
+written at all (`error` or `failed` in the summary), and when two VIs would be
+written to the same module, in which case it prints the message and writes
+nothing.
+
+`lvkit unresolved <input-path> [--json]` lists the same gaps, grouped by kind
+with the VIs each occurs in.
 
 Resolving a primitive or vi.lib VI is a one-time step: lvkit saves the mapping
 into your project's `.lvkit/` resolution store, and every future `generate` run
@@ -78,5 +90,5 @@ install the AI-agent skills that fill in unknowns for you.
 ## See also
 
 - [describe](describe.md) — preview a VI's would-be Python signature without generating code.
-- [setup](setup.md) — install the `.lvkit/` resolution store and AI-agent skills that assist with unresolved primitives/vi.lib VIs.
+- [setup](setup.md) — install the `.lvkit/` resolution store and AI-agent skills that assist with gaps from unknown primitives and vi.lib VIs.
 - [SubVI & vi.lib resolution](subvi-resolution.md) — the resolution flags `generate` shares with the other commands.

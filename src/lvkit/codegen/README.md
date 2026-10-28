@@ -64,6 +64,7 @@ VI file
 | `dataflow.py` | `DataFlowTracer` — trace wires to find producing operations |
 | `error_handler.py` | Held-error model for parallel branches with error clusters |
 | `error_path.py` | Which nodes handle an error wire, and the nodes upstream of it |
+| `gaps.py` | `Gap`, `catch_gap`: a node that cannot be converted raises `NotImplementedError(<reason>)` where it would run, and is recorded as a gap |
 | `error_wires.py` | `try`/`except` around the code that raises the error a Clear Errors / error case handles |
 | `errors_module.py` | The `errors.py` (`LabVIEWError`) written once into a generated package |
 | `package_modules.py` | `PackageModules` — the package-root modules for state VIs share, from graph queries over the package's VIs (`graph/package_queries.py`) |

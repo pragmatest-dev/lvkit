@@ -26,7 +26,7 @@ The reader you are pretending to be:
   - "I need to diff two versions of a VI in a CI pull-request check."
   - "I want an AI agent to answer questions about a VI's dataflow via MCP."
   - "I need to document a whole `.lvlib` for a teammate who doesn't have LabVIEW."
-  - "I hit `PrimitiveResolutionNeeded` and need to know what to do."
+  - "`generate` warned about an unknown primitive and I need to know what to do."
 - **Attention budget.** They will read ~5 pages deeply before they decide if lvkit is for them. Every page that wastes their attention burns goodwill.
 - **Skim pattern.** First scan: title (H1), first paragraph, the first code block. If those don't promise the answer, they leave.
 - **Vocabulary.** They speak VI, subVI, block diagram, front panel, wire, terminal, connector pane, cluster, vi.lib. They do NOT speak "binding," "registry," "lifecycle hook," "abstraction layer."
@@ -154,7 +154,7 @@ For each finding, in priority order (most severe first):
 
 **1. A flat report is failure.** If you ran a traversal and produced zero findings, you are not reading critically. Real docs always have ORDER and NAV findings. Look again.
 
-**2. Findings must be specific.** "The flow could be clearer" is not a finding. "`generate.md` uses `PrimitiveResolutionNeeded` in its Notes section but never links to where that's explained" IS a finding.
+**2. Findings must be specific.** "The flow could be clearer" is not a finding. "`generate.md` uses `lvkit unresolved` in its Gaps section but never links to where that's explained" IS a finding.
 
 **3. Evidence or it didn't happen.** Every finding cites a file path and either a direct quote or a line reference. Anyone reading your report should be able to reproduce the experience by opening the same file.
 

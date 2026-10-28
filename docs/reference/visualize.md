@@ -66,8 +66,8 @@ A SubVI or vi.lib call `visualize` can't resolve never fails the command —
 it's recorded as a stub instead. In `deps` mode the stub is drawn as a grey
 node with a "missing/stub" tooltip; in `dataflow` mode the call itself is
 still drawn, just not expanded further. This differs from
-[`generate`](generate.md#unresolved-calls), which fails the build on an
-unresolved primitive or vi.lib VI by default.
+[`generate`](generate.md#gaps), which warns about each gap and writes a
+`raise NotImplementedError(...)` where the node would run.
 
 ## See also
 

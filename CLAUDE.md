@@ -189,7 +189,7 @@ pylabview *accumulates* memory across VIs.)
 
 ## Adding New Primitives
 
-LabVIEW primitives are identified by `primResID`. When a conversion fails with `PrimitiveResolutionNeeded`, add an entry to `src/lvkit/data/primitives.json`:
+LabVIEW primitives are identified by `primResID`. When `lvkit generate` warns about an unknown primitive (`lvkit unresolved` prints its diagnostic), add an entry to `src/lvkit/data/primitives.json`:
 
 ```json
 {
@@ -211,7 +211,7 @@ Use the caller's dataflow in the exception output to determine correct terminal 
 
 ## Adding New VILib VIs
 
-When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropriate `src/lvkit/data/vilib/<category>.json`. The exception output shows terminal names from XML and actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
+When `lvkit generate` warns about an unmapped vi.lib VI, add the VI to the appropriate `src/lvkit/data/vilib/<category>.json`. `lvkit unresolved` prints the terminal names from XML and the actual wire indices from the caller — use those indices to fill in the `"index"` field for each terminal.
 
 **Workflow:**
 1. Run the code generator; note the exception output
@@ -221,7 +221,7 @@ When a conversion fails with `VILibResolutionNeeded`, add the VI to the appropri
 
 ## VILib Terminal Resolution Workflow
 
-When the code generator encounters a vilib VI with missing terminal indices, it raises a `VILibResolutionNeeded` exception. This is intentional - use the caller's dataflow info to fill in the missing indices.
+When the code generator encounters a vilib VI with missing terminal indices, it records a gap (a `VILibResolutionNeeded`, shown by `lvkit unresolved`) and the generated code raises `NotImplementedError` there. This is intentional - use the caller's dataflow info to fill in the missing indices.
 
 **Workflow:**
 1. Run the code generator (e.g., `scripts/generate_python.py`)

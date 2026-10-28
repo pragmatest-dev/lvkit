@@ -174,9 +174,8 @@ field list, inherited fields included).
 
 ## Unknowns are data, not errors
 
-A query-driven port never throws `PrimitiveResolutionNeeded`/
-`VILibResolutionNeeded` — those are `lvkit generate`'s exceptions, raised
-only by the deterministic oracle. In the facts (`read_vi`/`describe`),
+A query-driven port never stops on an unknown — an unknown primitive or vi.lib
+VI is a gap that only `lvkit generate`, the deterministic oracle, reports. In the facts (`read_vi`/`describe`),
 an unresolved primitive shows as `[prim N]` and an unmapped vi.lib VI shows
 as its bare filename. Identify it inline the same way `/lvkit-resolve` does
 — the primitive's full terminal signature (every terminal, wired or not,
@@ -205,11 +204,10 @@ structure, function parameters (front-panel controls — don't change types
 or defaults), return values (front-panel indicators — don't drop outputs),
 held-error handling if present.
 
-## Optional: soft-fail the oracle instead of fixing gaps up front
+## The oracle with gaps
 
-`lvkit generate --placeholder-on-unresolved` emits an inline `raise
-PrimitiveResolutionNeeded(...)`/`raise VILibResolutionNeeded(...)` for each
-gap instead of failing the build — useful for generating an oracle to diff
+`lvkit generate` writes a `raise NotImplementedError("<reason>")` at each node
+it cannot convert and prints a warning for it — so the oracle is there to diff
 against even when it isn't complete yet.
 
 ## Related

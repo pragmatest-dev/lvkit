@@ -15,7 +15,7 @@ Every first use of a lvkit-specific concept on this page should carry a link to 
 - CLI subcommands (`describe`, `render`, `docs`, `diff`, `visualize`, `generate`, `structure`, `setup`, `detect`, `mcp`) → link to `reference/<command>.md`
 - Shared SubVI/vi.lib resolution flags (`--search-path`, `--vilib`, `--userlib`, `--project-root`, `--no-auto-vilib`) → link to `reference/subvi-resolution.md`
 - The `.lvkit/` resolution store → link to `reference/setup.md`
-- Resolution exceptions (`PrimitiveResolutionNeeded`, `VILibResolutionNeeded`) → link to wherever they're explained (currently `reference/generate.md`)
+- Gaps (an unknown primitive or vi.lib VI, `NotImplementedError` at a node) → link to wherever they're explained (currently `reference/generate.md#gaps`)
 - MCP tool names (`load`, `get_context`, `generate_ast_code`, `describe`, `get_operations`, `get_dataflow`, `get_structure`, `get_constants`, `analyze`, `generate_documents`, `generate_python`, `list_loaded`) → link to `reference/mcp.md`
 - Graph/codegen types named in prose (`VIContext`, `GraphNode`, `Wire`, `Operation`, `Frame`, `Terminal`, `BranchPoint`, etc.) → link to `docs/_internal/graph-reference.md` if that's the intended defining page for this reader, or gloss inline — note in your finding that this is currently the only reference and flag if a public-facing page shouldn't be pointing into `_internal/`
 - Concept terms ("SubVI", "primitive", "vi.lib"/"user.lib", "connector pane", "block diagram", "error cluster") → link to the page that first explains them, or flag as a candidate for a future `docs/concepts/` page if none exists yet

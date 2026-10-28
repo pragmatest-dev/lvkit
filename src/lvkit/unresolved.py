@@ -146,4 +146,6 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
                 lines.append(f"    · {vi}")
             if len(it.vi_names) > 8:
                 lines.append(f"    · … and {len(it.vi_names) - 8} more")
+            if it.detail and it.detail != it.name:
+                lines.extend(f"    | {line}" for line in it.detail.splitlines())
     return "\n".join(lines)

@@ -34,7 +34,7 @@ Flag every instance of:
    - A CLI subcommand or flag used in an example without saying what it does (not the full page, just a one-liner or link)
    - An MCP tool name used in prose without linking to its reference
    - A graph/codegen type (`VIContext`, `GraphNode`, `Wire`, `Operation`, etc.) named without a link or inline gloss
-   - The `.lvkit/` resolution store, or `PrimitiveResolutionNeeded`/`VILibResolutionNeeded`, used without explaining what triggers it
+   - The `.lvkit/` resolution store, or a gap warning, used without explaining what triggers it
    - Note: this is cross-page cold drops only; within-page ordering is `audit-ordering`'s job
 
 3. **Condescension** — explains things the audience already knows at length:
