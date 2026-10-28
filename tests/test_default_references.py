@@ -39,6 +39,6 @@ def test_unwired_daqmx_reference_raises_naming_class_and_property():
 def test_a_primitive_without_an_implementation_raises_where_it_runs():
     source = _generate(CURRENT_VI_PATH_VI)
     assert (
-        "raise NotImplementedError('Close Reference is not converted yet\\n"
+        'raise NotImplementedError("Close Reference is not converted yet\\n'
         "gap kind: placeholder_primitive\\n"
     ) in source
