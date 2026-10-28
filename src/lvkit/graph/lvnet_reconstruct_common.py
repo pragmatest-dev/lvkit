@@ -9,6 +9,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 from ..models import ScalarValue
+from ..path_value import is_path_text
 from .lvnet_grammar import (
     _LVNET_DEFAULT_PAREN_PREFIX,
     _LVNET_NUMBER_ITEM_RE,
@@ -69,6 +70,8 @@ def parse_lvnet_literal(token: str) -> ScalarValue:
     shapes ``lvnet_literal_token`` ever emits (quoted string / ``True`` /
     ``False`` / a bare number) -- never guesses."""
     token = token.strip()
+    if is_path_text(token):
+        return token
     number_item = _LVNET_NUMBER_ITEM_RE.match(token)
     if number_item:
         token = number_item.group(1)
@@ -160,7 +163,7 @@ def parse_source_token(
         return NetRef(
             node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
         )
-    if text in ("True", "False") or is_numeric_literal(text):
+    if text in ("True", "False") or is_numeric_literal(text) or is_path_text(text):
         return NetRef(
             node=None, terminal="", occurrence=None, bare=text, lvnet_value=text
         )

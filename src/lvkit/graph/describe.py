@@ -20,6 +20,7 @@ from ..models import (
     TunnelTerminal,
 )
 from ..parser.node_types import get_display_name
+from ..path_value import is_path_text
 from ..vi_files import is_vi_file, strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
@@ -269,7 +270,13 @@ def default_suffix(default: ScalarValue, lv_type: LVType | None = None) -> str:
         LVTypeKind.ENUM,
         LVTypeKind.RING,
     )
-    quoted = isinstance(default, str) and not is_item_type
+    is_path = (
+        lv_type is not None
+        and lv_type.underlying_type == "Path"
+        and isinstance(default, str)
+        and is_path_text(default)
+    )
+    quoted = isinstance(default, str) and not is_item_type and not is_path
     value = f'"{default}"' if quoted else f"{default}"
     return f" = {value}{shown}"
 

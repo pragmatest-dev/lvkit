@@ -109,15 +109,38 @@ class ValueNotStored:
         )
 
 
-UnwritableValue = ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored
+@dataclass(frozen=True)
+class UnreadPath:
+    """A saved path whose recorded path type is none of absolute, relative or Not
+    a Path, so its components cannot be told apart from a path's."""
+
+    path_type: int
+
+    def __str__(self) -> str:
+        return f"<Path of unknown type {self.path_type}>"
+
+    def reason(self) -> str:
+        return f"a path of unknown type {self.path_type}"
+
+
+UnwritableValue = (
+    ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored | UnreadPath
+)
+
+
+_UNWRITABLE_TYPES = (
+    ValuesNotKept,
+    UndecodedPicture,
+    UnreadPrivateData,
+    ValueNotStored,
+    UnreadPath,
+)
 
 
 def find_unwritable(value: object) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
     recursively) that holds no value code generation could write, else None."""
-    if isinstance(
-        value, (ValuesNotKept, UndecodedPicture, UnreadPrivateData, ValueNotStored)
-    ):
+    if isinstance(value, _UNWRITABLE_TYPES):
         return value
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
@@ -1208,7 +1231,7 @@ _LV_TO_PYTHON_TYPE: dict[str, str] = {
     "NumFloat64": "float",
     **{name: "str" for name in STRING_TYPE_NAMES},
     **{name: "bool" for name in BOOLEAN_TYPE_NAMES},
-    "Path": "Path",
+    "Path": "Path | None",
     "Variant": "Any",
     "LVVariant": "Any",
     "Refnum": "Any",

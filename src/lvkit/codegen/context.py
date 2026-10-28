@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import math
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -35,6 +36,7 @@ from lvkit.models import (
     TypeNamer,
     unique_names,
 )
+from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 
 from .ast_utils import interface_names, to_function_name, to_var_name
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
@@ -801,25 +803,46 @@ def _python_float_constant(value: float) -> str:
     return repr(value)
 
 
-class _NonFiniteNames(ast.NodeTransformer):
-    """The parser renders aggregate float elements with ``str(float)``, so NaN
-    and infinity arrive as bare ``nan``/``inf`` names inside the literal."""
+class _PathText(str):
+    """A path inside an aggregate constant's literal, held as its path text."""
+
+
+class _AggregateNames(ast.NodeTransformer):
+    """The parser renders aggregate elements as text: NaN and infinity arrive as
+    bare ``nan``/``inf`` names, and a path as its path text (``Path("/a")``,
+    ``NotAPath``), inside the literal."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
 
     def visit_Name(self, node: ast.Name) -> ast.AST:
         if node.id in ("nan", "inf"):
             return ast.Constant(value=float(node.id))
+        if node.id == NOT_A_PATH:
+            return ast.Constant(value=_PathText(NOT_A_PATH))
         return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        segment = ast.get_source_segment(self.text, node)
+        if segment is not None and parse_path(segment) is not None:
+            return ast.Constant(value=_PathText(segment))
+        return self.generic_visit(node)
 
 
 def _literal_eval(text: str) -> object:
-    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf``."""
-    tree = _NonFiniteNames().visit(ast.parse(text, mode="eval"))
-    return ast.literal_eval(tree)
+    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf`` and
+    path texts."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        tree = ast.parse(text, mode="eval")
+    return ast.literal_eval(_AggregateNames(text).visit(tree))
 
 
 def _python_literal(value: object) -> str:
     """``repr`` for constant values, recursing into lists/tuples/dicts so nested
     NaN and infinity stay executable."""
+    if isinstance(value, _PathText):
+        return python_path(value) or "None"
     if isinstance(value, float):
         return _python_float_constant(value)
     if isinstance(value, list):
@@ -1003,10 +1026,11 @@ def _format_constant(
     if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
-        # The parser already hands path constants back as a ``Path("…")``
-        # expression (parser/vi.py); don't double-wrap it into Path('Path("…")').
-        if isinstance(value, str) and value.startswith("Path("):
-            return value
+        # The parser hands a path constant back as its path text.
+        if isinstance(value, str):
+            expression = python_path(value)
+            if expression is not None:
+                return expression
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)

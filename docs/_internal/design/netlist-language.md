@@ -293,6 +293,18 @@ not the string `"True"`; an integer, enum or ring ordinal and a float are writte
 numbers. A string value stays a quoted string. This holds for a constant, a
 front-panel default and a `uses :` interface default alike.
 
+**A path value.** A Path constant or default is written by the type the file saves
+for it, bare (not quoted): an absolute path `Path("/C/Users")` (with no component,
+`Path("/")`), a relative path `Path("test.xml")` (with no component, `Path("")`), and
+Not a Path `NotAPath`. The components are joined by `/`; an empty component, which
+goes up a level, is `..` (`Path("../image.tif")`); a `/`, `\` or `"` inside a
+component has a backslash in front of it (`Path("a\/b")`). A saved path of a type
+that is none of these is unreadable and keeps its type (`<Path of unknown type 3>`),
+like any value the file stores that lvkit cannot read. A control named `NotAPath`
+or starting `Path(` is quoted (above). In generated Python a path is `Path('...')`
+and Not a Path is `None`, so a path is typed `Path | None`; an absolute path with
+no component generates the empty `Path('')`, as Python has no such absolute path.
+
 **Parse order.** A line with a top-level ` = ` and no top-level ` : ` before it is a
 drive line, whatever its first word; a node, constant or variable line carries its
 ` : ` first.

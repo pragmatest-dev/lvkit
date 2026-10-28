@@ -508,7 +508,7 @@ def test_compare_two_paths_common_and_relative() -> None:
         Path("/a/b/d"),
     )
     assert _posix(r.common_path) == "/a/b"
-    assert _posix(r.relative_path_from_1_to_2) == "d"
+    assert _posix(r.relative_path_from_1_to_2) == "../d"
     assert r.different_types is False
 
 

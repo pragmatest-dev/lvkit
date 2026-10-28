@@ -440,6 +440,17 @@ def _reconstruct_type_ref(
     return LVType(kind=LVTypeKind.CLASS, classname=text)
 
 
+def _pane_lv_type(
+    type_text: str, types_dict: dict[str, ParsedTypeDef], memo: dict[str, LVType]
+) -> LVType | None:
+    """The type of a connector-pane terminal. A Path is attached too, since its
+    default is read as a path and not as a string."""
+    attached = _maybe_attach_lvtype(type_text, types_dict, memo)
+    if attached is None and type_text == "Path":
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+    return attached
+
+
 def _maybe_attach_lvtype(
     type_text: str, types_dict: dict[str, ParsedTypeDef], memo: dict[str, LVType]
 ) -> LVType | None:
@@ -1165,7 +1176,7 @@ def _pane_terminal_of_row(
         index=t.index,
         wiring_requirement=requirement,
         default=default_scalar,
-        lv_type=_maybe_attach_lvtype(t.type, types_dict, memo),
+        lv_type=_pane_lv_type(t.type, types_dict, memo),
         caption=t.caption,
         caption_visible=t.caption_visible,
         terminal_uid=t.uid,

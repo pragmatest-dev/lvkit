@@ -90,7 +90,7 @@ from .lvnet_grammar import (
     lvnet_net_separator,
     split_id_suffix,
 )
-from .lvnet_scalar import lvnet_literal_token
+from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
 from .netlist import (
     ConnectorPaneTerminal,
     DefaultValue,
@@ -2578,7 +2578,7 @@ def _module_default_token(
     ``lvnet_literal_token`` in ``netlist.py``)."""
     if default is None:
         return None
-    return lvnet_literal_token(default) + lvnet_item_suffix(lv_type, default)
+    return lvnet_value_token(default, lv_type) + lvnet_item_suffix(lv_type, default)
 
 
 BoundarySignatureEntry = tuple[

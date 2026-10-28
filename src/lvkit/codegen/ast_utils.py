@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.path_value import python_path
 from lvkit.vi_files import strip_vi_extension
 
 from .errors import CodeGenError
@@ -439,6 +440,10 @@ def param_default_expr(inp: Terminal) -> ast.expr:
             return ast.Constant(value=float(dv))
         if underlying == "Boolean":
             return ast.Constant(value=str(dv).strip().lower() in ("true", "1"))
+        if underlying == "Path":
+            expression = python_path(str(dv))
+            if expression is not None:
+                return parse_expr(expression)
         if underlying == "String":
             # A saved string default is stored as a Python string literal
             # (``'abc'``), so its value is what that literal evaluates to.

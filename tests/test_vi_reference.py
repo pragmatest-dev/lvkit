@@ -157,7 +157,7 @@ def test_open_vi_reference_of_a_constant_path_calls_that_vi(tmp_path: Path) -> N
     assert _lvnet(loaded).endswith(
         "    function Open_VI_Reference_20 : Open VI Reference\n"
         "      in   options      : ? default\n"
-        '      in   vi_path      : ? = "Path(\\"Callee_BDHb.xml\\")"\n'
+        '      in   vi_path      : ? = Path("Callee_BDHb.xml")\n'
         "      out  vi_reference : ?\n"
         "    subVI Call_By_Reference_30 : Call By Reference\n"
         '      in   0  : ? = 5\n'

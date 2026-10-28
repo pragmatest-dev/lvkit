@@ -9,6 +9,7 @@ its type is the one spelling the text can round-trip.
 from __future__ import annotations
 
 from ..models import LVType, LVTypeKind, ScalarValue
+from ..path_value import is_path_text
 from ..string_literal import quote_string
 
 _INTEGER_UNDERLYING_TYPES = frozenset(
@@ -80,3 +81,16 @@ def lvnet_literal_token(value: ScalarValue) -> str:
     if isinstance(value, str):
         return quote_string(value)
     return str(value)
+
+
+def lvnet_value_token(value: ScalarValue, lv_type: LVType | None) -> str:
+    """The lvnet literal for ``value`` of ``lv_type``: its typed scalar, and a
+    Path's text (``Path("/C/Users")``, ``NotAPath``) bare."""
+    if (
+        lv_type is not None
+        and lv_type.underlying_type == "Path"
+        and isinstance(value, str)
+        and is_path_text(value)
+    ):
+        return value
+    return lvnet_literal_token(lvnet_typed_scalar(value, lv_type))

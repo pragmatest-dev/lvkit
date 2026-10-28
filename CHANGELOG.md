@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Paths are read by their saved type** — `Path("/C/Users")` absolute, `Path("test.xml")` relative, `NotAPath`, an empty component as `..`, bare in lvnet and describe; Not a Path is `None` in generated Python, paths are `Path | None`, and `Not A Number/Path/Refnum?` and `Empty String/Path?` work on them (#177).
 - **A For Loop's right shift register listed in the loop's own register list is read after the loop** — its final value no longer prints as a bare `373::6` in lvnet, describe and generated code.
 - **An enum or ring value names its item, and one spelling of the type everywhere** — `in 5 : I32 = 2 (verify)` and a control `default 2 (verify)`; the type is `ring{verify = 2, commit = 3}` / `enum{a, b}` in lvnet, describe and JSON (#176).
 - **lvnet shows loop control** — a loop header says `(stop if true)` or `(continue if true)`, the count and conditional wires are lines, and an unwired shift register or Feedback Node is `(uninitialized)` (#178).

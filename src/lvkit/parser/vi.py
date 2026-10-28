@@ -38,6 +38,7 @@ from lvkit.models import (
     LVType,
     LVTypeKind,
     UndecodedPicture,
+    UnreadPath,
     UnreadPrivateData,
     ValuesNotKept,
     contains_class_instance,
@@ -45,6 +46,7 @@ from lvkit.models import (
     leading_element,
     unique_names,
 )
+from lvkit.path_value import format_path
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -113,6 +115,7 @@ from .metadata import (
     parse_link_path_refs,
     parse_vi_metadata,
     parse_vipi_from_livi,
+    pth0_path_type,
 )
 from .models import (
     ParsedBlockDiagram,
@@ -2390,27 +2393,33 @@ def _decode_default_data(
     return None, None
 
 
-def _walk_path(data: bytes | memoryview) -> tuple[str | None, int]:
+def _walk_path(data: bytes | memoryview) -> tuple[str | UnreadPath | None, int]:
     """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
 
     Delegates the pascal-string component decode to
     ``metadata._decode_pth0_components`` (the single source of the ``PTH0``
-    component walk, shared with the link-table ``PTH0`` scan), keeping only
-    the ``Path("…")`` string formatting local -- so a path field inside a
-    cluster stays aligned with the following field. Returns ``(None, 0)``
-    when ``data`` is not a ``PTH0`` blob.
+    component walk, shared with the link-table ``PTH0`` scan) and the path text
+    to ``path_value.format_path`` -- so a path field inside a cluster stays
+    aligned with the following field. The value is ``UnreadPath`` when the
+    record's path type is not one NI documents, and ``(None, 0)`` when ``data``
+    is not a ``PTH0`` blob or is cut short.
     """
     # An equality slice (not ``.startswith``, which memoryview lacks) works for
     # both ``bytes`` and ``memoryview`` callers.
     if data[:4] != b"PTH0":
         return None, 0
     parts, idx = _decode_pth0_components(data, 0, len(data))
-    return (f'Path("{"/".join(parts)}")' if parts else None), idx
+    if idx == 0:
+        return None, 0
+    path_type = pth0_path_type(data, 0)
+    text = format_path(path_type, parts)
+    return (UnreadPath(path_type) if text is None else text), idx
 
 
 def _decode_path_default(data: bytes) -> str | None:
     """Decode a LabVIEW path from DefaultData bytes (value only)."""
-    return _walk_path(data)[0]
+    value = _walk_path(data)[0]
+    return None if isinstance(value, UnreadPath) else value
 
 
 def _decode_string_default(data: bytes) -> str | None:
@@ -2900,7 +2909,10 @@ def _decode_element(
     # Path: PTH0 prefix — one walk yields both the value and the byte count.
     if underlying == "Path":
         value, consumed = _walk_path(data)
-        value = value or 'Path("")'
+        if value is None:
+            return None, 0, None
+        if isinstance(value, UnreadPath):
+            return str(value), consumed, value
         return value, consumed, value
 
     # Array: one 4-byte size per dimension (slowest-varying first), then the

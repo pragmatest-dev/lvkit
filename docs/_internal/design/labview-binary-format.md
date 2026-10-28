@@ -832,6 +832,16 @@ VIs read `../X.vi` and the parent reads `../../X/X.lvclass`; resolve against
 subtree** (`../../Layer/`), so a directory walk-UP (`_walk_up_find`) can NOT reach
 it — only the URL does.
 
+**A `PTH0` record's path type.** After the tag and a 4-byte length, a `PTH0` record
+holds a 2-byte path type, a 2-byte component count and the components (each a
+length-prefixed string): `PTH0 <len> <type> <count> <components>`. The type is 0
+(absolute), 1 (relative) or 2 (Not a Path) -- NI's public Path Type values (0 absolute,
+1 relative, 2 Not A Path); every record in the sample corpus is one of these, and
+absolute includes UNC paths. A relative path whose first component is empty goes up a
+level (the same empty component the link-table paths use below). lvkit writes a saved
+path as `Path("/C/Users")`, `Path("test.xml")` or `NotAPath` (netlist-language.md §4);
+a record of any other type is unreadable and keeps its type.
+
 **Every dependency has a recorded PATH — in the link tables.** LabVIEW stores a
 `PTH0` path record for EVERY file a VI references (it's what it uses to relink /
 to prompt "find <this file>" when one is missing), spread across `_LIvi.bin`

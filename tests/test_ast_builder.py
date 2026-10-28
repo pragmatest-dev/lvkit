@@ -1194,7 +1194,7 @@ class TestLVTypeToPython:
         from lvkit.models import LVType
 
         lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
-        assert lv_type.to_python() == "Path"
+        assert lv_type.to_python() == "Path | None"
 
     def test_primitive_variant(self):
         """Test Variant maps to Any."""

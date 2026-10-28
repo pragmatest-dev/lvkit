@@ -24,6 +24,9 @@ TYPES = [
     '<TypeDesc Type="NumInt32" />',
     '<TypeDesc Type="String" />',
 ]
+# A diagram with paths loads ``TYPES + PATH_TYPES``.
+PATH = 3
+PATH_TYPES = ['<TypeDesc Type="Path" />']
 
 _VALUE_HEX = {BOOL: {"True": "01", "False": "00"}, I32: None}
 
@@ -91,12 +94,30 @@ def constant(term_uid: int, type_id: int, value: str | int) -> str:
     )
 
 
-def increment(
-    uid: int, type_id: int = I32, *, out_type: int | None = None
+def path_bytes(path_type: int, components: list[bytes]) -> bytes:
+    """A saved Path: ``PTH0``, the length of what follows, the path type (0
+    absolute, 1 relative, 2 Not a Path), the component count and each component
+    as a length-prefixed string."""
+    body = path_type.to_bytes(2, "big") + len(components).to_bytes(2, "big")
+    body += b"".join(bytes([len(c)]) + c for c in components)
+    return b"PTH0" + len(body).to_bytes(4, "big") + body
+
+
+def path_constant(term_uid: int, data: bytes) -> str:
+    """A Path constant holding the saved bytes ``data`` (``path_bytes``)."""
+    return term(
+        term_uid,
+        f'<dco class="bDConstDCO" uid="{term_uid + 1}"><typeDesc>TypeID({PATH})'
+        f"</typeDesc><ConstValue>{data.hex().upper()}</ConstValue></dco>",
+    )
+
+
+def one_input_primitive(
+    uid: int, prim_res_id: int, type_id: int = I32, *, out_type: int | None = None
 ) -> str:
-    """An Increment node, a reader of one value. Terminals: ``uid + 1`` the result
+    """A primitive with one value in and one out. Terminals: ``uid + 1`` the result
     out (typed ``out_type``, default ``type_id``), ``uid + 3`` the value in (typed
-    ``type_id``). Its handle is ``Increment_<uid>``."""
+    ``type_id``)."""
     return (
         f'<SL__arrayElement class="prim" uid="{uid}"><termList elements="2">'
         + term(
@@ -112,9 +133,17 @@ def increment(
             uid + 3,
             dco("parm", uid + 4, type_id=type_id, extra="<parmIndex>1</parmIndex>"),
         )
-        + f"</termList><primResID>1057</primResID><primIndex>{uid}</primIndex>"
+        + f"</termList><primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
         "</SL__arrayElement>"
     )
+
+
+def increment(
+    uid: int, type_id: int = I32, *, out_type: int | None = None
+) -> str:
+    """An Increment node, a reader of one value. Its handle is
+    ``Increment_<uid>``."""
+    return one_input_primitive(uid, 1057, type_id, out_type=out_type)
 
 
 def srn(uid: int, terms: list[str]) -> str:
@@ -332,15 +361,19 @@ def front_panel_xml(
     indicators: dict[int, str],
     pane: dict[int, int] | None = None,
     rings: dict[int, RingSpec] | None = None,
+    paths: dict[int, bytes] | None = None,
 ) -> str:
     """The front-panel heap for I32 controls and indicators (``{fPDCO uid: label}``).
     ``pane`` maps connector-pane slot index to the fPDCO uid wired to it; a control
     in no slot is off the pane. Without ``pane`` the heap has no connector pane.
-    ``rings`` makes a control a Ring: ``{fPDCO uid: (default, items, own values)}``."""
+    ``rings`` makes a control a Ring: ``{fPDCO uid: (default, items, own values)}``.
+    ``paths`` makes a control a Path: ``{fPDCO uid: its saved default}``."""
 
     def fpdco(uid: int, label: str, indicator: bool) -> str:
         if rings and uid in rings:
             return ring_fpdco(uid, label, rings[uid])
+        if paths and uid in paths:
+            return path_fpdco(uid, label, paths[uid], indicator)
         return (
             f'<SL__arrayElement class="fPDCO" uid="{uid}">'
             f"<objFlags>{1 if indicator else 0}</objFlags>"
@@ -459,8 +492,7 @@ def ring_fpdco(uid: int, label: str, ring: RingSpec) -> str:
             f"<SL__arrayElement>{_signed_hex(v)}</SL__arrayElement>" for v in sparse
         )
         values = f"<ringSparseValues>{elements}</ringSparseValues>"
-    raw = (default & 0xFFFFFFFF).to_bytes(4, "big")
-    data = "".join(f"&amp;#x{b:02X};" for b in raw)
+    data = _default_data((default & 0xFFFFFFFF).to_bytes(4, "big"))
     return (
         f'<SL__arrayElement class="fPDCO" uid="{uid}"><objFlags>0</objFlags>'
         f"<typeDesc>TypeID({I32})</typeDesc>"
@@ -472,4 +504,24 @@ def ring_fpdco(uid: int, label: str, ring: RingSpec) -> str:
         f"<buf>{buf}</buf></SL__arrayElement>"
         f"</partsList>{values}</ddo>"
         f'<DefaultData>"{data}"</DefaultData></SL__arrayElement>'
+    )
+
+
+def _default_data(raw: bytes) -> str:
+    """``raw`` as a ``<DefaultData>`` payload: every byte an entity."""
+    return "".join(f"&amp;#x{b:02X};" for b in raw)
+
+
+def path_fpdco(uid: int, label: str, saved: bytes, indicator: bool = False) -> str:
+    """A Path control (or indicator) whose default is the saved path ``saved``."""
+    return (
+        f'<SL__arrayElement class="fPDCO" uid="{uid}">'
+        f"<objFlags>{1 if indicator else 0}</objFlags>"
+        f"<typeDesc>TypeID({PATH})</typeDesc>"
+        f'<ddo class="stdPath" uid="{uid}1"><typeDesc>TypeID({PATH})</typeDesc>'
+        "<partsList>"
+        f'<SL__arrayElement class="label" uid="{uid}2"><textRec class="textHair">'
+        f'<text>"{label}"</text></textRec></SL__arrayElement>'
+        "</partsList></ddo>"
+        f'<DefaultData>"{_default_data(saved)}"</DefaultData></SL__arrayElement>'
     )

@@ -87,7 +87,7 @@ from .lvnet_grammar import (
     lvnet_id_suffix,
     lvnet_net_separator,
 )
-from .lvnet_scalar import lvnet_literal_token, lvnet_typed_scalar
+from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
 from .models import Constant
 from .netlist_models import (
     BoundaryOutput,
@@ -1867,7 +1867,7 @@ def _lvnet_const_value_str(c: Constant) -> str:
     elif c.lv_type is not None and c.lv_type.kind != LVTypeKind.PRIMITIVE:
         text = _lvnet_escape_controls(str(c.value))
     else:
-        return lvnet_literal_token(lvnet_typed_scalar(c.value, c.lv_type))
+        return lvnet_value_token(c.value, c.lv_type)
     return text + lvnet_item_suffix(c.lv_type, c.value)
 
 
@@ -1966,7 +1966,8 @@ def _lvnet_boundary_trailing(
             parts.append(requirement)
         if pane.default is not None:
             parts.append(
-                f"{_LVNET_DEFAULT_KEYWORD} {lvnet_literal_token(pane.default)}"
+                f"{_LVNET_DEFAULT_KEYWORD} "
+                f"{lvnet_value_token(pane.default, pane.lv_type)}"
                 f"{lvnet_item_suffix(pane.lv_type, pane.default)}"
             )
         caption = _lvnet_caption_trailing(pane)
