@@ -82,7 +82,8 @@
           "index": 1,
           "direction": "in",
           "name": "length (rest)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "rest"
         },
         {
           "index": 2,
@@ -161,7 +162,8 @@
           "index": 1,
           "direction": "in",
           "name": "delimiter",
-          "type": "String"
+          "type": "String",
+          "default": "\t"
         },
         {
           "index": 2,

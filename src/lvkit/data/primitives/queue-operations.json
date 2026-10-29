@@ -205,7 +205,8 @@
           "index": 2,
           "direction": "in",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
@@ -305,7 +306,8 @@
           "index": 2,
           "direction": "in",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
@@ -405,7 +407,8 @@
           "index": 2,
           "direction": "in",
           "name": "timeout_ms",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,

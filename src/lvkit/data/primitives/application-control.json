@@ -23,7 +23,8 @@
           "index": 0,
           "direction": "in",
           "name": "quit? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         }
       ],
       "verified": false,

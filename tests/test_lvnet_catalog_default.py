@@ -18,6 +18,8 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
+from lvkit.primitive_resolver import get_resolver
+from lvkit.terminal_default import DefaultBehavior
 from tests.structure_diagrams import (
     BOOL,
     I32,
@@ -38,6 +40,7 @@ from tests.test_lvnet_identity import _assert_graph_identity
 ONE_BUTTON_DIALOG = 1340  # input 1 `button name`, default "OK"
 ARRAY_OF_STRINGS_TO_PATH = 1422  # input 1 `is_relative`, default FALSE
 NUMBER_TO_DECIMAL_STRING = 1180  # inputs 1 `width` (no padding), 2 `number`
+STRING_SUBSET = 1503  # inputs 1 `length`, 2 `offset`, 3 `string`
 MULTIPLY = 1052  # input 2 `x`: NI states no default
 
 
@@ -72,9 +75,7 @@ def test_a_value_that_is_not_of_the_inputs_type_is_reported_and_shown_bare(
 
 
 def test_a_documented_behaviour_is_shown_in_parentheses(tmp_path: Path) -> None:
-    node = primitive(
-        10, NUMBER_TO_DECIMAL_STRING, [(1, I32), (2, I32)], out_type=STR
-    )
+    node = primitive(10, NUMBER_TO_DECIMAL_STRING, [(1, I32), (2, I32)], out_type=STR)
     views = _views(tmp_path, node)
     assert " default (no padding)\n" in views.lvnet + "\n"
     _round_trips(views)
@@ -92,9 +93,7 @@ def test_a_behaviour_the_function_writes_is_executed(tmp_path: Path) -> None:
     (tmp_path / "T_FPHb.xml").write_text(
         front_panel_xml({}, {30: "result"}, pane={0: 30})
     )
-    node = primitive(
-        10, NUMBER_TO_DECIMAL_STRING, [(1, I32), (2, I32)], out_type=STR
-    )
+    node = primitive(10, NUMBER_TO_DECIMAL_STRING, [(1, I32), (2, I32)], out_type=STR)
     xml = root_diagram(
         [],
         [srn(800, [constant(701, I32, 7), fp_terminal(5030, 30)]), node],
@@ -165,11 +164,20 @@ def test_a_project_vi_call_shows_the_default_its_uses_entry_shows(
     callee_node = graph._graph.nodes[callee]["node"]  # noqa: SLF001
     callee_node.terminals = [
         FPTerminal(
-            id="x", index=0, direction="input", name="x", lv_type=number,
-            is_public=True, default_value="7",
+            id="x",
+            index=0,
+            direction="input",
+            name="x",
+            lv_type=number,
+            is_public=True,
+            default_value="7",
         ),
         FPTerminal(
-            id="z", index=1, direction="input", name="z", lv_type=number,
+            id="z",
+            index=1,
+            direction="input",
+            name="z",
+            lv_type=number,
             is_public=True,
         ),
     ]
@@ -210,3 +218,69 @@ def test_simple_error_handler_inputs_sit_at_the_slots_its_calls_wire() -> None:
     }
     dialog = next(t for t in entry.terminals if t.index == 8)
     assert (dialog.type, dialog.default) == ("NumUInt16", 1)
+
+
+# (primitive ID, input terminal index, documented default, documented behaviour)
+NI_DOCUMENTED_DEFAULTS = [
+    pytest.param(1505, 1, True, None, id="Number To Exponential String decimal"),
+    pytest.param(1505, 2, 6, None, id="Number To Exponential String precision"),
+    pytest.param(1183, 1, True, None, id="Number To Engineering String decimal"),
+    pytest.param(1183, 2, 6, None, id="Number To Engineering String precision"),
+    pytest.param(2044, 3, None, DefaultBehavior.REST, id="Array Subset (2044) length"),
+    pytest.param(
+        3912, 2, None, DefaultBehavior.ONE_ELEMENT, id="Delete From Array (3912) length"
+    ),
+    pytest.param(
+        3912, 4, None, DefaultBehavior.LAST_ELEMENT, id="Delete From Array (3912) index"
+    ),
+    pytest.param(
+        3911, 2, None, DefaultBehavior.APPEND, id="Insert Into Array (3911) index"
+    ),
+    pytest.param(1506, 1, True, None, id="Number To Fractional String decimal"),
+    pytest.param(1506, 2, 6, None, id="Number To Fractional String precision"),
+    pytest.param(1187, 2, True, None, id="Fract/Exp String To Number decimal"),
+    pytest.param(9111, 2, -1, None, id="Enqueue Element timeout"),
+    pytest.param(9129, 2, -1, None, id="Enqueue Element At Opposite End timeout"),
+    pytest.param(9113, 2, -1, None, id="Dequeue Element timeout"),
+    pytest.param(9105, 2, -1, None, id="Wait on Notification timeout"),
+    pytest.param(1503, 1, None, DefaultBehavior.REST, id="String Subset length"),
+    pytest.param(1539, 1, "\t", None, id="Spreadsheet String To Array delimiter"),
+    pytest.param(1352, 0, True, None, id="Quit LabVIEW quit?"),
+]
+
+
+@pytest.mark.parametrize("prim_id,index,default,behavior", NI_DOCUMENTED_DEFAULTS)
+def test_the_catalog_holds_the_default_ni_documents(
+    prim_id: int, index: int, default: object, behavior: DefaultBehavior | None
+) -> None:
+    resolved = get_resolver().resolve(prim_id=prim_id)
+    assert resolved is not None
+    terminal = next(
+        t for t in resolved.terminals if t.direction == "in" and t.index == index
+    )
+    assert terminal.default == default
+    assert terminal.default_behavior == behavior
+
+
+def test_string_subset_with_length_unwired_returns_the_rest_of_the_string(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "T_FPHb.xml").write_text(
+        front_panel_xml({}, {30: "result"}, pane={0: 30})
+    )
+    node = primitive(10, STRING_SUBSET, [(1, I32), (2, I32), (3, STR)], out_type=STR)
+    xml = root_diagram(
+        [],
+        [
+            srn(800, [constant(701, STR, "abcdef"), constant(703, I32, 2)]),
+            srn(810, [fp_terminal(5030, 30)]),
+            node,
+        ],
+        [wire(901, 701, 17), wire(902, 703, 15), wire(903, 11, 5030)],
+    )
+    views = load(tmp_path, xml)
+    context = views.graph.get_vi_context(views.vi)
+    source = build_module(context, "T.vi", graph=views.graph)
+    namespace: dict[str, object] = {}
+    exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
+    assert namespace["t"]().result == "cdef"  # type: ignore[operator]

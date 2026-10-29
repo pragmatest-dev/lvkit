@@ -97,13 +97,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,
@@ -259,7 +261,8 @@
           "index": 2,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 3,
@@ -296,13 +299,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,
@@ -333,13 +338,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,
