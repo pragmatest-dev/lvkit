@@ -55,7 +55,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -99,7 +99,8 @@
           "index": 4,
           "direction": "in",
           "name": "priority (normal)",
-          "type": "Enum32"
+          "type": "Enum32",
+          "default": 1
         },
         {
           "index": 8,
@@ -117,7 +118,8 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/generate-user-event.html"
     },
     "2075": {
       "name": "Destroy User Event",
@@ -135,7 +137,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,

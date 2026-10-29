@@ -106,7 +106,7 @@ class NetlistTerminalBinding:
     type, and how it's bound -- wired to a driver (``net``) or, since Phase A
     (lvnet ``default <value>`` -- see ``docs/_internal/design/netlist-
     language.md`` §4), genuinely unwired (``net is None``, ``default``
-    carries the type's faithful substitute value).
+    carries what the callee records for the input).
 
     Verilog ``.port(net)`` / VHDL ``port => signal`` / Python-kwargs named-
     terminal association -- rendered as ``terminal=net`` (see
@@ -121,9 +121,10 @@ class NetlistTerminalBinding:
     ``LVType.type_descriptor()`` (never a Python type), present on every
     binding wired or not (lvnet §3: "never dropped").
 
-    ``default`` is populated ONLY when ``net is None`` -- the type's
-    faithful "use default if unwired" substitute (``_type_default``), NEVER
-    fabricated. ``inverted`` mirrors the INPUT terminal's own
+    ``default`` is populated ONLY when ``net is None`` -- the value or documented
+    behaviour the callee records for the input (``instance_default``), the bare
+    ``default`` when it records none, NEVER fabricated. ``inverted`` mirrors the
+    INPUT terminal's own
     ``Terminal.inverted`` flag (the "Not" bubble LabVIEW draws directly on a
     Compound Arithmetic input -- that input is negated before the node's own
     operation runs, e.g. ``x AND NOT y``). Annotation ONLY, exactly like

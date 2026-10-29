@@ -8,7 +8,8 @@
           "index": 0,
           "direction": "in",
           "name": "name",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 1,
@@ -20,13 +21,14 @@
           "index": 2,
           "direction": "in",
           "name": "create_if_not_found",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -66,13 +68,14 @@
           "index": 2,
           "direction": "in",
           "name": "force_destroy",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -169,7 +172,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -215,7 +218,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,

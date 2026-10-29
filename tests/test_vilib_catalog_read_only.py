@@ -131,6 +131,8 @@ def _restore_resolver() -> Iterator[None]:
 def test_learned_terminal_is_used_and_nothing_is_written(
     read_only_catalog: Path,
 ) -> None:
+    """The generated code uses the terminal learned from the call; the shared
+    catalog keeps its entry and nothing is written to disk."""
     before = _tree_digest(read_only_catalog)
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
     resolver = VILibResolver(data_dir=read_only_catalog)
@@ -138,10 +140,9 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     source = _generate(resolver, wired, "a.txt")
 
     assert "file_path='a.txt'" in source
-    learned = resolver.resolve_by_name("Learn Me.vi")
-    assert learned is not None
-    assert [t.index for t in learned.terminals] == [4, 1]
-    assert learned.terminals[0].direction == "in"
+    kept = resolver.resolve_by_name("Learn Me.vi")
+    assert kept is not None
+    assert [t.index for t in kept.terminals] == [None, 1]
     assert _tree_digest(read_only_catalog) == before
 
 
@@ -217,3 +218,36 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before
+
+
+def test_a_fork_learns_privately(read_only_catalog: Path) -> None:
+    """Generating code learns terminals into the run's own copy: the catalog every
+    view reads keeps its entry."""
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    learned = fork.resolve_by_name("Learn Me.vi")
+    kept = shared.resolve_by_name("Learn Me.vi")
+    assert learned is not None and kept is not None
+    assert learned.terminals[0].index == 4
+    assert kept.terminals[0].index is None
+
+
+def test_a_fork_copies_only_the_entry_it_learns_into(
+    read_only_catalog: Path,
+) -> None:
+    """Every entry the fork has not learned into is the very object the shared
+    catalog holds."""
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+
+    assert fork.resolve_by_name("Learn Me.vi") is shared.resolve_by_name("Learn Me.vi")
+    fork.auto_update_terminals("Learn Me.vi", [wired])
+
+    assert fork.resolve_by_name("Learn Me.vi") is not shared.resolve_by_name(
+        "Learn Me.vi"
+    )

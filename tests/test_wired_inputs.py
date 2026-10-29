@@ -1,6 +1,6 @@
-"""A wired input that has no variable is an lvkit error, an unwired input takes
-its default, and the loop and node cases that used to leave a wire without a
-variable now carry one or are gaps."""
+"""A wired input that has no variable is an lvkit error, an unwired input whose
+default is not known is a gap, and the loop and node cases that used to leave a
+wire without a variable now carry one or are gaps."""
 
 from __future__ import annotations
 
@@ -23,15 +23,20 @@ def _add(node_id: str):
     )
 
 
-def test_unwired_inputs_take_their_defaults() -> None:
+def test_unwired_input_with_no_known_default_is_a_gap() -> None:
+    gaps: list[Gap] = []
     generated = generate(
         {"x": I32},
         {"r": I32},
         [_add("ad")],
         [("fp:x", "ad:2"), ("ad:0", "fp:r")],
+        gaps=gaps,
     )
-    assert generated.function(5).r == 5
-    assert "r=0 + x" in generated.source
+    assert [g.node_id for g in gaps] == ["ad"]
+    assert gaps[0].kind == "unknown_default"
+    assert "is not wired and its default is not known" in gaps[0].reason
+    with pytest.raises(NotImplementedError, match="default is not known"):
+        generated.function(5)
 
 
 def test_wired_input_with_no_variable_is_an_error() -> None:
@@ -129,10 +134,15 @@ def test_for_loop_count_read_inside_the_loop_is_the_wired_count() -> None:
         {"n": I32},
         {"r": I32},
         [loop, plus],
-        [("fp:n", "lp:n_out"), ("lp:n_in", "ad:2"), ("ad:0", "fp:r")],
+        [
+            ("fp:n", "lp:n_out"),
+            ("lp:n_in", "ad:1"),
+            ("lp:n_in", "ad:2"),
+            ("ad:0", "fp:r"),
+        ],
     )
     assert "    count = n\n    for i in range(n):\n" in generated.source
-    assert "0 + count" in generated.source
+    assert "count + count" in generated.source
     generated.function(3)
 
 

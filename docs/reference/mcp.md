@@ -90,7 +90,7 @@ control — and loads it live (XML already cached) — no `load`/`clear` session
 
 | Tool | Description |
 |------|-------------|
-| `unresolved` | Every gap under a target (a VI, library, class, or directory): the same list `lvkit generate` warns about, collected in one pass. Returns a list of `{kind, identifier, name, count, vi_names}` (`kind` is `unknown_primitive` / `placeholder_primitive` / `unsupported_node` / `unmapped_vilib` / `terminal_mapping` / `missing_vi` / `unsupported_vi`). See [SubVI & vi.lib resolution](subvi-resolution.md). |
+| `unresolved` | Every gap under a target (a VI, library, class, or directory): the same list `lvkit generate` warns about, collected in one pass. Returns a list of `{kind, identifier, name, count, vi_names}` (`kind` is `unknown_primitive` / `placeholder_primitive` / `unsupported_node` / `unmapped_vilib` / `terminal_mapping` / `unknown_default` / `missing_vi` / `unsupported_vi`). See [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example — the project-understanding demo
 

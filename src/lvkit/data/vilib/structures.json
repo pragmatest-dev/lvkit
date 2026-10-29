@@ -69,28 +69,24 @@
         {
           "name": "name (in)",
           "description": "name is the name of the timing source you want to create.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_in"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "name (out)",
           "description": "Functions 350 ni.com name (out) is the name of the timing source the VI created.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "name_out"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -113,7 +109,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "trigger_id",
-          "default_value": null,
           "description": "trigger ID is the numeric identifier of the software-triggered timing source. The valid range of trigger ID values is 0-127. Because this parameter is implemented as an integer rather than a string, it is safe to use the Fire Software-Triggered Timing Source VI in time-critical code."
         },
         {
@@ -123,7 +118,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "number_of_ticks",
-          "default_value": null,
           "description": "number of ticks specifies the number of ticks to increment the internal tick counter of the timing source. The default value is 1 tick."
         },
         {
@@ -133,7 +127,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -143,7 +136,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "trigger_id_out",
-          "default_value": null,
           "description": "trigger ID out returns trigger ID unchanged."
         },
         {
@@ -153,7 +145,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -175,7 +166,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name is the name of the timing source you want to stop and delete."
         },
         {
@@ -185,7 +175,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -195,7 +184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "parent",
-          "default_value": null,
           "description": "parent is the name of the parent of the timing source the VI deleted. If the timing source has no parent, parent is empty."
         },
         {
@@ -205,7 +193,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -227,7 +214,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "clear",
-          "default_value": null,
           "description": "clear , if TRUE, removes all timed structures from synchronization group name before adding the timed structures in timed structure names to the group."
         },
         {
@@ -237,7 +223,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "replace",
-          "default_value": null,
           "description": "replace replaces the timed structures in synchronization group name with the timed structures you enter in timed structure names ."
         },
         {
@@ -247,7 +232,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "synchronization_group_name",
-          "default_value": null,
           "description": "synchronization group name is the name for the group of timed structures you want to synchronize."
         },
         {
@@ -257,7 +241,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
-          "default_value": null,
           "description": "timeout ms specifies the time, in milliseconds, that a timed structure waits on other members of the synchronization group to arrive at the synchronization point."
         },
         {
@@ -267,7 +250,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_structure_names",
-          "default_value": null,
           "description": "timed structure names specifies the names of the timed structures you want to synchronize."
         },
         {
@@ -277,7 +259,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -287,7 +268,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_structures_names_out",
-          "default_value": null,
           "description": "timed structures names out returns the names of all timed structures in the group after LabVIEW adds the names to the synchronization group you specify."
         },
         {
@@ -297,7 +277,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -319,7 +298,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "priority",
-          "default_value": null,
           "description": "priority changes the priority of the timed structure you are stopping. Use priority when you want to stop two or more timed structures and want to ensure one stops before the other."
         },
         {
@@ -329,7 +307,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name is the name of the timed structure you want to stop."
         },
         {
@@ -339,7 +316,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -349,7 +325,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -371,7 +346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "replace",
-          "default_value": null,
           "description": "replace (F) replaces any timing source you entered in timing source names if a timing source by that name already exists in the hierarchy of timing sources."
         },
         {
@@ -381,7 +355,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "hierarchy_name",
-          "default_value": null,
           "description": "hierarchy name is the name of the timing source hierarchy you want to create."
         },
         {
@@ -391,7 +364,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "parent",
-          "default_value": null,
           "description": "parent is the valid timing source you want to start after the all the timing sources in hierarchy name start."
         },
         {
@@ -401,7 +373,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timing_source_names",
-          "default_value": null,
           "description": "timing source names is an array of names of the timing sources you want to add to the timing source hierarchy."
         },
         {
@@ -411,7 +382,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -421,7 +391,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -460,42 +429,36 @@
         {
           "name": "array",
           "description": "array specifies an n-dimensional array of any type.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "array"
         },
         {
           "name": "index",
           "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "index"
         },
         {
           "name": "element",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element"
         },
         {
           "name": "element",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element"
         },
         {
           "name": "array",
           "description": "array returns the array you input with the replaced element(s).",
-          "default_value": null,
           "enum_values": null,
           "python_param": "array"
         },
         {
           "name": "index",
           "description": "Functions 364 ni.com index returns the element(s) you replaced in the array. Use this border node to perform operations on an element or elements of an array and return the elements to the same location or locations in the array. Each array element you index with the border node on the left side of the structure must be placed back into the array with the border node on the right side of the structure by wiring the element back into the array. This border node allows the LabVIEW compiler to avoi",
-          "default_value": null,
           "enum_values": null,
           "python_param": "index"
         }
@@ -518,7 +481,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array specifies an n-dimensional array of any type."
         },
         {
@@ -528,7 +490,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index specifies the element you want to replace in the array. This border node gains an additional index parameter for each additional dimension of the array in the array input."
         },
         {
@@ -538,7 +499,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -548,7 +508,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -558,7 +517,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array returns the array you input with the replaced element(s)."
         },
         {
@@ -568,7 +526,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "index",
-          "default_value": null,
           "description": "index returns the element(s) you replaced in the array."
         }
       ]
@@ -590,7 +547,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_cluster",
-          "default_value": null,
           "description": "input cluster is the cluster whose elements you want to access."
         },
         {
@@ -600,7 +556,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -610,7 +565,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -620,7 +574,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_cluster",
-          "default_value": null,
           "description": "output cluster is the resulting cluster."
         }
       ]
@@ -642,7 +595,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type ."
         },
         {
@@ -652,7 +604,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_",
-          "default_value": null,
           "description": "type is the LabVIEW data type to which you want to convert the variant data. type can be any data type. However, this function returns an error if LabVIEW cannot convert the data wired to variant to the data type you wire to this input. If the data is integers, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number."
         },
         {
@@ -662,7 +613,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": ""
         },
         {
@@ -672,7 +622,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output."
         },
         {
@@ -682,7 +631,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": ""
         },
         {
@@ -692,7 +640,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the resulting variant data."
         },
         {
@@ -702,7 +649,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": ""
         }
       ]
@@ -735,7 +681,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
-          "default_value": null,
           "description": "waveform is the waveform from which you want to retrieve components."
         },
         {
@@ -745,7 +690,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": ""
         },
         {
@@ -755,7 +699,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": ""
         },
         {
@@ -765,7 +708,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_waveform",
-          "default_value": null,
           "description": "output waveform is the resulting waveform. If you did not wire an existing waveform, this is a new waveform. If you wired an existing waveform, this is the edited waveform."
         }
       ]
@@ -787,7 +729,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value_reference",
-          "default_value": null,
           "description": "data value reference is the reference that points to the data you want to access."
         },
         {
@@ -797,7 +738,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality. This border node has error out terminals on both sides of the structure. The error output on the left returns the actual error and the error output on the right duplicates the error from the left. You need to wire only one of the error out terminals because they have the same error output."
         },
         {
@@ -807,7 +747,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_value_reference",
-          "default_value": null,
           "description": "data value reference is the reference that points to the new data."
         },
         {
@@ -817,7 +756,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": ""
         }
       ]
@@ -839,7 +777,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array can be an n -dimensional array of any type."
         },
         {
@@ -849,7 +786,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "split_length",
-          "default_value": null,
           "description": "split length specifies the length of the resulting subarray. Each split length results in an additional subarray. You must wire all or none of the split length inputs. If you do not wire any split length inputs, LabVIEW automatically determines the length of the resulting subarray."
         },
         {
@@ -859,7 +795,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -869,7 +804,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -879,7 +813,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -889,7 +822,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": ""
         },
         {
@@ -899,7 +831,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array is the array this border node returns with the replaced element(s), row(s), column(s), or page(s)."
         },
         {
@@ -909,7 +840,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "split_length",
-          "default_value": null,
           "description": "split length indicates the length of the resulting subarray."
         }
       ]
@@ -931,7 +861,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant specifies the variant for which you want to retrieve or change an attribute."
         },
         {
@@ -941,7 +870,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "attribute_name",
-          "default_value": null,
           "description": "attribute name specifies the name of the attribute whose value you want to retrieve or change."
         },
         {
@@ -951,7 +879,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "attribute",
-          "default_value": null,
           "description": "attribute returns the original value of the attribute if found? is TRUE. This parameter returns an empty attribute if found? is FALSE."
         },
         {
@@ -961,7 +888,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "found",
-          "default_value": null,
           "description": "found? returns TRUE if the attribute was found with the specified attribute name and the specified attribute name is not a duplicate name of a previously found attribute. The indicator returns FALSE if the specified attribute name was not found, or if the specified attribute name was a duplicate name of a previously found attribute."
         },
         {
@@ -971,7 +897,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "attribute",
-          "default_value": null,
           "description": "attribute specifies the retrieved or changed value of the attribute."
         },
         {
@@ -981,7 +906,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant returns the variant with the retrieved or changed attribute."
         },
         {
@@ -991,7 +915,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "attribute_name",
-          "default_value": null,
           "description": "attribute name returns the name of the retrieved or changed attribute."
         },
         {
@@ -1001,7 +924,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "found",
-          "default_value": null,
           "description": ""
         }
       ]
@@ -1023,7 +945,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "map_",
-          "default_value": null,
           "description": "map specifies the map in which you want to look for a key. This input accepts a map of any data type. The default data type is a map of 32-bit signed integers."
         },
         {
@@ -1033,7 +954,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the key to look for in the map. The key must be of the same data type as the existing keys in the map."
         },
         {
@@ -1043,7 +963,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
-          "default_value": null,
           "description": "default value specifies the value to return in value if the specified key does not exist in the map. This input must be of the same data type as the existing values in the map."
         },
         {
@@ -1053,7 +972,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
-          "default_value": null,
           "description": "key not found? returns TRUE if map does not include an entry with the specified key. Otherwise, key not found? returns FALSE . This output exists on both the left and right border nodes. The two key not found? outputs return the same value."
         },
         {
@@ -1063,7 +981,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the value of the entry with the associated key if key not found? is FALSE. If key not found? is TRUE, this output returns the value in default value ."
         },
         {
@@ -1073,7 +990,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "action",
-          "default_value": null,
           "description": "action specifies the operation to perform on the map based on the TRUE or FALSE value of key not found? . This input assumes the value 0 if unwired. 2 Delete Entry —If key not found? is FALSE, this node deletes the entry with the specified key from the map. If key not found? is TRUE, this node does nothing. 0 Modify Entry only if found (default)—If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node does nothing. 1 Add or Modify Entry —If key not found? is FALSE, this node replaces the existing associated value with the new value. If key not found? is TRUE, this node adds the new key and the associated value to the map."
         },
         {
@@ -1083,7 +999,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value specifies the new value of the entry with the associated key."
         },
         {
@@ -1093,7 +1008,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "map_",
-          "default_value": null,
           "description": "map returns the resulting map."
         },
         {
@@ -1103,7 +1017,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key returns the same value as the key input on the left side of the border node."
         },
         {
@@ -1113,7 +1026,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
-          "default_value": null,
           "description": ""
         }
       ]
@@ -1175,14 +1087,12 @@
         {
           "name": "ms timeout (0)",
           "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Var",
-          "default_value": null,
           "enum_values": null,
           "python_param": "ms_timeout_0"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality. Note The behavior of the Shared Variable node differs when it is bound to a physical I/O channel. Refer to the Using I/O Variables topic for information about I/O variables. Functions 382 ni.com",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         }
@@ -1205,7 +1115,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
-          "default_value": null,
           "description": "ms timeout specifies a timeout period in milliseconds for a Shared Variable node configured to read data. The shared variable waits the specified amount of time for updated data, and the timed out? indicator returns whether the shared variable received updated data in the specified time period or timed out. Updated data can represent a new value or an existing value that simply confirms a valid connection with the shared variable in the active project. To add a ms timeout input to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally."
         },
         {
@@ -1215,7 +1124,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1225,7 +1133,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? displays whether a Shared Variable node read new data within the specified timeout period or timed out. To add a timed out? output to the Shared Variable node, right-click the Shared Variable node and select Show Timeout from the shortcut menu. You only can enable a timeout period for Shared Variable nodes configured to read data. You cannot enable a timeout period for nodes that access I/O variables locally. If the timeout expires, the Shared Variable node returns the last value written to the variable and does not return an error."
         },
         {
@@ -1235,7 +1142,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
-          "default_value": null,
           "description": "timestamp displays the timestamp data for the shared variable. To add a timestamp output to the Shared Variable node for a single-process shared variable or an I/O variable, you must first place a checkmark in the Enable timestamp checkbox on the Variable page of the Shared Variable Properties dialog box, and then right-click the Shared Variable node and select Show Timestamp from the shortcut menu. You can use this output only with shared variable nodes that are configured to read data."
         },
         {
@@ -1245,7 +1151,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1285,7 +1190,6 @@
         {
           "name": "labview\\examples\\Structures\\Feedback Node\\Feedback Node -",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_structures_feedback_node_feedback_node"
         }

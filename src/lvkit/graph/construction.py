@@ -803,6 +803,7 @@ class ConstructionMixin:
                     ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
+                    indexing_disabled=t_info.indexing_disabled,
                     dco_uid=t_info.dco_uid,
                 )
                 node_terminals.append(terminal)

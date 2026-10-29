@@ -1947,7 +1947,7 @@ def _lvnet_boundary_trailing(
     clause and its front-panel ``caption`` clause (all VERBOSE-only,
     space-joined in that order -- §5's own worked
     example composes exactly this way: ``error in (no error) : Error
-    optional default (no error)``), followed by the Phase 2 ``@<index>``
+    optional default``), followed by the Phase 2 ``@<index>``
     column (``_lvnet_pane_index_suffix``, unconditional -- present in terse
     too). Terse (``verbose=False``) renders ONLY the index column.
 

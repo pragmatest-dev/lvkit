@@ -112,29 +112,44 @@ def path_constant(term_uid: int, data: bytes) -> str:
     )
 
 
+def primitive(
+    uid: int,
+    prim_res_id: int,
+    inputs: list[tuple[int, int]],
+    *,
+    out_type: int,
+) -> str:
+    """A primitive with one output (index 0, terminal ``uid + 1``) and the given
+    ``(index, type id)`` inputs, the n-th at terminal ``uid + 3 + 2 * n``."""
+    terminals = term(uid + 1, dco("parm", uid + 2, type_id=out_type, flags=1))
+    for n, (index, type_id) in enumerate(inputs):
+        terminals += term(
+            uid + 3 + 2 * n,
+            dco(
+                "parm",
+                uid + 4 + 2 * n,
+                type_id=type_id,
+                extra=f"<parmIndex>{index}</parmIndex>",
+            ),
+        )
+    return (
+        f'<SL__arrayElement class="prim" uid="{uid}">'
+        f'<termList elements="{1 + len(inputs)}">{terminals}</termList>'
+        f"<primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
+        "</SL__arrayElement>"
+    )
+
+
 def one_input_primitive(
     uid: int, prim_res_id: int, type_id: int = I32, *, out_type: int | None = None
 ) -> str:
-    """A primitive with one value in and one out. Terminals: ``uid + 1`` the result
-    out (typed ``out_type``, default ``type_id``), ``uid + 3`` the value in (typed
-    ``type_id``)."""
-    return (
-        f'<SL__arrayElement class="prim" uid="{uid}"><termList elements="2">'
-        + term(
-            uid + 1,
-            dco(
-                "parm",
-                uid + 2,
-                type_id=type_id if out_type is None else out_type,
-                flags=1,
-            ),
-        )
-        + term(
-            uid + 3,
-            dco("parm", uid + 4, type_id=type_id, extra="<parmIndex>1</parmIndex>"),
-        )
-        + f"</termList><primResID>{prim_res_id}</primResID><primIndex>{uid}</primIndex>"
-        "</SL__arrayElement>"
+    """A primitive with one value in (index 1, terminal ``uid + 3``) and one out
+    (terminal ``uid + 1``, typed ``out_type``, default ``type_id``)."""
+    return primitive(
+        uid,
+        prim_res_id,
+        [(1, type_id)],
+        out_type=type_id if out_type is None else out_type,
     )
 
 

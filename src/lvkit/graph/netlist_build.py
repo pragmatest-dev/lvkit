@@ -47,7 +47,6 @@ from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
-from .lvnet_scalar import lvnet_typed_scalar
 from .models import (
     AnyGraphNode,
     CaseStructureNode,
@@ -136,6 +135,7 @@ from .render_lvnet import (
     lvnet_literal_token,
     project_relative_display,
 )
+from .unwired_default import instance_default, pane_default
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -312,7 +312,7 @@ def _pane_terminal(
         direction=direction,
         index=None if off_pane else t.index,
         wiring_requirement=requirement_state(t, direction),
-        default=lvnet_typed_scalar(t.default_value, t.lv_type),
+        default=pane_default(t),
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
@@ -1308,7 +1308,7 @@ def _build_instance_gn(
             terminal=_component_terminal_name(t),
             type=t.type_descriptor() or "?",
             net=(net := _input_ref_gn(graph, ctx, vi_name, build_ctx, t)),
-            default=None if net is not None else _type_default(t.lv_type),
+            default=None if net is not None else instance_default(graph, node, t, name),
             inverted=t.inverted,
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,

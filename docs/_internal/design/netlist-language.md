@@ -305,6 +305,29 @@ or starting `Path(` is quoted (above). In generated Python a path is `Path('...'
 and Not a Path is `None`, so a path is typed `Path | None`; an absolute path with
 no component generates the empty `Path('')`, as Python has no such absolute path.
 
+**What an unwired input of a call shows.** The `default` of an unwired input is read
+from the callee, never from the input's type. A function in the catalog (a primitive or a
+vi.lib VI) gives the value NI's public page documents, written as any value of the type
+is (`default "OK"`, `default False`, `default 2 (verify)`), or a documented behavior that
+is no value, in parentheses (`default (rest)`, `default (append)`,
+`default (one element)`, `default (last element)`, `default (no padding)`,
+`default (empty variant)`, `default (unchanged)`,
+`default (application of the calling VI)`, `default (generic VI reference)`). An Index
+Array input that repeats shows what the code does for it: `default (previous index + 1)`
+in a later set, `default (entire row or column)` in a later dimension. A call of a
+project VI shows the callee's saved value, the same value its `uses :` entry shows. The
+bare `default` stands when nothing records one, as for an error cluster (its default is
+no error). A value is shown only when it is a value of the input's type at that call: a
+Boolean on a Boolean input, a number on a numeric, enum or ring input, a string on a
+String input, path text on a Path input. One that is not is reported (a warning naming
+the function and the input) and the input shows the bare `default`. In generated Python
+the same value goes through the conversion a constant of its type goes through, and a
+documented behavior is written by the function's own generator. An input the function's
+code reads whose default is unknown, or whose behavior has no generator, is an
+`unknown_default` gap, one per input; an input the code never reads needs none. An input
+the code reads that the call does not have is a `terminal_mapping` gap (the catalog numbers
+the function's terminals differently from the call).
+
 **Parse order.** A line with a top-level ` = ` and no top-level ` : ` before it is a
 drive line, whatever its first word; a node, constant or variable line carries its
 ` : ` first.
@@ -356,7 +379,7 @@ the wired/unwired part:
 ```
 in   TestLoader in       : TestLoader.lvclass   required
 in   TestCase            : TestCase.lvclass     recommended
-in   error in (no error) : Error                optional   default (no error)
+in   error in (no error) : Error                optional   default
 ```
 
 The two axes are independent: a terminal can be `required` **and** unwired

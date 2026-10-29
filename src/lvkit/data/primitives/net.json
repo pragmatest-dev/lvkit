@@ -16,7 +16,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,

@@ -732,6 +732,8 @@ class Terminal(BaseModel):
     # Picture's drawing) that code generation has no value to write for.
     unwritable: UnwritableValue | None = None
     inverted: bool = False  # "Not" applied to this terminal (e.g. cpdArith)
+    # An Index Array index with indexing disabled: its dimension is taken whole.
+    indexing_disabled: bool = False
     # The DCO uid this terminal's heap ``<dco>`` names. Terminals that name the
     # same DCO are one value: an In Place Element structure's In/Out Element
     # port and its border node's cluster/array/index terminal have no wire

@@ -145,19 +145,21 @@
           "index": 4,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 5,
           "direction": "in",
           "name": "default_value",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_behavior": "empty variant"
         },
         {
           "index": 6,
           "direction": "in",
           "name": "attribute_name",
-          "type": "polymorphic"
+          "type": "polymorphic",
+        "default_behavior": "all attributes"
         },
         {
           "index": 7,
@@ -167,8 +169,10 @@
         }
       ],
       "python_code": {
+        "error_out": "in_4",
         "attribute_value": "getattr(in_7, in_6, in_5)",
-        "found": "hasattr(in_7, in_6)"
+        "found": "hasattr(in_7, in_6)",
+        "duplicate_variant": "in_7"
       },
       "inline": true,
       "verified": true,

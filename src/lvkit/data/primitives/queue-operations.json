@@ -9,7 +9,8 @@
           "index": 4,
           "direction": "in",
           "name": "max_queue_size",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 0,
@@ -27,13 +28,14 @@
           "index": 2,
           "direction": "in",
           "name": "create_if_not_found",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -74,13 +76,14 @@
           "index": 2,
           "direction": "in",
           "name": "force_destroy",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -126,7 +129,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 4,
@@ -208,7 +211,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -248,7 +251,8 @@
           "index": 2,
           "direction": "in",
           "name": "timeout in ms (-1)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": -1
         },
         {
           "index": 3,
@@ -283,7 +287,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/preview-queue-element.html"
     },
     "9113": {
       "name": "Dequeue Element",
@@ -306,7 +311,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -353,7 +358,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,
@@ -406,7 +411,7 @@
           "index": 3,
           "direction": "in",
           "name": "error_in",
-          "type": "Cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 8,

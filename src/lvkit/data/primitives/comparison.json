@@ -15,14 +15,14 @@
           "direction": "in",
           "name": "y",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
           "direction": "in",
           "name": "x",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         }
       ],
       "python_code": {
@@ -48,14 +48,14 @@
           "direction": "in",
           "name": "y",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
           "direction": "in",
           "name": "x",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         }
       ],
       "python_code": {
@@ -81,14 +81,14 @@
           "direction": "in",
           "name": "y",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
           "direction": "in",
           "name": "x",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         }
       ],
       "python_code": {
@@ -114,14 +114,14 @@
           "direction": "in",
           "name": "y",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
           "direction": "in",
           "name": "x",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         }
       ],
       "python_code": {
@@ -147,14 +147,14 @@
           "direction": "in",
           "name": "y",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 2,
           "direction": "in",
           "name": "x",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         }
       ],
       "python_code": {

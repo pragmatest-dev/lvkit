@@ -30,6 +30,7 @@ from lvkit.models import (
     Frame,
     LVType,
     LVTypeKind,
+    ScalarValue,
     Terminal,
     Tunnel,
     TunnelTerminal,
@@ -37,6 +38,8 @@ from lvkit.models import (
     unique_names,
 )
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.string_literal import quote_string
+from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import interface_names, to_function_name, to_var_name
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
@@ -91,6 +94,12 @@ class CodeGenContext:
     # Every gap found while generating this module (see ``gaps.py``). Shared
     # across child contexts, so a gap nested in a loop or case is still listed.
     gaps: list[Gap] = field(default_factory=list, repr=False)
+    # What generating this module has learned of the terminals of the vi.lib VIs it
+    # calls, kept in a copy of the vi.lib catalog that shares every entry it has
+    # not learned into (empty until a call needs it). The shared catalog is never
+    # changed, so what the views show does not depend on which VIs were generated
+    # before. A module's function contexts share it; two modules do not.
+    learned_vilib: list[VILibResolver] = field(default_factory=list, repr=False)
     # The raises of what the function evaluates when it is entered and cannot
     # be written (a constant with no value to write); the body starts with them.
     entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
@@ -482,6 +491,7 @@ class CodeGenContext:
             use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
+            learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
@@ -970,6 +980,29 @@ def enum_member_constant(
         return const.lv_type.enum_member_ref(int(const.value), names)
     except (ValueError, TypeError):
         return None
+
+
+def terminal_default_expression(default: ScalarValue, type_name: str | None) -> str:
+    """The Python expression for the default a catalog terminal documents, through
+    the same conversion a constant of its type goes through. ``type_name`` is the
+    catalog's type word; it only tells a path (written as path text) from a
+    string, the value's own Python type gives the rest."""
+    if (type_name or "").lower() == "path":
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+        text: ScalarValue = default
+    elif isinstance(default, bool):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+        text = str(default)
+    elif isinstance(default, int):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        text = str(default)
+    elif isinstance(default, float):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+        text = str(default)
+    else:
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+        text = quote_string(str(default))
+    return _format_constant(Constant(id="default", value=text, lv_type=lv_type))
 
 
 def _format_constant(

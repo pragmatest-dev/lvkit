@@ -26,7 +26,7 @@ from lvkit.primitive_resolver import PrimitiveResolutionNeeded, TerminalResoluti
 from lvkit.vilib_resolver import VILibResolutionNeeded
 
 from .ast_utils import build_assign, to_var_name
-from .errors import MissingVIError
+from .errors import MissingVIError, UnknownDefault
 from .fragment import CodeFragment
 from .module_declarations import ModuleDeclarations
 
@@ -36,12 +36,15 @@ if TYPE_CHECKING:
 # The kinds `lvkit unresolved` lists. A gap fits the first four by what it is;
 # every other node gap is an "unsupported_node", and a gap in no node at all (a
 # class whose parent is not loaded, a constant with no value to write) is an
-# "unsupported_vi". A call of a VI that was not found is a "missing_vi".
+# "unsupported_vi". A call of a VI that was not found is a "missing_vi", and an
+# unwired input the function's code uses, whose default the catalog does not
+# know, is an "unknown_default".
 UNKNOWN_PRIMITIVE = "unknown_primitive"
 PLACEHOLDER_PRIMITIVE = "placeholder_primitive"
 UNSUPPORTED_NODE = "unsupported_node"
 UNMAPPED_VILIB = "unmapped_vilib"
 TERMINAL_MAPPING = "terminal_mapping"
+UNKNOWN_DEFAULT = "unknown_default"
 UNSUPPORTED_VI = "unsupported_vi"
 MISSING_VI = "missing_vi"
 
@@ -133,6 +136,8 @@ def gap_of(
         kind, identifier, name = MISSING_VI, exc.name, exc.name
     elif isinstance(exc, TerminalResolutionNeeded):
         kind, identifier, name = TERMINAL_MAPPING, exc.prim_name, exc.prim_name
+    elif isinstance(exc, UnknownDefault):
+        kind, identifier, name = UNKNOWN_DEFAULT, exc.function, exc.terminal
     elif node is not None:
         kind = UNSUPPORTED_NODE
         identifier = get_display_name(node.node_type) if node.node_type else "node"

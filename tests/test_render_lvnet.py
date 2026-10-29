@@ -75,7 +75,7 @@ vi loadTestsFromTestCase.vi :
           subVI TestCase_Init_772 : TestCase.lvclass:TestCase_Init.vi
             in   TestCase in            : TestCase.lvclass = listAllTestMethods_359::TestCase out
             in   methodName ("runTest") : String           = listAllTestMethods_359::test methods
-            in   GUID ("")              : String           default ""
+            in   GUID ("")              : String           default
             in   error in (no error)    : Error            = loop_879::shift0
             out  TestCase out           : TestCase.lvclass
             out  error out              : Error
@@ -87,7 +87,7 @@ vi loadTestsFromTestCase.vi :
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
           in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
-          in   GUID ("")                       : String            default ""
+          in   GUID ("")                       : String            default
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
           out  error out                       : Error
@@ -561,6 +561,30 @@ def test_property_and_invoke_nodes_render_handle_and_component_no_todo() -> None
         "invoke-node Test_Hierarchy_Tree_17125 : Tree (strict).Point To Row Column"
         in text
     )
+
+
+@pytest.mark.needs_samples
+def test_generating_code_does_not_change_what_lvnet_shows() -> None:
+    """Code generation learns the terminals of the vi.lib VIs it calls into its own
+    copy of the catalog, so the lvnet of the same VI is the same before and after."""
+    from lvkit.codegen.builder import build_module
+
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+
+    def render() -> tuple[str, object, str]:
+        graph, vi_name = load_vi_by_path(
+            _FEEDBACK_VI,
+            LoadMode.MINIMAL,
+            search_paths=[_FEEDBACK_SEARCH_ROOT],
+            layout=False,
+        )
+        return render_lvnet(build_netlist_from_graph(graph, vi_name)), graph, vi_name
+
+    before, graph, vi_name = render()
+    build_module(graph.get_vi_context(vi_name), "WaveGen.vi", graph=graph)
+    after, _, _ = render()
+    assert after == before
 
 
 @pytest.mark.needs_samples

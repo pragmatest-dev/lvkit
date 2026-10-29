@@ -80,7 +80,7 @@ def test_a_type_the_file_cannot_read_keeps_its_line_and_says_why(
     views = _void_chain(tmp_path)
     assert views.diagram.splitlines()[4:] == [
         "    function Increment_30 : Increment",
-        "      in   x   : I32 default 0",
+        "      in   x   : I32 default",
         f"      out  x+1 : {_UNREADABLE}",
         "    function Increment_40 : Increment",
         f"      in   x   : {_UNREADABLE} = Increment_30::x+1",

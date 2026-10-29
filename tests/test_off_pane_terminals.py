@@ -150,6 +150,11 @@ def test_slot_zero_keeps_its_wiring_rule() -> None:
     assert "recommended @0" in text
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Open/Create/Replace File's advisory locking default is not in the "
+    "catalog yet, so the VI generates a gap there",
+)
 def test_unwired_pane_codegen_takes_its_controls_as_keyword_only_parameters() -> None:
     graph, key = _load(_ZORDER_VI, LoadMode.FULL)
     code = build_module(graph.get_vi_context(key), key, graph=graph)

@@ -52,6 +52,7 @@ from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
+    NODE_CLASS_ARRAY_INDEX,
     NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
@@ -64,6 +65,7 @@ from .constants import (
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
+    is_indexing_disabled,
     is_indicator,
     is_inverted_terminal,
     is_method_row_input,
@@ -1214,9 +1216,12 @@ def _process_element_terminals(
         # reuse the same bit for an unrelated purpose, so only extract
         # it when the containing element is cpdArith.
         inverted = False
+        indexing_disabled = False
+        dco_flags_elem = dco.find("objFlags") if dco is not None else None
         if elem_class == NODE_CLASS_CPD_ARITH:
-            dco_flags_elem = dco.find("objFlags") if dco is not None else None
             inverted = is_inverted_terminal(safe_int(dco_flags_elem))
+        elif elem_class == NODE_CLASS_ARRAY_INDEX:
+            indexing_disabled = is_indexing_disabled(safe_int(dco_flags_elem))
 
         terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,
@@ -1226,6 +1231,7 @@ def _process_element_terminals(
             parsed_type=parsed_type,
             name=term_name,
             inverted=inverted,
+            indexing_disabled=indexing_disabled,
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )

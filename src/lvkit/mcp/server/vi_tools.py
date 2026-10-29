@@ -360,8 +360,8 @@ async def unresolved(
     front. Returns a list of ``{kind, identifier, name, count, vi_names}``
     (kind ∈ ``unknown_primitive``/``placeholder_primitive``/
     ``unsupported_node``/``unmapped_vilib``/``terminal_mapping``/
-    ``missing_vi``/``unsupported_vi``). Empty list means no gaps. ``target`` may
-    be relative to the client's workspace root."""
+    ``unknown_default``/``missing_vi``/``unsupported_vi``). Empty list means no
+    gaps. ``target`` may be relative to the client's workspace root."""
     target = await _facade._resolve_target(target, ctx)
     _configure_resolvers_for_vi(target)
 
