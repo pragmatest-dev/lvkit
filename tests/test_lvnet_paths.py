@@ -137,7 +137,10 @@ def test_a_path_constant_generates_a_path_or_none(
 ) -> None:
     function, source = _generated_function(tmp_path, saved)
     result = function().result
-    assert (result is None) if expected is None else (str(result) == str(expected))
+    if expected is None:
+        assert result is None
+    else:
+        assert result.as_posix() == expected.as_posix()
     assert "lvkit" not in source
 
 
