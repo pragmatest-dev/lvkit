@@ -29,6 +29,9 @@ from tests.structure_diagrams import (
 # (primResID, input, documented default)
 PRIMITIVE_DEFAULTS = [
     ("8053", "overwrite", False),
+    ("8053", "prompt", "Choose or enter target path for copy"),
+    ("8055", "prompt", "Create Folder"),
+    ("8080", "prompt", "Choose or enter file path"),
     ("1538", "offset", 0),
     ("1510", "string", ""),
     ("24202", "default null elements? (F)", False),
@@ -139,6 +142,7 @@ STAYS_BARE = [
     ("8051", "count"),  # NI describes a single element
     ("2135", "include static events? (T)"),  # depends on the event case
     ("8058", "start_path"),  # the last directory viewed
+    ("8058", "prompt"),  # the dialog title differs between Windows/Linux and macOS
     ("8051", "byte_order"),  # a String on the calls in the corpus, not an item value
     ("8078", "byte_order"),
 ]

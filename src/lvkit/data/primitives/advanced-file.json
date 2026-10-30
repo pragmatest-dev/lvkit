@@ -292,7 +292,8 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for copy"
         },
         {
           "index": 8,
@@ -348,6 +349,7 @@
     },
     "8055": {
       "name": "Create Folder",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
       "terminals": [
         {
           "index": 0,
@@ -370,8 +372,9 @@
         {
           "index": 7,
           "direction": "in",
-          "name": "prompt (Create Folder)",
-          "type": "String"
+          "name": "prompt",
+          "type": "String",
+          "default": "Create Folder"
         },
         {
           "index": 8,
