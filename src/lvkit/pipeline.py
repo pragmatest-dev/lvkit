@@ -568,6 +568,9 @@ def generate_python(
     Returns:
         Summary dict with keys: vilib, ast, error, failed counts and
         ``gaps``, the list of ``Gap`` records (printed as warnings).
+        ``output_dir``, ``vi_paths`` and ``generated`` are in the form the
+        caller gave ``output_dir``. On Windows with long paths off, open a file
+        deeper than 260 characters through ``lvkit.long_paths.extended_length``.
     """
     input_path = Path(input_path)
     output_dir_root = Path(output_dir)

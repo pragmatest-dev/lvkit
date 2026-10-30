@@ -34,8 +34,11 @@ def project(tmp_path: Path) -> Iterator[Project]:
 def test_result_paths_have_no_extended_prefix(
     project: Project, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(pipeline, "extended_length", _fake_extended)
-    monkeypatch.setattr(pipeline, "display_path", _fake_display)
+    # Windows writes through its real extended-length form; elsewhere a stand-in
+    # prefix plays that part.
+    if sys.platform != "win32":
+        monkeypatch.setattr(pipeline, "extended_length", _fake_extended)
+        monkeypatch.setattr(pipeline, "display_path", _fake_display)
     vi = project.write_vi("c.*", ["", "..", "libs", "c.dll"], "swap")
     out = project.base / "out"
 
@@ -47,7 +50,7 @@ def test_result_paths_have_no_extended_prefix(
     written = [p for _, p, _ in result["generated"] if p is not None]
     assert written
     for path in [*result["vi_paths"].values(), *written]:
-        assert not str(path).startswith(_FAKE_PREFIX)
+        assert not str(path).startswith((_FAKE_PREFIX, "\\\\?\\"))
         assert path.relative_to(folder)
         assert path.exists()
 

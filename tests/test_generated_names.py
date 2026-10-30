@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.long_paths import extended_length
 from lvkit.pipeline import generate_python
 
 pytestmark = pytest.mark.needs_samples
@@ -54,7 +55,9 @@ def _generate(vi: Path, tmp_path: Path) -> Path:
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi}")
     result = generate_python(vi, tmp_path / "out", search_paths=[OPENG])
-    return result["output_dir"]
+    # The package nests deeper than 260 characters; Windows with long paths off
+    # opens it only in the extended-length form.
+    return extended_length(result["output_dir"])
 
 
 def _modules(package: Path) -> list[Path]:
