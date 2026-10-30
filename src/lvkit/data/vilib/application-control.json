@@ -1620,7 +1620,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "traverse_generated_code",
-          "description": "Traverse Generated Code specifies whether to traverse code that LabVIEW generates in the process of implementing certain functions. The default is FALSE."
+          "description": "Traverse Generated Code specifies whether to traverse code that LabVIEW generates in the process of implementing certain functions. The default is FALSE.",
+          "default": false
         },
         {
           "name": "dup VI Refnum",

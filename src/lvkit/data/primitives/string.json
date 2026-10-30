@@ -505,7 +505,8 @@
           "index": 1,
           "direction": "in",
           "name": "utc_format",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,

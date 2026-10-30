@@ -22,7 +22,8 @@
           "index": 1,
           "direction": "in",
           "name": "ignore_previous",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,

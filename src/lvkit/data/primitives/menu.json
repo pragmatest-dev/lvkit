@@ -328,7 +328,8 @@
           "index": 9,
           "direction": "in",
           "name": "enabled",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default_behavior": "unchanged"
         },
         {
           "index": 10,

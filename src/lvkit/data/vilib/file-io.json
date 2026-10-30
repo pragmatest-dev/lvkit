@@ -2008,7 +2008,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "create_file_if_necessary",
-          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file."
+          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
+          "default": true
         },
         {
           "name": "error in (no error)",
@@ -2341,7 +2342,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "write_file_if_changed",
-          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data."
+          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data.",
+          "default": true
         },
         {
           "name": "error in (no error)",
@@ -4078,7 +4080,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "confirm_overwrite",
-          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file."
+          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file.",
+          "default": false
         },
         {
           "name": "error in (no error)",
@@ -5960,7 +5963,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "treat_llbs_as_folders",
-          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE."
+          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE.",
+          "default": false
         },
         {
           "name": "Continue Recursing on Error? (F)",
@@ -5969,7 +5973,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "continue_recursing_on_error",
-          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs."
+          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs.",
+          "default": false
         },
         {
           "name": "error in (no error)",
@@ -6446,7 +6451,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "temporary_file_extension",
-          "description": "Temporary File Extension (tmp) specifies the file extension."
+          "description": "Temporary File Extension (tmp) specifies the file extension.",
+          "default": "tmp"
         },
         {
           "name": "error in (no error)",

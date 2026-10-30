@@ -304,7 +304,8 @@
           "index": 9,
           "direction": "in",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
@@ -769,7 +770,8 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for move"
         },
         {
           "index": 8,
@@ -781,7 +783,8 @@
           "index": 9,
           "direction": "in",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
@@ -841,7 +844,8 @@
           "index": 6,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt64"
+          "type": "NumInt64",
+          "default": 0
         },
         {
           "index": 7,

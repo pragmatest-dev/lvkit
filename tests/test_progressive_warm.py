@@ -68,11 +68,12 @@ def test_visualize_warms_the_index(sample: Path, tmp_path: Path):
         input_path=str(sample),
         output=str(tmp_path / "viz.html"),
         mode="flow",
-        search_paths=None,
+        search_paths=[],
         load_mode=None,
-        vilib_root=None,
-        userlib_root=None,
-        auto_vilib=False,
+        vilib=None,
+        userlib=None,
+        no_auto_vilib=True,
+        open=False,
     )
     cmd_visualize(args)
 

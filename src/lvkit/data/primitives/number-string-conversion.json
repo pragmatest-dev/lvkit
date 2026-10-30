@@ -274,7 +274,8 @@
           "index": 4,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 5,
@@ -284,7 +285,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/fract-exp-string-to-number.html"
     },
     "1505": {
       "name": "Number To Exponential String",
@@ -389,11 +391,13 @@
           "index": 3,
           "direction": "in",
           "name": "string (\"\")",
-          "type": "String"
+          "type": "String",
+          "default": ""
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/format-value.html"
     },
     "1534": {
       "name": "Scan Value",

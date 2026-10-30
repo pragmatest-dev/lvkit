@@ -214,13 +214,15 @@
           "index": 9,
           "direction": "in",
           "name": "access",
-          "type": "enum"
+          "type": "enum",
+          "default": 0
         },
         {
           "index": 10,
           "direction": "in",
           "name": "operation",
-          "type": "enum"
+          "type": "enum",
+          "default": 0
         },
         {
           "index": 11,
@@ -434,7 +436,8 @@
           "index": 5,
           "direction": "in",
           "name": "prepend_size",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 7,

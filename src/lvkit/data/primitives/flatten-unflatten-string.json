@@ -94,7 +94,8 @@
           "index": 6,
           "direction": "in",
           "name": "enable LabVIEW extensions? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 8,
@@ -110,7 +111,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-json.html"
     },
     "24202": {
       "name": "Unflatten From JSON",
@@ -143,19 +145,22 @@
           "index": 5,
           "direction": "in",
           "name": "default null elements? (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 6,
           "direction": "in",
           "name": "enable LabVIEW extensions? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 7,
           "direction": "in",
           "name": "strict validation? (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 8,
@@ -171,7 +176,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-json.html"
     }
   }
 }

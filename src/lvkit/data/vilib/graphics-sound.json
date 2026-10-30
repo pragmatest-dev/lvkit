@@ -3670,7 +3670,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
-          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates."
+          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates.",
+          "default": true
         },
         {
           "name": "new picture",
@@ -3727,7 +3728,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
-          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates."
+          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates.",
+          "default": true
         },
         {
           "name": "color(black)",
@@ -3754,7 +3756,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture."
+          "description": "Style sets the style of the line the VI uses to draw the picture.",
+          "default": 0
         },
         {
           "name": "new picture",
@@ -3913,7 +3916,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "fill",
-          "description": "fill? specifies whether to fill the interior."
+          "description": "fill? specifies whether to fill the interior.",
+          "default": false
         },
         {
           "name": "color(black)",
@@ -3940,7 +3944,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture."
+          "description": "Style sets the style of the line the VI uses to draw the picture.",
+          "default": 0
         },
         {
           "name": "new picture",
@@ -4210,7 +4215,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "fill",
-          "description": "fill? specifies whether to fill the interior."
+          "description": "fill? specifies whether to fill the interior.",
+          "default": false
         },
         {
           "name": "color(black)",
@@ -4459,7 +4465,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
-          "description": "desired font specifies the text font."
+          "description": "desired font specifies the text font.",
+          "default": 1
         },
         {
           "name": "picture",
@@ -4540,7 +4547,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
-          "description": "text orientation sets the orientation of the text to draw."
+          "description": "text orientation sets the orientation of the text to draw.",
+          "default": 0
         },
         {
           "name": "new picture",
@@ -4678,7 +4686,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
-          "description": "desired font specifies the text font."
+          "description": "desired font specifies the text font.",
+          "default": 1
         },
         {
           "name": "alignment(left, top)",
@@ -4732,7 +4741,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
-          "description": "text orientation sets the orientation of the text for which you want the bounding rectangle."
+          "description": "text orientation sets the orientation of the text for which you want the bounding rectangle.",
+          "default": 0
         },
         {
           "name": "rect",
@@ -5374,7 +5384,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "var_1_bit_mask_value",
-          "description": "If 1-Bit Mask Value is TRUE (default), the VI draws all elements in the image array with an index of 1 as transparent. If FALSE, the VI draws all elements with an index of 0 as transparent."
+          "description": "If 1-Bit Mask Value is TRUE (default), the VI draws all elements in the image array with an index of 1 as transparent. If FALSE, the VI draws all elements with an index of 0 as transparent.",
+          "default": true
         },
         {
           "name": "Combine Masks? (F)",
@@ -5383,7 +5394,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "combine_masks",
-          "description": "If Combine Masks? is TRUE, the VI combines any existing mask information for the image and the mask information you wire to this VI and applies all the mask information to the image. If FALSE (default), the VI applies only the mask information you wire to this VI."
+          "description": "If Combine Masks? is TRUE, the VI combines any existing mask information for the image and the mask information you wire to this VI and applies all the mask information to the image. If FALSE (default), the VI applies only the mask information you wire to this VI.",
+          "default": false
         },
         {
           "name": "image data",
@@ -5530,7 +5542,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "depth",
-          "description": "depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
+          "description": "depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel.",
+          "default": 24
         },
         {
           "name": "Background Color",
@@ -6022,7 +6035,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "quality",
-          "description": "quality specifies the level of quality you want for the JPEG using the IJG JPEG library scale, which ranges from 0 to 100. The default is 80 ."
+          "description": "quality specifies the level of quality you want for the JPEG using the IJG JPEG library scale, which ranges from 0 to 100. The default is 80 .",
+          "default": 80
         },
         {
           "name": "path to JPEG file",
@@ -6160,7 +6174,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "compression",
-          "description": "compression specifies the level of file compression you want for the PNG file."
+          "description": "compression specifies the level of file compression you want for the PNG file.",
+          "default": -1
         },
         {
           "name": "path to PNG file",
@@ -6445,7 +6460,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "use_8_bit_color_table",
-          "description": "use 8 bit color table reads the JPEG file at an 8 bit per pixel image depth instead of 24 bit per pixel image depth . The default value is FALSE."
+          "description": "use 8 bit color table reads the JPEG file at an 8 bit per pixel image depth instead of 24 bit per pixel image depth . The default value is FALSE.",
+          "default": false
         },
         {
           "name": "path",

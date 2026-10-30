@@ -77,7 +77,8 @@
           "type": "Refnum",
           "refnum_type": "vi_server",
           "class_id": 2,
-          "class_name": "VI"
+          "class_name": "VI",
+          "default_behavior": "generic VI reference"
         },
         {
           "index": 6,
@@ -89,7 +90,8 @@
           "index": 7,
           "direction": "in",
           "name": "options",
-          "type": "NumUInt32"
+          "type": "NumUInt32",
+          "default": 0
         },
         {
           "index": 8,
@@ -101,7 +103,8 @@
           "index": 9,
           "direction": "in",
           "name": "vi type (standard vi)",
-          "type": "Enum32"
+          "type": "Enum32",
+          "default": 1
         },
         {
           "index": 10,
@@ -116,11 +119,13 @@
           "type": "Refnum",
           "refnum_type": "vi_server",
           "class_id": 1,
-          "class_name": "Application"
+          "class_name": "Application",
+          "default_behavior": "application of the calling VI"
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/new-vi.html"
     },
     "8015": {
       "name": "New VI Object",

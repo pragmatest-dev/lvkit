@@ -16,7 +16,8 @@
           "index": 0,
           "direction": "in",
           "name": "name",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 1,
@@ -123,7 +124,8 @@
           "index": 1,
           "direction": "in",
           "name": "return_elements",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,

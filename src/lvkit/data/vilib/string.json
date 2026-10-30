@@ -2795,7 +2795,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "replace_all",
-          "description": "If replace all? is TRUE, the VI replaces all substrings in string that match regular expression ."
+          "description": "If replace all? is TRUE, the VI replaces all substrings in string that match regular expression .",
+          "default": false
         },
         {
           "name": "string",
@@ -2813,7 +2814,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "regular_expression",
-          "description": "regular expression is the pattern for which you want to search in string ."
+          "description": "regular expression is the pattern for which you want to search in string .",
+          "default": ""
         },
         {
           "name": "replace string (\"\")",
@@ -2822,7 +2824,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "replace_string",
-          "description": "replace string replaces the substring in string that matches regular expression . The default is an empty string."
+          "description": "replace string replaces the substring in string that matches regular expression . The default is an empty string.",
+          "default": ""
         },
         {
           "name": "offset (0)",
@@ -2831,7 +2834,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "offset",
-          "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric."
+          "description": "offset specifies number of characters into string at which the function starts searching for a match. offset must be numeric.",
+          "default": 0
         },
         {
           "name": "result string",

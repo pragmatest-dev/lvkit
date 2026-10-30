@@ -151,7 +151,8 @@
           "index": 10,
           "direction": "in",
           "name": "abort (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 11,
@@ -162,7 +163,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-close-connection.html"
     },
     "1714": {
       "name": "TCP Write",
@@ -196,7 +198,8 @@
           "index": 9,
           "direction": "in",
           "name": "timeout ms (25000)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 25000
         },
         {
           "index": 10,
@@ -213,7 +216,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-write.html"
     },
     "1715": {
       "name": "TCP Open Connection",
@@ -235,7 +239,8 @@
           "index": 6,
           "direction": "in",
           "name": "local port",
-          "type": "NumUInt16"
+          "type": "NumUInt16",
+          "default": 0
         },
         {
           "index": 8,
@@ -263,7 +268,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-open-connection.html"
     },
     "1716": {
       "name": "TCP Read",
@@ -291,7 +297,8 @@
           "index": 7,
           "direction": "in",
           "name": "mode (standard)",
-          "type": "Enum16"
+          "type": "Enum16",
+          "default": 0
         },
         {
           "index": 8,
@@ -303,7 +310,8 @@
           "index": 9,
           "direction": "in",
           "name": "timeout ms (25000)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 25000
         },
         {
           "index": 10,
@@ -320,7 +328,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/tcp-read.html"
     },
     "1717": {
       "name": "TCP Create Listener",
