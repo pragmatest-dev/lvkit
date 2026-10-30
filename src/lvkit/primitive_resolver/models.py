@@ -47,6 +47,17 @@ class NodeIcon(BaseModel):
     size: tuple[int, int] | None = None
 
 
+class TerminalAlias(BaseModel):
+    """One terminal of an alternative numbering: LabVIEW versions can number
+    the same terminal differently. ``index`` and ``direction`` are the number
+    and direction a node of that numbering carries; ``terminal`` is the index
+    of the entry's own (primary) terminal it stands for."""
+
+    index: int
+    direction: str  # "in" or "out"
+    terminal: int
+
+
 class PrimitiveEntry(BaseModel):
     """A primitive entry from JSON."""
 
@@ -59,6 +70,11 @@ class PrimitiveEntry(BaseModel):
     python_code: str | dict[str, str] | None = None
     inline: bool = True
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
+    # Other numberings of the same terminals (see TerminalAlias); names, types
+    # and code come from ``terminals`` only.
+    alternative_terminal_sets: list[list[TerminalAlias]] = Field(
+        default_factory=list
+    )
     guess_reason: str | None = None
     imports: list[str] = Field(default_factory=list)
     icon: NodeIcon | None = None
@@ -82,6 +98,9 @@ class ResolvedPrimitive(BaseModel):
     inline: bool = True
     terminals: list[PrimitiveTerminal] = Field(default_factory=list)
     confidence: str = "unknown"
+    # Set when the entry has several numberings and the node's terminals fit
+    # none of them, or more than one; ``terminals`` is then empty.
+    terminal_set_gap: str | None = None
     description: str = ""
     imports: list[str] = Field(default_factory=list)
     # LabVIEW numeric primitives operate element-wise on arrays. When True,

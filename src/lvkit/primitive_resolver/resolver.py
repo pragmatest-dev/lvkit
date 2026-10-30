@@ -9,15 +9,18 @@ Lookup order (see ``PrimitiveResolver.resolve``):
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 
 from .._data import data_dir as _bundled_data_dir
 from .models import (
     PrimitiveTerminal,
     ResolvedPrimitive,
+    TerminalAlias,
     _collect_icon,
     _collect_imports,
 )
+from .terminal_sets import Slot, apply_terminal_set
 
 
 class PrimitiveResolver:
@@ -201,6 +204,7 @@ class PrimitiveResolver:
         name: str | None = None,
         input_types: list[str] | None = None,
         output_types: list[str] | None = None,
+        node_slots: Collection[Slot] | None = None,
     ) -> ResolvedPrimitive | None:
         """Resolve a primitive using multi-strategy lookup.
 
@@ -209,6 +213,9 @@ class PrimitiveResolver:
             name: Primitive name (for name-based lookup)
             input_types: Input type signatures
             output_types: Output type signatures
+            node_slots: the node's (terminal index, "in"/"out") pairs. An entry
+                with several numberings is returned in the node's numbering
+                (see ``terminal_sets``); required for such an entry.
 
         Returns:
             ResolvedPrimitive or None
@@ -219,7 +226,7 @@ class PrimitiveResolver:
             if prim_id_str in self._by_id:
                 prim = self._by_id[prim_id_str]
                 confidence = "placeholder" if prim.get("placeholder") else "exact_id"
-                return ResolvedPrimitive(
+                resolved = ResolvedPrimitive(
                     prim_id=prim_id_str,
                     name=prim.get("name", f"primitive_{prim_id}"),
                     op=prim.get("op"),
@@ -237,6 +244,15 @@ class PrimitiveResolver:
                     icon=_collect_icon(prim),
                     doc_url=prim.get("doc_url"),
                 )
+                alternatives = [
+                    [TerminalAlias.model_validate(a) for a in alias_set]
+                    for alias_set in prim.get("alternative_terminal_sets", [])
+                ]
+                if alternatives:
+                    resolved = apply_terminal_set(
+                        resolved, alternatives, node_slots or ()
+                    )
+                return resolved
 
         # Strategy 2: Name-based lookup
         if name is not None:

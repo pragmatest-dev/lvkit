@@ -79,7 +79,17 @@
           "type": "polymorphic"
         }
       ],
+      "alternative_terminal_sets": [
+        [
+          {"index": 0, "direction": "in", "terminal": 0},
+          {"index": 1, "direction": "out", "terminal": 3},
+          {"index": 2, "direction": "in", "terminal": 8},
+          {"index": 3, "direction": "in", "terminal": 9},
+          {"index": 4, "direction": "out", "terminal": 11}
+        ]
+      ],
       "python_code": {
+        "error out": "in_0",
         "data": "in_8"
       },
       "inline": true,

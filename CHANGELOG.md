@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Variant To Data reads VIs saved by LabVIEW 8.2/9.0 and 11 or later** — a catalog primitive can list other terminal numberings; the node's own terminal numbers pick the one that fits, a node that fits none or several is a gap, and Variant To Data now passes its error through and its data to the output.
 - **"This VI" is the generated function** — a `This VI` reference passed to a subVI is the VI's own function and its Name / Path properties read it by reflection; it is told from `This Application` by the class its reference type records (`CtlFlags`), and `This Application` stays a gap.
 - **Search and Replace String generates plain `re` / `str.replace` code that honors every input** — ignore case, offset, replace first or all, the number of replacements and the offset past the replacement, and Regular Expression mode (PCRE search string, `$1` / `${1}` / `\$` replace string, `multiline?`) as Python `re`; a PCRE construct Python cannot read is a gap naming it.
 - **A block-diagram constant with no stored value is a gap, a wired input with no variable is an error, a While Loop's iteration terminal counts, a For Loop's count terminal can be read inside the loop, and Scan From String, In Place Element and Register For Events stop leaving their wires without a value** — each used to read as a silent default.
