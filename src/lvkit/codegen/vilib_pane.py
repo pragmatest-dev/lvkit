@@ -15,9 +15,14 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import (
+    TD_FULL_TYPE,
+    is_boolean_type_name,
+    is_numeric_type_name,
+    is_string_type_name,
+)
 from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
-from lvkit.vilib_resolver import VIEntry, VITerminal
+from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
 
 from .ast_utils import param_default_expr
 
@@ -42,9 +47,9 @@ def _family(type_name: str) -> str | None:
         return "Boolean"
     if is_string_type_name(underlying):
         return "String"
-    if underlying == "Path":
+    if underlying == TD_FULL_TYPE.Path.name:
         return "Path"
-    if underlying and underlying.startswith(("NumInt", "NumUInt", "NumFloat")):
+    if is_numeric_type_name(underlying):
         return "Numeric"
     return None
 
@@ -56,7 +61,7 @@ def _type_disagrees(catalog: VITerminal, pane: Terminal) -> bool:
     lv_type = pane.lv_type
     if catalog.type is None or lv_type is None:
         return False
-    if catalog.type.endswith(".ctl"):
+    if get_resolver().resolve_type(catalog.type) is not None:
         return lv_type.typedef_name is not None and catalog.type != lv_type.typedef_name
     if lv_type.kind is not LVTypeKind.PRIMITIVE or lv_type.underlying_type is None:
         return False

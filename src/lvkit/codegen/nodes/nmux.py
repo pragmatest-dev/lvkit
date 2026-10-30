@@ -28,6 +28,7 @@ from ..ast_utils import (
     build_assign,
     build_assign_attr,
     default_value_expr,
+    field_attribute_paths,
     parse_expr,
     to_var_name,
 )
@@ -465,10 +466,9 @@ def _field_name(
     counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
-    flat = _flatten_fields(class_fields)
-    if 0 <= term.nmux_field_index < len(flat):
-        path, _field = flat[term.nmux_field_index]
-        return to_var_name(path[-1])
+    paths = field_attribute_paths(class_fields)
+    if 0 <= term.nmux_field_index < len(paths):
+        return paths[term.nmux_field_index][-1]
     return None
 
 
@@ -479,11 +479,9 @@ def _field_expr(
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""
     if term.nmux_field_index is not None and class_fields:
-        flat = _flatten_fields(class_fields)
-        if 0 <= term.nmux_field_index < len(flat):
-            path, _field = flat[term.nmux_field_index]
-            dotted = ".".join(to_var_name(p) for p in path)
-            return f"{agg_var}.{dotted}"
+        paths = field_attribute_paths(class_fields)
+        if 0 <= term.nmux_field_index < len(paths):
+            return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
 
     raise TypeResolutionNeeded(
         type_name=f"field[{term.nmux_field_index}]",

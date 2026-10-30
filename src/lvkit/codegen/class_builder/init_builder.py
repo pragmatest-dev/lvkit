@@ -6,7 +6,7 @@ import ast
 
 from lvkit.structure import LVClass
 
-from ..ast_utils import to_var_name, unique_names
+from ..ast_utils import field_attribute_names, to_var_name
 
 
 class _InitBuilderMixin:
@@ -56,7 +56,7 @@ class _InitBuilderMixin:
         # Fields whose labels become one Python name ("Count" and "count", "a b"
         # and "a_b") each get their own attribute.
         fields = lvclass.private_data_fields
-        attr_names = unique_names([to_var_name(f.name) for f in fields])
+        attr_names = field_attribute_names(f.name for f in fields)
         for field, var_name in zip(fields, attr_names, strict=True):
             scope = accessor_scopes.get(to_var_name(field.name), "public")
 

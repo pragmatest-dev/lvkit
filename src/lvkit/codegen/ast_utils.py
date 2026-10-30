@@ -5,10 +5,11 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, ScalarValue, Terminal
 from lvkit.vi_files import strip_vi_extension
 
 from .errors import CodeGenError
@@ -290,6 +291,28 @@ def unique_names(names: list[str]) -> list[str]:
         used.add(candidate)
         result.append(candidate)
     return result
+
+
+def field_attribute_names(field_names: Iterable[str]) -> list[str]:
+    """The Python attribute name of each field of one cluster, given the fields'
+    labels: the fields whose labels become one name ("Count" and "count") each
+    get their own."""
+    return unique_names([to_var_name(name) for name in field_names])
+
+
+def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
+    """The attribute path of every field of a cluster hierarchy, depth first in
+    the order of ``_flatten_fields`` (a sub-cluster is its own slot, followed by
+    its fields): the names ``field_attribute_names`` gives at each level."""
+    paths: list[list[str]] = []
+    names = field_attribute_names(f.name for f in fields)
+    for field, name in zip(fields, names, strict=True):
+        paths.append([name])
+        if field.type and field.type.fields:
+            paths.extend(
+                [name, *sub] for sub in field_attribute_paths(field.type.fields)
+            )
+    return paths
 
 
 def parameter_names(terminals: list[Terminal]) -> dict[str, str]:

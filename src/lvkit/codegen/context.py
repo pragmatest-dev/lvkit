@@ -38,6 +38,7 @@ from lvkit.models import (
 )
 
 from .ast_utils import (
+    field_attribute_names,
     interface_names,
     to_function_name,
     to_var_name,
@@ -993,7 +994,12 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         elts = ", ".join(v for _name, v in ordered)
         trailing = "," if len(ordered) == 1 else ""
         return f"({elts}{trailing})"
-    kwargs = ", ".join(f"{to_var_name(name)}={v}" for name, v in ordered)
+    kwargs = ", ".join(
+        f"{attribute}={v}"
+        for attribute, (_name, v) in zip(
+            field_attribute_names(f.name for f in fields), ordered, strict=True
+        )
+    )
     return f"SimpleNamespace({kwargs})"
 
 

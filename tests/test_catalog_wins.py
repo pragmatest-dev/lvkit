@@ -177,3 +177,32 @@ def test_a_disagreement_is_a_terminal_mapping_gap_with_its_reason() -> None:
         "the catalog's terminals for the vi.lib VI 'Get System Directory.vi' "
         "disagree with its connector pane: the catalog gives x"
     )
+
+
+@pytest.mark.parametrize(
+    "pane_type",
+    [
+        "NumInt16",
+        "NumUInt64",
+        "NumFloat64",
+        "NumComplex128",
+        "UnitFloat64",
+        "UnitComplex64",
+        "UnitUInt16",
+        "FixedPoint",
+        "ComplexFixedPt",
+    ],
+)
+def test_a_numeric_catalog_terminal_matches_every_number_type(pane_type: str) -> None:
+    entry = _entry(VITerminal(name="x", direction="in", index=0, type="stdNum"))
+    checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
+    assert checked.mismatches == []
+
+
+@pytest.mark.parametrize("pane_type", ["String", "Boolean", "Path"])
+def test_a_numeric_catalog_terminal_disagrees_with_a_non_number(
+    pane_type: str,
+) -> None:
+    entry = _entry(VITerminal(name="x", direction="in", index=0, type="stdNum"))
+    checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
+    assert len(checked.mismatches) == 1
