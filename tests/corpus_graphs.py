@@ -11,9 +11,12 @@ run on the worker that already holds its graph.
 from __future__ import annotations
 
 import functools
+import os
 from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph, load_vi_by_path
+from lvkit.index.build import BuildResult, build_index
+from lvkit.index.project import resolve_project
 from lvkit.load_mode import LoadMode
 
 
@@ -25,3 +28,18 @@ def load_corpus_vi(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, s
     return load_vi_by_path(
         vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
     )
+
+
+@functools.cache
+def build_corpus_index(project_root: Path) -> BuildResult:
+    """The index of every VI under ``project_root``, built once per test worker
+    and shared by the tests that read it: do not change it. The build runs
+    against the environment's own extraction cache (``LVKIT_CACHE_DIR`` is
+    unset for it), so a cold cache still pays a full cold build."""
+    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
+    try:
+        root, vi_paths = resolve_project(project_root)
+        return build_index(root, vi_paths)
+    finally:
+        if saved is not None:
+            os.environ["LVKIT_CACHE_DIR"] = saved

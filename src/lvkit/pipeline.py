@@ -39,6 +39,7 @@ from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
+from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.module_layout import ModuleLayout, project_root
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
@@ -293,6 +294,22 @@ def _write_errors_module(package_root: Path) -> None:
     ):
         (package_root / f"{ERRORS_MODULE_NAME}.py").write_text(
             ERRORS_MODULE_SOURCE, encoding="utf-8"
+        )
+
+
+def _warn_unimportable_paths(package_root: Path) -> None:
+    """Warn once when a written module is at a path Python cannot import on this
+    machine (a path over 260 characters while Windows long paths are off)."""
+    longest = too_long_to_import(sorted(package_root.rglob("*.py")))
+    if longest:
+        path = display_path(longest[0])
+        print(
+            f"warning: {len(longest)} generated modules are at paths over "
+            f"Windows' 260-character limit (the longest is {len(str(path))} "
+            f"characters: {path}). Python cannot import them from a normal "
+            "path: enable Windows long paths, or generate into a shorter "
+            "output folder.",
+            file=sys.stderr,
         )
 
 
@@ -553,7 +570,7 @@ def generate_python(
     vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
     vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
 
-    output_dir_resolved = output_dir_root / vi_folder_name
+    output_dir_resolved = extended_length(output_dir_root / vi_folder_name)
 
     # Clean output directory
     if output_dir_resolved.exists():
@@ -927,7 +944,8 @@ def generate_python(
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")
 
-    print(f"\nOutput: {output_dir_resolved}")
+    _warn_unimportable_paths(output_dir_resolved)
+    print(f"\nOutput: {display_path(output_dir_resolved)}")
 
     vilib_count = sum(1 for _, _, s in generated if s == "vilib")
     ast_count = sum(1 for _, _, s in generated if s == "ast")

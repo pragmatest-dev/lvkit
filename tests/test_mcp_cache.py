@@ -167,7 +167,7 @@ def test_index_tools() -> None:
     # index() builds + persists; the other tools then read the facts.
     built = _run(srv.index(project))
     assert built["vis"] > 0
-    assert built["collisions"] == 0  # a single class dir has no name clashes
+    assert built["loaded_alone"] == 0  # every VI came out of the whole-project load
 
     # The SQL query surface subsumes the old find_*/get_signatures read tools:
     # schema introspection lists the views, and reads/aggregates go through it.

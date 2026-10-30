@@ -9,6 +9,7 @@ its own parse wrote.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -55,27 +56,28 @@ def test_render_warms_the_index(sample: Path):
     assert sample.name in _indexed_names(root), "render must warm the index"
 
 
-def test_visualize_warms_the_index(sample: Path, tmp_path: Path):
-    import argparse
-
-    from lvkit.cli import cmd_visualize
+def test_visualize_warms_the_index(
+    sample: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from lvkit import cli
 
     pytest.importorskip("pyvis")
     root = _project_root_of(sample)
     assert sample.name not in _indexed_names(root)
 
-    args = argparse.Namespace(
-        input_path=str(sample),
-        output=str(tmp_path / "viz.html"),
-        mode="flow",
-        search_paths=[],
-        load_mode=None,
-        vilib=None,
-        userlib=None,
-        no_auto_vilib=True,
-        open=False,
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "lvkit",
+            "visualize",
+            str(sample),
+            "-o",
+            str(tmp_path / "viz.html"),
+            "--no-auto-vilib",
+        ],
     )
-    cmd_visualize(args)
+    assert cli.main() == 0
 
     assert sample.name in _indexed_names(root), "visualize must warm the index"
 
