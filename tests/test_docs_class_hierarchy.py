@@ -338,6 +338,7 @@ class TestMethodOverrides:
 class TestClassPageFilenames:
     def test_class_page_distinct_from_method_pages(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"TestCase.lvclass:method.vi": "TestCase.lvclass"}
         class_file = gen._class_name_to_filename("TestCase.lvclass")
         method_file = gen._vi_name_to_filename("TestCase.lvclass:method.vi")
         assert class_file != method_file
@@ -349,6 +350,7 @@ class TestClassPageFilenames:
         classname = "TestCase.lvclass"
         class_file = gen._class_name_to_filename(classname)
         method_names = ["run.vi", "class.vi", "TestCase.vi", "a b c.vi"]
+        gen.vi_groups = {f"{classname}:{m}": classname for m in method_names}
         method_files = {
             gen._vi_name_to_filename(f"{classname}:{m}") for m in method_names
         }
@@ -358,6 +360,7 @@ class TestClassPageFilenames:
 class TestClassPageGeneration:
     def test_generate_class_page_writes_expected_sections(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"Mid.lvclass:run.vi": "Mid.lvclass"}
         hierarchy = ClassHierarchyInfo(
             classname="Mid.lvclass",
             parent_class="Base.lvclass",
@@ -395,6 +398,7 @@ class TestClassPageGeneration:
 
     def test_index_page_links_class_group_header(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"Mid.lvclass:run.vi": "Mid.lvclass"}
         hierarchy = ClassHierarchyInfo(
             classname="Mid.lvclass",
             parent_class=None,

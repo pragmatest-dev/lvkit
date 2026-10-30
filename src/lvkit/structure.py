@@ -448,6 +448,7 @@ def _resolve_type_ids(
     if _visited is None:
         _visited = frozenset()
 
+    unlabelled: list[tuple[LVPrivateDataField, int]] = []
     for position, tid in enumerate(type_ids):
         if tid is None:
             continue
@@ -478,13 +479,8 @@ def _resolve_type_ids(
                 lv_type = nested.get("Type", "")
 
         # Get label: try the resolved element first, then the outer TypeDef
-        # wrapper. A field with neither is named by its position in the cluster,
-        # as every other cluster field without a label is.
-        label = (
-            resolved_elem.get("Label", "")
-            or type_elem.get("Label", "")
-            or f"field_{position}"
-        )
+        # wrapper. A field with neither is named by its position below.
+        label = resolved_elem.get("Label", "") or type_elem.get("Label", "")
 
         # For class refnums, extract qualified classname from <Item> chain
         ref_type = resolved_elem.get("RefType", "")
@@ -506,15 +502,29 @@ def _resolve_type_ids(
                 )
 
         python_type = _lv_type_to_python(lv_type)
-        fields.append(
-            LVPrivateDataField(
-                name=label,
-                python_type=python_type,
-                lv_type_name=lv_type,
-                sub_fields=sub_fields,
-                ref_type=ref_type,
-            )
+        field_ = LVPrivateDataField(
+            name=label,
+            python_type=python_type,
+            lv_type_name=lv_type,
+            sub_fields=sub_fields,
+            ref_type=ref_type,
         )
+        fields.append(field_)
+        if not label:
+            unlabelled.append((field_, position))
+
+    # A field with no label is named by its position in the cluster, as every
+    # other cluster field without a label is; a position name another field
+    # already has gets a number after it.
+    taken = {f.name for f in fields if f.name}
+    for field_, position in unlabelled:
+        name = f"field_{position}"
+        copy = 2
+        while name in taken:
+            name = f"field_{position}_{copy}"
+            copy += 1
+        taken.add(name)
+        field_.name = name
 
     return fields
 

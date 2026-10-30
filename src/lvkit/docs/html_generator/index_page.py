@@ -55,7 +55,8 @@ class IndexPageMixin:
                     icon_path = self.icon_map[vi_name].replace("../", "")
                     icon_html = f'<img src="{icon_path}" alt="" class="vi-icon-small">'
                 vi_links.append(
-                    f'<li>{icon_html}<a href="{link}">{display_name}</a></li>'
+                    f'<li>{icon_html}<a href="{escape(link)}">'
+                    f"{escape(display_name)}</a></li>"
                 )
 
             vi_count = len(vis_in_library)
@@ -63,10 +64,11 @@ class IndexPageMixin:
             # Class group headers link to the class's landing page.
             if library in self.class_pages:
                 library_name_html = (
-                    f'<a href="{self.class_pages[library]}">{library}</a>'
+                    f'<a href="{escape(self.class_pages[library])}">'
+                    f"{escape(library)}</a>"
                 )
             else:
-                library_name_html = library
+                library_name_html = escape(library)
             library_sections.append(f"""
             <details class="library-accordion" open>
                 <summary class="library-header">
@@ -109,12 +111,12 @@ class IndexPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{self.doc_title} - Documentation</title>
+    <title>{escape(self.doc_title)} - Documentation</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>{self.doc_title}</h1>
+        <h1>{escape(self.doc_title)}</h1>
         <p class="subtitle">{self.doc_type.capitalize()} Documentation</p>
     </header>
 

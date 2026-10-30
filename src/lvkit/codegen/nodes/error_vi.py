@@ -36,9 +36,13 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     A constant code is known here, so its description is written into the module
     as the message (the wired message wins when there is one).
     """
-    if node.name != VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE:
+    resolver = get_resolver()
+    if (
+        resolver.catalog_file_name(node.qualified_path)
+        != VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE
+    ):
         return CodeFragment.empty()
-    entry = get_resolver().resolve_recorded(node.qualified_path)
+    entry = resolver.resolve_recorded(node.qualified_path)
     if entry is None:
         return CodeFragment.empty()
     index_of = {t.python_param: t.index for t in entry.terminals if t.direction == "in"}

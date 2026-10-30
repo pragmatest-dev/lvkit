@@ -4,6 +4,7 @@ keeps its own terminals and is not treated as an error VI."""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from lvkit.codegen.context import CodeGenContext
@@ -54,7 +55,9 @@ def test_project_merge_errors_is_a_call_of_its_own_module() -> None:
     )
     assert vilib.statements == []
     project = subvi.generate(merge("/Helpers/Merge Errors.vi"), CodeGenContext())
-    assert len(project.statements) == 1
+    assert [ast.unparse(ast.fix_missing_locations(s)) for s in project.statements] == [
+        "merge_errors_result = merge_errors()"
+    ]
 
 
 def _terminal_names(tmp_path: Path, tokens: list[str]) -> list[str | None]:
@@ -90,3 +93,22 @@ def test_call_terminals_come_from_the_catalog_only_for_a_vilib_path(
         project_dir, ["", "Helpers", "Error Cluster From Error Code.vi"]
     )
     assert from_project == [None] * len(from_project)
+
+
+def test_resolve_call_picks_the_selected_variant_by_the_recorded_path() -> None:
+    resolver = get_resolver()
+    path = "<vilib>/DAQmx/read.llb/DAQmx Read.vi"
+    selector = "Digital 1D Bool\nNChan 1Samp"
+    variant = resolver.resolve_call(path, selector)
+    assert variant is not None
+    assert variant.name == "DAQmx Read (Digital 1D Bool NChan 1Samp).vi"
+    wrapper = resolver.resolve_call(path, None)
+    assert wrapper is not None and wrapper.name != variant.name
+    # A variant the catalog does not list: the wrapper, unless a variant is needed.
+    assert resolver.resolve_call(path, "no such variant") is wrapper
+    assert (
+        resolver.resolve_call(path, "no such variant", wrapper_fallback=False) is None
+    )
+    # A project VI of the same file name is not the catalog's.
+    assert resolver.resolve_call("/Helpers/DAQmx Read.vi", selector) is None
+    assert resolver.resolve_call(None, selector) is None

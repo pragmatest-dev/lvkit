@@ -155,17 +155,18 @@ class ClassPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{classname} - {self.doc_title}</title>
+    <title>{escape(classname)} - {escape(self.doc_title)}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
     <nav class="breadcrumb">
-        <a href="../index.html">{self.doc_title}</a> / <span>{classname}</span>
+        <a href="../index.html">{escape(self.doc_title)}</a> /
+        <span>{escape(classname)}</span>
     </nav>
 
     <header>
         <div class="vi-header-text">
-            <h1>{classname}</h1>
+            <h1>{escape(classname)}</h1>
             <p class="vi-type">Class</p>
         </div>
     </header>

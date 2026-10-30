@@ -151,6 +151,18 @@ def _redirect_member_beside_container(cand: Path, leaf: str) -> Path:
     return cand
 
 
+def _member_path_tokens(tokens: list[str], leaf: str) -> list[str]:
+    """The tokens of a dependency's own file: a class/library member's recorded
+    tokens end at its owning container, and the member sits beside it (see
+    ``_redirect_member_beside_container``)."""
+    if not tokens:
+        return []
+    return [
+        *tokens[:-1],
+        _redirect_member_beside_container(Path(tokens[-1]), leaf).name,
+    ]
+
+
 def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     """Build the typed ``VIProperties`` facet from ``parse_vi_metadata``'s
     plain nested dict-of-dicts (``lvsr._parse_lvsr_properties`` output,
@@ -504,6 +516,24 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller, key, rel=rel)
             else:
                 self._dep_graph.add_edge(caller, key)
+
+    def _record_path_tokens(
+        self, key: str, dep_ref: ParsedDependencyRef | None, leaf: str
+    ) -> None:
+        """Keep the path a caller recorded for the dependency on the node ``key``
+        that satisfies it, so a loaded file is named by that path as an absent
+        one is (``InMemoryVIGraph.recorded_path``). The first caller that
+        records one wins."""
+        if (
+            dep_ref is None
+            or not dep_ref.path_tokens
+            or not self._dep_graph.has_node(key)
+            or self._dep_graph.nodes[key].get("path_tokens")
+        ):
+            return
+        self._dep_graph.nodes[key]["path_tokens"] = _member_path_tokens(
+            dep_ref.path_tokens, leaf
+        )
 
     @_with_extraction_pool
     def load_lvlib(
@@ -2073,6 +2103,7 @@ class LoadingMixin:
                 # A fields-only class placeholder can be UPGRADED by a resolvable
                 # ref — fall through to a full load; otherwise it's done.
                 if not self._dep_graph.nodes[dep_key].get("fields_only"):
+                    self._record_path_tokens(dep_key, dep_ref, leaf)
                     return dep_key
             # else fall through to the dispatch below, which loads and keys by
             # this same path (idempotently).
@@ -2138,12 +2169,14 @@ class LoadingMixin:
 
         # Dispatch by extension to the matching public loader.
         if is_vi_file(leaf):
-            return (
+            loaded_key = (
                 self._leaf_load_vi(
                     resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
                 )
                 or dep_key
             )
+            self._record_path_tokens(loaded_key, dep_ref, leaf)
+            return loaded_key
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
             owner_chain = parts[:-1] if len(parts) > 1 else None

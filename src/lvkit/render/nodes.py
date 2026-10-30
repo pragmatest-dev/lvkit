@@ -712,15 +712,7 @@ class JsonGlyphResolver:
     @staticmethod
     def _vi_icon(node: VINode) -> NodeIcon | None:
         resolver = get_vilib_resolver()
-        entry = None
-        if (
-            node.poly_variant_name
-            and node.name
-            and resolver.in_catalog_scope(node.qualified_path)
-        ):
-            entry = resolver.resolve_poly_variant(node.name, node.poly_variant_name)
-        if entry is None:
-            entry = resolver.resolve_recorded(node.qualified_path)
+        entry = resolver.resolve_call(node.qualified_path, node.poly_variant_name)
         return entry.icon if entry is not None else None
 
     @staticmethod

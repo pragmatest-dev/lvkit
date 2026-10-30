@@ -6,11 +6,13 @@ into a Python name. The project is the one the generated VI belongs to (its
 ``.lvproj``, ``.git`` or ``.lvkit`` folder, else the VI's own folder), so the layout
 never depends on what else was loaded.
 
-A file outside the project is placed by the path its caller recorded for it
-(``<vilib>/Utility/error.llb/X.vi`` is ``vilib.utility.errorllb.x``); one found
-through a search path with no recorded path, under a package named for that search
-path; any other under ``external``, by its path from the folder it shares with the
-project. A VI with no file and no recorded path cannot be imported and stops
+A file outside the project is placed by the path its caller recorded for it when
+that path starts at a LabVIEW installation folder (``<vilib>/Utility/error.llb/X.vi``
+is ``vilib.utility.errorllb.x``), which names the same file for every caller; one
+found through a search path, under a package named for that search path; any other
+under ``external``, by its path from the folder it shares with the project. A VI
+with no file is placed by the path its caller recorded, whatever it starts at; one
+with neither a file nor a recorded path cannot be imported and stops
 generation, naming it. Paths are unique, so modules are unique: no collision
 numbering. Two files whose parts transform to the same name stop generation, naming
 both.
@@ -27,6 +29,7 @@ from pathlib import Path
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
+from lvkit.parser.models import is_symbolic_root
 from lvkit.project_store import PROJECT_STORE_DIR, global_home
 from lvkit.vi_files import strip_vi_extension
 
@@ -96,6 +99,13 @@ def _packages(folders: Sequence[str]) -> tuple[str, ...]:
     return tuple(module_part(f) for f in folders if f != ".")
 
 
+def _in_installation_folder(recorded: str) -> bool:
+    """Whether a recorded path starts at a LabVIEW installation folder
+    (``<vilib>/...``), which names the same file for every caller; any other
+    recorded path is relative to the caller that recorded it."""
+    return is_symbolic_root(_tokens(recorded)[0]) if _tokens(recorded) else False
+
+
 def _is_path(key: str) -> bool:
     return os.path.isabs(key) or len(_tokens(key)) > 1
 
@@ -150,13 +160,16 @@ class ModuleLayout:
         inside = _below(str(folder.resolve()), self._root)
         return None if inside is None else _packages(inside)
 
+    def _recorded_path(self, key: str) -> str | None:
+        """The path a caller recorded for ``key`` (``recorded`` when given, else
+        the graph's)."""
+        if self._recorded is None:
+            return self._graph.recorded_path(key)
+        return self._recorded.get(key)
+
     def _tokens_of(self, key: str) -> list[str]:
         """The folders and the file name that place ``key``."""
-        recorded = (
-            self._graph.recorded_path(key)
-            if self._recorded is None
-            else self._recorded.get(key)
-        )
+        recorded = self._recorded_path(key)
         if not _is_path(key):
             if recorded is None:
                 raise UnplacedVIError(
@@ -169,7 +182,9 @@ class ModuleLayout:
         inside = _below(key, self._root)
         if inside is not None:
             return list(inside)
-        if recorded is not None:
+        if recorded is not None and (
+            self._graph.is_stub(key) or _in_installation_folder(recorded)
+        ):
             return _tokens(recorded)
         for search_root in self._search_roots:
             inside = _below(key, search_root)
@@ -212,6 +227,14 @@ class ModuleLayout:
         for a project file, the recorded path's folders (``<vilib>``, ...) for a
         file outside it. Raises ``UnplacedVIError`` when nothing says where it
         is."""
+        recorded = self._recorded_path(key)
+        if (
+            recorded is not None
+            and _is_path(key)
+            and os.path.isabs(key)
+            and _below(key, self._root) is None
+        ):
+            return tuple(_tokens(recorded)[:-1])
         return tuple(self._tokens_of(key)[:-1])
 
     def packages_of(self, key: str) -> tuple[str, ...]:

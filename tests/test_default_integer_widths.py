@@ -34,7 +34,7 @@ def test_width_from_type_name(name: str, width: int) -> None:
     kind = LVTypeKind.ENUM if name.startswith("Unit") else LVTypeKind.PRIMITIVE
     value, consumed, _ = _decode_element(DATA, _t(name, kind))
     assert consumed == width
-    assert value is not None
+    assert value == str(int.from_bytes(DATA[:width], "big"))
 
 
 def test_unknown_enum_name_is_not_decoded() -> None:

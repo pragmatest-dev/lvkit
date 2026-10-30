@@ -10,10 +10,12 @@ import logging
 import shutil
 import time
 from collections import Counter
+from collections.abc import Callable, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
-from lvkit.docs.html_generator.naming import library_group
+from lvkit.docs.html_generator.naming import folders_below_root, library_group
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
@@ -129,17 +131,21 @@ def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
 
 
 def _collect_library_groups(
-    graph: InMemoryVIGraph, vi_names: list[str], project: Path
+    graph: InMemoryVIGraph,
+    vi_names: list[str],
+    project: Path,
+    search_roots: Sequence[Path] = (),
 ) -> tuple[dict[str, str], dict[str, str]]:
     """The group and the shown name of every VI that has a page or is linked from
-    one. The group is its owning library, ``vi.lib`` for a recorded ``<vilib>``
-    path, else its project-relative folder (the recorded path's folder for a VI
-    outside the project)."""
-    layout = ModuleLayout(graph, [], project)
+    one. The group is its owning class or library; else the installation folder
+    (``vi.lib``, ``user.lib``) its caller recorded; else its project-relative
+    folder (the recorded path's folder for a VI outside the project)."""
+    layout = ModuleLayout(graph, [], project, search_roots)
     names: set[str] = set(vi_names)
     for vi_name in vi_names:
         names.update(graph.get_vi_dependencies(vi_name))
         names.update(graph.get_vi_dependents(vi_name))
+        names.update(graph.get_polymorphic_groups().get(vi_name, []))
     groups: dict[str, str] = {}
     labels: dict[str, str] = {}
     folders_of: dict[str, tuple[str, ...]] = {}
@@ -149,18 +155,26 @@ def _collect_library_groups(
         except UnplacedVIError:
             folders_of[name] = ()
         labels[name] = graph.vi_display_name(name)
-        groups[name] = library_group(labels[name], folders_of[name])
+        owner = graph.get_owning_class(name) or graph.get_owning_library(name)
+        groups[name] = library_group(owner, folders_of[name])
     # Two VIs filed under one group with one name (vi.lib holds many folders):
     # the folders they sit in tell them apart.
     taken = Counter((groups[n], labels[n]) for n in names)
     for name in names:
         if taken[(groups[name], labels[name])] > 1:
-            labels[name] = "/".join((*folders_of[name], labels[name]))
+            labels[name] = "/".join(
+                (*folders_below_root(folders_of[name]), labels[name])
+            )
     return groups, labels
 
 
-def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
-    """Collect and copy VI icons to the output directory."""
+def _collect_icons(
+    graph: InMemoryVIGraph,
+    output_dir: Path,
+    page_filename: Callable[[str], str],
+) -> dict[str, str]:
+    """Collect and copy VI icons to the output directory, each beside the name of
+    its VI's page (``icons/<group>/<page>.png``)."""
     icons_dir = output_dir / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
 
@@ -176,11 +190,11 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
         icon_source = resolve_icon_png(vi_path.parent, vi_path.stem)
 
         if icon_source is not None:
-            safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
-            safe_name = safe_name.replace(" ", "_").replace(".", "_")
-            icon_dest = icons_dir / f"{safe_name}.png"
+            icon_name = page_filename(vi_name).removesuffix(".html") + ".png"
+            icon_dest = icons_dir / icon_name
+            icon_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(icon_source, icon_dest)
-            icon_map[vi_name] = f"../icons/{safe_name}.png"
+            icon_map[vi_name] = f"../icons/{icon_name}"
 
     return icon_map
 
@@ -243,21 +257,17 @@ def _prepare_vi_documentation_data(
     }
     qualified_deps -= type_definitions.keys()
 
-    def _extract_subvi_names(nodes):
-        names = []
+    def _callee_keys(nodes: list) -> list[str]:
+        keys: list[str] = []
         for node in nodes:
-            if isinstance(node, VINode) and node.name:
-                names.append(node.name)
-            names.extend(_extract_subvi_names(graph.child_nodes(node.id, vi_name)))
-        return names
+            if isinstance(node, VINode):
+                key = graph.loaded_callee_key(node)
+                if key is not None:
+                    keys.append(key)
+            keys.extend(_callee_keys(graph.child_nodes(node.id, vi_name)))
+        return keys
 
-    op_names = set(_extract_subvi_names(operations_dc))
-    for op_name in op_names:
-        already_covered = any(
-            dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps
-        )
-        if not already_covered:
-            qualified_deps.add(op_name)
+    qualified_deps.update(_callee_keys(operations_dc))
     qualified_deps.discard(vi_name)
 
     dependencies = {
@@ -316,6 +326,20 @@ def _prepare_vi_documentation_data(
     owning_class = graph.get_owning_class(vi_name)
     method_access = graph.get_method_access(vi_name) if owning_class else None
     method_overrides = graph.get_method_overrides(vi_name) if owning_class else None
+    if method_overrides is not None:
+        # The graph names the related methods by qualified name; the pages are
+        # filed by VI key.
+        method_overrides = replace(
+            method_overrides,
+            overrides=(
+                graph.resolve_vi_name(method_overrides.overrides)
+                if method_overrides.overrides
+                else None
+            ),
+            overridden_by=[
+                graph.resolve_vi_name(name) for name in method_overrides.overridden_by
+            ],
+        )
 
     return {
         "vi_name": vi_name,
@@ -464,9 +488,7 @@ def generate_documents(
             loaded_ctls.append(ctl_path.name)
 
     if not loaded_vis and not loaded_ctls:
-        return "Failed to load any VIs or controls. Errors:\n" + "\n".join(
-            failed_files
-        )
+        return "Failed to load any VIs or controls. Errors:\n" + "\n".join(failed_files)
     typedef_keys = graph.list_typedefs()
 
     # Every command that parses a VI warms the index — docs parses the whole
@@ -479,30 +501,30 @@ def generate_documents(
     poly_groups = graph.get_polymorphic_groups()
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
 
+    # Create HTML generator
+    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
+    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
+    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
+
+    all_vis = graph.list_vis()
+    generator.all_vis = set(all_vis)
+    generator.vi_groups, generator.vi_labels = _collect_library_groups(
+        graph, all_vis, project_root(library_path_obj), search_path_objs
+    )
+
     # Collect and copy icons
     print("[TIMING] Collecting VI icons...")
     t0 = time.time()
-    icon_map = _collect_icons(graph, output_dir_obj)
+    icon_map = _collect_icons(graph, output_dir_obj, generator._vi_name_to_filename)
+    generator.icon_map = icon_map
     print(
         f"[TIMING] Icon collection: {time.time() - t0:.2f}s"
         f" - Found {len(icon_map)} icons"
     )
 
-    # Create HTML generator
-    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
-    generator.icon_map = icon_map
-    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
-    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
-
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
     t0 = time.time()
-    all_vis = graph.list_vis()
-
-    generator.all_vis = set(all_vis)
-    generator.vi_groups, generator.vi_labels = _collect_library_groups(
-        graph, all_vis, project_root(library_path_obj)
-    )
 
     generated_count = 0
 

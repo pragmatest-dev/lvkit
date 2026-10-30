@@ -10,30 +10,46 @@ import hashlib
 import re
 from collections.abc import Sequence
 
+from lvkit.parser.models import is_symbolic_root
 from lvkit.vi_files import strip_vi_extension
 
 # The group of a VI that sits directly in the project folder.
 PROJECT_GROUP = "Project"
-VILIB_GROUP = "vi.lib"
-_VILIB_TOKEN = "<vilib>"
+# The folder each LabVIEW installation root names; any other symbolic root
+# (``<resource>``) is named by its own token.
+SYMBOLIC_ROOT_GROUPS = {
+    "<vilib>": "vi.lib",
+    "<userlib>": "user.lib",
+    "<instrlib>": "instr.lib",
+}
 
 
-def library_of_qualified_name(name: str) -> str | None:
-    """The owning ``.lvlib`` / ``.lvclass`` of a qualified VI name, else None."""
-    if ".lvlib:" in name or ".lvclass:" in name:
-        return name.split(":")[0]
-    return None
+def group_of_symbolic_root(token: str) -> str:
+    """The group of the VIs a caller recorded under the installation folder
+    ``token`` (``<userlib>`` is ``user.lib``)."""
+    return SYMBOLIC_ROOT_GROUPS.get(token, token[1:-1])
 
 
-def library_group(display_name: str, folders: Sequence[str]) -> str:
-    """The group of one VI: its owning library or class (from its qualified
-    ``display_name``); else ``vi.lib`` when the path recorded for it is under
-    ``<vilib>``; else its project-relative folder (``folders``, outermost first)."""
-    owner = library_of_qualified_name(display_name)
+def folders_below_root(folders: Sequence[str]) -> tuple[str, ...]:
+    """``folders`` without a leading installation folder, which the group names."""
+    if folders and is_symbolic_root(folders[0]):
+        return tuple(folders[1:])
+    return tuple(folders)
+
+
+def group_folder(group: str) -> str:
+    """The folder a group's pages are written to."""
+    return re.sub(r'[.:/\\<>|?*"]', "_", group)
+
+
+def library_group(owner: str | None, folders: Sequence[str]) -> str:
+    """The group of one VI: its owning class or library ``owner``; else the
+    installation folder (``vi.lib``, ``user.lib``) its recorded path starts with;
+    else its project-relative folder (``folders``, outermost first)."""
     if owner is not None:
         return owner
-    if folders and folders[0] == _VILIB_TOKEN:
-        return VILIB_GROUP
+    if folders and is_symbolic_root(folders[0]):
+        return group_of_symbolic_root(folders[0])
     return "/".join(folders) or PROJECT_GROUP
 
 
@@ -49,35 +65,21 @@ class NamingMixin:
     def _vi_label(self, vi_name: str) -> str:
         return self.vi_labels.get(vi_name, vi_name)
 
+    def _vi_short_label(self, vi_name: str) -> str:
+        """The VI's shown name without its owner (``Cls.lvclass:Do.vi`` is
+        ``Do.vi``), for lists on a page."""
+        return self._vi_label(vi_name).split(":")[-1]
+
     def _extract_library_group(self, vi_name: str) -> str:
         """The group a VI's page is filed under: the group registered for it in
-        ``vi_groups``; else its owning library or class from a qualified name
-        (``GraphicalTestRunner.lvlib:Get Settings Path.vi`` ->
-        ``GraphicalTestRunner.lvlib``); else the project's own folder."""
-        registered = self.vi_groups.get(vi_name)
-        if registered is not None:
-            return registered
-        return library_of_qualified_name(vi_name) or PROJECT_GROUP
+        ``vi_groups``."""
+        return self.vi_groups[vi_name]
 
     def _extract_display_name(self, vi_name: str) -> str:
-        """Extract display name from full VI name.
-
-        Examples:
-            "GraphicalTestRunner.lvlib:Get Settings Path.vi" -> "Get Settings Path"
-            "Build Path__ogtk.vi" -> "Build Path"
-            "Get System Directory.vi" -> "Get System Directory"
-        """
-        # Handle library-qualified names
+        """The VI's shown name without its qualifier and ``.vi`` extension
+        (``Lib.lvlib:Get Settings Path.vi`` is ``Get Settings Path``)."""
         label = self._vi_label(vi_name)
-        name = label.split(":")[-1]
-
-        # Remove .vi extension
-        name = strip_vi_extension(name)
-
-        # Remove __ogtk suffix
-        name = name.replace("__ogtk", "")
-
-        return name.strip()
+        return strip_vi_extension(label.split(":")[-1]).strip()
 
     def _vi_name_to_filename(self, vi_name: str) -> str:
         """Convert VI name to safe HTML filename with library subdirectory.
@@ -89,7 +91,7 @@ class NamingMixin:
         library_group = self._extract_library_group(vi_name)
 
         # Sanitize library group name for filesystem
-        safe_lib = library_group.replace(".", "_").replace(":", "_").replace("/", "_")
+        safe_lib = group_folder(library_group)
 
         # Handle qualified names (Library.lvlib:VI.vi)
         safe_name = (
@@ -147,5 +149,5 @@ class NamingMixin:
         basename, since those always carry a ":<method>.vi" suffix baked in
         before sanitizing.
         """
-        safe_lib = classname.replace(".", "_").replace(":", "_").replace("/", "_")
+        safe_lib = group_folder(classname)
         return f"{safe_lib}/{classname}.html"

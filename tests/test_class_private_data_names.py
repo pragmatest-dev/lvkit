@@ -38,3 +38,18 @@ def test_init_keeps_every_field() -> None:
         if isinstance(stmt, ast.Assign)
     ]
     assert targets == ["none", "field_1"]
+
+
+def test_position_name_never_repeats_a_labelled_field() -> None:
+    # The unlabelled field at position 1 would be ``field_1``; a labelled field
+    # of that name (before it or after it) keeps it.
+    for labels in (["field_1", "", "Count"], ["", "Count", "field_0"]):
+        root = _vctp(*labels)
+        names = [f.name for f in _resolve_type_ids(root, ["0", "1", "2"])]
+        assert len(set(names)) == 3
+    root = _vctp("field_1", "", "")
+    names = [f.name for f in _resolve_type_ids(root, ["0", "1", "2"])]
+    assert names == ["field_1", "field_1_2", "field_2"]
+    root = _vctp("", "field_0")
+    names = [f.name for f in _resolve_type_ids(root, ["0", "1"])]
+    assert names == ["field_0_2", "field_0"]

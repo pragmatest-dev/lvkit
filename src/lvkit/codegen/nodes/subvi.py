@@ -50,16 +50,18 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if node.node_type in ("dynIUse", "callParentDynIUse"):
         return _generate_dynamic_dispatch(node, ctx)
 
-    # Look up VI — polymorphic variant if selected, otherwise base name
+    # Look up VI — polymorphic variant if selected, otherwise the recorded path
     vilib_vi = None
     if node.poly_variant_name:
-        vilib_vi = _resolve_poly_variant(subvi_name, node)
+        vilib_vi = get_resolver().resolve_call(
+            node.qualified_path, node.poly_variant_name, wrapper_fallback=False
+        )
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
 
     else:
-        vilib_vi = _get_vilib_vi(subvi_name, node, ctx)
+        vilib_vi = _get_vilib_vi(node, ctx)
 
     # Check for inline replacement first
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
@@ -274,22 +276,8 @@ def _generate_inline(
     )
 
 
-def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
-    """Resolve a polymorphic VI to its specific variant.
-
-    Uses poly_variant_name (edit-time selection extracted from the VI's
-    polySelector XML element) to look up the correct variant entry
-    via poly_selector_names in the driver/vilib data.
-    """
-    variant = node.poly_variant_name
-    resolver = get_resolver()
-    if not variant or not resolver.in_catalog_scope(node.qualified_path):
-        return None
-    return resolver.resolve_poly_variant(base_name, variant)
-
-
 def _get_vilib_vi(
-    subvi_name: str, node: VINode | None = None, ctx: CodeGenContext | None = None
+    node: VINode | None = None, ctx: CodeGenContext | None = None
 ) -> VIEntry | None:
     """Look up SubVI in vilib resolver.
 
@@ -300,20 +288,11 @@ def _get_vilib_vi(
         resolver = get_resolver()
         recorded_path = node.qualified_path if node else None
 
-        # For polymorphic calls, resolve to the actual variant.
-        # If variant not found, fail — don't silently use the wrapper.
-        vi = None
-        if (
-            node
-            and node.poly_variant_name
-            and resolver.in_catalog_scope(recorded_path)
-        ):
-            vi = resolver.resolve_poly_variant(subvi_name, node.poly_variant_name)
+        # A polymorphic call is resolved to its variant by the caller.
+        vi = resolver.resolve_recorded(recorded_path)
+        catalog_name = resolver.catalog_file_name(recorded_path)
 
-        if vi is None:
-            vi = resolver.resolve_recorded(recorded_path)
-
-        if vi is None:
+        if vi is None or catalog_name is None:
             return None
 
         # Check if caller's WIRED terminals are missing indices
@@ -347,7 +326,7 @@ def _get_vilib_vi(
             if wired_node_terminals:
                 # Auto-update terminals
                 vi = resolver.auto_update_terminals(
-                    vi_name=resolver.catalog_file_name(recorded_path) or subvi_name,
+                    vi_name=catalog_name,
                     wired_terminals=wired_node_terminals,
                     caller_vi=ctx.vi_name if ctx else None,
                 )
