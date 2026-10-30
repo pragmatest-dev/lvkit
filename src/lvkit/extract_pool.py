@@ -39,6 +39,7 @@ from pathlib import Path
 from types import TracebackType
 
 from . import cache_paths
+from .console import use_utf8_output
 from .extractor import cached_extraction, extract_vi_xml
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,9 @@ def _worker_count() -> int:
 
 def _init_worker(vilib_root: Path | None, userlib_root: Path | None) -> None:
     """Worker start-up: adopt the parent's library roots, which decide each VI's
-    cache slot (see ``cache_paths.classify``)."""
+    cache slot (see ``cache_paths.classify``). Its warnings are UTF-8, like the
+    parent's."""
+    use_utf8_output()
     cache_paths.set_extraction_roots(vilib_root=vilib_root, userlib_root=userlib_root)
 
 

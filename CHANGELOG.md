@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: warnings printed by lvkit's worker processes are UTF-8 on Windows** — a pytest or pipe reader no longer fails decoding a dash written in the ANSI code page.
 - **Fix: LabVIEW 8.5 VIs that call a subVI load** — their raw link tables carry the same extra field as LabVIEW 8.2's, so a call in an 8.5 VI names the VI it calls instead of stopping the load (#215).
 - **Fix: a Call Library Function Node calls the whole function name** — LabVIEW stores the node's name cut to 31 characters, so the function now comes from the VI's link record; a 31-character name no record settles is a gap naming the functions it matches, not a call to one that does not exist (#216).
 - **Fix: a wired input from a constant lvkit cannot read no longer stops the VI** — every node reads a wired input one way, so Index Array and the rest generate with the one gap at the start of the function, and a wired input with no variable stops with the source named (#217).
