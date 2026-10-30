@@ -1412,16 +1412,10 @@ class QueryMixin:
             and ndata.get("parent_class") == own_bare
         )
 
-        # Methods: VI nodes owned by this class that are actually documented
-        # (present in list_vis() — excludes stub/unresolved method VIs). Report
-        # each method's display qname.
-        vis = set(self.list_vis())
+        # Methods: the loaded VIs this class owns (a stub or unresolved method
+        # VI is not documented). Each is reported by its display qname.
         methods = sorted(
-            self.vi_display_name(succ)
-            for succ in self._dep_graph.successors(node_key)
-            if self.vi_display_name(succ) in vis
-            and (self._dep_graph.get_edge_data(node_key, succ) or {}).get("rel")
-            == EdgeRel.OWNS
+            self.vi_display_name(key) for key in self._class_member_keys(node_key)
         )
 
         own_fields: list[ClusterField] = data.get("fields") or []
@@ -1441,6 +1435,16 @@ class QueryMixin:
             methods=methods,
             fields=fields,
         )
+
+    def _class_member_keys(self, class_key: str) -> list[str]:
+        """The keys of the loaded VIs the class node ``class_key`` owns."""
+        return [
+            succ
+            for succ in self._dep_graph.successors(class_key)
+            if succ in self._vi_nodes
+            and (self._dep_graph.get_edge_data(class_key, succ) or {}).get("rel")
+            == EdgeRel.OWNS
+        ]
 
     def _class_node_key(self, classname: str) -> str | None:
         """Resolve a class reference to its LOADED class-node PATH key, or None
@@ -1546,35 +1550,33 @@ class QueryMixin:
         if hierarchy is None:
             return None
 
-        # Bare method name from the VI's own display name (path-key-safe;
-        # rsplit(":") would mangle a filesystem path key).
-        key = self.resolve_vi_name(vi_name)
-        node = self._graph.nodes[key].get("node") if key in self._graph else None
-        bare_method = (
-            node.name
-            if isinstance(node, VINode) and node.name
-            else vi_name.rsplit(":", 1)[-1]
+        # An override is the same-named method owned by the parent class or by
+        # a child class; each class's methods are the VIs it owns.
+        def _bare_name(key: str) -> str:
+            node = self._graph.nodes[key].get("node") if key in self._graph else None
+            if isinstance(node, VINode) and node.name:
+                return node.name
+            return self.vi_display_name(key).rsplit(":", 1)[-1]
+
+        bare_method = _bare_name(self.resolve_vi_name(vi_name))
+
+        def _method_of(class_qname: str) -> str | None:
+            class_key = self._dep_key_for_ref(class_qname)
+            if class_key is None:
+                return None
+            for member in self._class_member_keys(class_key):
+                if _bare_name(member) == bare_method:
+                    return self.vi_display_name(member)
+            return None
+
+        overrides = (
+            _method_of(hierarchy.parent_class) if hierarchy.parent_class else None
         )
-
-        # A parent/child class's version of this method is "documented" when its
-        # class-qualified name resolves to a loaded VI. VIs are path-keyed now,
-        # so resolve the qname to its vi_key and test membership (works whether
-        # the VI was loaded from disk or registered by qname in a test).
-        def _loaded(qname: str) -> bool:
-            return self.resolve_vi_name(qname) in self._vi_nodes
-
-        overrides: str | None = None
-        if hierarchy.parent_class:
-            candidate = f"{hierarchy.parent_class}:{bare_method}"
-            if _loaded(candidate):
-                overrides = candidate
-
-        overridden_by: list[str] = []
-        for child in hierarchy.child_classes:
-            candidate = f"{child}:{bare_method}"
-            if _loaded(candidate):
-                overridden_by.append(candidate)
-        overridden_by.sort()
+        overridden_by = sorted(
+            found
+            for found in (_method_of(child) for child in hierarchy.child_classes)
+            if found is not None
+        )
 
         if overrides is None and not overridden_by:
             return None

@@ -566,6 +566,12 @@ def generate_documents(
         hierarchy = graph.get_class_hierarchy(classname)
         if hierarchy is None:
             continue
+        # The graph names a class's methods by qualified name; the pages are
+        # filed by VI key.
+        hierarchy = replace(
+            hierarchy,
+            methods=[graph.resolve_vi_name(name) for name in hierarchy.methods],
+        )
         method_access = {}
         for method_vi in hierarchy.methods:
             access = graph.get_method_access(method_vi)

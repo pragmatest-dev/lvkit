@@ -447,3 +447,37 @@ class TestRealSampleHierarchy:
         reverse = g.get_method_overrides("TestRunner.lvclass:makeResult.vi")
         assert reverse is not None
         assert "TextTestRunner.lvclass:makeResult.vi" in reverse.overridden_by
+
+
+class TestPathKeyedMethods:
+    """Methods are VIs keyed by file path; their qualified name is display only."""
+
+    @staticmethod
+    def _graph() -> InMemoryVIGraph:
+        g = InMemoryVIGraph()
+        _add_class(g, "Base.lvclass", fields=[])
+        _add_class(g, "Child.lvclass", parent_class="Base", fields=[])
+        for cls, qname in (
+            ("Base", "Base.lvclass:run.vi"),
+            ("Child", "Child.lvclass:run.vi"),
+        ):
+            key = f"/p/{cls}/run.vi"
+            g._vi_nodes[key] = set()
+            g._vi_display_names[key] = qname
+            g._dep_graph.add_node(key)
+            g._dep_graph.add_edge(f"{cls}.lvclass", key, rel="owns")
+        g._dep_graph.add_node("/p/Base/gone.vi")
+        g._dep_graph.add_edge("Base.lvclass", "/p/Base/gone.vi", rel="owns")
+        return g
+
+    def test_class_page_methods_are_the_owned_loaded_vis(self):
+        hierarchy = self._graph().get_class_hierarchy("Base.lvclass")
+        assert hierarchy is not None
+        assert hierarchy.methods == ["Base.lvclass:run.vi"]
+
+    def test_overrides_come_from_the_classes_owned_vis(self):
+        g = self._graph()
+        child = g.get_method_overrides("/p/Child/run.vi")
+        assert child is not None and child.overrides == "Base.lvclass:run.vi"
+        base = g.get_method_overrides("/p/Base/run.vi")
+        assert base is not None and base.overridden_by == ["Child.lvclass:run.vi"]
