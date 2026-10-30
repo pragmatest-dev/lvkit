@@ -322,20 +322,36 @@ def _write_data_files(folder: Path, data_files: dict[str, bytes]) -> None:
         target.write_bytes(content)
 
 
-def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], root: Path | None) -> None:
+def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], layout: ModuleLayout) -> None:
     """Print one warning line per gap of a VI that was written, and keep them."""
     for gap in vi_gaps:
-        vi = gap.vi
-        if root is not None:
-            try:
-                vi = Path(vi).relative_to(root).as_posix()
-            except ValueError:
-                pass
         where = f"{gap.node_name}: " if gap.node_name else ""
-        print(f"warning: {vi}: {where}{gap.reason} [{gap.kind}]", file=sys.stderr)
+        print(
+            f"warning: {layout.display_path(gap.vi)}: {where}{gap.reason}"
+            f" [{gap.kind}]",
+            file=sys.stderr,
+        )
         for line in gap.diagnostic():
             print(f"    {line}", file=sys.stderr)
     all_gaps.extend(vi_gaps)
+
+
+def _variants_to_generate(
+    graph: InMemoryVIGraph,
+    vilib_resolver: VILibResolver,
+    wrapper: str,
+    variants: list[str],
+) -> list[str]:
+    """The variants of the polymorphic VI ``wrapper`` that need a generated
+    module: those the catalog gives no Python for that some call resolves to (all
+    of them when a call leaves the choice to the wrapper)."""
+    called = graph.called_poly_variants(wrapper)
+    return [
+        v
+        for v in variants
+        if (called is None or v in called)
+        and not vilib_resolver.has_python(graph.recorded_path(v))
+    ]
 
 
 def _generate_polymorphic_module(
@@ -638,9 +654,21 @@ def generate_python(
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
 
-    poly_variants: set[str] = set()
-    for variants in poly_groups.values():
-        poly_variants.update(variants)
+    # A call of a polymorphic VI that resolves to a variant the catalog gives
+    # Python for uses that Python at the call site, so only the variants without
+    # it that a call needs are generated, in the wrapper's module.
+    # A variant with a catalog implementation is its own module; every other
+    # variant is only ever written in its wrapper's module, if at all.
+    poly_variants: set[str] = {
+        v
+        for variants in poly_groups.values()
+        for v in variants
+        if not vilib_resolver.has_implementation(graph.recorded_path(v))
+    }
+    poly_groups = {
+        wrapper: _variants_to_generate(graph, vilib_resolver, wrapper, variants)
+        for wrapper, variants in poly_groups.items()
+    }
 
     # Every module lives at the project-relative path of its file.
     layout = ModuleLayout(
@@ -668,7 +696,6 @@ def generate_python(
 
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
-    gap_root = project_root(input_path)
 
     try:
         for i, vi_name in enumerate(order, 1):
@@ -693,15 +720,10 @@ def generate_python(
                 print("         -> (inlined at call sites)")
                 continue
 
-            # Check polymorphic wrappers early - skip if all variants are inlined
-            if vi_name in poly_groups:
-                variants = poly_groups[vi_name]
-                all_inlined = all(
-                    vilib_resolver.has_inline(graph.recorded_path(v)) for v in variants
-                )
-                if all_inlined:
-                    print("         -> (polymorphic, all variants inlined)")
-                    continue
+            # A polymorphic wrapper with no variant to generate has no module
+            if vi_name in poly_groups and not poly_groups[vi_name]:
+                print("         -> (polymorphic, every called variant is catalog)")
+                continue
 
             if vi_name in layout.unplaced:
                 print(f"         -> FAILED: {layout.unplaced[vi_name]}")
@@ -745,7 +767,7 @@ def generate_python(
                     )
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, layout)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-type; keep generating remaining modules
@@ -777,7 +799,7 @@ def generate_python(
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, layout)
                     print(
                         f"         -> polymorphic: {output_path.name}"
                         f" ({len(variants)} variants)"
@@ -821,7 +843,7 @@ def generate_python(
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
-                    _report_gaps(vi_gaps, all_gaps, gap_root)
+                    _report_gaps(vi_gaps, all_gaps, layout)
                     print(f"         -> AST: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
 
@@ -837,6 +859,8 @@ def generate_python(
         # Generate polymorphic wrappers for structurally-detected groups
         # whose wrapper VI wasn't in the conversion order
         for wrapper_name, variants in poly_groups.items():
+            if not variants:
+                continue
             wrapper_path = vi_paths.get(wrapper_name)
             if not wrapper_path:
                 place = layout.place_beside(wrapper_name, variants)
@@ -865,7 +889,7 @@ def generate_python(
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
-                    _report_gaps(wrapper_gaps, all_gaps, gap_root)
+                    _report_gaps(wrapper_gaps, all_gaps, layout)
                     generated.append((wrapper_name, wrapper_path, "ast"))
                 except Exception as e:  # noqa: BLE001 — per-wrapper; continue to next
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
@@ -915,7 +939,7 @@ def generate_python(
 
                 # Write class file
                 class_path.write_text(class_code, encoding="utf-8")
-                _report_gaps(class_gaps, all_gaps, gap_root)
+                _report_gaps(class_gaps, all_gaps, layout)
                 print(f"\nGenerated class wrapper: {class_path.name}")
             except Exception as e:  # noqa: BLE001 — a class wrapper that cannot be built stops only itself
                 print(f"\n  [class wrapper] FAILED for {lvclass.name}: {e}")
@@ -923,7 +947,7 @@ def generate_python(
                 generated.append((lvclass.name, None, "failed"))
 
     except GapStop as stop:
-        _report_gaps([stop.gap], all_gaps, gap_root)
+        _report_gaps([stop.gap], all_gaps, layout)
         print("Stopped at the first gap (--fail-fast): the output is incomplete.")
         generated.append((stop.gap.vi, None, "failed"))
 
@@ -989,5 +1013,6 @@ def generate_python(
         "graph": graph,
         "vilib_resolver": vilib_resolver,
         "vi_paths": vi_paths,
+        "layout": layout,
         "vi_folder_name": vi_folder_name,
     }

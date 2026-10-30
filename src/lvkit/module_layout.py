@@ -231,6 +231,16 @@ class ModuleLayout:
         ``UnplacedVIError`` when nothing says where it is."""
         return tuple(self._tokens_of(key)[:-1])
 
+    def display_path(self, key: str) -> str:
+        """The path a message shows for ``key``: the one that places it
+        (project-relative, the path its caller recorded from an installation
+        folder such as ``<userlib>/...``, or below the search folder's name),
+        never an absolute path; the file name alone when nothing places it."""
+        try:
+            return "/".join(self._tokens_of(key))
+        except UnplacedVIError:
+            return Path(key).name
+
     def packages_of(self, key: str) -> tuple[str, ...]:
         """The packages that hold the file ``key`` (a folder, a library or a
         class file): where its members' modules are looked for."""

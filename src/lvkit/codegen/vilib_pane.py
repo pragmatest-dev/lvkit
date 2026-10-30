@@ -3,8 +3,8 @@
 When the VI a call names is loaded, its connector pane (its controls' labels, slot
 numbers, types and saved defaults) is the ground truth for the catalog entry:
 
-- a catalog terminal with no index takes the slot of the pane control whose label
-  equals the catalog name exactly;
+- a catalog terminal with no index takes the slot (and, when it has none, the
+  direction) of the pane control whose label equals the catalog name exactly;
 - an input the catalog gives no default for takes the control's saved default;
 - a catalog terminal whose index or type disagrees with the pane is reported, never
   used.
@@ -27,6 +27,7 @@ from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
 from .ast_utils import param_default_expr
 
 _DIRECTION = {"in": "input", "out": "output"}
+_CATALOG_DIRECTION = {pane: catalog for catalog, pane in _DIRECTION.items()}
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,8 @@ def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
         if match is not None:
             if catalog.index is None:
                 update["index"] = match.index
+            if catalog.direction is None:
+                update["direction"] = _CATALOG_DIRECTION[match.direction]
             if (
                 catalog.default_value is None
                 and match.direction == "input"

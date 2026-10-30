@@ -1321,6 +1321,21 @@ class QueryMixin:
             if info.variant_keys
         }
 
+    def called_poly_variants(self, wrapper: str) -> set[str] | None:
+        """The keys of the variants the calls of the polymorphic VI ``wrapper``
+        resolve to; None when no VI calls it or some call does not resolve to a
+        variant (that call needs the wrapper to choose)."""
+        chosen: set[str] = set()
+        for uids in self._vi_nodes.values():
+            for uid in uids:
+                node = self._get_typed_node(uid)
+                if not isinstance(node, VINode) or node.callee_key != wrapper:
+                    continue
+                if node.variant_key is None:
+                    return None
+                chosen.add(node.variant_key)
+        return chosen or None
+
     def get_poly_variant_wrappers(self) -> dict[str, str]:
         """The key of each variant mapped to the key of its wrapper VI."""
         result: dict[str, str] = {}

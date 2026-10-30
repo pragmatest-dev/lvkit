@@ -77,6 +77,14 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if callee_key is None and node.variant_key is not None:
         callee_key = node.variant_key
         callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
+    elif (
+        node.variant_key is not None
+        and vilib_vi is not None
+        and vilib_vi.python_code is not None
+    ):
+        # The catalog gives the selected variant its own module.
+        callee_key = node.variant_key
+        callee_name = (node.qualified_name or subvi_name).rsplit(":", 1)[-1]
     elif callee_key is None and node.qualified_path and node.qualified_name:
         # The caller records a path (a `<vilib>` or `<extravilib>` VI with no
         # configured root): the absent VI is named by its qualified name, the

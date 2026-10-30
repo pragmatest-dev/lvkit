@@ -160,3 +160,45 @@ def test_two_installation_paths_for_one_file_do_not_depend_on_order() -> None:
     one = _recorded([first, second])
     other = _recorded([second, first])
     assert one == other == ("<userlib>/a/A.vi", "<userlib>/a/z.vi")
+
+
+def test_a_gap_warning_shows_the_recorded_path_not_an_absolute_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    built = _Tree(tmp_path / "src")
+    monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
+    monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
+    (built.root / "proj" / ".lvkit").mkdir(parents=True)
+    built.vi(
+        f"{LIB}/Aother.vi",
+        "Aother.vi",
+        [],
+        [_static(["Not There.vi"], ["", "Not There.vi"])],
+    )
+    other = ["<vilib>", "Utility", "sysdir.llb", "Aother.vi"]
+    built.vi("proj/caller.vi", "caller.vi", [], [_static(["Aother.vi"], other)])
+    generate_python(
+        built.root / "proj" / "caller.vi",
+        tmp_path / "gen",
+        search_paths=[built.root / "proj"],
+        vilib_root=built.root / "vilib",
+    )
+    warnings = [
+        line
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("warning:")
+    ]
+    assert warnings
+    assert warnings[0].startswith("warning: <vilib>/Utility/sysdir.llb/Aother.vi:")
+    assert str(tmp_path) not in "\n".join(warnings)
+
+
+def test_a_library_member_is_looked_up_in_the_catalog_by_its_own_file() -> None:
+    from lvkit.graph.recorded_paths import member_tokens
+    from lvkit.vilib_resolver import get_resolver
+
+    recorded = ["<vilib>", "Utility", "sysdir.llb", "Sysdir.lvlib"]
+    tokens = member_tokens(recorded, "Get System Directory.vi")
+    assert tokens == SYSDIR
+    assert get_resolver().has_python("/".join(tokens))
+    assert not get_resolver().has_python("/".join(recorded))
