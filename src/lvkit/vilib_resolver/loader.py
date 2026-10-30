@@ -37,6 +37,7 @@ class _VILibLoaderMixin:
             data_dir = _bundled_data_dir()
 
         self.data_dir = data_dir
+        self.project_data_dir = project_data_dir
         self._vis: dict[str, VIEntry] = {}
         self._by_name: dict[str, VIEntry] = {}  # Lookup by VI name only
         self._pdf_entries: dict[str, dict] = {}  # Raw PDF data for context

@@ -15,7 +15,10 @@ This module is the facade: every name previously importable from the flat
 
 from __future__ import annotations
 
+import functools
+from collections.abc import Callable
 from pathlib import Path
+from typing import ParamSpec, TypeVar
 
 from .exceptions import ResolutionContext, VILibResolutionNeeded
 from .models import VIEntry, VITerminal
@@ -31,6 +34,7 @@ __all__ = [
     "derive_python_location",
     "derive_python_name",
     "get_resolver",
+    "learns_in_own_scope",
     "reset_resolver",
 ]
 
@@ -62,3 +66,32 @@ def reset_resolver(project_data_dir: Path | None = None) -> None:
         _resolver = None
     else:
         _resolver = VILibResolver(project_data_dir=project_data_dir)
+
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def learns_in_own_scope(func: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Run ``func`` with a fresh resolver for the same project store.
+
+    Generation learns terminals from the VIs it reads (see
+    ``VILibResolver.auto_update_terminals``). That knowledge belongs to one run:
+    the decorated call sees a resolver of its own, and the one in place before
+    it (with whatever it holds) is back afterwards, so a later load, render or
+    MCP call in the same process never sees what this run learned.
+    """
+
+    @functools.wraps(func)
+    def scoped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        global _resolver
+        outer = _resolver
+        _resolver = VILibResolver(
+            project_data_dir=outer.project_data_dir if outer else None
+        )
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _resolver = outer
+
+    return scoped

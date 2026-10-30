@@ -217,3 +217,20 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before
+
+
+def test_a_generation_run_does_not_teach_the_next_load() -> None:
+    name = "High Resolution Relative Seconds.vi"
+    wired = Terminal(id="t:out", index=0, direction="output", name="relative seconds")
+
+    @vilib_resolver.learns_in_own_scope
+    def run() -> int | None:
+        vilib_resolver.get_resolver().auto_update_terminals(name, [wired])
+        learned = vilib_resolver.get_resolver().resolve_by_name(name)
+        assert learned is not None
+        return learned.terminals[0].index
+
+    assert run() == 0
+    after = vilib_resolver.get_resolver().resolve_by_name(name)
+    assert after is not None
+    assert after.terminals[0].index is None

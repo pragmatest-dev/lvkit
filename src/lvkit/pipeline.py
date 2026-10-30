@@ -45,7 +45,7 @@ from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
 from lvkit.vi_files import strip_vi_extension
-from lvkit.vilib_resolver import VILibResolver
+from lvkit.vilib_resolver import VILibResolver, learns_in_own_scope
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
 # Increase recursion limit for deeply nested VIs
@@ -536,6 +536,7 @@ def _generate_polymorphic_module(
 # ---------------------------------------------------------------------------
 
 
+@learns_in_own_scope
 def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
