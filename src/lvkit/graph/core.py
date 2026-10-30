@@ -53,6 +53,7 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import NodeType
+from .recorded_paths import RecordedPaths
 
 # Map operation kind (the coarse op-kind string from _graph_node_to_op_kind)
 # to its human-readable display label. Distinct key space from
@@ -202,6 +203,11 @@ class InMemoryVIGraph(
         self._dep_graph: nx.DiGraph = nx.DiGraph()
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
+        # The path each dependency's callers recorded for it, resolved.
+        self._recorded = RecordedPaths(self._dep_graph)
+        # Whether a load stops at a VI the catalog gives Python for (see
+        # ``set_catalog_stop``).
+        self._catalog_stop = False
         # Polymorphic VI info
         self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -294,6 +300,13 @@ class InMemoryVIGraph(
             vilib_root=vilib_root, userlib_root=userlib_root
         )
 
+    def set_catalog_stop(self, stop: bool) -> None:
+        """Make the next loads stop at a VI the vi.lib catalog gives Python for:
+        only its own connector pane is loaded, never the VIs it calls. Code
+        generation sets it, because those VIs are never generated; every other
+        view loads the whole tree."""
+        self._catalog_stop = stop
+
     def clear(self) -> None:
         """Clear all loaded data."""
         self._graph.clear()
@@ -301,6 +314,7 @@ class InMemoryVIGraph(
         self._term_to_node.clear()
         self._dep_graph.clear()
         self._stubs.clear()
+        self._recorded.clear()
         self._poly_info.clear()
         self._qualified_aliases.clear()
         self._name_to_keys.clear()

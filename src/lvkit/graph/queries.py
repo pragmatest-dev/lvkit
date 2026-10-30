@@ -55,6 +55,7 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import OWNERSHIP_RELS, EdgeRel, NodeType, node_type_of
+from .recorded_paths import RecordedPaths, resolve_against
 
 if TYPE_CHECKING:
     from ..parser.layout import Layout
@@ -94,6 +95,7 @@ class QueryMixin:
     _term_to_node: dict[str, str]
     _dep_graph: nx.DiGraph
     _stubs: set[str]
+    _recorded: RecordedPaths
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _name_to_keys: dict[str, list[str]]
@@ -175,56 +177,25 @@ class QueryMixin:
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
 
-    def resolved_recorded_tokens(
-        self, tokens: list[str], caller_key: str | None
-    ) -> list[str]:
-        """``tokens`` (the path a caller recorded) made to start at an installation
-        folder when they are relative to a caller that has an installation path of
-        its own: each leading empty token pops one level of the caller's recorded
-        path, ``..`` pops another, so ``['', 'B.vi']`` recorded by
-        ``<userlib>/_OpenG.lib/array/array.llb/A.vi`` is
-        ``<userlib>/_OpenG.lib/array/array.llb/B.vi``. Tokens that already start at
-        an installation folder, or whose caller has none, are returned unchanged.
-        The one resolution placement and the catalog lookup share."""
-        if not tokens or is_symbolic_root(tokens[0]) or caller_key is None:
-            return list(tokens)
-        caller = self.recorded_path(caller_key)
-        if caller is None:
-            return list(tokens)
-        base = caller.split("/")
-        empties = 0
-        while empties < len(tokens) and tokens[empties] == "":
-            empties += 1
-        if empties == 0 or empties >= len(base):
-            return list(tokens)
-        base = base[:-empties]
-        for token in tokens[empties:]:
-            if token == "..":
-                if len(base) <= 1:
-                    return list(tokens)
-                base.pop()
-            elif token != ".":
-                base.append(token)
-        return base
-
     def catalog_path(self, node: VINode) -> str | None:
-        """The path the vi.lib catalog looks a call up by: the path the call's own
-        caller recorded when that starts at an installation folder, else the one
-        recorded for the VI the call names (a sibling call in a vi.lib VI records
-        a path beside itself; its callers' ``<userlib>`` path names the same
-        file). The same path ``recorded_path`` gives code generation for the VI's
-        module, so a call and its callee's module agree on who writes the Python."""
-        if node.qualified_path:
-            resolved = "/".join(
-                self.resolved_recorded_tokens(
-                    node.qualified_path.split("/"), node.vi_path
-                )
+        """The path the vi.lib catalog looks a call up by: the path recorded for
+        the VI whose connector pane the call shows (``VINode.interface_key``: the
+        variant a polymorphic call resolves to, else the VI it names), the one
+        placement gives that VI's module, so a call and its callee's module agree
+        on who writes the Python. A call that names no VI in the graph (a
+        ``<vilib>`` call with no configured root) has the path its caller
+        recorded, resolved against the caller's own."""
+        if node.interface_key is not None:
+            recorded = self.recorded_path(node.interface_key)
+            if recorded is not None:
+                return recorded
+        if not node.qualified_path:
+            return None
+        return "/".join(
+            resolve_against(
+                node.qualified_path.split("/"), self._recorded.resolved(node.vi_path)
             )
-            if get_vilib_resolver().in_catalog_scope(resolved):
-                return resolved
-        if node.callee_key is not None:
-            return self.recorded_path(node.callee_key) or node.qualified_path
-        return node.qualified_path
+        )
 
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
@@ -394,16 +365,17 @@ class QueryMixin:
         return key in self._stubs
 
     def recorded_path(self, key: str) -> str | None:
-        """The path a caller recorded for the VI, class or control ``key``
-        (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined tokens; None
-        when no caller recorded one. A loaded file has one only when it starts at
-        a LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...), which
-        names the file the same for every caller; a path relative to its caller
+        """The path the callers recorded for the VI, class or control ``key``
+        (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined tokens, resolved
+        against the caller's own path when relative to it (``RecordedPaths``); None
+        when no caller recorded one. A loaded file has one only when it starts at a
+        LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...), which names
+        the file the same for every caller; a path relative to a caller with none
         is kept only for an absent file (a stub), which it names as far as it
-        resolves. The rest of it rides on the stub node."""
+        resolves."""
         if key not in self._dep_graph:
             return None
-        tokens = self._dep_graph.nodes[key].get("path_tokens")
+        tokens = self._recorded.resolved(key)
         if not tokens or (key not in self._stubs and not is_symbolic_root(tokens[0])):
             return None
         return "/".join(tokens)
@@ -605,7 +577,7 @@ class QueryMixin:
         if Path(node_key).is_absolute():
             return _real_member_path(Path(node_key))
         # Qname-keyed pseudo-root stub: resolve its path_tokens against a caller.
-        tokens = self._dep_graph.nodes[node_key].get("path_tokens")
+        tokens = self._recorded.resolved(node_key)
         if not tokens:
             return None
         leaf = node_key.rsplit(":", 1)[-1]

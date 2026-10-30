@@ -368,10 +368,9 @@ def _caller_of(callee_key: str, found: bool, tmp_path: Path):
     from lvkit.pipeline import create_import_resolver
 
     graph = InMemoryVIGraph()
-    graph._dep_graph.add_node(  # noqa: SLF001
-        callee_key,
-        node_type="vi",
-        path_tokens=["<vilib>", "daqmx", "Flatten Channel String.vi"],
+    graph._dep_graph.add_node(callee_key, node_type="vi")  # noqa: SLF001
+    graph._recorded.record(  # noqa: SLF001
+        callee_key, None, ["<vilib>", "daqmx", "Flatten Channel String.vi"]
     )
     if not found:
         graph._stubs.add(callee_key)  # noqa: SLF001

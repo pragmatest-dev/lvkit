@@ -163,7 +163,7 @@ def create_import_resolver(
         implemented = (
             vilib_resolver is not None
             and graph is not None
-            and vilib_resolver.has_implementation(graph.recorded_path(key))
+            and vilib_resolver.has_python(graph.recorded_path(key))
         )
         if graph is not None and graph.is_stub(key) and not implemented:
             raise MissingVIError(name, graph.recorded_path(key))
@@ -582,6 +582,7 @@ def generate_python(
     graph = InMemoryVIGraph()
     if vilib_root or userlib_root:
         graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+    graph.set_catalog_stop(True)
     search_path_list = list(search_paths) if search_paths else []
 
     # Detect input type and load appropriately
@@ -682,8 +683,8 @@ def generate_python(
             # not the VI's file is loaded: a VI it gives Python for is generated
             # from that, never from its diagram.
             recorded = graph.recorded_path(vi_name)
-            has_vilib = vilib_resolver.has_implementation(recorded)
-            has_inline = vilib_resolver.has_inline(recorded)
+            has_vilib = vilib_resolver.has_python(recorded)
+            has_inline = has_vilib and vilib_resolver.has_inline(recorded)
 
             print(f"  [{i}/{len(order)}] {vi_name}")
 

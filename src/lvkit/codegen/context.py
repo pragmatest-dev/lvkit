@@ -22,6 +22,7 @@ from lvkit.graph.models import (
     PrimitiveNode,
     SourceInfo,
     VIContext,
+    VINode,
 )
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
@@ -189,6 +190,12 @@ class CodeGenContext:
             self.merge(fragment.bindings)
             self.imports.update(fragment.imports)
         return stmts
+
+    def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks the VI ``node`` calls up by."""
+        if self.graph is None:
+            return node.qualified_path
+        return self.graph.catalog_path(node)
 
     def is_wired(self, terminal_id: str) -> bool:
         """Check if a terminal has any edge connected."""

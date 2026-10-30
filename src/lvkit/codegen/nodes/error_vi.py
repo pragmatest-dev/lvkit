@@ -37,7 +37,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     as the message (the wired message wins when there is one).
     """
     resolver = get_resolver()
-    catalog_path = ctx.graph.catalog_path(node) if ctx.graph else node.qualified_path
+    catalog_path = ctx.catalog_path(node)
     if (
         resolver.catalog_file_name(catalog_path)
         != VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE

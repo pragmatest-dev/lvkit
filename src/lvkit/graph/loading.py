@@ -35,7 +35,6 @@ from ..parser import (
     parse_vi_metadata,
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
-from ..parser.models import is_symbolic_root
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
     LVClass,
@@ -72,6 +71,11 @@ from .models import (
 from .node_kinds import EdgeRel, NodeType
 from .op_walk import stamp_nmux_lane_names, stamp_property_value_names
 from .parallel_parse import PARALLEL_THRESHOLD, parallel_parse_directory
+from .recorded_paths import (
+    RecordedPaths,
+    member_tokens,
+    redirect_member_beside_container,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,40 +133,6 @@ def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
     except OSError:
         return None
     return None
-
-
-def _redirect_member_beside_container(cand: Path, leaf: str) -> Path:
-    """Redirect a resolved dependency path from its OWNING container to the
-    member's actual on-disk sibling.
-
-    A class/library MEMBER's LinkSavePathRef tokens describe the owning
-    container (e.g. ``['', 'TestCase.lvclass']``); the member's own filename
-    is carried separately as ``leaf``, NOT in the tokens. So resolving those
-    tokens yields the ``.lvclass``/``.lvlib`` file itself — dispatching that
-    as the member's own file fails (e.g. a ``.vi`` member fails
-    ``extract_vi_xml``, a ``NotADirectoryError`` joining a ``.ctl`` member
-    INTO the class file). Member files are stored BESIDE their container, so
-    when ``cand`` resolved to a ``.lvclass``/``.lvlib`` that isn't ``leaf``
-    itself, redirect to the sibling ``container_dir/leaf``. Returns ``cand``
-    unchanged otherwise. Pure path math — does not check existence; callers
-    that need an existence gate (only a resolved sibling counts) apply it
-    themselves.
-    """
-    if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
-        return cand.with_name(leaf)
-    return cand
-
-
-def _member_path_tokens(tokens: list[str], leaf: str) -> list[str]:
-    """The tokens of a dependency's own file: a class/library member's recorded
-    tokens end at its owning container, and the member sits beside it (see
-    ``_redirect_member_beside_container``)."""
-    if not tokens:
-        return []
-    return [
-        *tokens[:-1],
-        _redirect_member_beside_container(Path(tokens[-1]), leaf).name,
-    ]
 
 
 def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
@@ -288,6 +258,8 @@ class LoadingMixin:
     _term_to_node: dict[str, str]
     _dep_graph: nx.DiGraph
     _stubs: set[str]
+    _recorded: RecordedPaths
+    _catalog_stop: bool
     _poly_info: dict[str, PolyInfo]
     _qualified_aliases: dict[str, str]
     _name_to_keys: dict[str, list[str]]
@@ -311,9 +283,6 @@ class LoadingMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def clear(self) -> None: ...
-        def resolved_recorded_tokens(
-            self, tokens: list[str], caller_key: str | None
-        ) -> list[str]: ...
         def _add_vi_to_graph(
             self,
             bd: ParsedBlockDiagram,
@@ -491,7 +460,6 @@ class LoadingMixin:
         node_type: NodeType,
         name: str,
         qname: str | None,
-        path_tokens: list[str] | None,
         caller: str | None,
         rel: EdgeRel | None = None,
     ) -> None:
@@ -513,17 +481,7 @@ class LoadingMixin:
         edged from).
         """
         if not self._dep_graph.has_node(key):
-            self._dep_graph.add_node(
-                key,
-                node_type=node_type,
-                path_tokens=(
-                    self.resolved_recorded_tokens(
-                        _member_path_tokens(path_tokens, name), caller
-                    )
-                    if path_tokens
-                    else None
-                ),
-            )
+            self._dep_graph.add_node(key, node_type=node_type)
             self._stubs.add(key)
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
@@ -532,70 +490,19 @@ class LoadingMixin:
             else:
                 self._dep_graph.add_edge(caller, key)
 
-    def _record_path_tokens(
+    def _note_recorded_path(
         self,
         key: str,
         dep_ref: ParsedDependencyRef | None,
         leaf: str,
         caller_key: str | None,
     ) -> None:
-        """Keep the path a caller recorded for the loaded dependency ``key`` when
-        it starts at a LabVIEW installation folder (``<vilib>/...``): that path
-        names the same file for every caller, so it places the file wherever it
-        was found (``InMemoryVIGraph.recorded_path``). A path relative to the
-        caller counts once resolved against the caller's own installation path
-        (``resolved_recorded_tokens``); it is remembered on the file until the
-        caller has one. A relative path never places a file by itself. An absent
-        file (a stub) carries its recorded path from ``_add_stub``."""
-        if (
-            dep_ref is None
-            or not dep_ref.path_tokens
-            or key in self._stubs
-            or not self._dep_graph.has_node(key)
-        ):
-            return
-        tokens = _member_path_tokens(dep_ref.path_tokens, leaf)
-        if caller_key is not None and caller_key != key and not is_symbolic_root(
-            tokens[0]
-        ):
-            self._dep_graph.nodes[key].setdefault("relative_refs", set()).add(
-                (caller_key, tuple(tokens))
+        """Remember that ``caller_key`` recorded ``dep_ref``'s path for the file
+        ``key`` (``RecordedPaths``)."""
+        if dep_ref is not None and dep_ref.path_tokens:
+            self._recorded.record(
+                key, caller_key, member_tokens(dep_ref.path_tokens, leaf)
             )
-        self._keep_installation_tokens(
-            key, self.resolved_recorded_tokens(tokens, caller_key)
-        )
-
-    def _keep_installation_tokens(self, key: str, tokens: list[str]) -> None:
-        """Set ``key``'s recorded tokens to ``tokens`` and give every file the
-        container ``key`` owns the tokens beside it, so a class or library and
-        its members are placed in one package. When two callers record
-        different installation paths for one file the smaller joined path wins,
-        so the choice never depends on load order."""
-        if not tokens or not is_symbolic_root(tokens[0]):
-            return
-        node = self._dep_graph.nodes[key]
-        held = node.get("path_tokens")
-        if held and is_symbolic_root(held[0]) and "/".join(held) <= "/".join(tokens):
-            return
-        node["path_tokens"] = list(tokens)
-        container_dir = Path(key).parent
-        for child in sorted(self._dep_graph.successors(key)):
-            pending: set[tuple[str, tuple[str, ...]]] = self._dep_graph.nodes[
-                child
-            ].get("relative_refs", set())
-            for caller, relative in sorted(pending):
-                if caller == key and child not in self._stubs:
-                    self._keep_installation_tokens(
-                        child, self.resolved_recorded_tokens(list(relative), key)
-                    )
-            if self._dep_graph.edges[key, child].get("rel") != EdgeRel.OWNS:
-                continue
-            try:
-                below = Path(child).relative_to(container_dir).parts
-            except ValueError:
-                continue
-            if child not in self._stubs:
-                self._keep_installation_tokens(child, [*tokens[:-1], *below])
 
     @_with_extraction_pool
     def load_lvlib(
@@ -661,7 +568,6 @@ class LoadingMixin:
                             NodeType.TYPEDEF,
                             member_name,
                             typedef_qname,
-                            path_tokens=None,
                             caller=lib_key,
                             rel=EdgeRel.OWNS,
                         )
@@ -693,7 +599,6 @@ class LoadingMixin:
                             NodeType.VI,
                             member_name,
                             member_qname,
-                            path_tokens=None,
                             caller=lib_key,
                             rel=EdgeRel.OWNS,
                         )
@@ -753,7 +658,6 @@ class LoadingMixin:
                         NodeType.CLASS,
                         class_name,
                         class_qname,
-                        path_tokens=None,
                         caller=lib_key,
                         rel=EdgeRel.OWNS,
                     )
@@ -787,7 +691,6 @@ class LoadingMixin:
                         NodeType.LIBRARY,
                         lib_name_file,
                         nested_qname,
-                        path_tokens=None,
                         caller=lib_key,
                         rel=EdgeRel.OWNS,
                     )
@@ -921,16 +824,13 @@ class LoadingMixin:
             # intended path so the closure NAMES it and staging fetches it; a
             # later round loads it for real and its methods become resolvable.
             # Not routed through _add_stub: this stub carries a ``fields_only``
-            # node attribute the shared helper doesn't set, so it stays manual
-            # (kept shape-consistent with the other stub sites: an explicit
-            # ``path_tokens=None`` and the same register/edge order).
+            # node attribute the shared helper doesn't set, so it stays manual.
             assert parent is not None  # parent_key set => parent name is known
             if not self._dep_graph.has_node(parent_key):
                 self._dep_graph.add_node(
                     parent_key,
                     node_type=NodeType.CLASS,
                     fields_only=True,
-                    path_tokens=None,
                 )
                 self._stubs.add(parent_key)
                 self._register_dep_name(parent_key, parent + ".lvclass", parent)
@@ -1245,7 +1145,6 @@ class LoadingMixin:
                     NodeType.LIBRARY,
                     lib_name,
                     lib_name,
-                    path_tokens=None,
                     caller=None,
                 )
 
@@ -1259,7 +1158,6 @@ class LoadingMixin:
                     NodeType.CLASS,
                     class_name,
                     class_name,
-                    path_tokens=None,
                     caller=None,
                 )
 
@@ -1269,7 +1167,7 @@ class LoadingMixin:
             else:
                 key = str(vi_path.resolve())
                 self._add_stub(
-                    key, NodeType.VI, vi_name, vi_name, path_tokens=None, caller=None
+                    key, NodeType.VI, vi_name, vi_name, caller=None
                 )
 
     @_with_extraction_pool
@@ -1951,11 +1849,8 @@ class LoadingMixin:
         if not ctl_path.exists():
             # Not routed through _add_stub: load_typedef returns the key and
             # is edged by its CALLER, not internally (unlike a caller-edging
-            # stub site) — kept shape-consistent (explicit path_tokens) with
-            # the other stub sites regardless.
-            self._dep_graph.add_node(
-                ctl_key, node_type=NodeType.TYPEDEF, path_tokens=None
-            )
+            # stub site).
+            self._dep_graph.add_node(ctl_key, node_type=NodeType.TYPEDEF)
             self._stubs.add(ctl_key)
             self._register_dep_name(ctl_key, ctl_path.name, qname)
             return ctl_key
@@ -1993,9 +1888,7 @@ class LoadingMixin:
                     )
         else:
             # XML not produced, or no root type — stub with what we know
-            self._dep_graph.add_node(
-                ctl_key, node_type=NodeType.TYPEDEF, path_tokens=None
-            )
+            self._dep_graph.add_node(ctl_key, node_type=NodeType.TYPEDEF)
             self._stubs.add(ctl_key)
             self._register_dep_name(ctl_key, ctl_path.name, qname)
         return ctl_key
@@ -2045,7 +1938,7 @@ class LoadingMixin:
         # isn't there, drop to None and let the name-based search below find
         # it.
         if resolved is not None:
-            redirected = _redirect_member_beside_container(resolved, leaf)
+            redirected = redirect_member_beside_container(resolved, leaf)
             if redirected != resolved:
                 resolved = redirected if redirected.exists() else None
 
@@ -2085,7 +1978,7 @@ class LoadingMixin:
         if cand is None:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
-        cand = _redirect_member_beside_container(cand, leaf)
+        cand = redirect_member_beside_container(cand, leaf)
         return cand.resolve()
 
     def _load_instance_dependency(
@@ -2131,10 +2024,9 @@ class LoadingMixin:
         mode: LoadMode = LoadMode.FULL,
         resolved_paths: dict[str, Path | None] | None = None,
     ) -> str | None:
-        """Load one dependency and keep the installation-folder path its caller
-        recorded for it (``_record_path_tokens``), whatever kind of file it is
-        and however it was reached. Returns the dependency's identity (see
-        ``_load_dependency_node``)."""
+        """Load one dependency, whatever kind of file it is and however it was
+        reached, and record the path its caller recorded for it. Returns the
+        dependency's identity (see ``_load_dependency_node``)."""
         key = self._load_dependency_node(
             qualified_name,
             dep_ref,
@@ -2145,7 +2037,7 @@ class LoadingMixin:
             resolved_paths=resolved_paths,
         )
         if key is not None:
-            self._record_path_tokens(
+            self._note_recorded_path(
                 key, dep_ref, qualified_name.rsplit(":", 1)[-1], caller_qname
             )
         return key
@@ -2195,6 +2087,10 @@ class LoadingMixin:
         # so ONLY the path dedups. Dedup on has_node(<path>).
         if resolved is not None:
             dep_key = str(resolved.resolve())
+            # Resolved against the caller's own recorded path BEFORE the file's
+            # children load, so they resolve against it in turn and the catalog
+            # stop below reads it.
+            self._note_recorded_path(dep_key, dep_ref, leaf, caller_qname)
             if self._dep_graph.has_node(dep_key):
                 if caller_qname:
                     self._dep_graph.add_edge(caller_qname, dep_key)
@@ -2215,6 +2111,7 @@ class LoadingMixin:
                 found = self._walk_up_find(caller_file.parent, leaf)
                 if found is not None:
                     found_key = str(found.resolve())
+                    self._note_recorded_path(found_key, dep_ref, leaf, caller_qname)
                     if not self._dep_graph.has_node(found_key):
                         parts = qualified_name.split(":")
                         owner_chain = parts[:-1] if len(parts) > 1 else None
@@ -2237,6 +2134,7 @@ class LoadingMixin:
             # at a same-leaf file from a different library.
             existing = self._dep_key_for_ref(qualified_name, caller_qname)
             if existing is not None and existing not in self._stubs:
+                self._note_recorded_path(existing, dep_ref, leaf, caller_qname)
                 if caller_qname:
                     self._dep_graph.add_edge(caller_qname, existing)
                 return existing
@@ -2251,15 +2149,12 @@ class LoadingMixin:
             )
             computed = self._intended_dep_path(qualified_name, dep_ref, caller_file)
             stub_key = str(computed) if computed is not None else qualified_name
-            path_tokens = (
-                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
-            )
+            self._note_recorded_path(stub_key, dep_ref, leaf, caller_qname)
             self._add_stub(
                 stub_key,
                 node_type,
                 leaf,
                 qualified_name,
-                path_tokens=path_tokens,
                 caller=caller_qname,
             )
             return str(computed) if computed is not None else None
@@ -2313,15 +2208,11 @@ class LoadingMixin:
             # Unknown extension — stub rather than guess, but key by the resolved
             # file path (it exists here) so it is identified consistently.
             unknown_key = str(resolved.resolve())
-            path_tokens = (
-                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
-            )
             self._add_stub(
                 unknown_key,
                 NodeType.UNKNOWN,
                 leaf,
                 qualified_name,
-                path_tokens=path_tokens,
                 caller=caller_qname,
             )
             return unknown_key
@@ -2345,16 +2236,12 @@ class LoadingMixin:
         """
         try:
             bd_xml, fp_xml, main_xml = self._extract(resolved)
-            # A VI the catalog gives Python for is generated from that, so only its
-            # own pane is loaded, never the VIs it calls.
-            catalog_python = (
-                dep_ref is not None
-                and bool(dep_ref.path_tokens)
-                and get_vilib_resolver().has_python("/".join(dep_ref.path_tokens))
-            )
+            # A VI the catalog gives Python for is generated from that, so a
+            # generation load takes only its own pane, never the VIs it calls.
+            key = str(resolved.resolve())
             child_mode = (
                 LoadMode.FULL
-                if mode is LoadMode.FULL and not catalog_python
+                if mode is LoadMode.FULL and not self._is_catalog_stop(key)
                 else LoadMode.NONE
             )
             loaded_name = self._load_vi_recursive(
@@ -2389,10 +2276,17 @@ class LoadingMixin:
             # nothing to stage and the SubVI never appears. A later round finds
             # the file and this upgrades to a real leaf-load.
             stub_key = str(resolved.resolve())
-            self._stub_subvi(qualified_name, dep_ref=dep_ref, key=stub_key)
+            self._stub_subvi(qualified_name, key=stub_key)
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, stub_key)
             return None
+
+    def _is_catalog_stop(self, key: str) -> bool:
+        """Whether a generation load stops at ``key``: the catalog gives Python for
+        the path its callers recorded for it (``set_catalog_stop``)."""
+        return self._catalog_stop and get_vilib_resolver().has_python(
+            self._recorded.path(key)
+        )
 
     def _load_subvi_method_deps(
         self,
@@ -2465,32 +2359,16 @@ class LoadingMixin:
                 ) or str(Path(path_str).resolve())
         return None
 
-    def _stub_subvi(
-        self,
-        name: str,
-        key: str,
-        dep_ref: ParsedDependencyRef | None = None,
-    ) -> None:
+    def _stub_subvi(self, name: str, key: str) -> None:
         """Record a SubVI reference that could not be resolved as a stub.
 
-        Carries path_tokens from the parser's LinkSavePathRef when
-        available — diagnostics-only, never gates code generation. ``key`` is
-        the SubVI's resolved (intended) path, so the stub is PATH-keyed
-        (upgrades by identity) and the qname/name index to it. Edging to the
-        caller is the caller's job (``_leaf_load_vi``'s except branch), not
-        this method's — so ``caller`` is None here.
+        ``key`` is the SubVI's resolved (intended) path, so the stub is PATH-keyed
+        (upgrades by identity) and the qname/name index to it; the path its caller
+        recorded for it is already held by ``RecordedPaths``. Edging to the caller
+        is the caller's job (``_leaf_load_vi``'s except branch), not this
+        method's.
         """
-        path_tokens = (
-            list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
-        )
-        self._add_stub(
-            key,
-            NodeType.VI,
-            name.rsplit(":", 1)[-1],
-            name,
-            path_tokens=path_tokens,
-            caller=None,
-        )
+        self._add_stub(key, NodeType.VI, name.rsplit(":", 1)[-1], name, caller=None)
 
     def _cache_vilib_terminal_layout(
         self,

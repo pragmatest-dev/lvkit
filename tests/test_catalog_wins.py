@@ -89,10 +89,19 @@ def test_a_vi_called_from_outside_the_catalog_vis_tree_is_generated(
 def test_loading_for_generation_stops_at_the_catalog_vi(project: _Tree) -> None:
     graph = InMemoryVIGraph()
     graph.set_library_roots(vilib_root=project.root / "vilib")
+    graph.set_catalog_stop(True)
     graph.load_vi(project.root / "proj" / "caller_a.vi", LoadMode.FULL)
     names = {Path(k).name for k in graph.list_vis()}
     assert "Get System Directory.vi" in names
     assert not names & {"helper.vi", "deep.vi"}
+
+
+def test_other_views_load_the_catalog_vis_callees(project: _Tree) -> None:
+    graph = InMemoryVIGraph()
+    graph.set_library_roots(vilib_root=project.root / "vilib")
+    graph.load_vi(project.root / "proj" / "caller_a.vi", LoadMode.FULL)
+    names = {Path(k).name for k in graph.list_vis()}
+    assert {"Get System Directory.vi", "helper.vi", "deep.vi"} <= names
 
 
 def _terminal(

@@ -10,6 +10,7 @@ from pathlib import Path
 from lvkit.docs.generate import _collect_library_groups
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
+from lvkit.graph.recorded_paths import resolve_against
 from lvkit.module_layout import ModuleLayout
 from lvkit.parser.models import ParsedDependencyRef
 
@@ -253,19 +254,20 @@ def test_a_sibling_call_in_an_installation_folder_is_placed_there_in_any_order(
 
 
 def test_a_relative_path_resolves_against_the_callers_installation_path() -> None:
-    graph = InMemoryVIGraph()
-    graph._dep_graph.add_node("/c/A.vi", path_tokens=[*_LLB, "A.vi"])
-    graph._dep_graph.add_node("/c/Top.vi", path_tokens=["<vilib>", "Top.vi"])
-    resolve = graph.resolved_recorded_tokens
-    assert resolve(["", "B.vi"], "/c/A.vi") == [*_LLB, "B.vi"]
-    assert resolve(["", "", "x.llb", "C.vi"], "/c/A.vi") == [
+    caller = [*_LLB, "A.vi"]
+
+    def resolve(tokens: list[str], caller_path: list[str] | None) -> list[str]:
+        return resolve_against(tokens, caller_path)
+
+    assert resolve(["", "B.vi"], caller) == [*_LLB, "B.vi"]
+    assert resolve(["", "", "x.llb", "C.vi"], caller) == [
         "<userlib>",
         "_OpenG.lib",
         "array",
         "x.llb",
         "C.vi",
     ]
-    assert resolve(["", "..", "D.vi"], "/c/A.vi") == [
+    assert resolve(["", "..", "D.vi"], caller) == [
         "<userlib>",
         "_OpenG.lib",
         "array",
@@ -273,7 +275,7 @@ def test_a_relative_path_resolves_against_the_callers_installation_path() -> Non
     ]
     # More levels up than the caller's path has, or a caller with no installation
     # path: the tokens stay as recorded.
-    assert resolve(["", "", "", "", "", "E.vi"], "/c/A.vi") == [
+    assert resolve(["", "", "", "", "", "E.vi"], caller) == [
         "",
         "",
         "",
@@ -281,5 +283,5 @@ def test_a_relative_path_resolves_against_the_callers_installation_path() -> Non
         "",
         "E.vi",
     ]
-    assert resolve(["", "F.vi"], "/c/none.vi") == ["", "F.vi"]
-    assert resolve(["<vilib>", "G.vi"], "/c/A.vi") == ["<vilib>", "G.vi"]
+    assert resolve(["", "F.vi"], None) == ["", "F.vi"]
+    assert resolve(["<vilib>", "G.vi"], caller) == ["<vilib>", "G.vi"]
