@@ -201,45 +201,43 @@ def _collect_icons(
     return icon_map
 
 
+@dataclass(frozen=True)
+class DocsProblem:
+    """One problem of one VI: its path as generation shows it
+    (``ModuleLayout.display_path``), the stage that failed (``load``, ``diagram``
+    or ``page``) and why."""
+
+    vi: str
+    stage: str
+    reason: str
+
+    def __str__(self) -> str:
+        return f"{self.vi}: {self.reason}"
+
+
 @dataclass
 class DocsResult:
-    """What ``generate_documents`` did: the summary to print, every problem found
-    (one line each, naming the VI by its project-relative or ``<vilib>`` path),
+    """What ``generate_documents`` did: the summary to print, every problem found,
     and whether nothing could be loaded."""
 
     summary: str
-    problems: list[str] = field(default_factory=list)
+    problems: list[DocsProblem] = field(default_factory=list)
     stopped: bool = False
 
     def __str__(self) -> str:
         return self.summary
 
 
-def _relative(path: Path, root: Path) -> str:
-    """``path`` below the project folder ``root``; its file name when outside."""
-    try:
-        return path.resolve().relative_to(root).as_posix()
-    except ValueError:
-        return path.name
-
-
-def _shown(key: str, graph: InMemoryVIGraph, root: Path) -> str:
-    """The path a problem names a VI by: the one its caller recorded from an
-    installation folder, else project-relative; never an absolute path."""
-    recorded = graph.recorded_path(key)
-    if recorded is not None and not graph.is_stub(key):
-        return recorded
-    try:
-        return Path(key).relative_to(root).as_posix()
-    except ValueError:
-        return graph.vi_display_name(key)
+def _failed_path(layout: ModuleLayout, path: Path) -> str:
+    """The path a file that could not be loaded is named by."""
+    return layout.display_path(str(path.resolve()))
 
 
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
     poly_groups: dict[str, list[str]],
-    problems: list[str],
+    problems: list[DocsProblem],
     shown: Callable[[str], str],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
@@ -349,7 +347,9 @@ def _prepare_vi_documentation_data(
     except Exception as e:  # noqa: BLE001 — per-VI; the page is written without it
         logger.exception("SVG diagram render failed for %s", shown(vi_name))
         problems.append(
-            f"{shown(vi_name)}: the diagram could not be drawn ({e})"
+            DocsProblem(
+                shown(vi_name), "diagram", f"the diagram could not be drawn ({e})"
+            )
         )
         diagram_svg, subvi_nodes = None, {}
 
@@ -451,8 +451,8 @@ def generate_documents(
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis: list[str] = []
-    problems: list[str] = []
-    root = project_root(library_path_obj)
+    problems: list[DocsProblem] = []
+    layout = ModuleLayout(graph, [], project_root(library_path_obj), search_path_objs)
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
@@ -479,7 +479,7 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            problems.append(f"{_relative(vi_path, root)}: {e}")
+            problems.append(DocsProblem(_failed_path(layout, vi_path), "load", str(e)))
             print(
                 f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
                 flush=True,
@@ -498,18 +498,23 @@ def generate_documents(
         try:
             key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
         except Exception as e:
-            problems.append(f"{_relative(ctl_path, root)}: {e}")
+            problems.append(DocsProblem(_failed_path(layout, ctl_path), "load", str(e)))
             continue
         if graph.is_stub(key):
             problems.append(
-                f"{_relative(ctl_path, root)}: could not be read as a control"
+                DocsProblem(
+                    _failed_path(layout, ctl_path),
+                    "load",
+                    "could not be read as a control",
+                )
             )
         else:
             loaded_ctls.append(ctl_path.name)
 
     if not loaded_vis and not loaded_ctls:
         return DocsResult(
-            "Failed to load any VIs or controls. Errors:\n" + "\n".join(problems),
+            "Failed to load any VIs or controls. Errors:\n"
+            + "\n".join(str(p) for p in problems),
             problems,
             stopped=True,
         )
@@ -561,7 +566,7 @@ def generate_documents(
                 graph,
                 poly_groups,
                 problems,
-                lambda key: _shown(key, graph, root),
+                layout.display_path,
                 icon_map,
             )
             generator.generate_vi_page(vi_data)
@@ -572,7 +577,7 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            problems.append(f"{_shown(vi_name, graph, root)}: {e}")
+            problems.append(DocsProblem(layout.display_path(vi_name), "page", str(e)))
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"

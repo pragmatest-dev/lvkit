@@ -202,3 +202,100 @@ def test_a_library_member_is_looked_up_in_the_catalog_by_its_own_file() -> None:
     assert tokens == SYSDIR
     assert get_resolver().has_python("/".join(tokens))
     assert not get_resolver().has_python("/".join(recorded))
+
+
+def test_a_missing_vi_two_callers_record_relatively_is_named_by_its_project_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    built = _Tree(tmp_path / "src")
+    monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", built.extract)
+    monkeypatch.setattr(ExtractionPool, "prefetch", lambda self, paths: None)
+    (built.root / "proj" / ".lvkit").mkdir(parents=True)
+    built.vi(
+        "proj/a.vi", "a.vi", [], [_static(["Missing.vi"], ["", "sub", "Missing.vi"])]
+    )
+    built.vi("proj/sub/b.vi", "b.vi", [], [_static(["Missing.vi"], ["", "Missing.vi"])])
+    built.vi(
+        "proj/main.vi",
+        "main.vi",
+        [],
+        [_static(["a.vi"], ["", "a.vi"]), _static(["b.vi"], ["", "sub", "b.vi"])],
+    )
+    out = tmp_path / "gen"
+    generate_python(
+        built.root / "proj" / "main.vi", out, search_paths=[built.root / "proj"]
+    )
+    messages = [
+        line for line in capsys.readouterr().err.splitlines() if "was not found" in line
+    ]
+    assert messages
+    assert all("(sub/Missing.vi) was not found" in m for m in messages)
+    assert "(//" not in "\n".join(messages)
+
+
+def _paths(*recordings: tuple[str, str | None, list[str]]) -> RecordedPaths:
+    recorded = RecordedPaths(_graph())
+    for key, caller, tokens in recordings:
+        recorded.record(key, caller, tokens)
+    return recorded
+
+
+def test_recordings_that_differ_only_in_case_pick_one_path_in_every_order() -> None:
+    upper = ["<vilib>", "_JKI_lib_State_Machine.llb", "Parse State Queue.vi"]
+    lower = ["<vilib>", "_jki_lib_state_machine.llb", "Parse State Queue.vi"]
+    one = _paths(("/p/q.vi", "/p/a.vi", upper), ("/p/q.vi", "/p/b.vi", lower))
+    other = _paths(("/p/q.vi", "/p/b.vi", lower), ("/p/q.vi", "/p/a.vi", upper))
+    assert one.path("/p/q.vi") == other.path("/p/q.vi") == "/".join(upper)
+
+
+def test_a_relative_path_of_a_caller_without_one_is_not_a_resolved_path() -> None:
+    recorded = _paths(("/p/m.vi", "/p/a.vi", ["", "sub", "m.vi"]))
+    assert recorded.resolved("/p/m.vi") is None
+    assert recorded.recorded_by("/p/m.vi", "/p/a.vi") == ["", "sub", "m.vi"]
+    assert recorded.recorded_by("/p/m.vi", "/p/other.vi") is None
+
+
+def test_a_chain_and_a_cycle_settle_whatever_the_order_references_arrive_in() -> None:
+    chain = [
+        ("/p/a.vi", None, ["<userlib>", "L", "a.vi"]),
+        ("/p/b.vi", "/p/a.vi", ["", "b.vi"]),
+        ("/p/c.vi", "/p/b.vi", ["", "c.vi"]),
+        ("/p/d.vi", "/p/c.vi", ["", "d.vi"]),
+        ("/p/a.vi", "/p/d.vi", ["", "a.vi"]),
+    ]
+    expected = {k: f"<userlib>/L/{k[-4:]}" for k in ("/p/a.vi", "/p/b.vi", "/p/c.vi")}
+    for ordering in (chain, chain[::-1], chain[2:] + chain[:2]):
+        recorded = _paths(*ordering)
+        assert {k: recorded.path(k) for k in expected} == expected
+        assert recorded.path("/p/d.vi") == "<userlib>/L/d.vi"
+
+
+def test_a_catalog_vi_first_reached_by_a_relative_path_still_stops_the_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tree = _tree(tmp_path, monkeypatch, "Aother.vi")
+    beside = ["", "", "vilib", "Utility", "sysdir.llb", "Get System Directory.vi"]
+    tree.vi(
+        "proj/a_relative.vi",
+        "a_relative.vi",
+        [],
+        [_static(["Get System Directory.vi"], beside)],
+    )
+    tree.vi(
+        "proj/b_install.vi",
+        "b_install.vi",
+        [],
+        [_static(["Get System Directory.vi"], SYSDIR)],
+    )
+    tree.vi(
+        "proj/both.vi",
+        "both.vi",
+        [],
+        [
+            _static(["a_relative.vi"], ["", "a_relative.vi"]),
+            _static(["b_install.vi"], ["", "b_install.vi"]),
+        ],
+    )
+    modules = _modules(tree, tmp_path, "both")
+    assert any(m.endswith("get_system_directory.py") for m in modules)
+    assert not [m for m in modules if m.endswith(("helper.py", "deep.py"))]

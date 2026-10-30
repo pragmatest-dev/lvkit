@@ -8,7 +8,7 @@ get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -17,7 +17,7 @@ import networkx as nx
 
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, Terminal
-from ..parser.models import ParsedDependencyRef, ParsedFrontPanel, is_symbolic_root
+from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -365,20 +365,16 @@ class QueryMixin:
         return key in self._stubs
 
     def recorded_path(self, key: str) -> str | None:
-        """The path the callers recorded for the VI, class or control ``key``
-        (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined tokens, resolved
-        against the caller's own path when relative to it (``RecordedPaths``); None
-        when no caller recorded one. A loaded file has one only when it starts at a
-        LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...), which names
-        the file the same for every caller; a path relative to a caller with none
-        is kept only for an absent file (a stub), which it names as far as it
-        resolves."""
+        """The installation-folder path the callers recorded for the VI, class or
+        control ``key`` (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined
+        tokens: a path recorded relative to a caller is resolved against the
+        caller's own (``RecordedPaths``). None when no caller recorded one that
+        starts at a LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...),
+        which names the file the same for every caller; a path relative to a caller
+        names a place only beside that caller."""
         if key not in self._dep_graph:
             return None
-        tokens = self._recorded.resolved(key)
-        if not tokens or (key not in self._stubs and not is_symbolic_root(tokens[0])):
-            return None
-        return "/".join(tokens)
+        return self._recorded.path(key)
 
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
@@ -576,17 +572,18 @@ class QueryMixin:
         # Path-keyed stub: the key already IS the intended local path.
         if Path(node_key).is_absolute():
             return _real_member_path(Path(node_key))
-        # Qname-keyed pseudo-root stub: resolve its path_tokens against a caller.
-        tokens = self._recorded.resolved(node_key)
-        if not tokens:
-            return None
+        # Qname-keyed pseudo-root stub: an installation path resolves by the
+        # configured roots; a path relative to a caller, against that caller.
+        installed = self._recorded.resolved(node_key)
         leaf = node_key.rsplit(":", 1)[-1]
-        ref = ParsedDependencyRef(name=leaf, path_tokens=list(tokens))
-        for caller in self._dep_graph.predecessors(node_key):
+        for caller in sorted(self._dep_graph.predecessors(node_key)):
             caller_file = self._source_paths.get(caller)
-            if caller_file is None:
+            tokens = installed or self._recorded.recorded_by(node_key, caller)
+            if caller_file is None or not tokens:
                 continue
-            cand = ref.resolve_against(
+            cand = ParsedDependencyRef(
+                name=leaf, path_tokens=list(tokens)
+            ).resolve_against(
                 caller_file,
                 vilib_root=self._vilib_root,
                 userlib_root=self._userlib_root,
@@ -623,6 +620,28 @@ class QueryMixin:
         if vi_name not in self._dep_graph:
             return []
         return list(self._dep_graph.predecessors(vi_name))
+
+    def keys_reached_without_entering(self, stop: Callable[[str], bool]) -> set[str]:
+        """The keys reachable from the ones nothing references (every member of a
+        cycle that nothing outside it references), without going through a key for
+        which ``stop`` is true: such a key is reached, but what only it references
+        is not."""
+        components = nx.condensation(self._dep_graph)
+        reached: set[str] = set()
+        pending = [
+            key
+            for node, data in components.nodes(data=True)
+            if components.in_degree(node) == 0
+            for key in data["members"]
+        ]
+        while pending:
+            key = pending.pop()
+            if key in reached:
+                continue
+            reached.add(key)
+            if not stop(key):
+                pending.extend(self._dep_graph.successors(key))
+        return reached
 
     def get_leaf_vis(self) -> list[str]:
         """Get VIs that don't call any SubVIs (leaves of dependency tree)."""
@@ -1321,20 +1340,19 @@ class QueryMixin:
             if info.variant_keys
         }
 
-    def called_poly_variants(self, wrapper: str) -> set[str] | None:
-        """The keys of the variants the calls of the polymorphic VI ``wrapper``
-        resolve to; None when no VI calls it or some call does not resolve to a
-        variant (that call needs the wrapper to choose)."""
-        chosen: set[str] = set()
-        for uids in self._vi_nodes.values():
+    def poly_call_choices(self) -> dict[str, dict[str, set[str | None]]]:
+        """For each polymorphic VI some node calls: the VIs that call it, each with
+        the variants its calls resolve to (``None`` for a call that leaves the
+        choice to the wrapper). One pass over every node of every VI."""
+        calls: dict[str, dict[str, set[str | None]]] = {}
+        for caller, uids in self._vi_nodes.items():
             for uid in uids:
                 node = self._get_typed_node(uid)
-                if not isinstance(node, VINode) or node.callee_key != wrapper:
-                    continue
-                if node.variant_key is None:
-                    return None
-                chosen.add(node.variant_key)
-        return chosen or None
+                if isinstance(node, VINode) and node.callee_key in self._poly_info:
+                    calls.setdefault(node.callee_key, {}).setdefault(caller, set()).add(
+                        node.variant_key
+                    )
+        return calls
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
         """The key of each variant mapped to the key of its wrapper VI."""

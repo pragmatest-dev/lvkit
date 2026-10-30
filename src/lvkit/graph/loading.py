@@ -485,10 +485,19 @@ class LoadingMixin:
             self._stubs.add(key)
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
-            if rel:
+            if rel == EdgeRel.OWNS:
+                self._add_ownership_edge(caller, key)
+            elif rel:
                 self._dep_graph.add_edge(caller, key, rel=rel)
             else:
                 self._dep_graph.add_edge(caller, key)
+
+    def _add_ownership_edge(self, owner: str, member: str, **attrs: object) -> None:
+        """Edge ``owner`` (a class or library) to the ``member`` it owns; the
+        paths of the files below it follow from the owner's, so the recorded paths
+        are told the owners changed."""
+        self._dep_graph.add_edge(owner, member, rel=EdgeRel.OWNS, **attrs)
+        self._recorded.owners_changed()
 
     def _note_recorded_path(
         self,
@@ -557,7 +566,7 @@ class LoadingMixin:
                             typedef_qname=typedef_qname,
                             search_paths=search_paths,
                         )
-                        self._dep_graph.add_edge(lib_key, ctl_key, rel=EdgeRel.OWNS)
+                        self._add_ownership_edge(lib_key, ctl_key)
                     else:
                         # Absent .ctl: key the stub by its INTENDED resolved path
                         # (computable without the file), so it stages/upgrades by
@@ -585,9 +594,7 @@ class LoadingMixin:
                         member_key = self.load_vi(vi_path, mode, search_paths)
                         # Ownership edge — to the member's RETURN key (its path).
                         if member_key and member_key in self._dep_graph:
-                            self._dep_graph.add_edge(
-                                lib_key, member_key, rel=EdgeRel.OWNS
-                            )
+                            self._add_ownership_edge(lib_key, member_key)
                     else:
                         # Absent .vi member: key the stub by its INTENDED
                         # resolved path (computable without the file), so it
@@ -648,7 +655,7 @@ class LoadingMixin:
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
                     if member_key:
-                        self._dep_graph.add_edge(lib_key, member_key, rel=EdgeRel.OWNS)
+                        self._add_ownership_edge(lib_key, member_key)
                 else:
                     # Absent .lvclass member: same path-keyed stub treatment.
                     class_key = str((lvlib_path.parent / member.url).resolve())
@@ -680,7 +687,7 @@ class LoadingMixin:
                         owner_chain=chain + [lib.name + ".lvlib"],
                     )
                     if nested_key:
-                        self._dep_graph.add_edge(lib_key, nested_key, rel=EdgeRel.OWNS)
+                        self._add_ownership_edge(lib_key, nested_key)
                 else:
                     # Absent nested .lvlib member: same path-keyed stub
                     # treatment.
@@ -849,10 +856,9 @@ class LoadingMixin:
                 # attach the edge straight to it — no bare-name collision to lose
                 # (path identity subsumes the old #18 source-path fallback).
                 if method_key and method_key in self._dep_graph:
-                    self._dep_graph.add_edge(
+                    self._add_ownership_edge(
                         cls_key,
                         method_key,
-                        rel=EdgeRel.OWNS,
                         scope=method.scope,
                         is_accessor=method.is_accessor,
                         accessor_type=method.accessor_type,
@@ -1166,9 +1172,7 @@ class LoadingMixin:
                 self.load_vi(vi_path, mode, search_paths)
             else:
                 key = str(vi_path.resolve())
-                self._add_stub(
-                    key, NodeType.VI, vi_name, vi_name, caller=None
-                )
+                self._add_stub(key, NodeType.VI, vi_name, vi_name, caller=None)
 
     @_with_extraction_pool
     def load_directory(

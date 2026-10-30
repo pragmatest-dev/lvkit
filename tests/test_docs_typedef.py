@@ -177,7 +177,10 @@ def test_a_corrupt_control_does_not_stop_the_others(tmp_path):
     result = generate_documents(str(project), str(tmp_path / "out"))
     summary = result.summary
     assert (tmp_path / "out" / "typedef" / "Good.html").is_file()
-    assert result.problems == ["Bad.ctl: could not be read as a control"]
+    assert [str(p) for p in result.problems] == [
+        "Bad.ctl: could not be read as a control"
+    ]
+    assert [p.stage for p in result.problems] == ["load"]
     assert "Type definitions documented:" in summary
 
 

@@ -13,8 +13,11 @@ resolves against it. The resolved path of a key is the one value placement
 (``module_layout``), the docs groups and the vi.lib catalog lookup read.
 
 Several references can resolve one file to different installation paths; the
-smaller joined path is the file's, decided from every reference, so the answer
-does not depend on the order the references were loaded in.
+smaller joined path (compared without regard to case, then as recorded) is the
+file's, so the answer does not depend on the order the references were loaded in.
+A file no reference names from an installation folder has no resolved path; a
+path a caller records relative to itself (``recorded_by``) is only a place beside
+that caller.
 """
 
 from __future__ import annotations
@@ -92,23 +95,33 @@ class _Reference:
     tokens: tuple[str, ...]
 
 
+def _order(tokens: list[str]) -> tuple[str, str]:
+    """How two paths for one file compare: the joined path without regard to case
+    (a Windows file system names one file whatever the case), then as recorded, so
+    two recordings that differ only in case still give one answer."""
+    joined = "/".join(tokens)
+    return joined.casefold(), joined
+
+
 class RecordedPaths:
     """The recorded paths of one graph's dependencies, by dependency key."""
 
     def __init__(self, dep_graph: nx.DiGraph) -> None:
         self._dep_graph = dep_graph
         self._references: dict[str, set[_Reference]] = {}
-        # Resolved tokens by key, valid while the references and the graph's
+        # Resolved tokens by key, valid while the references and the ownership
         # edges are as they were (``_stamp``).
         self._settled: dict[str, list[str] | None] = {}
         self._stamp: tuple[int, int] = (-1, -1)
         self._recorded = 0
+        self._owners = 0
 
     def clear(self) -> None:
         self._references.clear()
         self._settled.clear()
         self._stamp = (-1, -1)
         self._recorded = 0
+        self._owners = 0
 
     def record(self, key: str, caller: str | None, tokens: list[str]) -> None:
         """Remember that ``caller`` recorded ``tokens`` for the file ``key`` (a
@@ -121,18 +134,27 @@ class RecordedPaths:
             references.add(reference)
             self._recorded += 1
 
-    def resolved(self, key: str) -> list[str] | None:
-        """The resolved tokens of ``key``: the smallest installation-folder path
-        any reference (or the container that owns it) gives it; else, for a file a
-        caller records only relative to itself, the smallest such path; None when
-        nothing was recorded.
+    def owners_changed(self) -> None:
+        """The loader added an ownership edge (a class or library to a member): the
+        paths settled so far may change."""
+        self._owners += 1
 
-        What decides a key's path is only the keys above it (its callers and its
-        container), so they are settled together: every key starts without a path
-        and is recomputed from its sources' paths of the previous round until no
-        path changes. The result is a function of the references alone, whatever
-        order they were recorded in."""
-        stamp = (self._recorded, self._dep_graph.number_of_edges())
+    def resolved(self, key: str) -> list[str] | None:
+        """The installation-folder path of ``key``: the smallest (``_order``) one
+        any reference, or the container that owns it, gives it; None when no
+        reference names it from an installation folder, directly or through the
+        caller or container that does.
+
+        A path a caller records relative to itself is resolved against the
+        caller's installation path, so what decides a key's path is the keys
+        above it (its callers and its containers). They are settled in rounds: in
+        each, a key without a path takes the smallest path its references and
+        containers give it from the keys settled in the earlier rounds, so the
+        result is a function of the references alone, whatever order they were
+        recorded in, and every key settles at most once, so the rounds end. A
+        file a reference names from an installation folder settles in the first
+        round, from those references alone."""
+        stamp = (self._recorded, self._owners)
         if stamp != self._stamp:
             self._settled.clear()
             self._stamp = stamp
@@ -145,38 +167,49 @@ class RecordedPaths:
         tokens = self.resolved(key)
         return "/".join(tokens) if tokens else None
 
+    def recorded_by(self, key: str, caller: str) -> list[str] | None:
+        """The path ``caller`` recorded for ``key``, as recorded (relative to
+        ``caller`` unless it starts at an installation folder): the smallest when
+        it recorded several. For placing a file relative to that caller on disk."""
+        tokens = [
+            list(r.tokens) for r in self._references.get(key, ()) if r.caller == caller
+        ]
+        return min(tokens, key=_order) if tokens else None
+
     def _sources(self, key: str) -> list[str]:
         """The keys whose paths decide ``key``'s: its callers and its owners."""
         callers = {r.caller for r in self._references.get(key, ()) if r.caller}
         return sorted(callers | set(self._containers_of(key)))
 
     def _settle(self, key: str) -> None:
-        above: list[str] = []
-        seen = {key}
+        above: set[str] = set()
         pending = [key]
         while pending:
             current = pending.pop()
-            above.append(current)
-            for source in self._sources(current):
-                if source not in seen and source not in self._settled:
-                    seen.add(source)
-                    pending.append(source)
-        above.sort()
-        values: dict[str, list[str] | None] = dict.fromkeys(above)
-        for _ in range(len(above) + 1):
-            update = {k: self._candidate(k, values) for k in above}
-            if update == values:
+            if current in above:
+                continue
+            above.add(current)
+            pending.extend(s for s in self._sources(current) if s not in self._settled)
+        values: dict[str, list[str] | None] = {}
+        unsettled = sorted(above)
+        while unsettled:
+            update = {k: self._candidate(k, values) for k in unsettled}
+            gained = {k: v for k, v in update.items() if v is not None}
+            if not gained:
                 break
-            values = update
+            values.update(gained)
+            unsettled = [k for k in unsettled if k not in gained]
+        self._settled.update(dict.fromkeys(above))
         self._settled.update(values)
 
     def _candidate(
         self, key: str, values: dict[str, list[str] | None]
     ) -> list[str] | None:
-        """The path ``key`` gets from the paths ``values`` of the keys above it."""
+        """The installation path ``key`` gets from the paths ``values`` already
+        settled for the keys above it."""
 
         def of(source: str) -> list[str] | None:
-            return values[source] if source in values else self._settled[source]
+            return values[source] if source in values else self._settled.get(source)
 
         candidates: list[list[str]] = []
         for reference in self._references.get(key, ()):
@@ -188,8 +221,7 @@ class RecordedPaths:
                 below = Path(key).relative_to(Path(container).parent).parts
                 candidates.append([*tokens[:-1], *below])
         installed = [c for c in candidates if is_symbolic_root(c[0])]
-        pool = installed or candidates
-        return min(pool) if pool else None
+        return min(installed, key=_order) if installed else None
 
     def _containers_of(self, key: str) -> list[str]:
         """The class or library files that own ``key`` and sit above it."""

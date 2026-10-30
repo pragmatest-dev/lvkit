@@ -1968,9 +1968,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
             userlib_root=userlib_root,
         )
         print("\n" + result.summary)
-        if result.stopped:
-            return 1
-        return 3 if result.problems else 0
+        return 0
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

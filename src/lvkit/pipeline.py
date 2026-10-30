@@ -40,6 +40,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.module_layout import ModuleLayout, project_root
+from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
@@ -139,6 +140,13 @@ def create_import_resolver(
 
     caller_dir = caller_path.parent
 
+    def shown(key: str) -> str | None:
+        """The path a message names the VI at ``key`` by: the one that places its
+        module (project-relative, or the installation path its caller recorded)."""
+        if layout is not None:
+            return layout.display_path(key)
+        return graph.recorded_path(key) if graph is not None else None
+
     def locate_by_name(vi_name: str) -> Path:
         """The output file of a VI known only by name: a vi.lib VI, or a VI
         reference constant (which names its VI by name). A call of a project VI
@@ -153,9 +161,7 @@ def create_import_resolver(
         for key in (qualified, vi_name):
             if key in vi_paths:
                 return found(key, vi_name)
-        raise MissingVIError(
-            vi_name, graph.recorded_path(qualified) if graph is not None else None
-        )
+        raise MissingVIError(vi_name, shown(qualified))
 
     def found(key: str, name: str) -> Path:
         """The output file of the VI at ``key``; a VI the graph holds only as a
@@ -166,7 +172,7 @@ def create_import_resolver(
             and vilib_resolver.has_python(graph.recorded_path(key))
         )
         if graph is not None and graph.is_stub(key) and not implemented:
-            raise MissingVIError(name, graph.recorded_path(key))
+            raise MissingVIError(name, shown(key))
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:
@@ -327,31 +333,12 @@ def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], layout: ModuleLayout) 
     for gap in vi_gaps:
         where = f"{gap.node_name}: " if gap.node_name else ""
         print(
-            f"warning: {layout.display_path(gap.vi)}: {where}{gap.reason}"
-            f" [{gap.kind}]",
+            f"warning: {layout.display_path(gap.vi)}: {where}{gap.reason} [{gap.kind}]",
             file=sys.stderr,
         )
         for line in gap.diagnostic():
             print(f"    {line}", file=sys.stderr)
     all_gaps.extend(vi_gaps)
-
-
-def _variants_to_generate(
-    graph: InMemoryVIGraph,
-    vilib_resolver: VILibResolver,
-    wrapper: str,
-    variants: list[str],
-) -> list[str]:
-    """The variants of the polymorphic VI ``wrapper`` that need a generated
-    module: those the catalog gives no Python for that some call resolves to (all
-    of them when a call leaves the choice to the wrapper)."""
-    called = graph.called_poly_variants(wrapper)
-    return [
-        v
-        for v in variants
-        if (called is None or v in called)
-        and not vilib_resolver.has_python(graph.recorded_path(v))
-    ]
 
 
 def _generate_polymorphic_module(
@@ -641,34 +628,51 @@ def generate_python(
 
     warm_all_loaded(graph)
 
+    vilib_resolver = get_vilib_resolver()
+
+    def catalog_gives_python(key: str) -> bool:
+        return vilib_resolver.has_python(graph.recorded_path(key))
+
     # A library only scopes its members: it has no module, and nothing imports it.
+    # Where the catalog gives Python for a VI, what only it calls is no part of
+    # the output.
+    reached = graph.keys_reached_without_entering(catalog_gives_python)
     order = [
         key
         for key in graph.get_conversion_order()
-        if graph.node_type(key) in _MODULE_NODE_TYPES
+        if graph.node_type(key) in _MODULE_NODE_TYPES and key in reached
     ]
     print(f"\nConversion order ({len(order)} VIs):")
-
-    vilib_resolver = get_vilib_resolver()
 
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
 
-    # A call of a polymorphic VI that resolves to a variant the catalog gives
-    # Python for uses that Python at the call site, so only the variants without
-    # it that a call needs are generated, in the wrapper's module.
-    # A variant with a catalog implementation is its own module; every other
-    # variant is only ever written in its wrapper's module, if at all.
+    # A variant the catalog gives a module for (a full implementation) is that
+    # module; every other variant (its own diagram, or a catalog inline template)
+    # has no module of its own: a diagram is written in its wrapper's module, if
+    # at all, and a template at its call sites.
     poly_variants: set[str] = {
         v
         for variants in poly_groups.values()
         for v in variants
         if not vilib_resolver.has_implementation(graph.recorded_path(v))
     }
-    poly_groups = {
-        wrapper: _variants_to_generate(graph, vilib_resolver, wrapper, variants)
-        for wrapper, variants in poly_groups.items()
-    }
+    # The variants that get code are the ones the VIs written from their diagrams
+    # use, which includes the variants those variants use.
+    poly_groups = variants_to_generate(
+        graph,
+        vilib_resolver,
+        poly_groups,
+        written={
+            key
+            for key in order
+            if graph.node_type(key) is NodeType.VI
+            and not graph.is_stub(key)
+            and not catalog_gives_python(key)
+            and key not in poly_variants
+            and key not in poly_groups
+        },
+    )
 
     # Every module lives at the project-relative path of its file.
     layout = ModuleLayout(
@@ -795,7 +799,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=vi_gaps,
-                        )
+                    )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
@@ -885,7 +889,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=wrapper_gaps,
-                        )
+                    )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
@@ -895,7 +899,7 @@ def generate_python(
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                     traceback.print_exc()
 
-    # Generate minimal __init__.py (just makes it a package)
+        # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
