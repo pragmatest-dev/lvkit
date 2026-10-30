@@ -1534,8 +1534,10 @@ class LoadingMixin:
                 ],
             )
 
-        # Add to dependency graph
-        self._dep_graph.add_node(vi_key)
+        # Add to dependency graph, carrying the VI's own display identity on its
+        # node (a node created here is not yet there when the identity is
+        # registered above).
+        self._dep_graph.add_node(vi_key, name=unqualified_name, qname=own_qname)
 
         # Mark as loaded, and record the depth we're loading its deps at — BEFORE
         # the dependency walk below, so a cyclic callee that re-enters this VI at

@@ -513,7 +513,7 @@ def test_lvnet_and_describe_list_each_callee_with_its_own_path(tree: _Tree) -> N
         assert text.splitlines()[:5] == [
             f"vi {caller} :",
             "  uses :",
-            f"    subVI skip.vi ; ./{owner}/skip.vi",
+            f"    subVI {owner}.lvclass:skip.vi ; ./{owner}/skip.vi",
             "  block-diagram :",
             f"    subVI {owner}.lvclass:skip_10 : {owner}.lvclass:skip.vi",
         ]

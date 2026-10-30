@@ -86,6 +86,13 @@ def _write_syntax_error(
 _MODULE_NODE_TYPES = (NodeType.VI, NodeType.CLASS, NodeType.TYPEDEF)
 
 
+def _as_given(path: Path, written_dir: Path, given_dir: Path) -> Path:
+    """``path``, a file under ``written_dir`` (the output folder in the form the
+    files are written through), in the form the caller gave the output folder:
+    ``given_dir`` joined with the part below it."""
+    return given_dir / display_path(path).relative_to(display_path(written_dir))
+
+
 def _ensure_packages(path: Path, output_dir: Path) -> None:
     """Create the package folders above ``path`` (each with an ``__init__.py``)."""
     folder = path.parent
@@ -570,7 +577,8 @@ def generate_python(
     vi_folder_name = re.sub(r"[^\w]", "_", vi_folder_name).lower()
     vi_folder_name = re.sub(r"_+", "_", vi_folder_name).strip("_")
 
-    output_dir_resolved = extended_length(output_dir_root / vi_folder_name)
+    output_dir_given = output_dir_root / vi_folder_name
+    output_dir_resolved = extended_length(output_dir_given)
 
     # Clean output directory
     if output_dir_resolved.exists():
@@ -786,7 +794,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=vi_gaps,
-                        )
+                    )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
@@ -874,7 +882,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=wrapper_gaps,
-                        )
+                    )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
@@ -884,7 +892,7 @@ def generate_python(
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                     traceback.print_exc()
 
-    # Generate minimal __init__.py (just makes it a package)
+        # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
@@ -997,10 +1005,22 @@ def generate_python(
         "error": error_count,
         "failed": failed_count,
         "gaps": all_gaps,
-        "generated": generated,
-        "output_dir": output_dir_resolved,
+        "generated": [
+            (
+                name,
+                None
+                if path is None
+                else _as_given(path, output_dir_resolved, output_dir_given),
+                status,
+            )
+            for name, path, status in generated
+        ],
+        "output_dir": output_dir_given,
         "graph": graph,
         "vilib_resolver": vilib_resolver,
-        "vi_paths": vi_paths,
+        "vi_paths": {
+            key: _as_given(path, output_dir_resolved, output_dir_given)
+            for key, path in vi_paths.items()
+        },
         "vi_folder_name": vi_folder_name,
     }
