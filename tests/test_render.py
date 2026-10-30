@@ -4637,7 +4637,7 @@ def test_parse_private_data_fields_is_authoritative_to_the_class():
     if not lvclass_path.exists():
         pytest.skip("sample .lvclass not available")
 
-    fields = _parse_private_data_fields(lvclass_path)
+    fields = _parse_private_data_fields(lvclass_path, "DAQmx Module Runtime.ctl")
     names = [f.name for f in fields]
     assert names == ["DAQ Tasks", "Channel Indeces"]
     assert names != ["instance ID", "key-value pairs"]  # the wrong-class bug
