@@ -311,6 +311,9 @@ class LoadingMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def clear(self) -> None: ...
+        def resolved_recorded_tokens(
+            self, tokens: list[str], caller_key: str | None
+        ) -> list[str]: ...
         def _add_vi_to_graph(
             self,
             bd: ParsedBlockDiagram,
@@ -514,7 +517,11 @@ class LoadingMixin:
                 key,
                 node_type=node_type,
                 path_tokens=(
-                    _member_path_tokens(path_tokens, name) if path_tokens else None
+                    self.resolved_recorded_tokens(
+                        _member_path_tokens(path_tokens, name), caller
+                    )
+                    if path_tokens
+                    else None
                 ),
             )
             self._stubs.add(key)
@@ -526,14 +533,20 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller, key)
 
     def _record_path_tokens(
-        self, key: str, dep_ref: ParsedDependencyRef | None, leaf: str
+        self,
+        key: str,
+        dep_ref: ParsedDependencyRef | None,
+        leaf: str,
+        caller_key: str | None,
     ) -> None:
         """Keep the path a caller recorded for the loaded dependency ``key`` when
         it starts at a LabVIEW installation folder (``<vilib>/...``): that path
         names the same file for every caller, so it places the file wherever it
         was found (``InMemoryVIGraph.recorded_path``). A path relative to the
-        caller is never kept for a loaded file. An absent file (a stub) carries
-        its recorded path from ``_add_stub``."""
+        caller counts once resolved against the caller's own installation path
+        (``resolved_recorded_tokens``); it is remembered on the file until the
+        caller has one. A relative path never places a file by itself. An absent
+        file (a stub) carries its recorded path from ``_add_stub``."""
         if (
             dep_ref is None
             or not dep_ref.path_tokens
@@ -541,8 +554,15 @@ class LoadingMixin:
             or not self._dep_graph.has_node(key)
         ):
             return
+        tokens = _member_path_tokens(dep_ref.path_tokens, leaf)
+        if caller_key is not None and caller_key != key and not is_symbolic_root(
+            tokens[0]
+        ):
+            self._dep_graph.nodes[key].setdefault("relative_refs", set()).add(
+                (caller_key, tuple(tokens))
+            )
         self._keep_installation_tokens(
-            key, _member_path_tokens(dep_ref.path_tokens, leaf)
+            key, self.resolved_recorded_tokens(tokens, caller_key)
         )
 
     def _keep_installation_tokens(self, key: str, tokens: list[str]) -> None:
@@ -560,6 +580,14 @@ class LoadingMixin:
         node["path_tokens"] = list(tokens)
         container_dir = Path(key).parent
         for child in sorted(self._dep_graph.successors(key)):
+            pending: set[tuple[str, tuple[str, ...]]] = self._dep_graph.nodes[
+                child
+            ].get("relative_refs", set())
+            for caller, relative in sorted(pending):
+                if caller == key and child not in self._stubs:
+                    self._keep_installation_tokens(
+                        child, self.resolved_recorded_tokens(list(relative), key)
+                    )
             if self._dep_graph.edges[key, child].get("rel") != EdgeRel.OWNS:
                 continue
             try:
@@ -2118,7 +2146,7 @@ class LoadingMixin:
         )
         if key is not None:
             self._record_path_tokens(
-                key, dep_ref, qualified_name.rsplit(":", 1)[-1]
+                key, dep_ref, qualified_name.rsplit(":", 1)[-1], caller_qname
             )
         return key
 

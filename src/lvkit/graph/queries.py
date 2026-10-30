@@ -175,6 +175,38 @@ class QueryMixin:
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
 
+    def resolved_recorded_tokens(
+        self, tokens: list[str], caller_key: str | None
+    ) -> list[str]:
+        """``tokens`` (the path a caller recorded) made to start at an installation
+        folder when they are relative to a caller that has an installation path of
+        its own: each leading empty token pops one level of the caller's recorded
+        path, ``..`` pops another, so ``['', 'B.vi']`` recorded by
+        ``<userlib>/_OpenG.lib/array/array.llb/A.vi`` is
+        ``<userlib>/_OpenG.lib/array/array.llb/B.vi``. Tokens that already start at
+        an installation folder, or whose caller has none, are returned unchanged.
+        The one resolution placement and the catalog lookup share."""
+        if not tokens or is_symbolic_root(tokens[0]) or caller_key is None:
+            return list(tokens)
+        caller = self.recorded_path(caller_key)
+        if caller is None:
+            return list(tokens)
+        base = caller.split("/")
+        empties = 0
+        while empties < len(tokens) and tokens[empties] == "":
+            empties += 1
+        if empties == 0 or empties >= len(base):
+            return list(tokens)
+        base = base[:-empties]
+        for token in tokens[empties:]:
+            if token == "..":
+                if len(base) <= 1:
+                    return list(tokens)
+                base.pop()
+            elif token != ".":
+                base.append(token)
+        return base
+
     def catalog_path(self, node: VINode) -> str | None:
         """The path the vi.lib catalog looks a call up by: the path the call's own
         caller recorded when that starts at an installation folder, else the one
@@ -182,8 +214,14 @@ class QueryMixin:
         a path beside itself; its callers' ``<userlib>`` path names the same
         file). The same path ``recorded_path`` gives code generation for the VI's
         module, so a call and its callee's module agree on who writes the Python."""
-        if get_vilib_resolver().in_catalog_scope(node.qualified_path):
-            return node.qualified_path
+        if node.qualified_path:
+            resolved = "/".join(
+                self.resolved_recorded_tokens(
+                    node.qualified_path.split("/"), node.vi_path
+                )
+            )
+            if get_vilib_resolver().in_catalog_scope(resolved):
+                return resolved
         if node.callee_key is not None:
             return self.recorded_path(node.callee_key) or node.qualified_path
         return node.qualified_path

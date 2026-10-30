@@ -178,3 +178,108 @@ def test_absent_members_of_one_class_are_not_placed_at_the_class_file(
         ("vilib", "x", "m"),
         ("vilib", "x", "n"),
     ]
+
+
+_LLB = ["<userlib>", "_OpenG.lib", "array", "array.llb"]
+
+
+def _sibling_graph(tmp_path: Path, order: int) -> tuple[InMemoryVIGraph, str, str, str]:
+    """A and B sit in one <userlib> llb found through a search path. Main records A
+    by its <userlib> path; A records B beside itself; Main may record B by its
+    <userlib> path too. The three records arrive in the order ``order`` picks."""
+    project, main = _project(tmp_path)
+    search = tmp_path / "extracted"
+    search.mkdir()
+    a = Path(shutil.copy(ONE, search / "A.vi"))
+    Path(shutil.copy(TWO, search / "B.vi"))
+    graph = InMemoryVIGraph()
+    main_key = graph.load_vi(main, mode=LoadMode.MINIMAL)
+
+    def load(name: str, tokens: list[str], caller: Path, caller_key: str) -> str:
+        key = graph._load_dependency(
+            name,
+            _ref(name, *tokens),
+            caller,
+            [search],
+            caller_qname=caller_key,
+            mode=LoadMode.MINIMAL,
+        )
+        assert key is not None
+        return key
+
+    a_key = str(a.resolve())
+    if order == 1:
+        graph.load_vi(a, mode=LoadMode.MINIMAL)
+        b_key = load("B.vi", ["", "B.vi"], a, a_key)
+        load("A.vi", [*_LLB, "A.vi"], main, main_key)
+    elif order == 2:
+        load("A.vi", [*_LLB, "A.vi"], main, main_key)
+        b_key = load("B.vi", ["", "B.vi"], a, a_key)
+    else:
+        load("A.vi", [*_LLB, "A.vi"], main, main_key)
+        b_key = load("B.vi", [*_LLB, "B.vi"], main, main_key)
+        load("B.vi", ["", "B.vi"], a, a_key)
+    return graph, main_key, a_key, b_key
+
+
+def test_a_sibling_call_in_an_installation_folder_is_placed_there_in_any_order(
+    tmp_path: Path,
+) -> None:
+    for order in (1, 2, 3):
+        graph, main_key, a_key, b_key = _sibling_graph(tmp_path / str(order), order)
+        project = tmp_path / str(order) / "proj"
+        assert graph.recorded_path(b_key) == "/".join([*_LLB, "B.vi"])
+        layout = ModuleLayout(
+            graph,
+            [main_key, a_key, b_key],
+            project,
+            [tmp_path / str(order) / "extracted"],
+        )
+        assert layout.places[a_key].packages == layout.places[b_key].packages
+        assert layout.places[b_key].parts == (
+            "userlib",
+            "_openglib",
+            "array",
+            "arrayllb",
+            "b",
+        )
+        groups, _ = _collect_library_groups(
+            graph,
+            [main_key, a_key, b_key],
+            project,
+            [tmp_path / str(order) / "extracted"],
+        )
+        assert groups[a_key] == groups[b_key] == "user.lib"
+
+
+def test_a_relative_path_resolves_against_the_callers_installation_path() -> None:
+    graph = InMemoryVIGraph()
+    graph._dep_graph.add_node("/c/A.vi", path_tokens=[*_LLB, "A.vi"])
+    graph._dep_graph.add_node("/c/Top.vi", path_tokens=["<vilib>", "Top.vi"])
+    resolve = graph.resolved_recorded_tokens
+    assert resolve(["", "B.vi"], "/c/A.vi") == [*_LLB, "B.vi"]
+    assert resolve(["", "", "x.llb", "C.vi"], "/c/A.vi") == [
+        "<userlib>",
+        "_OpenG.lib",
+        "array",
+        "x.llb",
+        "C.vi",
+    ]
+    assert resolve(["", "..", "D.vi"], "/c/A.vi") == [
+        "<userlib>",
+        "_OpenG.lib",
+        "array",
+        "D.vi",
+    ]
+    # More levels up than the caller's path has, or a caller with no installation
+    # path: the tokens stay as recorded.
+    assert resolve(["", "", "", "", "", "E.vi"], "/c/A.vi") == [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "E.vi",
+    ]
+    assert resolve(["", "F.vi"], "/c/none.vi") == ["", "F.vi"]
+    assert resolve(["<vilib>", "G.vi"], "/c/A.vi") == ["<vilib>", "G.vi"]
