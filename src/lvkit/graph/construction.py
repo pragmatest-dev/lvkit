@@ -735,8 +735,17 @@ class ConstructionMixin:
             if not known_terminals and isinstance(node, SubVINode):
                 # SubVI calls: look up vilib terminal layout
                 vilib_r = get_vilib_resolver()
+                callee, variant = callee_keys(
+                    node.node_type,
+                    node.uid,
+                    iuse_to_callee_key or {},
+                    poly_to_callee_key or {},
+                )
                 vilib_vi = vilib_r.resolve_call(
-                    iuse_to_qpath.get(node.uid), node.poly_variant_name
+                    self.catalog_path_of(
+                        variant or callee, iuse_to_qpath.get(node.uid), vi_key
+                    ),
+                    node.poly_variant_name,
                 )
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals

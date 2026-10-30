@@ -1174,7 +1174,9 @@ class LoadingMixin:
                 self.load_vi(vi_path, mode, search_paths)
             else:
                 key = str(vi_path.resolve())
-                self._add_stub(key, NodeType.VI, vi_name, vi_name, caller=None)
+                self._add_stub(
+                    key, NodeType.VI, vi_name, vi_name, caller=None
+                )
 
     @_with_extraction_pool
     def load_directory(

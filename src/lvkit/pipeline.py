@@ -333,7 +333,8 @@ def _report_gaps(vi_gaps: list[Gap], all_gaps: list[Gap], layout: ModuleLayout) 
     for gap in vi_gaps:
         where = f"{gap.node_name}: " if gap.node_name else ""
         print(
-            f"warning: {layout.display_path(gap.vi)}: {where}{gap.reason} [{gap.kind}]",
+            f"warning: {layout.display_path(gap.vi)}: {where}{gap.reason}"
+            f" [{gap.kind}]",
             file=sys.stderr,
         )
         for line in gap.diagnostic():
@@ -799,7 +800,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=vi_gaps,
-                    )
+                        )
                     ast.parse(code)  # Validate syntax
                     output_path.write_text(code, encoding="utf-8")
                     _write_data_files(output_path.parent, data_files)
@@ -889,7 +890,7 @@ def generate_python(
                         data_files=data_files,
                         package_modules=package_modules,
                         gaps=wrapper_gaps,
-                    )
+                        )
                     ast.parse(code)
                     wrapper_path.write_text(code, encoding="utf-8")
                     _write_data_files(wrapper_path.parent, data_files)
@@ -899,7 +900,7 @@ def generate_python(
                     print(f"  [poly wrapper] FAILED for {wrapper_name}: {e}")
                     traceback.print_exc()
 
-        # Generate minimal __init__.py (just makes it a package)
+    # Generate minimal __init__.py (just makes it a package)
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")

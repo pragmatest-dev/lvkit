@@ -11,9 +11,10 @@ import pytest
 
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph
+from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.polymorphic_variants import variants_to_generate
-from tests.test_call_identity import _record, _static, _Tree
+from tests.test_call_identity import _Call, _record, _static, _Tree
 
 
 class _Graph:
@@ -120,18 +121,27 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
     )
     slot.write_text(text)
-    built.vi("main.vi", "main.vi", [], [_static(["wrap.vi"], ["", "wrap.vi"])])
+    built.vi(
+        "main.vi",
+        "main.vi",
+        [],
+        [
+            _Call(
+                node_class="polyIUse",
+                label="wrap.vi",
+                records=[
+                    ("PUPV", ["wrap.vi"], ["", "wrap.vi"], 0),
+                    ("IUVI", ["array.vi"], ["", "One", "array.vi"], 0),
+                ],
+            )
+        ],
+    )
     return built
 
 
 def test_a_variant_called_by_a_chosen_variant_is_written_and_importable(
-    poly: _Tree, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    poly: _Tree, tmp_path: Path
 ) -> None:
-    def choices(self: InMemoryVIGraph) -> dict[str, dict[str, set[str | None]]]:
-        key = lambda rel: str((poly.root / rel).resolve())  # noqa: E731
-        return {key("wrap.vi"): {key("main.vi"): {key("One/array.vi")}}}
-
-    monkeypatch.setattr(InMemoryVIGraph, "poly_call_choices", choices)
     out = tmp_path / "gen"
     result = generate_python(poly.root / "main.vi", out, search_paths=[poly.root])
     assert not result["gaps"]
@@ -144,3 +154,14 @@ def test_a_variant_called_by_a_chosen_variant_is_written_and_importable(
     spec.loader.exec_module(module)
     module.array()  # runs the variant it calls
     assert "scalar(" in source.split("def array(")[1].split("def ")[0]
+
+
+def test_a_polymorphic_call_resolves_to_the_variant_its_record_names(
+    poly: _Tree,
+) -> None:
+    graph = InMemoryVIGraph()
+    graph.load_vi(poly.root / "main.vi", LoadMode.MINIMAL, search_paths=[poly.root])
+    key = lambda rel: str((poly.root / rel).resolve())  # noqa: E731
+    assert graph.poly_call_choices() == {
+        key("wrap.vi"): {key("main.vi"): {key("One/array.vi")}}
+    }

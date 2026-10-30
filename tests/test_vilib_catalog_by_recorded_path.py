@@ -112,3 +112,33 @@ def test_resolve_call_picks_the_selected_variant_by_the_recorded_path() -> None:
     # A project VI of the same file name is not the catalog's.
     assert resolver.resolve_call("/Helpers/DAQmx Read.vi", selector) is None
     assert resolver.resolve_call(None, selector) is None
+
+
+def test_call_relative_to_a_vilib_caller_gets_the_catalog_terminals(
+    tmp_path: Path,
+) -> None:
+    """The call records ``['', 'Error Cluster From Error Code.vi']``: beside its
+    caller, which the project records under ``<vilib>/Utility/error.llb``."""
+    main = base._MAIN_XML.replace(
+        "<String>&lt;vilib&gt;</String>\n            <String>Utility</String>\n"
+        "            <String>error.llb</String>\n"
+        "            <String>Error Cluster From Error Code.vi</String>",
+        "<String />\n<String>Error Cluster From Error Code.vi</String>",
+    )
+    assert main != base._MAIN_XML
+    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML)
+    (tmp_path / "Caller.xml").write_text(main)
+
+    def names(caller_path: list[str] | None) -> list[str | None]:
+        graph = InMemoryVIGraph()
+        if caller_path is not None:
+            key = str((tmp_path / "Caller_BDHb.xml").resolve())
+            graph._recorded.record(key, None, caller_path)
+        graph.load_vi(tmp_path / "Caller_BDHb.xml")
+        vi = graph.list_vis()[0]
+        node = graph._graph.nodes[f"{vi}::20"]["node"]
+        return [t.display_name for t in sorted(node.terminals, key=lambda t: t.index)]
+
+    in_vilib = names(["<vilib>", "Utility", "error.llb", "Caller.vi"])
+    assert "error code (0)" in in_vilib
+    assert names(None) == [None] * len(in_vilib)
