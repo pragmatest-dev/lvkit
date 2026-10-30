@@ -62,7 +62,9 @@ def test_loaded_dependencies_keep_the_path_their_caller_recorded(
     graph, _, keys = _loaded(tmp_path)
     assert graph.recorded_path(keys["Util.vi"]) == "<vilib>/Utility/util.llb/Util.vi"
     assert graph.recorded_path(keys["Lib.vi"]) == "<userlib>/_Lib.lib/lib.llb/Lib.vi"
-    assert graph.recorded_path(keys["Other.vi"]) == "//Shared/Other.vi"
+    # A path relative to its caller names different files for different callers:
+    # a loaded file does not keep it.
+    assert graph.recorded_path(keys["Other.vi"]) is None
 
 
 def test_groups_pages_and_titles_name_no_folder_of_this_machine(
@@ -74,14 +76,14 @@ def test_groups_pages_and_titles_name_no_folder_of_this_machine(
     )
     assert groups[keys["Util.vi"]] == "vi.lib"
     assert groups[keys["Lib.vi"]] == "user.lib"
-    assert groups[keys["Other.vi"]] == "Shared"
+    assert groups[keys["Other.vi"]] == "found here"
     assert groups[main_key] == "Project"
 
     gen = HTMLDocGenerator(tmp_path / "out", "<Docs> & more", "vi")
-    gen.vi_groups, gen.vi_labels = groups, labels
+    gen.register_vi_names(groups, labels)
     gen.all_vis = set(groups)
     for name, folder in (("Util.vi", "vi_lib"), ("Lib.vi", "user_lib")) + (
-        ("Other.vi", "Shared"),
+        ("Other.vi", "found_here"),
     ):
         filename = gen._vi_name_to_filename(keys[name])
         assert filename.startswith(f"{folder}/") and filename.endswith(".html")
@@ -90,9 +92,9 @@ def test_groups_pages_and_titles_name_no_folder_of_this_machine(
     index = gen._render_index_page(sorted(groups))
     assert "<title>&lt;Docs&gt; &amp; more - Documentation</title>" in index
     assert "<h1>&lt;Docs&gt; &amp; more</h1>" in index
-    for group in ("vi.lib", "user.lib", "Shared", "Project"):
+    for group in ("vi.lib", "user.lib", "found here", "Project"):
         assert f'<span class="library-name">{group}</span>' in index
-    for piece in (str(tmp_path), "tmp", "found here", "external", "<userlib>"):
+    for piece in (str(tmp_path), "tmp", "external", "<userlib>"):
         assert piece not in index
         assert piece not in "".join(gen._vi_name_to_filename(k) for k in groups)
 

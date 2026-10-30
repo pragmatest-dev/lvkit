@@ -3,6 +3,10 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A vi.lib VI the catalog has Python for is never generated from its diagram, and neither are the VIs only it calls** — generation loads just its connector pane, uses the catalog's Python for every call, and fills a missing terminal index or default from that pane; a catalog terminal that disagrees with the pane is a terminal-mapping gap.
+- **Fix: a file is placed by the vi.lib / user.lib path its caller recorded, wherever it was found, and never by a path relative to one caller** — docs groups and generated modules agree whatever the load order; a class and its members share a package, and absent members of one class no longer collide.
+- **Fix: polymorphic variants, class methods and overrides are VI keys** — docs and `generate` no longer compare names with paths, so two same-named VIs are told apart; docs page and icon names hold only safe characters and stay unique, and control, type and default text is escaped.
+- **Fix: private-data fields whose labels become one Python name get their own attributes**, and the diagram's SVG id carries a digest of what is drawn, so two `Main.vi` on one page no longer share ids.
 - **Fix: a project VI that shares a vi.lib VI's file name keeps its own terminals** — the vi.lib catalog describes a call only when the caller recorded it under a LabVIEW folder (`<vilib>`, `<userlib>`, `<instrlib>`), so a project `General Error Handler.vi` is not treated as LabVIEW's.
 - **Decisions come from the VI, not from names** — polymorphic VIs come only from their own records, a subVI file is looked up only by the name its caller recorded, a class field labelled `None` or unlabelled is kept, and diagram glyphs follow the primitive's ID.
 - **`docs` groups pages by library, vi.lib, user.lib or project folder, with no absolute paths** — page titles, file names and icon names use the VI's name (with its folder when two share it), a subVI called from user.lib or a search folder is filed by the path its caller recorded, and a subVI shows the description its own VI carries (or none) instead of one guessed from its name.

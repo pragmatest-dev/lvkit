@@ -442,11 +442,16 @@ class TestRealSampleHierarchy:
 
         overrides = g.get_method_overrides("TextTestRunner.lvclass:makeResult.vi")
         assert overrides is not None
-        assert overrides.overrides == "TestRunner.lvclass:makeResult.vi"
+        assert overrides.overrides is not None
+        assert g.vi_display_name(overrides.overrides) == (
+            "TestRunner.lvclass:makeResult.vi"
+        )
 
         reverse = g.get_method_overrides("TestRunner.lvclass:makeResult.vi")
         assert reverse is not None
-        assert "TextTestRunner.lvclass:makeResult.vi" in reverse.overridden_by
+        assert "TextTestRunner.lvclass:makeResult.vi" in [
+            g.vi_display_name(key) for key in reverse.overridden_by
+        ]
 
 
 class TestPathKeyedMethods:
@@ -473,11 +478,11 @@ class TestPathKeyedMethods:
     def test_class_page_methods_are_the_owned_loaded_vis(self):
         hierarchy = self._graph().get_class_hierarchy("Base.lvclass")
         assert hierarchy is not None
-        assert hierarchy.methods == ["Base.lvclass:run.vi"]
+        assert hierarchy.methods == ["/p/Base/run.vi"]
 
     def test_overrides_come_from_the_classes_owned_vis(self):
         g = self._graph()
         child = g.get_method_overrides("/p/Child/run.vi")
-        assert child is not None and child.overrides == "Base.lvclass:run.vi"
+        assert child is not None and child.overrides == "/p/Base/run.vi"
         base = g.get_method_overrides("/p/Base/run.vi")
-        assert base is not None and base.overridden_by == ["Child.lvclass:run.vi"]
+        assert base is not None and base.overridden_by == ["/p/Child/run.vi"]

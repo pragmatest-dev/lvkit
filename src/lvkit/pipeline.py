@@ -387,7 +387,7 @@ def _generate_polymorphic_module(
             output_dir,
             vi_paths,
             vi_paths[wrapper_name],
-            caller_key=graph.resolve_vi_name(variant_name),
+            caller_key=variant_name,
             graph=graph,
             vilib_resolver=vilib_resolver,
             package_modules=package_modules,
@@ -634,12 +634,6 @@ def generate_python(
 
     vilib_resolver = get_vilib_resolver()
 
-    def catalog_path(key: str) -> str | None:
-        """The path the vi.lib catalog looks ``key`` up by: only a VI that is
-        absent is described by it. A VI that is loaded is generated from its own
-        diagram, whichever way a caller recorded it."""
-        return graph.recorded_path(key) if graph.is_stub(key) else None
-
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
 
@@ -684,7 +678,10 @@ def generate_python(
                 continue
 
             is_stub = graph.is_stub(vi_name)
-            recorded = catalog_path(vi_name)
+            # The catalog decides from the path the callers record, whether or
+            # not the VI's file is loaded: a VI it gives Python for is generated
+            # from that, never from its diagram.
+            recorded = graph.recorded_path(vi_name)
             has_vilib = vilib_resolver.has_implementation(recorded)
             has_inline = vilib_resolver.has_inline(recorded)
 
@@ -699,7 +696,7 @@ def generate_python(
             if vi_name in poly_groups:
                 variants = poly_groups[vi_name]
                 all_inlined = all(
-                    vilib_resolver.has_inline(catalog_path(v)) for v in variants
+                    vilib_resolver.has_inline(graph.recorded_path(v)) for v in variants
                 )
                 if all_inlined:
                     print("         -> (polymorphic, all variants inlined)")

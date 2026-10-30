@@ -40,8 +40,7 @@ def callee_names(ctx: CodeGenContext, node: VINode) -> CalleeNames | None:
     key = graph.loaded_callee_key(node)
     if key is None:
         return None
-    variants = (graph.resolve_vi_name(v) for v in graph.get_poly_variants(key))
-    candidates = [key, *variants]
+    candidates = [key, *graph.get_poly_variants(key)]
     for candidate in candidates:
         inputs, off_inputs, outputs, off_outputs = graph.vi_interface(candidate)
         if not (inputs or off_inputs or outputs or off_outputs):

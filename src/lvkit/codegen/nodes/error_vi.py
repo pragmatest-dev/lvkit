@@ -37,12 +37,13 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     as the message (the wired message wins when there is one).
     """
     resolver = get_resolver()
+    catalog_path = ctx.graph.catalog_path(node) if ctx.graph else node.qualified_path
     if (
-        resolver.catalog_file_name(node.qualified_path)
+        resolver.catalog_file_name(catalog_path)
         != VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE
     ):
         return CodeFragment.empty()
-    entry = resolver.resolve_recorded(node.qualified_path)
+    entry = resolver.resolve_recorded(catalog_path)
     if entry is None:
         return CodeFragment.empty()
     index_of = {t.python_param: t.index for t in entry.terminals if t.direction == "in"}

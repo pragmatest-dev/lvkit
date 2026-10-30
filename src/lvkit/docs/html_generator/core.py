@@ -51,6 +51,8 @@ class HTMLDocGenerator(
         self.vi_groups: dict[str, str] = {}
         # VI name -> the name shown for it (qualified name or file name)
         self.vi_labels: dict[str, str] = {}
+        # VI name -> its page path (set with the groups by register_vi_names())
+        self.vi_pages: dict[str, str] = {}
         # classname -> class landing page path (relative to output_dir root),
         # populated by generate_class_page(). Used by the index page to link
         # library group headers to their class landing page.

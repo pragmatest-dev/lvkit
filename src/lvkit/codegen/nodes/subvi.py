@@ -12,6 +12,7 @@ from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
+    CatalogPaneMismatch,
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
@@ -30,6 +31,7 @@ from ..context import CodeGenContext
 from ..error_path import is_error_wire_vi
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..vilib_pane import check_against_pane
 from . import error_vi
 
 
@@ -43,7 +45,8 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
-    if is_error_wire_vi(node.qualified_path, get_resolver()):
+    catalog_path = ctx.graph.catalog_path(node) if ctx.graph else node.qualified_path
+    if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)
 
     # Dynamic dispatch → obj.method(args) / super().method(args)
@@ -54,11 +57,12 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     vilib_vi = None
     if node.poly_variant_name:
         vilib_vi = get_resolver().resolve_call(
-            node.qualified_path, node.poly_variant_name, wrapper_fallback=False
+            catalog_path, node.poly_variant_name, wrapper_fallback=False
         )
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
+        vilib_vi = _checked_against_pane(vilib_vi, node, ctx)
 
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
@@ -276,24 +280,39 @@ def _generate_inline(
     )
 
 
-def _get_vilib_vi(
-    node: VINode | None = None, ctx: CodeGenContext | None = None
-) -> VIEntry | None:
-    """Look up SubVI in vilib resolver.
+def _checked_against_pane(
+    entry: VIEntry, node: VINode, ctx: CodeGenContext
+) -> VIEntry:
+    """``entry`` completed from the connector pane of the VI the call names when
+    that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
+    key = ctx.graph.loaded_callee_key(node) if ctx.graph is not None else None
+    if ctx.graph is None or key is None:
+        return entry
+    inputs, _, outputs, _ = ctx.graph.vi_interface(key)
+    check = check_against_pane(entry, [*inputs, *outputs])
+    if check.mismatches:
+        raise CatalogPaneMismatch(node.name or entry.name, check.mismatches)
+    return check.entry
+
+
+def _get_vilib_vi(node: VINode, ctx: CodeGenContext) -> VIEntry | None:
+    """The catalog entry of the VI a call records a path for, checked against the
+    VI's own connector pane when it is loaded.
 
     If the VI is found but has no terminal indices, raises VILibResolutionNeeded
     with context to help resolve the indices.
     """
     try:
         resolver = get_resolver()
-        recorded_path = node.qualified_path if node else None
+        recorded_path = (
+            ctx.graph.catalog_path(node) if ctx.graph else node.qualified_path
+        )
 
-        # A polymorphic call is resolved to its variant by the caller.
         vi = resolver.resolve_recorded(recorded_path)
         catalog_name = resolver.catalog_file_name(recorded_path)
-
         if vi is None or catalog_name is None:
             return None
+        vi = _checked_against_pane(vi, node, ctx)
 
         # Check if caller's WIRED terminals are missing indices
         # Only require indices for terminals that have actual wires

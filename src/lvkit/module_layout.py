@@ -223,18 +223,12 @@ class ModuleLayout:
         return self._place(name)
 
     def folders_of(self, key: str) -> tuple[str, ...]:
-        """The folders that hold ``key``'s file, as raw tokens: project-relative
-        for a project file, the recorded path's folders (``<vilib>``, ...) for a
-        file outside it. Raises ``UnplacedVIError`` when nothing says where it
-        is."""
-        recorded = self._recorded_path(key)
-        if (
-            recorded is not None
-            and _is_path(key)
-            and os.path.isabs(key)
-            and _below(key, self._root) is None
-        ):
-            return tuple(_tokens(recorded)[:-1])
+        """The folders that hold ``key``'s file, as raw tokens: the path below the
+        project for a project file; the path its caller recorded (``<vilib>``,
+        ``<userlib>``, ...) for a file outside it that was recorded from an
+        installation folder, else the search folder's name or ``external`` and the
+        path below it. The same tokens that place its module. Raises
+        ``UnplacedVIError`` when nothing says where it is."""
         return tuple(self._tokens_of(key)[:-1])
 
     def packages_of(self, key: str) -> tuple[str, ...]:

@@ -52,17 +52,19 @@ __all__ = [
     "render_vi_with_subvis",
 ]
 
-# Deterministic per-VI id for the root <svg> — sanitized from the VI name, no
-# randomness/time (byte-reproducibility rule), so the inline frame-controller
+# Deterministic per-drawing id for the root <svg> — the sanitized display name and
+# a digest of the drawn elements, no randomness/time or path (byte-reproducibility
+# rule; two VIs with one name draw different elements), so the inline frame-controller
 # script below can scope its DOM queries to exactly this document, and many
 # inlined SVGs on one HTML page (the gallery) don't collide with each other.
 _ID_SANITIZE_RE = re.compile(r"[^A-Za-z0-9]+")
 
 
-def _root_id(display_name: str) -> str:
-    """The id of one VI's root ``<svg>``, from its display name (the qualified
-    name), never from its key, which is a file path."""
-    return "lv-" + _ID_SANITIZE_RE.sub("-", display_name).strip("-")
+def _root_id(display_name: str, digest: str) -> str:
+    """The id of one drawing's root ``<svg>``: its display name (the qualified
+    name, never the key, which is a file path) and the digest of what is drawn,
+    which tells apart two VIs that share a name."""
+    return f"lv-{_ID_SANITIZE_RE.sub('-', display_name).strip('-')}-{digest}"
 
 
 # Interactive frame controller (roadmap #17): a case/stacked-sequence selector
@@ -527,7 +529,6 @@ def _render_scene_svg(
     ``render_vi``'s ``data-lv-properties``/``data-lv-health`` (task #19).
     ``display_name`` is the accessible name (aria-label) and names the root id:
     the qualified name, so the SVG never exposes the VI's key, a path."""
-    title = display_name
     backend = SvgBackend()
     draw_scene(scene, backend, theme)
     style = _BASE_CSS + extra_css
@@ -546,11 +547,11 @@ def _render_scene_svg(
             scripts.append(_HOVER_PANEL_JS)
             scripts.append(_ARRAY_CONTROLLER_JS)
     if scripts:
-        root_id = _root_id(display_name)
+        root_id = _root_id(display_name, backend.content_digest())
         script = "\n".join(scripts).replace("__ROOT_ID__", json.dumps(root_id))
         return backend.render(
             scene.bounds,
-            title=title,
+            title=display_name,
             script=script,
             root_id=root_id,
             style=style,
@@ -558,7 +559,7 @@ def _render_scene_svg(
         )
     return backend.render(
         scene.bounds,
-        title=title,
+        title=display_name,
         style=style,
         extra_attrs=extra_attrs,
     )

@@ -161,6 +161,15 @@ class _VILibLookupMixin:
         """
         return [entry for entry in self._by_name.values() if entry.base_vi == base_name]
 
+    def has_python(self, recorded_path: str | None) -> bool:
+        """Whether the catalog gives Python (an implementation or an inline
+        template) for the VI a call records ``recorded_path`` for. Then every call
+        of it uses that Python, whether or not the VI's file is loaded, and no
+        module is generated from its diagram or from the VIs only it calls: the
+        one test code generation and dependency loading share."""
+        vi = self.resolve_recorded(recorded_path)
+        return vi is not None and vi.python_code is not None
+
     def has_implementation(self, recorded_path: str | None) -> bool:
         """Check if we have a full Python implementation (module) for the VI a
         call records ``recorded_path`` for."""

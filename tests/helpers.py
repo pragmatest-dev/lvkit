@@ -93,18 +93,15 @@ _RENDER_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)
 
 
 def normalize_render_ids(svg: str) -> str:
-    """Normalize the path-derived SVG ids for a web/desktop render byte-parity
-    comparison. The root ``id`` and every clip id/ref embed the source file PATH
-    (``lv-<pathslug>-vi``, plus ``-cN`` for clips), which legitimately differs
-    between a ``/proj``-staged web render and a workspace desktop render — the
-    parity guarantee is about render CONTENT, not the path. This mirrors
+    """Normalize the root ``id`` and every clip id/ref of a render for a
+    web/desktop byte-parity comparison. They are ``lv-<display name slug>-<digest
+    of the drawn elements>`` plus ``-cN`` for clips: none of it holds a file
+    path, so the same drawing has the same ids on every machine, and this only
+    rewrites the display-name part (``lv-<slug>-vi``) so the comparison does not
+    depend on how a fixture is named. It mirrors
     ``editors/vscode/build/check-web-parity.sh``'s ``norm()``
-    (``sed -E 's/lv-[A-Za-z0-9-]*-vi/lv-ID/g'``, global — rewriting both the
-    ``id="…"`` definitions and the ``url(#…)`` references while preserving the
-    ``-cN`` clip discriminator). The char class is case-INSENSITIVE because a
-    path slug preserves case (e.g. ``JKI-VI-Tester``, ``Test LVKit``); this
-    ``re.IGNORECASE`` and the shell's ``[A-Za-z0-9-]`` are kept identical so the
-    Python parity tests and the shell CI gate can't drift."""
+    (``sed -E 's/lv-[A-Za-z0-9-]*-vi/lv-ID/g'``, global), case-insensitive in both
+    so the Python parity tests and the shell CI gate can't drift."""
     return _RENDER_ID_RE.sub("lv-ID", svg)
 
 

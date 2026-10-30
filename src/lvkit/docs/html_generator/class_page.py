@@ -110,7 +110,7 @@ class ClassPageMixin:
             display_name = escape(self._vi_short_label(vi_name))
             badge_html = self._render_access_badge(method_access.get(vi_name))
             items.append(
-                f'<li><a href="{method_link(vi_name)}">'
+                f'<li><a href="{escape(method_link(vi_name))}">'
                 f"<code>{display_name}</code></a>{badge_html}</li>"
             )
 

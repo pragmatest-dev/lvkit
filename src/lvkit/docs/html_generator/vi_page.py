@@ -253,9 +253,9 @@ class ViPageMixin:
             rows.append(
                 f"""
             <tr>
-                <td>{ctrl["name"]}</td>
-                <td><code>{ctrl["type"]}</code></td>
-                <td>{default_val}</td>
+                <td>{escape(str(ctrl["name"]))}</td>
+                <td><code>{escape(str(ctrl["type"]))}</code></td>
+                <td>{escape(str(default_val))}</td>
             </tr>
             """
             )
@@ -303,8 +303,8 @@ class ViPageMixin:
             rows.append(
                 f"""
             <tr>
-                <td>{ind["name"]}</td>
-                <td><code>{ind["type"]}</code></td>
+                <td>{escape(str(ind["name"]))}</td>
+                <td><code>{escape(str(ind["type"]))}</code></td>
             </tr>
             """
             )
@@ -488,7 +488,7 @@ class ViPageMixin:
             )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
             param_rows.append(
-                f"<tr><td><strong>{param_name}</strong> (input)</td>"
+                f"<tr><td><strong>{escape(param_name)}</strong> (input)</td>"
                 f"<td>{common_badge}</td>{cells}</tr>"
             )
 
@@ -509,13 +509,13 @@ class ViPageMixin:
             )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
             param_rows.append(
-                f"<tr><td><strong>{param_name}</strong> (output)</td>"
+                f"<tr><td><strong>{escape(param_name)}</strong> (output)</td>"
                 f"<td>{common_badge}</td>{cells}</tr>"
             )
 
         # Build table header with variant names
         variant_headers = "".join(
-            f"<th>{v['name'].split(':')[-1] if ':' in v['name'] else v['name']}</th>"
+            f"<th>{escape(self._vi_short_label(v['name']))}</th>"
             for v in variant_params
         )
 

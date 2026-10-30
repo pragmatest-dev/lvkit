@@ -195,9 +195,8 @@ class OperationsMixin:
         # Polymorphic VIs may have no FP terminals on the wrapper
         if not slot_to_name:
             for variant in self.get_poly_variants(resolved_name):
-                resolved_variant = self.resolve_vi_name(variant)
-                if resolved_variant in self._vi_nodes:
-                    slot_to_name = self._get_slot_to_name(resolved_variant)
+                if variant in self._vi_nodes:
+                    slot_to_name = self._get_slot_to_name(variant)
                     if slot_to_name:
                         break
 

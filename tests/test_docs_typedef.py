@@ -159,7 +159,7 @@ def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_lists_its_typedefs_apart_from_its_subvis():
     graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
-    data = _prepare_vi_documentation_data(vi, graph, {}, None)
+    data = _prepare_vi_documentation_data(vi, graph, {}, [], None)
     assert data["type_definitions"], "the VI uses controls"
     typedefs = set(data["type_definitions"])
     assert typedefs.isdisjoint(data["dependencies"])  # not listed as SubVI calls

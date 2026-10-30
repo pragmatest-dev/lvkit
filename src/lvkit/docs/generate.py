@@ -11,7 +11,6 @@ import shutil
 import time
 from collections import Counter
 from collections.abc import Callable, Sequence
-from dataclasses import replace
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
@@ -141,11 +140,12 @@ def _collect_library_groups(
     (``vi.lib``, ``user.lib``) its caller recorded; else its project-relative
     folder (the recorded path's folder for a VI outside the project)."""
     layout = ModuleLayout(graph, [], project, search_roots)
+    poly_groups = graph.get_polymorphic_groups()
     names: set[str] = set(vi_names)
     for vi_name in vi_names:
         names.update(graph.get_vi_dependencies(vi_name))
         names.update(graph.get_vi_dependents(vi_name))
-        names.update(graph.get_polymorphic_groups().get(vi_name, []))
+        names.update(poly_groups.get(vi_name, []))
     groups: dict[str, str] = {}
     labels: dict[str, str] = {}
     folders_of: dict[str, tuple[str, ...]] = {}
@@ -202,10 +202,12 @@ def _collect_icons(
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
-    poly_groups: dict,
+    poly_groups: dict[str, list[str]],
+    problems: list[str],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
-    """Prepare all data needed for one VI documentation page."""
+    """Prepare all data needed for one VI documentation page. A part of the page
+    that cannot be built is left out and named in ``problems``."""
     inputs_dc = graph.get_inputs(vi_name)
     outputs_dc = graph.get_outputs(vi_name)
     operations_dc = graph.top_level_nodes(vi_name)
@@ -278,39 +280,28 @@ def _prepare_vi_documentation_data(
     callers = graph.get_vi_dependents(vi_name)
 
     is_poly = vi_name in poly_groups
-    poly_variants = poly_groups.get(vi_name, []) if is_poly else []
+    poly_variants = poly_groups.get(vi_name, [])
 
-    variant_params = []
-    if is_poly and poly_variants:
-        for variant_name in poly_variants:
-            try:
-                variant_inputs = graph.get_inputs(variant_name)
-                variant_outputs = graph.get_outputs(variant_name)
-                variant_params.append(
-                    {
-                        "name": variant_name,
-                        "inputs": [
-                            {
-                                "name": inp.name,
-                                "type": inp.lv_type.type_descriptor()
-                                if inp.lv_type
-                                else "Any",
-                            }
-                            for inp in variant_inputs
-                        ],
-                        "outputs": [
-                            {
-                                "name": out.name,
-                                "type": out.lv_type.type_descriptor()
-                                if out.lv_type
-                                else "Any",
-                            }
-                            for out in variant_outputs
-                        ],
-                    }
-                )
-            except Exception:
-                pass
+    variant_params = [
+        {
+            "name": variant_key,
+            "inputs": [
+                {
+                    "name": inp.name,
+                    "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
+                }
+                for inp in graph.get_inputs(variant_key)
+            ],
+            "outputs": [
+                {
+                    "name": out.name,
+                    "type": out.lv_type.type_descriptor() if out.lv_type else "Any",
+                }
+                for out in graph.get_outputs(variant_key)
+            ],
+        }
+        for variant_key in poly_variants
+    ]
 
     icon_path = None
     if icon_map and vi_name in icon_map:
@@ -318,28 +309,18 @@ def _prepare_vi_documentation_data(
 
     try:
         diagram_svg, subvi_nodes = render_vi_with_subvis(graph, vi_name)
-    except Exception:
+    except Exception as e:  # noqa: BLE001 — per-VI; the page is written without it
         logger.exception("SVG diagram render failed for %s", vi_name)
+        problems.append(
+            f"{graph.vi_display_name(vi_name)}: the diagram could not be drawn "
+            f"({e})"
+        )
         diagram_svg, subvi_nodes = None, {}
 
     # Class hierarchy navigation: only set for class method VIs.
     owning_class = graph.get_owning_class(vi_name)
     method_access = graph.get_method_access(vi_name) if owning_class else None
     method_overrides = graph.get_method_overrides(vi_name) if owning_class else None
-    if method_overrides is not None:
-        # The graph names the related methods by qualified name; the pages are
-        # filed by VI key.
-        method_overrides = replace(
-            method_overrides,
-            overrides=(
-                graph.resolve_vi_name(method_overrides.overrides)
-                if method_overrides.overrides
-                else None
-            ),
-            overridden_by=[
-                graph.resolve_vi_name(name) for name in method_overrides.overridden_by
-            ],
-        )
 
     return {
         "vi_name": vi_name,
@@ -508,8 +489,10 @@ def generate_documents(
 
     all_vis = graph.list_vis()
     generator.all_vis = set(all_vis)
-    generator.vi_groups, generator.vi_labels = _collect_library_groups(
-        graph, all_vis, project_root(library_path_obj), search_path_objs
+    generator.register_vi_names(
+        *_collect_library_groups(
+            graph, all_vis, project_root(library_path_obj), search_path_objs
+        )
     )
 
     # Collect and copy icons
@@ -534,6 +517,7 @@ def generate_documents(
                 vi_name,
                 graph,
                 poly_groups,
+                failed_files,
                 icon_map,
             )
             generator.generate_vi_page(vi_data)
@@ -566,12 +550,6 @@ def generate_documents(
         hierarchy = graph.get_class_hierarchy(classname)
         if hierarchy is None:
             continue
-        # The graph names a class's methods by qualified name; the pages are
-        # filed by VI key.
-        hierarchy = replace(
-            hierarchy,
-            methods=[graph.resolve_vi_name(name) for name in hierarchy.methods],
-        )
         method_access = {}
         for method_vi in hierarchy.methods:
             access = graph.get_method_access(method_vi)

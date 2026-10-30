@@ -17,14 +17,13 @@ import networkx as nx
 
 from ..load_mode import LoadMode
 from ..models import ClusterField, FPTerminal, Terminal
-from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
+from ..parser.models import ParsedDependencyRef, ParsedFrontPanel, is_symbolic_root
 from ..type_names import ROOT_CLASS
 from ..vi_files import rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
 from .errors import AmbiguousVIReferenceError
 from .interface_order import ordered_interface
-from .loading import _redirect_member_beside_container
 from .models import (
     AnyGraphNode,
     ClassFieldEntry,
@@ -175,6 +174,19 @@ class QueryMixin:
         recorded for the call, never a lookup by the callee's name."""
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
+
+    def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks a call up by: the path the call's own
+        caller recorded when that starts at an installation folder, else the one
+        recorded for the VI the call names (a sibling call in a vi.lib VI records
+        a path beside itself; its callers' ``<userlib>`` path names the same
+        file). The same path ``recorded_path`` gives code generation for the VI's
+        module, so a call and its callee's module agree on who writes the Python."""
+        if get_vilib_resolver().in_catalog_scope(node.qualified_path):
+            return node.qualified_path
+        if node.callee_key is not None:
+            return self.recorded_path(node.callee_key) or node.qualified_path
+        return node.qualified_path
 
     def vi_display_name(self, vi_name: str) -> str:
         """The VI's human-facing qualified name (``Class.lvclass:vi.vi``, else the
@@ -344,14 +356,19 @@ class QueryMixin:
         return key in self._stubs
 
     def recorded_path(self, key: str) -> str | None:
-        """The path a caller recorded for the absent VI, class or control ``key``
-        (``<vilib>/addons/TestCase.llb/skip.vi``, ``/../Gone/gone.vi``), as ``/``
-        joined tokens; None when no caller recorded one. A stub is named by this
-        path as far as it resolves; the rest of it rides on the stub node."""
+        """The path a caller recorded for the VI, class or control ``key``
+        (``<vilib>/addons/TestCase.llb/skip.vi``), as ``/``-joined tokens; None
+        when no caller recorded one. A loaded file has one only when it starts at
+        a LabVIEW installation folder (``<vilib>``, ``<userlib>``, ...), which
+        names the file the same for every caller; a path relative to its caller
+        is kept only for an absent file (a stub), which it names as far as it
+        resolves. The rest of it rides on the stub node."""
         if key not in self._dep_graph:
             return None
         tokens = self._dep_graph.nodes[key].get("path_tokens")
-        return "/".join(tokens) if tokens else None
+        if not tokens or (key not in self._stubs and not is_symbolic_root(tokens[0])):
+            return None
+        return "/".join(tokens)
 
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
@@ -567,10 +584,6 @@ class QueryMixin:
             )
             if cand is None:
                 continue
-            # A class/library MEMBER (.vi OR .ctl) names its OWNING container;
-            # the member's own file sits beside it (see
-            # _redirect_member_beside_container).
-            cand = _redirect_member_beside_container(cand, leaf)
             return _real_member_path(cand)
         return None
 
@@ -1285,23 +1298,24 @@ class QueryMixin:
         return vi_name in self._poly_info
 
     def get_poly_variants(self, vi_name: str) -> list[str]:
-        """Get variants for a polymorphic VI."""
+        """The keys of the variants of a polymorphic VI that are its loaded or
+        absent dependencies, in the order the wrapper records them."""
         info = self._poly_info.get(vi_name)
-        return info.variants if info else []
+        return list(info.variant_keys) if info else []
 
     def get_polymorphic_groups(self) -> dict[str, list[str]]:
-        """Get all polymorphic VIs and their variants."""
+        """Every polymorphic VI's key with the keys of its variants."""
         return {
-            vi_name: info.variants
+            vi_name: list(info.variant_keys)
             for vi_name, info in self._poly_info.items()
-            if info.variants
+            if info.variant_keys
         }
 
     def get_poly_variant_wrappers(self) -> dict[str, str]:
-        """Get mapping of variant VI names to their wrapper VI."""
+        """The key of each variant mapped to the key of its wrapper VI."""
         result: dict[str, str] = {}
         for wrapper, info in self._poly_info.items():
-            for variant in info.variants:
+            for variant in info.variant_keys:
                 result[variant] = wrapper
         return result
 
@@ -1413,9 +1427,10 @@ class QueryMixin:
         )
 
         # Methods: the loaded VIs this class owns (a stub or unresolved method
-        # VI is not documented). Each is reported by its display qname.
+        # VI is not documented), by key, in display-name order.
         methods = sorted(
-            self.vi_display_name(key) for key in self._class_member_keys(node_key)
+            self._class_member_keys(node_key),
+            key=lambda key: (self.vi_display_name(key), key),
         )
 
         own_fields: list[ClusterField] = data.get("fields") or []
@@ -1566,16 +1581,19 @@ class QueryMixin:
                 return None
             for member in self._class_member_keys(class_key):
                 if _bare_name(member) == bare_method:
-                    return self.vi_display_name(member)
+                    return member
             return None
 
         overrides = (
             _method_of(hierarchy.parent_class) if hierarchy.parent_class else None
         )
         overridden_by = sorted(
-            found
-            for found in (_method_of(child) for child in hierarchy.child_classes)
-            if found is not None
+            (
+                found
+                for found in (_method_of(child) for child in hierarchy.child_classes)
+                if found is not None
+            ),
+            key=lambda key: (self.vi_display_name(key), key),
         )
 
         if overrides is None and not overridden_by:

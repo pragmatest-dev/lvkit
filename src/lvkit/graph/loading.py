@@ -35,6 +35,7 @@ from ..parser import (
     parse_vi_metadata,
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
+from ..parser.models import is_symbolic_root
 from ..parser.type_mapping import parse_type_map_rich
 from ..structure import (
     LVClass,
@@ -47,6 +48,7 @@ from ..structure import (
     private_data_field_to_cluster_field,
 )
 from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
+from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError
 from .models import (
@@ -508,7 +510,13 @@ class LoadingMixin:
         edged from).
         """
         if not self._dep_graph.has_node(key):
-            self._dep_graph.add_node(key, node_type=node_type, path_tokens=path_tokens)
+            self._dep_graph.add_node(
+                key,
+                node_type=node_type,
+                path_tokens=(
+                    _member_path_tokens(path_tokens, name) if path_tokens else None
+                ),
+            )
             self._stubs.add(key)
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
@@ -520,20 +528,46 @@ class LoadingMixin:
     def _record_path_tokens(
         self, key: str, dep_ref: ParsedDependencyRef | None, leaf: str
     ) -> None:
-        """Keep the path a caller recorded for the dependency on the node ``key``
-        that satisfies it, so a loaded file is named by that path as an absent
-        one is (``InMemoryVIGraph.recorded_path``). The first caller that
-        records one wins."""
+        """Keep the path a caller recorded for the loaded dependency ``key`` when
+        it starts at a LabVIEW installation folder (``<vilib>/...``): that path
+        names the same file for every caller, so it places the file wherever it
+        was found (``InMemoryVIGraph.recorded_path``). A path relative to the
+        caller is never kept for a loaded file. An absent file (a stub) carries
+        its recorded path from ``_add_stub``."""
         if (
             dep_ref is None
             or not dep_ref.path_tokens
+            or key in self._stubs
             or not self._dep_graph.has_node(key)
-            or self._dep_graph.nodes[key].get("path_tokens")
         ):
             return
-        self._dep_graph.nodes[key]["path_tokens"] = _member_path_tokens(
-            dep_ref.path_tokens, leaf
+        self._keep_installation_tokens(
+            key, _member_path_tokens(dep_ref.path_tokens, leaf)
         )
+
+    def _keep_installation_tokens(self, key: str, tokens: list[str]) -> None:
+        """Set ``key``'s recorded tokens to ``tokens`` and give every file the
+        container ``key`` owns the tokens beside it, so a class or library and
+        its members are placed in one package. When two callers record
+        different installation paths for one file the smaller joined path wins,
+        so the choice never depends on load order."""
+        if not tokens or not is_symbolic_root(tokens[0]):
+            return
+        node = self._dep_graph.nodes[key]
+        held = node.get("path_tokens")
+        if held and is_symbolic_root(held[0]) and "/".join(held) <= "/".join(tokens):
+            return
+        node["path_tokens"] = list(tokens)
+        container_dir = Path(key).parent
+        for child in sorted(self._dep_graph.successors(key)):
+            if self._dep_graph.edges[key, child].get("rel") != EdgeRel.OWNS:
+                continue
+            try:
+                below = Path(child).relative_to(container_dir).parts
+            except ValueError:
+                continue
+            if child not in self._stubs:
+                self._keep_installation_tokens(child, [*tokens[:-1], *below])
 
     @_with_extraction_pool
     def load_lvlib(
@@ -1701,6 +1735,13 @@ class LoadingMixin:
                 for uid, ref in metadata.poly_refs.items()
                 if ref.qualified_name in dep_keys
             }
+            poly_info = self._poly_info.get(vi_key)
+            if poly_info is not None:
+                poly_info.variant_keys = [
+                    dep_keys[variant]
+                    for variant in poly_info.variants
+                    if variant in dep_keys
+                ]
             # A recursive call's link record names no file: it calls this VI.
             for uid in metadata.self_call_uids:
                 iuse_to_callee_key[uid] = vi_key
@@ -2062,6 +2103,35 @@ class LoadingMixin:
         mode: LoadMode = LoadMode.FULL,
         resolved_paths: dict[str, Path | None] | None = None,
     ) -> str | None:
+        """Load one dependency and keep the installation-folder path its caller
+        recorded for it (``_record_path_tokens``), whatever kind of file it is
+        and however it was reached. Returns the dependency's identity (see
+        ``_load_dependency_node``)."""
+        key = self._load_dependency_node(
+            qualified_name,
+            dep_ref,
+            caller_file,
+            search_paths,
+            caller_qname=caller_qname,
+            mode=mode,
+            resolved_paths=resolved_paths,
+        )
+        if key is not None:
+            self._record_path_tokens(
+                key, dep_ref, qualified_name.rsplit(":", 1)[-1]
+            )
+        return key
+
+    def _load_dependency_node(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None = None,
+        mode: LoadMode = LoadMode.FULL,
+        resolved_paths: dict[str, Path | None] | None = None,
+    ) -> str | None:
         """Load one dependency by its LabVIEW qualified name and optional path ref.
         Returns the dependency's identity: its resolved file path, else the
         path its caller recorded for it (the key of the node the load edged
@@ -2103,7 +2173,6 @@ class LoadingMixin:
                 # A fields-only class placeholder can be UPGRADED by a resolvable
                 # ref — fall through to a full load; otherwise it's done.
                 if not self._dep_graph.nodes[dep_key].get("fields_only"):
-                    self._record_path_tokens(dep_key, dep_ref, leaf)
                     return dep_key
             # else fall through to the dispatch below, which loads and keys by
             # this same path (idempotently).
@@ -2169,14 +2238,12 @@ class LoadingMixin:
 
         # Dispatch by extension to the matching public loader.
         if is_vi_file(leaf):
-            loaded_key = (
+            return (
                 self._leaf_load_vi(
                     resolved, qualified_name, caller_qname, dep_ref, search_paths, mode
                 )
                 or dep_key
             )
-            self._record_path_tokens(loaded_key, dep_ref, leaf)
-            return loaded_key
         elif leaf.endswith(".lvclass"):
             parts = qualified_name.split(":")
             owner_chain = parts[:-1] if len(parts) > 1 else None
@@ -2250,7 +2317,18 @@ class LoadingMixin:
         """
         try:
             bd_xml, fp_xml, main_xml = self._extract(resolved)
-            child_mode = LoadMode.FULL if mode is LoadMode.FULL else LoadMode.NONE
+            # A VI the catalog gives Python for is generated from that, so only its
+            # own pane is loaded, never the VIs it calls.
+            catalog_python = (
+                dep_ref is not None
+                and bool(dep_ref.path_tokens)
+                and get_vilib_resolver().has_python("/".join(dep_ref.path_tokens))
+            )
+            child_mode = (
+                LoadMode.FULL
+                if mode is LoadMode.FULL and not catalog_python
+                else LoadMode.NONE
+            )
             loaded_name = self._load_vi_recursive(
                 bd_xml,
                 fp_xml,
@@ -2399,7 +2477,6 @@ class LoadingMixin:
         Safe to call repeatedly — overwrites stale entries.
         """
         from ..project_store import find_project_store, write_json_atomic
-        from ..vilib_resolver import get_resolver as get_vilib_resolver
 
         store = find_project_store()
         if store is None:
