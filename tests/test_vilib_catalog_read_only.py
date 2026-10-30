@@ -92,6 +92,7 @@ def _caller(
         id="op:1",
         vi_path="Caller.vi",
         name=vi,
+        qualified_path=f"<vilib>/Test/{vi}",
         terminals=[wired],
     )
     context = VIContext(

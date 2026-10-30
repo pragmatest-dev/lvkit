@@ -27,7 +27,7 @@ from ..ast_utils import (
 )
 from ..callee_names import CalleeNames, callee_names
 from ..context import CodeGenContext
-from ..error_path import ERROR_WIRE_VI_NAMES
+from ..error_path import is_error_wire_vi
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from . import error_vi
@@ -43,7 +43,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
 
     # The vi.lib error VIs (Merge Errors, Clear Errors, Error Cluster From Error
     # Code, the error handlers) are exception handling, not calls of a module.
-    if subvi_name in ERROR_WIRE_VI_NAMES:
+    if is_error_wire_vi(node.qualified_path, get_resolver()):
         return error_vi.generate(node, ctx)
 
     # Dynamic dispatch → obj.method(args) / super().method(args)
@@ -282,9 +282,10 @@ def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
     via poly_selector_names in the driver/vilib data.
     """
     variant = node.poly_variant_name
-    if not variant:
+    resolver = get_resolver()
+    if not variant or not resolver.in_catalog_scope(node.qualified_path):
         return None
-    return get_resolver().resolve_poly_variant(base_name, variant)
+    return resolver.resolve_poly_variant(base_name, variant)
 
 
 def _get_vilib_vi(
@@ -297,15 +298,20 @@ def _get_vilib_vi(
     """
     try:
         resolver = get_resolver()
+        recorded_path = node.qualified_path if node else None
 
         # For polymorphic calls, resolve to the actual variant.
         # If variant not found, fail — don't silently use the wrapper.
         vi = None
-        if node and node.poly_variant_name:
+        if (
+            node
+            and node.poly_variant_name
+            and resolver.in_catalog_scope(recorded_path)
+        ):
             vi = resolver.resolve_poly_variant(subvi_name, node.poly_variant_name)
 
         if vi is None:
-            vi = resolver.resolve_by_name(subvi_name)
+            vi = resolver.resolve_recorded(recorded_path)
 
         if vi is None:
             return None
@@ -341,7 +347,7 @@ def _get_vilib_vi(
             if wired_node_terminals:
                 # Auto-update terminals
                 vi = resolver.auto_update_terminals(
-                    vi_name=subvi_name,
+                    vi_name=resolver.catalog_file_name(recorded_path) or subvi_name,
                     wired_terminals=wired_node_terminals,
                     caller_vi=ctx.vi_name if ctx else None,
                 )

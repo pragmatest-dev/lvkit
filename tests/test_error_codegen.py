@@ -20,6 +20,7 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_codes import describe_error_code
+from lvkit.codegen.error_path import ERROR_WIRE_VI_NAMES
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import (
@@ -100,6 +101,10 @@ def call(
         terminals=[*ins, *outs],
         parent=parent,
         frame=frame,
+        # A call of a vi.lib error VI records its vi.lib path.
+        qualified_path=(
+            f"<vilib>/Utility/error.llb/{name}" if name in ERROR_WIRE_VI_NAMES else None
+        ),
     )
 
 

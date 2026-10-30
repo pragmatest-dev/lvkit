@@ -12,7 +12,6 @@ import re
 import shutil
 import sys
 import traceback
-from collections import defaultdict
 from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,7 +43,6 @@ from lvkit.module_layout import ModuleLayout, project_root
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
-from lvkit.vi_files import strip_vi_extension
 from lvkit.vilib_resolver import VILibResolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
@@ -162,8 +160,10 @@ def create_import_resolver(
     def found(key: str, name: str) -> Path:
         """The output file of the VI at ``key``; a VI the graph holds only as a
         stub, with no implementation of its own, was not found."""
-        implemented = vilib_resolver is not None and vilib_resolver.has_implementation(
-            key
+        implemented = (
+            vilib_resolver is not None
+            and graph is not None
+            and vilib_resolver.has_implementation(graph.recorded_path(key))
         )
         if graph is not None and graph.is_stub(key) and not implemented:
             raise MissingVIError(name, graph.recorded_path(key))
@@ -637,26 +637,6 @@ def generate_python(
     # Identify polymorphic groups (from VI metadata, not heuristics)
     poly_groups = graph.get_polymorphic_groups()
 
-    # Structural fallback: detect polymorphic groups by finding VIs whose
-    # names follow the pattern "Base (Variant)". Group them under the base
-    # name even if the wrapper VI isn't in the conversion order.
-    _variant_candidates: dict[str, list[str]] = defaultdict(list)
-    for vi_name in order:
-        if vi_name in poly_groups:
-            continue
-        name_no_ext = strip_vi_extension(vi_name)
-        if "(" in name_no_ext and ")" in name_no_ext:
-            # Extract base: "Filter (Array)__sfx" -> "Filter__sfx"
-            paren_start = name_no_ext.index("(")
-            paren_end = name_no_ext.rindex(")")
-            base_part = name_no_ext[:paren_start].rstrip()
-            suffix_part = name_no_ext[paren_end + 1 :]
-            wrapper_name = base_part + suffix_part + ".vi"
-            _variant_candidates[wrapper_name].append(vi_name)
-    for wrapper_name, variants in _variant_candidates.items():
-        if len(variants) >= 2 and wrapper_name not in poly_groups:
-            poly_groups[wrapper_name] = variants
-
     poly_variants: set[str] = set()
     for variants in poly_groups.values():
         poly_variants.update(variants)
@@ -698,12 +678,13 @@ def generate_python(
                 continue
 
             is_stub = graph.is_stub(vi_name)
-            has_vilib = vilib_resolver.has_implementation(vi_name)
-            has_inline = vilib_resolver.has_inline(vi_name)
+            recorded = graph.recorded_path(vi_name)
+            has_vilib = vilib_resolver.has_implementation(recorded)
+            has_inline = vilib_resolver.has_inline(recorded)
 
             print(f"  [{i}/{len(order)}] {vi_name}")
 
-            if has_inline or is_error_wire_vi(vi_name, vilib_resolver):
+            if has_inline or is_error_wire_vi(recorded, vilib_resolver):
                 # Skip - inlined at call sites by AST builder
                 print("         -> (inlined at call sites)")
                 continue
@@ -711,7 +692,9 @@ def generate_python(
             # Check polymorphic wrappers early - skip if all variants are inlined
             if vi_name in poly_groups:
                 variants = poly_groups[vi_name]
-                all_inlined = all(vilib_resolver.has_inline(v) for v in variants)
+                all_inlined = all(
+                    vilib_resolver.has_inline(graph.recorded_path(v)) for v in variants
+                )
                 if all_inlined:
                     print("         -> (polymorphic, all variants inlined)")
                     continue
@@ -728,7 +711,7 @@ def generate_python(
 
             if has_vilib:
                 # Generate vilib/openg implementation
-                code = vilib_resolver.get_implementation(vi_name) or ""
+                code = vilib_resolver.get_implementation(recorded) or ""
                 output_path.write_text(code, encoding="utf-8")
                 print(f"         -> vilib: {output_path.name}")
                 generated.append((vi_name, output_path, "vilib"))

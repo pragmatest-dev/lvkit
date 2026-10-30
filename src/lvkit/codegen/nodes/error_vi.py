@@ -38,7 +38,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """
     if node.name != VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE:
         return CodeFragment.empty()
-    entry = get_resolver().resolve_by_name(node.name)
+    entry = get_resolver().resolve_recorded(node.qualified_path)
     if entry is None:
         return CodeFragment.empty()
     index_of = {t.python_param: t.index for t in entry.terminals if t.direction == "in"}

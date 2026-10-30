@@ -728,15 +728,15 @@ class ConstructionMixin:
                 # SubVI calls: look up vilib terminal layout
                 vilib_r = get_vilib_resolver()
                 subvi_name = node.name or ""
+                recorded = iuse_to_qpath.get(node.uid)
                 # Polymorphic: resolve to variant
-                if node.poly_variant_name:
+                vilib_vi = None
+                if node.poly_variant_name and vilib_r.in_catalog_scope(recorded):
                     vilib_vi = vilib_r.resolve_poly_variant(
                         subvi_name, node.poly_variant_name
                     )
-                else:
-                    vilib_vi = None
                 if not vilib_vi:
-                    vilib_vi = vilib_r.resolve_by_name(subvi_name)
+                    vilib_vi = vilib_r.resolve_recorded(recorded)
                 if vilib_vi and vilib_vi.terminals:
                     known_terminals = vilib_vi.terminals
                     terminals_are_complete = False
@@ -838,20 +838,19 @@ class ConstructionMixin:
                 if resolved_nt:
                     node_name = resolved_nt.name
 
-            # For older VIs, node_name may be a generic placeholder ("SubVI",
-            # "VI Refnum", etc.) because pylabview cannot decode binary textRec
-            # indices. Fall back to the iUse UID → qualified name map from LIbd.
+            # For older VIs the node has no label (pylabview cannot decode
+            # binary textRec indices), so its name is the node type's generic one.
+            # Fall back to the iUse UID → qualified name map from LIbd.
             if node.node_type in _SUBVI_CALL_NODE_TYPES:
                 iuse_resolved = (iuse_to_qname or {}).get(node.uid)
-                _is_placeholder = not node_name or node_name == "SubVI"
-                if iuse_resolved and _is_placeholder:
+                if iuse_resolved and not node.label:
                     node_name = iuse_resolved
 
             # Get description for SubVIs from vilib
             description = None
             if node.node_type in _SUBVI_CALL_NODE_TYPES and node_name:
                 vilib_r = get_vilib_resolver()
-                vi_entry = vilib_r.resolve_by_name(node_name)
+                vi_entry = vilib_r.resolve_recorded(iuse_to_qpath.get(node.uid))
                 if vi_entry and vi_entry.description:
                     description = vi_entry.description
 

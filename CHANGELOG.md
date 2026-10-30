@@ -3,6 +3,9 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a project VI that shares a vi.lib VI's file name keeps its own terminals** — the vi.lib catalog describes a call only when the caller recorded it under a LabVIEW folder (`<vilib>`, `<userlib>`, `<instrlib>`), so a project `General Error Handler.vi` is not treated as LabVIEW's.
+- **Decisions come from the VI, not from names** — polymorphic VIs come only from their own records, a subVI file is looked up only by the name its caller recorded, a class field labelled `None` or unlabelled is kept, and diagram glyphs follow the primitive's ID.
+- **`docs` groups pages by library, vi.lib or project folder, with no absolute paths** — page titles and file names use the VI's name (with its folder when two share it), and a subVI with no description shows none instead of one guessed from its name.
 - **Fix: warnings printed by lvkit's worker processes are UTF-8 on Windows** — a pytest or pipe reader no longer fails decoding a dash written in the ANSI code page.
 - **Fix: LabVIEW 8.5 VIs that call a subVI load** — their raw link tables carry the same extra field as LabVIEW 8.2's, so a call in an 8.5 VI names the VI it calls instead of stopping the load (#215).
 - **Fix: a Call Library Function Node calls the whole function name** — LabVIEW stores the node's name cut to 31 characters, so the function now comes from the VI's link record; a 31-character name no record settles is a gap naming the functions it matches, not a call to one that does not exist (#216).

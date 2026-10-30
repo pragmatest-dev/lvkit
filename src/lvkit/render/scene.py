@@ -809,7 +809,11 @@ def _structure_borders(
         if rect is None:
             continue
         glyph_kind = _TUNNEL_GLYPH_KIND.get(t.tunnel_type)
-        if glyph_kind is None and t.name == "selector":
+        if (
+            glyph_kind is None
+            and isinstance(node, CaseStructureNode)
+            and t.id == node.selector_terminal
+        ):
             glyph_kind = "selector"
         if t.tunnel_type == "lpTun":
             # Glyph from the loop tunnel's own aggregation MODE — the single

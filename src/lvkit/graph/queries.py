@@ -360,7 +360,7 @@ class QueryMixin:
 
         # First, check vilib resolver for known VIs
         resolver = get_vilib_resolver()
-        vilib_info = resolver.get_context(vi_name)
+        vilib_info = resolver.get_context(self.recorded_path(vi_name))
         if vilib_info:
             inputs: list[StubTerminalInfo] = []
             outputs: list[StubTerminalInfo] = []
@@ -643,7 +643,8 @@ class QueryMixin:
             convertible_vis = {
                 m
                 for m in members
-                if m not in self._stubs or vilib_resolver.has_implementation(m)
+                if m not in self._stubs
+                or vilib_resolver.has_implementation(self.recorded_path(m))
             }
             if convertible_vis:
                 yield convertible_vis

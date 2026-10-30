@@ -557,7 +557,7 @@ def _node_doc_url(node: AnyGraphNode) -> str | None:
                 return nt.doc_url
         return None
     if isinstance(node, VINode):
-        entry = get_vilib_resolver().resolve_by_name(node.name or "")
+        entry = get_vilib_resolver().resolve_recorded(node.qualified_path)
         return entry.doc_url if entry else None
     return None
 

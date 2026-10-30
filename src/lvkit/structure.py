@@ -506,7 +506,7 @@ def _resolve_type_ids(
     if _visited is None:
         _visited = frozenset()
 
-    for tid in type_ids:
+    for position, tid in enumerate(type_ids):
         if tid is None:
             continue
         try:
@@ -535,13 +535,14 @@ def _resolve_type_ids(
                 resolved_elem = nested
                 lv_type = nested.get("Type", "")
 
-        # Get label: try the resolved element first, then the outer TypeDef wrapper.
-        # Every named cluster field must have a label (the field name). If neither
-        # element carries one, this is an anonymous structural TypeDesc (e.g. an
-        # inline type used for wiring only) and cannot be mapped to a Python field.
-        label = resolved_elem.get("Label", "") or type_elem.get("Label", "")
-        if not label:
-            continue
+        # Get label: try the resolved element first, then the outer TypeDef
+        # wrapper. A field with neither is named by its position in the cluster,
+        # as every other cluster field without a label is.
+        label = (
+            resolved_elem.get("Label", "")
+            or type_elem.get("Label", "")
+            or f"field_{position}"
+        )
 
         # For class refnums, extract qualified classname from <Item> chain
         ref_type = resolved_elem.get("RefType", "")

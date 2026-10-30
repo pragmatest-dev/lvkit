@@ -526,17 +526,17 @@ class ComponentPort:
 
 def _subvi_ports(
     graph: InMemoryVIGraph,
-    name: str,
     callee_key: str | None,
+    recorded_path: str | None,
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     """Typed (inputs, outputs) port list for a called SubVI.
 
     ``callee_key`` is the loaded callee's ``vi_key`` (see
     ``InMemoryVIGraph.loaded_callee_key``): its resolved front-panel signature
     is used. Without one, an unloaded vilib ref falls back to the resolver's
-    terminal layout (looked up by ``name``). Returns ``None`` when neither is
-    available -- callers decide how to render that (bare name, or an empty-port
-    declaration), never fabricate ports.
+    terminal layout (looked up by the path the call records, ``recorded_path``).
+    Returns ``None`` when neither is available -- callers decide how to render
+    that (bare name, or an empty-port declaration), never fabricate ports.
     """
     if callee_key is not None:
         sctx = graph.get_vi_context(callee_key)
@@ -556,7 +556,7 @@ def _subvi_ports(
         ]
         return ins, outs
 
-    entry = _get_vilib_resolver().resolve_by_name(name)
+    entry = _get_vilib_resolver().resolve_recorded(recorded_path)
     if entry is not None and entry.terminals:
         # str(t.type): the vilib resolver's terminal type is frequently
         # unset for real entries (e.g. niDigital.* instrument handles) --

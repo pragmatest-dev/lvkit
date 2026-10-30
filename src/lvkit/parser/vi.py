@@ -2550,14 +2550,14 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
 MAX_STORED_ARRAY_ELEMENTS = 4_000_000
 
 
-# The unit-tagged unsigned integers an enum, ring or class field is stored as.
-_UNIT_INTEGER_TYPES = frozenset(
-    {
-        TD_FULL_TYPE.UnitUInt8.name,
-        TD_FULL_TYPE.UnitUInt16.name,
-        TD_FULL_TYPE.UnitUInt32.name,
-    }
-)
+# The unit-tagged unsigned integers an enum, ring or class field is stored as,
+# and the bytes each takes.
+_UNIT_INTEGER_BYTE_WIDTHS: dict[str, int] = {
+    TD_FULL_TYPE.UnitUInt8.name: 1,
+    TD_FULL_TYPE.UnitUInt16.name: 2,
+    TD_FULL_TYPE.UnitUInt32.name: 4,
+}
+_UNIT_INTEGER_TYPES = frozenset(_UNIT_INTEGER_BYTE_WIDTHS)
 
 
 def _quad_to_float(raw: bytes | memoryview) -> float:
@@ -2847,7 +2847,7 @@ def _decode_element(
     # Enum: decode as its underlying integer type
     if kind == LVTypeKind.ENUM or underlying in _UNIT_INTEGER_TYPES:
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         val = int.from_bytes(data[:size], "big")
         return str(val), size, str(val)
@@ -2855,7 +2855,7 @@ def _decode_element(
     # Numeric integer types
     if is_integer_type_name(underlying):
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         signed = underlying in SIGNED_INTEGER_TYPE_NAMES
         val = int.from_bytes(data[:size], "big", signed=signed)
@@ -3087,23 +3087,16 @@ def _fixed_element_width(lv_type: LVType | None) -> int | None:
     return None
 
 
-def _get_numeric_size(type_name: str) -> int:
-    """Byte size for a numeric/enum type name, read from its width digit."""
-    if "8" in type_name:
-        return 1
-    elif "16" in type_name:
-        return 2
-    elif "32" in type_name:
-        return 4
-    elif "64" in type_name:
-        return 8
-    # No width digit — e.g. the reconstructors' bare "Enum"/"Ring", which carry
-    # no ordinal width. Warn rather than SILENTLY assume 4 bytes and desync a
-    # default-data decode (VCTP enums arrive as "UnitUInt*", so this is a trap
-    # for the newer convention, not a path hit today).
-    logger.warning(
-        "no width digit in numeric/enum type name %r — assuming 4 bytes; a "
-        "default-data decode of this type may misalign",
-        type_name,
+def _get_numeric_size(type_name: str) -> int | None:
+    """Byte size of an integer / enum type name, from the width tables; None
+    (with a warning) for a name that has no entry."""
+    size = INTEGER_BYTE_WIDTHS.get(type_name) or _UNIT_INTEGER_BYTE_WIDTHS.get(
+        type_name
     )
-    return 4
+    if size is None:
+        logger.warning(
+            "no byte width known for numeric/enum type %r — its default data "
+            "is not decoded",
+            type_name,
+        )
+    return size

@@ -196,9 +196,11 @@ def describe_vi(
             lines.append(f"  {assembly.qualified} (.NET assembly)")
         for reason in dotnet.unreadable:
             lines.append(f"  (.NET unreadable: {reason})")
-        for name, callee_key in sorted(subvi_callees.items()):
-            desc = _get_subvi_description(graph, name)
-            ports = _subvi_ports(graph, name, callee_key)
+        for name, call in sorted(subvi_callees.items()):
+            desc = _get_subvi_description(call.qualified_path)
+            ports = _subvi_ports(
+                graph, graph.loaded_callee_key(call), call.qualified_path
+            )
             sig = _render_ports(*ports) if ports is not None else None
             entry = f"  {name}"
             if sig:
@@ -320,25 +322,24 @@ def _collect_subvi_callees(
     graph: InMemoryVIGraph,
     nodes: list[AnyGraphNode],
     vi_name: str,
-) -> dict[str, str | None]:
+) -> dict[str, VINode]:
     """Collect all SubVI callees recursively: each one's QUALIFIED name — the
     class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
     dynamic-dispatch call reports its declaring parent class rather than a bare
-    ``addError.vi`` — mapped to the ``vi_key`` of the loaded callee the call
-    records (None when that VI is not loaded). A name several calls share keeps
-    the first call's callee, in diagram order.
+    ``addError.vi`` — mapped to the call node. A name several calls share keeps
+    the first call, in diagram order.
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
     a structure's frame bodies AND a loop/IPES body alike — in one
     recursion)."""
-    callees: dict[str, str | None] = {}
+    callees: dict[str, VINode] = {}
     for node in nodes:
         if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
-            callees.setdefault(node.qualified_name, graph.loaded_callee_key(node))
-        for name, key in _collect_subvi_callees(
+            callees.setdefault(node.qualified_name, node)
+        for name, call in _collect_subvi_callees(
             graph, graph.child_nodes(node.id, vi_name), vi_name
         ).items():
-            callees.setdefault(name, key)
+            callees.setdefault(name, call)
     return callees
 
 
@@ -365,13 +366,11 @@ def _collect_variable_dependencies(
     return global_vis, libraries
 
 
-def _get_subvi_description(
-    graph: InMemoryVIGraph,
-    vi_name: str,
-) -> str | None:
-    """Get a short description for a SubVI."""
+def _get_subvi_description(recorded_path: str | None) -> str | None:
+    """A short description for a SubVI, from the catalog entry of the path its
+    call records."""
     resolver = _get_vilib_resolver()
-    entry = resolver.resolve_by_name(vi_name)
+    entry = resolver.resolve_recorded(recorded_path)
     if entry and entry.description:
         desc = entry.description
         if len(desc) > 100:

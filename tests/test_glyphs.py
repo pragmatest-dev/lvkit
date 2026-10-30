@@ -166,8 +166,8 @@ def test_boolean_gate_dispatch_for_and_or_not():
     Not triangle with an input bubble, respectively (not the labeled-box
     fallback and not the comparison/arithmetic triangle)."""
     cases = [
-        ("And", 1062, "and", "∧", False, False),
-        ("Or", 1061, "or", "∨", False, False),
+        ("And", 1061, "and", "∧", False, False),
+        ("Or", 1062, "or", "∨", False, False),
         ("Not", 1064, "not", "¬", False, True),
     ]
     for name, prim_id, kind, symbol, negated, input_bubble in cases:

@@ -30,6 +30,7 @@ class ViPageMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
         def _extract_library_group(self, vi_name: str) -> str: ...
+        def _vi_label(self, vi_name: str) -> str: ...
         def _vi_name_to_filename(self, vi_name: str) -> str: ...
         def _class_name_to_filename(self, classname: str) -> str: ...
 
@@ -86,6 +87,7 @@ class ViPageMixin:
 
         # Create a relative link function for this VI's directory
         current_lib = self._extract_library_group(vi_name)
+        vi_label = self._vi_label(vi_name)
 
         def relative_link(target_vi_name: str) -> str:
             target_path = self._vi_name_to_filename(target_vi_name)
@@ -134,11 +136,11 @@ class ViPageMixin:
         # Class hierarchy: breadcrumb link back to the owning class, an
         # access-scope badge, and an Overrides/Overridden-by section.
         breadcrumb_class_html = ""
-        display_vi_name = vi_name
+        display_vi_name = vi_label
         if owning_class:
             class_href = "../" + self._class_name_to_filename(owning_class)
             breadcrumb_class_html = f'<a href="{class_href}">{owning_class}</a> / '
-            display_vi_name = vi_name.rsplit(":", 1)[-1]
+            display_vi_name = vi_label.rsplit(":", 1)[-1]
         access_badge_html = self._render_access_badge(method_access)
         overrides_html = self._render_method_overrides_section(
             method_overrides, relative_link
@@ -165,7 +167,7 @@ class ViPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{vi_name} - {self.doc_title}</title>
+    <title>{vi_label} - {self.doc_title}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -178,7 +180,7 @@ class ViPageMixin:
         <div class="vi-header">
             {icon_html}
             <div class="vi-header-text">
-                <h1>{vi_name}{access_badge_html}</h1>
+                <h1>{vi_label}{access_badge_html}</h1>
                 <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>
@@ -338,13 +340,15 @@ class ViPageMixin:
                 else qualified_name
             )
 
+            summary = f" - {description}" if description else ""
+
             # Only create link if this VI has a documentation page
             if qualified_name in self.all_vis:
                 link = link_fn(qualified_name)
                 items.append(
                     f"""
             <li>
-                <a href="{link}"><code>{display_name}</code></a> - {description}
+                <a href="{link}"><code>{display_name}</code></a>{summary}
             </li>
             """
                 )
@@ -353,7 +357,7 @@ class ViPageMixin:
                 items.append(
                     f"""
             <li>
-                <code>{display_name}</code> - {description}
+                <code>{display_name}</code>{summary}
             </li>
             """
                 )

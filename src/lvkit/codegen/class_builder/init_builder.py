@@ -54,10 +54,6 @@ class _InitBuilderMixin:
                     accessor_scopes[key] = m.scope
 
         for field in lvclass.private_data_fields:
-            # Skip placeholder/invalid field names
-            if not field.name or field.name.lower() == "none":
-                continue
-
             var_name = to_var_name(field.name)
             scope = accessor_scopes.get(var_name, "public")
 

@@ -3253,7 +3253,7 @@ def test_scanf_nodes_parsed_and_wired():
 # --------------------------------------------------------------------------- #
 
 
-def _prim(node_type, name=None, dirs=(), roles=()):
+def _prim(node_type, name=None, dirs=(), roles=(), prim_id=None):
     """A synthetic PrimitiveNode with one terminal per direction in ``dirs``.
     ``roles``, if given, is a parallel sequence of ``nmux_role`` values
     ("agg"/"list"/None) for a Bundle/Unbundle-family node."""
@@ -3273,6 +3273,7 @@ def _prim(node_type, name=None, dirs=(), roles=()):
         vi_path="V",
         name=name,
         node_type=node_type,
+        prim_id=prim_id,
         terminals=terms,
     )
 
@@ -4343,15 +4344,17 @@ def test_comparison_primitives_use_the_arith_triangle():
     from lvkit.render.nodes import resolve_glyph
 
     expected = {
-        "Equal?": "=",
-        "Not Equal?": "≠",
-        "Greater?": ">",
-        "Less?": "<",
-        "Greater Or Equal?": "≥",
-        "Less Or Equal?": "≤",
+        "Equal?": (1102, "="),
+        "Not Equal?": (1105, "≠"),
+        "Greater?": (1110, ">"),
+        "Less?": (1111, "<"),
+        "Greater Or Equal?": (1103, "≥"),
+        "Less Or Equal?": (1104, "≤"),
     }
-    for name, symbol in expected.items():
-        node = _prim("prim", name, dirs=("input", "input", "output"))
+    for name, (prim_id, symbol) in expected.items():
+        node = _prim(
+            "prim", name, dirs=("input", "input", "output"), prim_id=prim_id
+        )
         glyph = resolve_glyph(node, _ctx())
         assert isinstance(glyph, ArithGlyph), name
         assert glyph.symbol == symbol, name

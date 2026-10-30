@@ -9,15 +9,18 @@ from __future__ import annotations
 import logging
 import shutil
 import time
+from collections import Counter
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
+from lvkit.module_layout import ModuleLayout, UnplacedVIError, project_root
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -123,6 +126,37 @@ def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     controls beside its VIs, but a control loads as a typedef, not a VI."""
     controls = [p for p in paths if p.suffix.lower() == ".ctl"]
     return [p for p in paths if p.suffix.lower() != ".ctl"], controls
+
+
+def _collect_library_groups(
+    graph: InMemoryVIGraph, vi_names: list[str], project: Path
+) -> tuple[dict[str, str], dict[str, str]]:
+    """The group and the shown name of every VI that has a page or is linked from
+    one. The group is its owning library, ``vi.lib`` for a recorded ``<vilib>``
+    path, else its project-relative folder (the recorded path's folder for a VI
+    outside the project)."""
+    layout = ModuleLayout(graph, [], project)
+    names: set[str] = set(vi_names)
+    for vi_name in vi_names:
+        names.update(graph.get_vi_dependencies(vi_name))
+        names.update(graph.get_vi_dependents(vi_name))
+    groups: dict[str, str] = {}
+    labels: dict[str, str] = {}
+    folders_of: dict[str, tuple[str, ...]] = {}
+    for name in sorted(names):
+        try:
+            folders_of[name] = layout.folders_of(name)
+        except UnplacedVIError:
+            folders_of[name] = ()
+        labels[name] = graph.vi_display_name(name)
+        groups[name] = library_group(labels[name], folders_of[name])
+    # Two VIs filed under one group with one name (vi.lib holds many folders):
+    # the folders they sit in tell them apart.
+    taken = Counter((groups[n], labels[n]) for n in names)
+    for name in names:
+        if taken[(groups[name], labels[name])] > 1:
+            labels[name] = "/".join((*folders_of[name], labels[name]))
+    return groups, labels
 
 
 def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
@@ -466,6 +500,9 @@ def generate_documents(
     all_vis = graph.list_vis()
 
     generator.all_vis = set(all_vis)
+    generator.vi_groups, generator.vi_labels = _collect_library_groups(
+        graph, all_vis, project_root(library_path_obj)
+    )
 
     generated_count = 0
 
