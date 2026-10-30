@@ -3,7 +3,7 @@
 Two tiers:
 
 - ``TestSmallClassBuild`` — fast, exercises build + SQLite round-trip on one
-  small class dir (~31 VIs, no same-name collisions). Runs on every test
+  small class dir (~31 VIs, every VI from the whole-project load). Runs on every test
   invocation that has the sample corpus.
 - ``TestFullCorpusDemo`` — the actual 4-question acceptance demo from
   ``docs/_internal/design/lvkit-mcp-index.md`` §5, built ONCE (module-scoped
@@ -73,7 +73,7 @@ class TestParallelBuildEquivalence:
         monkeypatch.setattr("lvkit.graph.loading.PARALLEL_THRESHOLD", 0)
         parallel = build_index(root, vi_paths)
 
-        assert serial.collisions == parallel.collisions
+        assert serial.loaded_alone == parallel.loaded_alone
         assert {f.path for f in serial.facts} == {f.path for f in parallel.facts}
 
         by_path_serial = {f.path: f for f in serial.facts}
@@ -95,8 +95,8 @@ class TestSmallClassBuild:
         result = build_index(root, vi_paths)
 
         assert len(result.facts) == len(vi_paths)
-        # A single class dir has no same-named siblings to shadow each other.
-        assert result.collisions == 0
+        # Every VI file in a single class dir comes out of the whole-repo load.
+        assert result.loaded_alone == 0
         assert {f.path for f in result.facts} == {str(p) for p in vi_paths}
         # Every method VI has a real content hash and terminals.
         assert all(f.content_sha for f in result.facts)
@@ -224,17 +224,17 @@ def jki_index() -> BuildResult:
 
 @pytest.mark.slow
 class TestFullCorpusDemo:
-    def test_path_keyed_no_collision_loss(self, jki_index: BuildResult):
+    def test_path_keyed_none_loaded_alone(self, jki_index: BuildResult):
         """Demo #1: indexed VI count == every VI file (.vi, .vim, .vit) under
         the repo. The whole-repo graph is keyed by file path, so every file is
         covered by it and none needs the single-VI fallback load
-        (``collisions == 0``)."""
+        (``loaded_alone == 0``)."""
         vi_paths = rglob_vi_files(JKI_ROOT)
         assert len(jki_index.facts) == len(vi_paths)
         assert {f.path for f in jki_index.facts} == {
             str(p.resolve()) for p in vi_paths
         }
-        assert jki_index.collisions == 0
+        assert jki_index.loaded_alone == 0
 
     def test_error_indicator_tally(self, jki_index: BuildResult):
         """Demo #2: error-indicator terminals, tallied by name — 'error out'
@@ -602,17 +602,13 @@ class TestLibraryMembership:
 
         ALL FOUR methods are asserted here, including ``setUp.vi``/
         ``tearDown.vi``: those are common JKI TestCase method names (16-17
-        same-named files elsewhere in this corpus) that hit ``build_index``'s
-        path-keyed COLLISION path (``build_one_vi``) for THIS specific file.
-        ``build_one_vi`` (``index/build.py``) now derives the owner chain
-        from the loaded VI's OWN fully-qualified ``vi_name``
-        (``_owner_chain_for_class``) and passes it to ``load_lvclass``, so
-        the collision path registers the class under the SAME qualified
-        qname its method VIs embed — matching what
+        same-named files elsewhere in this corpus). ``build_one_vi``
+        (``index/build.py``) derives the owner chain from the loaded VI's OWN
+        fully-qualified ``vi_name`` (``_owner_chain_for_class``) and passes it
+        to ``load_lvclass``, so the single-VI path registers the class under
+        the SAME qualified qname its method VIs embed — matching what
         ``_load_class_ownership``/``_load_library_ownership`` already do for
-        the whole-directory pass. Previously this was a narrow, documented
-        limitation (bare ``load_lvclass`` call, no ``owner_chain``) that left
-        ``class_fact`` ``None`` for these two collision-routed methods.
+        the whole-directory pass, so ``class_fact`` is set for these methods.
         """
         assert _MYLIBRARY_LVLIB.is_file()  # sanity: fixture lvlib exists
 

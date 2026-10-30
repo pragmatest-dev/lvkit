@@ -1006,7 +1006,7 @@ def cmd_index(args: argparse.Namespace) -> int:
             "total": done.refresh.total,
         }
         if done.refresh is not None
-        else {"vis": len(done.facts), "collisions": done.collisions}
+        else {"vis": len(done.facts), "loaded_alone": done.loaded_alone}
     )
     summary["controls"] = done.controls.controls
     summary["ms"] = round((time.monotonic() - start) * 1000)

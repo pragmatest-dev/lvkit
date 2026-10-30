@@ -1,18 +1,14 @@
-"""Build ``list[VIFacts]`` for a repo — path-keyed, no silent collisions.
+"""Build ``list[VIFacts]`` for a repo, keyed by file path.
 
-The in-memory graph (``InMemoryVIGraph``) is keyed by bare VI **name**, so a
-whole-repo ``load_directory`` silently collapses same-named loose VIs
-(measured: 487 files -> 422 in ``list_vis()`` on JKI VI Tester). This module
-path-keys ALL of them:
+The in-memory graph (``InMemoryVIGraph``) is keyed by VI file path, so every
+VI file is its own entry. This module builds the index in four steps:
 
-1. Load the whole repo once at ``LoadMode.MINIMAL`` — the 422 (or however
-   many) non-collided VIs come out with full facts + the ``_dep_graph``
-   call/ownership edges.
+1. Load the whole repo once at ``LoadMode.MINIMAL``: every VI it produces
+   comes out with full facts + the ``_dep_graph`` call/ownership edges.
 2. Project each loaded VI to ``VIFacts``, keyed by its resolved source path.
-3. Whatever ``.vi`` files under the repo did NOT come out of that load
-   (shadowed by a same-named sibling) get loaded + projected INDIVIDUALLY,
-   one fresh ``InMemoryVIGraph`` each — reported as ``collisions``, never
-   silently dropped.
+3. Any ``.vi`` file under the repo that the whole-repo load did not produce is
+   loaded and projected on its own, one fresh ``InMemoryVIGraph`` each, and
+   counted as ``loaded_alone``; no file is dropped.
 4. Merge: invert ``calls`` into a networkx call graph to compute
    ``impact_score`` (transitive dependent count) per VI.
 """
@@ -74,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BuildResult:
-    """Result of a full index build: the facts + how many VIs collided.
+    """Result of a full index build: the facts + how many VIs were loaded alone.
 
     ``lvproj_members`` is the repo's ``.lvproj`` membership relation (project-
     level, many-to-many) — see :func:`build_lvproj_membership`. Persisted
@@ -83,7 +79,7 @@ class BuildResult:
     """
 
     facts: list[VIFacts]
-    collisions: int
+    loaded_alone: int
     lvproj_members: list[LVProjMemberFact]
 
 
@@ -91,7 +87,7 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
 
     ``project_root`` is used as the single ``search_paths`` root for both the
-    whole-repo load and each individual collision load, so dependency
+    whole-repo load and each individual single-VI load, so dependency
     resolution behaves identically in both passes.
 
     .. important::
@@ -130,15 +126,15 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
         covered.add(resolved)
         facts[str(resolved)] = project_vi_facts(graph, vi_name, resolved, project_root)
 
-    collision_paths = sorted(all_paths - covered)
-    for cp in collision_paths:
+    alone_paths = sorted(all_paths - covered)
+    for cp in alone_paths:
         facts[str(cp)] = build_one_vi(project_root, cp)
 
     resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     return BuildResult(
         facts=list(facts.values()),
-        collisions=len(collision_paths),
+        loaded_alone=len(alone_paths),
         lvproj_members=build_lvproj_membership(project_root),
     )
 
@@ -185,7 +181,8 @@ def build_lvproj_membership(project_root: Path) -> list[LVProjMemberFact]:
 def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
     """Project ONE ``.vi`` to ``VIFacts`` via a fresh single-VI graph.
 
-    The collision-safe path, shared by ``build_index`` (for shadowed VIs) and
+    The single-VI path, shared by ``build_index`` (for VIs the whole-repo load
+    did not produce) and
     ``refresh_index`` (for changed VIs): load just this VI at MINIMAL (which
     also leaf-loads its direct SubVIs), plus any ``.lvclass`` in its own
     directory so class-ownership facts resolve, then project. Every fact is
@@ -398,12 +395,12 @@ def refresh_index(
 @dataclass
 class SyncResult:
     """What :func:`sync_index` did: the merged VI facts, the incremental
-    ``refresh`` result (None for a full build), the collision count of a full
+    ``refresh`` result (None for a full build), the loaded-alone count of a full
     build, and the controls' sync."""
 
     facts: list[VIFacts]
     refresh: RefreshResult | None
-    collisions: int
+    loaded_alone: int
     controls: TypedefSyncResult
 
 
@@ -456,7 +453,7 @@ def sync_index(
         store_delete(project_root, [f.path for f in stored if f.path not in kept])
         store_save(project_root, facts)
         store_save_lvproj_members(project_root, built.lvproj_members)
-        result = SyncResult(facts, None, built.collisions, controls)
+        result = SyncResult(facts, None, built.loaded_alone, controls)
     for f in facts:
         f.types = []  # the bodies are stored; the in-memory facts keep only ids
     return result
@@ -848,7 +845,7 @@ def _build_class_fact(
         for f in (fields or [])
     ]
     # Authoritative parent (get_class_parent, NOT the load-gated
-    # get_class_hierarchy): a collision-load graph never loads the parent, and
+    # get_class_hierarchy): a single-VI graph never loads the parent, and
     # gating on that produced a spurious NULL parent beside the real value for
     # the same class (the WaitOnTestComplete duplicate). See get_class_parent.
     return ClassFact(
