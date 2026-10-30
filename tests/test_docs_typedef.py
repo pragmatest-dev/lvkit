@@ -132,15 +132,16 @@ def test_a_lone_unreadable_control_is_reported(tmp_path: Path) -> None:
     bad = tmp_path / "Bad.ctl"
     bad.write_bytes(b"not a labview file")
     result = generate_documents(str(bad), str(tmp_path / "out"))
-    assert result.startswith("Failed to load any VIs or controls")
-    assert "Bad.ctl" in result
+    assert result.stopped
+    assert result.summary.startswith("Failed to load any VIs or controls")
+    assert "Bad.ctl" in result.summary
 
 
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CLUSTER_CTL.exists(), reason="icon-editor sample absent")
 def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
     single = tmp_path / "single"
-    summary = generate_documents(str(_CLUSTER_CTL), str(single))
+    summary = generate_documents(str(_CLUSTER_CTL), str(single)).summary
     assert "Type definitions documented:" in summary  # it, plus what it references
     page = (single / "typedef" / "API_Test_Settings.html").read_text(encoding="utf-8")
     assert "Text color" in page and "Front Panel" in page and "<svg" in page
@@ -159,7 +160,7 @@ def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_lists_its_typedefs_apart_from_its_subvis():
     graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
-    data = _prepare_vi_documentation_data(vi, graph, {}, [], None)
+    data = _prepare_vi_documentation_data(vi, graph, {}, [], str, None)
     assert data["type_definitions"], "the VI uses controls"
     typedefs = set(data["type_definitions"])
     assert typedefs.isdisjoint(data["dependencies"])  # not listed as SubVI calls
@@ -173,9 +174,10 @@ def test_a_corrupt_control_does_not_stop_the_others(tmp_path):
     project.mkdir()
     shutil.copy(_CLUSTER_CTL, project / "Good.ctl")
     (project / "Bad.ctl").write_bytes(b"not a labview file")
-    summary = generate_documents(str(project), str(tmp_path / "out"))
+    result = generate_documents(str(project), str(tmp_path / "out"))
+    summary = result.summary
     assert (tmp_path / "out" / "typedef" / "Good.html").is_file()
-    assert "Warnings (1 files skipped)" in summary and "Bad.ctl" in summary
+    assert result.problems == ["Bad.ctl: could not be read as a control"]
     assert "Type definitions documented:" in summary
 
 

@@ -65,7 +65,7 @@ def test_the_docs_variants_section_links_each_variant_page(
     wrapper = graph.load_vi(poly.root / "wrap.vi", LoadMode.MINIMAL, [poly.root])
     groups = graph.get_polymorphic_groups()
     problems: list[str] = []
-    data = _prepare_vi_documentation_data(wrapper, graph, groups, problems)
+    data = _prepare_vi_documentation_data(wrapper, graph, groups, problems, str)
     one, two = groups[wrapper]
     assert [v["name"] for v in data["variant_params"]] == [one, two]
     gen = HTMLDocGenerator(tmp_path / "out", "Docs", "directory")

@@ -28,6 +28,15 @@ def test_page_names_hold_only_safe_characters(tmp_path: Path) -> None:
     for key in labels:
         assert SAFE.fullmatch(gen._vi_name_to_filename(key))
     assert SAFE.fullmatch(gen._class_name_to_filename("Lib.lvlib:Cls.lvclass"))
+    assert {k: gen._vi_name_to_filename(k) for k in labels} == {
+        "/p/a.vi": "Group_1/50_done_2.html",
+        "/p/b.vi": "Group_1/Lib.lvlib_Gr_e_x_.html",
+        "/p/c.vi": "Group_1/Cls.lvclass_Do_it_.html",
+    }
+    assert (
+        gen._class_name_to_filename("Lib.lvlib:Cls.lvclass")
+        == "Lib_lvlib_Cls_lvclass/Lib.lvlib_Cls.lvclass.html"
+    )
 
 
 def test_names_that_sanitize_alike_get_distinct_pages_and_icons(
@@ -36,7 +45,11 @@ def test_names_that_sanitize_alike_get_distinct_pages_and_icons(
     labels = {"/p/1.vi": "a b.vi", "/p/2.vi": "a_b.vi", "/p/3.vi": "A_B.vi"}
     gen = _generator(tmp_path, labels)
     pages = {gen._vi_name_to_filename(k) for k in labels}
-    assert len(pages) == 3
+    assert pages == {
+        "Group_1/a_b-50fdf54c.html",
+        "Group_1/a_b-5c8434fb.html",
+        "Group_1/A_B-79873dd1.html",
+    }
     icons = {p.removesuffix(".html") + ".png" for p in pages}
     assert len(icons) == 3
 

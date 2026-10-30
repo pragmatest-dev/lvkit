@@ -43,7 +43,7 @@ def _require_sample() -> tuple[InMemoryVIGraph, str]:
 def _generate_page(tmp_path: Path, graph: InMemoryVIGraph, vi_name: str) -> str:
     generator = HTMLDocGenerator(tmp_path, "test-doc", "vi")
     generator.all_vis = {vi_name}
-    vi_data = _prepare_vi_documentation_data(vi_name, graph, {}, [])
+    vi_data = _prepare_vi_documentation_data(vi_name, graph, {}, [], str)
     generator.generate_vi_page(vi_data)
     html_path = tmp_path / generator._vi_name_to_filename(vi_name)
     return html_path.read_text(encoding="utf-8")

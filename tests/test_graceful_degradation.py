@@ -134,7 +134,7 @@ def test_generate_documents_with_no_resolutions(
         output_dir=str(output_dir),
         mode=LoadMode.NONE,
     )
-    assert summary  # Non-empty status string
+    assert summary.summary  # Non-empty status string
     assert output_dir.is_dir()
     html_files = list(output_dir.rglob("*.html"))
     assert html_files, "No HTML files generated"

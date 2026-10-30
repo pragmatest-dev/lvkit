@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import logging
 import shutil
+import sys
 import time
 from collections import Counter
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
@@ -199,11 +201,46 @@ def _collect_icons(
     return icon_map
 
 
+@dataclass
+class DocsResult:
+    """What ``generate_documents`` did: the summary to print, every problem found
+    (one line each, naming the VI by its project-relative or ``<vilib>`` path),
+    and whether nothing could be loaded."""
+
+    summary: str
+    problems: list[str] = field(default_factory=list)
+    stopped: bool = False
+
+    def __str__(self) -> str:
+        return self.summary
+
+
+def _relative(path: Path, root: Path) -> str:
+    """``path`` below the project folder ``root``; its file name when outside."""
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return path.name
+
+
+def _shown(key: str, graph: InMemoryVIGraph, root: Path) -> str:
+    """The path a problem names a VI by: the one its caller recorded from an
+    installation folder, else project-relative; never an absolute path."""
+    recorded = graph.recorded_path(key)
+    if recorded is not None and not graph.is_stub(key):
+        return recorded
+    try:
+        return Path(key).relative_to(root).as_posix()
+    except ValueError:
+        return graph.vi_display_name(key)
+
+
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
     poly_groups: dict[str, list[str]],
     problems: list[str],
+    shown: Callable[[str], str],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
     """Prepare all data needed for one VI documentation page. A part of the page
@@ -310,10 +347,9 @@ def _prepare_vi_documentation_data(
     try:
         diagram_svg, subvi_nodes = render_vi_with_subvis(graph, vi_name)
     except Exception as e:  # noqa: BLE001 — per-VI; the page is written without it
-        logger.exception("SVG diagram render failed for %s", vi_name)
+        logger.exception("SVG diagram render failed for %s", shown(vi_name))
         problems.append(
-            f"{graph.vi_display_name(vi_name)}: the diagram could not be drawn "
-            f"({e})"
+            f"{shown(vi_name)}: the diagram could not be drawn ({e})"
         )
         diagram_svg, subvi_nodes = None, {}
 
@@ -358,7 +394,7 @@ def generate_documents(
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
-) -> str:
+) -> DocsResult:
     """Generate HTML docs for a LabVIEW library, class, directory, or VI."""
     start_time = time.time()
     library_path_obj = Path(library_path)
@@ -404,7 +440,7 @@ def generate_documents(
     )
 
     if not vi_paths and not ctl_paths:
-        return f"No VIs or controls found in {library_path}"
+        return DocsResult(f"No VIs or controls found in {library_path}")
 
     # Load all VIs into graph
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
@@ -415,7 +451,8 @@ def generate_documents(
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis: list[str] = []
-    failed_files: list[str] = []
+    problems: list[str] = []
+    root = project_root(library_path_obj)
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
@@ -442,7 +479,7 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            failed_files.append(f"{vi_path.name}: {str(e)}")
+            problems.append(f"{_relative(vi_path, root)}: {e}")
             print(
                 f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
                 flush=True,
@@ -461,15 +498,21 @@ def generate_documents(
         try:
             key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
         except Exception as e:
-            failed_files.append(f"{ctl_path.name}: {e}")
+            problems.append(f"{_relative(ctl_path, root)}: {e}")
             continue
         if graph.is_stub(key):
-            failed_files.append(f"{ctl_path.name}: could not be read as a control")
+            problems.append(
+                f"{_relative(ctl_path, root)}: could not be read as a control"
+            )
         else:
             loaded_ctls.append(ctl_path.name)
 
     if not loaded_vis and not loaded_ctls:
-        return "Failed to load any VIs or controls. Errors:\n" + "\n".join(failed_files)
+        return DocsResult(
+            "Failed to load any VIs or controls. Errors:\n" + "\n".join(problems),
+            problems,
+            stopped=True,
+        )
     typedef_keys = graph.list_typedefs()
 
     # Every command that parses a VI warms the index — docs parses the whole
@@ -517,7 +560,8 @@ def generate_documents(
                 vi_name,
                 graph,
                 poly_groups,
-                failed_files,
+                problems,
+                lambda key: _shown(key, graph, root),
                 icon_map,
             )
             generator.generate_vi_page(vi_data)
@@ -528,7 +572,7 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            failed_files.append(f"{vi_name}: {str(e)}")
+            problems.append(f"{_shown(vi_name, graph, root)}: {e}")
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"
@@ -592,10 +636,10 @@ def generate_documents(
         summary_parts.append(f"Type definitions documented: {len(typedef_infos)}")
     summary_parts.append(f"Index page: {output_dir_obj / 'index.html'}")
 
-    if failed_files:
-        summary_parts.append(f"\nWarnings ({len(failed_files)} files skipped):")
-        summary_parts.extend(f"  - {err}" for err in failed_files[:10])
-        if len(failed_files) > 10:
-            summary_parts.append(f"  ... and {len(failed_files) - 10} more")
+    if problems:
+        summary_parts.append(f"\nPartial: {len(problems)} problems:")
+        summary_parts.extend(f"  - {err}" for err in problems)
+        for err in problems:
+            print(f"warning: {err}", file=sys.stderr)
 
-    return "\n".join(summary_parts)
+    return DocsResult("\n".join(summary_parts), problems)

@@ -1967,8 +1967,10 @@ def cmd_docs(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-        print("\n" + result)
-        return 0
+        print("\n" + result.summary)
+        if result.stopped:
+            return 1
+        return 3 if result.problems else 0
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
