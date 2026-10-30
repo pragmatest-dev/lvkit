@@ -73,12 +73,36 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras --dev
 
-      # Skip tests that need the local-only sample corpus (~54 parser/diff/render
-      # tests). Pulling it means 8 git clones + extraction (~2 min) and an
-      # upstream-flake dependency; those tests run in local pre-commit, where the
-      # corpus is present. See the `needs_samples` marker / tests/conftest.py.
+      # Skip tests that need the local-only sample corpus: they run in the
+      # `test-corpus` job below (and in local pre-commit, where the corpus is
+      # present). See the `needs_samples` marker / tests/conftest.py.
       - name: Pytest
         run: uv run pytest -q -m "not needs_samples"
+
+  # The whole suite, slow full-corpus tests included, against the pulled sample
+  # corpus. The `test` jobs skip every `needs_samples` test and pyproject's
+  # default options skip `slow`; this is the job that runs both, so a stale
+  # corpus pin or a corpus-only regression fails the PR. The slow tests run on 2
+  # workers because each holds a whole-corpus graph in memory.
+  test-corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --all-extras --dev
+      # Every set is cloned from its own permissively licensed upstream repo (or
+      # downloaded from SourceForge for OpenG); `uv run` puts the project venv on
+      # PATH so the OpenG step's `python3` can import lvkit.
+      - name: Pull the sample corpus
+        run: uv run bash scripts/pull_samples.sh
+      - name: Pytest (regular tests, all cores)
+        run: uv run pytest -q
+      - name: Pytest (slow full-corpus tests, 2 workers)
+        run: uv run pytest -q -m slow -n 2
 
   # The same unit suite on Windows: path separators, drive letters, text
   # encodings and symlink rights differ there, and none of that is exercised on

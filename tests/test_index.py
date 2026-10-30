@@ -7,12 +7,13 @@ Two tiers:
   invocation that has the sample corpus.
 - ``TestFullCorpusDemo`` — the actual 4-question acceptance demo from
   ``docs/_internal/design/lvkit-mcp-index.md`` §5, built ONCE (module-scoped
-  fixture) over the full JKI VI Tester corpus (487 ``.vi`` files). A
+  fixture) over the full JKI VI Tester corpus (491 VI files: 487 ``.vi`` + 4
+  ``.vit``). A
   whole-repo MINIMAL load is O(minutes) even with a warm extraction cache
   (measured baseline in the design doc) — the fixture deliberately escapes
   the per-test hermetic cache dir (see ``jki_index`` below) to reuse the
   developer's real, already-warm extraction cache instead of re-extracting
-  487 VIs from scratch on every run.
+  491 VIs from scratch on every run.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ from lvkit.index.store import load as load_index
 from lvkit.index.store import load_lvproj_members, save_lvproj_members
 from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
+from lvkit.vi_files import rglob_vi_files
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -209,7 +211,7 @@ class TestIncrementalRefresh:
 
 # === Slow: the full JKI VI Tester corpus — the 4-question acceptance demo ==
 
-_HAVE_JKI = JKI_ROOT.is_dir() and any(JKI_ROOT.rglob("*.vi"))
+_HAVE_JKI = JKI_ROOT.is_dir() and bool(rglob_vi_files(JKI_ROOT))
 
 
 @pytest.fixture(scope="module")
@@ -220,7 +222,7 @@ def jki_index() -> BuildResult:
     # The per-test ``_hermetic_cache`` autouse fixture (tests/conftest.py)
     # points LVKIT_CACHE_DIR at a fresh tmp dir per test function so no test
     # writes to the real cache. That's right for cheap tests, but a
-    # whole-repo 487-VI MINIMAL build pays full pylabview extraction from
+    # whole-repo 491-VI MINIMAL build pays full pylabview extraction from
     # scratch every time it runs cold. This fixture is module-scoped (built
     # once) AND deliberately unsets the override for the build itself, so it
     # reuses the developer's real, already-warm extraction cache
@@ -237,12 +239,16 @@ def jki_index() -> BuildResult:
 @pytest.mark.slow
 class TestFullCorpusDemo:
     def test_path_keyed_no_collision_loss(self, jki_index: BuildResult):
-        """Demo #1: indexed VI count == every .vi file under the repo, not
-        the name-collapsed 422 the bare in-memory graph gives."""
-        vi_paths = sorted(JKI_ROOT.rglob("*.vi"))
+        """Demo #1: indexed VI count == every VI file (.vi, .vim, .vit) under
+        the repo. The whole-repo graph is keyed by file path, so every file is
+        covered by it and none needs the single-VI fallback load
+        (``collisions == 0``)."""
+        vi_paths = rglob_vi_files(JKI_ROOT)
         assert len(jki_index.facts) == len(vi_paths)
-        assert {f.path for f in jki_index.facts} == {str(p) for p in vi_paths}
-        assert jki_index.collisions > 0
+        assert {f.path for f in jki_index.facts} == {
+            str(p.resolve()) for p in vi_paths
+        }
+        assert jki_index.collisions == 0
 
     def test_error_indicator_tally(self, jki_index: BuildResult):
         """Demo #2: error-indicator terminals, tallied by name — 'error out'
@@ -253,12 +259,16 @@ class TestFullCorpusDemo:
             for t in f.terminals
             if t.type_descriptor == "Error" and t.direction == "output"
         ]
-        assert len(names) == 406
+        # 424 = 420 in the .vi files (the 12 unlabeled `control_219` error
+        # clusters of NoObjectTestCase and two more are typed Error) + 4 in the
+        # .vit templates, which the index loads.
+        assert len(names) == 424
 
         tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
         assert top_name == "error out"
-        assert top_count == 382
+        # 382 .vi + one `error out` in each of the 4 .vit templates.
+        assert top_count == 386
 
     def test_callers_exclude_ownership_edges(self, jki_index: BuildResult):
         """Demo #3: a class method's calls and callers are pure VI->VI — its
@@ -344,10 +354,11 @@ class TestFullCorpusDemo:
         total_uncalled = sum(1 for f in jki_index.facts if f.callers_count == 0)
         # Plausible dead-code count: some, but not everything and not nothing.
         assert 0 < total_uncalled < len(jki_index.facts)
-        # 229 (no static caller): dead code + top-level entry points + VIs
+        # 181 (no static caller): dead code + top-level entry points + VIs
         # reached only dynamically (Call-By-Reference / VI Server). Matches the
-        # eval harness; the prior 284 was a stale pre-node-spine pin.
-        assert total_uncalled == 229
+        # eval harness (q18). A call names its callee by file path, and a method
+        # called through a subclass names the ancestor's file.
+        assert total_uncalled == 181
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====

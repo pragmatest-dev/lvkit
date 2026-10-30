@@ -317,6 +317,7 @@ class LoadingMixin:
         def class_method(
             self, class_key: str, method: str
         ) -> tuple[str, str] | None: ...
+        def is_class(self, key: str) -> bool: ...
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
@@ -940,7 +941,7 @@ class LoadingMixin:
             return []
         return [private_data_field_to_cluster_field(f) for f in pd_fields]
 
-    def _resolve_vilib_class_ref(
+    def _resolve_recorded_class_ref(
         self,
         parent_name: str,
         path_tokens: list[str],
@@ -1020,28 +1021,26 @@ class LoadingMixin:
         Event Receiver Actor.lvclass's real ``Parent`` Item — a LEADING
         SLASH, the marker, then forward-slash path components, NOT a normal
         relative path), in which case it's tokenized and resolved via
-        ``_resolve_vilib_class_ref`` like any other vi.lib reference (issue
+        ``_resolve_recorded_class_ref`` like any other vi.lib reference (issue
         #84's #F1 correction — the naive join used to leave a literal
         ``<vilib>`` path component that never exists).
 
-        When there's no URL but the parent's binary link record is
-        ``<vilib>``-rooted (``cls.parent_link_path``, issue #84 — e.g.
-        ``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``),
-        resolves it the SAME way via ``_resolve_vilib_class_ref``.
-
-        A NON-vilib link record (the "in-repo" PTH0 shape — no recorded
-        URL, parent lives elsewhere in the same tree) is deliberately left
-        to the existing bare-name walk-up below — ``resolve_against``'s
-        generic (non-``<vilib>``) branch reads leading EMPTY tokens as
-        ``..`` hops, a shape not verified against a real in-repo PTH0
-        record, so this stays scoped to what issue #84 actually asked for
-        rather than risking the already-working walk-up.
+        When there's no URL but the parent's binary link record carries a
+        path (``cls.parent_link_path``), resolves it the SAME way via
+        ``_resolve_recorded_class_ref``: a ``<vilib>``-rooted record (issue
+        #84 — e.g. ``["<vilib>", "ActorFramework", "Actor", "Actor.lvclass"]``)
+        against the vi.lib root, an in-repo record (leading EMPTY tokens, each
+        one ``..`` hop from the child ``.lvclass`` file treated as a directory,
+        e.g. ``["", "", "", "Classes", "TestCase", "TestCase.lvclass"]`` from
+        ``Tests/MyFirstTest/MyFirstTest.lvclass``) against the child's own
+        location, so a parent in a sibling subtree is found by its recorded
+        path.
 
         Falls back to a bare-name walk-up (``_walk_up_find`` —
         filesystem-only, no search_paths, so it can't reach a cross-subtree
-        or vi.lib parent) when NEITHER a URL nor a resolved vilib link path
-        was found. Both None when the class has no parent (or its parent is
-        the root ``LabVIEW Object``).
+        or vi.lib parent) only when the class records no parent path at all.
+        Both None when the class has no parent (or its parent is the root
+        ``LabVIEW Object``).
         """
         parent = cls.parent_class
         parent_file: Path | None = None
@@ -1049,7 +1048,7 @@ class LoadingMixin:
         if parent and parent != "LabVIEW Object":
             if cls.parent_url and cls.is_vilib_parent:
                 tokens = [t for t in cls.parent_url.split("/") if t]
-                parent_file, parent_intended = self._resolve_vilib_class_ref(
+                parent_file, parent_intended = self._resolve_recorded_class_ref(
                     parent, tokens, lvclass_path, search_paths
                 )
             elif cls.parent_url:
@@ -1060,8 +1059,8 @@ class LoadingMixin:
                 parent_intended = (lvclass_path / cls.parent_url).resolve()
                 if parent_intended.exists():
                     parent_file = parent_intended
-            elif cls.is_vilib_parent and cls.parent_link_path:
-                parent_file, parent_intended = self._resolve_vilib_class_ref(
+            elif cls.parent_link_path:
+                parent_file, parent_intended = self._resolve_recorded_class_ref(
                     parent, cls.parent_link_path, lvclass_path, search_paths
                 )
             if parent_file is None and parent_intended is None:
@@ -2058,6 +2057,8 @@ class LoadingMixin:
             resolved = self._resolve_dependency_path(
                 qualified_name, dep_ref, caller_file, search_paths
             )
+        if resolved is None:
+            resolved = self._inherited_method_file(qualified_name, caller_qname)
 
         # PATH is the identity (finishes #26). The dep-graph key is ALWAYS the
         # resolved file path — never the qname or the bare name. A built copy
@@ -2497,6 +2498,34 @@ class LoadingMixin:
                 return found
 
         return None
+
+    def _inherited_method_file(
+        self, qualified_name: str, caller_qname: str | None
+    ) -> Path | None:
+        """The file of a class method the caller names through a class that does
+        not declare it: ``Child.lvclass:Method.vi`` records the call under the
+        class of the wire, the method itself lives in an ancestor. The class is
+        the one among the caller's own dependencies; the file is the nearest
+        ancestor's member (``class_method``, following each class's recorded
+        parent path). ``None`` when the name has no class owner, the class is
+        not a dependency of the caller, no ancestor on disk lists the method, or
+        the class declares it itself (its own file is then simply absent)."""
+        *owners, leaf = qualified_name.split(":")
+        if (
+            caller_qname is None
+            or not owners
+            or not owners[-1].endswith(".lvclass")
+            or not is_vi_file(leaf)
+        ):
+            return None
+        cls_key = self._dep_key_for_ref(owners[-1], caller_qname)
+        if cls_key is None or not self.is_class(cls_key):
+            return None
+        found = self.class_method(cls_key, leaf)
+        if found is None or found[0] == cls_key:
+            return None
+        inherited = Path(found[1])
+        return inherited if inherited.exists() else None
 
     def _find_recorded_vi(
         self,

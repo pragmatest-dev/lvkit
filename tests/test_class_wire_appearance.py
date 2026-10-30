@@ -161,13 +161,18 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
 
 @pytest.mark.skipif(not TESTLOADER_CLASS.exists(), reason="JKI sample not present")
 def test_in_repo_same_tree_parent_still_resolves() -> None:
-    """No regression (issue #84): a class whose parent has NO ``<vilib>``
-    marker (TextTestRunner's parent TestRunner — in-repo, resolved via the
-    existing bare-name ``_walk_up_find`` fallback, completely untouched by
-    the new vilib-rooted-parent path since ``is_vilib_parent`` gates it) is
-    unaffected: same field count and names before and after the fix."""
+    """A class whose parent has NO ``<vilib>`` marker (TextTestRunner's parent
+    TestRunner, in a sibling folder) is found by the path its link record
+    holds, so its fields are the parent's then its own."""
     lvclass_path = JKI_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
     graph = InMemoryVIGraph()
     graph.load_lvclass(lvclass_path, LoadMode.MINIMAL, search_paths=[JKI_ROOT])
     fields = graph.get_class_fields("TextTestRunner.lvclass")
-    assert [f.name for f in fields] == ["stream", "descriptions", "verbosity"]
+    assert [f.name for f in fields] == [
+        "publicEvents",
+        "Start Time",
+        "Stop Time",
+        "stream",
+        "descriptions",
+        "verbosity",
+    ]
