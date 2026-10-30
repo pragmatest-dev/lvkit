@@ -147,7 +147,7 @@ async def index(
             "project_root": str(root),
             "vis": len(done.facts),
             "controls": done.controls.controls,
-            "collisions": done.collisions,
+            "loaded_alone": done.loaded_alone,
             "ms": ms,
         }
 

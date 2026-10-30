@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **`lvkit index` and the MCP `index` tool report `loaded_alone` instead of `collisions`** — the count of VIs the whole-project load did not produce and that were loaded on their own (0 on the JKI VI Tester sources).
 - **Fix: `generate` writes packages deeper than Windows' 260-character path limit** — the output folder is used in Windows' long-path form, and `generate` warns when a module's path is too long for Python to import while Windows long paths are off.
 - **Fix: a class whose parent sits in a sibling folder inherits the parent's fields, and calls to an inherited method count as callers** — the parent is found by the path the class records, so its fields come first in the child's private data, and `callers` of a method a test class inherits (`failIfEqual.vi`) lists the tests that call it.
 - **"This VI" is the generated function** — a `This VI` reference passed to a subVI is the VI's own function and its Name / Path properties read it by reflection; it is told from `This Application` by the class its reference type records (`CtlFlags`), and `This Application` stays a gap.
