@@ -263,9 +263,10 @@ def to_var_name(name: str) -> str:
         result = "var_" + result
     if not result:
         result = "var"
-    # Avoid shadowing Python keywords and builtins (e.g. an output named
-    # "sum" must not become a `sum` variable that then breaks `sum(...)`).
-    if keyword.iskeyword(result) or result in _PY_BUILTINS:
+    # Avoid shadowing Python keywords, builtins and the modules the generated
+    # code imports (e.g. an output named "sum" must not become a `sum` variable
+    # that then breaks `sum(...)`, nor one named "os" hide `os.name`).
+    if keyword.iskeyword(result) or result in RESERVED_NAMES:
         result = result + "_"
     return result
 
@@ -350,6 +351,23 @@ def interface_names(
 
 # Builtin names a generated variable must not shadow.
 _PY_BUILTINS = frozenset(dir(builtins))
+
+# Modules the generated code imports by a bare name (``import os``), which a
+# generated variable or function must not shadow. Each name must match an
+# ``import <name>`` some generated module can contain: the codegen's own imports
+# and the ``imports`` of the primitive and vi.lib catalogs
+# (``tests/test_reserved_module_names.py`` checks this).
+GENERATED_MODULE_NAMES = frozenset(
+    {
+        "builtins", "concurrent", "copy", "ctypes", "filecmp", "getpass",
+        "importlib", "inspect", "ipaddress", "keyword", "math", "nidaqmx",
+        "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
+        "os", "pathlib", "pyvisa", "re", "serial", "shutil", "socket", "stat",
+        "struct", "sys", "tempfile", "time",
+    }
+)  # fmt: skip
+
+RESERVED_NAMES = _PY_BUILTINS | GENERATED_MODULE_NAMES
 
 
 def sanitize_state_var_suffix(uid: str) -> str:

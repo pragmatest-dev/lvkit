@@ -18,12 +18,14 @@ from __future__ import annotations
 import re
 from enum import IntEnum
 
+from .conversion_gap import ConversionGap
 from .string_literal import STRING_ESCAPES
 
 NOT_A_PATH = "NotAPath"
 _PREFIX = 'Path("'
 _SUFFIX = '")'
 _PARENT = ".."
+_SYMBOLIC = re.compile(r"<[^<>]+>")
 
 
 class PathType(IntEnum):
@@ -132,14 +134,36 @@ def path_text(text: str) -> str | None:
 
 def python_path(text: str) -> str | None:
     """The Python expression for a path text: ``None`` for Not a Path, else a
-    ``Path(...)`` call; None when ``text`` is no path. A path with no component,
-    absolute or relative, is the empty ``Path('')`` (Python has no absolute path
-    without a component)."""
+    ``Path(...)`` call of the components (pathlib joins them with the OS
+    separator); None when ``text`` is no path.
+
+    An absolute path's first component is its volume. LabVIEW writes it with a
+    colon on Windows (``C`` is ``C:\\``), so the volume is spelled for the OS the
+    code runs on: ``Path("C:/" if os.name == "nt" else "/C", "Users")``. A path with
+    no component, absolute or relative, is the empty ``Path('')`` (Python has no
+    absolute path without a component). A path that starts at a symbolic LabVIEW
+    folder (``<vilib>``, ``<userlib>``) has no Python meaning and is a gap.
+    """
     parsed = parse_path(text)
     if parsed is None:
         return None
-    if parsed[0] == PathType.NOT_A_PATH:
+    path_type, components = parsed
+    if path_type == PathType.NOT_A_PATH:
         return "None"
-    if not parsed[1]:
+    if not components:
         return "Path('')"
-    return f"Path({(path_text(text) or '')!r})"
+    parts = [_PARENT if c == "" else c for c in components]
+    if path_type == PathType.RELATIVE:
+        return f"Path({', '.join(repr(p) for p in parts)})"
+    volume, rest = components[0], parts[1:]
+    if _SYMBOLIC.fullmatch(volume):
+        raise ConversionGap(
+            f"The path {text} starts at the symbolic LabVIEW folder {volume}, "
+            "which has no Python path; write the folder's real path."
+        )
+    if volume == "":
+        raise ConversionGap(f"The absolute path {text} has no volume name.")
+    root = f"{volume}:/"
+    posix = f"/{volume}"
+    head = f'{root!r} if os.name == "nt" else {posix!r}'
+    return f"Path({', '.join([head, *(repr(p) for p in rest)])})"
