@@ -142,5 +142,6 @@ def test_a_method_called_through_a_subclass_names_the_ancestors_file() -> None:
 def test_a_method_a_class_declares_itself_keeps_its_own_file() -> None:
     """Neighbouring case: TestCase's own methods are not redirected."""
     keys = _call_keys("Classes/TestCase/run.vi")
-    own = [k for n, k in keys.items() if k and "/Classes/TestCase/" in k]
+    test_case_dir = (SAMPLE_ROOT / "Classes/TestCase").resolve()
+    own = [k for k in keys.values() if k and Path(k).parent == test_case_dir]
     assert own
