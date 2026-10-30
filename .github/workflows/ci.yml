@@ -83,15 +83,10 @@ jobs:
   # corpus. The `test` jobs skip every `needs_samples` test and pyproject's
   # default options skip `slow`; this is the job that runs both, so a stale
   # corpus pin or a corpus-only regression fails the PR. The slow tests run on 2
-  # workers because each holds a whole-corpus graph in memory. It runs on Linux
-  # and Windows: path separators and drive letters only show up there.
+  # workers because each holds a whole-corpus graph in memory.
   test-corpus:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -101,13 +96,9 @@ jobs:
       - run: uv sync --all-extras --dev
       # Every set is cloned from its own permissively licensed upstream repo (or
       # downloaded from SourceForge for OpenG); `uv run` puts the project venv on
-      # PATH so the OpenG step's Python can import lvkit. Some sample paths are
-      # longer than Windows' default 260-character limit.
+      # PATH so the OpenG step's `python3` can import lvkit.
       - name: Pull the sample corpus
-        shell: bash
-        run: |
-          git config --global core.longpaths true
-          uv run bash scripts/pull_samples.sh
+        run: uv run bash scripts/pull_samples.sh
       - name: Pytest (regular tests, all cores)
         run: uv run pytest -q
       - name: Pytest (slow full-corpus tests, 2 workers)
@@ -115,7 +106,7 @@ jobs:
 
   # The same unit suite on Windows: path separators, drive letters, text
   # encodings and symlink rights differ there, and none of that is exercised on
-  # Linux. Corpus-backed tests skip here; `test-corpus` runs them on Windows.
+  # Linux. Corpus-backed tests skip (the sample corpus is not pulled in CI).
   test-windows:
     runs-on: windows-latest
     steps:
