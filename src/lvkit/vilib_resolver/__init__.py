@@ -15,6 +15,7 @@ This module is the facade: every name previously importable from the flat
 
 from __future__ import annotations
 
+import contextvars
 import functools
 from collections.abc import Callable
 from pathlib import Path
@@ -41,10 +42,18 @@ __all__ = [
 # Module-level singleton
 _resolver: VILibResolver | None = None
 
+# The resolver of the generation run the current context is inside, if any.
+_run_resolver: contextvars.ContextVar[VILibResolver | None] = contextvars.ContextVar(
+    "lvkit_run_vilib_resolver", default=None
+)
+
 
 def get_resolver() -> VILibResolver:
     """Get the global VILibResolver instance."""
     global _resolver
+    scoped = _run_resolver.get()
+    if scoped is not None:
+        return scoped
     if _resolver is None:
         _resolver = VILibResolver()
     return _resolver
@@ -77,21 +86,20 @@ def learns_in_own_scope(func: Callable[_P, _R]) -> Callable[_P, _R]:
 
     Generation learns terminals from the VIs it reads (see
     ``VILibResolver.auto_update_terminals``). That knowledge belongs to one run:
-    the decorated call sees a resolver of its own, and the one in place before
-    it (with whatever it holds) is back afterwards, so a later load, render or
-    MCP call in the same process never sees what this run learned.
+    inside the decorated call ``get_resolver()`` returns a resolver of its own,
+    visible only to that call's context (and threads started from it with a
+    copied context), so a concurrent or later load, render or MCP call never
+    sees what this run learned.
     """
 
     @functools.wraps(func)
     def scoped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        global _resolver
-        outer = _resolver
-        _resolver = VILibResolver(
-            project_data_dir=outer.project_data_dir if outer else None
+        token = _run_resolver.set(
+            VILibResolver(project_data_dir=get_resolver().project_data_dir)
         )
         try:
             return func(*args, **kwargs)
         finally:
-            _resolver = outer
+            _run_resolver.reset(token)
 
     return scoped

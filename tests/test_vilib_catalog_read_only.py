@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -234,3 +235,31 @@ def test_a_generation_run_does_not_teach_the_next_load() -> None:
     after = vilib_resolver.get_resolver().resolve_by_name(name)
     assert after is not None
     assert after.terminals[0].index is None
+
+
+def test_a_generation_run_is_invisible_to_a_concurrent_thread() -> None:
+    name = "High Resolution Relative Seconds.vi"
+    wired = Terminal(id="t:out", index=0, direction="output", name="relative seconds")
+    taught = threading.Event()
+    seen = threading.Event()
+    other: list[int | None] = []
+
+    @vilib_resolver.learns_in_own_scope
+    def run() -> None:
+        vilib_resolver.get_resolver().auto_update_terminals(name, [wired])
+        taught.set()
+        assert seen.wait(timeout=30)
+
+    def read() -> None:
+        assert taught.wait(timeout=30)
+        entry = vilib_resolver.get_resolver().resolve_by_name(name)
+        assert entry is not None
+        other.append(entry.terminals[0].index)
+        seen.set()
+
+    reader = threading.Thread(target=read)
+    reader.start()
+    run()
+    reader.join()
+
+    assert other == [None]
