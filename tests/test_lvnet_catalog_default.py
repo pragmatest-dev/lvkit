@@ -367,6 +367,13 @@ VILIB_CALL_DEFAULTS = [
         id="Picture to Pixmap",
     ),
     pytest.param(
+        "Write to System Log.vi",
+        ["Utility", "SystemLogging"],
+        [(10, "NumInt32")],
+        ["in 10 : I32 default 0"],
+        id="Write to System Log",
+    ),
+    pytest.param(
         "Butterworth Filter.vi",
         ["Analysis", "3filter.llb"],
         [(0, "Boolean"), (4, "NumInt32"), (8, "NumFloat64")],

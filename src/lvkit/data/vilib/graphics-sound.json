@@ -3750,16 +3750,6 @@
           "description": "pen sets the width and style of the pen the VI uses to draw the picture."
         },
         {
-          "name": "Style",
-          "index": null,
-          "direction": "in",
-          "type": null,
-          "enum_values": null,
-          "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture.",
-          "default": 0
-        },
-        {
           "name": "new picture",
           "index": null,
           "direction": "out",
@@ -3936,16 +3926,6 @@
           "enum_values": null,
           "python_param": "pen",
           "description": "pen sets the width and style of the pen the VI uses to draw the picture."
-        },
-        {
-          "name": "Style",
-          "index": null,
-          "direction": "in",
-          "type": null,
-          "enum_values": null,
-          "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture.",
-          "default": 0
         },
         {
           "name": "new picture",

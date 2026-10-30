@@ -1151,7 +1151,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "message",
@@ -1163,8 +1163,8 @@
           "description": "message is the text to write to the system log."
         },
         {
-          "name": "severity (Error)",
-          "index": null,
+          "name": "severity",
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,

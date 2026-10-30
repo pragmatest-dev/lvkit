@@ -8,6 +8,7 @@ the index is known (``unwired_default._catalog_terminal`` places a terminal by i
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -94,7 +95,6 @@ VILIB_DEFAULTS = [
     ("Set Busy", "disable click? (T)", True),
     ("Get Text Rect", "desired font(Application)", 1),
     ("Get Text Rect", "text orientation", 0),
-    ("Draw Rectangle", "Style", 0),
     ("Draw Rectangle", "fill?(F)", False),
     ("Open Registry Key", "registry view", 0),
     ("Search and Replace Pattern", "offset (0)", 0),
@@ -103,7 +103,7 @@ VILIB_DEFAULTS = [
     ("Search and Replace Pattern", 'replace string ("")', ""),
     ("Get LV Class Default Value", "options", 0),
     ("Generate Temporary File Path", "Temporary File Extension (tmp)", "tmp"),
-    ("Write to System Log", "severity (Error)", 0),
+    ("Write to System Log", "severity", 0),
     ("Picture to Pixmap", "depth", 24),
     ("General Error Handler", "[error code] (0)", 0),
     ("General Error Handler", '[error source] (" ")', " "),
@@ -116,7 +116,6 @@ VILIB_DEFAULTS = [
     ("Draw Text at Point", "text orientation", 0),
     ("New Zip File", "confirm overwrite? (F)", False),
     ("Write JPEG File", "quality (80)", 80),
-    ("Draw Line", "Style", 0),
     ("Draw Line", "absolute coordinates?(T)", True),
     ("Move Pen", "absolute coordinates?(T)", True),
     ("Create Mask", "1-Bit Mask Value (T)", True),
@@ -263,3 +262,30 @@ def test_pick_line_with_string_unwired_appends_nothing() -> None:
     )
     assert gaps == []
     assert generated.function(1, "a\nb\nc").line == "b"  # type: ignore[operator]
+
+
+@pytest.mark.parametrize("vi_name", ["Draw Line", "Draw Rectangle"])
+def test_the_pen_style_is_inside_the_pen_cluster_not_a_pane_input(
+    vi_name: str,
+) -> None:
+    entry = get_vilib_resolver().resolve_by_name(f"{vi_name}.vi")
+    assert entry is not None
+    assert "Style" not in [t.name for t in entry.terminals]
+    assert "pen" in [t.name for t in entry.terminals]
+
+
+@pytest.mark.parametrize(
+    "function_name",
+    [
+        "Write to Text File Function",
+        "Write to Binary File Function",
+        "Create Folder Function",
+    ],
+)
+def test_the_dialog_prompt_input_is_named_prompt(function_name: str) -> None:
+    catalog = Path(__file__).parents[1] / "src/lvkit/data/vilib/file-io.json"
+    entries = json.loads(catalog.read_text())["entries"]
+    entry = next(e for e in entries if e["name"] == function_name)
+    names = [t["name"] for t in entry["terminals"]]
+    assert "prompt" in names
+    assert not [n for n in names if n.startswith("prompt (")]

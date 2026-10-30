@@ -1318,7 +1318,7 @@
       "status": "docs_enriched",
       "terminals": [
         {
-          "name": "prompt (Choose or enter file path)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
@@ -1486,7 +1486,7 @@
           "description": "prepend array or string size? indicates whether LabVIEW includes data size information at the beginning of the file when data is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. prepend array or string size? controls only the top-level data size information. Arrays and strings in hierarchical data types such as clusters always include size information."
         },
         {
-          "name": "prompt (Choose or enter file path)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
@@ -5741,7 +5741,7 @@
       "status": "docs_enriched",
       "terminals": [
         {
-          "name": "prompt (Create Folder)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
