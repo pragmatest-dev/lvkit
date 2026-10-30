@@ -209,3 +209,79 @@ def test_outermost_load_owns_the_pool_and_nested_loads_reuse_it(
     assert seen[0] is not None
     assert seen[1] is seen[2] is not None
     assert seen[0] is not seen[1]
+
+
+class _RecordingExecutor:
+    """Records every executor started, its submissions and its shutdown calls."""
+
+    instances: list[_RecordingExecutor] = []
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        self.submitted: list[str] = []
+        self.shutdowns: list[dict[str, object]] = []
+        type(self).instances.append(self)
+
+    def submit(self, fn: object, path: str) -> Future[None]:
+        self.submitted.append(path)
+        future: Future[None] = Future()
+        future.set_result(None)
+        return future
+
+    def shutdown(self, **kwargs: object) -> None:
+        self.shutdowns.append(kwargs)
+
+
+def test_each_full_batch_retires_its_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(extract_pool, "ProcessPoolExecutor", _RecordingExecutor)
+    monkeypatch.setattr(extract_pool, "_MAX_WORKERS", 1)
+    monkeypatch.setattr(extract_pool, "_FILES_PER_WORKER", 2)
+    _RecordingExecutor.instances = []
+    files = []
+    for i in range(7):
+        vi = tmp_path / f"f{i}.vi"
+        vi.write_bytes(b"x")
+        files.append(vi)
+    drain = {"wait": True}
+    retire = {"wait": False, "cancel_futures": False}
+    close = {"wait": True, "cancel_futures": True}
+    with ExtractionPool() as pool:
+        pool.prefetch(files[:2])
+        first = _RecordingExecutor.instances
+        assert len(first) == 1
+        assert first[0].shutdowns == [retire]
+        pool.prefetch(files[2:4])
+        assert len(_RecordingExecutor.instances) == 2
+        assert _RecordingExecutor.instances[1].shutdowns == [retire]
+        assert first[0].shutdowns == [retire, drain]  # older one drained
+        pool.prefetch(files[4:7])
+        instances = _RecordingExecutor.instances
+        assert len(instances) == 4
+        assert [len(e.submitted) for e in instances] == [2, 2, 2, 1]
+        assert instances[1].shutdowns == [retire, drain]
+        assert instances[2].shutdowns == [retire]
+        assert instances[3].shutdowns == []
+    assert instances[3].shutdowns == [close]
+    assert instances[2].shutdowns == [retire, close]
+    assert instances[1].shutdowns == [retire, drain]
+
+
+def test_real_pool_retiring_every_batch_extracts_everything(
+    vis: list[Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for vi in vis:
+        extract_vi_xml(vi)
+    serial = _cache_listing(tmp_path / "cache")
+
+    monkeypatch.setenv("LVKIT_CACHE_DIR", str(tmp_path / "pool-cache"))
+    monkeypatch.setattr(extract_pool, "_MAX_WORKERS", 1)
+    monkeypatch.setattr(extract_pool, "_FILES_PER_WORKER", 1)
+    with ExtractionPool() as pool:
+        for vi in vis:
+            pool.prefetch([vi])
+        for vi in vis:
+            pool.wait(vi)
+    assert all(cached_extraction(vi) is not None for vi in vis)
+    assert _cache_listing(tmp_path / "pool-cache") == serial

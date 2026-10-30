@@ -11,6 +11,7 @@ from types import ModuleType
 
 import pytest
 
+from lvkit.long_paths import extended_length
 from lvkit.pipeline import generate_python
 
 
@@ -25,7 +26,8 @@ def generated_vi(tmp_path: Path) -> Iterator[object]:
     def generated(vi_path: Path, search_root: Path) -> ModuleType:
         result = generate_python(vi_path, tmp_path, search_paths=[search_root])
         written = Path(result["vi_paths"][str(vi_path.resolve())])
-        name = ".".join(written.relative_to(tmp_path).with_suffix("").parts)
+        below = written.relative_to(extended_length(tmp_path))
+        name = ".".join(below.with_suffix("").parts)
         modules.append(name.split(".")[0])
         return importlib.import_module(name)
 
