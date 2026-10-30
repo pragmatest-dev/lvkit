@@ -15,7 +15,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.load_mode import LoadMode
-from lvkit.models import Terminal
+from lvkit.models import FPTerminal, Terminal
 
 
 def transitive_closure(
@@ -181,27 +181,32 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
         graph = InMemoryVIGraph()
     graph._vi_nodes.setdefault(vi_name, set())
 
-    def _stub(tid: str, direction: str) -> None:
+    def _stub(tid: str, direction: str, control: Terminal | None = None) -> None:
         nid = f"_fp_{tid}"
         if nid in graph._graph:
             return
+        stub_terminal = (
+            control.model_copy(update={"direction": direction})
+            if isinstance(control, FPTerminal)
+            else Terminal(id=tid, index=0, direction=direction)
+        )
         graph._graph.add_node(
             nid,
             node=PrimitiveNode(
                 id=nid,
                 vi_path=vi_name,
                 name=nid,
-                terminals=[Terminal(id=tid, index=0, direction=direction)],
+                terminals=[stub_terminal],
             ),
         )
         graph._term_to_node[tid] = nid
 
     for inp in vi_context.inputs:
         if inp.id:
-            _stub(inp.id, "output")
+            _stub(inp.id, "output", inp)
     for out in vi_context.outputs:
         if out.id:
-            _stub(out.id, "input")
+            _stub(out.id, "input", out)
     for const in vi_context.constants:
         if const.id and f"_fp_{const.id}" not in graph._graph:
             graph._graph.add_node(
@@ -308,3 +313,22 @@ def register_nodes(graph, nodes, vi_name: str = "test.vi") -> None:
     for n in nodes:
         if n.id in kids:
             n.children = sorted(kids[n.id], key=_node_order_key)
+
+
+def error_cluster_type() -> Any:
+    """LabVIEW's error cluster as the parser represents it: ``status`` Boolean,
+    ``code`` I32, ``source`` String."""
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+
+    def primitive(underlying: str) -> LVType:
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
+
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="status", type=primitive("Boolean")),
+            ClusterField(name="code", type=primitive("NumInt32")),
+            ClusterField(name="source", type=primitive("String")),
+        ],
+    )

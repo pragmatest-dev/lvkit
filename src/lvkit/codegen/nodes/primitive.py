@@ -7,7 +7,6 @@ import re
 from collections.abc import Mapping
 from typing import NoReturn
 
-from lvkit.graph.core import uid_of
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
@@ -359,18 +358,10 @@ def _build_input_map(
             if not term_name:
                 term_name = resolved_name
 
-        # Resolve from context. A wired data input always has a variable (a constant
-        # that is a gap is bound to None; its function raises where it starts); an
-        # error cluster has none, errors being exceptions.
-        value = ctx.resolve(term_id)
-        if not value and ctx.is_wired(term_id) and not term.is_error_cluster:
-            value = ctx.resolve(term_id, allow_none=True)
-            if not value:
-                raise CodeGenError(
-                    f"The wired input {term_name or term_index!r} of "
-                    f"{node.name!r} has no variable (from {_sources(ctx, term_id)})",
-                    node,
-                )
+        # Resolve from context: a wired data input always has a variable (a
+        # constant that is a gap is bound to None; its function raises where it
+        # starts); an error cluster has none, errors being exceptions.
+        value = ctx.wired_input(term_id, node, term_name or term_index)
         if value:
             # Wired terminal with -1 index: resolution failure
             if term_index == -1:
@@ -820,19 +811,6 @@ def _substitute_template(
         )
 
     return result
-
-
-def _sources(ctx: CodeGenContext, terminal_id: str) -> str:
-    """The nodes whose terminals wire into ``terminal_id``, in LabVIEW's words,
-    for an error message."""
-    assert ctx.graph is not None
-    found = []
-    for edge in ctx.graph.incoming_edges(terminal_id):
-        source = ctx.graph.get_graph_node(edge.node_id)
-        if source is None:
-            continue
-        found.append(f"{source.display_name}, terminal {uid_of(edge.terminal_id)}")
-    return ", ".join(found) or "nothing"
 
 
 def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:

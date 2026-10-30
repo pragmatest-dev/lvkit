@@ -48,6 +48,7 @@ from lvkit.render.scene import (
 )
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
+from tests.helpers import error_cluster_type
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -2726,9 +2727,7 @@ def test_wire_style_covers_full_type_table():
     string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     path = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
     cluster = LVType(kind=LVTypeKind.CLUSTER, fields=[])
-    error_cluster = LVType(
-        kind=LVTypeKind.CLUSTER, typedef_name="Error Cluster", fields=[]
-    )
+    error_cluster = error_cluster_type()
 
     assert wire_style(dbl).color == DEFAULT_THEME.wire_float
     assert wire_style(i32).color == DEFAULT_THEME.wire_int

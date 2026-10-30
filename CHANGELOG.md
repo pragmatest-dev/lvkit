@@ -3,6 +3,17 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: LabVIEW 8.5 VIs that call a subVI load** — their raw link tables carry the same extra field as LabVIEW 8.2's, so a call in an 8.5 VI names the VI it calls instead of stopping the load (#215).
+- **Fix: a Call Library Function Node calls the whole function name** — LabVIEW stores the node's name cut to 31 characters, so the function now comes from the VI's link record; a 31-character name no record settles is a gap naming the functions it matches, not a call to one that does not exist (#216).
+- **Fix: a wired input from a constant lvkit cannot read no longer stops the VI** — every node reads a wired input one way, so Index Array and the rest generate with the one gap at the start of the function, and a wired input with no variable stops with the source named (#217).
+- **Fix: a cluster is LabVIEW's error cluster only if its fields are `status`, `code` and `source`** — a typedef with "error" in its name keeps its fields in describe, lvnet, JSON and generated code (#218).
+- **Fix: a wire is read from the terminal its VI declares an output** — a wire listed with its input first no longer turns the input into an output, so an And fed by an Unbundle gets both its inputs in describe, lvnet, render and generate.
+- **An Unbundle or Bundle By Name element the VI stores with index -1 is a gap** — it was read as the last field; a broken VI's says it selects no field, a working VI's says lvkit does not decode it yet.
+- **An In Place Element's output port takes the value of the inner node that carries its data** — a Map access node (a gap) no longer leaves the port without a value.
+- **A Bundle By Name into a waveform builds the waveform** — a new waveform from the wired components (`Y` an empty array otherwise), and a wired waveform takes the components by their names.
+- **A Diagram Disable output the enabled subdiagram leaves unwired sends the type's default**, as an unwired case output does.
+- **A Local Variable that reads an indicator reads a variable** — the indicator's default until a wire writes it, then what was last written, in loops too.
+- **Wires that close a cycle make the nodes of the cycle a gap** — the dependency sort finds them and the warning names the nodes and says lvkit is likely misreading a direction.
 - **"This VI" is the generated function** — a `This VI` reference passed to a subVI is the VI's own function and its Name / Path properties read it by reflection; it is told from `This Application` by the class its reference type records (`CtlFlags`), and `This Application` stays a gap.
 - **Search and Replace String generates plain `re` / `str.replace` code that honors every input** — ignore case, offset, replace first or all, the number of replacements and the offset past the replacement, and Regular Expression mode (PCRE search string, `$1` / `${1}` / `\$` replace string, `multiline?`) as Python `re`; a PCRE construct Python cannot read is a gap naming it.
 - **A block-diagram constant with no stored value is a gap, a wired input with no variable is an error, a While Loop's iteration terminal counts, a For Loop's count terminal can be read inside the loop, and Scan From String, In Place Element and Register For Events stop leaving their wires without a value** — each used to read as a silent default.

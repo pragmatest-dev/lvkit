@@ -142,6 +142,7 @@ from .nodes import (
     is_disable_structure,
     parse_selector_tables,
 )
+from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
 from .type_resolution import resolve_type_rich
 from .utils import (
@@ -896,6 +897,7 @@ def _resolve_bound_control_types(
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     """Extract wires (signals) from the block diagram."""
     wires = []
+    declared = declared_outputs(root)
 
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
         uid = sig.get("uid") or ""
@@ -906,6 +908,7 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
         ]
 
         if len(terms) >= 2:
+            terms = source_first(terms, declared)
             source = terms[0]
             for i, dest in enumerate(terms[1:]):
                 wires.append(

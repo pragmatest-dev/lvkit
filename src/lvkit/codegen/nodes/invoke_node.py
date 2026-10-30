@@ -50,7 +50,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             continue
         if not ctx.is_wired(term.id):
             continue
-        value = ctx.resolve(term.id)
+        value = ctx.wired_input(term.id, node)
         if value is None:
             continue
         args.append(parse_expr(value))

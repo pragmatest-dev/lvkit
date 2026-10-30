@@ -95,18 +95,20 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     )
 
 
-def _input(term: Terminal | None, ctx: CodeGenContext) -> str | None:
+def _input(
+    term: Terminal | None, node: PrimitiveNode, ctx: CodeGenContext
+) -> str | None:
     """The expression an input terminal carries, or None when it is unwired."""
     if term is None:
         return None
-    value = ctx.resolve(term.id)
+    value = ctx.wired_input(term.id, node)
     return value if value else None
 
 
 def _queue_input(
     node: PrimitiveNode, by_index: dict[int, Terminal], ctx: CodeGenContext
 ) -> str:
-    queue = _input(by_index.get(0), ctx)
+    queue = _input(by_index.get(0), node, ctx)
     if queue is None:
         raise ConversionGap(f"{node.name} has no queue wired", node)
     return queue
@@ -221,8 +223,8 @@ def _generate_obtain_queue(
     its entry in that module's ``by_name`` dict, and no name is a new ``Queue``.
     Which of the three it is comes from the package's queries."""
     use, module = _obtain_queue_use(node, ctx)
-    name_text = _input(by_index.get(0), ctx)
-    max_size_text = _input(by_index.get(4), ctx)
+    name_text = _input(by_index.get(0), node, ctx)
+    max_size_text = _input(by_index.get(4), node, ctx)
     size = _constant(max_size_text) if max_size_text is not None else -1
     bound = str(max(size, 0)) if isinstance(size, int) else f"max({max_size_text}, 0)"
 
@@ -281,8 +283,8 @@ def _generate_enqueue(
     """Enqueue Element(queue, element, timeout_ms) -> timed out?. A full queue
     waits for room; past the timeout ``put`` raises ``queue.Full``."""
     queue = _queue_input(node, by_index, ctx)
-    element = _input(by_index.get(1), ctx) or "None"
-    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    element = _input(by_index.get(1), node, ctx) or "None"
+    timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
     put = ast.Expr(value=_call(queue, "put", [element], timeout))
     timed_out = _consumed(by_index.get(10), ctx)
@@ -305,7 +307,7 @@ def _generate_enqueue_opposite_end(
     ``queue.Queue`` only puts at the back, so the element goes on the front of
     its ``deque`` under the queue's lock, waking one waiting ``get``."""
     queue = _queue_input(node, by_index, ctx)
-    element = _input(by_index.get(1), ctx) or "None"
+    element = _input(by_index.get(1), node, ctx) or "None"
     bindings = _passthrough(by_index, 8, queue)
     front = ast.parse(
         f"with {queue}.mutex:\n"
@@ -332,7 +334,7 @@ def _generate_dequeue(
     ``timed out?`` is used, the element is the type's default and the flag
     is true."""
     queue = _queue_input(node, by_index, ctx)
-    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
     get = _call(queue, "get", [], timeout)
     element_term = _consumed(by_index.get(9), ctx)
@@ -372,7 +374,7 @@ def _generate_preview(
     front element, left in the queue. Under the queue's lock, the condition
     ``not_empty`` waits until the queue holds an element or the timeout passes."""
     queue = _queue_input(node, by_index, ctx)
-    timeout = _timeout_seconds(_input(by_index.get(2), ctx))
+    timeout = _timeout_seconds(_input(by_index.get(2), node, ctx))
     bindings = _passthrough(by_index, 8, queue)
     element_term = _consumed(by_index.get(9), ctx)
     timed_out = _consumed(by_index.get(10), ctx)
@@ -463,7 +465,7 @@ def _generate_release_queue(
         name = ctx.make_output_var("remaining_elements", node.id, remaining.id)
         statements.extend(_drain(queue, name))
         bindings[remaining.id] = name
-    force = _input(by_index.get(2), ctx)
+    force = _input(by_index.get(2), node, ctx)
     call = f"{queue}.shutdown()"
     if force is not None and _constant(force) is not False:
         call = f"{queue}.shutdown(immediate={force})"

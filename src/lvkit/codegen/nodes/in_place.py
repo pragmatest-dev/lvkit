@@ -123,7 +123,8 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     _bind_output_tunnels(node, tunnels, ctx, all_bindings)
 
     # The data comes back out of the structure on its output ports.
-    _bind_data_outputs(node, tiles, data_var, tunnel_uids, all_bindings, ctx)
+    producers = [*(t.op for t in tiles), *inner_nodes]
+    _bind_data_outputs(node, producers, data_var, tunnel_uids, all_bindings, ctx)
 
     return CodeFragment(
         statements=all_stmts,
@@ -162,11 +163,13 @@ def _bind_tile_inputs(
         for term in tile.op.terminals:
             if term.direction != "input" or term.dco_uid is None:
                 continue
-            if ctx.resolve(term.id) is not None:
+            if ctx.resolve(term.id) is not None or (
+                ctx.graph is not None and ctx.graph.terminal_is_fed(term.id)
+            ):
                 continue
             for port in ports:
                 if port.dco_uid == term.dco_uid:
-                    value = ctx.resolve(port.id)
+                    value = ctx.wired_input(port.id, node)
                     if value is not None:
                         ctx.bind(term.id, value)
                     break
@@ -210,7 +213,7 @@ def _take_element_out(
     op = tile.op
     if tile.kind == _CLUSTER:
         agg = _role_terminal(op, "agg", "input")
-        whole = (ctx.resolve(agg.id) if agg is not None else None) or data_var
+        whole = (ctx.wired_input(agg.id, op) if agg is not None else None) or data_var
         if agg is None or whole is None:
             return None
         class_fields = _get_class_fields(agg, ctx)
@@ -223,8 +226,8 @@ def _take_element_out(
         element_out = _role_terminal(op, "agg", "output")
         if array_in is None or index_in is None or element_out is None:
             return None
-        whole = ctx.resolve(array_in.id)
-        index = ctx.resolve(index_in.id)
+        whole = ctx.wired_input(array_in.id, op)
+        index = ctx.wired_input(index_in.id, op)
         if whole is None or index is None:
             return None
         ctx.bind(element_out.id, f"{whole}[{index}]")
@@ -234,7 +237,7 @@ def _take_element_out(
         None,
     )
     value_out = next(iter(_data_terminals(op, "output")), None)
-    whole = ctx.resolve(dvr_in.id) if dvr_in is not None else None
+    whole = ctx.wired_input(dvr_in.id, op) if dvr_in is not None else None
     if whole is None or value_out is None:
         return None
     ctx.bind(value_out.id, f"{whole}[0]")
@@ -271,7 +274,7 @@ def _write_elements_back(
                 None,
             )
             target = f"{element.whole}[0]"
-        value = ctx.resolve(source.id) if source is not None else None
+        value = ctx.wired_input(source.id, op) if source is not None else None
         if value is not None:
             stmts.append(_assign(parse_expr(target), value))
     return stmts
@@ -285,7 +288,7 @@ def _write_fields_back(
     class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
     stmts: list[ast.stmt] = []
     for t in _field_terminals(op, "input"):
-        val = ctx.resolve(t.id)
+        val = ctx.wired_input(t.id, op)
         if val is None:
             continue
         fname = _field_name(t, class_fields)
@@ -334,15 +337,15 @@ def _bind_output_tunnels(
 
 def _bind_data_outputs(
     node: InPlaceNode,
-    tiles: list[_Tile],
+    producers: list[AnyGraphNode],
     data_var: str | None,
     tunnel_uids: set[str],
     bindings: dict[str, str],
     ctx: CodeGenContext,
 ) -> None:
-    """Bind each output port that carries data to the value of the tile output
-    that carries the same data (same ``dco_uid``). A port with no data-flow id is
-    bound to the structure's one data variable.
+    """Bind each output port that carries data to the value of the output of a
+    tile or inner node that carries the same data (same ``dco_uid``). A port with
+    no data-flow id is bound to the structure's one data variable.
 
     These ports have no graph edges (the connection to the tile is implicit), so
     a search from a consumer cannot find the data without this binding.
@@ -354,11 +357,11 @@ def _bind_data_outputs(
             if data_var is not None:
                 bindings[port.id] = data_var
             continue
-        for tile in tiles:
+        for producer in producers:
             source = next(
                 (
                     t
-                    for t in tile.op.terminals
+                    for t in producer.terminals
                     if t.direction == "output" and t.dco_uid == port.dco_uid
                 ),
                 None,
@@ -383,7 +386,7 @@ def _find_data_var(
     is not a tunnel and carries a value. None when there is none."""
     for t in node.terminals:
         if t.direction == "input" and t.id not in tunnel_uids:
-            var = ctx.resolve(t.id)
+            var = ctx.wired_input(t.id, node)
             if var:
                 return var
     return None

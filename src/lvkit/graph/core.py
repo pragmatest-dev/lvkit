@@ -162,6 +162,7 @@ from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
 from .vi_reference import VIReferenceMixin  # noqa: E402
+from .wire_queries import WireQueriesMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
@@ -170,6 +171,7 @@ class InMemoryVIGraph(
     QueryMixin,
     OperationsMixin,
     PackageQueriesMixin,
+    WireQueriesMixin,
     AnalysisMixin,
     TypedefMixin,
     VIReferenceMixin,

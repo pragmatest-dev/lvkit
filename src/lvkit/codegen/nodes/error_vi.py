@@ -47,7 +47,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         index = index_of.get(_ERROR_CODE_TERMINALS[role])
         for term in ctx.enriched_terminals(node):
             if term.direction == "input" and term.index == index:
-                return ctx.resolve(term.id)
+                return ctx.wired_input(term.id, node)
         return None
 
     code = wired("code")

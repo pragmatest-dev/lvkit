@@ -1183,6 +1183,11 @@ class QueryMixin:
         node = self._graph.nodes[key].get("node")
         return node.front_panel if isinstance(node, VINode) else None
 
+    def vi_is_broken(self, vi_name: str) -> bool:
+        """Whether the VI was saved broken (its compile-health flags)."""
+        health = self._vi_health.get(self.resolve_vi_name(vi_name))
+        return health is not None and health.is_broken
+
     def get_vi_context(self, vi_name: str) -> VIContext:
         """Get complete VI context for code generation.
 

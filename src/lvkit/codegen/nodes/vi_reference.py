@@ -148,7 +148,7 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
 def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call:
     """A call of the function the reference holds when the code runs, with the
     keyword names its strictly typed refnum records for the connector pane."""
-    function = ctx.resolve(reference.id)
+    function = ctx.wired_input(reference.id, node)
     pane = pane_of(reference.lv_type)
     if function is None or pane is None:
         raise ConversionGap(
@@ -172,7 +172,7 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         ):
             continue
         if term.direction == "input":
-            value = ctx.resolve(term.id)
+            value = ctx.wired_input(term.id, node)
             if value is not None:
                 keywords.append(
                     ast.keyword(
@@ -329,7 +329,7 @@ def _generate_lookup(
     dictionary of the project's owners and their packages) and a file stem."""
     assert ctx.graph is not None
     path_term = next((t for t in node.terminals if t.index == OPEN_VI_PATH_INDEX), None)
-    value = ctx.resolve(path_term.id) if path_term is not None else None
+    value = ctx.wired_input(path_term.id, node) if path_term is not None else None
     if path_term is None or value is None:
         raise CodeGenError(f"{_label(node)}: the VI path has no value.", node)
     by_name = _computed_by_name(path_term, ctx)

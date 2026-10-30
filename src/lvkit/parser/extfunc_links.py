@@ -32,6 +32,10 @@ from .link_table import ExtFuncLink, LinkTableVersion, decode_ext_func_links
 # A relative path's type in a ``PTH0`` path record.
 _RELATIVE_PATH = 1
 
+# LabVIEW stores a node's ``<nodeName>`` cut to this many characters; the link
+# record holds the whole function name.
+NODE_NAME_LIMIT = 31
+
 
 @dataclass(frozen=True)
 class ExtFuncLibraryRecord:
@@ -105,31 +109,66 @@ def read_data_space_records(root: ET.Element) -> list[ExtFuncLibraryRecord]:
     return [_from_xml(e) for e in root.findall(".//VIDS//DSEF")]
 
 
+def _names_function(recorded: str, node_name: str) -> bool:
+    """Whether a record's function is the one a node's (possibly cut) name
+    names: the same name, or a full-length node name that is a prefix of it."""
+    return recorded == node_name or (
+        len(node_name) == NODE_NAME_LIMIT and recorded.startswith(node_name)
+    )
+
+
+def _cut_name_reason(call: ExtFuncCall, candidates: list[str]) -> str | None:
+    """Why a function name of exactly 31 characters could not be completed: it may
+    be cut, and the records name no one function for it."""
+    if len(call.function) != NODE_NAME_LIMIT:
+        return None
+    if candidates:
+        return (
+            f"the DLL function name {call.function!r} is cut to 31 characters and "
+            f"matches {', '.join(sorted(candidates))}"
+        )
+    return (
+        f"the DLL function name {call.function!r} may be cut to 31 characters and "
+        "matches no link record of the VI"
+    )
+
+
 def complete_library(
     call: ExtFuncCall,
     uid: str,
     node_records: list[ExtFuncLibraryRecord],
     data_space_records: list[ExtFuncLibraryRecord],
 ) -> ExtFuncCall:
-    """``call`` with its library name as typed and its recorded path, from the
-    record that names the node ``uid``, else the one data-space record with the
-    node's library and function. A node no record describes keeps the library
-    its own path ends in."""
+    """``call`` with its function, its library name as typed and its recorded
+    path, from the record that names the node ``uid``, else the data-space record
+    with the node's library and function (the exact name first, then a cut name
+    that is a prefix). A node no record describes keeps the library its own path
+    ends in; a 31-character name no record settles is marked ``cut_name``."""
     by_uid = [r for r in node_records if uid.isdigit() and int(uid) in r.node_uids]
     if by_uid:
         record = by_uid[0]
     else:
-        same = {
-            (r.typed_name, r.path_type, r.path_tokens)
+        in_library = [
+            r
             for r in data_space_records
-            if r.function == call.function
-            and call.library in (r.typed_name, *r.path_tokens[-1:])
+            if call.library in (r.typed_name, *r.path_tokens[-1:])
+        ]
+        exact = [r for r in in_library if r.function == call.function]
+        found = exact or [
+            r for r in in_library if _names_function(r.function, call.function)
+        ]
+        same = {
+            (r.typed_name, r.path_type, r.path_tokens, r.function) for r in found
         }
         if len(same) != 1:
-            return call
-        record = ExtFuncLibraryRecord(*next(iter(same)), call.function, ())
+            return replace(
+                call,
+                cut_name=_cut_name_reason(call, sorted({r.function for r in found})),
+            )
+        record = ExtFuncLibraryRecord(*next(iter(same)), ())
     return replace(
         call,
+        function=record.function or call.function,
         library=record.typed_name or call.library,
         library_path_tokens=record.path_tokens,
         library_path_kind=library_path_kind(record.path_type, record.path_tokens),

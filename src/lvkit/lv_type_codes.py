@@ -95,6 +95,11 @@ def is_string_type_name(type_name: str | None) -> bool:
     return type_name in STRING_TYPE_NAMES
 
 
+def is_int32_type_name(type_name: str | None) -> bool:
+    """Whether ``type_name`` is a signed 32-bit integer."""
+    return type_name == TD_FULL_TYPE.NumInt32.name
+
+
 def is_integer_type_name(type_name: str | None) -> bool:
     """Whether ``type_name`` is a signed or unsigned integer."""
     return type_name in INTEGER_TYPE_NAMES

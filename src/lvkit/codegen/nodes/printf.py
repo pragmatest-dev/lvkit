@@ -40,7 +40,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             continue
         if t.is_error_cluster:
             continue
-        val = ctx.resolve(t.id) or "None"
+        val = ctx.wired_input(t.id, node) or "None"
         input_values.append(val)
 
     # First input is format string, rest are arguments.

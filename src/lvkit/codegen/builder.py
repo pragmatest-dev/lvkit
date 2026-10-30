@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 from collections import deque
 
+import networkx as nx
+
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
 from lvkit.models import LVTypeKind, Terminal, TypeNamer
@@ -32,6 +34,7 @@ from .errors import CodeGenError
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
+from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .references import REFERENCE_KINDS, generated_nodes
 
@@ -149,6 +152,10 @@ def _function_body(
         ctx.import_labview_error()
         body.append(build_held_error_init())
 
+    # An indicator a Local Variable reads is a variable set to its default here.
+    ctx.local_indicators, indicator_defaults = LocalIndicators.declare(ctx, vi_name)
+    body.extend(indicator_defaults)
+
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
 
@@ -217,6 +224,9 @@ def generate_body(
             tier_ids = {op.id for op in remaining}
             for stmt in _generate_parallel_tier(remaining, ctx):
                 tagged.append((tier_ids, stmt))
+            for op in remaining:
+                for stmt in ctx.local_indicators.assignments_after(op, ctx):
+                    tagged.append((tier_ids, stmt))
         else:
             for node in remaining:
                 fragment = generate_node(node, ctx)
@@ -224,6 +234,8 @@ def generate_body(
                     tagged.append(({node.id}, s))
                 ctx.merge(fragment.bindings)
                 ctx.imports.update(fragment.imports)
+                for s in ctx.local_indicators.assignments_after(node, ctx):
+                    tagged.append(({node.id}, s))
 
         # A handler wraps the statements that produce the error it handles,
         # which are all in earlier tiers or earlier in this one.
@@ -242,6 +254,8 @@ def generate_body(
                 tagged.append(({op.id}, s))
             ctx.merge(fragment.bindings)
             ctx.imports.update(fragment.imports)
+            for s in ctx.local_indicators.assignments_after(op, ctx):
+                tagged.append(({op.id}, s))
 
     return [stmt for _, stmt in tagged]
 
@@ -301,6 +315,13 @@ def _generate_parallel_tier(
         bound_vars = list(dict.fromkeys(raw_vars))
 
         body = list(stmts)
+
+        # An indicator variable the branch assigns belongs to the function, not
+        # to the branch.
+        indicator_vars = set(ctx.local_indicators.variables.values())
+        shared = sorted(assigned_in_branch & indicator_vars)
+        if shared:
+            body.insert(0, ast.Nonlocal(names=shared))
 
         # Add return statement if branch produces bindings
         if bound_vars:
@@ -573,8 +594,37 @@ def topological_sort_tiered(
     circular = [op_by_id[oid] for oid in remaining if oid in op_by_id]
     if circular:
         tiers.append(circular)
+        _record_cycles(circular, remaining, op_by_id, ctx)
 
     return tiers
+
+
+def _record_cycles(
+    circular: list[AnyGraphNode],
+    remaining: dict[str, set[str]],
+    op_by_id: dict[str, AnyGraphNode],
+    ctx: CodeGenContext,
+) -> None:
+    """Record, for each node on a cycle of the wires at this structure level, why
+    it cannot be ordered. A node that only waits on a cycle is not on one."""
+    wires = nx.DiGraph()
+    for op_id, deps in remaining.items():
+        for dep in deps:
+            wires.add_edge(dep, op_id)
+    for component in nx.strongly_connected_components(wires):
+        if len(component) < 2:
+            continue
+        names = sorted(
+            op_by_id[op_id].display_name for op_id in component if op_id in op_by_id
+        )
+        reason = (
+            "The wires between "
+            + ", ".join(repr(name) for name in names)
+            + " read as a cycle, which a saved, runnable VI cannot have; lvkit is "
+            "likely misreading a terminal's direction here"
+        )
+        for op_id in component:
+            ctx.circular_nodes[op_id] = reason
 
 
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
@@ -596,6 +646,9 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
     ).fields
 
     # Resolve output values, skipping error clusters
+    vi_node = (
+        ctx.graph.get_graph_node(vi_context.name) if ctx.graph is not None else None
+    )
     keywords = []
     for out in outputs:
         if out.is_error_cluster:
@@ -609,7 +662,11 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         # parse it into a real AST — a bare ast.Name(id=expr) is malformed and
         # hides the variable loads from later passes (dead-code elimination then
         # deletes the assignments the return depends on).
-        value = ctx.resolve(out_id)
+        value = (
+            ctx.wired_input(out_id, vi_node)
+            if vi_node is not None
+            else ctx.resolve(out_id)
+        )
         if value:
             value_ast: ast.expr = parse_expr(value)
         else:

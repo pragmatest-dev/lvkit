@@ -26,7 +26,6 @@ from lvkit.primitive_resolver import ResolvedPrimitive
 
 from ...ast_utils import build_assign, default_value_expr, parse_expr
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 from ...fragment import CodeFragment
 from ...native_array import guarded_index
 from ..terminal_roles import laid_out_roles
@@ -75,9 +74,7 @@ def generate_1d_index_array(
 
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
-    array_expr = ctx.resolve(array.id)
-    if array_expr is None and ctx.is_wired(array.id):
-        raise CodeGenError("Unresolved wired 1D Index Array input", node)
+    array_expr = ctx.wired_input(array.id, node)
     # Evaluate the source expression once for every row in the expanded node.
     array_var = ctx.make_output_var("indexed_array", node.id)
     statements.append(
@@ -87,10 +84,8 @@ def generate_1d_index_array(
     )
     previous_index: str | None = None
     for position, (output, index) in enumerate(zip(outputs, indices)):
-        expr = ctx.resolve(index.id)
+        expr = ctx.wired_input(index.id, node)
         if expr is None:
-            if ctx.is_wired(index.id):
-                raise CodeGenError("Unresolved wired 1D Index Array index", node)
             expr = "0" if previous_index is None else f"{previous_index} + 1"
         index_var = ctx.make_output_var(f"array_index_{position}", node.id)
         statements.append(build_assign(index_var, parse_expr(expr)))

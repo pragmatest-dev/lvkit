@@ -64,7 +64,7 @@ def generate(node: GlobalVariableNode, ctx: CodeGenContext) -> CodeFragment:
                 f"Global variable '{node.control_name}' is written with nothing wired",
                 node,
             )
-        value = ctx.resolve(term.id)
+        value = ctx.wired_input(term.id, node)
         if value is None:
             raise CodeGenError(
                 f"Global variable '{node.control_name}' write value is unresolved",

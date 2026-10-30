@@ -175,7 +175,7 @@ def _generate_inline(
 
         term_index = term.index
         term_id = term.id
-        value = ctx.resolve(term_id)
+        value = ctx.wired_input(term_id, node)
 
         if term_index in vilib_inputs:
             param_key = vilib_inputs[term_index]
@@ -210,7 +210,7 @@ def _generate_inline(
                         continue
                     if term.index in vilib_inputs:
                         if vilib_inputs[term.index] == in_param:
-                            resolved = ctx.resolve(term.id)
+                            resolved = ctx.wired_input(term.id, node)
                             if resolved:
                                 ref_passthrough[out_param] = resolved
                             break
@@ -403,7 +403,7 @@ def _build_arguments(
         term_id = term.id
         term_index = term.index
         term_name = term.name or ""
-        value = ctx.resolve(term_id)
+        value = ctx.wired_input(term_id, node)
 
         # Skip unwired terminals - they'll use default values
         if value is None:
@@ -601,7 +601,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
         # Skip error cluster inputs — Python uses exceptions
         if term.is_error_cluster:
             continue
-        value = ctx.resolve(term.id)
+        value = ctx.wired_input(term.id, node)
         if value is None:
             continue
         if _is_class_terminal(term):
@@ -613,14 +613,17 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
     if receiver_term is None:
         all_wired_inputs = []
         for term in ctx.enriched_terminals(node):
-            if term.direction == "input" and ctx.resolve(term.id) is not None:
+            if (
+                term.direction == "input"
+                and ctx.wired_input(term.id, node) is not None
+            ):
                 all_wired_inputs.append(term)
         if all_wired_inputs:
             all_wired_inputs.sort(key=lambda t: t.index)
             receiver_term = all_wired_inputs[0]
             # Rebuild other_inputs excluding receiver
             other_inputs = [
-                (t.index, ctx.resolve(t.id))  # type: ignore[arg-type]
+                (t.index, ctx.wired_input(t.id, node))  # type: ignore[arg-type]
                 for t in all_wired_inputs[1:]
             ]
 
@@ -628,7 +631,7 @@ def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragmen
         # No inputs at all — fall back to regular function call
         return _generate_static_fallback(node, ctx, method_name)
 
-    receiver_var = ctx.resolve(receiver_term.id) or "self"
+    receiver_var = ctx.wired_input(receiver_term.id, node) or "self"
     # Call Parent: method is dispatched via super(), but the class-output
     # passthrough still references the original receiver object.
     call_receiver = "super()" if node.node_type == "callParentDynIUse" else receiver_var
