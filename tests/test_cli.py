@@ -92,6 +92,7 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
         ],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         env=env,
     )
 
@@ -147,7 +148,7 @@ class TestFormatJson:
         assert result.returncode == 0, result.stderr
         assert result.stdout == ""  # went to the file, not stdout
 
-        written = json.loads(out.read_text())
+        written = json.loads(out.read_text(encoding="utf-8"))
 
         ga, na = _load(PAIR.base, layout=True)
         gb, nb = _load(PAIR.head, layout=True)
@@ -168,7 +169,7 @@ class TestFormatHtml:
         assert f"Wrote {out}" in result.stdout
         assert out.is_file()
 
-        html = out.read_text()
+        html = out.read_text(encoding="utf-8")
         assert html.startswith("<!doctype html>")
 
         ga, na = _load(PAIR.base, layout=True)
@@ -189,7 +190,7 @@ class TestFormatHtml:
         result = _run_diff("--open", "-o", str(out))
         assert result.returncode == 0, result.stderr
         assert out.is_file()
-        assert out.read_text().startswith("<!doctype html>")
+        assert out.read_text(encoding="utf-8").startswith("<!doctype html>")
 
     def test_open_with_format_json_errors(self) -> None:
         _require_pair()

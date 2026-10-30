@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: `generate` writes packages deeper than Windows' 260-character path limit** — the output folder is used in Windows' long-path form, and `generate` warns when a module's path is too long for Python to import while Windows long paths are off.
 - **Fix: a class whose parent sits in a sibling folder inherits the parent's fields, and calls to an inherited method count as callers** — the parent is found by the path the class records, so its fields come first in the child's private data, and `callers` of a method a test class inherits (`failIfEqual.vi`) lists the tests that call it.
 - **"This VI" is the generated function** — a `This VI` reference passed to a subVI is the VI's own function and its Name / Path properties read it by reflection; it is told from `This Application` by the class its reference type records (`CtlFlags`), and `This Application` stays a gap.
 - **Search and Replace String generates plain `re` / `str.replace` code that honors every input** — ignore case, offset, replace first or all, the number of replacements and the offset past the replacement, and Regular Expression mode (PCRE search string, `$1` / `${1}` / `\$` replace string, `multiline?`) as Python `re`; a PCRE construct Python cannot read is a gap naming it.
