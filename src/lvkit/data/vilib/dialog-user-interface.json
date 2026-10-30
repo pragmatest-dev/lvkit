@@ -102,7 +102,7 @@
       "vi_path": "vi.lib/dialog/Three Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Justify Message (Left)",
@@ -115,7 +115,7 @@
         },
         {
           "name": "Window Title (\"\")",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -134,7 +134,7 @@
         },
         {
           "name": "Left Button Text (\"Yes\")",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -144,7 +144,7 @@
         },
         {
           "name": "Center Button Text (\"No\")",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -154,7 +154,7 @@
         },
         {
           "name": "Right Button Text (\"Cancel\")",
-          "index": null,
+          "index": 8,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -245,7 +245,7 @@
         },
         {
           "name": "Allow user to close window? (TRUE)",
-          "index": null,
+          "index": 4,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -364,7 +364,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "[user-defined descriptions]",
@@ -386,7 +386,7 @@
         },
         {
           "name": "[error code] (0)",
-          "index": null,
+          "index": 0,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -396,7 +396,7 @@
         },
         {
           "name": "[error source] (\" \")",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -406,7 +406,7 @@
         },
         {
           "name": "search ni.com link visible?(T)",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -435,7 +435,7 @@
         },
         {
           "name": "[exception action] (none:0)",
-          "index": null,
+          "index": 12,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -445,7 +445,7 @@
         },
         {
           "name": "[exception code]",
-          "index": null,
+          "index": 13,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -455,7 +455,7 @@
         },
         {
           "name": "[exception source]",
-          "index": null,
+          "index": 14,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -2397,7 +2397,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "cursor ID",
@@ -2419,7 +2419,7 @@
         },
         {
           "name": "disable click? (T)",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,

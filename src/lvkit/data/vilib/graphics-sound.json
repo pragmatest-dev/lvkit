@@ -3634,7 +3634,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
@@ -3665,7 +3665,7 @@
         },
         {
           "name": "absolute coordinates?(T)",
-          "index": null,
+          "index": 3,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -3692,7 +3692,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
@@ -3723,7 +3723,7 @@
         },
         {
           "name": "absolute coordinates?(T)",
-          "index": null,
+          "index": 3,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4161,7 +4161,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
@@ -4210,7 +4210,7 @@
         },
         {
           "name": "fill?(F)",
-          "index": null,
+          "index": 3,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4384,7 +4384,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "[user-specified font]",
@@ -4460,7 +4460,7 @@
         },
         {
           "name": "desired font(Application)",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4542,7 +4542,7 @@
         },
         {
           "name": "text orientation",
-          "index": null,
+          "index": 0,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4605,7 +4605,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "[user-specified font]",
@@ -4681,7 +4681,7 @@
         },
         {
           "name": "desired font(Application)",
-          "index": null,
+          "index": 1,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4736,7 +4736,7 @@
         },
         {
           "name": "text orientation",
-          "index": null,
+          "index": 4,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -5285,7 +5285,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "image data",
@@ -5379,7 +5379,7 @@
         },
         {
           "name": "1-Bit Mask Value (T)",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -5389,7 +5389,7 @@
         },
         {
           "name": "Combine Masks? (F)",
-          "index": null,
+          "index": 8,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -5488,7 +5488,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
@@ -5537,7 +5537,7 @@
         },
         {
           "name": "depth",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -6026,11 +6026,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "quality (80)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -6165,11 +6165,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "compression (default)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -6433,7 +6433,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "path to JPEG file",
@@ -6455,7 +6455,7 @@
         },
         {
           "name": "use 8 bit color table",
-          "index": null,
+          "index": 6,
           "direction": "in",
           "type": null,
           "enum_values": null,

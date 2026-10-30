@@ -1990,7 +1990,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "configuration file path",
@@ -2003,7 +2003,7 @@
         },
         {
           "name": "create file if necessary (T)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -2324,7 +2324,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "refnum",
@@ -2337,7 +2337,7 @@
         },
         {
           "name": "write file if changed (T)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4062,7 +4062,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "target",
@@ -4075,7 +4075,7 @@
         },
         {
           "name": "confirm overwrite? (F)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -5945,7 +5945,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Folder Path",
@@ -5958,7 +5958,7 @@
         },
         {
           "name": "Treat LLBs as Folders?",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -5968,7 +5968,7 @@
         },
         {
           "name": "Continue Recursing on Error? (F)",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -6442,11 +6442,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Temporary File Extension (tmp)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,

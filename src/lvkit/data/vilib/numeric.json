@@ -2533,6 +2533,7 @@
       "terminals": [
         {
           "name": "upper bound (100)",
+          "index": 11,
           "description": "upper bound specifies the upper limit of the range. The default is 100.",
           "enum_values": null,
           "python_param": "upper_bound_100",
@@ -2540,6 +2541,7 @@
         },
         {
           "name": "lower bound (0)",
+          "index": 10,
           "description": "lower bound specifies the lower limit of the range. The default is 0.",
           "enum_values": null,
           "python_param": "lower_bound_0",

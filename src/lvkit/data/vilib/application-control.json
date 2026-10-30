@@ -1566,7 +1566,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Other Refnum",
@@ -1615,7 +1615,7 @@
         },
         {
           "name": "Traverse Generated Code (F)",
-          "index": null,
+          "index": 6,
           "direction": "in",
           "type": null,
           "enum_values": null,

@@ -2786,11 +2786,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "replace all? (F)",
-          "index": null,
+          "index": 4,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -2809,7 +2809,7 @@
         },
         {
           "name": "regular expression (\"\")",
-          "index": null,
+          "index": 1,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -2819,7 +2819,7 @@
         },
         {
           "name": "replace string (\"\")",
-          "index": null,
+          "index": 2,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -2829,7 +2829,7 @@
         },
         {
           "name": "offset (0)",
-          "index": null,
+          "index": 3,
           "direction": "in",
           "type": null,
           "enum_values": null,

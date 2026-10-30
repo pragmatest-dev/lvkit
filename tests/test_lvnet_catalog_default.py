@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import parse_lvnet
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
@@ -284,3 +286,109 @@ def test_string_subset_with_length_unwired_returns_the_rest_of_the_string(
     namespace: dict[str, object] = {}
     exec(compile(source, "T.py", "exec"), namespace)  # noqa: S102
     assert namespace["t"]().result == "cdef"  # type: ignore[operator]
+
+
+def _vilib_call_lvnet(
+    tmp_path: Path,
+    vi_name: str,
+    path_tokens: list[str],
+    terminals: list[tuple[int, str]],
+) -> str:
+    """lvnet of a caller VI holding one call of a vi.lib VI whose input
+    terminals, all unwired, sit at the given connector-pane slots with the given
+    LabVIEW types."""
+    names = sorted({type_name for _, type_name in terminals})
+    type_ids = {name: 20 + n for n, name in enumerate(names)}
+    comments = "".join(f"<!-- TypeID {i}: {t} -->\n" for t, i in type_ids.items())
+    terms = "".join(
+        f"""<SL__arrayElement class="term" uid="{21 + n}">
+        <dco class="parm" uid="{121 + n}">
+          <paramIdx>{slot}</paramIdx>
+          <typeDesc>TypeID({type_ids[type_name]})</typeDesc>
+        </dco></SL__arrayElement>"""
+        for n, (slot, type_name) in enumerate(terminals)
+    )
+    (tmp_path / "Caller_BDHb.xml").write_text(
+        f"""<?xml version='1.0' encoding='utf-8'?>
+<SL__rootObject class="oHExt" uid="1"><root class="diag" uid="2">
+<zPlaneList elements="0" /><nodeList elements="1">
+<SL__arrayElement class="iUse" uid="20"><termList elements="{len(terminals)}">
+{terms}</termList></SL__arrayElement></nodeList></root></SL__rootObject>"""
+    )
+    strings = "".join(f"<String>{escape(token)}</String>" for token in path_tokens)
+    (tmp_path / "Caller.xml").write_text(
+        f"""<?xml version='1.0' encoding='utf-8'?>
+<LVSR><TM80>{comments}</TM80><LIbd><Section><BDHP><IUVI LinkSaveFlag="0">
+<LinkSaveQualName><String>{vi_name}</String></LinkSaveQualName>
+<LinkSavePathRef>{strings}</LinkSavePathRef>
+<LinkOffsetList><Offset>0x14</Offset></LinkOffsetList>
+</IUVI></BDHP></Section></LIbd></LVSR>"""
+    )
+    graph = InMemoryVIGraph()
+    graph.load_vi(tmp_path / "Caller_BDHb.xml")
+    return render_lvnet(
+        build_netlist_from_graph(graph, graph.list_vis()[0]), verbose=True
+    )
+
+
+# (vi.lib VI, path under <vilib>, [(connector-pane slot, type)], expected lvnet
+# lines). The slots are the ones corpus callers record for the VI's controls.
+VILIB_CALL_DEFAULTS = [
+    pytest.param(
+        "System Exec.vi",
+        ["Platform", "system.llb"],
+        [(5, "NumUInt32"), (6, "Boolean"), (7, "Boolean"), (11, "String")],
+        [
+            "in 5 : U32 default 4096",
+            "in 6 : TF default False",
+            "in 7 : TF default True",
+            "in 11 : String default",
+        ],
+        id="System Exec",
+    ),
+    pytest.param(
+        "Three Button Dialog.vi",
+        ["dialog"],
+        [(4, "Boolean"), (7, "String"), (8, "String"), (9, "String"), (10, "String")],
+        [
+            "in 4 : TF default True",
+            'in 7 : String default ""',
+            'in 8 : String default "Cancel"',
+            'in 9 : String default "No"',
+            'in 10 : String default "Yes"',
+        ],
+        id="Three Button Dialog",
+    ),
+    pytest.param(
+        "Picture to Pixmap.vi",
+        ["picture", "pictutil.llb"],
+        [(9, "NumInt32")],
+        ["in 9 : I32 default 24"],
+        id="Picture to Pixmap",
+    ),
+    pytest.param(
+        "Butterworth Filter.vi",
+        ["Analysis", "3filter.llb"],
+        [(0, "Boolean"), (4, "NumInt32"), (8, "NumFloat64")],
+        [
+            "in 0 : TF default False",
+            "in 4 : I32 default 2",
+            "in 8 : DBL default 1",
+        ],
+        id="Butterworth Filter",
+    ),
+]
+
+
+@pytest.mark.parametrize("vi_name,path,terminals,expected", VILIB_CALL_DEFAULTS)
+def test_an_unwired_vilib_input_shows_the_default_ni_documents(
+    tmp_path: Path,
+    vi_name: str,
+    path: list[str],
+    terminals: list[tuple[int, str]],
+    expected: list[str],
+) -> None:
+    text = _vilib_call_lvnet(tmp_path, vi_name, ["<vilib>", *path, vi_name], terminals)
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    for line in expected:
+        assert line in lines

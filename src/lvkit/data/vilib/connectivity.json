@@ -58,11 +58,11 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "expected output size (4096)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -72,7 +72,7 @@
         },
         {
           "name": "wait until completion? (T)",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -118,7 +118,7 @@
         },
         {
           "name": "run minimized? (F)",
-          "index": null,
+          "index": 6,
           "direction": "in",
           "type": null,
           "enum_values": null,
@@ -4400,7 +4400,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "refnum",
@@ -4413,7 +4413,7 @@
         },
         {
           "name": "retrieve data? (F)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
