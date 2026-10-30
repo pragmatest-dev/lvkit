@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from collections import Counter
 from pathlib import Path
 
@@ -42,6 +41,7 @@ from lvkit.index.store import load_lvproj_members, save_lvproj_members
 from lvkit.index.store import save as save_index
 from lvkit.structure import parse_lvlib
 from lvkit.vi_files import rglob_vi_files
+from tests.corpus_graphs import build_corpus_index
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -219,21 +219,7 @@ def jki_index() -> BuildResult:
     if not _HAVE_JKI:
         pytest.skip("JKI-VI-Tester sample not present")
 
-    # The per-test ``_hermetic_cache`` autouse fixture (tests/conftest.py)
-    # points LVKIT_CACHE_DIR at a fresh tmp dir per test function so no test
-    # writes to the real cache. That's right for cheap tests, but a
-    # whole-repo 491-VI MINIMAL build pays full pylabview extraction from
-    # scratch every time it runs cold. This fixture is module-scoped (built
-    # once) AND deliberately unsets the override for the build itself, so it
-    # reuses the developer's real, already-warm extraction cache
-    # (~/.lvkit/cache) — same real-world path a `lvkit index` run takes.
-    saved = os.environ.pop("LVKIT_CACHE_DIR", None)
-    try:
-        root, vi_paths = resolve_project(JKI_ROOT)
-        return build_index(root, vi_paths)
-    finally:
-        if saved is not None:
-            os.environ["LVKIT_CACHE_DIR"] = saved
+    return build_corpus_index(JKI_ROOT)
 
 
 @pytest.mark.slow

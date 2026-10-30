@@ -35,12 +35,13 @@ from pathlib import Path
 import pytest
 
 from lvkit.index import sql as isql
-from lvkit.index.build import BuildResult, build_index
+from lvkit.index.build import BuildResult
 from lvkit.index.project import resolve_project
 from lvkit.index.sql import QueryResult
 from lvkit.index.store import save as save_index
 from lvkit.index.store import save_lvproj_members
 from lvkit.structure import parse_lvclass
+from tests.corpus_graphs import build_corpus_index
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -61,10 +62,10 @@ def jki_index() -> BuildResult:
     if not _HAVE_JKI:
         pytest.skip("JKI-VI-Tester sample not present")
 
+    result = build_corpus_index(JKI_ROOT)
     saved = os.environ.pop("LVKIT_CACHE_DIR", None)
     try:
-        root, vi_paths = resolve_project(JKI_ROOT)
-        result = build_index(root, vi_paths)
+        root, _ = resolve_project(JKI_ROOT)
         save_index(root, result.facts)
         # Persist .lvproj membership too, so the `lvproj` view has rows to
         # answer #19's membership questions (mirrors what `lvkit index` /

@@ -26,6 +26,7 @@ from lvkit.index.model import (
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
 from lvkit.models import LVTypeKind
+from tests.corpus_graphs import build_corpus_index
 
 
 def _term(
@@ -643,14 +644,13 @@ def test_jki_error_indicator_histogram_is_a_small_table():
 
     import os
 
-    from lvkit.index.build import build_index
     from lvkit.index.project import resolve_project
 
-    # Reuse the developer's warm extraction cache (see test_index.jki_index).
+    facts = build_corpus_index(_JKI_ROOT).facts
+    # The index is saved and queried against the developer's real cache.
     saved = os.environ.pop("LVKIT_CACHE_DIR", None)
     try:
-        root, vi_paths = resolve_project(_JKI_ROOT)
-        facts = build_index(root, vi_paths).facts
+        root, _ = resolve_project(_JKI_ROOT)
         save_index(root, facts)
         res = sql.error_indicator_histogram(root)
     finally:
