@@ -638,7 +638,7 @@ def test_histogram_over_real_facts_matches_independent_count():
 @pytest.mark.slow
 def test_jki_error_indicator_histogram_is_a_small_table():
     """The full design-doc acceptance: over JKI VI Tester the histogram is a
-    small table dominated by 'error out' — the answer, not the 424 raw rows."""
+    small table dominated by 'error out' — the answer, not the 422 raw rows."""
     if not (_JKI_ROOT.is_dir() and any(_JKI_ROOT.rglob("*.vi"))):
         pytest.skip("JKI-VI-Tester sample not present")
 
@@ -662,7 +662,11 @@ def test_jki_error_indicator_histogram_is_a_small_table():
     top_name, top_count = res.rows[0]
     assert top_name == "error out"
     assert top_count == 386  # 382 in the .vi files + 4 in the .vit templates
-    # It's a small histogram, not a row dump — exactly 19 distinct names, three of
+    # It's a small histogram, not a row dump — exactly 18 distinct names, three of
     # them (`control_219`, `control_305`, `control_1442`) unlabeled error clusters.
-    assert len(res.rows) == 19
+    # 19 -> 18: the `filtered error details` output of the two `Filter Error Codes`
+    # VIs (Scalar, Array) is a typedef named "Filtered Error Details" whose fields
+    # are only {code, source}; an error cluster is exactly status/code/source, so
+    # it is no longer counted by its typedef name.
+    assert len(res.rows) == 18
     assert not res.truncated

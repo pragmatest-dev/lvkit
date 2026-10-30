@@ -245,10 +245,14 @@ class TestFullCorpusDemo:
             for t in f.terminals
             if t.type_descriptor == "Error" and t.direction == "output"
         ]
-        # 424 = 420 in the .vi files (the 12 unlabeled `control_219` error
+        # 422 = 418 in the .vi files (the 12 unlabeled `control_219` error
         # clusters of NoObjectTestCase and two more are typed Error) + 4 in the
-        # .vit templates, which the index loads.
-        assert len(names) == 424
+        # .vit templates, which the index loads. Was 424: the `filtered error
+        # details` output of `Filter Error Codes (Scalar)` and `(Array)` is the
+        # typedef "Filtered Error Details" with fields {code, source} only; it
+        # was typed Error by its name, but an error cluster is exactly
+        # status/code/source, so those two are no longer counted.
+        assert len(names) == 422
 
         tally = Counter(names)
         top_name, top_count = tally.most_common(1)[0]
