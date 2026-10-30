@@ -4,11 +4,12 @@ cluster constants."""
 
 from __future__ import annotations
 
+import ast
 from types import SimpleNamespace
 
 from lvkit.codegen.ast_utils import field_attribute_names, field_attribute_paths
 from lvkit.codegen.context import _format_cluster_constant
-from lvkit.codegen.nodes.nmux import _field_expr, _field_name
+from lvkit.codegen.nodes.nmux import _attribute_target, _field_expr, _field_path
 from lvkit.graph.models import ConstantNode
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 
@@ -55,12 +56,24 @@ def test_unbundle_and_bundle_by_name_use_the_distinct_names() -> None:
         "data.count_2.count",
         "data.count_2.count_2",
     ]
-    assert [_field_name(_terminal(i), fields) for i in range(4)] == [
-        "count",
-        "count_2",
-        "count",
-        "count_2",
+    assert [_field_path(_terminal(i), fields) for i in range(4)] == [
+        ["count"],
+        ["count_2"],
+        ["count_2", "count"],
+        ["count_2", "count_2"],
     ]
+
+
+def test_bundle_by_name_into_a_nested_field_sets_that_field_only() -> None:
+    fields = _nested()
+    for index, expected in [(2, (1, 9, 3)), (3, (1, 2, 9)), (0, (9, 2, 3))]:
+        data = SimpleNamespace(count=1, count_2=SimpleNamespace(count=2, count_2=3))
+        target = _attribute_target("data", _field_path(_terminal(index), fields) or [])
+        statement = ast.unparse(
+            ast.Assign(targets=[target], value=ast.Constant(9), lineno=0)
+        )
+        exec(statement, {"data": data})  # noqa: S102
+        assert (data.count, data.count_2.count, data.count_2.count_2) == expected
 
 
 def test_a_cluster_constant_with_repeated_names_runs() -> None:
@@ -74,3 +87,14 @@ def test_a_cluster_constant_with_repeated_names_runs() -> None:
     assert expression == "SimpleNamespace(count=1, count_2=2)"
     value = eval(expression, {"SimpleNamespace": SimpleNamespace})  # noqa: S307
     assert (value.count, value.count_2) == (1, 2)
+
+
+def test_a_class_or_typedef_module_annotates_every_field_it_names() -> None:
+    from lvkit.codegen.type_module import _field_annotations
+
+    annotations = _field_annotations(_cluster("Count", "count", "x"), None)
+    assert [a.target.id for a in annotations] == [  # type: ignore[attr-defined]
+        "count",
+        "count_2",
+        "x",
+    ]

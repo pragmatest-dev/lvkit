@@ -21,7 +21,11 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.models import ClusterField, LVType, LVTypeKind, TypeNamer
 from lvkit.type_names import derive_python_name, is_enum_member_name
 
-from .ast_utils import build_type_checking_block, parse_expr, to_var_name
+from .ast_utils import (
+    build_type_checking_block,
+    field_attribute_names,
+    parse_expr,
+)
 from .context import type_namer
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver, NameImport
@@ -91,12 +95,8 @@ def _field_annotations(
 ) -> list[ast.stmt]:
     """One annotated attribute per field, named as ``Unbundle By Name`` reads it."""
     annotations: list[ast.stmt] = []
-    taken: set[str] = set()
-    for field in fields:
-        name = to_var_name(field.name)
-        if name in taken:
-            continue
-        taken.add(name)
+    names = field_attribute_names(f.name for f in fields)
+    for field, name in zip(fields, names, strict=True):
         annotation = (
             field.type.to_python(spell) if field.type is not None else "Any"
         )

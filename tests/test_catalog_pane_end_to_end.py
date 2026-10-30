@@ -169,14 +169,6 @@ def test_a_pane_that_disagrees_with_the_entry_is_a_gap_and_a_raise(
     assert "raise NotImplementedError(" in source
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the pane's saved default reaches only inline catalog templates: a call "
-        "of a catalog implementation module skips every unwired input "
-        "(codegen/nodes/subvi.py _build_arguments)"
-    ),
-)
 def test_an_unwired_input_gets_the_loaded_controls_saved_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

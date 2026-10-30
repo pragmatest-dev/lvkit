@@ -168,6 +168,11 @@ class RenderNode:
     # SubVI whose source doesn't resolve to a project-local file (see
     # ``_subvi_rel_path``).
     subvi_rel: str | None = None
+    # The path the vi.lib catalog looks a SubVI call up by
+    # (``InMemoryVIGraph.catalog_path``), resolved here with the graph so the
+    # drawing reads the same catalog entry code generation does; None for any
+    # other node.
+    catalog_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1947,6 +1952,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     frame_path=fp_path,
                     owned_label=owned_label,
                     subvi_rel=subvi_rel,
+                    catalog_path=(
+                        graph.catalog_path(node) if isinstance(node, VINode) else None
+                    ),
                 )
             )
 

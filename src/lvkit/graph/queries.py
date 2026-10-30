@@ -178,23 +178,30 @@ class QueryMixin:
         return key if key is not None and key in self._vi_nodes else None
 
     def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks a call up by (see
+        ``catalog_path_of``)."""
+        return self.catalog_path_of(
+            node.interface_key, node.qualified_path, node.vi_path
+        )
+
+    def catalog_path_of(
+        self, interface_key: str | None, qualified_path: str | None, caller: str
+    ) -> str | None:
         """The path the vi.lib catalog looks a call up by: the path recorded for
-        the VI whose connector pane the call shows (``VINode.interface_key``: the
-        variant a polymorphic call resolves to, else the VI it names), the one
-        placement gives that VI's module, so a call and its callee's module agree
-        on who writes the Python. A call that names no VI in the graph (a
-        ``<vilib>`` call with no configured root) has the path its caller
-        recorded, resolved against the caller's own."""
-        if node.interface_key is not None:
-            recorded = self.recorded_path(node.interface_key)
+        the VI whose connector pane the call shows (``interface_key``: the variant
+        a polymorphic call resolves to, else the VI it names), the one placement
+        gives that VI's module, so a call and its callee's module agree on who
+        writes the Python. A call that names no VI in the graph (a ``<vilib>`` call
+        with no configured root) has the path ``qualified_path`` its caller
+        ``caller`` recorded, resolved against the caller's own."""
+        if interface_key is not None:
+            recorded = self.recorded_path(interface_key)
             if recorded is not None:
                 return recorded
-        if not node.qualified_path:
+        if not qualified_path:
             return None
         return "/".join(
-            resolve_against(
-                node.qualified_path.split("/"), self._recorded.resolved(node.vi_path)
-            )
+            resolve_against(qualified_path.split("/"), self._recorded.resolved(caller))
         )
 
     def vi_display_name(self, vi_name: str) -> str:

@@ -35,7 +35,7 @@ from lvkit.models import (
 from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from .nmux import _field_expr, _field_name
+from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"
 _ARRAY = "decomposeArrayNode"
@@ -291,19 +291,10 @@ def _write_fields_back(
         val = ctx.wired_input(t.id, op)
         if val is None:
             continue
-        fname = _field_name(t, class_fields)
-        if fname is None:
+        path = _field_path(t, class_fields)
+        if path is None:
             continue
-        stmts.append(
-            _assign(
-                ast.Attribute(
-                    value=parse_expr(element.whole),
-                    attr=fname,
-                    ctx=ast.Store(),
-                ),
-                val,
-            )
-        )
+        stmts.append(_assign(_attribute_target(element.whole, path), val))
     return stmts
 
 

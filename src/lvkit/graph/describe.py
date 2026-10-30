@@ -197,7 +197,7 @@ def describe_vi(
         for reason in dotnet.unreadable:
             lines.append(f"  (.NET unreadable: {reason})")
         for name, call in sorted(subvi_callees.items()):
-            desc = _get_subvi_description(call.qualified_path)
+            desc = _get_subvi_description(graph.catalog_path(call))
             ports = _subvi_ports(
                 graph, graph.loaded_callee_key(call), call.qualified_path
             )

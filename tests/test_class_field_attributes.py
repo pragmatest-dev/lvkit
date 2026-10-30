@@ -42,3 +42,33 @@ def test_each_field_gets_its_own_attribute(
     names, attrs = _attributes(labels)
     assert names == labelled
     assert attrs == attributes
+
+
+def test_an_accessor_scope_applies_to_the_field_it_names_exactly() -> None:
+    from lvkit.structure import LVMethod, LVPrivateDataField
+
+    cls = LVClass(
+        name="C",
+        path=Path("C.lvclass"),
+        private_data_fields=[
+            LVPrivateDataField(name="Count", python_type="int"),
+            LVPrivateDataField(name="count", python_type="int"),
+        ],
+        methods=[
+            LVMethod(
+                name="Read count.vi",
+                vi_path="Read count.vi",
+                scope="private",
+                is_accessor=True,
+                accessor_type="getter",
+                accessor_field="count",
+            )
+        ],
+    )
+    func = _InitBuilderMixin()._build_init(cls, None)
+    attrs = [
+        s.targets[0].attr  # type: ignore[attr-defined]
+        for s in func.body
+        if isinstance(s, ast.Assign)
+    ]
+    assert attrs == ["count", "__count_2"]

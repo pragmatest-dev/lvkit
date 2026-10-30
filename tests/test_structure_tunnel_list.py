@@ -64,11 +64,42 @@ def test_listed_tunnels_round_trip_strictly() -> None:
     text = render_lvnet(module, display_name=_NEW_VI.name, verbose=True)
     parsed = parse_lvnet(text)
     ambiguous = _lvnet_ambiguous_named_types(module)
-    assert netlist_signature(module, ambiguous) == netlist_signature(
-        parsed, ambiguous
-    )
+    assert netlist_signature(module, ambiguous) == netlist_signature(parsed, ambiguous)
     reconstructed = reconstruct_module(parsed)
     _assert_graph_identity(module, reconstructed, _NEW_VI.name)
-    assert (
-        render_lvnet(reconstructed, display_name=_NEW_VI.name, verbose=True) == text
+    assert render_lvnet(reconstructed, display_name=_NEW_VI.name, verbose=True) == text
+
+
+def test_a_for_loops_right_shift_register_listed_in_the_loop_is_a_tunnel() -> None:
+    from lvkit.parser.nodes.loop import extract_loops
+
+    root = ET.fromstring(
+        """<r><n class="forLoop" uid="1">
+          <srDCOList>
+            <SL__arrayElement class="rSR" uid="30" index="0">
+              <lsrDCOList><SL__arrayElement uid="20"/></lsrDCOList>
+              <typeDesc>TypeID(5)</typeDesc>
+              <termList><SL__arrayElement uid="31"/><SL__arrayElement uid="32"/>
+              </termList>
+            </SL__arrayElement>
+          </srDCOList>
+          <termList>
+            <SL__arrayElement class="term" uid="22">
+              <dco class="lSR" uid="20">
+                <typeDesc>TypeID(5)</typeDesc>
+                <termList><SL__arrayElement uid="21"/><SL__arrayElement uid="22"/>
+                </termList>
+                <rsrDCO uid="30"/>
+              </dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="32"><dco uid="30"/></SL__arrayElement>
+          </termList></n></r>"""
     )
+    _inline_dco_definitions(root)
+    (loop,) = extract_loops(root)
+    pairs = {
+        (t.tunnel_type, t.inner_terminal_uid, t.outer_terminal_uid)
+        for t in loop.tunnels
+    }
+    assert ("rSR", "31", "32") in pairs
+    assert ("lSR", "21", "22") in pairs

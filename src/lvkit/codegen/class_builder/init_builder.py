@@ -45,20 +45,29 @@ class _InitBuilderMixin:
         #   public accessor or no accessor → self.field
         #   protected accessor → self._field
         #   private accessor → self.__field
-        accessor_scopes: dict[str, str] = {}
-        for m in lvclass.methods:
-            if m.is_accessor and m.accessor_field:
-                key = to_var_name(m.accessor_field)
-                # Use most restrictive scope if multiple accessors
-                if key not in accessor_scopes or m.scope != "public":
-                    accessor_scopes[key] = m.scope
-
         # Fields whose labels become one Python name ("Count" and "count", "a b"
-        # and "a_b") each get their own attribute.
+        # and "a_b") each get their own attribute. An accessor belongs to the
+        # field its name gives exactly, else to the fields that share its name
+        # as a Python name.
         fields = lvclass.private_data_fields
         attr_names = field_attribute_names(f.name for f in fields)
-        for field, var_name in zip(fields, attr_names, strict=True):
-            scope = accessor_scopes.get(to_var_name(field.name), "public")
+        accessor_scopes: dict[int, str] = {}
+        for m in lvclass.methods:
+            if not (m.is_accessor and m.accessor_field):
+                continue
+            owners = [i for i, f in enumerate(fields) if f.name == m.accessor_field]
+            owners = owners or [
+                i
+                for i, f in enumerate(fields)
+                if to_var_name(f.name) == to_var_name(m.accessor_field)
+            ]
+            for i in owners:
+                # Use most restrictive scope if multiple accessors
+                if i not in accessor_scopes or m.scope != "public":
+                    accessor_scopes[i] = m.scope
+
+        for i, (field, var_name) in enumerate(zip(fields, attr_names, strict=True)):
+            scope = accessor_scopes.get(i, "public")
 
             if scope == "private":
                 attr_name = "__" + var_name

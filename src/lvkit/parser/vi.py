@@ -738,8 +738,9 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
-# Direct children of a node or structure whose items define terminal DCOs.
-_DCO_LIST_TAGS = ("tunnelList", "dcoList")
+# Direct children of a node or structure whose items define terminal DCOs (a
+# loop lists its right shift registers in `srDCOList`).
+_DCO_LIST_TAGS = ("tunnelList", "dcoList", "srDCOList")
 
 
 def _is_named_dco_definition(child: ET.Element) -> bool:

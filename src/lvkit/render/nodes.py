@@ -692,7 +692,7 @@ class JsonGlyphResolver:
         if isinstance(node, PrimitiveNode):
             icon = self._primitive_icon(node)
         elif isinstance(node, VINode):
-            icon = self._vi_icon(node)
+            icon = self._vi_icon(node, ctx.graph.catalog_path(node))
         if icon is None:
             return None
         return self._glyph_from_icon(icon)
@@ -710,9 +710,9 @@ class JsonGlyphResolver:
         return None
 
     @staticmethod
-    def _vi_icon(node: VINode) -> NodeIcon | None:
+    def _vi_icon(node: VINode, catalog_path: str | None) -> NodeIcon | None:
         resolver = get_vilib_resolver()
-        entry = resolver.resolve_call(node.qualified_path, node.poly_variant_name)
+        entry = resolver.resolve_call(catalog_path, node.poly_variant_name)
         return entry.icon if entry is not None else None
 
     @staticmethod

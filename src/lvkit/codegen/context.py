@@ -1056,9 +1056,10 @@ def _format_constant(
 
     # Cluster constant: emit a mutable attribute object so Bundle/Unbundle By
     # Name (which read and write ``.field``) operate on it. A named/typedef
-    # cluster uses attribute access with field names matched to nmux's
-    # ``to_var_name(field.name)``; an anonymous cluster (no field names) is a
-    # positional tuple, the representation nmux uses for anonymous clusters.
+    # cluster uses attribute access with the names ``field_attribute_names``
+    # gives its fields, the ones Bundle/Unbundle By Name use; an anonymous cluster
+    # (no field names) is a positional tuple, the representation nmux uses for
+    # anonymous clusters.
     if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
         cluster_expr = _format_cluster_constant(const)
         if cluster_expr is not None:

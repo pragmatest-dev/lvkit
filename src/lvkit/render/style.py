@@ -13,7 +13,11 @@ import re
 from dataclasses import dataclass
 from itertools import groupby
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import (
+    INTEGER_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
 
 from ..measure_data import TIMESTAMP_FLAVOR
 from ..models import (
@@ -214,16 +218,7 @@ _CLASS_WIRE_W = 3.0
 _CLASS_WIRE_CORE_W = 1.0
 
 
-_INT_TYPES = {
-    "NumInt8",
-    "NumInt16",
-    "NumInt32",
-    "NumInt64",
-    "NumUInt8",
-    "NumUInt16",
-    "NumUInt32",
-    "NumUInt64",
-}
+
 _FLOAT_TYPES = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 # Complex is orange like floats in LabVIEW (was falling through to "unknown").
 _COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}
@@ -242,7 +237,7 @@ _TYPE_REPR = {
 }
 
 
-_NUMERIC_TYPES = _INT_TYPES | _FLOAT_TYPES | _COMPLEX_TYPES
+_NUMERIC_TYPES = INTEGER_TYPE_NAMES | _FLOAT_TYPES | _COMPLEX_TYPES
 
 # An enum/ring is stored as an unsigned integer (the UnitUInt8/16/32 codes
 # 0x15/0x16/0x17) and coerces to/from numerics AS that integer — so it takes a
@@ -400,7 +395,7 @@ def type_family(lv_type: LVType | None) -> str:
         ut = lv_type.underlying_type or ""
         if ut in _FLOAT_TYPES or ut in _COMPLEX_TYPES:
             return "float"
-        if ut in _INT_TYPES:
+        if ut in INTEGER_TYPE_NAMES:
             return "int"
         if is_boolean_type_name(ut):
             return "bool"

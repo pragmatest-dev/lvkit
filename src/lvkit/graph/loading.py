@@ -507,7 +507,9 @@ class LoadingMixin:
         caller_key: str | None,
     ) -> None:
         """Remember that ``caller_key`` recorded ``dep_ref``'s path for the file
-        ``key`` (``RecordedPaths``)."""
+        ``key`` (``RecordedPaths``). Recording twice is the same as once: a
+        dependency that resolves to a file records before its own children load,
+        and every dependency, resolved or not, records when its load returns."""
         if dep_ref is not None and dep_ref.path_tokens:
             self._recorded.record(
                 key, caller_key, member_tokens(dep_ref.path_tokens, leaf)

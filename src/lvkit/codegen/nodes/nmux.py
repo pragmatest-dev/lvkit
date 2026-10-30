@@ -205,23 +205,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 val = ctx.wired_input(t.id, node)
                 if not val:
                     continue
-                fname = (
-                    _measure_component(t, measure_flavor, node)
+                path = (
+                    [_measure_component(t, measure_flavor, node)]
                     if measure_flavor
-                    else _field_name(t, class_fields)
+                    else _field_path(t, class_fields)
                 )
-                if fname:
-                    stmt = ast.Assign(
-                        targets=[
-                            ast.Attribute(
-                                value=parse_expr(agg_var),
-                                attr=fname,
-                                ctx=ast.Store(),
-                            )
-                        ],
-                        value=parse_expr(val),
+                if path:
+                    statements.append(
+                        ast.Assign(
+                            targets=[_attribute_target(agg_var, path)],
+                            value=parse_expr(val),
+                        )
                     )
-                    statements.append(stmt)
                 else:
                     raise TypeResolutionNeeded(
                         type_name=f"field[{t.nmux_field_index}]",
@@ -458,18 +453,26 @@ def _generate_error_bundle(
     )
 
 
-def _field_name(
+def _field_path(
     term: Terminal,
     class_fields: list[ClusterField] | None,
-) -> str | None:
-    """Get Python field name for a LIST terminal using nmux_field_index, which
-    counts the depth-first ``_flatten_fields`` slots."""
+) -> list[str] | None:
+    """The attribute path from the cluster to a LIST terminal's field, using
+    nmux_field_index, which counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
     paths = field_attribute_paths(class_fields)
     if 0 <= term.nmux_field_index < len(paths):
-        return paths[term.nmux_field_index][-1]
+        return paths[term.nmux_field_index]
     return None
+
+
+def _attribute_target(agg_var: str, path: list[str]) -> ast.Attribute:
+    """The assignment target ``agg_var.<path>``."""
+    target = parse_expr(f"{agg_var}.{'.'.join(path)}")
+    assert isinstance(target, ast.Attribute)
+    target.ctx = ast.Store()
+    return target
 
 
 def _field_expr(

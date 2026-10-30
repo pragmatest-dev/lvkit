@@ -389,6 +389,17 @@ def _raise_terminal_resolution(
     )
 
 
+def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int | None, str]:
+    """The default each input terminal of the catalog entry carries, by index."""
+    if vilib_vi is None:
+        return {}
+    return {
+        t.index: t.default_value
+        for t in vilib_vi.terminals
+        if t.direction == "in" and t.index is not None and t.default_value is not None
+    }
+
+
 def _build_arguments(
     node: VINode,
     ctx: CodeGenContext,
@@ -401,6 +412,7 @@ def _build_arguments(
         vilib_vi,
         "in",
     )
+    catalog_defaults = _catalog_defaults(vilib_vi)
 
     args = []
     keywords: dict[str, str] = {}
@@ -414,13 +426,18 @@ def _build_arguments(
         term_index = term.index
         term_name = term.name or ""
         value = ctx.wired_input(term_id, node)
-
-        # Skip unwired terminals - they'll use default values
-        if value is None:
-            continue
+        wired = value is not None
 
         # Skip error cluster terminals — Python uses exceptions
         if term.is_error_cluster:
+            continue
+
+        # An unwired input of a catalog VI runs with the default the catalog (or
+        # the loaded VI's control) gives it; any other unwired input uses the
+        # called function's own default.
+        if value is None:
+            value = catalog_defaults.get(term_index)
+        if value is None:
             continue
 
         # Determine parameter name with priority:
@@ -440,7 +457,7 @@ def _build_arguments(
         # Check if this parameter is an enum typedef - generate enum reference
         final_value = (
             _resolve_enum_value(value, term, vilib_vi, subvi_name, node.callee_key, ctx)
-            if vilib_vi
+            if vilib_vi and wired
             else value
         )
 

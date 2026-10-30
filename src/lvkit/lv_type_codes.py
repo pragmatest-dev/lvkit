@@ -61,7 +61,9 @@ FLOAT_TYPE_NAMES: frozenset[str] = frozenset(
 )
 
 # Every number type: integers, floating-point and complex numbers (with or
-# without a unit), unsigned integers with a unit, and fixed-point numbers.
+# without a unit), the unsigned integers an enum or ring is stored as
+# (``UnitUInt8/16/32``, which pylabview names ``EB``/``EW``/``EL``), and
+# fixed-point numbers.
 NUMERIC_TYPE_NAMES: frozenset[str] = (
     INTEGER_TYPE_NAMES
     | FLOAT_TYPE_NAMES
