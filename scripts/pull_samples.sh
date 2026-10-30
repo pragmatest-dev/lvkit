@@ -72,7 +72,10 @@ if [[ -d "$DEST/OpenG/extracted" ]]; then
 else
   echo "fetch  OpenG Toolkit libraries (.vip x17) — BSD-3-Clause — sourceforge.net/projects/opengtoolkit"
   mkdir -p "$DEST/OpenG/extracted"
-  python3 "$ROOT/scripts/reproduce_openg_corpus.py" "$DEST/OpenG/extracted"
+  # Inside `uv run` the project's interpreter is `python` (a Windows venv has
+  # no `python3`); outside one, the system's `python3`.
+  PYTHON="${VIRTUAL_ENV:+python}"
+  "${PYTHON:-python3}" "$ROOT/scripts/reproduce_openg_corpus.py" "$DEST/OpenG/extracted"
 fi
 
 echo
