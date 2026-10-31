@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Variant To Data reads VIs saved by LabVIEW 8.2/9.0 and 11 or later** — a catalog primitive can list other terminal numberings; the node's own terminal numbers pick the one that fits, a node that fits none or several is a gap, and Variant To Data now passes its error through and its data to the output.
 - **What lvnet shows no longer depends on whether code was generated first** — generating code taught the shared vi.lib catalog terminal names, so a later lvnet of the same VI named a call's terminals by name instead of by index; each generated module now learns into its own copy of the entries it learns.
 - **Delete From Array with its index unwired deletes the last `length` elements** — the generated code returned `None` for the deleted element and left the last element in the output array; it now deletes the last `length` elements (one when `length` is unwired too), and an empty array stays empty.
 - **An unwired input the code reads, whose default is not known, is a gap** — `lvkit unresolved` lists one `unknown_default` item per input and generation raises where the node runs, instead of guessing a value from the type; an input the code never reads is no gap, and one the code reads that the call does not have is a `terminal_mapping` gap. The catalog records a terminal's default as `default` (the value NI documents) or `default_behavior` (rest, append, one element, last element, …), lvnet shows it, and a call of a project VI shows the callee's saved value (#169).

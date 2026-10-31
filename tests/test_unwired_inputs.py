@@ -71,17 +71,17 @@ def test_file_dialog_prompt_is_read_by_nothing() -> None:
 def test_an_input_the_code_reads_that_the_call_lacks_is_a_terminal_mapping_gap() -> (
     None
 ):
-    """Variant To Data's code reads input 8; a call numbered 0-4 has no such input.
-    It is a numbering mismatch, not an unknown default, and never takes a default."""
+    """Variant To Data's code reads input 8; a call numbered 0/3/9/11 (its LabVIEW
+    11+ numbering, without input 8) has no such input. It is a numbering mismatch,
+    not an unknown default, and never takes a default."""
     variant_to_data = node(
         "vd",
         VARIANT_TO_DATA,
         [
             (0, "input", None),
-            (1, "output", None),
-            (2, "input", scalar("Variant")),
-            (3, "input", I32),
-            (4, "output", I32),
+            (3, "output", None),
+            (9, "input", scalar("Variant")),
+            (11, "output", I32),
         ],
     )
     gaps: list[Gap] = []
@@ -89,7 +89,7 @@ def test_an_input_the_code_reads_that_the_call_lacks_is_a_terminal_mapping_gap()
         {"v": scalar("Variant")},
         {"data": I32},
         [variant_to_data],
-        [("fp:v", "vd:2"), ("vd:4", "fp:data")],
+        [("fp:v", "vd:9"), ("vd:11", "fp:data")],
         gaps=gaps,
     )
     assert [g.kind for g in gaps] == ["terminal_mapping"]
