@@ -198,7 +198,9 @@ def test_page_names_use_project_relative_and_recorded_library_paths(
 
 def test_a_long_page_name_is_cut_with_a_hash(tmp_path: Path) -> None:
     root = tmp_path / "proj"
-    deep = root.joinpath(*["very_long_folder_name_here"] * 8)
+    # 130 characters of folders: past the 100 a page name may have, while the
+    # whole path stays under the 260 Windows allows without long paths.
+    deep = root.joinpath(*["very_long_folder_name_here"] * 5)
     deep.mkdir(parents=True)
     shutil.copy(GOOD_VI, deep / "X.vi")
     graph = InMemoryVIGraph()
