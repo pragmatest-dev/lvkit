@@ -3,20 +3,34 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from lvkit.structure import LVMethod
+from lvkit.class_property import PropertyRole, property_role
+from lvkit.structure import LVClass, LVMethod
 
-from ..ast_utils import to_var_name
-from ._shared import _EMPTY_VI_CONTEXT
+from ..ast_utils import private_attribute_names, to_var_name
+from .property_field import accessed_attribute
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
     from lvkit.graph.models import VIContext
 
+    from .config import ClassConfig
+
+
+@dataclass(frozen=True)
+class PropertyAccessor:
+    """A property VI written as part of a Python property: what it does and the
+    private attribute it moves."""
+
+    method: LVMethod
+    role: PropertyRole
+    attribute: str
+
 
 class _PropertyBuilderMixin:
-    """Accessor complexity classification and @property generation."""
+    """Property classification and @property generation."""
 
     if TYPE_CHECKING:
         # Populated on the composed ClassBuilder (core.py); declared here
@@ -24,126 +38,92 @@ class _PropertyBuilderMixin:
         # cross-mixin access.
         _method_contexts: dict[str, VIContext]
         _graph: InMemoryVIGraph | None
+        config: ClassConfig
 
-    def _is_simple_accessor(
-        self,
-        method: LVMethod,
-    ) -> bool:
-        """Check if accessor VI is simple (just unbundle/bundle + error handling).
+    def _scope_prefix(self, scope: str) -> str:
+        """The prefix a method or property of ``scope`` has in Python: none for
+        public, ``_`` for protected, ``__`` for private (and community)."""
+        if scope == "public":
+            return ""
+        if scope == "protected":
+            return self.config.protected_prefix
+        return self.config.private_prefix
 
-        Simple accessors only contain case structures and unbundle/bundle operations.
-        They translate to direct attribute access, not @property.
+    def _property_accessors(self, lvclass: LVClass) -> list[PropertyAccessor]:
+        """The accessors of the class's properties that are written as Python
+        properties.
 
-        Complex accessors contain additional operations (math, SubVI calls, validation).
-        They need @property with backing field.
-
-        Without VI context, we assume all accessors are simple. This can be
-        refined when method_contexts is provided.
-        """
-        vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
-        if vi_context is _EMPTY_VI_CONTEXT:
-            # No VI context - assume simple accessor
-            return True
-
-        operations = (
-            self._graph.top_level_nodes(
-                self._graph.resolve_vi_name(
-                    vi_context.qualified_name or vi_context.name
+        A property of one scope becomes a Python property when every VI in its
+        folder is a getter or a setter (by its connector pane) of the one private
+        data field its diagram moves (at most one of each); a VI of the folder
+        whose diagram does more than move that field is an ordinary method written
+        from its diagram. A property whose Python name is the attribute of a
+        private data field is ordinary methods too, as the property would hide
+        the field."""
+        groups: dict[tuple[str, str], list[LVMethod]] = {}
+        for method in lvclass.methods:
+            if method.property_name is not None:
+                groups.setdefault((method.property_name, method.scope), []).append(
+                    method
                 )
-            )
-            if self._graph
-            else []
-        )
-        if not operations:
-            # No operations - simple accessor
-            return True
-
-        # Check if all operations are just unbundle/bundle/case/error handling
-        simple_node_types = {
-            "select",
-            "case",
-            "unbundle",
-            "bundle",
-            "nMux",
-            "nDmux",
-            "mux",
-            "demux",
-        }
-        # Error-handling primitives that keep an accessor "simple". Bundle /
-        # Unbundle are node-CLASSES, already covered by simple_node_types
-        # above -- they are not primResID prims and must not be listed here.
-        # Clear Errors is a vi.lib VI (no primResID), so it cannot be
-        # whitelisted by id. (This set was historically populated with stale
-        # ids -- 1340/1302/2075/2076 actually map to One Button Dialog / Wait
-        # (ms) / Destroy User Event / Unregister For Events -- so real Merge
-        # Errors was never recognized here; corrected to 2401, then to 2147
-        # once nodes.json's VI-Scripting export proved 2401 is really Swap
-        # Values and 2147 is the real Merge Errors -- #59.)
-        simple_prim_ids = {
-            2147,  # Merge Errors
-        }
-
-        for op in operations:
-            node_type = getattr(op, "node_type", "") or ""
-            prim_id = getattr(op, "prim_id", 0) or 0
-
-            if node_type in simple_node_types:
+        fields = lvclass.private_data_fields
+        taken = set(private_attribute_names(f.name for f in fields))
+        accessors: list[PropertyAccessor] = []
+        for (property_name, scope), members in groups.items():
+            if self._scope_prefix(scope) + to_var_name(property_name) in taken:
+                # The property would shadow a private data field's attribute.
                 continue
-            if prim_id in simple_prim_ids:
-                continue
+            resolved = [
+                r
+                for m in members
+                if (r := self._resolve_accessor(m, lvclass.name)) is not None
+            ]
+            roles = [r.role for r in resolved]
+            if (
+                len({r.attribute for r in resolved}) == 1
+                and len(set(roles)) == len(roles)
+            ):
+                accessors.extend(resolved)
+        return accessors
 
-            # Found a non-simple operation
-            return False
-
-        return True
+    def _resolve_accessor(
+        self, method: LVMethod, class_name: str
+    ) -> PropertyAccessor | None:
+        """What the property VI ``method`` does, or None when its connector pane
+        or its diagram does not say."""
+        vi_context = self._method_contexts.get(method.name)
+        if vi_context is None or self._graph is None:
+            return None
+        role = property_role(vi_context.inputs, vi_context.outputs, class_name)
+        if role is None:
+            return None
+        attribute = accessed_attribute(vi_context, self._graph, class_name, role)
+        if attribute is None:
+            return None
+        return PropertyAccessor(method, role, attribute)
 
     def _build_properties(
         self,
-        accessors: list[LVMethod],
+        accessors: list[PropertyAccessor],
     ) -> list[ast.stmt]:
-        """Build @property and @setter from getter/setter pairs.
-
-        For SIMPLE accessors (just unbundle/bundle + error handling):
-        - Do NOT generate @property
-        - The field is already created in __init__ with correct visibility
-        - The accessor VI logic is just LabVIEW error handling idiom
-
-        For COMPLEX accessors (have real logic):
-        - Generate @property with private backing field (_field)
-        - The property can contain computed logic
-        """
+        """Build @property and @setter from the accessors of each property: the
+        getter returns, and the setter assigns, the private attribute of the
+        field the accessor VI moves. A property is named by its long name, behind
+        the prefix its scope gives a method."""
         property_stmts: list[ast.stmt] = []
 
-        # Group by field name
-        by_field: dict[str, dict[str, LVMethod]] = {}
+        by_property: dict[tuple[str, str], dict[PropertyRole, PropertyAccessor]] = {}
         for acc in accessors:
-            if acc.accessor_field:
-                field = acc.accessor_field
-                if field not in by_field:
-                    by_field[field] = {}
-                if acc.accessor_type:
-                    by_field[field][acc.accessor_type] = acc
+            key = (acc.method.property_name or "", acc.method.scope)
+            by_property.setdefault(key, {})[acc.role] = acc
 
-        # Build property definitions only for complex accessors
-        for field, acc_dict in by_field.items():
-            getter = acc_dict.get("getter")
-            setter = acc_dict.get("setter")
-
-            # Check if any accessor is complex
-            is_complex = False
-            if getter and not self._is_simple_accessor(getter):
-                is_complex = True
-            if setter and not self._is_simple_accessor(setter):
-                is_complex = True
-
-            if not is_complex:
-                # Simple accessors - skip property generation
-                # Field visibility is already set correctly in __init__
-                continue
-
-            prop_name = to_var_name(field)
-            # Complex accessor - always use private backing field
-            backing_field = "_" + prop_name
+        for (property_name, scope), acc_dict in by_property.items():
+            getter = acc_dict.get(PropertyRole.GETTER)
+            setter = acc_dict.get(PropertyRole.SETTER)
+            anchor = getter or setter
+            assert anchor is not None
+            backing_field = anchor.attribute
+            prop_name = self._scope_prefix(scope) + to_var_name(property_name)
 
             # Build getter
             if getter:

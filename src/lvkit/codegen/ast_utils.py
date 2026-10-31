@@ -295,6 +295,19 @@ def field_attribute_names(field_names: Iterable[str]) -> list[str]:
     return unique_names([to_var_name(name) for name in field_names])
 
 
+def private_attribute_names(field_names: Iterable[str]) -> list[str]:
+    """The attribute of each private data field of a class: ``field_attribute_names``
+    behind the underscore that marks it private to the class."""
+    return ["_" + name for name in field_attribute_names(field_names)]
+
+
+def private_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
+    """``field_attribute_paths`` of a class's private data, whose own fields are
+    attributes named by ``private_attribute_names`` (what is inside a field keeps
+    its names)."""
+    return [["_" + path[0], *path[1:]] for path in field_attribute_paths(fields)]
+
+
 def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
     """The attribute path of every field of a cluster hierarchy, depth first in
     the order of ``_flatten_fields`` (a sub-cluster is its own slot, followed by

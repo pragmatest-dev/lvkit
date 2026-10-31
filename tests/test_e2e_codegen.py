@@ -422,11 +422,11 @@ class TestClassPrivateDataNmux:
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
-        assert ".testsrun" in code, "Expected attribute access on the class field"
+        assert "._testsrun" in code, "Expected attribute access on the class field"
 
         ns: dict = {}
         exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
-        this = types.SimpleNamespace(testsrun=42)
+        this = types.SimpleNamespace(_testsrun=42)
         result = ns["gettestsrun"](this)
         assert result.testsrun == 42
         assert result.testresult_out is this
@@ -453,13 +453,13 @@ class TestClassPrivateDataNmux:
         result = ns["testresult_init"](this, "event_ref")
         out = result.testresult_out
         assert out is this
-        assert out.testsrun == 0
-        assert out.shouldstop is False
+        assert out._testsrun == 0
+        assert out._shouldstop is False
         # errors/failures are arrays: an empty array constant is a real empty
         # list, not the string "[]" (that was the array-constant-as-string bug).
-        assert out.errors == []
-        assert out.failures == []
-        assert out.resultstatuschangedeventref == "event_ref"
+        assert out._errors == []
+        assert out._failures == []
+        assert out._resultstatuschangedeventref == "event_ref"
 
 
 # ── Uninitialized shift register + First Call? (functional-global idiom) ──

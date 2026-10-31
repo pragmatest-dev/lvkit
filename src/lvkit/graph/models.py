@@ -1286,6 +1286,9 @@ class MethodAccessInfo:
 
     vi_name: str
     scope: str
+    # ``is_accessor``: the class lists the VI in a property folder (named
+    # ``accessor_field``); ``accessor_type`` is "getter" or "setter" from the
+    # VI's own connector pane, None when the pane is neither.
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None

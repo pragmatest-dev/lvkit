@@ -161,11 +161,12 @@ def _is_class_refnum(lv_type: LVType, class_name: str) -> bool:
     if not lv_type.classname:
         return False
 
-    # Normalize for comparison (remove .lvclass suffix, case-insensitive)
-    class_base = class_name.lower().replace(".lvclass", "")
-    refnum_class = lv_type.classname.lower().replace(".lvclass", "")
+    # Compare the class's own name: without a library qualifier
+    # (``Lib.lvlib:Class.lvclass``) or the .lvclass suffix, ignoring case.
+    def own_name(name: str) -> str:
+        return name.rsplit(":", 1)[-1].lower().replace(".lvclass", "")
 
-    return class_base == refnum_class
+    return own_name(class_name) == own_name(lv_type.classname)
 
 
 def get_default_for_control_type(control_type: str) -> str:

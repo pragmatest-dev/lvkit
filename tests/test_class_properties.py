@@ -1,181 +1,312 @@
-"""Tests for the ``.lvclass``/``.lvlib`` "class-item property" enrichment:
-
-- ``structure.SCOPE_MAP``'s missing value 4 ("community") fix.
-- ``LVClass.version`` / ``LVClass.ancestors`` (the full ancestor chain, built
-  by recursively resolving each ancestor's own ``.lvclass`` on disk).
-- ``LVMethod.must_override`` / ``must_call_parent`` (per-method
-  ``NI.ClassItem.*`` properties).
-- ``ClassFact.is_static`` actually reaching the facts index (previously
-  parsed by ``LVMethod`` but dropped on the way into ``ClassFact`` -- a real
-  gap, not a new feature).
-
-Uses the real sample corpora (JKI-VI-Tester, measurement-plugin-labview,
-DCAF-DAQModule) -- each test skips individually when its specific corpus
-isn't present, matching ``tests/test_class_field_walkup.py``'s convention.
-"""
+"""A property is a VI the class lists inside a ``Property Definition`` folder, a
+getter or a setter by its own connector pane, written as a Python property over
+the private attribute of the one field its diagram moves. No VI name decides it."""
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
 
-from lvkit.index.build import build_index
-from lvkit.index.project import resolve_project
-from lvkit.structure import parse_lvclass
+from lvkit.class_property import PropertyRole, property_role
+from lvkit.codegen.class_builder import ClassBuilder
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.models import PrimitiveNode, VIContext, Wire
+from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
+from tests.helpers import build_graph
 
-pytestmark = pytest.mark.needs_samples
-
-SAMPLES = Path(__file__).resolve().parent.parent / ".lvkit" / "cache" / "samples"
-
-JKI_ROOT = SAMPLES / "JKI-VI-Tester" / "source"
-MEASUREMENT_ROOT = SAMPLES / "measurement-plugin-labview"
-DCAF_ROOT = SAMPLES / "DCAF-DAQModule"
-
-SESSION_RESERVATION = (
-    MEASUREMENT_ROOT
-    / "Source"
-    / "Runtime"
-    / "Clients"
-    / "Session Management V1"
-    / "Session Reservation"
-    / "Session Reservation.lvclass"
+_CLASS_TYPE = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="Refnum",
+    ref_type="UDClassInst",
+    classname="C.lvclass",
 )
+_INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+_FIELDS = [ClusterField(name="Count", type=_INT), ClusterField(name="Name", type=_INT)]
+
+_LVCLASS = """<?xml version='1.0' encoding='UTF-8'?>
+<LVClass LVVersion="25008000">
+\t<Item Name="C.ctl" Type="Class Private Data" URL="C.ctl"/>
+\t<Item Name="Accessor" Type="Folder">
+\t\t<Item Name="Count" Type="Property Definition">
+\t\t\t<Property Name="NI.ClassItem.Property.LongName" Type="Str">Item Count</Property>
+\t\t\t<Item Name="Read Count.vi" Type="VI" URL="../Accessor/Read Count.vi">
+\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
+\t\t\t</Item>
+\t\t\t<Item Name="Write Count.vi" Type="VI" URL="../Accessor/Write Count.vi">
+\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
+\t\t\t</Item>
+\t\t</Item>
+\t\t<Item Name="Name" Type="Property Definition">
+\t\t\t<Property Name="NI.ClassItem.Property.LongName" Type="Str">Label</Property>
+\t\t\t<Item Name="Read Name.vi" Type="VI" URL="../Accessor/Read Name.vi">
+\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">3</Property>
+\t\t\t</Item>
+\t\t</Item>
+\t</Item>
+\t<Item Name="Get Config.vi" Type="VI" URL="Get Config.vi">
+\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
+\t</Item>
+</LVClass>
+"""
 
 
-def _skip_unless(path: Path) -> None:
-    if not path.exists():
-        pytest.skip(f"sample not present: {path}")
+def _terminal(
+    tid: str, direction: str, lv_type: LVType, name: str, index: int
+) -> FPTerminal:
+    return FPTerminal(
+        id=tid,
+        index=index,
+        direction=direction,
+        name=name,
+        lv_type=lv_type,
+        is_public=True,
+        is_indicator=direction == "output",
+    )
 
 
-# === SCOPE_MAP: MethodScope=4 -> "community" ================================
-
-
-def test_scope_map_resolves_community() -> None:
-    """Session Reservation.lvclass carries real MethodScope=4 methods, which
-    used to silently mislabel as "public" (SCOPE_MAP.get(4, "public"))."""
-    lvclass_path = SESSION_RESERVATION
-    _skip_unless(lvclass_path)
-
-    cls = parse_lvclass(lvclass_path)
-    scopes = {m.scope for m in cls.methods}
-    assert "community" in scopes
-    assert "public" not in {  # a value-4 method must NOT default to "public"
-        m.scope
-        for m in cls.methods
-        if m.name in {"Register Sessions Wrapper", "Session Client FGV"}
+def test_property_folders_list_their_vis_and_nothing_else_is_a_property(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "C.lvclass"
+    path.write_text(_LVCLASS, encoding="utf-8")
+    methods = {m.name: m for m in parse_lvclass(path).methods}
+    assert {n: (m.property_name, m.scope) for n, m in methods.items()} == {
+        "Read Count": ("Item Count", "public"),
+        "Write Count": ("Item Count", "public"),
+        "Read Name": ("Label", "protected"),
+        "Get Config": (None, "public"),
     }
 
 
-# === LVClass.version =========================================================
+def test_a_pane_decides_which_accessor_a_property_vi_is() -> None:
+    self_in = _terminal("a", "input", _CLASS_TYPE, "C", 0)
+    self_out = _terminal("b", "output", _CLASS_TYPE, "C out", 1)
+    value_in = _terminal("c", "input", _INT, "v", 2)
+    value_out = _terminal("d", "output", _INT, "v", 3)
+    assert property_role([self_in], [self_out, value_out], "C") is PropertyRole.GETTER
+    assert property_role([self_in, value_in], [self_out], "C") is PropertyRole.SETTER
+    assert property_role([self_in], [self_out], "C") is None
+    assert property_role([self_in, value_in], [value_out], "C") is PropertyRole.SETTER
+    assert property_role([self_in], [value_out, value_out], "C") is None
 
 
-def test_class_version_parsed() -> None:
-    """NI.Lib.Version on a real class -- verbatim dotted-quad string."""
-    lvclass_path = SESSION_RESERVATION
-    _skip_unless(lvclass_path)
-
-    cls = parse_lvclass(lvclass_path)
-    assert cls.version == "1.0.0.3"
+def _fields(lv_type: LVType, caller_vi_key: str | None = None) -> list[ClusterField]:
+    return _FIELDS
 
 
-# === LVClass.ancestors ========================================================
-
-
-def test_ancestor_chain_resolves_across_directories() -> None:
-    """_TextTestResult.JUnitXML.lvclass's parent (_TextTestResult) is decoded
-    as a vi.lib-style link (is_vilib_parent=True) but its file is actually
-    IN-REPO under a different branch of the tree (Classes/_TextTestResult/,
-    not a sibling of the child) -- the walk-up+rglob resolution must still
-    find it and continue to the root (TestResult)."""
-    lvclass_path = (
-        JKI_ROOT
-        / "Ant Plugin"
-        / "Source"
-        / "_TextTestResult.Ant"
-        / "_TextTestResult.JUnitXML.lvclass"
+def _read(name: str, field_index: int) -> tuple[VIContext, list[PrimitiveNode]]:
+    context = VIContext(
+        name=name,
+        inputs=[_terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0)],
+        outputs=[
+            _terminal(f"{name}:out", "output", _INT, "value", 1),
+        ],
+        data_flow=[
+            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
+            Wire.from_terminals(f"{name}:field", f"{name}:out"),
+        ],
     )
-    _skip_unless(lvclass_path)
-
-    cls = parse_lvclass(lvclass_path)
-    assert cls.ancestors == ["_TextTestResult", "TestResult"]
-
-
-def test_root_class_has_empty_ancestor_chain() -> None:
-    lvclass_path = JKI_ROOT / "Classes" / "TestResult" / "TestResult.lvclass"
-    _skip_unless(lvclass_path)
-
-    cls = parse_lvclass(lvclass_path)
-    assert cls.ancestors == []
-
-
-# === LVMethod.must_override / must_call_parent ===============================
-
-
-def test_must_override_true_and_false() -> None:
-    must_override_true = (
-        MEASUREMENT_ROOT
-        / "Source"
-        / "Runtime"
-        / "Measurements"
-        / "Measurement Plugin Service"
-        / "Measurement Plugin Service.lvclass"
+    node = PrimitiveNode(
+        id=f"{name}:unbundle",
+        vi_path=name,
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id=f"{name}:agg",
+                index=0,
+                direction="input",
+                lv_type=_CLASS_TYPE,
+                nmux_role="agg",
+            ),
+            Terminal(
+                id=f"{name}:field",
+                index=1,
+                direction="output",
+                lv_type=_INT,
+                nmux_role="list",
+                nmux_field_index=field_index,
+            ),
+        ],
     )
-    must_override_false = (
-        MEASUREMENT_ROOT
-        / "Source"
-        / "Runtime"
-        / "Sessions"
-        / "Instrument"
-        / "ISession Factory"
-        / "ISession Factory.lvclass"
+    return context, [node]
+
+
+def _write(name: str, field_index: int) -> tuple[VIContext, list[PrimitiveNode]]:
+    context = VIContext(
+        name=name,
+        inputs=[
+            _terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0),
+            _terminal(f"{name}:value", "input", _INT, "value", 1),
+        ],
+        outputs=[_terminal(f"{name}:out", "output", _CLASS_TYPE, "C", 2)],
+        data_flow=[
+            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
+            Wire.from_terminals(f"{name}:value", f"{name}:field"),
+            Wire.from_terminals(f"{name}:agg_out", f"{name}:out"),
+        ],
     )
-    _skip_unless(must_override_true)
-    _skip_unless(must_override_false)
-
-    service = parse_lvclass(must_override_true)
-    get_plugin_paths = next(m for m in service.methods if m.name == "Get Plugin Paths")
-    assert get_plugin_paths.must_override is True
-
-    factory = parse_lvclass(must_override_false)
-    clean_up = next(m for m in factory.methods if m.name == "Clean Up After Init Error")
-    assert clean_up.must_override is False
-
-
-def test_must_call_parent() -> None:
-    lvclass_path = (
-        DCAF_ROOT / "source" / "module" / "execution" / "Daqmx Module runtime.lvclass"
+    node = PrimitiveNode(
+        id=f"{name}:bundle",
+        vi_path=name,
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id=f"{name}:agg",
+                index=0,
+                direction="input",
+                lv_type=_CLASS_TYPE,
+                nmux_role="agg",
+            ),
+            Terminal(
+                id=f"{name}:agg_out",
+                index=1,
+                direction="output",
+                lv_type=_CLASS_TYPE,
+                nmux_role="agg",
+            ),
+            Terminal(
+                id=f"{name}:field",
+                index=2,
+                direction="input",
+                lv_type=_INT,
+                nmux_role="list",
+                nmux_field_index=field_index,
+            ),
+        ],
     )
-    _skip_unless(lvclass_path)
-
-    cls = parse_lvclass(lvclass_path)
-    init = next(m for m in cls.methods if m.name == "init")
-    assert init.must_call_parent is True
+    return context, [node]
 
 
-# === ClassFact.is_static reaching the index ===================================
+def _class_source(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> str:
+    path = tmp_path / "C.lvclass"
+    path.write_text(_LVCLASS, encoding="utf-8")
+    lvclass = parse_lvclass(path)
+    lvclass.private_data_fields = [
+        LVPrivateDataField(name="Count", python_type="int"),
+        LVPrivateDataField(name="Name", python_type="int"),
+    ]
+    graph = InMemoryVIGraph()
+    monkeypatch.setattr(
+        graph, "get_type_fields", lambda lv_type, caller_vi_key=None: _FIELDS
+    )
+    contexts: dict[str, VIContext] = {}
+    for method_name, (context, nodes) in {
+        "Read Count": _read("Read Count", 0),
+        "Write Count": _write("Write Count", 0),
+        "Read Name": _read("Read Name", 1),
+    }.items():
+        build_graph(context, context.name, nodes, graph=graph)
+        contexts[method_name] = context
+    config = VIContext(
+        name="Get Config",
+        inputs=[_terminal("cfg:in", "input", _CLASS_TYPE, "C", 0)],
+        outputs=[_terminal("cfg:out", "output", _CLASS_TYPE, "C", 1)],
+        data_flow=[Wire.from_terminals("cfg:in", "cfg:out")],
+    )
+    build_graph(config, "Get Config", [], graph=graph)
+    contexts["Get Config"] = config
+    module = ClassBuilder().build_class_module(
+        lvclass, method_contexts=contexts, graph=graph
+    )
+    ast.fix_missing_locations(module)
+    return ast.unparse(module)
 
 
-def test_is_static_reaches_class_fact() -> None:
-    """LVMethod.is_static was already parsed but dropped on the "owns" edge
-    (never threaded into ClassFact) -- this is the gap fix, not new parsing.
-    createTestCaseXML.vi is a static method; addError.vi is not."""
-    class_dir = JKI_ROOT / "Ant Plugin" / "Source" / "_TextTestResult.Ant"
-    _skip_unless(class_dir)
+def test_the_generated_class_has_properties_over_private_fields(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = _class_source(monkeypatch, tmp_path)
+    namespace: dict[str, object] = {}
+    exec(compile(source, "<class>", "exec"), namespace)  # noqa: S102
+    cls = namespace["C"]
+    obj = cls()  # type: ignore[operator]
+    assert obj._count == 0
+    assert obj._name == 0
+    assert isinstance(cls.item_count, property)  # type: ignore[attr-defined]
+    obj.item_count = 7
+    assert obj.item_count == 7
+    assert obj._count == 7
+    # A protected property is named with one underscore; it has no setter.
+    assert isinstance(cls._label, property)  # type: ignore[attr-defined]
+    obj._name = 3
+    assert obj._label == 3
+    # A VI outside every property folder is an ordinary method, whatever its name.
+    assert not isinstance(cls.get_config, property)  # type: ignore[attr-defined]
+    assert callable(cls.get_config)  # type: ignore[attr-defined]
 
-    root, vi_paths = resolve_project(class_dir)
-    result = build_index(root, vi_paths)
-    by_name = {f.name: f for f in result.facts}
 
-    static_fact = by_name["createTestCaseXML.vi"].class_fact
-    assert static_fact is not None
-    assert static_fact.is_static is True
+def test_a_property_vi_whose_diagram_moves_no_field_is_an_ordinary_method(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "C.lvclass"
+    path.write_text(_LVCLASS, encoding="utf-8")
+    lvclass = parse_lvclass(path)
+    graph = InMemoryVIGraph()
+    monkeypatch.setattr(
+        graph, "get_type_fields", lambda lv_type, caller_vi_key=None: _FIELDS
+    )
+    context = VIContext(
+        name="Read Count",
+        inputs=[_terminal("x:in", "input", _CLASS_TYPE, "C", 0)],
+        outputs=[_terminal("x:out", "output", _INT, "value", 1)],
+        data_flow=[],
+    )
+    build_graph(context, "Read Count", [], graph=graph)
+    module = ClassBuilder().build_class_module(
+        LVClass(name="C", path=path, methods=lvclass.methods[:1]),
+        method_contexts={"Read Count": context},
+        graph=graph,
+    )
+    ast.fix_missing_locations(module)
+    assert "@property" not in ast.unparse(module)
 
-    instance_fact = by_name["addError.vi"].class_fact
-    assert instance_fact is not None
-    assert instance_fact.is_static is False
 
-    # class_version/ancestors are duplicated per method, same convention as
-    # parent/private_data.
-    assert static_fact.class_version == "1.0.0.0"
-    assert static_fact.ancestors == ["_TextTestResult", "TestResult"]
+def test_a_property_that_would_hide_a_field_attribute_is_ordinary_methods(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    text = _LVCLASS.replace(">Label<", ">Name<")
+    (tmp_path / "C.lvclass").write_text(text, encoding="utf-8")
+    lvclass = parse_lvclass(tmp_path / "C.lvclass")
+    lvclass.private_data_fields = [LVPrivateDataField(name="Name", python_type="int")]
+    graph = InMemoryVIGraph()
+    monkeypatch.setattr(graph, "get_type_fields", _fields)
+    context, nodes = _read("Read Name", 1)
+    build_graph(context, context.name, nodes, graph=graph)
+    module = ClassBuilder().build_class_module(
+        lvclass, method_contexts={"Read Name": context}, graph=graph
+    )
+    ast.fix_missing_locations(module)
+    source = ast.unparse(module)
+    assert "@property" not in source
+    assert "def __init__" in source and "self._name = " in source
+
+
+def test_only_the_accessors_that_move_the_field_are_properties(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "C.lvclass").write_text(_LVCLASS, encoding="utf-8")
+    lvclass = parse_lvclass(tmp_path / "C.lvclass")
+    lvclass.private_data_fields = [
+        LVPrivateDataField(name="Count", python_type="int"),
+        LVPrivateDataField(name="Name", python_type="int"),
+    ]
+    graph = InMemoryVIGraph()
+    monkeypatch.setattr(graph, "get_type_fields", _fields)
+    read, read_nodes = _read("Read Count", 0)
+    build_graph(read, read.name, read_nodes, graph=graph)
+    # The setter's value goes nowhere near a Bundle By Name.
+    write, _ = _write("Write Count", 0)
+    build_graph(write, write.name, [], graph=graph)
+    module = ClassBuilder().build_class_module(
+        lvclass,
+        method_contexts={"Read Count": read, "Write Count": write},
+        graph=graph,
+    )
+    ast.fix_missing_locations(module)
+    source = ast.unparse(module)
+    assert source.count("@property") == 1
+    assert ".setter" not in source
+    assert "def write_count(self, value" in source

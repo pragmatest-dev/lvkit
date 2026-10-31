@@ -37,7 +37,7 @@ def test_init_keeps_every_field() -> None:
         for stmt in func.body
         if isinstance(stmt, ast.Assign)
     ]
-    assert targets == ["none", "field_1"]
+    assert targets == ["_none", "_field_1"]
 
 
 def test_position_name_never_repeats_a_labelled_field() -> None:

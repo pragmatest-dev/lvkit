@@ -176,25 +176,27 @@ class ClassBuilder(
         init_method = self._build_init(lvclass, parent_class_name)
         body.append(init_method)
 
-        # Group methods by type for ordering
-        accessors: list[LVMethod] = []
+        # Properties: the accessors written as Python properties; every other VI,
+        # property VIs included, is an ordinary method.
+        property_accessors = self._property_accessors(lvclass)
+        written_as_property = {acc.method.name for acc in property_accessors}
+
+        # Group methods by scope for ordering
         public_methods: list[LVMethod] = []
         protected_methods: list[LVMethod] = []
         private_methods: list[LVMethod] = []
 
         for method in lvclass.methods:
-            if method.is_accessor:
-                accessors.append(method)
-            elif method.scope == "public":
+            if method.name in written_as_property:
+                continue
+            if method.scope == "public":
                 public_methods.append(method)
             elif method.scope == "protected":
                 protected_methods.append(method)
             else:  # private
                 private_methods.append(method)
 
-        # Build properties from accessor pairs
-        property_defs = self._build_properties(accessors)
-        body.extend(property_defs)
+        body.extend(self._build_properties(property_accessors))
 
         # Separate truly static methods from instance methods
         # A method is an instance method if it has a class-typed input wire
@@ -221,11 +223,7 @@ class ClassBuilder(
             if self._is_constructor(method.name):
                 continue
             # Add scope prefix for non-public methods
-            prefix = ""
-            if method.scope == "protected":
-                prefix = self.config.protected_prefix
-            elif method.scope == "private":
-                prefix = self.config.private_prefix
+            prefix = self._scope_prefix(method.scope)
             try:
                 method_def = self._build_instance_method(
                     method,

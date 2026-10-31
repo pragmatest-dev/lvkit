@@ -30,10 +30,10 @@ def _attributes(labels: tuple[str, ...]) -> tuple[list[str], list[str]]:
 @pytest.mark.parametrize(
     ("labels", "labelled", "attributes"),
     [
-        (("", "Field 0"), ["field_0", "Field 0"], ["field_0", "field_0_2"]),
-        (("Count", "count"), ["Count", "count"], ["count", "count_2"]),
-        (("a b", "a_b"), ["a b", "a_b"], ["a_b", "a_b_2"]),
-        (("x", "y"), ["x", "y"], ["x", "y"]),
+        (("", "Field 0"), ["field_0", "Field 0"], ["_field_0", "_field_0_2"]),
+        (("Count", "count"), ["Count", "count"], ["_count", "_count_2"]),
+        (("a b", "a_b"), ["a b", "a_b"], ["_a_b", "_a_b_2"]),
+        (("x", "y"), ["x", "y"], ["_x", "_y"]),
     ],
 )
 def test_each_field_gets_its_own_attribute(
@@ -44,7 +44,7 @@ def test_each_field_gets_its_own_attribute(
     assert attrs == attributes
 
 
-def test_an_accessor_scope_applies_to_the_field_it_names_exactly() -> None:
+def test_fields_are_private_whatever_the_scope_of_a_property_over_them() -> None:
     cls = LVClass(
         name="C",
         path=Path("C.lvclass"),
@@ -54,12 +54,10 @@ def test_an_accessor_scope_applies_to_the_field_it_names_exactly() -> None:
         ],
         methods=[
             LVMethod(
-                name="Read count.vi",
+                name="Read count",
                 vi_path="Read count.vi",
-                scope="private",
-                is_accessor=True,
-                accessor_type="getter",
-                accessor_field="count",
+                scope="public",
+                property_name="count",
             )
         ],
     )
@@ -69,4 +67,4 @@ def test_an_accessor_scope_applies_to_the_field_it_names_exactly() -> None:
         for s in func.body
         if isinstance(s, ast.Assign)
     ]
-    assert attrs == ["count", "__count_2"]
+    assert attrs == ["_count", "_count_2"]

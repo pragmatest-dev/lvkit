@@ -271,7 +271,7 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     source = _module_named(package, "unreserve_sessions.py")
     assert (
         "is_dvr_valid(dvr_valid_in=session_reservation_in"
-        ".session_and_driver_infos[0].dvr_valid)"
+        "._session_and_driver_infos[0].dvr_valid)"
     ) in source.read_text()
 
 

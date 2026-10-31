@@ -18,12 +18,13 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import networkx as nx
 
+from ..class_property import property_role
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb, extract_vi_xml
 from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
-from ..models import ClusterField, LVType
+from ..models import ClusterField, LVType, Terminal
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -283,6 +284,9 @@ class LoadingMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
         def clear(self) -> None: ...
+        def vi_interface(
+            self, vi_name: str
+        ) -> tuple[list[Terminal], list[Terminal], list[Terminal], list[Terminal]]: ...
         def _add_vi_to_graph(
             self,
             bd: ParsedBlockDiagram,
@@ -852,19 +856,23 @@ class LoadingMixin:
             vi_path = self._resolve_class_vi_path(lvclass_path.parent, method.vi_path)
             if vi_path and vi_path.exists():
                 method_key = self.load_vi(vi_path, mode, search_paths)
-                # Ownership edge — carries scope/accessor info for docs (class
+                # Ownership edge — carries scope/property info for docs (class
                 # landing pages, access-level badges). A method VI's identity is
                 # its file path (the vi_key it loaded under), which is unique, so
                 # attach the edge straight to it — no bare-name collision to lose
                 # (path identity subsumes the old #18 source-path fallback).
                 if method_key and method_key in self._dep_graph:
+                    role = None
+                    if method.property_name is not None:
+                        inputs, _, outputs, _ = self.vi_interface(method_key)
+                        role = property_role(inputs, outputs, cls.name)
                     self._add_ownership_edge(
                         cls_key,
                         method_key,
                         scope=method.scope,
-                        is_accessor=method.is_accessor,
-                        accessor_type=method.accessor_type,
-                        accessor_field=method.accessor_field,
+                        is_accessor=method.property_name is not None,
+                        accessor_type=role.value if role else None,
+                        accessor_field=method.property_name,
                         is_static=method.is_static,
                         must_override=method.must_override,
                         must_call_parent=method.must_call_parent,

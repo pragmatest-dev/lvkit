@@ -46,9 +46,9 @@ class LVMethod:
     vi_path: str
     scope: str  # "public", "private", "protected", "community"
     is_static: bool = False
-    is_accessor: bool = False
-    accessor_type: str | None = None  # "getter" or "setter"
-    accessor_field: str | None = None  # field name being accessed
+    # The name of the property (``NI.ClassItem.Property.LongName``) whose
+    # ``Property Definition`` folder lists this VI; None for an ordinary method.
+    property_name: str | None = None
     # NI.ClassItem.MustOverride -- a child class MUST provide its own
     # implementation of this dynamic-dispatch method. Default False when the
     # property is absent (the overwhelming common case).
@@ -190,58 +190,6 @@ SCOPE_MAP = {
     3: "protected",
     4: "community",
 }
-
-# Accessor pattern detection
-# Note: Patterns require either:
-#   - Space after keyword (Read/Get/Write/Set X.vi) - case-insensitive
-#   - Uppercase letter after keyword (getX.vi) - camelCase
-# This avoids false positives like setUp -> "setter for Up"
-GETTER_PATTERNS = [
-    re.compile(r"^Read\s+(.+)\.vi$", re.IGNORECASE),  # "Read FieldName.vi"
-    re.compile(r"^Get\s+(.+)\.vi$", re.IGNORECASE),  # "Get FieldName.vi"
-    re.compile(r"^get([A-Z].+)\.vi$"),  # "getFieldName.vi" (camelCase)
-]
-
-SETTER_PATTERNS = [
-    re.compile(r"^Write\s+(.+)\.vi$", re.IGNORECASE),  # "Write FieldName.vi"
-    re.compile(r"^Set\s+(.+)\.vi$", re.IGNORECASE),  # "Set FieldName.vi"
-    re.compile(r"^set([A-Z].+)\.vi$"),  # "setFieldName.vi" (camelCase)
-]
-
-# Method names that look like accessors but aren't (e.g., test framework methods)
-NON_ACCESSOR_METHODS = {
-    "setUp",
-    "tearDown",
-    "setUpClass",
-    "tearDownClass",
-    "globalSetUp",
-    "globalTearDown",
-}
-
-
-def _detect_accessor(method_name: str) -> tuple[str | None, str | None]:
-    """Detect if a method is a getter or setter and extract the field name.
-
-    Returns:
-        Tuple of (accessor_type, field_name) or (None, None) if not an accessor.
-    """
-    # Check if this is a known non-accessor method (e.g., setUp, tearDown)
-    base_name = strip_vi_extension(method_name)
-    if base_name in NON_ACCESSOR_METHODS:
-        return (None, None)
-
-    for pattern in GETTER_PATTERNS:
-        match = pattern.match(method_name)
-        if match:
-            return ("getter", match.group(1))
-
-    for pattern in SETTER_PATTERNS:
-        match = pattern.match(method_name)
-        if match:
-            return ("setter", match.group(1))
-
-    return (None, None)
-
 
 def _same_class(label_text: str, classname: str) -> bool:
     """Case-insensitive class-name match for a private-data owner Label vs.
@@ -626,6 +574,7 @@ def _parse_items(
     parent_elem: ET.Element,
     methods: list[LVMethod],
     private_data_ctl: str | None,
+    property_name: str | None = None,
 ) -> None:
     """Recursively parse Item elements to find methods.
 
@@ -633,62 +582,58 @@ def _parse_items(
         parent_elem: Parent XML element to search
         methods: List to append methods to
         private_data_ctl: Name of private data control (if found)
+        property_name: The property whose folder ``parent_elem`` is, if it is one
     """
     for item in parent_elem.findall("Item"):
         item_name = item.get("Name", "")
         item_type = item.get("Type", "")
-        item_url = item.get("URL", "")
 
         if item_type == "Folder":
             # Recurse into folders (private, protected, etc.)
-            _parse_items(item, methods, private_data_ctl)
+            _parse_items(item, methods, private_data_ctl, property_name)
+        elif item_type == "Property Definition":
+            # The VIs listed in a property's folder are its accessors; the
+            # property is named by its long name.
+            long_name = item.find("Property[@Name='NI.ClassItem.Property.LongName']")
+            name = (
+                long_name.text
+                if long_name is not None and long_name.text
+                else item_name
+            )
+            _parse_items(item, methods, private_data_ctl, name)
         elif item_type == "VI" and is_vi_file(item_name):
-            # Get method properties
-            scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
-            static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
-            must_override_prop = item.find(
-                "Property[@Name='NI.ClassItem.MustOverride']"
-            )
-            must_call_parent_prop = item.find(
-                "Property[@Name='NI.ClassItem.MustCallParent']"
-            )
+            methods.append(_parse_method(item, property_name))
 
-            scope_val = 1  # default public
-            if scope_prop is not None and scope_prop.text:
-                try:
-                    scope_val = int(scope_prop.text)
-                except ValueError:
-                    pass
 
-            is_static = False
-            if static_prop is not None and static_prop.text:
-                is_static = static_prop.text.lower() == "true"
+def _parse_method(item: ET.Element, property_name: str | None) -> LVMethod:
+    """The method a class ``Item`` of type VI records."""
+    item_name = item.get("Name", "")
+    scope_prop = item.find("Property[@Name='NI.ClassItem.MethodScope']")
+    static_prop = item.find("Property[@Name='NI.ClassItem.IsStaticMethod']")
+    must_override_prop = item.find("Property[@Name='NI.ClassItem.MustOverride']")
+    must_call_parent_prop = item.find("Property[@Name='NI.ClassItem.MustCallParent']")
 
-            must_override = False
-            if must_override_prop is not None and must_override_prop.text:
-                must_override = must_override_prop.text.lower() == "true"
+    scope_val = 1  # default public
+    if scope_prop is not None and scope_prop.text:
+        try:
+            scope_val = int(scope_prop.text)
+        except ValueError:
+            pass
 
-            must_call_parent = False
-            if must_call_parent_prop is not None and must_call_parent_prop.text:
-                must_call_parent = must_call_parent_prop.text.lower() == "true"
+    return LVMethod(
+        name=strip_vi_extension(item_name),
+        vi_path=item.get("URL", ""),
+        scope=SCOPE_MAP.get(scope_val, "public"),
+        is_static=_bool_property(static_prop),
+        property_name=property_name,
+        must_override=_bool_property(must_override_prop),
+        must_call_parent=_bool_property(must_call_parent_prop),
+    )
 
-            # Detect accessor methods
-            accessor_type, accessor_field = _detect_accessor(item_name)
-            is_accessor = accessor_type is not None
 
-            methods.append(
-                LVMethod(
-                    name=strip_vi_extension(item_name),
-                    vi_path=item_url,
-                    scope=SCOPE_MAP.get(scope_val, "public"),
-                    is_static=is_static,
-                    is_accessor=is_accessor,
-                    accessor_type=accessor_type,
-                    accessor_field=accessor_field,
-                    must_override=must_override,
-                    must_call_parent=must_call_parent,
-                )
-            )
+def _bool_property(prop: ET.Element | None) -> bool:
+    """Whether a ``Bool`` class-item property is recorded as true."""
+    return prop is not None and bool(prop.text) and (prop.text or "").lower() == "true"
 
 
 def _lv_base64_decode(text: str) -> bytes:
