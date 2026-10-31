@@ -116,16 +116,21 @@ def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
     SAVED under on disk (e.g. ``Daqmx Module runtime.lvclass``). An exact
     (case-sensitive) lookup is always tried first by the caller — this is
     only the fallback, so it never changes behavior on a case-sensitive
-    filesystem where the exact name already matches.
+    filesystem where the exact name already matches. Several files that differ
+    only in case raise ``AmbiguousVIReferenceError``; none gives ``None``.
     """
     target = filename.lower()
     try:
-        for entry in directory.iterdir():
-            if entry.name.lower() == target:
-                return entry
+        matches = sorted(e for e in directory.iterdir() if e.name.lower() == target)
     except OSError:
         return None
-    return None
+    if len(matches) > 1:
+        raise AmbiguousVIReferenceError(
+            f"Ambiguous reference -- {filename!r} matches several files that "
+            f"differ only in case: {[str(m) for m in matches]}. Keep the one "
+            "it names."
+        )
+    return matches[0] if matches else None
 
 
 def _redirect_member_beside_container(cand: Path, leaf: str) -> Path:
@@ -274,15 +279,19 @@ def class_owner_ref(
     when the recorded path ends in a ``.lvclass`` file and the called name is a
     VI. The method file is that class's member, not the path itself (see
     ``LoadingMixin._class_member_file``). The owner's qualified name is the
-    record's, less the method; a record naming only the method has the class."""
+    record's, less the method; a record naming only the method has the class. A
+    record whose owner chain does not end in the path's class is not a class
+    call."""
     if dep_ref is None or not dep_ref.path_tokens:
         return None
     class_leaf = dep_ref.path_tokens[-1]
-    if not class_leaf.endswith(".lvclass") or not is_vi_file(
+    if not class_leaf.lower().endswith(".lvclass") or not is_vi_file(
         qualified_name.rsplit(":", 1)[-1]
     ):
         return None
     owner = qualified_name.rsplit(":", 1)[0] if ":" in qualified_name else class_leaf
+    if owner.rsplit(":", 1)[-1].lower() != class_leaf.lower():
+        return None
     return ParsedDependencyRef(
         name=class_leaf,
         path_tokens=list(dep_ref.path_tokens),
@@ -2018,10 +2027,12 @@ class LoadingMixin:
         file its recorded path names (loaded here when no call has loaded it),
         and the method is that class's member, else the nearest ancestor's
         (``class_method``). The member sits wherever the class lists it -- in a
-        subfolder, or in an ancestor's folder -- never assumed beside the class
-        file. ``None`` when the class is not on disk (it is stubbed by its
-        recorded path, so a progressive load names it) or no class of the chain
-        lists the method."""
+        subfolder, or in an ancestor's folder. A method the class does not list
+        is the file of the recorded qualified name found by
+        ``_find_recorded_vi`` (the class's folder and the search paths), else
+        the ancestor's. A class not on disk is stubbed by its recorded path (so
+        a progressive load names it) and only ``_find_recorded_vi`` can find the
+        method. ``None`` when none of these holds the file."""
         owner_name = owner_ref.qualified_name or owner_ref.name
         class_path = self._resolve_dependency_path(
             owner_name, owner_ref, caller_file, search_paths
@@ -2035,7 +2046,9 @@ class LoadingMixin:
                 caller_qname=caller_qname,
                 mode=LoadMode.MINIMAL,
             )
-            return None
+            return self._find_recorded_vi(
+                f"{owner_name}:{method}", search_paths, caller_file.parent
+            )
         cls_key = str(class_path.resolve())
         if self._dep_graph.has_node(cls_key) and cls_key not in self._stubs:
             if caller_qname:
@@ -2050,28 +2063,46 @@ class LoadingMixin:
                 mode=LoadMode.MINIMAL,
             )
             if loaded is None:
-                return None
+                return self._find_recorded_vi(
+                    f"{owner_name}:{method}", search_paths, caller_file.parent
+                )
             cls_key = loaded
         found = self.class_method(cls_key, method)
         if found is not None and found[0] == cls_key:
             return Path(found[1])
-        # The class does not list the method itself: a file beside the class
-        # whose own owners are the record's is it; else the ancestor's member.
-        beside = class_path.parent / method
-        if beside.exists() and self._owners_of(beside) == owner_name.split(":"):
-            return beside
+        # The class does not list the method itself: a file of the recorded
+        # qualified name (its owners are the record's) wherever the class's
+        # folder or the search paths hold it, else the ancestor's member.
+        recorded = self._find_recorded_vi(
+            f"{owner_name}:{method}",
+            [class_path.parent, *search_paths],
+            caller_file.parent,
+        )
+        if recorded is not None:
+            return recorded
         return Path(found[1]) if found is not None else None
 
-    def _owners_of(self, vi_path: Path) -> list[str]:
-        """The owning libraries and classes (``LIBN`` chain) a VI file records for
-        itself; empty when the file cannot be read."""
-        try:
-            _, _, main_xml = self._extract(vi_path)
-        except (RuntimeError, OSError):
-            return []
-        if main_xml is None:
-            return []
-        return list(parse_vi_metadata(main_xml).get("owning_libraries", []))
+    def _class_method_stub_key(
+        self,
+        owner_ref: ParsedDependencyRef,
+        method: str,
+        caller_file: Path,
+        search_paths: list[Path],
+    ) -> str:
+        """The dependency key of a class method no class lists. The file has no
+        path, so the key is not one: the owning class's qualified name, then
+        the class's identity (the class file when on disk, else the path the
+        record intends, else nothing), then the method. Two different classes
+        of one name never share the method's stub."""
+        owner_name = owner_ref.qualified_name or owner_ref.name
+        class_path = self._resolve_dependency_path(
+            owner_name, owner_ref, caller_file, search_paths
+        )
+        if class_path is None:
+            class_path = self._intended_dep_path(owner_name, owner_ref, caller_file)
+        if class_path is None:
+            return f"{owner_name}:{method}"
+        return f"{owner_name}@{class_path.resolve()}:{method}"
 
     def _intended_dep_path(
         self,
@@ -2168,8 +2199,6 @@ class LoadingMixin:
         if owner_ref is not None:
             resolved = self._class_member_file(
                 owner_ref, leaf, caller_file, search_paths, caller_qname
-            ) or self._find_recorded_vi(
-                qualified_name, search_paths, caller_file.parent
             )
         elif resolved_paths is not None and qualified_name in resolved_paths:
             resolved = resolved_paths[qualified_name]
@@ -2240,18 +2269,23 @@ class LoadingMixin:
                 else NodeType.VI
             )
             # A class method's record names the class's path, not the method's: the
-            # class does not list it, so the file has no recorded path.
-            computed = (
-                None
-                if owner_ref is not None
-                else self._intended_dep_path(qualified_name, dep_ref, caller_file)
-            )
-            stub_key = str(computed) if computed is not None else qualified_name
-            path_tokens = (
-                list(dep_ref.path_tokens)
-                if dep_ref and dep_ref.path_tokens and owner_ref is None
-                else None
-            )
+            # class does not list it, so the file has no recorded path and the
+            # stub is identified by its owning class's identity plus the method.
+            if owner_ref is not None:
+                stub_key = self._class_method_stub_key(
+                    owner_ref, leaf, caller_file, search_paths
+                )
+                path_tokens = None
+                stub_identity = None
+            else:
+                computed = self._intended_dep_path(qualified_name, dep_ref, caller_file)
+                stub_key = str(computed) if computed is not None else qualified_name
+                path_tokens = (
+                    list(dep_ref.path_tokens)
+                    if dep_ref and dep_ref.path_tokens
+                    else None
+                )
+                stub_identity = str(computed) if computed is not None else None
             self._add_stub(
                 stub_key,
                 node_type,
@@ -2261,7 +2295,7 @@ class LoadingMixin:
                 caller=caller_qname,
                 path_type=dep_ref.path_type if dep_ref else None,
             )
-            return str(computed) if computed is not None else None
+            return stub_identity
 
         # Dispatch by extension to the matching public loader.
         if is_vi_file(leaf):

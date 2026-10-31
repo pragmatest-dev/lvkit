@@ -12,7 +12,7 @@ from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
 
 from lvkit.models import vi_kind_label
 from lvkit.parser.xml_trees import parsed_xml
-from lvkit.text_encoding import decode_labview_text
+from lvkit.text_encoding import decode_labview_text, unwrap_pascal_name
 from lvkit.vi_files import is_vi_file
 
 from .models import ParsedDependencyRef
@@ -591,9 +591,9 @@ def parse_vipi_from_livi(livi_path: Path) -> list[ParsedDependencyRef]:
 
     The record's ``PTH0`` is the path of the file the chain's owner is: the class
     for a class method (the method file itself sits in that class's member list,
-    possibly in a subfolder or an ancestor class — never assumed beside the class
-    file). A record naming only the method gets the ``PTH0`` class's name as its
-    owner. A record with no path gives no ref. Each ref's qualified name is the
+    possibly in a subfolder or an ancestor class — not assumed to sit beside the
+    class file). A record naming only the method gets the ``PTH0`` class's name
+    as its owner. A record with no path gives no ref. Each ref's qualified name is the
     owner chain joined with ``:`` (as the block-diagram records name it).
     """
     try:
@@ -625,13 +625,7 @@ def parse_vipi_from_livi(livi_path: Path) -> list[ParsedDependencyRef]:
                 break
             raw = data[p : p + slen]
             p += slen
-            # A method name is wrapped [0x01][inner_len][text]; a class name is
-            # a plain pascal string (never starts with 0x01).
-            if raw[0] == 0x01 and slen >= 2:
-                inner = raw[1]
-                text = decode_labview_text(raw[2 : 2 + inner])
-            else:
-                text = decode_labview_text(raw)
+            text = decode_labview_text(unwrap_pascal_name(raw))
             names.append(text.strip())
 
         if not names or not is_vi_file(names[-1]):
@@ -643,7 +637,7 @@ def parse_vipi_from_livi(livi_path: Path) -> list[ParsedDependencyRef]:
         if not tokens:
             continue
         method = names[-1]
-        if len(names) == 1 and tokens[-1].endswith(".lvclass"):
+        if len(names) == 1 and tokens[-1].lower().endswith(".lvclass"):
             names = [tokens[-1], method]
         refs.append(
             ParsedDependencyRef(

@@ -93,6 +93,19 @@ def decode_labview_text(data: bytes, encoding: str | None = None) -> str:
     return data.decode(encoding or labview_text_encoding(), errors="replace")
 
 
+def unwrap_pascal_name(raw: bytes) -> bytes:
+    """The name inside a wrapped method-name string of a link record.
+
+    The record's outer pascal string holds ``[0x01][length][name bytes]`` where
+    ``length`` is the name's byte count, e.g. ``27 01 25`` then the 37 bytes of
+    ``Initialize MeasurementLink Session.vi`` (outer length 0x27 = 39). Any
+    other string (a library or class name, a name whose inner length does not
+    match) is returned as is."""
+    if len(raw) >= 2 and raw[0] == 0x01 and raw[1] == len(raw) - 2:
+        return raw[2:]
+    return raw
+
+
 def _transcode_fragment(text: str, target: str) -> str:
     raw = text.encode(_PYLABVIEW_ENCODING, errors="xmlcharrefreplace")
     return raw.decode(target, errors="replace")

@@ -135,7 +135,11 @@ from pathlib import Path
 
 from lvkit.dotnet_types import DotNetAssembly
 from lvkit.models import SharedVariableKind
-from lvkit.text_encoding import decode_labview_text
+from lvkit.text_encoding import (
+    decode_labview_text,
+    labview_text_encoding,
+    unwrap_pascal_name,
+)
 
 from .utils import clean_labview_string
 
@@ -458,7 +462,9 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     count = r.u32()
     if count > _MAX_NAME_PARTS:
         raise LinkTableError(f"qualified name with {count} parts")
-    name_parts = tuple(decode_labview_text(r.pascal()) for _ in range(count))
+    name_parts = tuple(
+        decode_labview_text(unwrap_pascal_name(r.pascal())) for _ in range(count)
+    )
     r.align(2)
     path_type, path_tokens = r.typed_path()
 
@@ -929,18 +935,30 @@ def read_shared_variable_links(
     return decode_shared_variable_links(libd_path.read_bytes(), version)
 
 
-_NAME_WRAPPER_RE = re.compile(r"^(?:&#x01;|\x01)(.)(.*)$", re.DOTALL)
+_NAME_WRAPPER_RE = re.compile(
+    r"^(?:&#x01;|\x01)(?:&#x([0-9A-Fa-f]{2});|(.))(.*)$", re.DOTALL
+)
 
 
 def _unwrap_name(part: str) -> str:
-    """A method name in a link record is wrapped ``[0x01][length]name``. The
-    length is a control character for a short name (cleaning drops it) but a
-    printable one from 32 characters on (``%`` for 37): it is dropped here, the
-    byte that equals the name's length."""
+    """A method name in a block-diagram link record, as XML text, is the decoded
+    wrapped name (see ``unwrap_pascal_name``), its control characters written as
+    ``&#xNN;`` entities. It is turned back into the record's bytes in the text
+    encoding it was decoded with, so the name's length is counted in bytes and
+    the same helper unwraps it as the binary reader."""
     wrapped = _NAME_WRAPPER_RE.match(part)
-    if wrapped is not None and ord(wrapped.group(1)) == len(wrapped.group(2)):
-        return wrapped.group(2)
-    return part
+    if wrapped is None:
+        return part
+    encoding = labview_text_encoding()
+    hex_length, char_length, name = wrapped.groups()
+    length = (
+        bytes([int(hex_length, 16)])
+        if hex_length is not None
+        else char_length.encode(encoding, errors="replace")
+    )
+    raw = b"\x01" + length + name.encode(encoding, errors="replace")
+    unwrapped = unwrap_pascal_name(raw)
+    return part if unwrapped is raw else decode_labview_text(unwrapped)
 
 
 def qualified_link_name(

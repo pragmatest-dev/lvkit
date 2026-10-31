@@ -1540,7 +1540,7 @@ def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
         ":" not in qname
         and is_vi_file(qname)
         and path_tokens
-        and path_tokens[-1].endswith(".lvclass")
+        and path_tokens[-1].lower().endswith(".lvclass")
     ):
         return f"{path_tokens[-1]}:{qname}"
     return qname
@@ -1717,9 +1717,7 @@ def _extract_subvi_info(
 
     # The class method each raw dynamic-dispatch record names is a dependency.
     for dyn in dyn_links:
-        qname = qualified_link_name(
-            list(dyn.name_parts), dyn.link_flag, caller_library
-        )
+        qname = qualified_link_name(list(dyn.name_parts), dyn.link_flag, caller_library)
         if qname:
             _add_dependency(qname, dyn.path_tokens, dyn.path_type)
 
