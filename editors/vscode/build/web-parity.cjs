@@ -36,10 +36,10 @@ os.environ["LVKIT_CACHE_DIR"] = "/tmp/lvkit-parity-cache"
 from pathlib import Path
 from lvkit.render import render_vi_file_titled
 def _r(p):
-    # Render from the STAGED /proj tree with /proj as the search root, exactly
-    # as the shipped web extension does — must match \`lvkit render --format svg
-    # --theme light\` on the native side (which reads the same files off disk).
-    svg = render_vi_file_titled(Path(p), search_paths=[Path("/proj")])[0]
+    # Render from the STAGED /proj tree, exactly as the shipped web extension
+    # does — must match \`lvkit render --format svg --theme light\` on the
+    # native side (which reads the same files off disk).
+    svg = render_vi_file_titled(Path(p))[0]
     return svg or ""
 _r`);
 
@@ -52,7 +52,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.load_mode import LoadMode
 def _deps(p):
     g = InMemoryVIGraph()
-    n = g.load_vi(Path(p), LoadMode.MINIMAL, search_paths=[Path("/proj")])
+    n = g.load_vi(Path(p), LoadMode.MINIMAL)
     return json.dumps([str(x) for x in g.get_dependency_paths(n)])
 _deps`);
 

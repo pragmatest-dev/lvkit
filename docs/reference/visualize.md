@@ -36,19 +36,19 @@ If `input_path` doesn't exist, `visualize` prints
 | `--mode {dataflow,deps}` | Graph type. `dataflow` graphs the operations inside a single VI — for a `.lvlib`/`.lvclass`/directory input it graphs only the first VI encountered while loading, not the whole set. `deps` graphs VI-to-VI dependencies and works with any `input_path`, including a lone `.vi`. |
 | `--open` | Open the generated file directly in your system's default browser via Python's `webbrowser` module after writing it — no server is started. |
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. `--load-mode none` skips [SubVI](subvi-resolution.md) expansion. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
 lvkit visualize "Result Logger.lvclass" \
-  --search-path samples/OpenG/extracted \
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" \
   --mode deps \
   -o outputs/result-logger-deps.html
 ```
 
-`--search-path samples/OpenG/extracted` tells `visualize` where to find
-`Result Logger.lvclass`'s own SubVI dependencies (see
+`--userlib` names the folder `Result Logger.lvclass`'s recorded
+`<userlib>/...` SubVI paths start from (see
 [SubVI & vi.lib resolution](subvi-resolution.md)). This writes an interactive
 dependency graph to `outputs/result-logger-deps.html`. Switch
 `--mode dataflow` to instead graph the operations within a single VI.

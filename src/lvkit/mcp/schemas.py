@@ -36,11 +36,6 @@ TOOL_DEFINITIONS = {
                         "Path to VI file (.vi, .vim, .vit) or block diagram XML"
                     ),
                 },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for SubVI dependencies",
-                },
                 "load_mode": {
                     "type": "string",
                     "enum": ["none", "minimal", "full"],
@@ -71,11 +66,6 @@ TOOL_DEFINITIONS = {
                     "type": "string",
                     "description": "Output directory for HTML files",
                 },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for dependencies",
-                },
                 "load_mode": {
                     "type": "string",
                     "enum": ["none", "minimal", "full"],
@@ -102,11 +92,6 @@ TOOL_DEFINITIONS = {
                     "type": "string",
                     "description": "Output directory for generated Python",
                 },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for dependencies",
-                },
             },
             "required": ["vi_path", "output_dir"],
         },
@@ -119,11 +104,6 @@ TOOL_DEFINITIONS = {
                 "vi_path": {
                     "type": "string",
                     "description": "Path to VI file (.vi, .vim, .vit)",
-                },
-                "search_paths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Directories to search for SubVI dependencies",
                 },
                 "load_mode": {
                     "type": "string",

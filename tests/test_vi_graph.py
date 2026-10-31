@@ -10,6 +10,7 @@ from lvkit.graph import InMemoryVIGraph, connect
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode, WireEnd
 from lvkit.models import FPTerminal, Terminal
+from tests.corpus_graphs import OPENG_USERLIB
 
 
 class TestInMemoryVIGraphCreation:
@@ -255,10 +256,10 @@ class TestRealVILoading:
             pytest.skip("Sample VI not available")
 
         graph = InMemoryVIGraph()
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
         graph.load_vi(
             sample_vi_path,
             mode=LoadMode.FULL,
-            search_paths=[Path(".lvkit/cache/samples/OpenG/extracted")],
         )
         assert len(graph.list_vis()) >= 1
         assert len(graph.get_conversion_order()) >= 1

@@ -48,8 +48,16 @@ def test_dispatcher_sends_a_ctl_to_the_control_renderer(monkeypatch) -> None:
         Path("A.CTL"), fmt="svg", vilib_root=Path("/v"), mode=LoadMode.FULL, ref="r"
     )
     assert set(calls) == {"ctl"}  # matched on suffix, case-insensitively
-    # a control has no dependencies: the VI load options are not forwarded
-    assert set(calls["ctl"]) == {"fmt", "search_paths", "theme_mode", "ref"}
+    # a control takes the library roots, not the VI load mode
+    assert set(calls["ctl"]) == {
+        "fmt",
+        "vilib_root",
+        "userlib_root",
+        "instrlib_root",
+        "search_path",
+        "theme_mode",
+        "ref",
+    }
     render_body(Path("A.vi"), fmt="svg", vilib_root=Path("/v"))
     assert calls["vi"]["vilib_root"] == Path("/v")
 
@@ -70,7 +78,15 @@ def test_with_name_dispatcher_mirrors_render_body(monkeypatch) -> None:
         Path("A.CTL"), fmt="svg", vilib_root=Path("/v"), mode=LoadMode.FULL, ref="r"
     )
     assert set(calls) == {"ctl"}
-    assert set(calls["ctl"]) == {"fmt", "search_paths", "theme_mode", "ref"}
+    assert set(calls["ctl"]) == {
+        "fmt",
+        "vilib_root",
+        "userlib_root",
+        "instrlib_root",
+        "search_path",
+        "theme_mode",
+        "ref",
+    }
     render_body_with_name(Path("A.vi"), fmt="svg", vilib_root=Path("/v"))
     assert calls["vi"]["vilib_root"] == Path("/v")
 
@@ -127,13 +143,13 @@ def test_with_name_returns_the_same_body_plus_the_typedef_name():
 
     result = render_ctl_body_with_name(_CTL, fmt="svg", theme_mode="light")
     assert result is not None
-    svg, name, _ = result
+    svg, name = result.body, result.name
     assert svg == render_ctl_body(_CTL, fmt="svg", theme_mode="light")
     assert name == "API_Test Settings.ctl"
 
     result_html = render_ctl_body_with_name(_CTL, fmt="html", ref="abc1234")
     assert result_html is not None
-    _, name_html, _ = result_html
+    name_html = result_html.name
     assert name_html == "API_Test Settings.ctl"  # the ref suffix is NOT in name
 
 
@@ -146,7 +162,7 @@ def test_the_output_cache_serves_a_control_render(tmp_path, monkeypatch):
         _CTL, fmt="svg", options=opts, version="t", theme_mode="light"
     )
     assert first is not None
-    assert lookup_render(_CTL, "svg", opts, "t") == first  # now a fresh cache hit
+    assert lookup_render(_CTL, "svg", opts, "t") == first.body  # a fresh cache hit
 
 
 @pytest.mark.needs_samples

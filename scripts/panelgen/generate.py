@@ -46,9 +46,9 @@ def _write_controls_runtime(output_dir: Path) -> None:
 def generate_panel(
     vi_path: Path | str,
     output_dir: Path | str,
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
 ) -> PanelResult:
     """Generate ``<vi>.py`` + ``<vi>_panel.py`` (+ shared ``controls/`` runtime
     package) for ``vi_path`` into ``output_dir``. Prints any polymorphic-fallback
@@ -56,14 +56,13 @@ def generate_panel(
     vi_path = Path(vi_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    resolved_search_paths = search_paths or [vi_path.parent]
 
     logic_result = generate_logic(
         vi_path,
         output_dir,
-        resolved_search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
     )
     if logic_result.polymorphic_note:
         print(f"NOTE: {logic_result.polymorphic_note}")

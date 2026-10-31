@@ -35,7 +35,7 @@ _CORPUS = Path(__file__).resolve().parent / "corpus" / "issues"
 
 def _fixture_vis() -> list:
     """Every ``.vi`` under the committed issue corpus, paired with its issue
-    directory (used as the search-path root so a multi-VI project resolves)."""
+    directory."""
     params = []
     for issue_dir in sorted(p for p in _CORPUS.iterdir() if p.is_dir()):
         for vi in sorted(issue_dir.rglob("*.vi")):
@@ -46,7 +46,7 @@ def _fixture_vis() -> list:
 def _load(rel: str) -> tuple[InMemoryVIGraph, str]:
     vi = _CORPUS / rel
     graph = InMemoryVIGraph()
-    graph.load_vi(vi, mode=LoadMode.MINIMAL, search_paths=[vi.parent], layout=True)
+    graph.load_vi(vi, mode=LoadMode.MINIMAL, layout=True)
     return graph, graph.resolve_vi_name(vi.name)
 
 
@@ -69,7 +69,6 @@ def _load_issue82() -> tuple[InMemoryVIGraph, str]:
     graph.load_vi(
         _ISSUE82_VI,
         mode=LoadMode.MINIMAL,
-        search_paths=[_ISSUE82_VI.parent],
         layout=True,
     )
     return graph, graph.resolve_vi_name(_ISSUE82_VI.name)
@@ -102,10 +101,8 @@ def test_issue29_web_closure_render_matches_full_tree(tmp_path: Path) -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(src.read_bytes())
 
-    svg_closure = render_vi_file(
-        tmp_path / entry.relative_to(root), search_paths=[tmp_path]
-    )
-    svg_full = render_vi_file(entry, search_paths=[root])
+    svg_closure = render_vi_file(tmp_path / entry.relative_to(root))
+    svg_full = render_vi_file(entry)
     assert svg_closure and svg_full, "expected both renders to produce a diagram"
 
     assert normalize_render_ids(svg_closure) == normalize_render_ids(svg_full), (
@@ -302,7 +299,7 @@ def test_issue32_free_labels_are_modeled_and_rendered():
 
     # Rendered: both label texts appear in the SVG.
     vi_path = _CORPUS / "32" / "comments-and-decorations.vi"
-    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    svg = render_vi_file(vi_path)
     assert svg is not None and svg.count("Hello World!") == 2
 
     # Semantic: the comment text is surfaced for an agent reading the VI.
@@ -372,7 +369,7 @@ def test_issue32_decorations_are_rendered():
     assert any(isinstance(n, LabelNode) for n in graph.iter_nodes(vi))
     # Rendered: the arrowhead polygon appears in the SVG.
     vi_path = _CORPUS / "32" / "comments-and-decorations.vi"
-    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    svg = render_vi_file(vi_path)
     assert svg is not None and "<polygon" in svg
 
 
@@ -393,7 +390,7 @@ def test_issue82_embedded_picture_renders_as_image():
     # right) -> (x1, y1, x2, y2).
     assert pictures[0].bounds == (425.0, 604.0, 1228.0, 1247.0)
 
-    svg = render_vi_file(_ISSUE82_VI, search_paths=[_ISSUE82_VI.parent])
+    svg = render_vi_file(_ISSUE82_VI)
     assert svg is not None and "<image" in svg and "data:image/png;base64," in svg
 
 
@@ -447,7 +444,7 @@ def test_issue82_attachment_leader_renders_at_decoded_endpoints():
     # tail at the label's bottom edge, head at the picture's top edge.
     assert glyph.points == ((380.0, 257.0), (611.0, 604.0))
 
-    svg = render_vi_file(_ISSUE82_VI, search_paths=[_ISSUE82_VI.parent])
+    svg = render_vi_file(_ISSUE82_VI)
     assert svg is not None and "<polygon" in svg
 
 
@@ -456,7 +453,7 @@ def test_issue_fixture_renders(vi: Path, issue_dir: Path):
     """Every committed issue-repro VI loads and renders to a non-empty SVG --
     a crash/regression guard over the whole issue corpus. (Bug-specific
     behaviour is asserted by the dedicated per-issue tests below.)"""
-    svg = render_vi_file(vi, search_paths=[issue_dir])
+    svg = render_vi_file(vi)
     assert svg is not None, f"render returned None for {vi.name}"
     assert "<svg" in svg[:500]
     assert len(svg) > 200
@@ -515,7 +512,7 @@ def test_issue38_loop_tunnel_glyph_from_mode():
 def test_issue38_fixture_renders():
     """The #38 repro loads and renders to a non-empty SVG (crash guard)."""
     vi = _CORPUS / "38" / "auto-concatenating-tunnel.vi"
-    svg = render_vi_file(vi, search_paths=[vi.parent])
+    svg = render_vi_file(vi)
     assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
 
 
@@ -551,7 +548,7 @@ def test_issue34_hidden_iteration_terminal_omitted():
 def test_issue34_fixture_renders():
     """The #34 repro loads and renders to a non-empty SVG (crash guard)."""
     vi = _CORPUS / "34" / "hidden-iteration-terminal.vi"
-    svg = render_vi_file(vi, search_paths=[vi.parent])
+    svg = render_vi_file(vi)
     assert svg is not None and "<svg" in svg[:500] and len(svg) > 200
 
 
@@ -609,7 +606,7 @@ def test_issue35_structures_occlude_by_zorder():
     # Opaque bodies actually reach the SVG (the fix): more canvas-colored FILLS
     # than the single backdrop rect.
     vi_path = _CORPUS / "35" / "objects-hidden-by-structures.vi"
-    svg = render_vi_file(vi_path, search_paths=[vi_path.parent])
+    svg = render_vi_file(vi_path)
     assert svg is not None
     assert svg.count('fill="#ffffff"') > 3
 

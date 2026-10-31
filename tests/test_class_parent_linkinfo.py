@@ -107,7 +107,7 @@ def _call_keys(vi_rel: str) -> dict[str, str | None]:
     """``{callee file name: callee_key}`` of every subVI call of ``vi_rel``."""
     vi_path = (SAMPLE_ROOT / vi_rel).resolve()
     graph = InMemoryVIGraph()
-    key = graph.load_vi(vi_path, LoadMode.MINIMAL, search_paths=[SAMPLE_ROOT.resolve()])
+    key = graph.load_vi(vi_path, LoadMode.MINIMAL)
     assert key is not None
     return {
         Path(n.qualified_name.rsplit(":", 1)[-1]).name: n.callee_key
@@ -124,7 +124,6 @@ def test_in_repo_parent_is_found_by_its_recorded_path() -> None:
     graph.load_vi(
         (SAMPLE_ROOT / "Tests/MyFirstTest/testDemo.vi").resolve(),
         LoadMode.MINIMAL,
-        search_paths=[SAMPLE_ROOT.resolve()],
     )
     cls_key = str((SAMPLE_ROOT / "Tests/MyFirstTest/MyFirstTest.lvclass").resolve())
     parent_key = str((SAMPLE_ROOT / "Classes/TestCase/TestCase.lvclass").resolve())

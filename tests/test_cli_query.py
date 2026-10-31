@@ -99,6 +99,8 @@ def test_json_format(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
         "rows": [[3]],
         "row_count": 1,
         "truncated": False,
+        "status": "Complete",
+        "problems": [],
     }
 
 

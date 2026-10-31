@@ -5,6 +5,8 @@ page documents one command exhaustively; this page is the map.
 
 Run `lvkit <command> --help` at any time for the same argument listing offline.
 
+How every command reports a VI it cannot read, its exit codes (`0` complete, `1` stopped, `2` usage, `3` partial) and `--fail-fast`: [problems](problems.md).
+
 ## Reads, never writes
 
 lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them.
@@ -57,7 +59,7 @@ you), then ask project-wide questions in one call — no per-VI round trips.
 
 ## Shared options
 
-- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--search-path`, `--vilib`, `--userlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, and `render`, explained once.
+- [SubVI & vi.lib resolution](subvi-resolution.md) — the `--vilib`, `--userlib`, `--instrlib`, `--project-root`, and `--no-auto-vilib` flags shared by `describe`, `generate`, `docs`, `visualize`, `diff`, and `render`, explained once.
 - [Netlist](netlist.md) — the node-first text grammar shared by `describe --verbose`'s `## Netlist` section, `diff`'s text output, and the interactive diff viewer's Tree change list.
 
 ---

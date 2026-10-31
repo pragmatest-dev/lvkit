@@ -48,10 +48,10 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     assert isinstance(ctx, dict)
     assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
 
-    # The resolution axis: an extra `search_paths` root (an out-of-tree library
-    # the VI might call into) is accepted by the reading tool, same as
-    # `unresolved`. A harmless extra root leaves the base result intact.
-    assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
+    # The resolution axis: a library root (a user.lib the VI's recorded paths
+    # might start from) is accepted by the reading tool, same as `unresolved`.
+    # A root the VI records nothing under leaves the base result intact.
+    assert _run(srv.read_vi(vi, userlib=str(tmp_path))) == ctx
 
     # render: writes the block-diagram HTML viewer and returns its PATH (not the
     # markup, which would flood context). The AI can't reconstruct LV geometry
@@ -91,7 +91,7 @@ def test_render_and_diff_return_a_path_not_the_content(tmp_path: Path) -> None:
         assert isinstance(resp, dict)
         # The response carries a path + a byte count + input-VI identification
         # (#114) — no markup, no blob key.
-        assert set(resp) == {path_key, "bytes", *extra_keys}
+        assert set(resp) == {path_key, "bytes", "status", "problems", *extra_keys}
         blob = json.dumps(resp)
         assert "<svg" not in blob and "<html" not in blob.lower()
         # The real content is substantial and lives on disk, not in the response.

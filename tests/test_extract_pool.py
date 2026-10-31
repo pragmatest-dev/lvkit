@@ -183,10 +183,15 @@ def test_failure_on_an_unreadable_vi_raises_the_loaders_error(
 
 def test_workers_adopt_the_parents_library_roots(tmp_path: Path) -> None:
     try:
-        extract_pool._init_worker(tmp_path / "vilib", tmp_path / "userlib")
+        extract_pool._init_worker(
+            (tmp_path / "vilib",),
+            (tmp_path / "userlib",),
+            (tmp_path / "instrlib",),
+        )
         assert cache_paths.extraction_roots() == (
-            (tmp_path / "vilib").resolve(),
-            (tmp_path / "userlib").resolve(),
+            ((tmp_path / "vilib").resolve(),),
+            ((tmp_path / "userlib").resolve(),),
+            ((tmp_path / "instrlib").resolve(),),
         )
     finally:
         cache_paths.clear_extraction_roots()
