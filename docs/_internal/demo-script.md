@@ -98,7 +98,7 @@ lvkit generate samples/JKI-VI-Tester/source/Classes/TestCase/TestCase.lvclass \
 
 **Expected:** ~94 AST files, 0 errors. 139 VIs loaded (full dependency chain).
 
-Show the generated class wrapper. Show a few method implementations.
+Show the generated class module. Show a few method implementations.
 
 **Talking point:** This is a real test framework. 94 files, zero manual intervention.
 

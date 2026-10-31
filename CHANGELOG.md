@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **A LabVIEW class generates as one Python class whose methods are its VIs; import paths change** — the class lives in a module named from its file (`testcase`), a child descends from its parent's class and overrides with `super()`, a member VI has no module of its own, and a Bundle/Unbundle By Name counts the wire's own class's fields.
 - **A class property is a VI the class lists in a `Property Definition` folder: accessors that only move one field make the field a public, protected or private attribute named by the property, accessors with logic make a Python property** — no VI name decides it; calls of an accessor read and write `obj.name`; Bundle/Unbundle By Name, In Place Element and `__init__` use the same attribute names, and a class named with its library resolves its fields.
 - **Fix: an unwired input of a vi.lib VI takes only a real default, a call terminal is named by the labels its caller records, nothing guesses a terminal number, and a folder you generate keeps every VI in it** — catalog prose such as "value is 30000" is no longer passed as code, and what a run learns stays in that run.
 - **A vi.lib VI the catalog has Python for is never generated from its diagram, and neither are the VIs only it calls** — generation loads just its connector pane, uses the catalog's Python for every call, and fills a missing terminal index or default from that pane; a catalog terminal that disagrees with the pane is a terminal-mapping gap.

@@ -1245,6 +1245,17 @@ flatten matched the full flatten: nMux 349/349, event data 51/51, decompose
 `<i>`=0 is typed as the whole `pin map context` cluster, `<i>`=3 is `gRPC
 server call`.
 
+For a class wire the aggregate is the wire's OWN class's private data only,
+never the parent's followed by its own. Decoded by the drawer's TypeID → VCTP
+label, in three hierarchies with no contradiction: JKI `TextTestRunner` (own
+`stream, descriptions, verbosity`) of `TestRunner` (own `publicEvents, Start
+Time, Stop Time`): `Read stream` selects 0 → `stream`, `Read descriptions` 1,
+`Read verbosity` 2, `makeResult` 0/1/2 (a parent+own list would put `stream` at
+3 or more); JKI `_TextTestResult` (6 own) of `TestResult` (7 fields):
+`streamWrite` 0 → `stream` … `printErrorList` 5 → `separator2`; Actor Framework
+`Event Source Actor` (own `Registration Map`) of `Actor` (3 fields): seven VIs
+select 0 → `Registration Map`.
+
 ## A Property Node row is ONE `propItem`; its `propList` holds one `propItemInfo` per path segment, so a nested property (`Label.Text`) is one row, not two
 
 A `class="propNode"`'s rows are its `class="propItem"` elements, and their
