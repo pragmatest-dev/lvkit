@@ -18,7 +18,7 @@ def _attributes(labels: tuple[str, ...]) -> tuple[list[str], list[str]]:
     root = ET.fromstring(f"<R><VCTP><Section>{descs}</Section></VCTP></R>")
     fields = _resolve_type_ids(root, [str(i) for i in range(len(labels))])
     cls = LVClass(name="C", path=Path("C.lvclass"), private_data_fields=fields)
-    func = _InitBuilderMixin()._build_init(cls, None)
+    func = _InitBuilderMixin()._build_init(cls, False)
     attrs = [
         s.targets[0].attr  # type: ignore[attr-defined]
         for s in func.body
@@ -61,7 +61,7 @@ def test_fields_are_private_whatever_the_scope_of_a_property_over_them() -> None
             )
         ],
     )
-    func = _InitBuilderMixin()._build_init(cls, None)
+    func = _InitBuilderMixin()._build_init(cls, False)
     attrs = [
         s.targets[0].attr  # type: ignore[attr-defined]
         for s in func.body

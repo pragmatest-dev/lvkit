@@ -914,10 +914,13 @@ def generate_python(
 
             # Get method contexts from graph
             method_contexts = {}
+            class_key = str(input_path.resolve())
             for method in lvclass.methods:
-                qualified_name = f"{lvclass.name}.lvclass:{method.name}.vi"
-                ctx = graph.get_vi_context(qualified_name)
-                if ctx.inputs or ctx.outputs or graph.top_level_nodes(qualified_name):
+                member = graph.class_method(class_key, Path(method.vi_path).name)
+                if member is None:
+                    continue
+                ctx = graph.get_vi_context(member[1])
+                if ctx.inputs or ctx.outputs or graph.top_level_nodes(member[1]):
                     method_contexts[method.name] = ctx
 
             # Build class wrapper with context lookup for SubVI resolution

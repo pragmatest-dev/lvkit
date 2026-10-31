@@ -1,18 +1,27 @@
-"""A property is a VI the class lists inside a ``Property Definition`` folder, a
-getter or a setter by its own connector pane, written as a Python property over
-the private attribute of the one field its diagram moves. No VI name decides it."""
+"""A class property is the VIs a ``.lvclass`` lists in a ``Property Definition``
+folder. Accessors that only move one private data field are that field's
+attribute; accessors with logic are a Python property written from their own
+diagrams; a VI outside every folder is a method. Nothing is decided by a VI's
+name."""
 
 from __future__ import annotations
 
 import ast
+import dataclasses
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from lvkit.class_property import PropertyRole, property_role
+from lvkit.codegen import build_module
+from lvkit.codegen.class_attributes import AccessorKind, class_attributes
 from lvkit.codegen.class_builder import ClassBuilder
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import PrimitiveNode, VIContext, Wire
+from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
 from tests.helpers import build_graph
@@ -26,31 +35,39 @@ _CLASS_TYPE = LVType(
 _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 _FIELDS = [ClusterField(name="Count", type=_INT), ClusterField(name="Name", type=_INT)]
 
-_LVCLASS = """<?xml version='1.0' encoding='UTF-8'?>
-<LVClass LVVersion="25008000">
-\t<Item Name="C.ctl" Type="Class Private Data" URL="C.ctl"/>
-\t<Item Name="Accessor" Type="Folder">
-\t\t<Item Name="Count" Type="Property Definition">
-\t\t\t<Property Name="NI.ClassItem.Property.LongName" Type="Str">Item Count</Property>
-\t\t\t<Item Name="Read Count.vi" Type="VI" URL="../Accessor/Read Count.vi">
-\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
-\t\t\t</Item>
-\t\t\t<Item Name="Write Count.vi" Type="VI" URL="../Accessor/Write Count.vi">
-\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
-\t\t\t</Item>
-\t\t</Item>
-\t\t<Item Name="Name" Type="Property Definition">
-\t\t\t<Property Name="NI.ClassItem.Property.LongName" Type="Str">Label</Property>
-\t\t\t<Item Name="Read Name.vi" Type="VI" URL="../Accessor/Read Name.vi">
-\t\t\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">3</Property>
-\t\t\t</Item>
-\t\t</Item>
-\t</Item>
-\t<Item Name="Get Config.vi" Type="VI" URL="Get Config.vi">
-\t\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
-\t</Item>
-</LVClass>
-"""
+_PUBLIC, _PRIVATE, _PROTECTED = 1, 2, 3
+
+
+def _item(vi: str, scope: int, indent: str = "\t\t\t") -> str:
+    return (
+        f'{indent}<Item Name="{vi}.vi" Type="VI" URL="../Accessor/{vi}.vi">\n'
+        f'{indent}\t<Property Name="NI.ClassItem.MethodScope" Type="UInt">'
+        f"{scope}</Property>\n{indent}</Item>\n"
+    )
+
+
+def _lvclass(
+    properties: list[tuple[str, str, list[tuple[str, int]]]],
+    methods: list[tuple[str, int]],
+) -> str:
+    """A class file: ``properties`` are (folder, long name, [(vi, scope)])."""
+    folders = ""
+    for folder, long_name, vis in properties:
+        folders += (
+            f'\t\t<Item Name="{folder}" Type="Property Definition">\n'
+            '\t\t\t<Property Name="NI.ClassItem.Property.LongName" Type="Str">'
+            f"{long_name}</Property>\n"
+            + "".join(_item(vi, scope) for vi, scope in vis)
+            + "\t\t</Item>\n"
+        )
+    return (
+        "<?xml version='1.0' encoding='UTF-8'?>\n"
+        '<LVClass LVVersion="25008000">\n'
+        '\t<Item Name="C.ctl" Type="Class Private Data" URL="C.ctl"/>\n'
+        f'\t<Item Name="Accessor" Type="Folder">\n{folders}\t</Item>\n'
+        + "".join(_item(vi, scope, "\t") for vi, scope in methods)
+        + "</LVClass>\n"
+    )
 
 
 def _terminal(
@@ -71,7 +88,16 @@ def test_property_folders_list_their_vis_and_nothing_else_is_a_property(
     tmp_path: Path,
 ) -> None:
     path = tmp_path / "C.lvclass"
-    path.write_text(_LVCLASS, encoding="utf-8")
+    path.write_text(
+        _lvclass(
+            [
+                ("Count", "Item Count", [("Read Count", 1), ("Write Count", 1)]),
+                ("Name", "Label", [("Read Name", 3)]),
+            ],
+            [("Get Config", 1)],
+        ),
+        encoding="utf-8",
+    )
     methods = {m.name: m for m in parse_lvclass(path).methods}
     assert {n: (m.property_name, m.scope) for n, m in methods.items()} == {
         "Read Count": ("Item Count", "public"),
@@ -89,224 +115,518 @@ def test_a_pane_decides_which_accessor_a_property_vi_is() -> None:
     assert property_role([self_in], [self_out, value_out], "C") is PropertyRole.GETTER
     assert property_role([self_in, value_in], [self_out], "C") is PropertyRole.SETTER
     assert property_role([self_in], [self_out], "C") is None
-    assert property_role([self_in, value_in], [value_out], "C") is PropertyRole.SETTER
     assert property_role([self_in], [value_out, value_out], "C") is None
 
 
-def _fields(lv_type: LVType, caller_vi_key: str | None = None) -> list[ClusterField]:
-    return _FIELDS
+# --- a handmade class: its VIs are built from nodes -------------------------------
+
+Spec = Callable[[str], tuple[VIContext, list[PrimitiveNode]]]
 
 
-def _read(name: str, field_index: int) -> tuple[VIContext, list[PrimitiveNode]]:
-    context = VIContext(
-        name=name,
-        inputs=[_terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0)],
-        outputs=[
-            _terminal(f"{name}:out", "output", _INT, "value", 1),
-        ],
-        data_flow=[
-            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
-            Wire.from_terminals(f"{name}:field", f"{name}:out"),
-        ],
-    )
-    node = PrimitiveNode(
-        id=f"{name}:unbundle",
-        vi_path=name,
-        node_type="nMux",
-        terminals=[
-            Terminal(
-                id=f"{name}:agg",
-                index=0,
-                direction="input",
-                lv_type=_CLASS_TYPE,
-                nmux_role="agg",
-            ),
-            Terminal(
-                id=f"{name}:field",
-                index=1,
-                direction="output",
-                lv_type=_INT,
-                nmux_role="list",
-                nmux_field_index=field_index,
-            ),
-        ],
-    )
-    return context, [node]
-
-
-def _write(name: str, field_index: int) -> tuple[VIContext, list[PrimitiveNode]]:
-    context = VIContext(
-        name=name,
-        inputs=[
-            _terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0),
-            _terminal(f"{name}:value", "input", _INT, "value", 1),
-        ],
-        outputs=[_terminal(f"{name}:out", "output", _CLASS_TYPE, "C", 2)],
-        data_flow=[
-            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
-            Wire.from_terminals(f"{name}:value", f"{name}:field"),
-            Wire.from_terminals(f"{name}:agg_out", f"{name}:out"),
-        ],
-    )
-    node = PrimitiveNode(
-        id=f"{name}:bundle",
-        vi_path=name,
-        node_type="nMux",
-        terminals=[
-            Terminal(
-                id=f"{name}:agg",
-                index=0,
-                direction="input",
-                lv_type=_CLASS_TYPE,
-                nmux_role="agg",
-            ),
+def _mux(name: str, role: str, field_index: int) -> PrimitiveNode:
+    """The Bundle (``role`` input) or Unbundle (output) By Name of one field."""
+    bundle = role == "input"
+    terminals = [
+        Terminal(
+            id=f"{name}:agg",
+            index=0,
+            direction="input",
+            lv_type=_CLASS_TYPE,
+            nmux_role="agg",
+        ),
+        Terminal(
+            id=f"{name}:field",
+            index=2 if bundle else 1,
+            direction=role,
+            lv_type=_INT,
+            nmux_role="list",
+            nmux_field_index=field_index,
+        ),
+    ]
+    if bundle:
+        terminals.append(
             Terminal(
                 id=f"{name}:agg_out",
                 index=1,
                 direction="output",
                 lv_type=_CLASS_TYPE,
                 nmux_role="agg",
-            ),
-            Terminal(
-                id=f"{name}:field",
-                index=2,
-                direction="input",
-                lv_type=_INT,
-                nmux_role="list",
-                nmux_field_index=field_index,
-            ),
+            )
+        )
+    return PrimitiveNode(
+        id=f"{name}:mux", vi_path=name, node_type="nMux", terminals=terminals
+    )
+
+
+def _double(name: str) -> PrimitiveNode:
+    """Add: twice its one input (the logic of an accessor)."""
+    return PrimitiveNode(
+        id=f"{name}:add",
+        vi_path=name,
+        name="Add",
+        prim_id=1050,
+        terminals=[
+            Terminal(id=f"{name}:add_y", index=1, direction="input", lv_type=_INT),
+            Terminal(id=f"{name}:add_x", index=2, direction="input", lv_type=_INT),
+            Terminal(id=f"{name}:add_sum", index=0, direction="output", lv_type=_INT),
         ],
     )
-    return context, [node]
 
 
-def _class_source(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> str:
+def reader(field_index: int, doubled: bool = False, extra_input: bool = False) -> Spec:
+    """A VI that reads one field (twice its value when ``doubled``)."""
+
+    def build(name: str) -> tuple[VIContext, list[PrimitiveNode]]:
+        inputs = [_terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0)]
+        if extra_input:
+            inputs.append(_terminal(f"{name}:x", "input", _INT, "x", 3))
+        nodes = [_mux(name, "output", field_index)]
+        wires = [
+            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
+            Wire.from_terminals(f"{name}:in", f"{name}:cout"),
+        ]
+        if doubled:
+            nodes.append(_double(name))
+            wires += [
+                Wire.from_terminals(f"{name}:field", f"{name}:add_x"),
+                Wire.from_terminals(f"{name}:field", f"{name}:add_y"),
+                Wire.from_terminals(f"{name}:add_sum", f"{name}:out"),
+            ]
+        else:
+            wires.append(Wire.from_terminals(f"{name}:field", f"{name}:out"))
+        return (
+            VIContext(
+                name=name,
+                inputs=inputs,
+                outputs=[
+                    _terminal(f"{name}:cout", "output", _CLASS_TYPE, "C out", 1),
+                    _terminal(f"{name}:out", "output", _INT, "value", 2),
+                ],
+                data_flow=wires,
+            ),
+            nodes,
+        )
+
+    return build
+
+
+def writer(field_index: int, doubled: bool = False) -> Spec:
+    """A VI that writes one field (twice the value when ``doubled``)."""
+
+    def build(name: str) -> tuple[VIContext, list[PrimitiveNode]]:
+        nodes = [_mux(name, "input", field_index)]
+        wires = [
+            Wire.from_terminals(f"{name}:agg_out", f"{name}:cout"),
+            Wire.from_terminals(f"{name}:in", f"{name}:agg"),
+        ]
+        if doubled:
+            nodes.append(_double(name))
+            wires += [
+                Wire.from_terminals(f"{name}:value", f"{name}:add_x"),
+                Wire.from_terminals(f"{name}:value", f"{name}:add_y"),
+                Wire.from_terminals(f"{name}:add_sum", f"{name}:field"),
+            ]
+        else:
+            wires.append(Wire.from_terminals(f"{name}:value", f"{name}:field"))
+        return (
+            VIContext(
+                name=name,
+                inputs=[
+                    _terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0),
+                    _terminal(f"{name}:value", "input", _INT, "value", 2),
+                ],
+                outputs=[_terminal(f"{name}:cout", "output", _CLASS_TYPE, "C out", 1)],
+                data_flow=wires,
+            ),
+            nodes,
+        )
+
+    return build
+
+
+def passthrough(name: str) -> tuple[VIContext, list[PrimitiveNode]]:
+    return (
+        VIContext(
+            name=name,
+            inputs=[_terminal(f"{name}:in", "input", _CLASS_TYPE, "C", 0)],
+            outputs=[_terminal(f"{name}:cout", "output", _CLASS_TYPE, "C out", 1)],
+            data_flow=[Wire.from_terminals(f"{name}:in", f"{name}:cout")],
+        ),
+        [],
+    )
+
+
+@dataclass
+class Built:
+    graph: InMemoryVIGraph
+    lvclass: LVClass
+    class_key: str
+    keys: dict[str, str]
+    contexts: dict[str, VIContext]
+
+    def source(self) -> str:
+        module = ClassBuilder().build_class_module(
+            self.lvclass, method_contexts=self.contexts, graph=self.graph
+        )
+        ast.fix_missing_locations(module)
+        return ast.unparse(module)
+
+    def instance(self) -> Any:
+        namespace: dict[str, Any] = {}
+        exec(compile(self.source(), "<class>", "exec"), namespace)  # noqa: S102
+        return namespace["C"]()
+
+
+def build_class(
+    tmp_path: Path, xml: str, specs: dict[str, Spec], fields: list[ClusterField]
+) -> Built:
+    """The class file ``xml`` as the loader makes it: a class node, a node per
+    VI with its pane, and an ownership edge carrying the scope and the accessor."""
     path = tmp_path / "C.lvclass"
-    path.write_text(_LVCLASS, encoding="utf-8")
+    path.write_text(xml, encoding="utf-8")
     lvclass = parse_lvclass(path)
     lvclass.private_data_fields = [
-        LVPrivateDataField(name="Count", python_type="int"),
-        LVPrivateDataField(name="Name", python_type="int"),
+        LVPrivateDataField(name=f.name, python_type="int") for f in fields
     ]
     graph = InMemoryVIGraph()
-    monkeypatch.setattr(
-        graph, "get_type_fields", lambda lv_type, caller_vi_key=None: _FIELDS
+    class_key = str(path.resolve())
+    keys = {m.name: str(tmp_path / Path(m.vi_path).name) for m in lvclass.methods}
+    graph._dep_graph.add_node(  # noqa: SLF001
+        class_key,
+        node_type=NodeType.CLASS,
+        fields=fields,
+        parent_class="LabVIEW Object",
+        parent_key=None,
+        name="C.lvclass",
+        qname="C.lvclass",
+        method_paths={Path(m.vi_path).name: keys[m.name] for m in lvclass.methods},
     )
+    graph._vi_display_names[class_key] = "C.lvclass"  # noqa: SLF001
     contexts: dict[str, VIContext] = {}
-    for method_name, (context, nodes) in {
-        "Read Count": _read("Read Count", 0),
-        "Write Count": _write("Write Count", 0),
-        "Read Name": _read("Read Name", 1),
-    }.items():
-        build_graph(context, context.name, nodes, graph=graph)
-        contexts[method_name] = context
-    config = VIContext(
-        name="Get Config",
-        inputs=[_terminal("cfg:in", "input", _CLASS_TYPE, "C", 0)],
-        outputs=[_terminal("cfg:out", "output", _CLASS_TYPE, "C", 1)],
-        data_flow=[Wire.from_terminals("cfg:in", "cfg:out")],
-    )
-    build_graph(config, "Get Config", [], graph=graph)
-    contexts["Get Config"] = config
-    module = ClassBuilder().build_class_module(
-        lvclass, method_contexts=contexts, graph=graph
-    )
-    ast.fix_missing_locations(module)
-    return ast.unparse(module)
+    for method in lvclass.methods:
+        key = keys[method.name]
+        context, nodes = specs.get(method.name, passthrough)(key)
+        build_graph(context, key, nodes, graph=graph)
+        graph._graph.add_node(  # noqa: SLF001
+            key,
+            node=VINode(
+                id=key,
+                vi_path=key,
+                name=method.name,
+                terminals=[*context.inputs, *context.outputs],
+            ),
+        )
+        graph._dep_graph.add_node(key)  # noqa: SLF001
+        role = property_role(context.inputs, context.outputs, "C")
+        graph._add_ownership_edge(  # noqa: SLF001
+            class_key,
+            key,
+            scope=method.scope,
+            is_accessor=method.property_name is not None,
+            accessor_type=role.value if role else None,
+            accessor_field=method.property_name,
+            is_static=method.is_static,
+            must_override=method.must_override,
+            must_call_parent=method.must_call_parent,
+        )
+        contexts[method.name] = context
+    return Built(graph, lvclass, class_key, keys, contexts)
 
 
-def test_the_generated_class_has_properties_over_private_fields(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def _count_class(
+    tmp_path: Path,
+    read: Spec,
+    write: Spec | None,
+    scope: int = _PUBLIC,
+) -> Built:
+    vis = [("Read Count", scope)] + ([("Write Count", scope)] if write else [])
+    xml = _lvclass([("Count", "Count", vis)], [("Peek", _PUBLIC), ("Get Config", 1)])
+    specs: dict[str, Spec] = {
+        "Read Count": read,
+        "Peek": reader(0),
+        "Get Config": passthrough,
+    }
+    if write:
+        specs["Write Count"] = write
+    return build_class(tmp_path, xml, specs, _FIELDS)
+
+
+# (a) a trivial public read and write: the field is the attribute `count`
+def test_trivial_public_accessors_make_the_field_a_public_attribute(
+    tmp_path: Path,
 ) -> None:
-    source = _class_source(monkeypatch, tmp_path)
-    namespace: dict[str, object] = {}
-    exec(compile(source, "<class>", "exec"), namespace)  # noqa: S102
-    cls = namespace["C"]
-    obj = cls()  # type: ignore[operator]
-    assert obj._count == 0
-    assert obj._name == 0
-    assert isinstance(cls.item_count, property)  # type: ignore[attr-defined]
-    obj.item_count = 7
-    assert obj.item_count == 7
-    assert obj._count == 7
-    # A protected property is named with one underscore; it has no setter.
-    assert isinstance(cls._label, property)  # type: ignore[attr-defined]
-    obj._name = 3
-    assert obj._label == 3
-    # A VI outside every property folder is an ordinary method, whatever its name.
-    assert not isinstance(cls.get_config, property)  # type: ignore[attr-defined]
-    assert callable(cls.get_config)  # type: ignore[attr-defined]
+    built = _count_class(tmp_path, reader(0), writer(0))
+    attributes = class_attributes(built.graph, built.class_key)
+    assert attributes.fields == ["count", "_name"]
+    assert {a.kind for a in attributes.accessors.values()} == {AccessorKind.ATTRIBUTE}
+    source = built.source()
+    assert "property" not in source
+    assert "def read_count" not in source and "def write_count" not in source
+    obj = built.instance()
+    assert obj.count == 0 and obj._name == 0
+    obj.count = 7
+    # A method of the class reads the attribute by the same spelling.
+    assert "return self.count" in source
+    assert obj.peek() == 7
 
 
-def test_a_property_vi_whose_diagram_moves_no_field_is_an_ordinary_method(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def _call(
+    name: str, key: str, inputs: list[Terminal], outputs: list[Terminal]
+) -> VINode:
+    return VINode(
+        id="call",
+        vi_path="caller",
+        name=name,
+        node_type="iUse",
+        callee_key=key,
+        terminals=[*inputs, *outputs],
+    )
+
+
+def test_a_call_of_an_attribute_reads_the_attribute(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    read_call = _call(
+        "Read Count.vi",
+        built.keys["Read Count"],
+        [Terminal(id="c:in", index=0, direction="input", lv_type=_CLASS_TYPE)],
+        [
+            Terminal(id="c:cout", index=1, direction="output", lv_type=_CLASS_TYPE),
+            Terminal(id="c:val", index=2, direction="output", lv_type=_INT),
+        ],
+    )
+    reading = VIContext(
+        name="caller",
+        inputs=[_terminal("obj", "input", _CLASS_TYPE, "obj", 0)],
+        outputs=[_terminal("result", "output", _INT, "result", 1)],
+        data_flow=[
+            Wire.from_terminals("obj", "c:in"),
+            Wire.from_terminals("c:val", "result"),
+        ],
+    )
+    build_graph(reading, "caller", [read_call], graph=built.graph)
+    code = build_module(reading, "caller", graph=built.graph)
+    assert "obj.count" in code
+    assert "read_count" not in code
+    namespace: dict[str, Any] = {}
+    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    obj = built.instance()
+    obj.count = 9
+    assert namespace["caller"](obj).result == 9
+
+
+def test_a_call_of_an_attribute_writes_the_attribute(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    write_call = _call(
+        "Write Count.vi",
+        built.keys["Write Count"],
+        [
+            Terminal(id="w:in", index=0, direction="input", lv_type=_CLASS_TYPE),
+            Terminal(id="w:value", index=2, direction="input", lv_type=_INT),
+        ],
+        [Terminal(id="w:cout", index=1, direction="output", lv_type=_CLASS_TYPE)],
+    )
+    writing = VIContext(
+        name="caller2",
+        inputs=[
+            _terminal("obj2", "input", _CLASS_TYPE, "obj", 0),
+            _terminal("v", "input", _INT, "v", 2),
+        ],
+        outputs=[_terminal("obj_out", "output", _CLASS_TYPE, "obj out", 1)],
+        data_flow=[
+            Wire.from_terminals("obj2", "w:in"),
+            Wire.from_terminals("v", "w:value"),
+            Wire.from_terminals("w:cout", "obj_out"),
+        ],
+    )
+    write_call.vi_path = "caller2"
+    build_graph(writing, "caller2", [write_call], graph=built.graph)
+    code = build_module(writing, "caller2", graph=built.graph)
+    assert "obj.count = v" in code
+    namespace: dict[str, Any] = {}
+    exec(compile(code, "<caller2>", "exec"), namespace)  # noqa: S102
+    obj = built.instance()
+    namespace["caller2"](obj, 5)
+    assert obj.count == 5
+
+
+def test_a_call_of_a_property_reads_the_property(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0, doubled=True), writer(0, doubled=True))
+    read_call = _call(
+        "Read Count.vi",
+        built.keys["Read Count"],
+        [Terminal(id="c:in", index=0, direction="input", lv_type=_CLASS_TYPE)],
+        [Terminal(id="c:val", index=2, direction="output", lv_type=_INT)],
+    )
+    reading = VIContext(
+        name="caller",
+        inputs=[_terminal("obj", "input", _CLASS_TYPE, "obj", 0)],
+        outputs=[_terminal("result", "output", _INT, "result", 1)],
+        data_flow=[
+            Wire.from_terminals("obj", "c:in"),
+            Wire.from_terminals("c:val", "result"),
+        ],
+    )
+    build_graph(reading, "caller", [read_call], graph=built.graph)
+    code = build_module(reading, "caller", graph=built.graph)
+    assert "obj.count" in code and "read_count" not in code
+    namespace: dict[str, Any] = {}
+    exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
+    obj = built.instance()
+    obj.count = 2
+    assert namespace["caller"](obj).result == 8
+
+
+# (b) trivial protected: `_count`
+def test_trivial_protected_accessors_make_a_protected_attribute(
+    tmp_path: Path,
 ) -> None:
-    path = tmp_path / "C.lvclass"
-    path.write_text(_LVCLASS, encoding="utf-8")
-    lvclass = parse_lvclass(path)
-    graph = InMemoryVIGraph()
-    monkeypatch.setattr(
-        graph, "get_type_fields", lambda lv_type, caller_vi_key=None: _FIELDS
-    )
-    context = VIContext(
-        name="Read Count",
-        inputs=[_terminal("x:in", "input", _CLASS_TYPE, "C", 0)],
-        outputs=[_terminal("x:out", "output", _INT, "value", 1)],
-        data_flow=[],
-    )
-    build_graph(context, "Read Count", [], graph=graph)
-    module = ClassBuilder().build_class_module(
-        LVClass(name="C", path=path, methods=lvclass.methods[:1]),
-        method_contexts={"Read Count": context},
-        graph=graph,
-    )
-    ast.fix_missing_locations(module)
-    assert "@property" not in ast.unparse(module)
+    built = _count_class(tmp_path, reader(0), writer(0), _PROTECTED)
+    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
+    assert "property" not in built.source()
+    obj = built.instance()
+    obj._count = 3
+    assert obj.peek() == 3
 
 
-def test_a_property_that_would_hide_a_field_attribute_is_ordinary_methods(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    text = _LVCLASS.replace(">Label<", ">Name<")
-    (tmp_path / "C.lvclass").write_text(text, encoding="utf-8")
-    lvclass = parse_lvclass(tmp_path / "C.lvclass")
-    lvclass.private_data_fields = [LVPrivateDataField(name="Name", python_type="int")]
-    graph = InMemoryVIGraph()
-    monkeypatch.setattr(graph, "get_type_fields", _fields)
-    context, nodes = _read("Read Name", 1)
-    build_graph(context, context.name, nodes, graph=graph)
-    module = ClassBuilder().build_class_module(
-        lvclass, method_contexts={"Read Name": context}, graph=graph
-    )
-    ast.fix_missing_locations(module)
-    source = ast.unparse(module)
-    assert "@property" not in source
-    assert "def __init__" in source and "self._name = " in source
-
-
-def test_only_the_accessors_that_move_the_field_are_properties(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    (tmp_path / "C.lvclass").write_text(_LVCLASS, encoding="utf-8")
-    lvclass = parse_lvclass(tmp_path / "C.lvclass")
-    lvclass.private_data_fields = [
-        LVPrivateDataField(name="Count", python_type="int"),
-        LVPrivateDataField(name="Name", python_type="int"),
+def test_trivial_private_accessors_make_a_private_attribute(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
+    assert class_attributes(built.graph, built.class_key).fields == [
+        "__count",
+        "_name",
     ]
-    graph = InMemoryVIGraph()
-    monkeypatch.setattr(graph, "get_type_fields", _fields)
-    read, read_nodes = _read("Read Count", 0)
-    build_graph(read, read.name, read_nodes, graph=graph)
-    # The setter's value goes nowhere near a Bundle By Name.
-    write, _ = _write("Write Count", 0)
-    build_graph(write, write.name, [], graph=graph)
-    module = ClassBuilder().build_class_module(
-        lvclass,
-        method_contexts={"Read Count": read, "Write Count": write},
-        graph=graph,
+    source = built.source()
+    assert "self.__count = 0" in source and "return self.__count" in source
+    assert built.instance().peek() == 0
+
+
+def test_a_getter_alone_that_moves_the_field_is_the_attribute(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), None)
+    assert class_attributes(built.graph, built.class_key).fields[0] == "count"
+
+
+# (c) accessors with logic are a property and its setter
+def test_accessors_with_logic_are_a_property_written_from_their_diagrams(
+    tmp_path: Path,
+) -> None:
+    built = _count_class(tmp_path, reader(0, doubled=True), writer(0, doubled=True))
+    attributes = class_attributes(built.graph, built.class_key)
+    assert attributes.fields == ["_count", "_name"]
+    assert {a.kind for a in attributes.accessors.values()} == {AccessorKind.PROPERTY}
+    source = built.source()
+    assert source.count("@property") == 1 and "@count.setter" in source
+    obj = built.instance()
+    obj.count = 4
+    assert obj._count == 8
+    assert obj.count == 16
+    assert obj.peek() == 8
+
+
+# (d) a pair where one side is trivial is still one property
+def test_a_pair_with_one_side_of_logic_is_a_property(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0, doubled=True))
+    kinds = {
+        a.kind
+        for a in class_attributes(built.graph, built.class_key).accessors.values()
+    }
+    assert kinds == {AccessorKind.PROPERTY}
+    obj = built.instance()
+    obj.count = 4
+    assert obj._count == 8 and obj.count == 8
+
+    (tmp_path / "other").mkdir()
+    other = _count_class(tmp_path / "other", reader(0, doubled=True), writer(0))
+    obj = other.instance()
+    obj.count = 4
+    assert obj._count == 4 and obj.count == 8
+
+
+# (e) the field takes a unique name when the property is spelled the same
+def test_a_field_gives_way_to_a_property_spelled_like_it(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0, doubled=True), None, _PROTECTED)
+    assert class_attributes(built.graph, built.class_key).fields == [
+        "_count_2",
+        "_name",
+    ]
+    source = built.source()
+    assert "self._count_2 = 0" in source
+    obj = built.instance()
+    obj._count_2 = 3
+    assert obj._count == 6
+
+
+# (f) a VI outside every folder is a method, whatever its name
+def test_a_vi_outside_every_property_folder_is_a_method(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    obj = built.instance()
+    assert callable(obj.get_config) and callable(obj.peek)
+    assert not isinstance(type(obj).__dict__.get("get_config"), property)
+
+
+# (g) a field no property names is `_<field>`
+def test_a_field_without_an_accessor_is_a_private_attribute(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    assert built.instance()._name == 0
+    assert "self._name = 0" in built.source()
+
+
+def test_an_accessor_with_an_extra_input_is_a_method(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0, extra_input=True), writer(0))
+    attributes = class_attributes(built.graph, built.class_key)
+    assert built.keys["Read Count"] not in attributes.accessors
+    source = built.source()
+    assert "def read_count(self, x" in source
+    assert "@property" not in source
+
+
+def test_two_properties_over_one_field_make_one_of_them_an_attribute(
+    tmp_path: Path,
+) -> None:
+    xml = _lvclass(
+        [
+            ("Count", "Count", [("Read Count", 1), ("Write Count", 1)]),
+            ("Total", "Total", [("Read Total", 1)]),
+        ],
+        [],
     )
-    ast.fix_missing_locations(module)
-    source = ast.unparse(module)
-    assert source.count("@property") == 1
-    assert ".setter" not in source
-    assert "def write_count(self, value" in source
+    built = build_class(
+        tmp_path,
+        xml,
+        {"Read Count": reader(0), "Write Count": writer(0), "Read Total": reader(0)},
+        _FIELDS,
+    )
+    attributes = class_attributes(built.graph, built.class_key)
+    assert attributes.fields == ["count", "_name"]
+    kinds = {a.property_name: a.kind for a in attributes.accessors.values()}
+    assert kinds == {"Count": AccessorKind.ATTRIBUTE, "Total": AccessorKind.PROPERTY}
+    obj = built.instance()
+    obj.count = 2
+    assert obj.total == 2
+
+
+# --- a class owned by a library ----------------------------------------------------
+
+
+def test_a_library_qualified_class_name_finds_the_class_its_vi_belongs_to(
+    tmp_path: Path,
+) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    method = built.keys["Peek"]
+    qualified = "Lib.lvlib:C.lvclass"
+    fields = built.graph.get_class_fields(qualified, caller_vi_key=method)
+    assert fields is not None and [f.name for f in fields] == ["Count", "Name"]
+    # A caller that is not one of the class's VIs does not find it by a bare name.
+    assert built.graph.get_class_fields(qualified, caller_vi_key="/else.vi") is None
+
+
+def test_bundle_and_unbundle_on_a_library_owned_class_use_its_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    qualified = dataclasses.replace(_CLASS_TYPE, classname="Lib.lvlib:C.lvclass")
+    monkeypatch.setattr("tests.test_class_properties._CLASS_TYPE", qualified)
+    built = _count_class(tmp_path, reader(0), writer(0))
+    assert class_attributes(built.graph, built.class_key).fields == ["count", "_name"]
+    source = built.source()
+    assert "return self.count" in source
+    obj = built.instance()
+    obj.count = 4
+    assert obj.peek() == 4

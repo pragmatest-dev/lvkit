@@ -30,9 +30,9 @@ from ..ast_utils import (
     default_value_expr,
     field_attribute_paths,
     parse_expr,
-    private_attribute_paths,
     to_var_name,
 )
+from ..class_attributes import ClassAttributes, class_field_paths, type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
@@ -108,12 +108,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     agg_lv_type = agg_terminals[0].lv_type if agg_terminals else None
     anon = _is_anonymous_cluster(agg_lv_type)
     measure_flavor = agg_lv_type.measure_flavor if agg_lv_type else None
-    is_class = bool(agg_lv_type and agg_lv_type.classname)
+    class_attrs: ClassAttributes | None = None
     if agg_terminals and agg_terminals[0].lv_type:
         if ctx.graph is not None:
             class_fields = ctx.graph.get_type_fields(
                 agg_terminals[0].lv_type,
                 caller_vi_key=ctx.vi_name,
+            )
+            class_attrs = type_attributes(
+                ctx.graph, agg_terminals[0].lv_type, ctx.vi_name
             )
 
     if list_in and list_out:
@@ -149,7 +152,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     )
                 else:
                     bindings[t.id] = _field_expr(
-                        t, agg_var, class_fields, is_class
+                        t, agg_var, class_fields, class_attrs
                     )
 
     elif list_in and not list_out:
@@ -212,7 +215,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 path = (
                     [_measure_component(t, measure_flavor, node)]
                     if measure_flavor
-                    else _field_path(t, class_fields, is_class)
+                    else _field_path(t, class_fields, class_attrs)
                 )
                 if path:
                     statements.append(
@@ -458,25 +461,25 @@ def _generate_error_bundle(
 
 
 def _attribute_paths(
-    class_fields: list[ClusterField], is_class: bool
+    class_fields: list[ClusterField], class_attrs: ClassAttributes | None
 ) -> list[list[str]]:
-    """The attribute path of every field of the aggregate: the private
-    attributes of a class's private data, the field names of any other cluster."""
-    if is_class:
-        return private_attribute_paths(class_fields)
+    """The attribute path of every field of the aggregate: the attributes the
+    class names its private data fields, the field names of any other cluster."""
+    if class_attrs is not None:
+        return class_field_paths(class_attrs, class_fields)
     return field_attribute_paths(class_fields)
 
 
 def _field_path(
     term: Terminal,
     class_fields: list[ClusterField] | None,
-    is_class: bool = False,
+    class_attrs: ClassAttributes | None = None,
 ) -> list[str] | None:
     """The attribute path from the cluster to a LIST terminal's field, using
     nmux_field_index, which counts the depth-first ``_flatten_fields`` slots."""
     if term.nmux_field_index is None or not class_fields:
         return None
-    paths = _attribute_paths(class_fields, is_class)
+    paths = _attribute_paths(class_fields, class_attrs)
     if 0 <= term.nmux_field_index < len(paths):
         return paths[term.nmux_field_index]
     return None
@@ -494,11 +497,11 @@ def _field_expr(
     term: Terminal,
     agg_var: str,
     class_fields: list[ClusterField] | None,
-    is_class: bool = False,
+    class_attrs: ClassAttributes | None = None,
 ) -> str:
     """Resolve field expression for a LIST output terminal (unbundle)."""
     if term.nmux_field_index is not None and class_fields:
-        paths = _attribute_paths(class_fields, is_class)
+        paths = _attribute_paths(class_fields, class_attrs)
         if 0 <= term.nmux_field_index < len(paths):
             return f"{agg_var}.{'.'.join(paths[term.nmux_field_index])}"
 

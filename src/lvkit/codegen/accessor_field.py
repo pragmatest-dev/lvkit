@@ -3,18 +3,18 @@
 A getter's value comes out of an Unbundle By Name on the class wire; a setter's
 value goes into a Bundle By Name on the class wire; the wires may pass through
 structures (the error case structure around it). The field is the one that node's
-terminal selects. Any other diagram has no one field: the accessor is then written
-from its diagram like any method."""
+terminal selects. Any other diagram has no one field: the accessor has logic."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from lvkit.class_property import PropertyRole, value_terminals
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext
 from lvkit.models import Terminal
 from lvkit.type_defaults import _is_class_refnum
 
-from ..ast_utils import private_attribute_paths
+from .ast_utils import field_attribute_paths
 
 _STRUCTURE_KIND = "structure"
 
@@ -67,19 +67,39 @@ def _nmux_terminals(
     return found
 
 
-def accessed_attribute(
-    vi_context: VIContext,
+_CASE_STRUCTURE = "select"
+_FREE_LABEL = "label"
+
+
+def _moves_only_that_field(graph: InMemoryVIGraph, vi_key: str, mux_id: str) -> bool:
+    """True when the VI's diagram is the Bundle/Unbundle By Name ``mux_id`` and the
+    case structures its wires pass through, with free labels: nothing else runs."""
+    for node in graph.iter_nodes(vi_key):
+        if node.id == mux_id or node.kind == _FREE_LABEL:
+            continue
+        if node.kind == _STRUCTURE_KIND and node.node_type == _CASE_STRUCTURE:
+            continue
+        return False
+    return True
+
+
+def accessed_field(
+    inputs: Sequence[Terminal],
+    outputs: Sequence[Terminal],
     graph: InMemoryVIGraph,
     class_name: str,
     role: PropertyRole,
-) -> str | None:
-    """The attribute (``_<field>``) of the one private data field the accessor VI
-    ``vi_context`` reads (getter) or writes (setter), or None when its diagram does
-    not just move that one field between the class wire and the value."""
+    vi_key: str,
+) -> int | None:
+    """The position among the class's private data fields (inherited ones first)
+    of the one field the accessor VI ``vi_key`` (with connector-pane ``inputs`` and
+    ``outputs``) reads (getter) or writes (setter),
+    or None when its diagram does not just move that one field between the class
+    wire and the value."""
     self_in = next(
         (
             t
-            for t in vi_context.inputs
+            for t in inputs
             if t.lv_type is not None and _is_class_refnum(t.lv_type, class_name)
         ),
         None,
@@ -87,10 +107,10 @@ def accessed_attribute(
     if self_in is None:
         return None
     if role is PropertyRole.GETTER:
-        (value,) = value_terminals(vi_context.outputs, class_name)
+        (value,) = value_terminals(outputs, class_name)
         candidates = _nmux_terminals(graph, _ends(graph, value.id, False), "output")
     else:
-        (value,) = value_terminals(vi_context.inputs, class_name)
+        (value,) = value_terminals(inputs, class_name)
         candidates = _nmux_terminals(graph, _ends(graph, value.id, True), "input")
     if len(candidates) != 1:
         return None
@@ -104,11 +124,12 @@ def accessed_attribute(
         return None
     if _ends(graph, aggs[0].id, False) != {self_in.id}:
         return None
-    fields = graph.get_type_fields(
-        aggs[0].lv_type, caller_vi_key=vi_context.qualified_name or vi_context.name
-    )
-    paths = private_attribute_paths(fields) if fields else []
+    if not _moves_only_that_field(graph, vi_key, node.id):
+        return None
+    fields = graph.get_type_fields(aggs[0].lv_type, caller_vi_key=vi_key)
+    paths = field_attribute_paths(fields) if fields else []
     if not 0 <= term.nmux_field_index < len(paths):
         return None
-    path = paths[term.nmux_field_index]
-    return path[0] if len(path) == 1 else None
+    if len(paths[term.nmux_field_index]) != 1:
+        return None
+    return sum(1 for path in paths[: term.nmux_field_index] if len(path) == 1)

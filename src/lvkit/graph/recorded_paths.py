@@ -47,7 +47,8 @@ def redirect_member_beside_container(cand: Path, leaf: str) -> Path:
     Pure path math: it does not check that the file exists.
     """
     if cand.suffix.lower() in _CONTAINER_SUFFIXES and leaf != cand.name:
-        return cand.with_name(leaf)
+        # A file name holds no separator: a name recorded as "/x.vi" is the file x.vi.
+        return cand.with_name(leaf.rsplit("/", 1)[-1])
     return cand
 
 

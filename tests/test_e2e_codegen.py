@@ -381,7 +381,7 @@ class TestIPESDeleteLine:
         code = _generate(delete_line_graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         # IPES writes modified field back to the input variable
-        assert ".lines" in code, "Expected field write-back"
+        assert "._lines" in code, "Expected field write-back"
 
     def test_same_variable_in_and_out(self, delete_line_graph):
         """Return value must reference the same variable as input."""

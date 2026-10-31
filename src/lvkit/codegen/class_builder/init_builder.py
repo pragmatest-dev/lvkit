@@ -6,7 +6,7 @@ import ast
 
 from lvkit.structure import LVClass
 
-from ..ast_utils import private_attribute_names
+from ..class_attributes import unclaimed_field_attributes
 
 
 class _InitBuilderMixin:
@@ -15,13 +15,16 @@ class _InitBuilderMixin:
     def _build_init(
         self,
         lvclass: LVClass,
-        parent_class_name: str | None,
+        has_parent: bool,
+        attributes: list[str] | None = None,
     ) -> ast.FunctionDef:
-        """Build __init__ method from private data fields."""
+        """Build __init__ method from private data fields; ``attributes`` is the
+        attribute each field has (see ``class_attributes``), by default the
+        attribute of a field no property names."""
         body: list[ast.stmt] = []
 
         # Call parent __init__ if there's a parent class
-        if parent_class_name:
+        if has_parent:
             body.append(
                 ast.Expr(
                     value=ast.Call(
@@ -40,11 +43,10 @@ class _InitBuilderMixin:
                 )
             )
 
-        # Private data is private to the class, as in LabVIEW: each field is the
-        # instance attribute ``_<name>``. Fields whose labels become one Python
-        # name ("Count" and "count", "a b" and "a_b") each get their own attribute.
         fields = lvclass.private_data_fields
-        attr_names = private_attribute_names(f.name for f in fields)
+        attr_names = attributes or unclaimed_field_attributes(
+            [f.name for f in fields]
+        )
 
         for field, attr_name in zip(fields, attr_names, strict=True):
             body.append(

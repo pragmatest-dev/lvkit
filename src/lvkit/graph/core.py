@@ -493,7 +493,40 @@ class InMemoryVIGraph(
             return by_qname[0]
         leaf = ref.rsplit(":", 1)[-1]
         by_name = [s for s in succs if nodes[s].get("name") == leaf]
-        return by_name[0] if len(by_name) == 1 else None
+        if len(by_name) == 1:
+            return by_name[0]
+        return self._owner_chain_key(ref, caller_vi_key)
+
+    def _owner_chain_key(self, ref: str, caller_vi_key: str) -> str | None:
+        """PATH key of the class that owns the VI ``caller_vi_key`` (or one of that
+        class's ancestors) when ``ref`` names it: a class's own VIs do not
+        reference their class, they are listed by it, so the ownership edge is the
+        caller's recorded link to it. A library-qualified ``ref``
+        (``Lib.lvlib:C.lvclass``) names the class the file records by its own
+        name."""
+        key = self._owning_class_key(caller_vi_key)
+        seen: set[str] = set()
+        leaf = ref.rsplit(":", 1)[-1]
+        while key is not None and key not in seen:
+            seen.add(key)
+            data = self._dep_graph.nodes[key]
+            if data.get("qname") == ref or data.get("name") == leaf:
+                return key
+            key = self._parent_class_key(key)
+        return None
+
+    def class_type_key(
+        self, lv_type: LVType, caller_vi_key: str | None = None
+    ) -> str | None:
+        """PATH key of the class node a class-typed ``lv_type`` is, found among
+        the calling VI's own links; ``None`` for a type that is not a loaded
+        class."""
+        if not lv_type.classname:
+            return None
+        key = self._dep_key_for_ref(lv_type.classname, caller_vi_key)
+        if key is None or not self._dep_graph.has_node(key):
+            return None
+        return key if self.is_class(key) else None
 
     def _dep_key_for_ref(
         self,

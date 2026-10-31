@@ -332,3 +332,10 @@ def test_a_path_does_not_depend_on_which_key_was_asked_first(order: list[str]) -
     for key in order:
         recorded.path(key)
     assert recorded.path("/p/y.vi") == "<userlib>/T/y.vi"
+
+
+def test_a_member_name_recorded_with_a_leading_separator_is_the_file_name() -> None:
+    from lvkit.graph.recorded_paths import member_tokens
+
+    tokens = member_tokens(["", "Editor.lvclass"], "/filter tags.vi")
+    assert tokens == ["", "filter tags.vi"]

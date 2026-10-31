@@ -506,6 +506,19 @@ class QueryMixin:
         declaration order: not those it inherits."""
         return list(self._dep_graph.nodes[key].get("fields") or [])
 
+    def class_member_keys(self, key: str) -> list[str]:
+        """The keys of the VIs the class at ``key`` owns, in the order its file
+        lists them."""
+        members = []
+        for member in self._dep_graph.successors(key):
+            edge = self._dep_graph.get_edge_data(key, member) or {}
+            if (
+                edge.get("rel") == EdgeRel.OWNS
+                and self.node_type(member) is NodeType.VI
+            ):
+                members.append(member)
+        return members
+
     def class_private_data_key(self, key: str) -> str | None:
         """The dependency key of the control that is the private data of the
         class at ``key``; ``None`` when the class has none loaded."""
@@ -1430,6 +1443,10 @@ class QueryMixin:
         KEY (path) for edge/attr lookups — distinct from :meth:`get_owning_class`,
         which returns the display qname."""
         return self._owner_key(vi_key, NodeType.CLASS)
+
+    def owning_class_key(self, vi_key: str) -> str | None:
+        """The key (path) of the class that lists the VI ``vi_key``, or None."""
+        return self._owning_class_key(vi_key)
 
     def get_owning_library(self, vi_name: str) -> str | None:
         """Get the ``.lvlib`` that owns this VI directly, via its "owns" edge.

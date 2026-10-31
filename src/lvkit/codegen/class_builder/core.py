@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 import ast
+from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VIContext
 from lvkit.structure import LVClass, LVMethod
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import build_type_checking_block, to_var_name
-from ..gaps import Gap
-from ..import_resolver import ImportResolver
+from ..ast_utils import build_type_checking_block
+from ..class_attributes import (
+    Accessor,
+    AccessorKind,
+    ClassAttributes,
+    class_attributes,
+    scope_prefix,
+)
+from ..gaps import Gap, raise_statement
+from ..import_resolver import ImportResolver, NameImport
 from ._shared import _EMPTY_VI_CONTEXT
 from .config import ClassConfig
 from .init_builder import _InitBuilderMixin
@@ -46,12 +55,13 @@ class ClassBuilder(
         self.config = config or ClassConfig()
         self._method_contexts: dict[str, VIContext] = {}
         self._import_resolver: ImportResolver | None = None
+        self._graph: InMemoryVIGraph | None = None
+        self._attributes: ClassAttributes | None = None
 
     def build_class_module(
         self,
         lvclass: LVClass,
         method_contexts: dict[str, VIContext] | None = None,
-        parent_class_name: str | None = None,
         import_resolver: ImportResolver | None = None,
         graph: InMemoryVIGraph | None = None,
         gaps: list[Gap] | None = None,
@@ -61,7 +71,6 @@ class ClassBuilder(
         Args:
             lvclass: Parsed LVClass object
             method_contexts: Dict mapping method name to VI context
-            parent_class_name: Parent class name (overrides lvclass.parent_class)
             import_resolver: Callable to resolve import paths for SubVIs
             gaps: Receives the gaps found in the methods
 
@@ -71,18 +80,32 @@ class ClassBuilder(
         self._method_contexts = method_contexts or {}
         self._import_resolver = import_resolver
         self._graph = graph
+        self._attributes = self._attributes_of(lvclass)
         self._gaps: list[Gap] = gaps if gaps is not None else []
         self._collected_imports: set[str] = set()
         self._collected_annotation_imports: set[str] = set()
-        parent = parent_class_name or lvclass.parent_class
-
         module_body: list[ast.stmt] = []
+        try:
+            parent = self._parent_import(lvclass)
+        except ConversionGap as gap:
+            # The class's type module reports this gap; this module raises it too.
+            return ast.Module(
+                body=[
+                    ast.ImportFrom(
+                        module="__future__",
+                        names=[ast.alias(name="annotations")],
+                        level=0,
+                    ),
+                    raise_statement(str(gap)),
+                ],
+                type_ignores=[],
+            )
 
         # Build class definition (collects imports from method bodies)
         class_def = self._build_class_def(lvclass, parent)
 
         # Build imports (static + collected from methods)
-        module_body.extend(self._build_imports(lvclass, parent))
+        module_body.extend(self._build_imports(parent))
         module_body.append(class_def)
 
         module = ast.Module(body=module_body, type_ignores=[])
@@ -92,11 +115,47 @@ class ClassBuilder(
 
         return module
 
-    def _build_imports(
-        self,
-        lvclass: LVClass,
-        parent_class_name: str | None,
-    ) -> list[ast.stmt]:
+    def _parent_import(self, lvclass: LVClass) -> NameImport | None:
+        """The import of the class this class descends from: the class the graph
+        holds as its parent, imported from the module generated for it. A parent
+        the class names that is not loaded is a gap."""
+        key = self._class_key(lvclass)
+        if key is None or self._graph is None or self._import_resolver is None:
+            return None
+        parent_key = self._graph.class_parent_key(key)
+        if parent_key is not None:
+            return self._import_resolver.node_import(parent_key)
+        parent_name = self._graph.class_parent_name(key)
+        if parent_name is not None:
+            raise ConversionGap(f"Parent class {parent_name} of {key} is not loaded")
+        return None
+
+    def _class_key(self, lvclass: LVClass) -> str | None:
+        """The graph key of the class: the path of its file."""
+        key = str(lvclass.path.resolve())
+        if self._graph is not None and self._graph.is_class(key):
+            return key
+        return None
+
+    def _attributes_of(self, lvclass: LVClass) -> ClassAttributes | None:
+        """The attributes and accessors of the class, None when the graph does
+        not hold it."""
+        key = self._class_key(lvclass)
+        if key is None or self._graph is None:
+            return None
+        return class_attributes(self._graph, key)
+
+    def _accessor_of(self, lvclass: LVClass, method: LVMethod) -> Accessor | None:
+        """The accessor the class's property folders make of ``method``."""
+        key = self._class_key(lvclass)
+        if key is None or self._graph is None or self._attributes is None:
+            return None
+        found = self._graph.class_method(key, Path(method.vi_path).name)
+        if found is None:
+            return None
+        return self._attributes.accessors.get(found[1])
+
+    def _build_imports(self, parent: NameImport | None) -> list[ast.stmt]:
         """Build import statements for the module."""
         imports: list[ast.stmt] = []
 
@@ -112,7 +171,7 @@ class ClassBuilder(
         # Common imports
         common = [
             "from pathlib import Path",
-            "from typing import Any, ClassVar",
+            "from typing import Any, ClassVar, NoReturn",
         ]
         for imp in common:
             try:
@@ -121,17 +180,8 @@ class ClassBuilder(
             except SyntaxError:
                 pass
 
-        # Parent class import
-        if parent_class_name:
-            parent_module = to_var_name(parent_class_name.replace(".lvclass", ""))
-            parent_class = self._to_class_name(parent_class_name)
-            imports.append(
-                ast.ImportFrom(
-                    module=f".{parent_module}",
-                    names=[ast.alias(name=parent_class, asname=None)],
-                    level=0,
-                )
-            )
+        if parent is not None:
+            imports.extend(ast.parse(parent.statement).body)
 
         # Add imports collected from method body generation
         for imp_str in sorted(self._collected_imports):
@@ -148,16 +198,15 @@ class ClassBuilder(
     def _build_class_def(
         self,
         lvclass: LVClass,
-        parent_class_name: str | None,
+        parent: NameImport | None,
     ) -> ast.ClassDef:
         """Build the class definition AST node."""
         class_name = self._to_class_name(lvclass.name)
 
         # Base classes
         bases: list[ast.expr] = []
-        if parent_class_name:
-            parent_class = self._to_class_name(parent_class_name)
-            bases.append(ast.Name(id=parent_class, ctx=ast.Load()))
+        if parent is not None:
+            bases.append(ast.Name(id=parent.name, ctx=ast.Load()))
 
         # Class body
         body: list[ast.stmt] = []
@@ -173,13 +222,18 @@ class ClassBuilder(
             )
 
         # __init__ method
-        init_method = self._build_init(lvclass, parent_class_name)
+        own_fields = self._attributes.own_fields if self._attributes else None
+        if own_fields is not None and len(own_fields) != len(
+            lvclass.private_data_fields
+        ):
+            own_fields = None
+        init_method = self._build_init(lvclass, parent is not None, own_fields)
         body.append(init_method)
 
-        # Properties: the accessors written as Python properties; every other VI,
-        # property VIs included, is an ordinary method.
-        property_accessors = self._property_accessors(lvclass)
-        written_as_property = {acc.method.name for acc in property_accessors}
+        # Property folders: an accessor that only moves its field is that
+        # attribute and writes nothing; one with logic is a Python property;
+        # any other VI, an accessor whose pane is neither included, is a method.
+        property_members: list[tuple[LVMethod, Accessor]] = []
 
         # Group methods by scope for ordering
         public_methods: list[LVMethod] = []
@@ -187,16 +241,19 @@ class ClassBuilder(
         private_methods: list[LVMethod] = []
 
         for method in lvclass.methods:
-            if method.name in written_as_property:
+            accessor = self._accessor_of(lvclass, method)
+            if accessor is not None and accessor.kind is AccessorKind.ATTRIBUTE:
                 continue
-            if method.scope == "public":
+            if accessor is not None and accessor.kind is AccessorKind.PROPERTY:
+                property_members.append((method, accessor))
+            elif method.scope == "public":
                 public_methods.append(method)
             elif method.scope == "protected":
                 protected_methods.append(method)
             else:  # private
                 private_methods.append(method)
 
-        body.extend(self._build_properties(property_accessors))
+        body.extend(self._build_properties(lvclass.name, property_members))
 
         # Separate truly static methods from instance methods
         # A method is an instance method if it has a class-typed input wire
@@ -223,7 +280,7 @@ class ClassBuilder(
             if self._is_constructor(method.name):
                 continue
             # Add scope prefix for non-public methods
-            prefix = self._scope_prefix(method.scope)
+            prefix = scope_prefix(method.scope)
             try:
                 method_def = self._build_instance_method(
                     method,
@@ -251,7 +308,6 @@ class ClassBuilder(
 def build_class(
     lvclass: LVClass,
     method_contexts: dict[str, VIContext] | None = None,
-    parent_class_name: str | None = None,
     config: ClassConfig | None = None,
 ) -> str:
     """Build Python code from a LabVIEW class.
@@ -261,7 +317,6 @@ def build_class(
     Args:
         lvclass: Parsed LVClass object
         method_contexts: Dict mapping method name to VI context
-        parent_class_name: Parent class name (overrides lvclass.parent_class)
         config: Optional ClassConfig
 
     Returns:
@@ -271,7 +326,6 @@ def build_class(
     module = builder.build_class_module(
         lvclass,
         method_contexts=method_contexts,
-        parent_class_name=parent_class_name,
     )
     ast.fix_missing_locations(module)
     return ast.unparse(module)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.graph.models import VIContext
 from lvkit.models import Terminal, TypeNamer
 from lvkit.type_defaults import _is_class_refnum
 
@@ -40,6 +41,18 @@ class _TerminalClassifierMixin:
         Uses is_error_cluster which checks the type — no name guessing.
         """
         return out.is_error_cluster
+
+    def _result_terminals(
+        self, vi_context: VIContext, class_name: str
+    ) -> list[Terminal]:
+        """The outputs a method returns: all but the class wire and the error
+        cluster."""
+        return [
+            out
+            for out in vi_context.outputs
+            if not self._is_error_output(out)
+            and not self._is_self_output(out, class_name)
+        ]
 
     def _build_return_annotation(
         self, outputs: list[Terminal], spell: TypeNamer | None = None

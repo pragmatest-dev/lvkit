@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from typing import NoReturn
 
+from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
@@ -21,12 +22,19 @@ from lvkit.vilib_resolver import (
 )
 
 from ..ast_utils import (
+    default_value_expr,
     parse_expr,
     result_field_name,
     to_function_name,
     to_var_name,
 )
 from ..callee_names import CalleeNames, callee_names
+from ..class_attributes import (
+    Accessor,
+    AccessorPane,
+    accessor_of,
+    scope_prefix,
+)
 from ..context import CodeGenContext
 from ..error_path import is_error_wire_vi
 from ..fragment import CodeFragment
@@ -48,6 +56,15 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     catalog_path = ctx.catalog_path(node)
     if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)
+
+    # A property accessor is the attribute or property of its class.
+    found = (
+        accessor_of(ctx.graph, node.callee_key)
+        if ctx.graph is not None and node.callee_key is not None
+        else None
+    )
+    if found is not None:
+        return _generate_accessor_call(node, ctx, *found)
 
     # Dynamic dispatch → obj.method(args) / super().method(args)
     if node.node_type in ("dynIUse", "callParentDynIUse"):
@@ -627,10 +644,73 @@ def _to_ast_value(value: str) -> ast.expr:
     return parse_expr(value)
 
 
+def _generate_accessor_call(
+    node: VINode, ctx: CodeGenContext, accessor: Accessor, pane: AccessorPane
+) -> CodeFragment:
+    """A call of a property accessor VI: ``obj.name`` read, or ``obj.name = value``
+    written, where ``name`` is the accessor's attribute or property."""
+    terminals = ctx.enriched_terminals(node)
+
+    def terminal(direction: str, index: int | None) -> Terminal | None:
+        if index is None:
+            return None
+        return next(
+            (t for t in terminals if t.direction == direction and t.index == index),
+            None,
+        )
+
+    receiver_term = terminal("input", pane.class_in)
+    receiver = ctx.wired_input(receiver_term.id, node) if receiver_term else None
+    if receiver is None:
+        raise ConversionGap(
+            f"The class wire of the call of property '{accessor.property_name}' "
+            "is not wired",
+            node,
+        )
+    target = ast.Attribute(
+        value=parse_expr(receiver), attr=accessor.python_name, ctx=ast.Load()
+    )
+    bindings: dict[str, str] = {}
+    class_out = terminal("output", pane.class_out)
+    if class_out is not None:
+        bindings[class_out.id] = receiver
+
+    if accessor.role is PropertyRole.SETTER:
+        value_term = terminal("input", pane.value_in)
+        value = ctx.wired_input(value_term.id, node) if value_term else None
+        target.ctx = ast.Store()
+        stmt: ast.stmt = ast.Assign(
+            targets=[target],
+            value=(
+                parse_expr(value)
+                if value is not None
+                else default_value_expr(value_term.lv_type if value_term else None)
+            ),
+        )
+        return CodeFragment(statements=[stmt], bindings=bindings)
+
+    value_out = terminal("output", pane.value_out)
+    if value_out is None:
+        return CodeFragment(statements=[ast.Expr(value=target)], bindings=bindings)
+    var = ctx.make_output_var(
+        to_var_name(accessor.property_name), node.id, value_out.id
+    )
+    bindings[value_out.id] = var
+    stmt = ast.Assign(targets=[ast.Name(id=var, ctx=ast.Store())], value=target)
+    return CodeFragment(statements=[stmt], bindings=bindings)
+
+
 def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate obj.method(args) for dynamic dispatch calls."""
     subvi_name = node.name or ""
     method_name = to_function_name(subvi_name)
+    access = (
+        ctx.graph.get_method_access(node.callee_key)
+        if ctx.graph is not None and node.callee_key is not None
+        else None
+    )
+    if access is not None:
+        method_name = scope_prefix(access.scope) + method_name
 
     # Find receiver: input with lv_type.ref_type == "UDClassInst"
     receiver_term = None

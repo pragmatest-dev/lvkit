@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from lvkit.models import TypeNamer
 from lvkit.structure import LVMethod
 
-from ..ast_utils import interface_names, to_function_name
+from ..ast_utils import interface_names, parse_expr, to_function_name
 from ..builder import CodeGenContext, annotated_terminals, build_args, generate_body
 from ..context import type_namer
 from ..gaps import Gap, vi_body
@@ -38,6 +38,9 @@ class _MethodBuilderMixin:
         _collected_annotation_imports: set[str]
 
         def _is_self_input(self, inp: Terminal, class_name: str) -> bool: ...
+        def _result_terminals(
+            self, vi_context: VIContext, class_name: str
+        ) -> list[Terminal]: ...
         def _is_self_output(self, out: Terminal, class_name: str) -> bool: ...
         def _is_error_output(self, out: Terminal) -> bool: ...
         def _build_return_annotation(
@@ -45,10 +48,10 @@ class _MethodBuilderMixin:
         ) -> ast.expr: ...
 
     def _generate_method_body(
-        self, vi_context: VIContext
+        self, vi_context: VIContext, class_name: str
     ) -> tuple[CodeGenContext, list[ast.stmt]]:
         """The context and statements of a method, from the method VI's
-        top-level graph nodes."""
+        top-level graph nodes, ending in the return of its results."""
         key = vi_context.qualified_name or vi_context.name
         if self._graph is not None:
             key = self._graph.resolve_vi_name(key)
@@ -64,12 +67,41 @@ class _MethodBuilderMixin:
             for term in annotated_terminals(vi_context):
                 ctx.import_types(term.lv_type, at_run_time=False)
             operations = self._graph.top_level_nodes(key) if self._graph else []
-            return [*ctx.entry_raises, *generate_body(operations, ctx)]
+            body = [*ctx.entry_raises, *generate_body(operations, ctx)]
+            returned = self._return_stmt(vi_context, class_name, key, ctx)
+            return [*body, returned] if returned is not None else body
 
         body = vi_body(ctx, key, build)
         self._collected_imports.update(ctx.imports)
         self._collected_annotation_imports.update(ctx.annotation_imports)
         return ctx, body
+
+    def _return_stmt(
+        self,
+        vi_context: VIContext,
+        class_name: str,
+        key: str,
+        ctx: CodeGenContext,
+    ) -> ast.Return | None:
+        """The return of a method: its one result, or the tuple of its results
+        in the order of the return annotation (``_result_terminals``)."""
+        results = self._result_terminals(vi_context, class_name)
+        if not results:
+            return None
+        vi_node = self._graph.get_graph_node(key) if self._graph else None
+        values: list[ast.expr] = []
+        for out in results:
+            value = (
+                ctx.wired_input(out.id, vi_node)
+                if vi_node is not None
+                else ctx.resolve(out.id)
+            )
+            values.append(
+                parse_expr(value) if value else ast.Constant(value=None)
+            )
+        if len(values) == 1:
+            return ast.Return(value=values[0])
+        return ast.Return(value=ast.Tuple(elts=values, ctx=ast.Load()))
 
     def _build_static_method(
         self,
@@ -83,7 +115,6 @@ class _MethodBuilderMixin:
 
         # Extract inputs/outputs from VI context
         inputs = vi_context.inputs
-        outputs = vi_context.outputs
 
         # Filter out class instance input (even for "static" methods in LabVIEW)
         filtered_inputs = [
@@ -98,19 +129,14 @@ class _MethodBuilderMixin:
             spell,
         )
 
-        ctx, body = self._generate_method_body(vi_context)
+        ctx, body = self._generate_method_body(vi_context, class_name)
 
         # Ensure non-empty body
         if not body:
             body: list[ast.stmt] = [ast.Pass()]
 
         # Build return annotation - filter error clusters and class output
-        filtered_outputs = [
-            out
-            for out in outputs
-            if not self._is_error_output(out)
-            and not self._is_self_output(out, class_name)
-        ]
+        filtered_outputs = self._result_terminals(vi_context, class_name)
 
         returns = self._build_return_annotation(filtered_outputs, spell)
 
@@ -127,6 +153,7 @@ class _MethodBuilderMixin:
         method: LVMethod,
         class_name: str,
         prefix: str = "",
+        name: str | None = None,
     ) -> ast.FunctionDef:
         """Build an instance method.
 
@@ -134,14 +161,14 @@ class _MethodBuilderMixin:
             method: The LVMethod to convert
             class_name: Name of the containing class (for self parameter detection)
             prefix: Prefix for method name (e.g., "_" for protected, "__" for private)
+            name: The method's name when it is not the VI's (a property's)
         """
-        func_name = prefix + to_function_name(method.name)
+        func_name = name or prefix + to_function_name(method.name)
         vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
         spell = type_namer(self._import_resolver)
 
         # Extract inputs/outputs from VI context
         inputs = vi_context.inputs
-        outputs = vi_context.outputs
 
         # Find the class instance input by TYPE (becomes self)
         instance_input = None
@@ -166,7 +193,7 @@ class _MethodBuilderMixin:
         # Prepend self
         args_obj.args.insert(0, ast.arg(arg="self", annotation=None))
 
-        ctx, body = self._generate_method_body(vi_context)
+        ctx, body = self._generate_method_body(vi_context, class_name)
 
         # Get instance variable name from context bindings (not from input name!)
         instance_var_name = None
@@ -182,12 +209,7 @@ class _MethodBuilderMixin:
             body: list[ast.stmt] = [ast.Pass()]
 
         # Build return annotation - filter error clusters and class output
-        filtered_outputs = [
-            out
-            for out in outputs
-            if not self._is_error_output(out)
-            and not self._is_self_output(out, class_name)
-        ]
+        filtered_outputs = self._result_terminals(vi_context, class_name)
 
         returns = self._build_return_annotation(filtered_outputs, spell)
 

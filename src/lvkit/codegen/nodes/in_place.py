@@ -33,6 +33,7 @@ from lvkit.models import (
 )
 
 from ..ast_utils import parse_expr
+from ..class_attributes import ClassAttributes, type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from .nmux import _attribute_target, _field_expr, _field_path
@@ -218,7 +219,7 @@ def _take_element_out(
             return None
         class_fields = _get_class_fields(agg, ctx)
         for t in _field_terminals(op, "output"):
-            ctx.bind(t.id, _field_expr(t, whole, class_fields))
+            ctx.bind(t.id, _field_expr(t, whole, class_fields, _class_attrs(agg, ctx)))
         return _Element(whole)
     if tile.kind == _ARRAY:
         array_in = _role_terminal(op, None, "input")
@@ -291,7 +292,7 @@ def _write_fields_back(
         val = ctx.wired_input(t.id, op)
         if val is None:
             continue
-        path = _field_path(t, class_fields)
+        path = _field_path(t, class_fields, _class_attrs(agg_out, ctx))
         if path is None:
             continue
         stmts.append(_assign(_attribute_target(element.whole, path), val))
@@ -426,6 +427,16 @@ def _field_terminals(op: PrimitiveNode, direction: str) -> list[Terminal]:
         [t for t in op.terminals if t.nmux_role == "list" and t.direction == direction],
         key=lambda t: t.index,
     )
+
+
+def _class_attrs(
+    term: Terminal | None,
+    ctx: CodeGenContext,
+) -> ClassAttributes | None:
+    """The attributes of the class an aggregate terminal carries."""
+    if term is None or ctx.graph is None:
+        return None
+    return type_attributes(ctx.graph, term.lv_type, ctx.vi_name)
 
 
 def _get_class_fields(
