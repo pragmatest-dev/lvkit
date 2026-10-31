@@ -187,13 +187,13 @@ class TestFormatHtml:
     def test_open_with_format_json_errors(self) -> None:
         _require_pair()
         result = _run_diff("--open", "--format", "json")
-        assert result.returncode == 1
+        assert result.returncode == 2
         assert "--open requires --format html" in result.stderr
 
     def test_open_with_format_text_errors(self) -> None:
         _require_pair()
         result = _run_diff("--open", "--format", "text")
-        assert result.returncode == 1
+        assert result.returncode == 2
         assert "--open requires --format html" in result.stderr
 
 

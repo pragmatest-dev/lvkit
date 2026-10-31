@@ -196,11 +196,17 @@ class ModuleLayout:
         """The names at the package root that VI modules and packages take."""
         return {place.parts[0] for place in self.places.values()}
 
+    def _shown(self, key: str) -> str:
+        """A key as a message shows it: a file below the project by its
+        project-relative path, never an absolute one."""
+        parts = _below(key, self._root) if os.path.isabs(key) else None
+        return "/".join(parts) if parts else key
+
     def _check_unique(self) -> None:
         for key, place in self.places.items():
             if place.parts[0] in self._reserved:
                 raise ModuleCollisionError(
-                    f"{key!r} generates {'.'.join(place.parts)}, but "
+                    f"{self._shown(key)!r} generates {'.'.join(place.parts)}, but "
                     f"{place.parts[0]!r} at the package root is the generated "
                     "shared module of that name."
                 )
@@ -208,7 +214,8 @@ class ModuleLayout:
         for key, place in self.places.items():
             if place.parts in owner:
                 raise ModuleCollisionError(
-                    f"{owner[place.parts]!r} and {key!r} both generate the module "
+                    f"{self._shown(owner[place.parts])!r} and {self._shown(key)!r} "
+                    "both generate the module "
                     f"{'.'.join(place.parts)}."
                 )
             owner[place.parts] = key
@@ -217,7 +224,7 @@ class ModuleLayout:
                 other = owner.get(place.parts[:depth])
                 if other is not None:
                     raise ModuleCollisionError(
-                        f"{other!r} generates the module "
+                        f"{self._shown(other)!r} generates the module "
                         f"{'.'.join(place.parts[:depth])}, which is also the "
-                        f"package of {key!r}."
+                        f"package of {self._shown(key)!r}."
                     )

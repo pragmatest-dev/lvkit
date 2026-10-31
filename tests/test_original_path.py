@@ -11,10 +11,12 @@ from pathlib import Path
 
 import pytest
 
+from lvkit import cli
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import InMemoryVIGraph, load_vi_by_path
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.loading import LoadMode
+from lvkit.run_report import EXIT_PARTIAL, UnreadableVIError
 from tests.test_call_identity import _Call, _call, _static, _Tree
 from tests.test_class_member_calls import _write_class
 
@@ -135,3 +137,27 @@ def test_an_original_in_a_missing_folder_is_a_usage_error(tmp_path: Path) -> Non
     result = _cli("describe", str(vi), "--original-path", str(tmp_path / "no/a.vi"))
     assert result.returncode == 2
     assert "folder not found" in result.stderr
+
+
+def test_a_copy_reports_its_problems_in_its_original_project(
+    tree: _Tree, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    """The run of a copy shows paths in the original's project: a SubVI that cannot
+    be read is a warning by its path there, and the run is Partial (exit 3)."""
+    helper = (tree.root / "SubVIs" / "Helper.vi").resolve()
+    real_extract = tree.extract
+
+    def extract(path: Path) -> tuple[Path, Path | None, Path]:
+        if Path(path).resolve() == helper:
+            raise UnreadableVIError("no block diagram could be read", path=helper)
+        return real_extract(path)
+
+    monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", extract)
+    original = tree.root / "Main.vi"
+    copy = _copy(tree, "Main.vi", tmp_path)
+    argv = ["lvkit", "describe", str(copy), "--original-path", str(original)]
+    monkeypatch.setattr(sys, "argv", [*argv, "--no-auto-vilib"])
+    assert cli.main() == EXIT_PARTIAL
+    err = capsys.readouterr().err
+    assert "warning: SubVIs/Helper.vi: extract: no block diagram could be read" in err
+    assert str(tmp_path) not in err

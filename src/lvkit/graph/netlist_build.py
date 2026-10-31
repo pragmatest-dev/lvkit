@@ -28,8 +28,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lvkit.cache_paths import project_root
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.project_store import project_root
 from lvkit.vi_files import is_vi_file
 
 from ..models import (

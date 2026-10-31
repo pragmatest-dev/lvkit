@@ -264,6 +264,15 @@ class QueryMixin:
             if root is not None
         ]
 
+    def library_root_of(self, path: Path) -> tuple[str, Path] | None:
+        """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
+        the file at ``path`` is in, with that folder, else None."""
+        resolved = path.resolve()
+        for token, root in self.library_roots():
+            if resolved.is_relative_to(root.resolve()):
+                return token, root
+        return None
+
     def is_library_file(self, path: Path) -> bool:
         """Whether ``path`` sits under a configured vi.lib / user.lib / instr.lib
         root (the user's own library install, not their project)."""

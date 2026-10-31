@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..load_mode import LoadMode
+from ..run_report import RunSettings
 from . import ThemeMode, render_vi_body
 from . import render_vi_body_with_name as _render_vi_body_with_name
 from .ctl import render_ctl_body
@@ -64,6 +65,7 @@ def render_body_with_name(
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
+    run_settings: RunSettings | None = None,
 ) -> RenderedBody | None:
     """Like :func:`render_body`, but also returns the rendered VI/control's own
     name (qualified for a VI, the typedef name for a ``.ctl``) — ALREADY
@@ -95,4 +97,5 @@ def render_body_with_name(
         original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
+        run_settings=run_settings,
     )

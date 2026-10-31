@@ -74,7 +74,7 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from ... import __version__, primitive_resolver, vilib_resolver
-from ...cache_paths import _project_root_for
+from ...cache_paths import store_root
 from ...graph import InMemoryVIGraph, load_vi_by_path
 from ...graph.netlist import netlist_to_dict
 from ...index import sql as isql
@@ -119,7 +119,7 @@ def _default_roots() -> list[str]:
     # subdir still scopes to the whole project, and a Desktop cwd with no markers
     # lands on cwd (where _require_vis then asks).
     cwd = Path.cwd()
-    return [str(_project_root_for(cwd) or cwd)]
+    return [str(store_root(cwd))]
 
 
 async def _resolve_project(project: str | None, ctx: Context | None) -> str:
@@ -248,7 +248,7 @@ __all__ = [
     "__version__",
     "primitive_resolver",
     "vilib_resolver",
-    "_project_root_for",
+    "store_root",
     "InMemoryVIGraph",
     "load_vi_by_path",
     "netlist_to_dict",

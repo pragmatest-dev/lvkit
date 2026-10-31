@@ -43,7 +43,7 @@ PARALLEL_VI = (
 
 def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
     env = {**os.environ, "PYTHONHASHSEED": hashseed}
-    subprocess.run(
+    proc = subprocess.run(
         [
             sys.executable,
             str(SCRIPT),
@@ -51,11 +51,12 @@ def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
             "-o",
             str(out_dir),
         ],
-        check=True,
+        check=False,
         capture_output=True,
         env=env,
         cwd=REPO,
     )
+    assert proc.returncode in (0, 3), proc.stderr  # 3: partial, a gap warned
     return "\n".join(
         f"# === {p.relative_to(out_dir)} ===\n{p.read_text()}"
         for p in sorted(out_dir.rglob("*.py"))

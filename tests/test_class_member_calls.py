@@ -25,6 +25,7 @@ from lvkit.parser.link_table import _unwrap_name, qualified_link_name
 from lvkit.parser.metadata import parse_vipi_from_livi
 from lvkit.parser.models import ParsedDependencyRef
 from lvkit.parser.vi import _class_owned_name
+from lvkit.run_report import EXIT_PARTIAL, ProblemKind, ProblemStage, RunReport
 from lvkit.text_encoding import (
     unwrap_pascal_name,
     xml_text_encoding,
@@ -342,6 +343,15 @@ def test_files_of_a_class_name_differing_only_in_case_make_the_call_missing(
     text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     assert "subVI Amb.lvclass:Run.vi" in text
     assert str(tree.root) not in text and str(tree.root) not in reason
+    # The reason reaches the run's report: one load problem, on the stub, whose
+    # VI is the class method as a user sees it (never an absolute path).
+    (problem,) = graph.problems()
+    assert problem.stage is ProblemStage.LOAD
+    assert problem.kind is ProblemKind.UNREADABLE
+    assert problem.reason == reason
+    assert problem.vi.endswith("Amb.lvclass:Run.vi")
+    assert str(tree.root) not in "".join(problem.lines())
+    assert RunReport.of([problem]).exit_code() == EXIT_PARTIAL
 
 
 def test_file_beside_the_class_owned_by_another_class_is_not_the_method(

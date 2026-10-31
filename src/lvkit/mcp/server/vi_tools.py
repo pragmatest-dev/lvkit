@@ -40,8 +40,10 @@ from ...output_cache import (
     render_options_tag,
     render_slot,
 )
+from ...run_report import ProblemStage, RunProblems, declined
 from ._compat import Context
 from .app import mcp
+from .problems import new_run, stopped_on, with_problems
 from .resolvers import _configure_resolvers_for_vi
 
 _FORMATS = ("json", "lvnet")
@@ -74,7 +76,9 @@ def _build(
 
 
 def _load_one(
-    vi_path: str, build: BuildOptions | None = None
+    vi_path: str,
+    build: BuildOptions | None = None,
+    run: RunProblems | None = None,
 ) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI (MINIMAL) into a fresh graph and return ``(graph, vi_name)``.
 
@@ -82,9 +86,10 @@ def _load_one(
     several names; ``vi_name`` is ``load_vi``'s OWN return key for ``vi_path``
     (see ``load_vi_by_path``), never re-derived from the bare filename.
     ``build`` carries the library roots its recorded dependency paths resolve
-    against.
+    against. The problems on the loaded VIs' nodes are collected into ``run``.
     """
     p = Path(vi_path).resolve()
+    run = run or new_run(p)
     if not p.exists():
         raise FileNotFoundError(f"VI not found: {vi_path}")
     _configure_resolvers_for_vi(p)
@@ -100,10 +105,11 @@ def _load_one(
         vilib_root=build.vilib_root,
         userlib_root=build.userlib_root,
         instrlib_root=build.instrlib_root,
+        graph=run.new_graph(),
     )
     # Progressive index: every parse warms the store — a MINIMAL load parses
     # this VI AND its SubVIs, so warm all of them (accumulates as the repo is
-    # used).
+    # used). Warming's own failures are problems on the VIs' nodes too.
     warm_all_loaded(graph)
     return graph, vi_name
 
@@ -163,17 +169,26 @@ async def read_vi(
     vi_path = await _facade._resolve_target(vi_path, ctx)
 
     def _work() -> dict[str, Any]:
-        graph, vi_name = _load_one(vi_path, _build(vilib, userlib, instrlib))
-        module = build_netlist_from_graph(graph, vi_name)
+        run = new_run(vi_path)
+        try:
+            graph, vi_name = _load_one(vi_path, _build(vilib, userlib, instrlib), run)
+            module = build_netlist_from_graph(graph, vi_name)
+        except FileNotFoundError:
+            raise
+        except Exception as exc:
+            return stopped_on(run, vi_path, ProblemStage.DESCRIBE, exc)
         if format == "lvnet":
-            return {
-                "lvnet": render_lvnet(
-                    module,
-                    display_name=graph.vi_display_name(vi_name),
-                    verbose=verbose,
-                )
-            }
-        return netlist_to_dict(module, verbose=verbose)
+            return with_problems(
+                {
+                    "lvnet": render_lvnet(
+                        module,
+                        display_name=graph.vi_display_name(vi_name),
+                        verbose=verbose,
+                    )
+                },
+                run,
+            )
+        return with_problems(netlist_to_dict(module, verbose=verbose), run)
 
     return await asyncio.to_thread(_work)
 
@@ -217,17 +232,24 @@ async def read_ctl(
         if not p.exists():
             raise FileNotFoundError(f"Control not found: {ctl_path}")
         _configure_resolvers_for_vi(p)
+        run = new_run(p)
         build = _build(vilib, userlib, instrlib)
-        graph, key = load_ctl_by_path(
-            p,
-            vilib_root=build.vilib_root,
-            userlib_root=build.userlib_root,
-            instrlib_root=build.instrlib_root,
-        )
-        info = graph.get_typedef(key)
+        try:
+            graph, key = load_ctl_by_path(
+                p,
+                graph=run.new_graph(),
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
+            )
+            info = graph.get_typedef(key)
+        except Exception as exc:
+            return stopped_on(run, p, ProblemStage.DESCRIBE, exc)
         if format == "lvnet":
-            return {"lvnet": render_lvnet_typedef(info, verbose=verbose)}
-        return typedef_to_dict(info, verbose=verbose)
+            return with_problems(
+                {"lvnet": render_lvnet_typedef(info, verbose=verbose)}, run
+            )
+        return with_problems(typedef_to_dict(info, verbose=verbose), run)
 
     return await asyncio.to_thread(_work)
 
@@ -248,7 +270,8 @@ async def render(
     light/dark toggle. This is the tool for "show me / draw / what does this look
     like".
 
-    Returns ``{render_path, bytes, vi_name, vi_path}``: ``render_path`` is a
+    Returns ``{render_path, bytes, vi_name, vi_path, status, problems}``:
+    ``render_path`` is a
     local ``.html`` file to open in a browser (same shape as ``diff``'s
     output); ``vi_name`` (the VI's qualified name, e.g. ``Class.lvclass:vi.vi``)
     and ``vi_path`` identify the INPUT VI this render is of (read these, not
@@ -277,16 +300,23 @@ async def render(
         opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
-        html = cached_render(
-            p,
-            fmt="html",
-            options=opts,
-            version=__version__,
-            theme_mode="auto",
-            **build.build_kwargs(),
-        )
-        if html is None:
-            raise RuntimeError(f"Could not render {p.name} (nothing to draw).")
+        run = new_run(p)
+        try:
+            built = cached_render(
+                p,
+                fmt="html",
+                options=opts,
+                version=__version__,
+                theme_mode="auto",
+                run_settings=run.settings,
+                **build.build_kwargs(),
+            )
+        except Exception as exc:
+            return stopped_on(run, p, ProblemStage.RENDER, exc)
+        if built is None:
+            return stopped_on(run, p, ProblemStage.RENDER, declined(p))
+        html = built.body
+        run.take(built.problems, announce=False)
         # vi_name/vi_path identify the INPUT (#114: a tool result read apart
         # from the call that produced it -- several render/diff calls run
         # concurrently, not serialized -- had no way to say which VI it was
@@ -298,12 +328,15 @@ async def render(
         # graph load, on either a hit or a miss. Only an old slot written
         # before this field existed falls back to the bare filename.
         name = read_render_identity(p, "html") or p.name
-        return {
-            "render_path": str(render_slot(p, "html")),
-            "bytes": len(html),
-            "vi_name": name,
-            "vi_path": str(p),
-        }
+        return with_problems(
+            {
+                "render_path": str(render_slot(p, "html")),
+                "bytes": len(html),
+                "vi_name": name,
+                "vi_path": str(p),
+            },
+            run,
+        )
 
     return await asyncio.to_thread(_work)
 
@@ -322,7 +355,8 @@ async def diff(
     block diagrams with the changes highlighted — the faithful "what changed"
     that you cannot reconstruct from ``read_vi``.
 
-    Returns ``{diff_path, bytes, before, after}``: ``diff_path`` is a local
+    Returns ``{diff_path, bytes, before, after, status, problems}``:
+    ``diff_path`` is a local
     ``.html`` file to open in a browser; ``before``/``after`` are each
     ``{name, path}``, identifying the INPUT pair this diff is of (read these,
     not the request you sent, to tell results apart when several diff/render
@@ -348,18 +382,23 @@ async def diff(
         store = _configure_resolvers_for_vi(pa)
         build = _build(vilib, userlib, instrlib, store)
         opts = diff_options_tag("html", False, None, None, build)
-        body = cached_diff(
-            pa,
-            pb,
-            fmt="html",
-            options=opts,
-            version=__version__,
-            **build.build_kwargs(),
-        )
-        if body is None:
-            raise RuntimeError(
-                f"Could not render diff for {pa.name} (unresolvable diagram)."
+        run = new_run(pb)
+        try:
+            built = cached_diff(
+                pa,
+                pb,
+                fmt="html",
+                options=opts,
+                version=__version__,
+                run_settings=run.settings,
+                **build.build_kwargs(),
             )
+        except Exception as exc:
+            return stopped_on(run, pa, ProblemStage.DIFF, exc)
+        if built is None:
+            return stopped_on(run, pb, ProblemStage.DIFF, declined(pb))
+        body = built.body
+        run.take(built.problems, announce=False)
         # before/after identify the INPUT pair, same shape as --format json's
         # diff_to_dict (#114). The qualified names come from read_diff_identity
         # -- a cache-meta read, never a graph load -- same rationale as
@@ -367,12 +406,15 @@ async def diff(
         # old slot written before this field existed.
         names = read_diff_identity(pa, pb, "html")
         before_name, after_name = names if names is not None else (pa.name, pb.name)
-        return {
-            "diff_path": str(diff_slot(pa, pb, "html")),
-            "bytes": len(body),
-            "before": {"name": before_name, "path": str(pa)},
-            "after": {"name": after_name, "path": str(pb)},
-        }
+        return with_problems(
+            {
+                "diff_path": str(diff_slot(pa, pb, "html")),
+                "bytes": len(body),
+                "before": {"name": before_name, "path": str(pa)},
+                "after": {"name": after_name, "path": str(pb)},
+            },
+            run,
+        )
 
     return await asyncio.to_thread(_work)
 
@@ -384,40 +426,52 @@ async def unresolved(
     userlib: str | None = None,
     instrlib: str | None = None,
     ctx: Context | None = None,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """Every gap under ``target`` (a VI, library, class, or directory): what
     ``lvkit generate`` cannot convert, the same list as its warnings, collected
     in ONE pass. Use before converting a large library to triage the gaps up
-    front. Returns a list of ``{kind, identifier, name, count, vi_names}``
-    (kind ∈ ``unknown_primitive``/``placeholder_primitive``/
-    ``unsupported_node``/``unmapped_vilib``/``terminal_mapping``/
-    ``missing_vi``/``unsupported_vi``). Empty list means no gaps. ``target`` may
-    be relative to the client's workspace root. ``vilib``/``userlib``/``instrlib`` are
-    the folders a recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path
-    starts from (each dependency is found only at the path its caller records)."""
+    front. Returns ``{items, status, problems}``: ``items`` is a list of
+    ``{kind, identifier, name, count, vi_names}`` (kind ∈
+    ``unknown_primitive``/``placeholder_primitive``/``unsupported_node``/
+    ``unmapped_vilib``/``terminal_mapping``/``missing_vi``/``unsupported_vi``);
+    an empty list means no gaps. ``problems`` lists the VIs that could not be
+    read or written (they are not gaps). ``target`` may be relative to the
+    client's workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a
+    recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from
+    (each dependency is found only at the path its caller records)."""
     target = await _facade._resolve_target(target, ctx)
     _configure_resolvers_for_vi(target)
 
-    def _work() -> list[dict[str, Any]]:
+    def _work() -> dict[str, Any]:
         from ...unresolved import collect_unresolved
 
+        run = new_run(target)
         build = _build(vilib, userlib, instrlib)
-        items = collect_unresolved(
-            target,
-            vilib_root=build.vilib_root,
-            userlib_root=build.userlib_root,
-            instrlib_root=build.instrlib_root,
-        )
-        return [
+        try:
+            items = collect_unresolved(
+                target,
+                vilib_root=build.vilib_root,
+                userlib_root=build.userlib_root,
+                instrlib_root=build.instrlib_root,
+                run=run,
+            )
+        except Exception as exc:
+            return stopped_on(run, target, ProblemStage.GENERATE, exc)
+        return with_problems(
             {
-                "kind": it.kind,
-                "identifier": it.identifier,
-                "name": it.name,
-                "count": it.count,
-                "vi_names": it.vi_names,
-            }
-            for it in items
-        ]
+                "items": [
+                    {
+                        "kind": it.kind,
+                        "identifier": it.identifier,
+                        "name": it.name,
+                        "count": it.count,
+                        "vi_names": it.vi_names,
+                    }
+                    for it in items
+                ]
+            },
+            run,
+        )
 
     return await asyncio.to_thread(_work)
 

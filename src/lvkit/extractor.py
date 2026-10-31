@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import logging
 import os
 import re
@@ -43,6 +44,17 @@ from lvkit.cache_paths import (  # noqa: E402
     touch_if_stale,
     write_meta,
 )
+from lvkit.llb_origin import (  # noqa: E402,F401
+    LLB_SENTINEL,
+    llb_container_of,
+    read_llb_meta,
+)
+from lvkit.run_report import (  # noqa: E402
+    CacheWriteError,
+    UnreadableVIError,
+    home_relative,
+)
+from lvkit.stderr_capture import capture_stderr  # noqa: E402
 from lvkit.text_encoding import (  # noqa: E402
     labview_text_encoding,
     normalize_extracted_xml,
@@ -250,6 +262,30 @@ def _extract_in_process(vi_path: Path, output_dir: Path, artifact_stem: str) -> 
             normalize_extracted_xml(path, target_encoding)
 
 
+def _extract_capturing_warnings(
+    vi_path: Path, output_dir: Path, artifact_stem: str
+) -> tuple[str, ...]:
+    """Run ``_extract_in_process``, returning the lines pylabview printed to
+    stderr while reading ``vi_path`` (its absolute path replaced by the file
+    name). Raises ``UnreadableVIError`` carrying them when extraction fails."""
+    error: Exception | None = None
+    with capture_stderr() as captured:
+        try:
+            _extract_in_process(vi_path, output_dir, artifact_stem)
+        except Exception as exc:
+            error = exc
+    lines = tuple(
+        line.replace(str(vi_path), vi_path.name).strip()
+        for line in captured.getvalue().splitlines()
+        if line.strip()
+    )
+    if error is not None:
+        raise UnreadableVIError(
+            f"pylabview could not read the file: {error}", lines, vi_path
+        ) from error
+    return lines
+
+
 class _ArtifactSlot(NamedTuple):
     """Where one VI's extracted artifacts live."""
 
@@ -347,7 +383,9 @@ def extract_vi_xml(
         ``fp_xml`` and ``main_xml`` may be ``None`` if not generated.
 
     Raises:
-        RuntimeError: If extraction fails.
+        UnreadableVIError: If pylabview cannot read the file or exports no
+            block diagram (its ``warnings`` are what pylabview printed).
+        CacheWriteError: If the extraction cannot be written to the cache.
     """
     vi_path = Path(vi_path).resolve()
     slot = _artifact_slot(vi_path, output_dir)
@@ -385,31 +423,33 @@ def extract_vi_xml(
     tmp_dir = staging.work_dir(global_cache_root())
     try:
         try:
-            _extract_in_process(vi_path, tmp_dir, artifact_stem)
-        except Exception as exc:
-            raise RuntimeError(
-                f"pylabview extraction failed for {vi_path.name}: {exc}"
-                f"{_windows_long_path_hint(tmp_dir / f'{artifact_stem}_BDHb.xml')}"
+            warnings = _extract_capturing_warnings(vi_path, tmp_dir, artifact_stem)
+        except UnreadableVIError as exc:
+            hint = _windows_long_path_hint(tmp_dir / f"{artifact_stem}_BDHb.xml")
+            raise UnreadableVIError(
+                f"{exc.reason}{hint}", exc.warnings, vi_path
             ) from exc
 
         if not (tmp_dir / f"{artifact_stem}_BDHb.xml").exists():
-            raise RuntimeError(f"Block diagram XML not found: {artifact_stem}_BDHb.xml")
+            raise UnreadableVIError(
+                "no block diagram could be read", warnings, vi_path
+            )
 
         _write_cache_meta(vi_path, tmp_dir / meta_path.name)
         _publish(tmp_dir, output_dir, meta_path.name)
     except OSError as exc:
         # A publish/mkdir OSError on a genuinely deep FINAL path — augment the
         # bare Errno with the Windows long-path diagnosis so it's actionable.
-        raise RuntimeError(
-            f"failed to write extraction cache for {vi_path.name}: {exc}"
-            f"{_windows_long_path_hint(bd_xml)}"
+        raise CacheWriteError(
+            f"could not write the extraction cache at {home_relative(bd_xml.parent)}: "
+            f"{exc.strerror or exc}{_windows_long_path_hint(bd_xml)}"
         ) from exc
     finally:
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if not bd_xml.exists():
-        raise RuntimeError(f"Block diagram XML not found: {bd_xml}")
+        raise UnreadableVIError("no block diagram could be read", path=vi_path)
 
     return (
         bd_xml,
@@ -482,11 +522,31 @@ def _decode_member_name(name_bytes: bytes, encoding: str) -> str:
     return safe
 
 
-def extract_llb(llb_path: Path) -> Path:
+class LlbFailure(NamedTuple):
+    """A member of an LLB that could not be extracted: ``member`` is its file name,
+    or None when the archive's whole content block failed."""
+
+    member: str | None
+    reason: str
+
+
+class LlbExtraction(NamedTuple):
+    """The cache folder an LLB was extracted into and what it could not extract."""
+
+    cache_dir: Path
+    failures: tuple[LlbFailure, ...]
+
+
+def _llb_failures(meta: dict[str, Any]) -> tuple[LlbFailure, ...]:
+    return tuple(LlbFailure(member, reason) for member, reason in meta["failures"])
+
+
+def extract_llb_members(llb_path: Path) -> LlbExtraction:
     """Extract all member VIs from an LLB archive to a cache directory.
 
     Skips extraction if the cache dir already exists and is newer than the
-    LLB file.  Returns the cache directory path.
+    LLB file.  Returns the cache directory and the members that could not be
+    extracted (recorded in the folder, so a later call reports them too).
 
     Supports both classic UCRF/CPRF/ZCRF LLBs and modern LVzp (XOR-ZIP) LLBs.
 
@@ -494,7 +554,7 @@ def extract_llb(llb_path: Path) -> Path:
         llb_path: Path to the ``.llb`` file.
 
     Returns:
-        Path to the cache directory containing extracted ``.vi`` files.
+        The cache directory containing extracted ``.vi`` files and the failures.
 
     Raises:
         RuntimeError: If the LLB cannot be opened or extracted.
@@ -502,12 +562,12 @@ def extract_llb(llb_path: Path) -> Path:
     llb_path = llb_path.resolve()
     cache_dir = _llb_cache_dir(llb_path)
 
-    # Cache validity check: skip if sentinel exists and is newer than the LLB
-    sentinel = cache_dir / ".extracted"
-    if sentinel.exists():
-        llb_mtime = llb_path.stat().st_mtime
-        if sentinel.stat().st_mtime >= llb_mtime:
-            return cache_dir
+    # Cache validity check: skip if the sentinel records this archive and is newer
+    # than the LLB file.
+    sentinel = cache_dir / LLB_SENTINEL
+    meta = read_llb_meta(cache_dir)
+    if meta is not None and sentinel.stat().st_mtime >= llb_path.stat().st_mtime:
+        return LlbExtraction(cache_dir, _llb_failures(meta))
 
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -517,6 +577,7 @@ def extract_llb(llb_path: Path) -> Path:
         raise RuntimeError(f"Failed to open LLB {llb_path}: {exc}") from exc
 
     extracted_any = False
+    failures: list[LlbFailure] = []
 
     # Try classic block types in priority order
     for block_ident in ("UCRF", "CPRF", "ZCRF"):
@@ -533,8 +594,8 @@ def extract_llb(llb_path: Path) -> Path:
                 bldata: io.BytesIO = block.getData(section_num=snum)
                 _atomic_write_bytes(cache_dir / member_name, bldata.read())
                 extracted_any = True
-            except Exception:
-                pass  # Skip unreadable sections; they remain absent from cache
+            except Exception as exc:
+                failures.append(LlbFailure(member_name, str(exc)))
 
     # Fall back to modern LVzp format (XOR-encrypted ZIP)
     if not extracted_any:
@@ -552,17 +613,28 @@ def extract_llb(llb_path: Path) -> Path:
                             )
                             extracted_any = True
             except Exception as exc:
-                print(
-                    f"Warning: failed to extract LVzp block from"
-                    f" {llb_path.name}: {exc}",
-                    file=sys.stderr,
-                )
+                failures.append(LlbFailure(None, f"LVzp block: {exc}"))
 
-    # Write sentinel so future calls skip re-extraction
-    sentinel.touch()
+    # The sentinel records the archive (so a VI in this folder is known by the
+    # .llb's path) and what could not be extracted, and tells future calls to skip
+    # re-extraction.
+    sentinel.write_text(
+        json.dumps(
+            {
+                "source": str(llb_path),
+                "failures": [[f.member, f.reason] for f in failures],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     if not extracted_any:
         # Empty LLB or unrecognised format — cache dir exists but is empty
         pass
 
-    return cache_dir
+    return LlbExtraction(cache_dir, tuple(failures))
+
+
+def extract_llb(llb_path: Path) -> Path:
+    """The cache directory ``extract_llb_members`` extracted ``llb_path`` into."""
+    return extract_llb_members(llb_path).cache_dir

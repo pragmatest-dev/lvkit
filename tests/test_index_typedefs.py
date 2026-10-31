@@ -17,6 +17,7 @@ from lvkit.index.project import resolve_project_files
 from lvkit.index.store import load_typedef_shas
 from lvkit.index.typedefs import build_typedef_facts, sync_typedefs, warm_typedefs
 from lvkit.models import LVTypeKind
+from lvkit.run_report import ProblemKind, RunProblems
 
 from .conftest import SAMPLES_ROOT
 
@@ -119,19 +120,18 @@ def test_a_forced_rebuild_still_drops_gone_controls(project: Path) -> None:
     ) == [[0]]
 
 
-def test_an_unreadable_control_is_a_stub_with_its_reason(project: Path) -> None:
+def test_an_unreadable_control_is_reported_every_sync_and_never_stored(
+    project: Path,
+) -> None:
     (project / "Broken.ctl").write_bytes(b"not a labview file")
-    sync_typedefs(project, _ctls(project))
-    rows = _q(
-        project,
-        "SELECT is_stub, stub_reason IS NOT NULL FROM typedef WHERE name='Broken.ctl'",
-    )
-    assert rows == [[1, 1]]
-    assert _q(
-        project,
-        "SELECT count(*) FROM typedef_field f JOIN typedef t "
-        "ON t.path = f.typedef_path WHERE t.name='Broken.ctl'",
-    ) == [[0]]
+    for _ in range(2):  # the second sync must report it again, not skip it
+        run = RunProblems()
+        result = sync_typedefs(project, _ctls(project), run=run)
+        assert [p.vi for p in run.report().problems] == ["Broken.ctl"]
+        assert _q(project, "SELECT count(*) FROM typedef WHERE name='Broken.ctl'") == [
+            [0]
+        ]
+        assert "Broken.ctl" not in "".join(result.rebuilt)
 
 
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
@@ -172,15 +172,17 @@ def test_loading_a_vi_warms_the_controls_it_uses(tmp_path: Path) -> None:
     ) == [[0]]
 
 
-def test_any_failure_reading_a_control_is_a_stub(
+def test_a_failure_that_is_not_an_unreadable_file_is_an_lvkit_error(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def explode(*_a: object, **_k: object) -> None:
-        raise KeyError("boom")
+        raise ValueError("boom")  # a ValueError is not "unreadable"
 
     monkeypatch.setattr(typedefs_mod, "load_ctl_by_path", explode)
-    fact = build_typedef_facts(project / "Settings.ctl")
-    assert fact.is_stub and fact.stub_reason and "KeyError" in fact.stub_reason
+    run = RunProblems()
+    assert build_typedef_facts(project / "Settings.ctl", run=run) is None
+    (problem,) = run.report().problems
+    assert problem.kind is ProblemKind.LVKIT_ERROR and "ValueError" in problem.reason
 
 
 def test_warming_skips_controls_already_indexed(
@@ -192,7 +194,7 @@ def test_warming_skips_controls_already_indexed(
     monkeypatch.setattr(
         typedefs_mod,
         "build_typedef_facts",
-        lambda p, sha=None: built.append(p) or real(p, sha),
+        lambda p, sha=None, run=None: built.append(p) or real(p, sha),
     )
     warm_typedefs(project, _ctls(project))
     assert built == []

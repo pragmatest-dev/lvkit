@@ -16,6 +16,7 @@ VI file is its own entry. This module builds the index in four steps:
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -42,8 +43,16 @@ from ..graph.models import (
 )
 from ..graph.models import FormulaNode as GraphFormulaNode
 from ..graph.models import PrimitiveNode as GraphPrimitiveNode
+from ..graph.node_kinds import NodeType
 from ..models import FPTerminal
 from ..parser.node_types import get_display_name
+from ..run_report import (
+    CacheWriteError,
+    ProblemStage,
+    RunProblems,
+    home_relative,
+    problem_for_exception,
+)
 from ..structure import get_project_members, parse_lvproj
 from .model import (
     ClassFact,
@@ -57,6 +66,7 @@ from .model import (
     WiredTo,
 )
 from .query import build_call_graph, resolve_node_callee_paths
+from .store import db_path as store_db_path
 from .store import delete as store_delete
 from .store import load as store_load
 from .store import load_typedef_type_ids
@@ -83,7 +93,9 @@ class BuildResult:
     lvproj_members: list[LVProjMemberFact]
 
 
-def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
+def build_index(
+    project_root: Path, vi_paths: list[Path], run: RunProblems | None = None
+) -> BuildResult:
     """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
 
     Both the whole-repo load and each individual single-VI load resolve every
@@ -105,7 +117,8 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     """
     all_paths = {p.resolve() for p in vi_paths}
 
-    graph = InMemoryVIGraph()
+    run = run or RunProblems()
+    graph = run.new_graph()
     graph.load_directory(project_root, LoadMode.MINIMAL)
     _load_class_ownership(graph, project_root)
     _load_library_ownership(graph, project_root)
@@ -123,17 +136,26 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
         if resolved not in all_paths:
             continue
         covered.add(resolved)
-        facts[str(resolved)] = project_vi_facts(graph, vi_name, resolved, project_root)
+        try:
+            facts[str(resolved)] = project_vi_facts(
+                graph, vi_name, resolved, project_root
+            )
+        except Exception as exc:
+            graph.record_load_failure(resolved, exc, ProblemStage.INDEX)
 
-    alone_paths = sorted(all_paths - covered)
-    for cp in alone_paths:
-        facts[str(cp)] = build_one_vi(project_root, cp)
+    loaded_alone = 0
+    unreadable = {cp for cp in all_paths if graph.problems([str(cp)])}
+    for cp in sorted(all_paths - covered - unreadable):
+        one = build_one_vi_recording(project_root, cp, run)
+        if one is not None:
+            facts[str(cp)] = one
+            loaded_alone += 1
 
     resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     return BuildResult(
         facts=list(facts.values()),
-        loaded_alone=len(alone_paths),
+        loaded_alone=loaded_alone,
         lvproj_members=build_lvproj_membership(project_root),
     )
 
@@ -177,7 +199,25 @@ def build_lvproj_membership(project_root: Path) -> list[LVProjMemberFact]:
     return rows
 
 
-def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
+def build_one_vi_recording(
+    project_root: Path, vi_path: Path, run: RunProblems
+) -> VIFacts | None:
+    """``build_one_vi`` for one VI of many: a VI that cannot be read or projected
+    is recorded on its node (and in ``run``) and gives None, so the others are
+    still indexed."""
+    cgraph = run.new_graph(tracked=False)
+    try:
+        return build_one_vi(project_root, vi_path, cgraph)
+    except Exception as exc:
+        cgraph.record_load_failure(vi_path, exc)
+        return None
+    finally:
+        run.collect(cgraph)
+
+
+def build_one_vi(
+    project_root: Path, vi_path: Path, cgraph: InMemoryVIGraph | None = None
+) -> VIFacts:
     """Project ONE ``.vi`` to ``VIFacts`` via a fresh single-VI graph.
 
     The single-VI path, shared by ``build_index`` (for VIs the whole-repo load
@@ -189,7 +229,7 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
     equals what the whole-repo pass would have produced for it.
     """
     cp = vi_path.resolve()
-    cgraph = InMemoryVIGraph()
+    cgraph = cgraph or InMemoryVIGraph()
     cgraph.load_vi(cp, LoadMode.MINIMAL)
     vi_name = _vi_name_for_path(cgraph, cp)
     if vi_name is None:
@@ -234,6 +274,26 @@ def _owner_chain_for_class(vi_name: str) -> tuple[list[str] | None, str | None]:
     return None, None
 
 
+def _warming_failed(
+    graph: InMemoryVIGraph,
+    root: Path,
+    first: Path,
+    exc: Exception,
+    node_type: NodeType = NodeType.VI,
+) -> None:
+    """Warming is best-effort, so a failure never stops the command, but it is not
+    silent: it is a problem on a VI's node (``first``, the first file of the failed
+    write: one problem per write, not one per VI). An index that cannot be written
+    is the cache failing (``ENVIRONMENT``, stage ``cache``); anything else is an
+    lvkit error."""
+    if isinstance(exc, (OSError, sqlite3.Error)):
+        exc = index_write_error(root, exc)
+    problem = problem_for_exception(
+        graph.vi_label(first), ProblemStage.INDEX, exc
+    )
+    graph.record_file_problem(first, problem, node_type, may_stop=False)
+
+
 def warm_index_for_vi(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -249,15 +309,16 @@ def warm_index_for_vi(
     when unchanged; ``impact_score`` stays 0 until a full/refresh pass recomputes
     it across the whole call graph (it needs the global inverse).
 
-    Best-effort by contract: warming must NEVER break the command that triggered
-    it (e.g. a read-only project dir), so any failure is swallowed.
+    Best-effort by contract: warming never stops the command that triggered it
+    (e.g. a read-only project dir), but a failure is a problem on the VI's node.
     """
+    p = vi_path.resolve()
+    root = cache_paths.store_root(p)
     try:
-        p = vi_path.resolve()
-        root = cache_paths._project_root_for(p) or p.parent
         store_save(root, [project_vi_facts(graph, vi_name, p, root)])
-    except Exception:
-        return  # progressive warming is best-effort — never fail the caller
+    except Exception as exc:
+        _warming_failed(graph, root, p, exc)
+        return
     _warm_typedefs(graph, [root])
 
 
@@ -276,8 +337,8 @@ def _warm_typedefs(graph: InMemoryVIGraph, roots: Iterable[Path]) -> None:
     for root, paths in by_root.items():
         try:
             warm_typedefs(root, paths)
-        except Exception:
-            logger.debug("index: could not warm controls in %s", root, exc_info=True)
+        except Exception as exc:
+            _warming_failed(graph, root, paths[0], exc, NodeType.TYPEDEF)
 
 
 def warm_all_loaded(graph: InMemoryVIGraph) -> None:
@@ -288,27 +349,26 @@ def warm_all_loaded(graph: InMemoryVIGraph) -> None:
     SubVIs into one graph, so this upserts each one that has a real source path
     on disk. Multi-VI aware — a whole-directory or full-hierarchy load warms all
     of them from the parse it already paid for. Facts are grouped by project root
-    and saved per root in one batch. Best-effort: never fails the caller.
+    and saved per root in one batch. Best-effort: it never stops the caller, and
+    a VI it could not warm is a problem on that VI's node. A caller collects the
+    graph's problems after warming.
     """
-    try:
-        by_root: dict[Path, list[VIFacts]] = defaultdict(list)
-        for vi_name in graph.list_vis():
-            src = graph.get_vi_source_path(vi_name)
-            if src is None:
-                continue  # a JSON-only stub / vilib VI has no file to key on
-            try:
-                p = src.resolve()
-                root = cache_paths._project_root_for(p) or p.parent
-                by_root[root].append(project_vi_facts(graph, vi_name, p, root))
-            except Exception:
-                continue  # one bad VI must not sink the rest
-        for root, facts in by_root.items():
-            try:
-                store_save(root, facts)
-            except Exception:
-                pass
-    except Exception:
-        return  # progressive warming is best-effort — never fail the caller
+    by_root: dict[Path, list[VIFacts]] = defaultdict(list)
+    for vi_name in graph.list_vis():
+        src = graph.get_vi_source_path(vi_name)
+        if src is None:
+            continue  # a JSON-only stub / vilib VI has no file to key on
+        p = src.resolve()
+        root = cache_paths.store_root(p)
+        try:
+            by_root[root].append(project_vi_facts(graph, vi_name, p, root))
+        except Exception as exc:
+            _warming_failed(graph, root, p, exc)  # one bad VI must not sink the rest
+    for root, facts in by_root.items():
+        try:
+            store_save(root, facts)
+        except Exception as exc:
+            _warming_failed(graph, root, Path(facts[0].path), exc)
     _warm_typedefs(graph, by_root)
 
 
@@ -345,6 +405,7 @@ class RefreshResult:
     rebuilt: list[str]  # paths rebuilt (content changed or newly added)
     deleted: list[str]  # paths dropped (the .vi is gone)
     total: int  # VIs in the index after the refresh
+    unreadable: list[str]  # paths that could not be rebuilt: left out of the index
 
 
 def refresh_index(
@@ -352,6 +413,7 @@ def refresh_index(
     vi_paths: list[Path],
     stored: list[VIFacts],
     force: frozenset[str] = frozenset(),
+    run: RunProblems | None = None,
 ) -> tuple[RefreshResult, list[VIFacts]]:
     """Incrementally refresh ``stored`` against the on-disk repo by content hash.
 
@@ -372,7 +434,9 @@ def refresh_index(
     for path in deleted:
         del facts[path]
 
+    run = run or RunProblems()
     rebuilt: list[str] = []
+    unreadable: list[str] = []
     for path, p in current.items():
         existing = facts.get(path)
         if (
@@ -381,13 +445,21 @@ def refresh_index(
             and existing.content_sha == cache_paths.sha256_file(p)
         ):
             continue
-        facts[path] = build_one_vi(project_root, p)
+        one = build_one_vi_recording(project_root, p, run)
+        if one is None:
+            facts.pop(path, None)
+            unreadable.append(path)
+            continue
+        facts[path] = one
         rebuilt.append(path)
 
     resolve_node_callee_paths(facts.values())
     _recompute_impact(facts)
     merged = list(facts.values())
-    return RefreshResult(rebuilt=rebuilt, deleted=deleted, total=len(merged)), merged
+    result = RefreshResult(
+        rebuilt=rebuilt, deleted=deleted, total=len(merged), unreadable=unreadable
+    )
+    return result, merged
 
 
 @dataclass
@@ -408,6 +480,7 @@ def sync_index(
     ctl_paths: list[Path],
     *,
     rebuild: bool = False,
+    run: RunProblems | None = None,
 ) -> SyncResult:
     """Bring the persisted index in step with the files, and persist it -- the
     ONE cold-or-refresh policy every entry point shares.
@@ -422,7 +495,30 @@ def sync_index(
     not) -- and its ``.lvproj`` membership is recomputed wholesale (a cheap
     reparse that catches added/removed projects and moved members).
     """
-    controls = sync_typedefs(project_root, ctl_paths, rebuild=rebuild)
+    try:
+        return _sync_index(project_root, vi_paths, ctl_paths, rebuild, run)
+    except (OSError, sqlite3.Error) as exc:
+        raise index_write_error(project_root, exc) from exc
+
+
+def index_write_error(root: Path, exc: Exception) -> CacheWriteError:
+    """The error for an index that could not be written: the cache failing (the
+    machine's problem, not a bug), naming the index file."""
+    return CacheWriteError(
+        f"could not update the index at {home_relative(store_db_path(root))}: "
+        f"{getattr(exc, 'strerror', None) or exc}"
+    )
+
+
+def _sync_index(
+    project_root: Path,
+    vi_paths: list[Path],
+    ctl_paths: list[Path],
+    rebuild: bool,
+    run: RunProblems | None,
+) -> SyncResult:
+    run = run or RunProblems()
+    controls = sync_typedefs(project_root, ctl_paths, rebuild=rebuild, run=run)
     stored = store_load(project_root)
     if stored and not rebuild:
         # A VI reads the controls it uses (their fields, so their type ids), not
@@ -439,13 +535,13 @@ def sync_index(
                 for v in f.typedef_versions
             )
         )
-        rr, facts = refresh_index(project_root, vi_paths, stored, force)
-        store_delete(project_root, rr.deleted)
+        rr, facts = refresh_index(project_root, vi_paths, stored, force, run)
+        store_delete(project_root, [*rr.deleted, *rr.unreadable])
         store_save(project_root, facts)
         store_save_lvproj_members(project_root, build_lvproj_membership(project_root))
         result = SyncResult(facts, rr, 0, controls)
     else:
-        built = build_index(project_root, vi_paths)
+        built = build_index(project_root, vi_paths, run)
         facts = built.facts
         kept = {f.path for f in facts}
         store_delete(project_root, [f.path for f in stored if f.path not in kept])

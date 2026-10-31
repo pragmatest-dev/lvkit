@@ -261,6 +261,41 @@ def _project_root_for(vi_path: Path) -> Path | None:
     return None
 
 
+def store_root(path: Path | str) -> Path:
+    """WHERE LVKIT KEEPS ITS STORE for a file or folder: the key of its cache slots
+    and its index. An ancestor holding a ``.lvkit`` store wins, then a git
+    repository, then a ``.lvproj`` folder (see ``_project_root_for``), so vendored
+    repositories inside a project share the outer project's store; the folder
+    itself (the file's folder, for a file) when there is none."""
+    resolved = Path(path).resolve()
+    return _project_root_for(resolved) or (
+        resolved if resolved.is_dir() else resolved.parent
+    )
+
+
+def project_root(path: Path | str) -> Path:
+    """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
+    it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project store;
+    the folder itself when there is none. The base of every project-relative name
+    a user sees: a generated module's path, a documentation page, a warning's VI.
+    (``store_root`` answers a different question: where lvkit keeps what it
+    caches.)"""
+    from lvkit.project_store import PROJECT_STORE_DIR, global_home
+
+    resolved = Path(path).resolve()
+    own = resolved if resolved.is_dir() else resolved.parent
+    home = global_home().resolve()
+    for folder in [own, *own.parents]:
+        store = folder / PROJECT_STORE_DIR
+        if (
+            any(folder.glob("*.lvproj"))
+            or (folder / ".git").exists()
+            or (store.is_dir() and store.resolve() != home)
+        ):
+            return folder
+    return own
+
+
 def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).

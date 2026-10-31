@@ -94,7 +94,7 @@ This is lvkit's least mature capability, and the one most likely to need hand-fi
 lvkit generate <input-path> -o <output-dir> [--userlib <user.lib>]
 ```
 
-For each node it cannot convert, `generate` prints `warning: <VI path>: <node>: <reason>` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps. `generate` exits `0` when every VI converted, `2` when the result is partial (it has gaps), `1` when a VI could not be written.
+For each node it cannot convert, `generate` prints `warning: <VI path>: generate: <node>: <reason> [<kind>]` and writes `raise NotImplementedError("<reason>")` where the node would run, with the node's outputs set to `None`. `lvkit unresolved` lists the same gaps. `generate` exits `0` when every VI converted, `3` when the result is partial (it has gaps), `1` when a VI could not be written.
 
 ## How it works
 
@@ -107,6 +107,8 @@ lvkit reads VI binaries directly — no LabVIEW installation required. The pipel
 3. **Generate** — the graph is walked deterministically to produce Python source, HTML documentation, or diagrams. Code generation is pure AST construction: same VI in, same output every run, no LLM.
 
 See the [command reference](docs/reference/index.md) for full, flag-level docs on every command.
+
+A VI lvkit cannot read never stops a run: it is reported (one warning per VI and a full summary), the command goes on, and the exit code says how it ended: `0` complete, `1` stopped, `2` usage error, `3` partial. `--fail-fast` ends a multi-VI run at the first problem. See [problems, exit codes and `--fail-fast`](docs/reference/problems.md).
 
 ## Editor and AI integration
 

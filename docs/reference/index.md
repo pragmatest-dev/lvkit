@@ -5,6 +5,8 @@ page documents one command exhaustively; this page is the map.
 
 Run `lvkit <command> --help` at any time for the same argument listing offline.
 
+How every command reports a VI it cannot read, its exit codes (`0` complete, `1` stopped, `2` usage, `3` partial) and `--fail-fast`: [problems](problems.md).
+
 ## Reads, never writes
 
 lvkit only ever reads a VI — it never modifies, re-saves, or edits one. Your files are never touched, and LabVIEW stays the only thing that authors them.
