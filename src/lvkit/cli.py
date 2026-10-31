@@ -111,6 +111,37 @@ class _RemovedSearchPathAction(argparse.Action):
         parser.error(_SEARCH_PATH_REMOVED)
 
 
+def _original_path(value: str) -> Path:
+    """An ``--original-path`` value: the file a VI copy stands for. Its folder
+    must exist (its recorded relative paths start there); the file need not."""
+    path = Path(value)
+    if not path.parent.is_dir():
+        raise argparse.ArgumentTypeError(f"folder not found: {path.parent}")
+    return path
+
+
+_ORIGINAL_PATH_HELP = (
+    "The file this VI is a copy of (e.g. a git version written to a temporary "
+    "folder): its relative recorded paths are read from {}'s folder, and its "
+    "identity and the project its paths are shown in are those of {}. "
+    "<vilib>/<userlib>/<instrlib> and absolute paths are unchanged. The folder "
+    "must exist."
+)
+
+
+def _add_original_path_arg(
+    parser: argparse.ArgumentParser, flag: str = "--original-path"
+) -> None:
+    """Add an original-path option (see ``_original_path``) to a subparser."""
+    parser.add_argument(
+        flag,
+        type=_original_path,
+        default=None,
+        metavar="PATH",
+        help=_ORIGINAL_PATH_HELP.format("PATH", "PATH"),
+    )
+
+
 def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
     """Add --vilib, --userlib, --instrlib and --no-auto-vilib flags to a
     subparser (and the removed --search-path, which is a usage error)."""
@@ -434,6 +465,7 @@ def main() -> int:
     )
     _add_project_root_arg(desc_parser)
     _add_load_mode_arg(desc_parser)
+    _add_original_path_arg(desc_parser)
     _add_library_root_args(desc_parser)
 
     # Generate command - deterministic AST-based Python generation
@@ -603,6 +635,8 @@ def main() -> int:
         action="store_true",
         help="Bypass the output cache: rebuild the diff and refresh the slot.",
     )
+    _add_original_path_arg(diff_parser, "--before-original-path")
+    _add_original_path_arg(diff_parser, "--after-original-path")
     _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
     _add_load_mode_arg(diff_parser)
@@ -765,6 +799,7 @@ def main() -> int:
             "lvkit resolves the name, the caller supplies only the rev."
         ),
     )
+    _add_original_path_arg(render_parser)
     _add_theme_arg(render_parser)
     _add_project_root_arg(render_parser)
     _add_load_mode_arg(render_parser)
@@ -1164,6 +1199,9 @@ def cmd_describe(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
     if input_path.suffix.lower() == ".ctl":
+        if args.original_path is not None:
+            print("Error: --original-path applies to a VI, not a .ctl", file=sys.stderr)
+            return 2
         return _describe_ctl(args, input_path)
 
     _configure_resolvers(args)
@@ -1183,6 +1221,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            original_path=args.original_path,
         )
 
         # Progressive index: every parse warms the store — describe parses this
@@ -1485,7 +1524,9 @@ def _render_options_tag(
     ``render_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import render_options_tag
 
-    return render_options_tag(args.format, theme_mode, ref, build)
+    return render_options_tag(
+        args.format, theme_mode, ref, build, getattr(args, "original_path", None)
+    )
 
 
 def _theme_mode(args: argparse.Namespace) -> ThemeMode:
@@ -1515,6 +1556,8 @@ def _build_render_body(
     else: the output file is the only thing written (no cache entry, no staging
     folder). Otherwise the shared cached core builds it and refreshes the slot."""
     kw = _render_build_kw(build, theme_mode, ref)
+    if args.original_path is not None:
+        kw["original_path"] = args.original_path
     if args.no_cache and args.output:
         from .render.body import render_body
 
@@ -1559,6 +1602,11 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    if args.original_path is not None and (
+        input_path.is_dir() or input_path.suffix.lower() == ".ctl"
+    ):
+        print("Error: --original-path applies to one VI", file=sys.stderr)
+        return 2
     if input_path.is_dir():
         return _cmd_render_dir(args, input_path)
 
@@ -1674,7 +1722,15 @@ def _diff_options_tag(
     ``diff_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import diff_options_tag
 
-    return diff_options_tag(fmt, verbose, args.before_ref, args.after_ref, build)
+    return diff_options_tag(
+        fmt,
+        verbose,
+        args.before_ref,
+        args.after_ref,
+        build,
+        args.before_original_path,
+        args.after_original_path,
+    )
 
 
 def _diff_build_kw(
@@ -1687,6 +1743,8 @@ def _diff_build_kw(
         "verbose": verbose,
         "before_ref": args.before_ref,
         "after_ref": args.after_ref,
+        "before_original": args.before_original_path,
+        "after_original": args.after_original_path,
     }
 
 

@@ -23,6 +23,7 @@ def render_body(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
 ) -> str | None:
@@ -46,6 +47,7 @@ def render_body(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
     )
@@ -59,6 +61,7 @@ def render_body_with_name(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
 ) -> RenderedBody | None:
@@ -89,6 +92,7 @@ def render_body_with_name(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
     )

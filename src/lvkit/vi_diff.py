@@ -47,6 +47,8 @@ def diff_vi_files(
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
+    before_original: Path | None = None,
+    after_original: Path | None = None,
     warm_index: bool = True,
 ) -> DiffBody | None:
     """Diff two VI versions -> a :class:`DiffBody` (the body string in ``fmt``
@@ -57,8 +59,10 @@ def diff_vi_files(
     ``"text"`` (``format_diff``), ``"json"`` (``diff_to_dict``), or ``"html"``
     (the ``build_diff_viewer`` visual with both sides' faithful, theme-reactive
     SVGs). ``before_ref``/``after_ref`` are optional labels (e.g. git refs) for
-    the html title. Returns ``None`` ONLY when an ``html`` render declines
-    because required diagram geometry is missing. ``warm_index`` upserts both
+    the html title. ``before_original``/``after_original`` name the file a
+    side is a copy of (see ``InMemoryVIGraph.load_vi``). Returns ``None`` ONLY
+    when an ``html`` render declines because required diagram geometry is
+    missing. ``warm_index`` upserts both
     VIs' facts into their project index (best-effort; set ``False`` to skip)."""
     from .graph import load_vi_by_path
     from .graph.diff import (
@@ -83,6 +87,7 @@ def diff_vi_files(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         layout=layout,
+        original_path=before_original,
     )
     graph_b, name_b = load_vi_by_path(
         after_path,
@@ -91,6 +96,7 @@ def diff_vi_files(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         layout=layout,
+        original_path=after_original,
     )
 
     if warm_index:

@@ -3,7 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
-- **`--search-path` is replaced by `--userlib` and `--instrlib` (beside `--vilib`): every dependency resolves only by the path its VI records** — a file of the same name elsewhere is never used, and `--search-path` is a usage error naming the new flags.
+- **`--search-path` is replaced by `--userlib` and `--instrlib` (beside `--vilib`): every dependency resolves only by the path its VI records** — a file of the same name elsewhere is never used, `--search-path` is a usage error naming the new flags, and `describe`/`render --original-path` (`diff --before-/--after-original-path`) read a temporary copy's paths from the file it copies, as the VS Code views now do for git versions.
 - **`lvkit index` and the MCP `index` tool report `loaded_alone` instead of `collisions`** — the count of VIs the whole-project load did not produce and that were loaded on their own (0 on the JKI VI Tester sources).
 - **Fix: warnings printed by lvkit's worker processes are UTF-8 on Windows** — a pytest or pipe reader no longer fails decoding a dash written in the ANSI code page.
 - **Fix: `generate` writes packages deeper than Windows' 260-character path limit** — the output folder is used in Windows' long-path form, and `generate` warns when a module's path is too long for Python to import while Windows long paths are off.
