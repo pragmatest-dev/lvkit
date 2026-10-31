@@ -2281,7 +2281,7 @@ def _build_components_gn(
         assert isinstance(rep, VINode)
         key = rep.qualified_name or rep.name
         assert key is not None
-        ports = _subvi_ports(graph, key, graph.loaded_callee_key(rep))
+        ports = _subvi_ports(graph, graph.loaded_callee_key(rep), rep.qualified_path)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:

@@ -45,9 +45,9 @@ def array_subset(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | Non
     roles = laid_out_roles(node, "subset")
     array_term = roles[0][0][1]
     output_term = roles[1][0][1]
-    array = ctx.resolve(array_term.id) or "[]"
-    starts = [ctx.resolve(term.id) for _, term in roles.get(2, [])]
-    lengths = [ctx.resolve(term.id) for _, term in roles.get(3, [])]
+    array = ctx.wired_input(array_term.id, node) or "[]"
+    starts = [ctx.wired_input(term.id, node) for _, term in roles.get(2, [])]
+    lengths = [ctx.wired_input(term.id, node) for _, term in roles.get(3, [])]
     count = max(len(starts), len(lengths), 1)
     starts += [None] * (count - len(starts))
     lengths += [None] * (count - len(lengths))

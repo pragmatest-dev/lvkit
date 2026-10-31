@@ -69,8 +69,10 @@ def spreadsheet_string_to_array(
         return CodeFragment.empty()
     delimiter_term = terminal(node, "input", 1)
     text_term = terminal(node, "input", 3)
-    delimiter = (ctx.resolve(delimiter_term.id) if delimiter_term else None) or "''"
-    text = (ctx.resolve(text_term.id) if text_term else None) or "''"
+    delimiter = (
+        ctx.wired_input(delimiter_term.id, node) if delimiter_term else None
+    ) or "''"
+    text = (ctx.wired_input(text_term.id, node) if text_term else None) or "''"
     out_type = result.lv_type
     ndims = getattr(out_type, "dimensions", None) or 1
     kind = _element_kind(out_type)

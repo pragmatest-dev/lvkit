@@ -65,7 +65,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     stubs_with_tokens = [
         n
         for n in g._stubs
-        if g._dep_graph.has_node(n) and g._dep_graph.nodes[n].get("path_tokens")
+        if g._dep_graph.has_node(n) and g._recorded.resolved(n)
     ]
     assert stubs_with_tokens, "expected at least one stub with path_tokens"
     # At least one stub should carry a vendor-library root token. Class-member
@@ -74,7 +74,7 @@ def test_stub_deps_carry_path_tokens(testcase_graph):
     rooted = [
         n
         for n in stubs_with_tokens
-        if g._dep_graph.nodes[n]["path_tokens"][0] in ("<vilib>", "<userlib>")
+        if g._recorded.resolved(n)[0] in ("<vilib>", "<userlib>")
     ]
     assert rooted, "expected at least one stub with a <vilib>/<userlib> path"
 

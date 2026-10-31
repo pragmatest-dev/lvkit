@@ -287,5 +287,7 @@ def test_unresolved_wired_inputs_fail_explicitly(terminal):
         source=WireEnd(node_id=graph._term_to_node["sink"], terminal_id="sink"),
         dest=WireEnd(node_id=graph._term_to_node[terminal], terminal_id=terminal),
     )
-    with pytest.raises(CodeGenError, match="Unresolved wired 1D Index Array"):
+    with pytest.raises(
+        CodeGenError, match="The wired input .* of .Index Array. has no variable"
+    ):
         primitive.generate(node, context)

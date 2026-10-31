@@ -25,7 +25,6 @@ from .codegen.gaps import (
     Gap,
 )
 from .graph.loading import LoadMode
-from .module_layout import project_root
 from .pipeline import generate_python
 
 
@@ -72,7 +71,6 @@ def collect_unresolved(
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
             )
-    root = project_root(input_path)
 
     items: dict[tuple[str, str, str], UnresolvedItem] = {}
     for gap in result["gaps"]:
@@ -87,10 +85,7 @@ def collect_unresolved(
             )
             items[key] = item
         item.count += 1
-        try:
-            vi = Path(gap.vi).relative_to(root).as_posix()
-        except ValueError:
-            vi = gap.vi
+        vi = result["layout"].display_path(gap.vi)
         if vi and vi not in item.vi_names:
             item.vi_names.append(vi)
 

@@ -23,7 +23,7 @@ from lvkit.graph.models import AnyGraphNode, StructureNode
 from lvkit.models import Terminal, TunnelTerminal
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import PrimitiveResolutionNeeded, TerminalResolutionNeeded
-from lvkit.vilib_resolver import VILibResolutionNeeded
+from lvkit.vilib_resolver import CatalogPaneMismatch, VILibResolutionNeeded
 
 from .ast_utils import build_assign, to_var_name
 from .errors import MissingVIError
@@ -129,6 +129,8 @@ def gap_of(
             identifier, name = exc.prim_id, exc.prim_name or "unknown"
     elif isinstance(exc, VILibResolutionNeeded):
         kind, identifier, name = UNMAPPED_VILIB, exc.vi_name, exc.vi_name
+    elif isinstance(exc, CatalogPaneMismatch):
+        kind, identifier, name = TERMINAL_MAPPING, exc.vi_name, exc.vi_name
     elif isinstance(exc, MissingVIError):
         kind, identifier, name = MISSING_VI, exc.name, exc.name
     elif isinstance(exc, TerminalResolutionNeeded):

@@ -72,7 +72,7 @@ def main() -> int:
             vilib_root=Path(args.vilib) if args.vilib else None,
             userlib_root=Path(args.userlib) if args.userlib else None,
         )
-        print("\n" + result)
+        print("\n" + result.summary)
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

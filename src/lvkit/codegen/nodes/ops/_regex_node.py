@@ -12,7 +12,6 @@ from lvkit.graph.models import PrimitiveNode
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...errors import CodeGenError
 from ...module_function import function_source
 from ._flat_node import terminal
 
@@ -24,12 +23,7 @@ def input_expression(
     term = terminal(node, "input", index)
     if term is None:
         return None
-    text = ctx.resolve(term.id)
-    if text is None and ctx.is_wired(term.id):
-        text = ctx.resolve(term.id, allow_none=True)
-        if text is None:
-            raise CodeGenError(f"Unresolved wired {node.name} input {index}", node)
-    return text
+    return ctx.wired_input(term.id, node)
 
 
 def literal(text: str | None) -> object | None:

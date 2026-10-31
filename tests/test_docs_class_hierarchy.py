@@ -338,6 +338,7 @@ class TestMethodOverrides:
 class TestClassPageFilenames:
     def test_class_page_distinct_from_method_pages(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"TestCase.lvclass:method.vi": "TestCase.lvclass"}
         class_file = gen._class_name_to_filename("TestCase.lvclass")
         method_file = gen._vi_name_to_filename("TestCase.lvclass:method.vi")
         assert class_file != method_file
@@ -349,6 +350,7 @@ class TestClassPageFilenames:
         classname = "TestCase.lvclass"
         class_file = gen._class_name_to_filename(classname)
         method_names = ["run.vi", "class.vi", "TestCase.vi", "a b c.vi"]
+        gen.vi_groups = {f"{classname}:{m}": classname for m in method_names}
         method_files = {
             gen._vi_name_to_filename(f"{classname}:{m}") for m in method_names
         }
@@ -358,6 +360,7 @@ class TestClassPageFilenames:
 class TestClassPageGeneration:
     def test_generate_class_page_writes_expected_sections(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"Mid.lvclass:run.vi": "Mid.lvclass"}
         hierarchy = ClassHierarchyInfo(
             classname="Mid.lvclass",
             parent_class="Base.lvclass",
@@ -395,6 +398,7 @@ class TestClassPageGeneration:
 
     def test_index_page_links_class_group_header(self, tmp_path: Path):
         gen = HTMLDocGenerator(tmp_path, "Docs", "directory")
+        gen.vi_groups = {"Mid.lvclass:run.vi": "Mid.lvclass"}
         hierarchy = ClassHierarchyInfo(
             classname="Mid.lvclass",
             parent_class=None,
@@ -438,8 +442,47 @@ class TestRealSampleHierarchy:
 
         overrides = g.get_method_overrides("TextTestRunner.lvclass:makeResult.vi")
         assert overrides is not None
-        assert overrides.overrides == "TestRunner.lvclass:makeResult.vi"
+        assert overrides.overrides is not None
+        assert g.vi_display_name(overrides.overrides) == (
+            "TestRunner.lvclass:makeResult.vi"
+        )
 
         reverse = g.get_method_overrides("TestRunner.lvclass:makeResult.vi")
         assert reverse is not None
-        assert "TextTestRunner.lvclass:makeResult.vi" in reverse.overridden_by
+        assert "TextTestRunner.lvclass:makeResult.vi" in [
+            g.vi_display_name(key) for key in reverse.overridden_by
+        ]
+
+
+class TestPathKeyedMethods:
+    """Methods are VIs keyed by file path; their qualified name is display only."""
+
+    @staticmethod
+    def _graph() -> InMemoryVIGraph:
+        g = InMemoryVIGraph()
+        _add_class(g, "Base.lvclass", fields=[])
+        _add_class(g, "Child.lvclass", parent_class="Base", fields=[])
+        for cls, qname in (
+            ("Base", "Base.lvclass:run.vi"),
+            ("Child", "Child.lvclass:run.vi"),
+        ):
+            key = f"/p/{cls}/run.vi"
+            g._vi_nodes[key] = set()
+            g._vi_display_names[key] = qname
+            g._dep_graph.add_node(key)
+            g._dep_graph.add_edge(f"{cls}.lvclass", key, rel="owns")
+        g._dep_graph.add_node("/p/Base/gone.vi")
+        g._dep_graph.add_edge("Base.lvclass", "/p/Base/gone.vi", rel="owns")
+        return g
+
+    def test_class_page_methods_are_the_owned_loaded_vis(self):
+        hierarchy = self._graph().get_class_hierarchy("Base.lvclass")
+        assert hierarchy is not None
+        assert hierarchy.methods == ["/p/Base/run.vi"]
+
+    def test_overrides_come_from_the_classes_owned_vis(self):
+        g = self._graph()
+        child = g.get_method_overrides("/p/Child/run.vi")
+        assert child is not None and child.overrides == "/p/Base/run.vi"
+        base = g.get_method_overrides("/p/Base/run.vi")
+        assert base is not None and base.overridden_by == ["/p/Child/run.vi"]

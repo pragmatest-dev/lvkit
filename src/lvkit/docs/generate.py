@@ -8,16 +8,23 @@ from __future__ import annotations
 
 import logging
 import shutil
+import sys
 import time
+from collections import Counter
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.html_generator.naming import folders_below_root, library_group
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
+from lvkit.module_layout import ModuleLayout, UnplacedVIError, project_root
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -125,8 +132,52 @@ def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     return [p for p in paths if p.suffix.lower() != ".ctl"], controls
 
 
-def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
-    """Collect and copy VI icons to the output directory."""
+def _collect_library_groups(
+    graph: InMemoryVIGraph,
+    vi_names: list[str],
+    project: Path,
+    search_roots: Sequence[Path] = (),
+) -> tuple[dict[str, str], dict[str, str]]:
+    """The group and the shown name of every VI that has a page or is linked from
+    one. The group is its owning class or library; else the installation folder
+    (``vi.lib``, ``user.lib``) its caller recorded; else its project-relative
+    folder (the recorded path's folder for a VI outside the project)."""
+    layout = ModuleLayout(graph, [], project, search_roots)
+    poly_groups = graph.get_polymorphic_groups()
+    names: set[str] = set(vi_names)
+    for vi_name in vi_names:
+        names.update(graph.get_vi_dependencies(vi_name))
+        names.update(graph.get_vi_dependents(vi_name))
+        names.update(poly_groups.get(vi_name, []))
+    groups: dict[str, str] = {}
+    labels: dict[str, str] = {}
+    folders_of: dict[str, tuple[str, ...]] = {}
+    for name in sorted(names):
+        try:
+            folders_of[name] = layout.folders_of(name)
+        except UnplacedVIError:
+            folders_of[name] = ()
+        labels[name] = graph.vi_display_name(name)
+        owner = graph.get_owning_class(name) or graph.get_owning_library(name)
+        groups[name] = library_group(owner, folders_of[name])
+    # Two VIs filed under one group with one name (vi.lib holds many folders):
+    # the folders they sit in tell them apart.
+    taken = Counter((groups[n], labels[n]) for n in names)
+    for name in names:
+        if taken[(groups[name], labels[name])] > 1:
+            labels[name] = "/".join(
+                (*folders_below_root(folders_of[name]), labels[name])
+            )
+    return groups, labels
+
+
+def _collect_icons(
+    graph: InMemoryVIGraph,
+    output_dir: Path,
+    page_filename: Callable[[str], str],
+) -> dict[str, str]:
+    """Collect and copy VI icons to the output directory, each beside the name of
+    its VI's page (``icons/<group>/<page>.png``)."""
     icons_dir = output_dir / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,22 +193,64 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
         icon_source = resolve_icon_png(vi_path.parent, vi_path.stem)
 
         if icon_source is not None:
-            safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
-            safe_name = safe_name.replace(" ", "_").replace(".", "_")
-            icon_dest = icons_dir / f"{safe_name}.png"
+            icon_name = page_filename(vi_name).removesuffix(".html") + ".png"
+            icon_dest = icons_dir / icon_name
+            icon_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(icon_source, icon_dest)
-            icon_map[vi_name] = f"../icons/{safe_name}.png"
+            icon_map[vi_name] = f"../icons/{icon_name}"
 
     return icon_map
+
+
+class DocsStage(str, Enum):
+    """The stage of documentation generation a problem happened in."""
+
+    LOAD = "load"
+    DIAGRAM = "diagram"
+    PAGE = "page"
+
+
+@dataclass(frozen=True)
+class DocsProblem:
+    """One problem of one VI: its path as generation shows it
+    (``ModuleLayout.display_path``), the stage that failed (a ``DocsStage``) and why."""
+
+    vi: str
+    stage: DocsStage
+    reason: str
+
+    def __str__(self) -> str:
+        return f"{self.vi}: {self.reason}"
+
+
+@dataclass
+class DocsResult:
+    """What ``generate_documents`` did: the summary to print, every problem found,
+    and whether nothing could be loaded."""
+
+    summary: str
+    problems: list[DocsProblem] = field(default_factory=list)
+    stopped: bool = False
+
+    def __str__(self) -> str:
+        return self.summary
+
+
+def _failed_path(layout: ModuleLayout, path: Path) -> str:
+    """The path a file that could not be loaded is named by."""
+    return layout.display_path(str(path.resolve()))
 
 
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
-    poly_groups: dict,
+    poly_groups: dict[str, list[str]],
+    problems: list[DocsProblem],
+    shown: Callable[[str], str],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
-    """Prepare all data needed for one VI documentation page."""
+    """Prepare all data needed for one VI documentation page. A part of the page
+    that cannot be built is left out and named in ``problems``."""
     inputs_dc = graph.get_inputs(vi_name)
     outputs_dc = graph.get_outputs(vi_name)
     operations_dc = graph.top_level_nodes(vi_name)
@@ -209,21 +302,17 @@ def _prepare_vi_documentation_data(
     }
     qualified_deps -= type_definitions.keys()
 
-    def _extract_subvi_names(nodes):
-        names = []
+    def _callee_keys(nodes: list) -> list[str]:
+        keys: list[str] = []
         for node in nodes:
-            if isinstance(node, VINode) and node.name:
-                names.append(node.name)
-            names.extend(_extract_subvi_names(graph.child_nodes(node.id, vi_name)))
-        return names
+            if isinstance(node, VINode):
+                key = graph.loaded_callee_key(node)
+                if key is not None:
+                    keys.append(key)
+            keys.extend(_callee_keys(graph.child_nodes(node.id, vi_name)))
+        return keys
 
-    op_names = set(_extract_subvi_names(operations_dc))
-    for op_name in op_names:
-        already_covered = any(
-            dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps
-        )
-        if not already_covered:
-            qualified_deps.add(op_name)
+    qualified_deps.update(_callee_keys(operations_dc))
     qualified_deps.discard(vi_name)
 
     dependencies = {
@@ -234,39 +323,28 @@ def _prepare_vi_documentation_data(
     callers = graph.get_vi_dependents(vi_name)
 
     is_poly = vi_name in poly_groups
-    poly_variants = poly_groups.get(vi_name, []) if is_poly else []
+    poly_variants = poly_groups.get(vi_name, [])
 
-    variant_params = []
-    if is_poly and poly_variants:
-        for variant_name in poly_variants:
-            try:
-                variant_inputs = graph.get_inputs(variant_name)
-                variant_outputs = graph.get_outputs(variant_name)
-                variant_params.append(
-                    {
-                        "name": variant_name,
-                        "inputs": [
-                            {
-                                "name": inp.name,
-                                "type": inp.lv_type.type_descriptor()
-                                if inp.lv_type
-                                else "Any",
-                            }
-                            for inp in variant_inputs
-                        ],
-                        "outputs": [
-                            {
-                                "name": out.name,
-                                "type": out.lv_type.type_descriptor()
-                                if out.lv_type
-                                else "Any",
-                            }
-                            for out in variant_outputs
-                        ],
-                    }
-                )
-            except Exception:
-                pass
+    variant_params = [
+        {
+            "name": variant_key,
+            "inputs": [
+                {
+                    "name": inp.name,
+                    "type": inp.lv_type.type_descriptor() if inp.lv_type else "Any",
+                }
+                for inp in graph.get_inputs(variant_key)
+            ],
+            "outputs": [
+                {
+                    "name": out.name,
+                    "type": out.lv_type.type_descriptor() if out.lv_type else "Any",
+                }
+                for out in graph.get_outputs(variant_key)
+            ],
+        }
+        for variant_key in poly_variants
+    ]
 
     icon_path = None
     if icon_map and vi_name in icon_map:
@@ -274,8 +352,15 @@ def _prepare_vi_documentation_data(
 
     try:
         diagram_svg, subvi_nodes = render_vi_with_subvis(graph, vi_name)
-    except Exception:
-        logger.exception("SVG diagram render failed for %s", vi_name)
+    except Exception as e:  # noqa: BLE001 — per-VI; the page is written without it
+        logger.exception("SVG diagram render failed for %s", shown(vi_name))
+        problems.append(
+            DocsProblem(
+                shown(vi_name),
+                DocsStage.DIAGRAM,
+                f"the diagram could not be drawn ({e})",
+            )
+        )
         diagram_svg, subvi_nodes = None, {}
 
     # Class hierarchy navigation: only set for class method VIs.
@@ -319,7 +404,7 @@ def generate_documents(
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
-) -> str:
+) -> DocsResult:
     """Generate HTML docs for a LabVIEW library, class, directory, or VI."""
     start_time = time.time()
     library_path_obj = Path(library_path)
@@ -365,7 +450,7 @@ def generate_documents(
     )
 
     if not vi_paths and not ctl_paths:
-        return f"No VIs or controls found in {library_path}"
+        return DocsResult(f"No VIs or controls found in {library_path}")
 
     # Load all VIs into graph
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
@@ -376,7 +461,8 @@ def generate_documents(
     search_path_objs = [Path(p) for p in (search_paths or [])]
 
     loaded_vis: list[str] = []
-    failed_files: list[str] = []
+    problems: list[DocsProblem] = []
+    layout = ModuleLayout(graph, [], project_root(library_path_obj), search_path_objs)
 
     for i, vi_path in enumerate(vi_paths, 1):
         print(
@@ -403,7 +489,9 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            failed_files.append(f"{vi_path.name}: {str(e)}")
+            problems.append(
+                DocsProblem(_failed_path(layout, vi_path), DocsStage.LOAD, str(e))
+            )
             print(
                 f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
                 flush=True,
@@ -422,16 +510,27 @@ def generate_documents(
         try:
             key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
         except Exception as e:
-            failed_files.append(f"{ctl_path.name}: {e}")
+            problems.append(
+                DocsProblem(_failed_path(layout, ctl_path), DocsStage.LOAD, str(e))
+            )
             continue
         if graph.is_stub(key):
-            failed_files.append(f"{ctl_path.name}: could not be read as a control")
+            problems.append(
+                DocsProblem(
+                    _failed_path(layout, ctl_path),
+                    DocsStage.LOAD,
+                    "could not be read as a control",
+                )
+            )
         else:
             loaded_ctls.append(ctl_path.name)
 
     if not loaded_vis and not loaded_ctls:
-        return "Failed to load any VIs or controls. Errors:\n" + "\n".join(
-            failed_files
+        return DocsResult(
+            "Failed to load any VIs or controls. Errors:\n"
+            + "\n".join(str(p) for p in problems),
+            problems,
+            stopped=True,
         )
     typedef_keys = graph.list_typedefs()
 
@@ -445,27 +544,32 @@ def generate_documents(
     poly_groups = graph.get_polymorphic_groups()
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
 
+    # Create HTML generator
+    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
+    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
+    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
+
+    all_vis = graph.list_vis()
+    generator.all_vis = set(all_vis)
+    generator.register_vi_names(
+        *_collect_library_groups(
+            graph, all_vis, project_root(library_path_obj), search_path_objs
+        )
+    )
+
     # Collect and copy icons
     print("[TIMING] Collecting VI icons...")
     t0 = time.time()
-    icon_map = _collect_icons(graph, output_dir_obj)
+    icon_map = _collect_icons(graph, output_dir_obj, generator._vi_name_to_filename)
+    generator.icon_map = icon_map
     print(
         f"[TIMING] Icon collection: {time.time() - t0:.2f}s"
         f" - Found {len(icon_map)} icons"
     )
 
-    # Create HTML generator
-    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
-    generator.icon_map = icon_map
-    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
-    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
-
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
     t0 = time.time()
-    all_vis = graph.list_vis()
-
-    generator.all_vis = set(all_vis)
 
     generated_count = 0
 
@@ -475,6 +579,8 @@ def generate_documents(
                 vi_name,
                 graph,
                 poly_groups,
+                problems,
+                layout.display_path,
                 icon_map,
             )
             generator.generate_vi_page(vi_data)
@@ -485,7 +591,9 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            failed_files.append(f"{vi_name}: {str(e)}")
+            problems.append(
+                DocsProblem(layout.display_path(vi_name), DocsStage.PAGE, str(e))
+            )
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"
@@ -549,10 +657,10 @@ def generate_documents(
         summary_parts.append(f"Type definitions documented: {len(typedef_infos)}")
     summary_parts.append(f"Index page: {output_dir_obj / 'index.html'}")
 
-    if failed_files:
-        summary_parts.append(f"\nWarnings ({len(failed_files)} files skipped):")
-        summary_parts.extend(f"  - {err}" for err in failed_files[:10])
-        if len(failed_files) > 10:
-            summary_parts.append(f"  ... and {len(failed_files) - 10} more")
+    if problems:
+        summary_parts.append(f"\nPartial: {len(problems)} problems:")
+        summary_parts.extend(f"  - {err}" for err in problems)
+        for err in problems:
+            print(f"warning: {err}", file=sys.stderr)
 
-    return "\n".join(summary_parts)
+    return DocsResult("\n".join(summary_parts), problems)

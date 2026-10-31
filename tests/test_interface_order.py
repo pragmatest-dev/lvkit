@@ -18,6 +18,7 @@ from lvkit.graph.interface_order import (
 )
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.models import ParsedWiringRule as W
+from tests.helpers import error_cluster_type
 
 _DOMINANT = 4815  # 4-2-2-4 pane: leftmost col = idx 11,10,9,8; rightmost = 3,2,1,0
 
@@ -33,7 +34,7 @@ def _term(
     type_name: str = "I32",
 ) -> Terminal:
     lv = (
-        LVType(kind=LVTypeKind.TYPEDEF_REF, typedef_name="Error Cluster")
+        error_cluster_type()
         if error
         else LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
     )

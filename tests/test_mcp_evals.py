@@ -35,12 +35,13 @@ from pathlib import Path
 import pytest
 
 from lvkit.index import sql as isql
-from lvkit.index.build import BuildResult, build_index
+from lvkit.index.build import BuildResult
 from lvkit.index.project import resolve_project
 from lvkit.index.sql import QueryResult
 from lvkit.index.store import save as save_index
 from lvkit.index.store import save_lvproj_members
 from lvkit.structure import parse_lvclass
+from tests.corpus_graphs import build_corpus_index
 
 pytestmark = [pytest.mark.needs_samples, pytest.mark.cold_cache]
 
@@ -54,17 +55,17 @@ _HAVE_JKI = JKI_ROOT.is_dir() and any(JKI_ROOT.rglob("*.vi"))
 def jki_index() -> BuildResult:
     """Build + persist the full JKI-VI-Tester index once, reusing the
     developer's warm extraction cache (see ``test_index.jki_index`` — same
-    rationale: a cold 487-VI MINIMAL build is O(minutes), and this fixture
+    rationale: a cold 491-VI MINIMAL build is O(minutes), and this fixture
     also ``save``s the built facts so ``_query`` below has a real on-disk
     index to run SQL against, exactly like a ``lvkit index`` + ``query`` run
     would)."""
     if not _HAVE_JKI:
         pytest.skip("JKI-VI-Tester sample not present")
 
+    result = build_corpus_index(JKI_ROOT)
     saved = os.environ.pop("LVKIT_CACHE_DIR", None)
     try:
-        root, vi_paths = resolve_project(JKI_ROOT)
-        result = build_index(root, vi_paths)
+        root, _ = resolve_project(JKI_ROOT)
         save_index(root, result.facts)
         # Persist .lvproj membership too, so the `lvproj` view has rows to
         # answer #19's membership questions (mirrors what `lvkit index` /
@@ -189,7 +190,7 @@ def test_q3_testcase_private_methods(jki_index: BuildResult):
         "SELECT vi_path FROM class_fact "
         "WHERE owning_class='TestCase.lvclass' AND scope='private'"
     )
-    methods = {str(row[0]).rsplit("/", 1)[-1] for row in res.rows}
+    methods = {Path(str(row[0])).name for row in res.rows}
     assert methods == {
         "closeMethodViReference.vi",
         "openMethodViReference.vi",
@@ -200,37 +201,14 @@ def test_q3_testcase_private_methods(jki_index: BuildResult):
 
 @pytest.mark.slow
 def test_q4_accessor_field_map(jki_index: BuildResult):
-    """Q4: 'Which class fields have accessors, and which field does each
-    read/write?' A definitive enumerable map — pin the EXACT set of
-    (owning_class, field) pairs. 18 accessors across 9 classes; every field has
-    exactly one accessor VI (no read/write pair splits the field into two rows).
-    """
+    """Q4: 'Which classes have properties, and which property does each accessor
+    VI belong to?' A property accessor is a VI the class lists in a Property
+    Definition folder; no JKI VI Tester class has one, so the answer is empty (a
+    `Get X.vi` method is an ordinary method, whatever its name)."""
     res = _query(
         "SELECT owning_class, accessor_field FROM class_fact WHERE is_accessor=1"
     )
-    pairs = {(row[0], row[1]) for row in res.rows}
-    assert pairs == {
-        ("Class1.lvclass", "Queue"),
-        ("FrameworkSubTestSuite.lvclass", "Special"),
-        ("TestCase.lvclass", "CustomReportText"),
-        ("TestCase.lvclass", "SkipMessage"),
-        ("TestLoader.lvclass", "TestsFromTestCase"),
-        ("TestLoader.lvclass", "TestsFromTestCaseByClassPath"),
-        ("TestLoader.lvclass", "TestsFromTestCaseObject"),
-        ("TestResult.lvclass", "ShouldStop"),
-        ("TestResult.lvclass", "Test Skipped Message"),
-        ("TestRunner.lvclass", "PublicEvents"),
-        ("TestRunner.lvclass", "StartTime"),
-        ("TestRunner.lvclass", "StopTime"),
-        ("TestRunner.lvclass", "TestTimingInfo"),
-        ("TestSuite.lvclass", "SkipMessage"),
-        ("TextTestRunner.lvclass", "descriptions"),
-        ("TextTestRunner.lvclass", "stream"),
-        ("TextTestRunner.lvclass", "verbosity"),
-        ("_TextTestResult.lvclass", "Description"),
-    }
-    # Each (class, field) pair is unique — no field double-counted.
-    assert len(res.rows) == 18
+    assert res.rows == []
 
 
 @pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")
@@ -286,12 +264,9 @@ def test_q10_error_indicator_histogram_top_row(jki_index: BuildResult):
         "GROUP BY name ORDER BY n DESC, name"
     )
     # Baseline count, re-pinned when it drifts (the answer -- "error out"
-    # dominates -- is the eval; the number is a regression tripwire). Was 352;
-    # 382 as of this branch (cumulative parser terminal-extraction improvements,
-    # not a projection change). Distinct from a doubling bug -- other count
-    # pins (q22/q26 + the path-keyed collision counts) held, so the index
-    # isn't double-counting.
-    assert res.rows[0] == ["error out", 382]
+    # dominates -- is the eval; the number is a regression tripwire). 386 =
+    # 382 in the .vi files + one in each of the 4 .vit templates the index loads.
+    assert res.rows[0] == ["error out", 386]
 
 
 @pytest.mark.slow
@@ -304,7 +279,9 @@ def test_q8_error_cluster_input_vis(jki_index: BuildResult):
         "SELECT COUNT(DISTINCT vi_path) FROM terminal "
         "WHERE type_descriptor='Error' AND direction='input'"
     )
-    assert res.rows == [[395]]
+    # 412 = 408 .vi (13 more than before: unlabeled error clusters, such as
+    # `control_219`, are typed Error) + 4 .vit templates.
+    assert res.rows == [[412]]
 
 
 @pytest.mark.slow
@@ -321,8 +298,8 @@ def test_q9_no_input_vis(jki_index: BuildResult):
 @pytest.mark.slow
 def test_q11_no_error_out_vis(jki_index: BuildResult):
     """Q11: 'Which VIs have NO error out terminal?' Definitive — the
-    complement of the 382 VIs that carry exactly one ``error out`` output
-    (see :func:`test_q10_error_indicator_histogram_top_row`): 487 - 382 = 105.
+    complement of the 386 VIs that carry exactly one ``error out`` output
+    (see :func:`test_q10_error_indicator_histogram_top_row`): 491 - 386 = 105.
     """
     res = _query(
         "SELECT COUNT(*) FROM vi WHERE path NOT IN "
@@ -364,13 +341,13 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     node's ``callee_path``, resolved once at merge time through the same three
     tiers (``by_path`` → ``by_qualified`` → leaf-name; see
     ``query._resolve_callee``). Keyed on VI path, so it classifies even the many
-    VIs whose ``qualified_name`` is NULL. 234 uncalled of 487, incl. the
+    VIs whose ``qualified_name`` is NULL. 181 uncalled of 491, incl. the
     JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
     uncalled. Keyed on VI path, so dynamic-dispatch overrides and
     Call-By-Reference targets read as statically uncalled — order-invariant.
     (Ground truth: ``docs/_internal/mcp-evals.md`` Q18, confirmed 2026-08-17.)"""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    assert total.rows == [[234]]
+    assert total.rows == [[181]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[14]]

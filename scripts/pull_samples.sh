@@ -25,7 +25,9 @@ FORCE="${1:-}"
 
 mkdir -p "$DEST"
 
-# name|git-url|license|source
+# name|git-url|license|source[|submodules]
+# A fifth field of "submodules" clones the set with its submodules (the Pico
+# examples reference the shared VIs in their submodule by relative path).
 GIT_SETS=(
   "JKI-EasyXML|https://github.com/JKISoftware/JKI-EasyXML.git|BSD-3-Clause|https://github.com/JKISoftware/JKI-EasyXML"
   "JKI-VI-Tester|https://github.com/JKISoftware/JKI-VI-Tester.git|BSD-3-Clause|https://github.com/JKISoftware/JKI-VI-Tester"
@@ -40,17 +42,22 @@ GIT_SETS=(
   "Event-Source-Actor|https://github.com/Primary-Key/Event-Source-Actor.git|BSD-3-Clause|https://github.com/Primary-Key/Event-Source-Actor"
   "configurable-af-example|https://github.com/LabVIEW-Open-Source/configurable-af-example.git|0BSD|https://github.com/LabVIEW-Open-Source/configurable-af-example"
   "configurable-dqmh-example|https://github.com/LabVIEW-Open-Source/configurable-dqmh-example.git|0BSD|https://github.com/LabVIEW-Open-Source/configurable-dqmh-example"
+  "picosdk-ni-labview-examples|https://github.com/picotech/picosdk-ni-labview-examples.git|ISC|https://github.com/picotech/picosdk-ni-labview-examples|submodules"
 )
 
 for entry in "${GIT_SETS[@]}"; do
-  IFS='|' read -r name url license source <<<"$entry"
+  IFS='|' read -r name url license source submodules <<<"$entry"
   target="$DEST/$name"
   if [[ "$FORCE" == "--force" ]]; then rm -rf "$target"; fi
   if [[ -d "$target" ]]; then
     echo "skip   $name (already present) — $license — $source"
   else
     echo "clone  $name — $license — $source"
-    git clone --quiet --depth 1 "$url" "$target"
+    if [[ "${submodules:-}" == "submodules" ]]; then
+      git clone --quiet --depth 1 --recurse-submodules --shallow-submodules "$url" "$target"
+    else
+      git clone --quiet --depth 1 "$url" "$target"
+    fi
   fi
 done
 

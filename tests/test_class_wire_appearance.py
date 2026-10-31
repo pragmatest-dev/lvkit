@@ -19,7 +19,7 @@ import pytest
 from lvkit.cli import _auto_search_paths
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from lvkit.models import WireLineStyle
+from lvkit.models import LVType, LVTypeKind, WireLineStyle
 from lvkit.render import render_vi
 from lvkit.structure import parse_lvclass
 
@@ -140,7 +140,19 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
         search_paths=[AF_ROOT.parent.parent, CAF_ROOT],
     )
 
-    fields = graph.get_class_fields("ConfigurableActor.lvclass")
+    # A Bundle/Unbundle By Name counts the wire's own class's fields only.
+    own = graph.get_class_fields("ConfigurableActor.lvclass")
+    assert own is not None and len(own) == 6
+    key = graph.class_type_key(
+        LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Refnum",
+            ref_type="UDClassInst",
+            classname="ConfigurableActor.lvclass",
+        )
+    )
+    assert key is not None
+    fields = graph.class_fields_with_inherited(key)
     field_names = [f.name for f in fields]
     own_fields = [
         "ConfigManager",
@@ -161,13 +173,24 @@ def test_vilib_rooted_parent_inherits_fields_and_wire_style() -> None:
 
 @pytest.mark.skipif(not TESTLOADER_CLASS.exists(), reason="JKI sample not present")
 def test_in_repo_same_tree_parent_still_resolves() -> None:
-    """No regression (issue #84): a class whose parent has NO ``<vilib>``
-    marker (TextTestRunner's parent TestRunner — in-repo, resolved via the
-    existing bare-name ``_walk_up_find`` fallback, completely untouched by
-    the new vilib-rooted-parent path since ``is_vilib_parent`` gates it) is
-    unaffected: same field count and names before and after the fix."""
+    """A class whose parent has NO ``<vilib>`` marker (TextTestRunner's parent
+    TestRunner, in a sibling folder) is found by the path its link record
+    holds, so its hierarchy's fields are the parent's then its own, and a
+    Bundle/Unbundle By Name on its wire counts its own fields only."""
     lvclass_path = JKI_ROOT / "Classes" / "TextTestRunner" / "TextTestRunner.lvclass"
     graph = InMemoryVIGraph()
     graph.load_lvclass(lvclass_path, LoadMode.MINIMAL, search_paths=[JKI_ROOT])
-    fields = graph.get_class_fields("TextTestRunner.lvclass")
-    assert [f.name for f in fields] == ["stream", "descriptions", "verbosity"]
+    own = graph.get_class_fields("TextTestRunner.lvclass")
+    assert own is not None
+    assert [f.name for f in own] == ["stream", "descriptions", "verbosity"]
+    key = graph._dep_key_for_ref("TextTestRunner.lvclass")  # noqa: SLF001
+    assert key is not None
+    fields = graph.class_fields_with_inherited(key)
+    assert [f.name for f in fields] == [
+        "publicEvents",
+        "Start Time",
+        "Stop Time",
+        "stream",
+        "descriptions",
+        "verbosity",
+    ]

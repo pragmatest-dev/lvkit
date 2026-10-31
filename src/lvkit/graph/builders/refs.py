@@ -388,8 +388,8 @@ class StatVIRefHandler(RefBuildHandler):
     def handle(self, node, q_node_uid, ctx):
         if not isinstance(node, StatVIRefNode):
             return False
-        vi_ref_name = node.name
-        if not vi_ref_name or vi_ref_name == "Static VI Reference":
+        vi_ref_name = node.label
+        if not vi_ref_name:
             logger.warning(
                 "VI %s: statVIRef %s has no label — skipping",
                 ctx.vi_name,

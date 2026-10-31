@@ -26,8 +26,7 @@ to be resolved first.
 ## Query across a repo
 
 Index a repo once (`lvkit index`, though the commands below build/refresh it for
-you), then ask project-wide questions in one call — no per-VI round trips, no
-same-name collision loss.
+you), then ask project-wide questions in one call — no per-VI round trips.
 
 - [query](query.md) — read-only SQL over the repo's index (views: `vi`,
   `terminal`, `constant`, `node`, `type_use`, the type catalog `type` / `type_field` /

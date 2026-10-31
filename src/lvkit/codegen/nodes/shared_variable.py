@@ -88,7 +88,7 @@ def generate(node: SharedVariableNode, ctx: CodeGenContext) -> CodeFragment:
                 f"Shared Variable '{node.variable_name}' is written with nothing wired",
                 node,
             )
-        value = ctx.resolve(value_term.id)
+        value = ctx.wired_input(value_term.id, node)
         if value is None:
             raise CodeGenError(
                 f"Shared Variable '{node.variable_name}' write value is unresolved",

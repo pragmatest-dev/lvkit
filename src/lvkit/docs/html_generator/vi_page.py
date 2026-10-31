@@ -30,6 +30,8 @@ class ViPageMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
         def _extract_library_group(self, vi_name: str) -> str: ...
+        def _vi_label(self, vi_name: str) -> str: ...
+        def _vi_short_label(self, vi_name: str) -> str: ...
         def _vi_name_to_filename(self, vi_name: str) -> str: ...
         def _class_name_to_filename(self, classname: str) -> str: ...
 
@@ -86,6 +88,7 @@ class ViPageMixin:
 
         # Create a relative link function for this VI's directory
         current_lib = self._extract_library_group(vi_name)
+        vi_label = self._vi_label(vi_name)
 
         def relative_link(target_vi_name: str) -> str:
             target_path = self._vi_name_to_filename(target_vi_name)
@@ -108,6 +111,7 @@ class ViPageMixin:
             dependencies, relative_link
         )
         callers_html = self._render_callers_section(callers, relative_link)
+
         def typedef_link(key: str) -> str | None:
             page = self.typedef_pages.get(key)
             return "../" + page.filename if page is not None else None
@@ -134,11 +138,13 @@ class ViPageMixin:
         # Class hierarchy: breadcrumb link back to the owning class, an
         # access-scope badge, and an Overrides/Overridden-by section.
         breadcrumb_class_html = ""
-        display_vi_name = vi_name
+        display_vi_name = vi_label
         if owning_class:
             class_href = "../" + self._class_name_to_filename(owning_class)
-            breadcrumb_class_html = f'<a href="{class_href}">{owning_class}</a> / '
-            display_vi_name = vi_name.rsplit(":", 1)[-1]
+            breadcrumb_class_html = (
+                f'<a href="{escape(class_href)}">{escape(owning_class)}</a> / '
+            )
+            display_vi_name = vi_label.rsplit(":", 1)[-1]
         access_badge_html = self._render_access_badge(method_access)
         overrides_html = self._render_method_overrides_section(
             method_overrides, relative_link
@@ -165,20 +171,20 @@ class ViPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{vi_name} - {self.doc_title}</title>
+    <title>{escape(vi_label)} - {escape(self.doc_title)}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
     <nav class="breadcrumb">
-        <a href="../index.html">{self.doc_title}</a> /
-        {breadcrumb_class_html}<span>{display_vi_name}</span>
+        <a href="../index.html">{escape(self.doc_title)}</a> /
+        {breadcrumb_class_html}<span>{escape(display_vi_name)}</span>
     </nav>
 
     <header>
         <div class="vi-header">
             {icon_html}
             <div class="vi-header-text">
-                <h1>{vi_name}{access_badge_html}</h1>
+                <h1>{escape(vi_label)}{access_badge_html}</h1>
                 <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>
@@ -247,9 +253,9 @@ class ViPageMixin:
             rows.append(
                 f"""
             <tr>
-                <td>{ctrl["name"]}</td>
-                <td><code>{ctrl["type"]}</code></td>
-                <td>{default_val}</td>
+                <td>{escape(str(ctrl["name"]))}</td>
+                <td><code>{escape(str(ctrl["type"]))}</code></td>
+                <td>{escape(str(default_val))}</td>
             </tr>
             """
             )
@@ -297,8 +303,8 @@ class ViPageMixin:
             rows.append(
                 f"""
             <tr>
-                <td>{ind["name"]}</td>
-                <td><code>{ind["type"]}</code></td>
+                <td>{escape(str(ind["name"]))}</td>
+                <td><code>{escape(str(ind["type"]))}</code></td>
             </tr>
             """
             )
@@ -332,11 +338,9 @@ class ViPageMixin:
         items = []
         for qualified_name, description in dependencies.items():
             # Display the short name but link using qualified name
-            display_name = (
-                qualified_name.split(":")[-1]
-                if ":" in qualified_name
-                else qualified_name
-            )
+            display_name = escape(self._vi_short_label(qualified_name))
+
+            summary = f" - {escape(description)}" if description else ""
 
             # Only create link if this VI has a documentation page
             if qualified_name in self.all_vis:
@@ -344,7 +348,7 @@ class ViPageMixin:
                 items.append(
                     f"""
             <li>
-                <a href="{link}"><code>{display_name}</code></a> - {description}
+                <a href="{link}"><code>{display_name}</code></a>{summary}
             </li>
             """
                 )
@@ -353,7 +357,7 @@ class ViPageMixin:
                 items.append(
                     f"""
             <li>
-                <code>{display_name}</code> - {description}
+                <code>{display_name}</code>{summary}
             </li>
             """
                 )
@@ -410,12 +414,8 @@ class ViPageMixin:
         items = []
         for qualified_name in callers:
             # Display the short name but link using qualified name
-            display_name = (
-                qualified_name.split(":")[-1]
-                if ":" in qualified_name
-                else qualified_name
-            )
-            link = link_fn(qualified_name)
+            display_name = escape(self._vi_short_label(qualified_name))
+            link = escape(link_fn(qualified_name))
             items.append(
                 f"""
             <li><a href="{link}"><code>{display_name}</code></a></li>
@@ -461,10 +461,12 @@ class ViPageMixin:
         # Build variant links
         variant_links = []
         for variant in variant_params:
-            link = link_fn(variant["name"])
-            variant_links.append(
-                f'<li><a href="{link}"><code>{variant["name"]}</code></a></li>'
-            )
+            name = f"<code>{escape(self._vi_short_label(variant['name']))}</code>"
+            if variant["name"] in self.all_vis:
+                link = escape(link_fn(variant["name"]))
+                variant_links.append(f'<li><a href="{link}">{name}</a></li>')
+            else:
+                variant_links.append(f"<li>{name}</li>")
 
         # Build parameter comparison table
         param_rows = []
@@ -486,7 +488,7 @@ class ViPageMixin:
             )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
             param_rows.append(
-                f"<tr><td><strong>{param_name}</strong> (input)</td>"
+                f"<tr><td><strong>{escape(param_name)}</strong> (input)</td>"
                 f"<td>{common_badge}</td>{cells}</tr>"
             )
 
@@ -507,13 +509,13 @@ class ViPageMixin:
             )
             cells = "".join(f"<td>{mark}</td>" for mark in present_in)
             param_rows.append(
-                f"<tr><td><strong>{param_name}</strong> (output)</td>"
+                f"<tr><td><strong>{escape(param_name)}</strong> (output)</td>"
                 f"<td>{common_badge}</td>{cells}</tr>"
             )
 
         # Build table header with variant names
         variant_headers = "".join(
-            f"<th>{v['name'].split(':')[-1] if ':' in v['name'] else v['name']}</th>"
+            f"<th>{escape(self._vi_short_label(v['name']))}</th>"
             for v in variant_params
         )
 
@@ -566,12 +568,14 @@ class ViPageMixin:
         if overrides.overrides:
             parts.append(
                 f"<p><strong>Overrides:</strong> "
-                f'<a href="{link_fn(overrides.overrides)}">'
-                f"<code>{overrides.overrides}</code></a></p>"
+                f'<a href="{escape(link_fn(overrides.overrides))}">'
+                f"<code>{escape(self._vi_short_label(overrides.overrides))}</code>"
+                "</a></p>"
             )
         if overrides.overridden_by:
             items = "".join(
-                f'<li><a href="{link_fn(v)}"><code>{v}</code></a></li>'
+                f'<li><a href="{escape(link_fn(v))}">'
+                f"<code>{escape(self._vi_short_label(v))}</code></a></li>"
                 for v in overrides.overridden_by
             )
             parts.append(

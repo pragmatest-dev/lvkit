@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import subprocess
 import sys
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
 # the specific commands that build/analyze — see the function-local imports.
 from . import __version__, cache_paths, staging
 from .build_options import BuildOptions
+from .console import use_utf8_output
 from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
@@ -198,20 +198,9 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     return store
 
 
-def _use_utf8_output() -> None:
-    """Write UTF-8 to stdout/stderr whatever the platform's default encoding.
-
-    The CLI prints non-ASCII symbols (arrows, ticks); a Windows pipe defaults to
-    the ANSI code page, which cannot encode them and would crash the command.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8")
-
-
 def main() -> int:
     """Main CLI entry point."""
-    _use_utf8_output()
+    use_utf8_output()
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
@@ -1017,7 +1006,7 @@ def cmd_index(args: argparse.Namespace) -> int:
             "total": done.refresh.total,
         }
         if done.refresh is not None
-        else {"vis": len(done.facts), "collisions": done.collisions}
+        else {"vis": len(done.facts), "loaded_alone": done.loaded_alone}
     )
     summary["controls"] = done.controls.controls
     summary["ms"] = round((time.monotonic() - start) * 1000)
@@ -1978,7 +1967,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
         )
-        print("\n" + result)
+        print("\n" + result.summary)
         return 0
 
     except Exception as e:

@@ -24,7 +24,7 @@ from lvkit.models import (
     Terminal,
     Tunnel,
 )
-from tests.helpers import build_graph, tunnel_terminals
+from tests.helpers import build_graph, error_cluster_type, tunnel_terminals
 
 
 def test_build_module_minimal():
@@ -1354,9 +1354,18 @@ class TestLVTypeLvLabel:
             kind=LVTypeKind.CLUSTER,
             typedef_name="lib:Error Cluster.ctl",
             fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
+                ClusterField(
+                    name="status",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+                ),
+                ClusterField(
+                    name="code",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+                ),
+                ClusterField(
+                    name="source",
+                    type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+                ),
             ],
         )
         assert err.type_descriptor() == "Error"
@@ -1605,6 +1614,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="input",
                     name="error in (no error)",
+                    lv_type=error_cluster_type(),
                     is_indicator=False,
                     is_public=True,
                 ),
@@ -1621,6 +1631,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="input",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=False,
                     is_public=True,
                 ),
@@ -1646,6 +1657,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="output",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=True,
                     is_public=True,
                 ),
@@ -1685,6 +1697,7 @@ class TestErrorClusterFiltering:
                     index=0,
                     direction="output",
                     name="error out",
+                    lv_type=error_cluster_type(),
                     is_indicator=True,
                     is_public=True,
                 ),

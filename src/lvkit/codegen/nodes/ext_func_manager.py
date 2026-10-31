@@ -43,7 +43,7 @@ def generate_manager_call(
     for name, param, (input_id, _) in zip(
         function.parameters, call.params[1:], call.row_terminal_ids[1:]
     ):
-        var = ctx.resolve(input_id) if input_id else None
+        var = ctx.wired_input(input_id, node) if input_id else None
         values[name] = var or default_value(param, None) or "None"
     by_id = {t.id: t for t in node.terminals}
     bindings: dict[str, str] = {}

@@ -200,9 +200,11 @@ def test_the_transform_is_valid_python_for_awkward_names(name: str) -> None:
 def test_an_absent_vi_is_placed_by_the_path_its_stub_records(tree: _Tree) -> None:
     key = "Flex-t'DAQmx AO.lvlib-Action.ctl'.lvlib:Read Event.vi"
     graph = _graph(tree.key("a.vi"), key)
-    graph._dep_graph.add_node(  # noqa: SLF001
+    graph._dep_graph.add_node(key)  # noqa: SLF001
+    graph._recorded.record(  # noqa: SLF001
         key,
-        path_tokens=["<extravilib>", "ChannelInstances", "Action.ctl", "Read Event.vi"],
+        None,
+        ["<extravilib>", "ChannelInstances", "Action.ctl", "Read Event.vi"],
     )
     layout = ModuleLayout(graph, [tree.key("a.vi"), key], tree.proj)
     assert layout.places[key] == ModulePlace(

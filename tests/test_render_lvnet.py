@@ -582,7 +582,10 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     )
     assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
     assert lines[idx + 1].strip() == "init = 0.0"
-    assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
+    assert (
+        lines[idx + 2].strip()
+        == "each = High_Resolution_Relative_Seconds_3710::relative seconds"
+    )
 
 
 @pytest.mark.needs_samples

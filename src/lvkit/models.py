@@ -16,7 +16,6 @@ subclasses are the single source of truth for node structure.
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
@@ -27,7 +26,13 @@ from pydantic import BaseModel
 
 from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
-from .lv_type_codes import BOOLEAN_TYPE_NAMES, STRING_TYPE_NAMES
+from .lv_type_codes import (
+    BOOLEAN_TYPE_NAMES,
+    STRING_TYPE_NAMES,
+    is_boolean_type_name,
+    is_int32_type_name,
+    is_string_type_name,
+)
 from .type_names import derive_python_name, is_enum_member_name
 
 # Type alias for scalar constant/default values
@@ -227,12 +232,14 @@ TypeNamer = Callable[["LVType"], str | None]
 class PaneSlot:
     """One used terminal of a connector pane: its slot ``index``, whether it is an
     output, the type of the value it carries and, when its descriptor is labelled,
-    the terminal's ``name``."""
+    the terminal's ``name``; ``dynamic_dispatch`` for a Dynamic Dispatch terminal
+    (the pane is a dynamic-dispatch member VI's)."""
 
     index: int
     is_output: bool
     type: LVType
     name: str | None = None
+    dynamic_dispatch: bool = False
 
 
 @dataclass
@@ -609,29 +616,31 @@ class ClusterField:
     type: LVType | None = None
 
 
-def _is_error_cluster(lv_type: LVType) -> bool:
-    """Check if a type is an error cluster.
+# LabVIEW's error cluster: these three fields, in this order. The typedef a
+# cluster comes from never decides; only its fields do.
+_ERROR_CLUSTER_FIELDS: tuple[tuple[str, Callable[[str | None], bool]], ...] = (
+    ("status", is_boolean_type_name),
+    ("code", is_int32_type_name),
+    ("source", is_string_type_name),
+)
 
-    Detects error clusters by:
-    1. TypeDef name contains "error" (case-insensitive)
-    2. Cluster with status/code/source fields
-    """
+
+def _is_error_cluster(lv_type: LVType) -> bool:
+    """Whether a type is LabVIEW's error cluster: exactly the fields ``status``
+    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A cluster
+    whose fields are unknown is not one."""
     if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return False
-
-    # Check typedef name
-    typedef_name = lv_type.typedef_name or ""
-    if "error" in typedef_name.lower():
-        return True
-
-    # Check field names for error cluster pattern
-    if lv_type.fields:
-        field_names = {f.name.lower() for f in lv_type.fields}
-        error_fields = {"status", "code", "source"}
-        if error_fields <= field_names:
-            return True
-
-    return False
+    fields = lv_type.fields
+    if not fields or len(fields) != len(_ERROR_CLUSTER_FIELDS):
+        return False
+    return all(
+        candidate.name.lower() == name
+        and candidate.type is not None
+        and candidate.type.kind == LVTypeKind.PRIMITIVE
+        and has_type(candidate.type.underlying_type)
+        for candidate, (name, has_type) in zip(fields, _ERROR_CLUSTER_FIELDS)
+    )
 
 
 # control_type (FP control class) -> LVTypeKind, for a terminal whose LVType
@@ -743,28 +752,10 @@ class Terminal(BaseModel):
 
     @property
     def is_error_cluster(self) -> bool:
-        """Check if this terminal carries a LabVIEW error cluster.
-
-        Primary check: type-based (_is_error_cluster on lv_type).
-        Fallback: name-based, but ONLY when the type is unknown or is a
-        cluster without field metadata.  If the type is known to be
-        non-cluster (array, primitive, etc.), the name is irrelevant —
-        "error" in a terminal name does not make an Array an error cluster.
-
-        Name matching uses word boundaries: "error in" / "error out" as
-        phrases, not substring "in" inside arbitrary words like "pass*in*g".
-        """
-        if self.lv_type:
-            if _is_error_cluster(self.lv_type):
-                return True
-            # Type is known and is NOT an error cluster — trust the type.
-            # Only fall through to name heuristic when type is missing.
-            return False
-        # No type info — fall back to name heuristic (word-boundary match).
-        name = (self.name or "").lower()
-        if "no error" in name:
-            return True
-        return bool(re.search(r"\berror\s+(in|out)\b", name))
+        """Whether this terminal carries LabVIEW's error cluster: its type has
+        exactly the fields ``status``, ``code`` and ``source``. A terminal whose
+        type is unknown is not one; its name never decides."""
+        return self.lv_type is not None and _is_error_cluster(self.lv_type)
 
 
 def bundle_unbundle_name(

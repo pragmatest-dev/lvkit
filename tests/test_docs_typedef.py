@@ -76,7 +76,7 @@ def test_typedef_page_lists_fields_values_and_escapes(tmp_path: Path) -> None:
     html = gen._render_typedef_page(_info(fields=fields), "<svg id='fp'></svg>")
     assert "&lt;b&gt;Gain&lt;/b&gt;" in html and "<b>Gain</b>" not in html
     assert "<svg id='fp'></svg>" in html and "[1, 2]" in html
-    assert "Inner" in html and 'padding-left:2.5em' in html  # nested one level in
+    assert "Inner" in html and "padding-left:2.5em" in html  # nested one level in
     enum = LVType(LVTypeKind.ENUM, values={"Read": EnumValue(0), "Write": EnumValue(1)})
     values = gen._render_typedef_page(_info(root_type=enum, default="Write"), None)
     assert "<td>1</td><td>Write</td>" in values and "Front Panel" not in values
@@ -86,6 +86,8 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     gen = _generator(tmp_path)
     gen.register_typedefs([("/p/Cfg.ctl", "Cfg.ctl"), ("/p/Dep.ctl", "Dep.ctl")])
     gen.all_vis.add("/p/use.vi")
+    gen.vi_groups["/p/use.vi"] = "p"
+    gen.vi_labels["/p/use.vi"] = "use.vi"
     gen.class_pages["Cls.lvclass"] = "Cls_lvclass/Cls.lvclass.html"
     info = _info(
         uses=(TypedefRef(NodeType.TYPEDEF, "Dep.ctl", "/p/Dep.ctl"),),
@@ -98,6 +100,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     html = gen._render_typedef_page(info, None)
     assert 'href="Dep.html"' in html  # another typedef page: same directory
     assert 'href="../Cls_lvclass/Cls.lvclass.html"' in html
+    assert 'href="../p/use.html"' in html
     assert "nopage.vi</code> (vi)" in html  # no page: listed, not linked
     assert html.count("<a href=") == 4  # breadcrumb + the 3 references with pages
 
@@ -108,6 +111,7 @@ def test_index_and_vi_page_link_to_typedef_pages(tmp_path: Path) -> None:
     index = gen._render_index_page([])
     assert "Type Definitions" in index and 'href="typedef/Cfg.html"' in index
     assert "type definitions: 1" in index
+
     def link(key: str) -> str | None:
         page = gen.typedef_pages.get(key)
         return "../" + page.filename if page else None
@@ -128,15 +132,16 @@ def test_a_lone_unreadable_control_is_reported(tmp_path: Path) -> None:
     bad = tmp_path / "Bad.ctl"
     bad.write_bytes(b"not a labview file")
     result = generate_documents(str(bad), str(tmp_path / "out"))
-    assert result.startswith("Failed to load any VIs or controls")
-    assert "Bad.ctl" in result
+    assert result.stopped
+    assert result.summary.startswith("Failed to load any VIs or controls")
+    assert "Bad.ctl" in result.summary
 
 
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _CLUSTER_CTL.exists(), reason="icon-editor sample absent")
 def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
     single = tmp_path / "single"
-    summary = generate_documents(str(_CLUSTER_CTL), str(single))
+    summary = generate_documents(str(_CLUSTER_CTL), str(single)).summary
     assert "Type definitions documented:" in summary  # it, plus what it references
     page = (single / "typedef" / "API_Test_Settings.html").read_text(encoding="utf-8")
     assert "Text color" in page and "Front Panel" in page and "<svg" in page
@@ -155,7 +160,7 @@ def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_lists_its_typedefs_apart_from_its_subvis():
     graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
-    data = _prepare_vi_documentation_data(vi, graph, {}, None)
+    data = _prepare_vi_documentation_data(vi, graph, {}, [], str, None)
     assert data["type_definitions"], "the VI uses controls"
     typedefs = set(data["type_definitions"])
     assert typedefs.isdisjoint(data["dependencies"])  # not listed as SubVI calls
@@ -169,9 +174,13 @@ def test_a_corrupt_control_does_not_stop_the_others(tmp_path):
     project.mkdir()
     shutil.copy(_CLUSTER_CTL, project / "Good.ctl")
     (project / "Bad.ctl").write_bytes(b"not a labview file")
-    summary = generate_documents(str(project), str(tmp_path / "out"))
+    result = generate_documents(str(project), str(tmp_path / "out"))
+    summary = result.summary
     assert (tmp_path / "out" / "typedef" / "Good.html").is_file()
-    assert "Warnings (1 files skipped)" in summary and "Bad.ctl" in summary
+    assert [str(p) for p in result.problems] == [
+        "Bad.ctl: could not be read as a control"
+    ]
+    assert [p.stage for p in result.problems] == ["load"]
     assert "Type definitions documented:" in summary
 
 

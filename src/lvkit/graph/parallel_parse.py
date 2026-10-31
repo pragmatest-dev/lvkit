@@ -34,6 +34,7 @@ import threading
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+from ..console import use_utf8_output
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_vi_xml
 from ..parser import ParsedVI, parse_vi
@@ -130,7 +131,9 @@ def parallel_parse_directory(
         # exactly this). Spawn starts a clean interpreter — safe with threads,
         # and its higher startup is amortized over the batched work.
         ctx = mp.get_context("spawn")
-        with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
+        with ProcessPoolExecutor(
+            max_workers=workers, mp_context=ctx, initializer=use_utf8_output
+        ) as pool:
             for result in pool.map(_parse_batch, batches):
                 cache.update(result)
     except Exception:

@@ -168,6 +168,11 @@ class RenderNode:
     # SubVI whose source doesn't resolve to a project-local file (see
     # ``_subvi_rel_path``).
     subvi_rel: str | None = None
+    # The path the vi.lib catalog looks a SubVI call up by
+    # (``InMemoryVIGraph.catalog_path``), resolved here with the graph so the
+    # drawing reads the same catalog entry code generation does; None for any
+    # other node.
+    catalog_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -809,7 +814,11 @@ def _structure_borders(
         if rect is None:
             continue
         glyph_kind = _TUNNEL_GLYPH_KIND.get(t.tunnel_type)
-        if glyph_kind is None and t.name == "selector":
+        if (
+            glyph_kind is None
+            and isinstance(node, CaseStructureNode)
+            and t.id == node.selector_terminal
+        ):
             glyph_kind = "selector"
         if t.tunnel_type == "lpTun":
             # Glyph from the loop tunnel's own aggregation MODE — the single
@@ -1943,6 +1952,9 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     frame_path=fp_path,
                     owned_label=owned_label,
                     subvi_rel=subvi_rel,
+                    catalog_path=(
+                        graph.catalog_path(node) if isinstance(node, VINode) else None
+                    ),
                 )
             )
 

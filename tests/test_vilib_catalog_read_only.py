@@ -20,7 +20,7 @@ from lvkit._data import data_dir
 from lvkit.codegen.builder import build_module
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
 from lvkit.models import LVType, LVTypeKind, Terminal
-from lvkit.vilib_resolver import VILibResolver
+from lvkit.vilib_resolver import VILibResolver, get_resolver, own_resolver
 from tests.helpers import build_graph
 
 _CATALOG_ENTRY = {
@@ -92,6 +92,7 @@ def _caller(
         id="op:1",
         vi_path="Caller.vi",
         name=vi,
+        qualified_path=f"<vilib>/Test/{vi}",
         terminals=[wired],
     )
     context = VIContext(
@@ -217,3 +218,24 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
 
     assert "size=12.0" in source
     assert _tree_digest(bundled) == before
+
+
+def test_what_generation_learns_stays_in_its_run() -> None:
+    outside = get_resolver()
+    entry = outside.resolve_by_name("Inverse FFT.vi")
+    assert entry is not None
+    assert [t.index for t in entry.terminals if t.name == "shift?"] == [None]
+    wired = Terminal(id="t:s", index=2, direction="input", name="shift?")
+    with own_resolver() as run:
+        assert get_resolver() is run
+        learned = run.auto_update_terminals("Inverse FFT.vi", [wired])
+        assert [t.index for t in learned.terminals if t.name == "shift?"] == [2]
+    assert get_resolver() is outside
+    assert [t.index for t in entry.terminals if t.name == "shift?"] == [None]
+
+
+def test_an_unnamed_terminal_number_is_not_guessed(read_only_catalog: Path) -> None:
+    resolver = VILibResolver(data_dir=read_only_catalog)
+    wired = Terminal(id="t:x", index=9, direction="input", name="Other Name")
+    entry = resolver.auto_update_terminals("Learn Me.vi", [wired])
+    assert 9 not in [t.index for t in entry.terminals]

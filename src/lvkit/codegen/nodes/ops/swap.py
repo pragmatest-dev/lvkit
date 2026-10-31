@@ -28,7 +28,7 @@ def _swap(
     result = terminal(node, "output", 0)
     if result is None or not ctx.is_wired(result.id):
         return CodeFragment.empty()
-    value = (ctx.resolve(source.id) if source else None) or "None"
+    value = (ctx.wired_input(source.id, node) if source else None) or "None"
     try:
         layout = layout_of(source.lv_type if source else None)
     except UnsupportedLayout as error:

@@ -377,7 +377,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     # ``draw_scene``) so it always paints over every other diagram element,
     # not just this node's later siblings. The native <title> tooltip stays
     # as a text fallback (e.g. no-JS consumers).
-    tooltip = _node_tooltip(node.node)
+    tooltip = _node_tooltip(node.node, node.catalog_path)
     if tooltip is None and isinstance(node.glyph, ConstantGlyph):
         # A constant's in-box text is fit to the box and may be ellipsized/clipped
         # ("…"). When it is — for ANY type (numeric, string, path, enum) — expose
@@ -406,7 +406,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             cls="lv-node",
             data=data,
             title=tooltip,
-            href=_node_doc_url(node.node),
+            href=_node_doc_url(node.node, node.catalog_path),
         )
 
     if isinstance(node.node, FormulaNode):
@@ -515,7 +515,7 @@ def _node_identity(node: AnyGraphNode) -> tuple[str, str | None] | None:
     return header, clean_help_text(getattr(node, "description", None))
 
 
-def _node_tooltip(node: AnyGraphNode) -> str | None:
+def _node_tooltip(node: AnyGraphNode, catalog_path: str | None = None) -> str | None:
     """Context-help hover text for a node: its identity, description (when
     known), and its connector pane — every terminal with direction, type, and
     label (when the heap carries one). Returns None for nodes without a useful
@@ -529,15 +529,16 @@ def _node_tooltip(node: AnyGraphNode) -> str | None:
     if desc:
         lines.append(desc)
     lines.extend(_terminal_help_lines(node))
-    doc_url = _node_doc_url(node)
+    doc_url = _node_doc_url(node, catalog_path)
     if doc_url:
         lines.append(doc_url)
     return "\n".join(lines)
 
 
-def _node_doc_url(node: AnyGraphNode) -> str | None:
+def _node_doc_url(node: AnyGraphNode, catalog_path: str | None = None) -> str | None:
     """Public NI docs URL for a resolvable node — a primitive (primitives.json)
-    or a vi.lib VI (vilib catalog), both carrying ``doc_url`` since #87. Shown
+    or a vi.lib VI (vilib catalog, found by ``catalog_path``), both carrying
+    ``doc_url`` since #87. Shown
     as the last line of the hover ``<title>`` (task #67). None when the node has
     no catalog page (unresolved prim, user subVI, structure, constant)."""
     if isinstance(node, PrimitiveNode):
@@ -557,7 +558,7 @@ def _node_doc_url(node: AnyGraphNode) -> str | None:
                 return nt.doc_url
         return None
     if isinstance(node, VINode):
-        entry = get_vilib_resolver().resolve_by_name(node.name or "")
+        entry = get_vilib_resolver().resolve_recorded(catalog_path)
         return entry.doc_url if entry else None
     return None
 

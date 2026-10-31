@@ -31,7 +31,7 @@ from lvkit.models import (
 )
 from lvkit.pipeline import create_import_resolver
 from lvkit.type_names import derive_python_name, is_enum_member_name
-from tests.helpers import make_graph_with_edge
+from tests.helpers import error_cluster_type, make_graph_with_edge
 
 
 def _enum(typedef_name: str | None, **members: int) -> LVType:
@@ -197,14 +197,7 @@ class TestErrorClusterTunnels:
         ]
 
     def test_tunnels_skip_the_error_cluster(self):
-        error = LVType(
-            kind=LVTypeKind.CLUSTER,
-            fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
-            ],
-        )
+        error = error_cluster_type()
         number = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
         node = CaseStructureNode(
             id="case",
