@@ -275,10 +275,11 @@ class QueryMixin:
         """Where a record names its file on this machine, in the order they are
         tried: an absolute path as it is, a relative path joined onto the
         caller's folder, a pseudo path joined onto each folder it names. Empty
-        for a pseudo path with no folder, or a drive this machine has not."""
+        for a pseudo path with no folder, or an absolute path with no file here
+        (another machine's folder, never shown or staged)."""
         absolute = ref.absolute_path()
         if absolute is not None:
-            return [absolute]
+            return [absolute] if absolute.exists() else []
         head = ref.path_tokens[0] if ref.path_tokens else ""
         folders = self.library_folders().get(head)
         if folders is None:

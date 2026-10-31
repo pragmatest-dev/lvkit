@@ -2047,8 +2047,6 @@ class LoadingMixin:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = _redirect_member_beside_container(cand, leaf)
-        if dep_ref.absolute_path() is not None and not cand.exists():
-            return None
         return cand.resolve()
 
     def _load_instance_dependency(
