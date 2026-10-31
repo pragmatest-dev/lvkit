@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import NamedTuple
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from .load_mode import LoadMode
 from .run_report import Problem, RunSettings
 
@@ -46,9 +48,10 @@ def diff_vi_files(
     before_ref: str | None = None,
     after_ref: str | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     before_original: Path | None = None,
     after_original: Path | None = None,
     warm_index: bool = True,
@@ -89,6 +92,7 @@ def diff_vi_files(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         layout=layout,
         run_settings=run_settings,
         original_path=before_original,
@@ -99,6 +103,7 @@ def diff_vi_files(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         layout=layout,
         run_settings=run_settings,
         original_path=after_original,

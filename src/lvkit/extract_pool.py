@@ -56,9 +56,9 @@ def _worker_count() -> int:
 
 
 def _init_worker(
-    vilib_root: Path | None,
-    userlib_root: Path | None,
-    instrlib_root: Path | None,
+    vilib_root: tuple[Path, ...],
+    userlib_root: tuple[Path, ...],
+    instrlib_root: tuple[Path, ...],
 ) -> None:
     """Worker start-up: adopt the parent's library roots, which decide each VI's
     cache slot (see ``cache_paths.classify``). Its warnings are UTF-8, like the

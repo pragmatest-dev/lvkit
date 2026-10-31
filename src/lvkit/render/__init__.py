@@ -20,6 +20,8 @@ import re
 from pathlib import Path
 from typing import Literal
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from ..graph.core import InMemoryVIGraph
 from ..graph.loading import LoadMode
 from ..graph.models import VINode, vi_health_to_dict, vi_properties_to_dict
@@ -605,9 +607,10 @@ def render_vi_with_subvis(
 def render_vi_file(
     path: Path,
     *,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
@@ -632,6 +635,7 @@ def render_vi_file(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme=theme,
@@ -642,9 +646,10 @@ def render_vi_file(
 def render_vi_file_titled(
     path: Path,
     *,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
@@ -660,6 +665,7 @@ def render_vi_file_titled(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme=theme,
@@ -671,9 +677,10 @@ def render_vi_file_titled(
 def render_vi_file_report(
     path: Path,
     *,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
@@ -695,11 +702,12 @@ def render_vi_file_report(
 
     def _load(load_mode: LoadMode) -> tuple[InMemoryVIGraph, str | None]:
         graph = InMemoryVIGraph(run_settings)
-        if vilib_root or userlib_root or instrlib_root:
+        if vilib_root or userlib_root or instrlib_root or search_path:
             graph.set_library_roots(
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
                 instrlib_root=instrlib_root,
+                search_path=search_path,
             )
         try:
             vi_key = graph.load_vi(
@@ -752,9 +760,10 @@ def render_vi_body_with_name(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
@@ -774,6 +783,7 @@ def render_vi_body_with_name(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme_mode=theme_mode,
@@ -794,9 +804,10 @@ def render_vi_body(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
@@ -818,6 +829,7 @@ def render_vi_body(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme_mode=theme_mode,

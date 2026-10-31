@@ -107,9 +107,9 @@ class QueryMixin:
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
     _layouts: dict[str, Layout]
-    _vilib_root: Path | None
-    _userlib_root: Path | None
-    _instrlib_root: Path | None
+    _vilib_roots: tuple[Path, ...]
+    _userlib_roots: tuple[Path, ...]
+    _instrlib_roots: tuple[Path, ...]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins / core, resolved via MRO
@@ -251,18 +251,51 @@ class QueryMixin:
         """Get the source file path for a VI (accepts a vi_key, qname, or name)."""
         return self._source_paths.get(self.resolve_vi_name(vi_name))
 
+    def library_folders(self) -> dict[str, tuple[Path, ...]]:
+        """The folders each pseudo path names, in the order they are tried."""
+        return {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
+        }
+
     def library_roots(self) -> list[tuple[str, Path]]:
         """The configured library folders, each with the symbolic root token a
-        recorded path names it by (``("<userlib>", Path(".../user.lib"))``)."""
+        recorded path names it by (``("<userlib>", Path(".../user.lib"))``), in
+        the order they are tried."""
         return [
             (token, root)
-            for token, root in (
-                ("<vilib>", self._vilib_root),
-                ("<userlib>", self._userlib_root),
-                ("<instrlib>", self._instrlib_root),
-            )
-            if root is not None
+            for token, roots in self.library_folders().items()
+            for root in roots
         ]
+
+    def recorded_candidates(
+        self, ref: ParsedDependencyRef, caller_file: Path
+    ) -> list[Path]:
+        """Where a record names its file on this machine, in the order they are
+        tried: an absolute path as it is, a relative path joined onto the
+        caller's folder, a pseudo path joined onto each folder it names. Empty
+        for a pseudo path with no folder, or an absolute path with no file here
+        (another machine's folder, never shown or staged)."""
+        absolute = ref.absolute_path()
+        if absolute is not None:
+            return [absolute] if absolute.exists() else []
+        head = ref.path_tokens[0] if ref.path_tokens else ""
+        folders = self.library_folders().get(head)
+        if folders is None:
+            only = ref.resolve_against(caller_file)
+            return [only] if only is not None else []
+        keyword = {
+            "<vilib>": "vilib_root",
+            "<userlib>": "userlib_root",
+            "<instrlib>": "instrlib_root",
+        }[head]
+        found: list[Path] = []
+        for folder in folders:
+            candidate = ref.resolve_against(caller_file, **{keyword: folder})
+            if candidate is not None:
+                found.append(candidate)
+        return found
 
     def library_root_of(self, path: Path) -> tuple[str, Path] | None:
         """The LabVIEW library folder (``<vilib>``, ``<userlib>``, ``<instrlib>``)
@@ -297,7 +330,8 @@ class QueryMixin:
                 if ".llb/" in rel.replace("\\", "/").lower():
                     return None  # packed member — needs archive extraction
                 candidate = root / rel
-                return candidate if candidate.is_file() else None
+                if candidate.is_file():
+                    return candidate
         return None
 
     def get_layout(self, vi_name: str) -> Layout | None:
@@ -539,14 +573,10 @@ class QueryMixin:
             caller_file = self._source_paths.get(caller)
             if caller_file is None:
                 continue
-            cand = ref.resolve_against(
-                caller_file,
-                vilib_root=self._vilib_root,
-                userlib_root=self._userlib_root,
-                instrlib_root=self._instrlib_root,
-            )
-            if cand is None:
+            candidates = self.recorded_candidates(ref, caller_file)
+            if not candidates:
                 continue
+            cand = next((c for c in candidates if c.exists()), candidates[0])
             # A class/library MEMBER (.vi OR .ctl) names its OWNING container;
             # the member's own file sits beside it (see
             # _redirect_member_beside_container).

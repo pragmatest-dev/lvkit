@@ -20,6 +20,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import VINode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefInfo
+from lvkit.library_folders import Folders, SearchEntries
 from lvkit.render import render_vi_with_subvis
 from lvkit.render.front_panel import render_ctl_front_panel
 from lvkit.render.icons import resolve_icon_png
@@ -346,9 +347,10 @@ def generate_documents(
     library_path: str,
     output_dir: str,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     run: RunProblems | None = None,
 ) -> str:
     """Generate HTML docs for a LabVIEW library, class, directory, or VI.
@@ -409,11 +411,12 @@ def generate_documents(
     print(f"[TIMING] Starting VI loading (mode={mode.value})...")
     t0 = time.time()
     graph = run.new_graph()
-    if vilib_root or userlib_root or instrlib_root:
+    if vilib_root or userlib_root or instrlib_root or search_path:
         graph.set_library_roots(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
 
     loaded_vis: list[str] = []

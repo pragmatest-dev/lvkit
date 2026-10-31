@@ -61,12 +61,19 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     return built
 
 
+# A VI Search Path that searches nowhere: the recorded path alone decides.
+_NO_SEARCH = ["<userlib>"]
+
+
 def _load(
-    tree: _Tree, name: str, userlib: Path | None = None
+    tree: _Tree,
+    name: str,
+    userlib: Path | None = None,
+    search_path: list[str] | None = None,
 ) -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    if userlib is not None:
-        graph.set_library_roots(userlib_root=userlib)
+    if userlib is not None or search_path is not None:
+        graph.set_library_roots(userlib_root=userlib, search_path=search_path)
     key = graph.load_vi(tree.root / name, LoadMode.MINIMAL)
     assert key is not None
     return graph, key
@@ -87,22 +94,59 @@ def test_a_userlib_path_is_joined_onto_the_userlib_root(tree: _Tree) -> None:
     assert graph.loaded_callee_key(_call(graph, key)) == target
 
 
-def test_a_same_named_file_elsewhere_is_not_taken(tree: _Tree) -> None:
+def test_a_userlib_path_is_tried_in_each_userlib_folder_in_order(
+    tree: _Tree, tmp_path: Path
+) -> None:
+    """``<userlib>`` names two folders; the first lacks the file, the second has
+    it at the recorded path: it loads from there, with no note."""
+    empty = tmp_path / "empty_user.lib"
+    empty.mkdir()
+    graph = InMemoryVIGraph()
+    graph.set_library_roots(
+        userlib_root=[empty, tree.root / "user.lib"], search_path=_NO_SEARCH
+    )
+    key = graph.load_vi(tree.root / "caller_userlib.vi", LoadMode.MINIMAL)
+    assert key is not None
+    target = _key(tree, "user.lib/_OpenG.lib/string/Trim__ogtk.vi")
+    assert graph.loaded_callee_key(_call(graph, key)) == target
+    assert graph.problems([key]) == []
+
+
+def test_a_moved_file_is_found_on_the_search_path_with_a_warning(
+    tree: _Tree,
+) -> None:
+    """LabVIEW's default search path includes the top VI's folder and its
+    subfolders: the file recorded at ``Recorded/moved.vi`` is now at
+    ``Elsewhere/moved.vi``."""
     graph, key = _load(tree, "caller_moved.vi")
+    assert graph.loaded_callee_key(_call(graph, key)) == _key(
+        tree, "Elsewhere/moved.vi"
+    )
+    (problem,) = graph.problems([key])
+    assert problem.reason == (
+        "moved.vi is not at its recorded path '/Recorded/moved.vi'; loaded "
+        "moved.vi from the VI search path"
+    )
+
+
+def test_a_same_named_file_off_the_search_path_is_not_taken(tree: _Tree) -> None:
+    graph, key = _load(tree, "caller_moved.vi", search_path=_NO_SEARCH)
     call = _call(graph, key)
     recorded = _key(tree, "Recorded/moved.vi")
     assert call.callee_key == recorded
     assert graph.loaded_callee_key(call) is None
     assert graph.is_stub(recorded)
     assert _key(tree, "Elsewhere/moved.vi") not in graph.list_vis()
+    assert graph.problems([key]) == []
 
 
 def test_a_userlib_call_with_no_root_is_missing_and_keeps_its_recorded_path(
     tree: _Tree,
 ) -> None:
-    """With no user.lib named, the file under ``user.lib/`` beside the caller is
-    not taken: the call is missing, shown by its ``<userlib>`` path."""
-    graph, key = _load(tree, "caller_userlib.vi")
+    """With no user.lib named and a search path that reaches no folder, the file
+    under ``user.lib/`` beside the caller is not taken: the call is missing,
+    shown by its ``<userlib>`` path."""
+    graph, key = _load(tree, "caller_userlib.vi", search_path=_NO_SEARCH)
     assert graph.loaded_callee_key(_call(graph, key)) is None
     (stub,) = [d for d in graph.get_vi_dependencies(key) if graph.is_stub(d)]
     assert graph.recorded_path(stub) == "/".join(_USERLIB_CALL)
@@ -111,7 +155,9 @@ def test_a_userlib_call_with_no_root_is_missing_and_keeps_its_recorded_path(
 def test_generate_names_the_missing_call_by_its_recorded_path(
     tree: _Tree, tmp_path: Path
 ) -> None:
-    result = generate_python(tree.root / "caller_userlib.vi", tmp_path / "gen")
+    result = generate_python(
+        tree.root / "caller_userlib.vi", tmp_path / "gen", search_path=_NO_SEARCH
+    )
     (gap,) = [g for g in result["gaps"] if g.kind == "missing_vi"]
     assert "(<userlib>/_OpenG.lib/string/Trim__ogtk.vi)" in gap.reason
     assert str(tree.root) not in gap.reason and str(tmp_path) not in gap.reason

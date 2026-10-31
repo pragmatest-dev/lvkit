@@ -12,6 +12,8 @@ import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from .cache_paths import project_root
 from .codegen.gaps import (
     MISSING_VI,
@@ -52,9 +54,10 @@ def _item_key(gap: Gap) -> tuple[str, str, str]:
 def collect_unresolved(
     input_path: Path | str,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     run: RunProblems | None = None,
 ) -> list[UnresolvedItem]:
     """Return every distinct gap under ``input_path``, aggregated.
@@ -83,6 +86,7 @@ def collect_unresolved(
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
                 instrlib_root=instrlib_root,
+                search_path=search_path,
                 run=inner,
             )
     if run is not None:

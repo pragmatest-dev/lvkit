@@ -68,6 +68,10 @@ class ProblemKind(str, Enum):
     GAP = "gap"
     # The VI's module could not be written (it has no file and no recorded path).
     UNWRITABLE = "unwritable"
+    # A dependency was not at the path its caller records, and was loaded from
+    # the VI search path instead (LabVIEW warns of the same). A note, not a
+    # problem: the run is still complete (``Problem.is_note``).
+    FOUND_ELSEWHERE = "found on the search path"
 
 
 class Outcome(str, Enum):
@@ -94,6 +98,12 @@ class Problem:
     hint: str | None = None
     # What the problem is, finer than ``kind`` (a gap's kind, ``unsupported_node``).
     code: str | None = None
+
+    @property
+    def is_note(self) -> bool:
+        """Whether this is a note: the run went right, and the user may want to
+        know (a file found on the VI search path, not at its recorded path)."""
+        return self.kind is ProblemKind.FOUND_ELSEWHERE
 
     @property
     def line(self) -> str:
@@ -225,9 +235,9 @@ class RunSettings:
     stream: TextIO | None = None
     # False for ``unresolved``, whose result is the gaps: they are not problems.
     gaps_are_problems: bool = True
-    # The LabVIEW library folders (``<vilib>``, ``<userlib>``, ``<instrlib>`` -> the
-    # folder on disk); a graph sets them when it is given its library roots.
-    library_roots: dict[str, Path | None] = field(default_factory=dict)
+    # The LabVIEW library folders (``<vilib>``, ``<userlib>``, ``<instrlib>`` -> its
+    # folders on disk, in order); a graph sets them with its library roots.
+    library_roots: dict[str, tuple[Path, ...]] = field(default_factory=dict)
     _roots: dict[Path, Path] = field(default_factory=dict, repr=False)
 
     def label(self, path: Path | str) -> str:
@@ -239,10 +249,11 @@ class RunSettings:
         container = llb_container_of(resolved)
         if container is not None:
             return f"{self.label(container)}/{resolved.name}"
-        for token, library in self.library_roots.items():
-            if library is not None and resolved.is_relative_to(library.resolve()):
-                rel = resolved.relative_to(library.resolve()).as_posix()
-                return f"{token}/{rel}"
+        for token, libraries in self.library_roots.items():
+            for library in libraries:
+                if resolved.is_relative_to(library.resolve()):
+                    rel = resolved.relative_to(library.resolve()).as_posix()
+                    return f"{token}/{rel}"
         base = self.root.resolve() if self.root is not None else None
         if base is None or not resolved.is_relative_to(base):
             folder = resolved.parent
@@ -258,7 +269,7 @@ class RunSettings:
         """A problem was just recorded: print its warning when ``echo`` is on and
         stop a fail-fast run (unless the run is already ending, ``may_stop``
         False)."""
-        if self.echo:
+        if self.echo and not problem.is_note:
             out = self.stream or sys.stderr
             for text in problem.lines():
                 print(text, file=out)
@@ -273,9 +284,11 @@ def _order(problem: Problem) -> tuple[str, str, str, str]:
 @dataclass(frozen=True)
 class RunReport:
     """The problems a command projects from the graph for the VIs it used, each
-    once, in a fixed order, with the run's summary, JSON and exit code."""
+    once, in a fixed order, with the run's summary, JSON and exit code; its
+    notes (``Problem.is_note``) apart, which leave the run complete."""
 
     problems: tuple[Problem, ...] = ()
+    notes: tuple[Problem, ...] = ()
 
     @classmethod
     def of(cls, problems: Iterable[Problem]) -> RunReport:
@@ -295,7 +308,11 @@ class RunReport:
                 stage,
             )
             kept.setdefault(key, problem)
-        return cls(tuple(kept.values()))
+        found = tuple(kept.values())
+        return cls(
+            tuple(p for p in found if not p.is_note),
+            tuple(p for p in found if p.is_note),
+        )
 
     def outcome(self, stopped: bool = False) -> Outcome:
         if stopped:
@@ -312,7 +329,8 @@ class RunReport:
 
     def summary_lines(self, stopped: bool = False) -> list[str]:
         """The summary: the outcome, then every problem on one line, none left
-        out (a problem's detail lines were printed with its warning)."""
+        out (a problem's detail lines were printed with its warning), then one
+        line counting the notes (``to_json`` lists them)."""
         outcome = self.outcome(stopped)
         count = len(self.problems)
         head = f"{outcome.value}: {count} problem(s)" if count else outcome.value
@@ -320,21 +338,34 @@ class RunReport:
             head += " (includes an lvkit error)"
         elif any(p.kind is ProblemKind.ENVIRONMENT for p in self.problems):
             head += " (includes an environment problem)"
-        return [head, *(f"  {problem.line}" for problem in self.problems)]
+        lines = [head, *(f"  {problem.line}" for problem in self.problems)]
+        if self.notes:
+            lines.append(
+                f"{len(self.notes)} file(s) loaded from the VI search path, not "
+                "from the path their caller records"
+                + " (--format json lists them)"
+            )
+        return lines
 
     def print_summary(
-        self, stopped: bool = False, stream: TextIO | None = None
+        self,
+        stopped: bool = False,
+        stream: TextIO | None = None,
     ) -> None:
         out = stream or sys.stderr
         for text in self.summary_lines(stopped):
             print(text, file=out)
 
     def to_json(self, stopped: bool = False) -> dict[str, object]:
-        """The same summary as data: the outcome and the full list."""
-        return {
+        """The same summary as data: the outcome and the full list, and the
+        notes when there are any."""
+        data: dict[str, object] = {
             "status": self.outcome(stopped).value,
             "problems": [p.to_json() for p in self.problems],
         }
+        if self.notes:
+            data["notes"] = [p.to_json() for p in self.notes]
+        return data
 
 
 class RunProblems:

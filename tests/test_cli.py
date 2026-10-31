@@ -246,21 +246,22 @@ class TestFormatText:
         assert default_result.stdout != verbose_result.stdout
 
 
-# ── --search-path is gone: dependencies resolve by their recorded path ─────
+# ── --search-path: LabVIEW's VI Search Path, an ordered list ───────────────
 
 
 @pytest.mark.parametrize(
     "command",
-    ["describe", "generate", "document", "visualize", "unresolved", "render"],
+    ["describe", "generate", "document", "visualize", "unresolved", "render", "diff"],
 )
-def test_search_path_is_a_usage_error_naming_the_library_roots(
+def test_search_path_is_taken_several_times_by_every_command(
     command: str, tmp_path: Path
 ) -> None:
-    """Every command that took ``--search-path`` rejects it with exit 2 and a
-    message that names the library-root flags replacing it."""
+    """Every command that resolves dependencies takes ``--search-path`` more than
+    once (and ``--userlib`` too): no usage error (exit 2); the unreadable input
+    is the run's only problem."""
     vi = tmp_path / "a.vi"
     vi.write_bytes(b"")
-    extra = [str(tmp_path / "out")] if command == "document" else []
+    extra = {"document": [str(tmp_path / "out")], "diff": [str(vi)]}.get(command, [])
     result = subprocess.run(
         [
             sys.executable,
@@ -271,26 +272,16 @@ def test_search_path_is_a_usage_error_naming_the_library_roots(
             *extra,
             "--search-path",
             str(tmp_path),
+            "--search-path",
+            "<userlib>",
+            "--userlib",
+            str(tmp_path),
+            "--userlib",
+            str(tmp_path / "other"),
         ],
         capture_output=True,
         text=True,
         encoding="utf-8",
     )
-    assert result.returncode == 2
-    assert "--search-path no longer exists" in result.stderr
-    assert "--userlib DIR, --vilib DIR or --instrlib DIR" in result.stderr
-
-
-def test_diff_search_path_is_a_usage_error(tmp_path: Path) -> None:
-    a, b = tmp_path / "a.vi", tmp_path / "b.vi"
-    for vi in (a, b):
-        vi.write_bytes(b"")
-    result = subprocess.run(
-        [sys.executable, "-m", "lvkit.cli", "diff", str(a), str(b)]
-        + ["--search-path", str(tmp_path)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
-    assert result.returncode == 2
-    assert "--search-path no longer exists" in result.stderr
+    assert result.returncode != 2, result.stderr
+    assert "usage:" not in result.stderr

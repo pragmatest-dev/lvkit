@@ -42,7 +42,7 @@ import os
 import shutil
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from lvkit import staging
@@ -70,41 +70,50 @@ def global_cache_root() -> Path:
 # `InMemoryVIGraph.set_library_roots` so `classify` can prefix-match a VI to its
 # tier without re-guessing from the path. One run at a time (same single-process
 # concurrency caveat the extractor has always had).
-_vilib_root: Path | None = None
-_userlib_root: Path | None = None
-_instrlib_root: Path | None = None
+_vilib_roots: tuple[Path, ...] = ()
+_userlib_roots: tuple[Path, ...] = ()
+_instrlib_roots: tuple[Path, ...] = ()
+
+
+def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
+    if folders is None:
+        return ()
+    if isinstance(folders, Path):
+        folders = [folders]
+    return tuple(f.resolve() for f in folders)
 
 
 def set_extraction_roots(
     *,
-    vilib_root: Path | None,
-    userlib_root: Path | None,
-    instrlib_root: Path | None = None,
+    vilib_root: Path | Sequence[Path] | None,
+    userlib_root: Path | Sequence[Path] | None,
+    instrlib_root: Path | Sequence[Path] | None = None,
 ) -> None:
-    """Record the run's resolved library roots for cache classification.
+    """Record the run's library folders (each one or several) for cache
+    classification.
 
-    Roots are resolved to absolute paths so prefix-matching in :func:`classify`
-    is stable regardless of how a VI path was spelled. Passing ``None`` clears
-    that root.
+    Folders are resolved to absolute paths so prefix-matching in :func:`classify`
+    is stable regardless of how a VI path was spelled. Passing ``None`` or an
+    empty list clears that library.
     """
-    global _vilib_root, _userlib_root, _instrlib_root
-    _vilib_root = vilib_root.resolve() if vilib_root is not None else None
-    _userlib_root = userlib_root.resolve() if userlib_root is not None else None
-    _instrlib_root = instrlib_root.resolve() if instrlib_root is not None else None
+    global _vilib_roots, _userlib_roots, _instrlib_roots
+    _vilib_roots = _resolved(vilib_root)
+    _userlib_roots = _resolved(userlib_root)
+    _instrlib_roots = _resolved(instrlib_root)
 
 
-def extraction_roots() -> tuple[Path | None, Path | None, Path | None]:
-    """The run's ``(vilib_root, userlib_root, instrlib_root)`` as last set (None
-    when unset)."""
-    return _vilib_root, _userlib_root, _instrlib_root
+def extraction_roots() -> tuple[tuple[Path, ...], tuple[Path, ...], tuple[Path, ...]]:
+    """The run's ``(vilib, userlib, instrlib)`` folders as last set (empty when
+    unset)."""
+    return _vilib_roots, _userlib_roots, _instrlib_roots
 
 
 def clear_extraction_roots() -> None:
-    """Forget the run's library roots (fall back to project/adhoc)."""
-    global _vilib_root, _userlib_root, _instrlib_root
-    _vilib_root = None
-    _userlib_root = None
-    _instrlib_root = None
+    """Forget the run's library folders (fall back to project/adhoc)."""
+    global _vilib_roots, _userlib_roots, _instrlib_roots
+    _vilib_roots = ()
+    _userlib_roots = ()
+    _instrlib_roots = ()
 
 
 # ── Namespace classification ────────────────────────────────────────────────
@@ -324,12 +333,10 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     fp = kind_fingerprint(kind)
 
     for tier, library in (
-        ("vilib", _vilib_root),
-        ("userlib", _userlib_root),
-        ("instrlib", _instrlib_root),
+        *(("vilib", f) for f in _vilib_roots),
+        *(("userlib", f) for f in _userlib_roots),
+        *(("instrlib", f) for f in _instrlib_roots),
     ):
-        if library is None:
-            continue
         rel = _rel_under(resolved, library)
         if rel is not None:
             _note_owner(library)

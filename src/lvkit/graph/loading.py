@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import networkx as nx
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from ..cache_paths import project_root
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
@@ -44,8 +46,11 @@ from ..parser import (
     parse_vi,
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
+from ..parser.metadata import parse_vi_metadata
+from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
 from ..parser.type_mapping import parse_type_map_rich
 from ..run_report import (
+    CacheWriteError,
     Problem,
     ProblemKind,
     ProblemStage,
@@ -93,6 +98,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from ..parser.layout import Layout
     from .core import InMemoryVIGraph
+    from .search_path import SearchPath
 
 
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -123,6 +129,23 @@ def _with_extraction_pool(method: _F) -> _F:
 # above) so the CLI can name the modes without pulling the graph stack; it is
 # re-exported here for the long-standing ``from lvkit.graph.loading import
 # LoadMode`` call sites.
+
+
+def _has_qualified_name(path: Path, qualified_name: str) -> bool:
+    """Whether the VI at ``path`` is the one a caller records as
+    ``qualified_name``: the libraries and classes it records it is in, then its
+    file name (case-insensitive, as LabVIEW names compare). A class, library or
+    other non-VI file is named by its file alone."""
+    if not is_vi_file(path):
+        return True
+    try:
+        _, _, main_xml = extract_vi_xml(path)
+    except (UnreadableVIError, CacheWriteError):
+        return False
+    if main_xml is None:
+        return False
+    owners = parse_vi_metadata(main_xml).get("owning_libraries") or []
+    return ":".join([*owners, path.name]).lower() == qualified_name.lower()
 
 
 def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
@@ -358,9 +381,10 @@ class LoadingMixin:
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
-    _vilib_root: Path | None
-    _userlib_root: Path | None
-    _instrlib_root: Path | None
+    _vilib_roots: tuple[Path, ...]
+    _userlib_roots: tuple[Path, ...]
+    _instrlib_roots: tuple[Path, ...]
+    _search_path: SearchPath
     _layouts: dict[str, Layout]
     _want_layout: bool
     _parse_cache: dict[str, ParsedVI] | None
@@ -380,7 +404,16 @@ class LoadingMixin:
             stage: ProblemStage | None = None,
             node_type: NodeType = ...,
         ) -> None: ...
-        def record_file_problem(self, path: Path | str, problem: Problem) -> None: ...
+        def record_file_problem(
+            self,
+            path: Path | str,
+            problem: Problem,
+            node_type: NodeType = ...,
+            may_stop: bool = ...,
+        ) -> None: ...
+        def recorded_candidates(
+            self, ref: ParsedDependencyRef, caller_file: Path
+        ) -> list[Path]: ...
         def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]: ...
         def record_problem(
             self, vi_key: str, problem: Problem, node_type: NodeType = ...
@@ -447,6 +480,9 @@ class LoadingMixin:
             raise ValueError(f"original_path applies to a VI file, not {vi_path}")
         # The file this VI is: the original a copy stands for, else itself.
         identity = Path(original_path) if original_path is not None else vi_path
+        if self._search_path.top_vi_folder is None:
+            # The search path's <topvi>: the folder of the VI the load is for.
+            self._search_path.top_vi_folder = identity.resolve().parent
         self._want_layout = layout
 
         if clear_first:
@@ -534,6 +570,8 @@ class LoadingMixin:
         typedef / library resolves to a file exactly as a VI does. The qname is
         recorded as the human-facing display name (never a lookup key)."""
         self._source_paths[key] = source_file
+        # The search path's <foundvi>: the folders this load found files in.
+        self._search_path.found_folders.setdefault(Path(source_file).parent, None)
         self._vi_display_names[key] = qname
         # Reverse indexes: bare-name / qname -> [key]. List-valued: genuine
         # on-disk duplicates share a name/qname across distinct keys.
@@ -1837,17 +1875,14 @@ class LoadingMixin:
     def _recorded_path(
         self, dep_ref: ParsedDependencyRef, caller_file: Path
     ) -> Path | None:
-        """The path a record names on this machine: an absolute path as it is
-        (``absolute_path``), a relative or symbolic-root path joined onto the
-        caller's folder or the configured root (``resolve_against``); None for
-        a symbolic root with no folder configured or a drive this machine has
-        not."""
-        return dep_ref.absolute_path() or dep_ref.resolve_against(
-            caller_file,
-            vilib_root=self._vilib_root,
-            userlib_root=self._userlib_root,
-            instrlib_root=self._instrlib_root,
-        )
+        """The path a record names on this machine (``recorded_candidates``):
+        the first that exists, else the first (the intended path of a missing
+        file); None for a symbolic root with no folder configured or a drive
+        this machine has not."""
+        candidates = self.recorded_candidates(dep_ref, caller_file)
+        if not candidates:
+            return None
+        return next((c for c in candidates if c.exists()), candidates[0])
 
     def _locate_recorded(self, candidate: Path, leaf: str) -> Path | None:
         """The file at a dependency's recorded path ``candidate``: the file
@@ -1872,16 +1907,64 @@ class LoadingMixin:
         dep_ref: ParsedDependencyRef | None,
         caller_file: Path,
     ) -> Path | None:
-        """The file at the path a dependency's record names (``_recorded_path``,
-        ``_locate_recorded``). None when it records none, the path names no
-        place on this machine, or no file is there. The pure path-resolution
-        half of ``_load_dependency`` (no graph mutation)."""
+        """The file of a dependency: at the path its record names, in each
+        folder of its pseudo path in turn (``recorded_candidates``,
+        ``_locate_recorded``), else on the VI Search Path by the recorded path's
+        tail (``graph/search_path.py``), recorded as a problem that names both.
+        None when it records no path or no file is found. The path-resolution
+        half of ``_load_dependency``."""
         if dep_ref is None:
             return None
-        candidate = self._recorded_path(dep_ref, caller_file)
-        if candidate is None:
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        for candidate in self.recorded_candidates(dep_ref, caller_file):
+            found = self._locate_recorded(candidate, leaf)
+            if found is not None:
+                return found
+        return self._search_for(dep_ref, qualified_name, caller_file)
+
+    def _search_for(
+        self, dep_ref: ParsedDependencyRef, qualified_name: str, caller_file: Path
+    ) -> Path | None:
+        """The file the VI Search Path holds for a record that names no file
+        here, found by its recorded path's tail among the files with the
+        qualified name the caller records; the find is a problem of the caller
+        (its record names another place), as LabVIEW warns of a file loaded
+        from elsewhere."""
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        tokens = list(dep_ref.path_tokens or [])
+        # The tail drops the record's root: a pseudo path, or the drive of an
+        # absolute path; a relative path's leading empty tokens are ``..``.
+        if tokens and (
+            is_symbolic_root(tokens[0]) or dep_ref.path_type == ABSOLUTE_PATH_TYPE
+        ):
+            tokens = tokens[1:]
+        tail = [t for t in tokens if t]
+        if not tail:
             return None
-        return self._locate_recorded(candidate, qualified_name.rsplit(":", 1)[-1])
+        if tail[-1].lower() != leaf.lower():
+            # A member recorded by its library or class path: the member's own
+            # file sits beside it.
+            tail = [*tail[:-1], leaf]
+        found = self._search_path.find(
+            tail, lambda path: _has_qualified_name(path, qualified_name)
+        )
+        if found is None:
+            return None
+        recorded = "/".join(dep_ref.path_tokens)
+        self.record_file_problem(
+            caller_file,
+            Problem(
+                vi=self.vi_label(caller_file),
+                stage=ProblemStage.LOAD,
+                kind=ProblemKind.FOUND_ELSEWHERE,
+                reason=(
+                    f"{leaf} is not at its recorded path {recorded!r}; "
+                    f"loaded {self.vi_label(found)} from the VI search path"
+                ),
+            ),
+            may_stop=False,
+        )
+        return found
 
     def _class_member_file(
         self,
@@ -1964,8 +2047,6 @@ class LoadingMixin:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = _redirect_member_beside_container(cand, leaf)
-        if dep_ref.absolute_path() is not None and not cand.exists():
-            return None
         return cand.resolve()
 
     def _load_instance_dependency(
@@ -2486,9 +2567,10 @@ def load_vi_by_path(
     path: Path | str,
     mode: LoadMode = LoadMode.FULL,
     *,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     layout: bool = False,
     run_settings: RunSettings | None = None,
     graph: InMemoryVIGraph | None = None,
@@ -2519,11 +2601,12 @@ def load_vi_by_path(
     path = Path(path)
     if graph is None:
         graph = InMemoryVIGraph(run_settings)
-    if vilib_root or userlib_root or instrlib_root:
+    if vilib_root or userlib_root or instrlib_root or search_path:
         graph.set_library_roots(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
     key = graph.load_vi(str(path), mode, layout=layout, original_path=original_path)
     if key is None:

@@ -89,6 +89,34 @@ def test_summary_lists_every_problem_and_exit_codes() -> None:
     assert len(report.to_json()["problems"]) == 25  # type: ignore[arg-type]
 
 
+def test_files_found_on_the_search_path_are_notes_counted_in_one_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A run whose only findings are search-path finds is Complete (exit 0): no
+    warning line per find, one summary line counting them, each in the JSON."""
+    notes = [
+        Problem(f"V{n}.vi", ProblemStage.LOAD, ProblemKind.FOUND_ELSEWHERE, "moved")
+        for n in range(3)
+    ]
+    graph = InMemoryVIGraph(RunSettings(echo=True))
+    graph.record_problem("/p/V0.vi", notes[0])
+    assert capsys.readouterr().err == ""
+    report = RunReport.of(notes)
+    assert report.outcome() is Outcome.COMPLETE
+    assert report.exit_code() == EXIT_COMPLETE
+    assert report.summary_lines() == [
+        "Complete",
+        "3 file(s) loaded from the VI search path, not from the path their "
+        "caller records (--format json lists them)",
+    ]
+    data = report.to_json()
+    assert data["problems"] == []
+    assert [n["vi"] for n in data["notes"]] == ["V0.vi", "V1.vi", "V2.vi"]  # type: ignore[union-attr]
+    mixed = RunReport.of([*notes, _problem()])
+    assert mixed.outcome() is Outcome.PARTIAL
+    assert mixed.summary_lines()[0] == "Partial: 1 problem(s)"
+
+
 def test_fail_fast_stops_at_the_first_problem() -> None:
     graph = InMemoryVIGraph(RunSettings(fail_fast=True))
     with pytest.raises(RunStopped) as stop:
@@ -117,7 +145,7 @@ def test_label_is_never_absolute(tmp_path: Path) -> None:
     (vilib / "Utility").mkdir(parents=True)
     lib_vi = vilib / "Utility" / "Y.vi"
     lib_vi.write_text("", encoding="utf-8")
-    settings = RunSettings(library_roots={"<vilib>": vilib})
+    settings = RunSettings(library_roots={"<vilib>": (vilib,)})
     assert settings.label(vi) == "sub/X.vi"
     assert settings.label(lib_vi) == "<vilib>/Utility/Y.vi"
     assert settings.label(root) == "proj"  # the project folder itself, never "."

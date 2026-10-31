@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from ..run_report import UnreadableVIError
 from .core import InMemoryVIGraph
 
@@ -13,9 +15,10 @@ def load_ctl_by_path(
     path: Path | str,
     *,
     graph: InMemoryVIGraph | None = None,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
 ) -> tuple[InMemoryVIGraph, str]:
     """Load the ``.ctl`` at ``path`` into ``graph`` (a fresh one when None) and return
     ``(graph, ctl_key)`` -- the control's path key. The library roots are
@@ -27,11 +30,12 @@ def load_ctl_by_path(
         raise FileNotFoundError(f"Control not found: {path}")
     if graph is None:
         graph = InMemoryVIGraph()
-    if vilib_root or userlib_root or instrlib_root:
+    if vilib_root or userlib_root or instrlib_root or search_path:
         graph.set_library_roots(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
     key = graph.load_typedef(path)
     if graph.is_stub(key):

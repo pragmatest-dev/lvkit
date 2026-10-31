@@ -24,6 +24,7 @@ from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.load_mode import LoadMode
 from lvkit.pipeline import generate_python
 from lvkit.render import render_vi_with_subvis
+from lvkit.run_report import ProblemKind
 
 _FIRST_CALL_UID = 10
 
@@ -425,28 +426,49 @@ def test_an_absent_callee_gets_the_path_its_caller_recorded(tree: _Tree) -> None
     assert graph.loaded_callee_key(call) is None
 
 
+def test_a_moved_callee_is_found_on_the_search_path_by_its_qualified_name(
+    tree: _Tree,
+) -> None:
+    """The record names ``Moved/skip.vi`` (gone) for ``TestSuite.lvclass:skip.vi``:
+    the search path (the top VI's folder) has ``TestCase/skip.vi`` and
+    ``TestSuite/skip.vi``, and only the second is the class the caller records.
+    The find is a warning on the caller."""
+    graph, key = _load(tree, "caller_moved.vi")
+    call = _call(graph, key)
+    assert graph.loaded_callee_key(call) == _key(tree, "TestSuite/skip.vi")
+    (problem,) = graph.problems([key])
+    assert problem.kind is ProblemKind.FOUND_ELSEWHERE
+    assert problem.reason == (
+        "skip.vi is not at its recorded path '/Moved/skip.vi'; loaded "
+        "skip.vi from the VI search path"
+    )
+
+
 @pytest.mark.parametrize(
-    ("caller", "recorded"),
+    ("caller", "recorded", "found"),
     [
-        # one file of its name and owning libraries elsewhere
-        ("caller_moved.vi", "Moved/skip.vi"),
-        # two files of its name elsewhere
-        ("caller_dup.vi", "Gone/dup.vi"),
+        # two different files of its name elsewhere
+        ("caller_dup.vi", "Gone/dup.vi", ("Dup1/dup.vi", "Dup2/dup.vi")),
         # two copies of one file elsewhere
-        ("caller_same.vi", "Gone/same.vi"),
+        ("caller_same.vi", "Gone/same.vi", ("Same1/same.vi", "Same2/same.vi")),
     ],
 )
-def test_a_callee_not_at_its_recorded_path_is_missing_however_many_files_share_its_name(
-    tree: _Tree, caller: str, recorded: str
+def test_a_callee_two_search_path_files_match_equally_is_missing_and_ambiguous(
+    tree: _Tree, caller: str, recorded: str, found: tuple[str, str]
 ) -> None:
-    """Nothing is looked up by file name: the call is missing, keyed by the path
-    its caller records, with no reason beyond its absence."""
+    """Two files on the search path with the qualified name and the same longest
+    tail: neither is guessed; the call is missing, keyed by its recorded path,
+    and the reason names both."""
     graph, key = _load(tree, caller)
     call = _call(graph, key)
     assert call.callee_key == _key(tree, recorded)
     assert graph.loaded_callee_key(call) is None
     assert graph.is_stub(_key(tree, recorded))
-    assert graph.stub_reason(_key(tree, recorded)) is None
+    reason = graph.stub_reason(_key(tree, recorded))
+    assert reason is not None and reason.startswith(
+        "Ambiguous reference -- several files on the VI search path end in"
+    )
+    assert all(f"./{f}" in reason for f in found)
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(

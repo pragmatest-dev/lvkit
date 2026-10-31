@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
     ClusterField,
@@ -24,6 +25,7 @@ from ..models import (
 from ..parser.models import ParsedType, ParsedVI
 from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
+from .search_path import SearchPath
 
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
@@ -243,10 +245,12 @@ class InMemoryVIGraph(
         self._vi_health: dict[str, VIHealth] = {}
         # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
         self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
-        # Optional disk roots for <vilib> / <userlib> / <instrlib> path tokens
-        self._vilib_root: Path | None = None
-        self._userlib_root: Path | None = None
-        self._instrlib_root: Path | None = None
+        # The folders <vilib> / <userlib> / <instrlib> path tokens name, in order,
+        # and the VI Search Path for files not at their recorded path.
+        self._vilib_roots: tuple[Path, ...] = ()
+        self._userlib_roots: tuple[Path, ...] = ()
+        self._instrlib_roots: tuple[Path, ...] = ()
+        self._search_path = SearchPath(search_path_entries(None), {})
         # Per-VI block-diagram geometry, populated only when load_vi(layout=True)
         # (rendering). Empty for codegen loads — geometry is decoded from the
         # same parse (see parse_vi layout=), never a second heap read.
@@ -265,11 +269,14 @@ class InMemoryVIGraph(
 
     def set_library_roots(
         self,
-        vilib_root: Path | None = None,
-        userlib_root: Path | None = None,
-        instrlib_root: Path | None = None,
+        vilib_root: Folders = None,
+        userlib_root: Folders = None,
+        instrlib_root: Folders = None,
+        search_path: SearchEntries = None,
     ) -> None:
-        """Set disk roots for <vilib>, <userlib> and <instrlib> path tokens.
+        """Set the folders <vilib>, <userlib> and <instrlib> path tokens name
+        (each one or several, tried in order) and the VI Search Path
+        (``search_path``, LabVIEW's default when None; ``graph/search_path.py``).
 
         Call before loading any VIs. When set, dependency refs with
         <vilib>, <userlib> or <instrlib> tokens resolve to real .vi files on
@@ -281,22 +288,24 @@ class InMemoryVIGraph(
         This is the single wiring point for all entry points (CLI, MCP,
         pipeline, render, docs), which each call this before ``load_vi``.
         """
-        self._vilib_root = vilib_root
-        self._userlib_root = userlib_root
-        self._instrlib_root = instrlib_root
-        self.run_settings.library_roots = {
-            "<vilib>": vilib_root,
-            "<userlib>": userlib_root,
-            "<instrlib>": instrlib_root,
+        self._vilib_roots = folder_list(vilib_root)
+        self._userlib_roots = folder_list(userlib_root)
+        self._instrlib_roots = folder_list(instrlib_root)
+        pseudo = {
+            "<vilib>": self._vilib_roots,
+            "<userlib>": self._userlib_roots,
+            "<instrlib>": self._instrlib_roots,
         }
+        self._search_path = SearchPath(search_path_entries(search_path), pseudo)
+        self.run_settings.library_roots = dict(pseudo)
         # The run's library roots feed the cache classifier; set them on the
         # stdlib-only cache_paths module (no pylabview pulled in, no cycle).
         from lvkit import cache_paths
 
         cache_paths.set_extraction_roots(
-            vilib_root=vilib_root,
-            userlib_root=userlib_root,
-            instrlib_root=instrlib_root,
+            vilib_root=self._vilib_roots,
+            userlib_root=self._userlib_roots,
+            instrlib_root=self._instrlib_roots,
         )
 
     def clear(self) -> None:
