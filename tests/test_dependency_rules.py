@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
@@ -22,6 +23,7 @@ from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.models import ParsedDependencyRef
 from lvkit.parser.type_mapping import typedef_qualified_name
 from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
+from tests.corpus_graphs import load_corpus_vi
 
 
 def _ref(record: str, path: list[str], name: str | None = None) -> ParsedDependencyRef:
@@ -138,3 +140,25 @@ def test_a_catalog_call_is_typed_by_what_the_call_records(
         f"(error out: {_ERROR.type_descriptor()}, cleared?)"
     )
     assert "None" not in _render_ports(*ports)
+
+
+_JKI_PROTOTYPE = (
+    Path(__file__).resolve().parent.parent
+    / ".lvkit/cache/samples/JKI-VI-Tester/source/Prototype/VI Tester Plugin"
+    / "MyTestCase"
+)
+
+
+@pytest.mark.needs_samples
+def test_a_method_its_class_does_not_list_is_found_by_its_owner_record() -> None:
+    """``MyClass.lvclass`` does not list ``MyNewVI.vi``; the file beside it records
+    that class file in its ``VILB`` record, so a dispatch call to
+    ``MyClass.lvclass:MyNewVI.vi`` calls it."""
+    graph, key = load_corpus_vi((_JKI_PROTOTYPE / "testMyNewVI.vi").resolve())
+    (call,) = [
+        n
+        for n in graph.iter_nodes(key)
+        if isinstance(n, VINode)
+        and graph.call_qualified_name(n) == "MyClass.lvclass:MyNewVI.vi"
+    ]
+    assert call.callee_key == str((_JKI_PROTOTYPE / "MyNewVI.vi").resolve())

@@ -340,7 +340,7 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     call graph, whose edges are now the ``kind='vi'`` node spine: each SubVI-call
     node's ``callee_path``, the indexed file its caller recorded (see
     ``query.resolve_node_callee_paths``). Keyed on VI path, so it classifies even
-    the many VIs whose ``qualified_name`` is NULL. 195 uncalled of 491, incl. the
+    the many VIs whose ``qualified_name`` is NULL. 194 uncalled of 491, incl. the
     JUnitXML example runner; a common init subVI (``TestCase_Init.vi``) is NOT
     uncalled. Keyed on VI path, so dynamic-dispatch overrides and
     Call-By-Reference targets read as statically uncalled — order-invariant.
@@ -353,9 +353,7 @@ def test_q18_dead_code_uncalled(jki_index: BuildResult):
     them through a parent class recorded there; the source copies are not at
     that path, so those calls are to missing VIs."""
     total = _query("SELECT COUNT(*) FROM vi WHERE callers_count = 0")
-    # 195: Prototype/.../MyNewVI.vi claims MyClass.lvclass, which does not
-    # list it, so the dispatch call to it is to a missing method.
-    assert total.rows == [[195]]
+    assert total.rows == [[194]]
 
     called = _query("SELECT callers_count FROM vi WHERE name = 'TestCase_Init.vi'")
     assert called.rows == [[14]]

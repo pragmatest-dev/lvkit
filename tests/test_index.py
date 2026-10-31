@@ -353,10 +353,10 @@ class TestFullCorpusDemo:
         # record them (or the parent class they inherit them from) at the
         # toolkit's installed <vilib>/addons/_JKI Toolkits/VI Tester/... path,
         # where the source copies are not, so those calls are to missing VIs.
-        # 195, not 194: Prototype/.../MyNewVI.vi names MyClass.lvclass as its
-        # owner, but MyClass.lvclass does not list it, so the dispatch call
-        # to MyClass.lvclass:MyNewVI.vi is to a missing method, not to it.
-        assert total_uncalled == 195
+        # Prototype/.../MyNewVI.vi is called: MyClass.lvclass does not list
+        # it, but it sits beside the class and its own VILB record's path is
+        # that class file.
+        assert total_uncalled == 194
 
 
 # === parse_lvlib folder recursion (real corpus, no graph build needed) =====

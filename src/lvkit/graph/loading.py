@@ -51,6 +51,7 @@ from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
 from ..parser.type_mapping import parse_type_map_rich
+from ..parser.vi import own_container_record
 from ..run_report import (
     CacheWriteError,
     Problem,
@@ -2185,7 +2186,34 @@ class LoadingMixin:
             if class_path is None or cls_key is None:
                 return None
         found = self.class_method(cls_key, method)
-        return Path(found[1]) if found is not None else None
+        if found is not None:
+            return Path(found[1])
+        # A method file the class does not list is still its method when the file
+        # sits beside the class and its own ``VILB`` record's path is this class
+        # file (JKI-VI-Tester ``Prototype/.../MyTestCase/MyNewVI.vi``: its VILB
+        # names ``/MyClass.lvclass``, which does not list it).
+        if class_path is not None:
+            beside = class_path.parent / method
+            if beside.is_file() and self._records_owner(beside, class_path):
+                return beside
+        return None
+
+    def _records_owner(self, vi_path: Path, owner_path: Path) -> bool:
+        """Whether the VI at ``vi_path`` records, in its ``VILB`` record, the
+        class or library file ``owner_path`` as its own (by recorded path)."""
+        try:
+            _, _, main_xml = extract_vi_xml(vi_path)
+        except (UnreadableVIError, CacheWriteError):
+            return False
+        if main_xml is None:
+            return False
+        own = own_container_record(main_xml)
+        if own is None:
+            return False
+        target = owner_path.resolve()
+        return any(
+            c.resolve() == target for c in self.recorded_candidates(own, vi_path)
+        )
 
     def _class_method_stub_key(
         self,
