@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 
 from ..lv_type_codes import is_boolean_type_name, is_string_type_name
-from ..models import LVType, LVTypeKind, ScalarValue, Terminal
+from ..models import LVType, LVTypeKind, ScalarValue, Terminal, TerminalDirection
 from ..path_value import is_path_text
 from ..primitive_resolver import get_resolver as get_primitive_resolver
 from ..terminal_default import DefaultBehavior, TerminalDefault
@@ -150,7 +150,7 @@ def _pane_terminal_at(
     callee = graph.loaded_callee_key(node)
     if callee is None:
         return None
-    for candidate in graph.get_inputs(callee):
+    for candidate in graph.pane_terminals(callee, TerminalDirection.INPUT):
         if candidate.index == index:
             return candidate
     return None

@@ -25,12 +25,12 @@ mis-naming a terminal.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pytest
 
 from lvkit.graph import InMemoryVIGraph, LoadMode
+from lvkit.run_report import ProblemKind
 
 pytestmark = pytest.mark.needs_samples
 
@@ -86,15 +86,13 @@ def _error_terminal_names(graph: InMemoryVIGraph, vi_name: str) -> list[str]:
 @pytest.mark.parametrize("vi_filename", _VI_NAMES)
 def test_error_terminal_never_leaks_a_cluster_field_name(
     vi_filename: str,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     vi_path = _ROOT / vi_filename
     if not vi_path.exists():
         pytest.skip(f"{vi_filename} not present in sample corpus")
 
     graph = InMemoryVIGraph()
-    with caplog.at_level(logging.WARNING, logger="lvkit.parser.vi"):
-        graph.load_vi(vi_path, LoadMode.NONE)
+    graph.load_vi(vi_path, LoadMode.NONE)
 
     error_names = _error_terminal_names(graph, vi_filename)
     for name in error_names:
@@ -112,9 +110,11 @@ def test_error_terminal_never_leaks_a_cluster_field_name(
     # This corpus's 14 VIs are confirmed to have unresolvable labels from
     # BOTH sources (own partID=16 text AND the VCTP flat-type Label, see
     # test_connector_pane_label_recovery.py) -- when a terminal did fall back
-    # to control_<uid>, a warning must have been logged, never silence.
+    # to control_<uid>, the VI carries a note saying so, never silence.
     if any(n.startswith("control_") for n in error_names):
-        assert any(
-            "no resolvable label" in rec.message and vi_filename in rec.message
-            for rec in caplog.records
-        ), f"{vi_filename}: control_<uid> fallback fired without a warning"
+        notes = [
+            p for p in graph.problems() if p.kind is ProblemKind.UNLABELED_CONTROL
+        ]
+        assert notes and all(p.is_note for p in notes), (
+            f"{vi_filename}: control_<uid> fallback fired without a note"
+        )

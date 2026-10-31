@@ -4,10 +4,12 @@ a construct and execute it."""
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from types import ModuleType
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal, ValueNotStored
@@ -42,6 +44,22 @@ def node(
             for i, d, t in terminals
         ],
     )
+
+
+# The package a generated module runs in, holding the ``errors`` module every
+# generated package has (``from .errors import LabVIEWError``).
+_PACKAGE = "native_package"
+
+
+def _install_package() -> None:
+    if f"{_PACKAGE}.errors" in sys.modules:
+        return
+    package = ModuleType(_PACKAGE)
+    package.__path__ = []
+    errors = ModuleType(f"{_PACKAGE}.errors")
+    sys.modules[_PACKAGE] = package
+    sys.modules[f"{_PACKAGE}.errors"] = errors
+    exec(compile(ERRORS_MODULE_SOURCE, "errors.py", "exec"), errors.__dict__)
 
 
 @dataclass
@@ -105,7 +123,8 @@ def generate(
     )
     graph = build_graph(context, context.name, nodes)
     source = build_module(context, context.name, graph=graph, gaps=gaps)
-    namespace: dict = {"__name__": "native_test"}
+    namespace: dict = {"__name__": f"{_PACKAGE}.native_test", "__package__": _PACKAGE}
+    _install_package()
     exec(compile(source, "native_test.py", "exec"), namespace)
     module = ModuleType("native_test")
     module.__dict__.update(namespace)

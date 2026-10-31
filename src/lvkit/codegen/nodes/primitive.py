@@ -10,7 +10,7 @@ from typing import NoReturn
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import lay_out_node
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
@@ -134,7 +134,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         resolved = resolver.resolve(
             prim_id=prim_id,
             node_slots={
-                (t.index, "out" if t.direction == "output" else "in")
+                (t.index, t.direction)
                 for t in node.terminals
             },
         )
@@ -376,7 +376,7 @@ def _build_input_map(
     expandable_indices: set[int] = set()
     if resolved and resolved.terminals:
         for rt in resolved.terminals:
-            if rt.direction == "in":
+            if rt.direction == TerminalDirection.INPUT:
                 default = _catalog_default(rt, resolved)
                 resolved_inputs[rt.index] = (rt.name or "", default)
                 behaviors[rt.index] = rt.default_behavior
@@ -524,7 +524,7 @@ def _build_input_map(
         node_indices = {t.index for t in node.terminals}
         for rt in resolved.terminals:
             if (
-                rt.direction == "in"
+                rt.direction == TerminalDirection.INPUT
                 and rt.index not in node_indices
                 and template_reads(
                     template_str,
@@ -573,7 +573,7 @@ def _detect_passthroughs(
     resolved_outputs: dict[int, str] = {}
     if resolved and resolved.terminals:
         for rt in resolved.terminals:
-            if rt.direction == "out":
+            if rt.direction == TerminalDirection.OUTPUT:
                 resolved_outputs[rt.index] = rt.name or ""
 
     for term in node.terminals:
@@ -651,14 +651,18 @@ def _output_index_ordinals(
         by_name = {
             to_var_name(rt.name or ""): rt.index
             for rt in resolved.terminals
-            if rt.direction == "out"
+            if rt.direction == TerminalDirection.OUTPUT
         }
         keyed = [to_var_name(key) for key in hint_keys]
         if len(set(keyed)) == len(keyed) and all(k in by_name for k in keyed):
             return {by_name[key]: pos for pos, key in enumerate(keyed)}
     if resolved and resolved.terminals:
         out_indices = sorted(
-            {rt.index for rt in resolved.terminals if rt.direction == "out"}
+            {
+                rt.index
+                for rt in resolved.terminals
+                if rt.direction == TerminalDirection.OUTPUT
+            }
         )
     else:
         out_indices = sorted(
@@ -683,7 +687,7 @@ def _get_wired_outputs(
     expandable_out_index: int | None = None
     if resolved and resolved.terminals:
         for rt in resolved.terminals:
-            if rt.direction == "out":
+            if rt.direction == TerminalDirection.OUTPUT:
                 resolved_outputs[rt.index] = rt.name or ""
                 if getattr(rt, "expandable", False):
                     expandable_out_index = rt.index
@@ -1004,7 +1008,7 @@ def _raise_terminal_resolution(
     Direction and type come from the terminal itself — never fabricated.
     """
     # Filter available resolver terminals to same direction, unassigned
-    direction = "in" if term.direction == "input" else "out"
+    direction = term.direction
     assigned_indices = {t.index for t in node.terminals if t.index >= 0}
     avail = [
         {"index": rt.index, "name": rt.name, "type": rt.type}

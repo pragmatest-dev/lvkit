@@ -5,65 +5,65 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "session in",
           "type": "Refnum",
           "refnum_type": "python_session"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "session out",
           "type": "Refnum",
           "refnum_type": "python_session"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "module in",
           "type": "Path"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "module out",
           "type": "Path",
           "hidden": true
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "module out",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "function name in",
           "type": "String",
           "hidden": true
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "function name in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "function name out",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "Void"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "Void"
         }
@@ -76,32 +76,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "python version",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "python path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "session out",
           "type": "Refnum",
           "refnum_type": "python_session"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -114,20 +114,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "session in",
           "type": "Refnum",
           "refnum_type": "python_session"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

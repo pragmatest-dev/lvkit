@@ -5,7 +5,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "stop? (T)",
           "type": "Boolean",
           "default": true
@@ -21,7 +21,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "quit? (T)",
           "type": "Boolean",
           "default": true
@@ -35,7 +35,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "reference",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -44,7 +44,7 @@
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "reference out",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -53,19 +53,19 @@
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "Property",
           "type": "Void"
         }
@@ -78,7 +78,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "call chain",
           "type": "Array"
         }
@@ -97,7 +97,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "vi reference",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -113,7 +113,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "This VI",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -129,7 +129,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "reference",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -138,7 +138,7 @@
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "reference out",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -147,25 +147,25 @@
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "Method",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "Method",
           "type": "Void"
         }
@@ -178,7 +178,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "reference",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -187,7 +187,7 @@
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "reference out",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -196,13 +196,13 @@
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -216,53 +216,53 @@
       "terminals": [
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "password",
           "type": "String",
           "default": ""
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "application_reference",
           "type": "Refnum",
           "default_behavior": "application of the calling VI"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "options",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "vi_path",
           "type": "Path"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "type_specifier",
           "type": "Refnum",
           "default_behavior": "generic VI reference"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "vi_reference",
           "type": "Refnum"
         }
@@ -278,19 +278,19 @@
       "terminals": [
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "reference",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         }
@@ -305,13 +305,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "application reference",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -320,27 +320,27 @@
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (60000)",
           "type": "NumInt32",
           "default": 60000
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "port number or service name (3363)",
           "type": "NumUInt16",
           "default": 3363
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "machine name (\"\":  open local reference)",
           "type": "String",
           "default": ""
@@ -355,31 +355,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "type",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data name",
           "type": "String"
         }
@@ -392,7 +392,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "VI Refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -401,25 +401,25 @@
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "control indexes",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "data values",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -432,7 +432,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "VI Refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -441,25 +441,25 @@
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "control indexes",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "data values",
           "type": "Array"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

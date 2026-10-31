@@ -14,12 +14,12 @@
       "terminals": [
         {
           "name": "resource name",
-          "direction": "in",
+          "direction": "input",
           "python_param": "resource_name"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ]
@@ -36,7 +36,7 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         }
       ]
@@ -53,12 +53,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -78,17 +78,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "result",
-          "direction": "out",
+          "direction": "output",
           "python_param": "result"
         }
       ],
@@ -108,12 +108,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -133,12 +133,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -158,12 +158,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -183,12 +183,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -208,12 +208,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -233,32 +233,32 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "waveform",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform"
         },
         {
           "name": "amplitude",
-          "direction": "in",
+          "direction": "input",
           "python_param": "amplitude"
         },
         {
           "name": "frequency",
-          "direction": "in",
+          "direction": "input",
           "python_param": "frequency"
         },
         {
           "name": "dc offset",
-          "direction": "in",
+          "direction": "input",
           "python_param": "dc_offset"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -278,27 +278,27 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "waveform handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform_handle"
         },
         {
           "name": "gain",
-          "direction": "in",
+          "direction": "input",
           "python_param": "gain"
         },
         {
           "name": "offset",
-          "direction": "in",
+          "direction": "input",
           "python_param": "offset"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -318,22 +318,22 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "waveform data",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform_data"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "waveform handle",
-          "direction": "out",
+          "direction": "output",
           "python_param": "waveform_handle"
         }
       ],
@@ -353,22 +353,22 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "waveform handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform_handle"
         },
         {
           "name": "waveform data",
-          "direction": "in",
+          "direction": "input",
           "python_param": "waveform_data"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -388,12 +388,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -413,12 +413,12 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],
@@ -438,17 +438,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         },
         {
           "name": "done",
-          "direction": "out",
+          "direction": "output",
           "python_param": "is_done"
         }
       ],
@@ -468,17 +468,17 @@
       "terminals": [
         {
           "name": "instrument handle",
-          "direction": "in",
+          "direction": "input",
           "python_param": "session"
         },
         {
           "name": "script",
-          "direction": "in",
+          "direction": "input",
           "python_param": "script"
         },
         {
           "name": "instrument handle out",
-          "direction": "out",
+          "direction": "output",
           "python_param": "session_out"
         }
       ],

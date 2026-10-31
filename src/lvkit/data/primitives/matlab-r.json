@@ -5,26 +5,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "release name",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "session out",
           "type": "Refnum",
           "refnum_type": "matlab_session"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -37,20 +37,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "session in",
           "type": "Refnum",
           "refnum_type": "matlab_session"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

@@ -9,7 +9,12 @@ the one group.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pylabview.LVdatatype as _lv_datatype  # type: ignore[import-untyped]
+
+if TYPE_CHECKING:
+    from .models import LVType
 
 TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
 REFNUM_TYPE = _lv_datatype.REFNUM_TYPE
@@ -54,6 +59,18 @@ FLOAT_TYPE_NAMES: frozenset[str] = frozenset(
         TD_FULL_TYPE.UnitFloat32,
         TD_FULL_TYPE.UnitFloat64,
         TD_FULL_TYPE.UnitFloatExt,
+        TD_FULL_TYPE.UnitComplex64,
+        TD_FULL_TYPE.UnitComplex128,
+        TD_FULL_TYPE.UnitComplexExt,
+    )
+)
+# The complex numbers among them, with or without a unit.
+COMPLEX_TYPE_NAMES: frozenset[str] = frozenset(
+    member.name
+    for member in (
+        TD_FULL_TYPE.NumComplex64,
+        TD_FULL_TYPE.NumComplex128,
+        TD_FULL_TYPE.NumComplexExt,
         TD_FULL_TYPE.UnitComplex64,
         TD_FULL_TYPE.UnitComplex128,
         TD_FULL_TYPE.UnitComplexExt,
@@ -156,3 +173,13 @@ def is_float_type_name(type_name: str | None) -> bool:
     """Whether ``type_name`` is a floating-point or complex number, with or
     without a unit."""
     return type_name in FLOAT_TYPE_NAMES
+
+
+def type_descriptor_code(lv_type: LVType) -> int | None:
+    """The type-descriptor code LabVIEW records for ``lv_type`` (its
+    ``TD_FULL_TYPE``: 0x03 I32, 0x30 String, 0x40 Array, 0x50 Cluster, ...), or
+    None when its descriptor name is not one."""
+    name = lv_type.underlying_type
+    if name is None or name not in TD_FULL_TYPE.__members__:
+        return None
+    return int(TD_FULL_TYPE[name].value)

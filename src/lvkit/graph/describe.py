@@ -108,7 +108,7 @@ def describe_vi(
     lines: list[str] = []
 
     # Title and signature
-    lines.append(f"# {vi_name}")
+    lines.append(f"# {graph.key_label(vi_name)}")
     lines.append("")
     lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
@@ -341,9 +341,10 @@ def _collect_subvi_callees(
     vi_name: str,
 ) -> dict[str, VINode]:
     """Collect all SubVI callees recursively: each one's QUALIFIED name — the
-    class/lib-qualified identity (e.g. ``TestResult.lvclass:addError.vi``), so a
-    dynamic-dispatch call reports its declaring parent class rather than a bare
-    ``addError.vi`` — mapped to the call node. A name several calls share keeps
+    name the graph gives the VI it calls (``call_qualified_name``, e.g.
+    ``TestResult.lvclass:addError.vi``), so a dynamic-dispatch call reports its
+    declaring parent class rather than a bare ``addError.vi`` — mapped to the
+    call node. A name several calls share keeps
     the first call, in diagram order.
 
     Walks the graph directly (``child_nodes`` reaches every nested node —
@@ -351,8 +352,10 @@ def _collect_subvi_callees(
     recursion)."""
     callees: dict[str, VINode] = {}
     for node in nodes:
-        if isinstance(node, VINode) and node.id != node.vi_path and node.qualified_name:
-            callees.setdefault(node.qualified_name, node)
+        if isinstance(node, VINode) and node.id != node.vi_path:
+            qualified_name = graph.call_qualified_name(node)
+            if qualified_name:
+                callees.setdefault(qualified_name, node)
         for name, call in _collect_subvi_callees(
             graph, graph.child_nodes(node.id, vi_name), vi_name
         ).items():
@@ -658,7 +661,10 @@ def _node_output_name(
         return reference_phrase(reference_target(graph, node))
     if isinstance(node, LocalVariableNode):
         return f"{node.control_name or node.display_name} (local variable)"
-    identity = node.display_name if node.name else _structure_word(node)
+    if isinstance(node, VINode):
+        identity = graph.call_qualified_name(node) or node.display_name
+    else:
+        identity = node.display_name if node.name else _structure_word(node)
     if label := _terminal_display_name(term):
         return f"{identity}.{label}"
     outputs = [t for t in node.terminals if t.direction == "output"]
@@ -1050,16 +1056,11 @@ def _describe_single_op(
     name = node.name or "unnamed"
 
     if isinstance(node, VINode):
-        # Class-qualified identity (``node.display_name`` -- owning_libraries
-        # chain + name, so a dispatch call reads its declaring parent class,
-        # e.g. ``TestResult.lvclass:addError.vi``). Unified with
-        # ``diff._elem_label``'s identical use of ``display_name`` for a
-        # SubVI-call node (verified empirically: identical text to the old
-        # ``node.qualified_name or name`` on every describe-exercising test
-        # and corpus VI checked, including a real dynamic-dispatch call --
-        # JKI-VI-Tester's ``loadTestsFromTestCase.vi`` calling
-        # ``TestCase.lvclass:listAllTestMethods.vi``).
-        label = node.display_name
+        # The called VI's qualified name, as the graph names that identity
+        # (``call_qualified_name``: the same text as the ``## Dependencies``
+        # entry), so a dispatch call reads its declaring parent class, e.g.
+        # ``TestResult.lvclass:addError.vi``.
+        label = graph.call_qualified_name(node) or node.display_name
         terms = graph.enriched_terminals(node, vi_name)
         named_inputs = [t.name for t in terms if t.direction == "input" and t.name]
         named_outputs = [t.name for t in terms if t.direction == "output" and t.name]

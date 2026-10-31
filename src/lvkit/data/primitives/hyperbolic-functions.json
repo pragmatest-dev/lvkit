@@ -5,13 +5,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sinh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -24,13 +24,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "cosh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -43,13 +43,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "tanh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -62,13 +62,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "argsinh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -81,13 +81,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "argcosh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -100,13 +100,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "argtanh(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -119,13 +119,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "csch(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -138,13 +138,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sech(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -157,13 +157,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "coth(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -176,13 +176,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "arccsch(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -195,13 +195,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "arcsech(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -214,13 +214,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "arccoth(x)",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }

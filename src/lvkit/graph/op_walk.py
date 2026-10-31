@@ -27,6 +27,7 @@ from ..models import (
     PropertyDef,
     SelectorRange,
     Terminal,
+    TerminalDirection,
     _is_error_cluster,
 )
 from ..num_format import format_numeric_const
@@ -562,15 +563,21 @@ def _subvi_ports(
         # f-string-based signature rendered, so non-verbose output (which
         # still calls through here) is byte-identical to before this
         # module existed.
+        # In the catalog's connector-pane order (a terminal it gives no index
+        # last, in its listed order).
+        ordered = sorted(
+            entry.terminals,
+            key=lambda t: (t.index is None, t.index if t.index is not None else 0),
+        )
         ins = [
             ComponentPort(name=t.name, type=str(t.type))
-            for t in entry.terminals
-            if t.direction == "input"
+            for t in ordered
+            if t.direction == TerminalDirection.INPUT
         ]
         outs = [
             ComponentPort(name=t.name, type=str(t.type))
-            for t in entry.terminals
-            if t.direction == "output"
+            for t in ordered
+            if t.direction == TerminalDirection.OUTPUT
         ]
         return ins, outs
     return None

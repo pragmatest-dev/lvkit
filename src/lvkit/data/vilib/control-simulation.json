@@ -15,7 +15,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -24,7 +24,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -33,7 +33,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -42,7 +42,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -51,7 +51,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -60,7 +60,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -69,7 +69,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -78,7 +78,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -87,7 +87,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -96,7 +96,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -105,7 +105,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -126,7 +126,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -135,7 +135,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -144,7 +144,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -153,7 +153,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -162,7 +162,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -171,7 +171,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -180,7 +180,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -189,7 +189,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -198,7 +198,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -207,7 +207,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -216,7 +216,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -237,7 +237,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -246,7 +246,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -255,7 +255,7 @@
         {
           "name": "PID parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_parameters",
@@ -264,7 +264,7 @@
         {
           "name": "Ti",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ti",
@@ -273,7 +273,7 @@
         {
           "name": "Td",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "td",
@@ -282,7 +282,7 @@
         {
           "name": "manual control",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
@@ -291,7 +291,7 @@
         {
           "name": "options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "options",
@@ -300,7 +300,7 @@
         {
           "name": "sp high",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sp_high",
@@ -309,7 +309,7 @@
         {
           "name": "out low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "out_low",
@@ -318,7 +318,7 @@
         {
           "name": "out high",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "out_high",
@@ -327,7 +327,7 @@
         {
           "name": "hold (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hold",
@@ -336,7 +336,7 @@
         {
           "name": "auto (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto",
@@ -345,7 +345,7 @@
         {
           "name": "pro. band (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pro_band",
@@ -354,7 +354,7 @@
         {
           "name": "reverse acting (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reverse_acting",
@@ -363,7 +363,7 @@
         {
           "name": "beta",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "beta",
@@ -372,7 +372,7 @@
         {
           "name": "linearity",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
@@ -381,7 +381,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -390,7 +390,7 @@
         {
           "name": "iteration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "iteration",
@@ -399,7 +399,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -420,7 +420,7 @@
         {
           "name": "alpha",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alpha",
@@ -429,7 +429,7 @@
         {
           "name": "gamma",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "gamma",
@@ -438,7 +438,7 @@
         {
           "name": "manual control",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
@@ -447,7 +447,7 @@
         {
           "name": "auto? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto",
@@ -456,7 +456,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -465,7 +465,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -474,7 +474,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -483,7 +483,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -492,7 +492,7 @@
         {
           "name": "setpoint range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_range",
@@ -501,7 +501,7 @@
         {
           "name": "setpoint low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_low",
@@ -510,7 +510,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -519,7 +519,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -528,7 +528,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -537,7 +537,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -546,7 +546,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -555,7 +555,7 @@
         {
           "name": "beta",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "beta",
@@ -564,7 +564,7 @@
         {
           "name": "linearity",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
@@ -573,7 +573,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -582,7 +582,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -603,7 +603,7 @@
         {
           "name": "gamma",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "gamma",
@@ -612,7 +612,7 @@
         {
           "name": "manual control",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manual_control",
@@ -621,7 +621,7 @@
         {
           "name": "auto? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto",
@@ -630,7 +630,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -639,7 +639,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -648,7 +648,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -657,7 +657,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -666,7 +666,7 @@
         {
           "name": "setpoint range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_range",
@@ -675,7 +675,7 @@
         {
           "name": "setpoint low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_low",
@@ -684,7 +684,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -693,7 +693,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -702,7 +702,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -711,7 +711,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -720,7 +720,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -729,7 +729,7 @@
         {
           "name": "beta",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "beta",
@@ -738,7 +738,7 @@
         {
           "name": "linearity",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "linearity",
@@ -747,7 +747,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -756,7 +756,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -777,7 +777,7 @@
         {
           "name": "gain scheduling value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "gain_scheduling_value",
@@ -786,7 +786,7 @@
         {
           "name": "PID gain schedule",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gain_schedule",
@@ -795,7 +795,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -804,7 +804,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -813,7 +813,7 @@
         {
           "name": "max value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
@@ -822,7 +822,7 @@
         {
           "name": "index out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_out",
@@ -831,7 +831,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -840,7 +840,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -849,7 +849,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -870,7 +870,7 @@
         {
           "name": "gain scheduling value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "gain_scheduling_value",
@@ -879,7 +879,7 @@
         {
           "name": "PID gain schedule",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gain_schedule",
@@ -888,7 +888,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -897,7 +897,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -906,7 +906,7 @@
         {
           "name": "max value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
@@ -915,7 +915,7 @@
         {
           "name": "index out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_out",
@@ -924,7 +924,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -933,7 +933,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -942,7 +942,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -963,7 +963,7 @@
         {
           "name": "proportional unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "proportional_unit",
@@ -972,7 +972,7 @@
         {
           "name": "PID structure",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_structure",
@@ -981,7 +981,7 @@
         {
           "name": "proportional",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "proportional",
@@ -990,7 +990,7 @@
         {
           "name": "integral",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral",
@@ -999,7 +999,7 @@
         {
           "name": "derivative",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative",
@@ -1008,7 +1008,7 @@
         {
           "name": "integral unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_unit",
@@ -1017,7 +1017,7 @@
         {
           "name": "derivative unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_unit",
@@ -1026,7 +1026,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1035,7 +1035,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1044,7 +1044,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1065,7 +1065,7 @@
         {
           "name": "proportional unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "proportional_unit",
@@ -1074,7 +1074,7 @@
         {
           "name": "PID structure",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_structure",
@@ -1083,7 +1083,7 @@
         {
           "name": "proportional",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "proportional",
@@ -1092,7 +1092,7 @@
         {
           "name": "integral",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral",
@@ -1101,7 +1101,7 @@
         {
           "name": "derivative",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative",
@@ -1110,7 +1110,7 @@
         {
           "name": "integral unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_unit",
@@ -1119,7 +1119,7 @@
         {
           "name": "derivative unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_unit",
@@ -1128,7 +1128,7 @@
         {
           "name": "PID parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_parameters",
@@ -1137,7 +1137,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1146,7 +1146,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1167,7 +1167,7 @@
         {
           "name": "Ziegler-Nichols Speed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ziegler_nichols_speed",
@@ -1176,7 +1176,7 @@
         {
           "name": "Type of Controller",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
@@ -1185,7 +1185,7 @@
         {
           "name": "Stimulus signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
@@ -1194,7 +1194,7 @@
         {
           "name": "Response signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
@@ -1203,7 +1203,7 @@
         {
           "name": "closed-loop?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
@@ -1212,7 +1212,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -1221,7 +1221,7 @@
         {
           "name": "Controller Gain (K)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
@@ -1230,7 +1230,7 @@
         {
           "name": "stimulus operating point",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_operating_point",
@@ -1239,7 +1239,7 @@
         {
           "name": "response operating point",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "response_operating_point",
@@ -1248,7 +1248,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1257,7 +1257,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1266,7 +1266,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1275,7 +1275,7 @@
         {
           "name": "Plant Parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
@@ -1284,7 +1284,7 @@
         {
           "name": "Time Constant (T)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
@@ -1293,7 +1293,7 @@
         {
           "name": "Dead Time (L)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
@@ -1314,7 +1314,7 @@
         {
           "name": "Ziegler-Nichols Speed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ziegler_nichols_speed",
@@ -1323,7 +1323,7 @@
         {
           "name": "Type of Controller",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
@@ -1332,7 +1332,7 @@
         {
           "name": "Stimulus signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
@@ -1341,7 +1341,7 @@
         {
           "name": "Response signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
@@ -1350,7 +1350,7 @@
         {
           "name": "closed-loop?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
@@ -1359,7 +1359,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -1368,7 +1368,7 @@
         {
           "name": "Controller Gain (K)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
@@ -1377,7 +1377,7 @@
         {
           "name": "stimulus operating point",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_operating_point",
@@ -1386,7 +1386,7 @@
         {
           "name": "response operating point",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "response_operating_point",
@@ -1395,7 +1395,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1404,7 +1404,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1413,7 +1413,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1422,7 +1422,7 @@
         {
           "name": "Plant Parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
@@ -1431,7 +1431,7 @@
         {
           "name": "Time Constant (T)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
@@ -1440,7 +1440,7 @@
         {
           "name": "Dead Time (L)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
@@ -1461,7 +1461,7 @@
         {
           "name": "Type of Controller",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
@@ -1470,7 +1470,7 @@
         {
           "name": "Stimulus signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
@@ -1479,7 +1479,7 @@
         {
           "name": "Response signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
@@ -1488,7 +1488,7 @@
         {
           "name": "closed-loop?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
@@ -1497,7 +1497,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -1506,7 +1506,7 @@
         {
           "name": "Controller Gain (K)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
@@ -1515,7 +1515,7 @@
         {
           "name": "stimulus offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
@@ -1524,7 +1524,7 @@
         {
           "name": "response offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
@@ -1533,7 +1533,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1542,7 +1542,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1551,7 +1551,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1560,7 +1560,7 @@
         {
           "name": "Plant Parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
@@ -1569,7 +1569,7 @@
         {
           "name": "Time Constant (T)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
@@ -1578,7 +1578,7 @@
         {
           "name": "Dead Time (L)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
@@ -1599,7 +1599,7 @@
         {
           "name": "Tuning specifications",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_specifications",
@@ -1608,7 +1608,7 @@
         {
           "name": "Type of Controller",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
@@ -1617,7 +1617,7 @@
         {
           "name": "Stimulus signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
@@ -1626,7 +1626,7 @@
         {
           "name": "Response signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
@@ -1635,7 +1635,7 @@
         {
           "name": "closed-loop?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
@@ -1644,7 +1644,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -1653,7 +1653,7 @@
         {
           "name": "Controller Gain (K)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
@@ -1662,7 +1662,7 @@
         {
           "name": "stimulus offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
@@ -1671,7 +1671,7 @@
         {
           "name": "response offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
@@ -1680,7 +1680,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1689,7 +1689,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1698,7 +1698,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1707,7 +1707,7 @@
         {
           "name": "Plant Parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
@@ -1716,7 +1716,7 @@
         {
           "name": "Time Constant (T)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
@@ -1725,7 +1725,7 @@
         {
           "name": "Dead Time (L)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
@@ -1746,7 +1746,7 @@
         {
           "name": "Desired Time Constant (tau_c)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_time_constant",
@@ -1755,7 +1755,7 @@
         {
           "name": "Type of Controller",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_of_controller",
@@ -1764,7 +1764,7 @@
         {
           "name": "Stimulus signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_signal",
@@ -1773,7 +1773,7 @@
         {
           "name": "Response signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "response_signal",
@@ -1782,7 +1782,7 @@
         {
           "name": "closed-loop?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "closed_loop",
@@ -1791,7 +1791,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -1800,7 +1800,7 @@
         {
           "name": "Controller Gain (K)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "controller_gain",
@@ -1809,7 +1809,7 @@
         {
           "name": "stimulus offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stimulus_offset",
@@ -1818,7 +1818,7 @@
         {
           "name": "response offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "response_offset",
@@ -1827,7 +1827,7 @@
         {
           "name": "PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains",
@@ -1836,7 +1836,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1845,7 +1845,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1854,7 +1854,7 @@
         {
           "name": "Plant Parameters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "plant_parameters",
@@ -1863,7 +1863,7 @@
         {
           "name": "Time Constant (T)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_constant",
@@ -1872,7 +1872,7 @@
         {
           "name": "Dead Time (L)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dead_time",
@@ -1893,7 +1893,7 @@
         {
           "name": "autotuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
@@ -1902,7 +1902,7 @@
         {
           "name": "relay cycles",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
@@ -1911,7 +1911,7 @@
         {
           "name": "relay amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
@@ -1920,7 +1920,7 @@
         {
           "name": "control specifications",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
@@ -1929,7 +1929,7 @@
         {
           "name": "PV noise level",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
@@ -1938,7 +1938,7 @@
         {
           "name": "manipulated variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
@@ -1947,7 +1947,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -1956,7 +1956,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -1965,7 +1965,7 @@
         {
           "name": "PID gains in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
@@ -1974,7 +1974,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -1983,7 +1983,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -1992,7 +1992,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2001,7 +2001,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2010,7 +2010,7 @@
         {
           "name": "autotune? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
@@ -2019,7 +2019,7 @@
         {
           "name": "setpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
@@ -2028,7 +2028,7 @@
         {
           "name": "process variable out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
@@ -2037,7 +2037,7 @@
         {
           "name": "tuning completed?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
@@ -2046,7 +2046,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -2055,7 +2055,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2064,7 +2064,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2073,7 +2073,7 @@
         {
           "name": "tuned PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
@@ -2082,7 +2082,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2091,7 +2091,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2112,7 +2112,7 @@
         {
           "name": "autotuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
@@ -2121,7 +2121,7 @@
         {
           "name": "relay cycles",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
@@ -2130,7 +2130,7 @@
         {
           "name": "relay amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
@@ -2139,7 +2139,7 @@
         {
           "name": "control specifications",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
@@ -2148,7 +2148,7 @@
         {
           "name": "PV noise level",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
@@ -2157,7 +2157,7 @@
         {
           "name": "manipulated variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
@@ -2166,7 +2166,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -2175,7 +2175,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -2184,7 +2184,7 @@
         {
           "name": "PID gains in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
@@ -2193,7 +2193,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2202,7 +2202,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2211,7 +2211,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2220,7 +2220,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2229,7 +2229,7 @@
         {
           "name": "autotune? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
@@ -2238,7 +2238,7 @@
         {
           "name": "setpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
@@ -2247,7 +2247,7 @@
         {
           "name": "process variable out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
@@ -2256,7 +2256,7 @@
         {
           "name": "tuning completed?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
@@ -2265,7 +2265,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -2274,7 +2274,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2283,7 +2283,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2292,7 +2292,7 @@
         {
           "name": "tuned PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
@@ -2301,7 +2301,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2310,7 +2310,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2331,7 +2331,7 @@
         {
           "name": "autotuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
@@ -2340,7 +2340,7 @@
         {
           "name": "relay cycles",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
@@ -2349,7 +2349,7 @@
         {
           "name": "relay amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
@@ -2358,7 +2358,7 @@
         {
           "name": "control specifications",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
@@ -2367,7 +2367,7 @@
         {
           "name": "PV noise level",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
@@ -2376,7 +2376,7 @@
         {
           "name": "manipulated variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
@@ -2385,7 +2385,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -2394,7 +2394,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -2403,7 +2403,7 @@
         {
           "name": "PID gains in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
@@ -2412,7 +2412,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2421,7 +2421,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2430,7 +2430,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2439,7 +2439,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2448,7 +2448,7 @@
         {
           "name": "autotune? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
@@ -2457,7 +2457,7 @@
         {
           "name": "setpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
@@ -2466,7 +2466,7 @@
         {
           "name": "process variable out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
@@ -2475,7 +2475,7 @@
         {
           "name": "tuning completed?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
@@ -2484,7 +2484,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -2493,7 +2493,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2502,7 +2502,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2511,7 +2511,7 @@
         {
           "name": "tuned PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
@@ -2520,7 +2520,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2529,7 +2529,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2550,7 +2550,7 @@
         {
           "name": "autotuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotuning_parameters",
@@ -2559,7 +2559,7 @@
         {
           "name": "relay cycles",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_cycles",
@@ -2568,7 +2568,7 @@
         {
           "name": "relay amplitude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relay_amplitude",
@@ -2577,7 +2577,7 @@
         {
           "name": "control specifications",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "control_specifications",
@@ -2586,7 +2586,7 @@
         {
           "name": "PV noise level",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pv_noise_level",
@@ -2595,7 +2595,7 @@
         {
           "name": "manipulated variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "manipulated_variable",
@@ -2604,7 +2604,7 @@
         {
           "name": "setpoint",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint",
@@ -2613,7 +2613,7 @@
         {
           "name": "process variable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable",
@@ -2622,7 +2622,7 @@
         {
           "name": "PID gains in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_in",
@@ -2631,7 +2631,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2640,7 +2640,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2649,7 +2649,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2658,7 +2658,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2667,7 +2667,7 @@
         {
           "name": "autotune? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autotune",
@@ -2676,7 +2676,7 @@
         {
           "name": "setpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "setpoint_out",
@@ -2685,7 +2685,7 @@
         {
           "name": "process variable out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "process_variable_out",
@@ -2694,7 +2694,7 @@
         {
           "name": "tuning completed?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_completed",
@@ -2703,7 +2703,7 @@
         {
           "name": "PID gains out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pid_gains_out",
@@ -2712,7 +2712,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2721,7 +2721,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2730,7 +2730,7 @@
         {
           "name": "tuned PID gains",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tuned_pid_gains",
@@ -2739,7 +2739,7 @@
         {
           "name": "integral time (Ti, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "integral_time",
@@ -2748,7 +2748,7 @@
         {
           "name": "derivative time (Td, min)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "derivative_time",
@@ -2769,7 +2769,7 @@
         {
           "name": "time unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_unit",
@@ -2778,7 +2778,7 @@
         {
           "name": "input",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -2787,7 +2787,7 @@
         {
           "name": "tuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_parameters",
@@ -2796,7 +2796,7 @@
         {
           "name": "lag time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lag_time",
@@ -2805,7 +2805,7 @@
         {
           "name": "lead time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lead_time",
@@ -2814,7 +2814,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -2823,7 +2823,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -2832,7 +2832,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2841,7 +2841,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2850,7 +2850,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -2859,7 +2859,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -2880,7 +2880,7 @@
         {
           "name": "time unit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_unit",
@@ -2889,7 +2889,7 @@
         {
           "name": "input",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -2898,7 +2898,7 @@
         {
           "name": "tuning parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tuning_parameters",
@@ -2907,7 +2907,7 @@
         {
           "name": "lag time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lag_time",
@@ -2916,7 +2916,7 @@
         {
           "name": "lead time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lead_time",
@@ -2925,7 +2925,7 @@
         {
           "name": "output range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_range",
@@ -2934,7 +2934,7 @@
         {
           "name": "output low",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_low",
@@ -2943,7 +2943,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -2952,7 +2952,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -2961,7 +2961,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -2970,7 +2970,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -2991,7 +2991,7 @@
         {
           "name": "input",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3000,7 +3000,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -3009,7 +3009,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3030,7 +3030,7 @@
         {
           "name": "input",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3039,7 +3039,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -3048,7 +3048,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3069,7 +3069,7 @@
         {
           "name": "input (controller output)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3078,7 +3078,7 @@
         {
           "name": "initial output",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "initial_output",
@@ -3087,7 +3087,7 @@
         {
           "name": "output rate (EGU/min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_rate",
@@ -3096,7 +3096,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -3105,7 +3105,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -3114,7 +3114,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3123,7 +3123,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -3144,7 +3144,7 @@
         {
           "name": "input (controller output)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3153,7 +3153,7 @@
         {
           "name": "initial output",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "initial_output",
@@ -3162,7 +3162,7 @@
         {
           "name": "output rate (EGU/min)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_rate",
@@ -3171,7 +3171,7 @@
         {
           "name": "dt (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -3180,7 +3180,7 @@
         {
           "name": "reinitialize? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reinitialize",
@@ -3189,7 +3189,7 @@
         {
           "name": "output",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3198,7 +3198,7 @@
         {
           "name": "dt out (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt_out",
@@ -3219,7 +3219,7 @@
         {
           "name": "maximum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3228,7 +3228,7 @@
         {
           "name": "input (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3237,7 +3237,7 @@
         {
           "name": "minimum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3246,7 +3246,7 @@
         {
           "name": "% span",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "_span",
@@ -3267,7 +3267,7 @@
         {
           "name": "maximum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3276,7 +3276,7 @@
         {
           "name": "input (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_",
@@ -3285,7 +3285,7 @@
         {
           "name": "minimum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3294,7 +3294,7 @@
         {
           "name": "% span",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "_span",
@@ -3315,7 +3315,7 @@
         {
           "name": "coerce output to range? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coerce_output_to_range",
@@ -3324,7 +3324,7 @@
         {
           "name": "maximum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3333,7 +3333,7 @@
         {
           "name": "% span",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "_span",
@@ -3342,7 +3342,7 @@
         {
           "name": "minimum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3351,7 +3351,7 @@
         {
           "name": "output (EGU)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3372,7 +3372,7 @@
         {
           "name": "coerce output to range? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coerce_output_to_range",
@@ -3381,7 +3381,7 @@
         {
           "name": "maximum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3390,7 +3390,7 @@
         {
           "name": "% span",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "_span",
@@ -3399,7 +3399,7 @@
         {
           "name": "minimum (EGU)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3408,7 +3408,7 @@
         {
           "name": "output (EGU)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output",
@@ -3429,7 +3429,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3438,7 +3438,7 @@
         {
           "name": "input value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_value",
@@ -3447,7 +3447,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3456,7 +3456,7 @@
         {
           "name": "rule-invoked value?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_value",
@@ -3465,7 +3465,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -3474,7 +3474,7 @@
         {
           "name": "output value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_value",
@@ -3483,7 +3483,7 @@
         {
           "name": "rule weights",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
@@ -3492,7 +3492,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3513,7 +3513,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3522,7 +3522,7 @@
         {
           "name": "input value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_value",
@@ -3531,7 +3531,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3540,7 +3540,7 @@
         {
           "name": "rule-invoked values?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_values",
@@ -3549,7 +3549,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -3558,7 +3558,7 @@
         {
           "name": "output values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_values",
@@ -3567,7 +3567,7 @@
         {
           "name": "rule weights",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
@@ -3576,7 +3576,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3597,7 +3597,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3606,7 +3606,7 @@
         {
           "name": "input values",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_values",
@@ -3615,7 +3615,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3624,7 +3624,7 @@
         {
           "name": "rule-invoked value?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_value",
@@ -3633,7 +3633,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -3642,7 +3642,7 @@
         {
           "name": "output value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_value",
@@ -3651,7 +3651,7 @@
         {
           "name": "rule weights",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
@@ -3660,7 +3660,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3681,7 +3681,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3690,7 +3690,7 @@
         {
           "name": "input values",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_values",
@@ -3699,7 +3699,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3708,7 +3708,7 @@
         {
           "name": "rule-invoked values?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_invoked_values",
@@ -3717,7 +3717,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -3726,7 +3726,7 @@
         {
           "name": "output values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_values",
@@ -3735,7 +3735,7 @@
         {
           "name": "rule weights",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rule_weights",
@@ -3744,7 +3744,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3765,7 +3765,7 @@
         {
           "name": "variable index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
@@ -3774,7 +3774,7 @@
         {
           "name": "input/output",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
@@ -3783,7 +3783,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3792,7 +3792,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3801,7 +3801,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -3810,7 +3810,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3819,7 +3819,7 @@
         {
           "name": "minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3828,7 +3828,7 @@
         {
           "name": "maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3837,7 +3837,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3846,7 +3846,7 @@
         {
           "name": "membership functions",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
@@ -3855,7 +3855,7 @@
         {
           "name": "shape",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shape",
@@ -3864,7 +3864,7 @@
         {
           "name": "points",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "points",
@@ -3873,7 +3873,7 @@
         {
           "name": "color",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -3882,7 +3882,7 @@
         {
           "name": "user-defined shape index",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
@@ -3903,7 +3903,7 @@
         {
           "name": "variable index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
@@ -3912,7 +3912,7 @@
         {
           "name": "input/output",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
@@ -3921,7 +3921,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -3930,7 +3930,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3939,7 +3939,7 @@
         {
           "name": "minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -3948,7 +3948,7 @@
         {
           "name": "maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -3957,7 +3957,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3966,7 +3966,7 @@
         {
           "name": "membership functions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
@@ -3975,7 +3975,7 @@
         {
           "name": "shape",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shape",
@@ -3984,7 +3984,7 @@
         {
           "name": "points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "points",
@@ -3993,7 +3993,7 @@
         {
           "name": "color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4002,7 +4002,7 @@
         {
           "name": "user-defined shape index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
@@ -4011,7 +4011,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -4020,7 +4020,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4041,7 +4041,7 @@
         {
           "name": "variable index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variable_index",
@@ -4050,7 +4050,7 @@
         {
           "name": "input/output",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "inputoutput",
@@ -4059,7 +4059,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -4068,7 +4068,7 @@
         {
           "name": "graph refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "graph_refnum",
@@ -4077,7 +4077,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4086,7 +4086,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -4095,7 +4095,7 @@
         {
           "name": "membership functions plot",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions_plot",
@@ -4104,7 +4104,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4344,7 +4344,7 @@
         {
           "name": "fuzzy system in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_in",
@@ -4353,7 +4353,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4362,7 +4362,7 @@
         {
           "name": "fuzzy system out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system_out",
@@ -4371,7 +4371,7 @@
         {
           "name": "number of input membership functions",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_input_membership_functions",
@@ -4380,7 +4380,7 @@
         {
           "name": "number of output membership functions",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_output_membership_functions",
@@ -4389,7 +4389,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4491,7 +4491,7 @@
         {
           "name": "fuzzy system",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fuzzy_system",
@@ -4500,7 +4500,7 @@
         {
           "name": "range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "range_",
@@ -4509,7 +4509,7 @@
         {
           "name": "membership functions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
@@ -4518,7 +4518,7 @@
         {
           "name": "shape",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shape",
@@ -4527,7 +4527,7 @@
         {
           "name": "points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "points",
@@ -4536,7 +4536,7 @@
         {
           "name": "color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4545,7 +4545,7 @@
         {
           "name": "user-defined shape index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
@@ -4554,7 +4554,7 @@
         {
           "name": "output variables",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "output_variables",
@@ -4563,7 +4563,7 @@
         {
           "name": "range",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "range_",
@@ -4572,7 +4572,7 @@
         {
           "name": "membership functions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "membership_functions",
@@ -4581,7 +4581,7 @@
         {
           "name": "shape",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shape",
@@ -4590,7 +4590,7 @@
         {
           "name": "points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "points",
@@ -4599,7 +4599,7 @@
         {
           "name": "color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4608,7 +4608,7 @@
         {
           "name": "user-defined shape index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_defined_shape_index",
@@ -4617,7 +4617,7 @@
         {
           "name": "rules",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rules",
@@ -4626,7 +4626,7 @@
         {
           "name": "MF Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mf_index",
@@ -4635,7 +4635,7 @@
         {
           "name": "Cond",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cond",
@@ -4644,7 +4644,7 @@
         {
           "name": "antecedent connective",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "antecedent_connective",
@@ -4653,7 +4653,7 @@
         {
           "name": "consequents",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "consequents",
@@ -4662,7 +4662,7 @@
         {
           "name": "MF Index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mf_index",
@@ -4671,7 +4671,7 @@
         {
           "name": "Cond",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cond",
@@ -4680,7 +4680,7 @@
         {
           "name": "consequent implication",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "consequent_implication",
@@ -4689,7 +4689,7 @@
         {
           "name": "degree of support",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "degree_of_support",
@@ -4698,7 +4698,7 @@
         {
           "name": "defuzzification method",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "defuzzification_method",
@@ -4707,7 +4707,7 @@
         {
           "name": "description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "description",
@@ -4716,7 +4716,7 @@
         {
           "name": "user MF interpolating polynomials",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_mf_interpolating_polynomials",
@@ -4725,7 +4725,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -4734,7 +4734,7 @@
         {
           "name": "Y(x) coeff",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "yx_coeff",
@@ -4743,7 +4743,7 @@
         {
           "name": "X(y) coeff",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_coeff",
@@ -4752,7 +4752,7 @@
         {
           "name": "Area(y) coeff",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "areay_coeff",
@@ -4761,7 +4761,7 @@
         {
           "name": "coa_x(y) coeff",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coa_xy_coeff",

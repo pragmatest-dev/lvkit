@@ -5,56 +5,56 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "record type",
           "type": "Cluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "access (0:read/write)",
           "type": "Enum16"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "operation (0:open)",
           "type": "Enum16"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "datalog path (use dialog)",
           "type": "Path"
         }
@@ -67,32 +67,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "offset (in records)",
           "type": "NumInt64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"
@@ -106,32 +106,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "# of records",
           "type": "NumInt64"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"
@@ -145,38 +145,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "record(s)",
           "type": "Void"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "count (1)",
           "type": "NumInt32"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"
@@ -190,38 +190,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "from (0:start)",
           "type": "Enum16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "offset (in records) (0)",
           "type": "NumInt64"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"
@@ -235,32 +235,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "# of records",
           "type": "NumInt64"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"
@@ -274,32 +274,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "datalog"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "record(s)",
           "type": "Void"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "datalog"

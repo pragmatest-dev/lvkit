@@ -132,14 +132,6 @@ def path_text(text: str) -> str | None:
     return "/" + joined if path_type == PathType.ABSOLUTE else joined
 
 
-def path_name_stem(text: str) -> str | None:
-    """The text a variable holding the path ``text`` is named from: the path's
-    own components (``Path('/C/Users')``), not the OS-dependent expression
-    ``python_path`` writes. None for Not a Path or text that is no path."""
-    spelled = path_text(text)
-    return None if spelled is None else f"Path({spelled!r})"
-
-
 def python_path(text: str) -> str | None:
     """The Python expression for a path text: ``None`` for Not a Path, else a
     ``Path(...)`` call of the components (pathlib joins them with the OS

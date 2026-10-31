@@ -15,7 +15,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -24,7 +24,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -33,7 +33,7 @@
         {
           "name": "concatenated string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "concatenated_string",
@@ -54,7 +54,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -63,7 +63,7 @@
         {
           "name": "length",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "length",
@@ -84,7 +84,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -93,7 +93,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -102,7 +102,7 @@
         {
           "name": "length (rest)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "length",
@@ -111,7 +111,7 @@
         {
           "name": "substring",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "substring",
@@ -144,7 +144,7 @@
           ],
           "python_param": "location_both",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "NumUInt16",
           "default": 0
         },
@@ -154,7 +154,7 @@
           "enum_values": null,
           "python_param": "string",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "String"
         },
         {
@@ -163,7 +163,7 @@
           "enum_values": null,
           "python_param": "trimmed_string",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "String"
         }
       ],
@@ -183,7 +183,7 @@
         {
           "name": "end of line (Native)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "end_of_line",
@@ -192,7 +192,7 @@
         {
           "name": "string in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string_in",
@@ -201,7 +201,7 @@
         {
           "name": "string out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string_out",
@@ -222,7 +222,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -231,7 +231,7 @@
         {
           "name": "substring (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "substring",
@@ -240,7 +240,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -249,7 +249,7 @@
         {
           "name": "length (len. of substring)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "length",
@@ -258,7 +258,7 @@
         {
           "name": "result string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result_string",
@@ -267,7 +267,7 @@
         {
           "name": "replaced substring",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "replaced_substring",
@@ -288,7 +288,7 @@
         {
           "name": "multiline? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "multiline",
@@ -297,7 +297,7 @@
         {
           "name": "ignore case? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ignore_case",
@@ -306,7 +306,7 @@
         {
           "name": "replace all? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "replace_all",
@@ -315,7 +315,7 @@
         {
           "name": "input string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_string",
@@ -324,7 +324,7 @@
         {
           "name": "search string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "search_string",
@@ -333,7 +333,7 @@
         {
           "name": "replace string (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "replace_string",
@@ -342,7 +342,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -351,7 +351,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -360,7 +360,7 @@
         {
           "name": "result string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result_string",
@@ -369,7 +369,7 @@
         {
           "name": "number of replacements",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_replacements",
@@ -378,7 +378,7 @@
         {
           "name": "offset past replacement",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_replacement",
@@ -387,7 +387,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -408,7 +408,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -417,7 +417,7 @@
         {
           "name": "regular expression",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "regular_expression",
@@ -426,7 +426,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -435,7 +435,7 @@
         {
           "name": "before substring",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "before_substring",
@@ -444,7 +444,7 @@
         {
           "name": "match substring",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "match_substring",
@@ -453,7 +453,7 @@
         {
           "name": "after substring",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "after_substring",
@@ -462,7 +462,7 @@
         {
           "name": "offset past match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_match",
@@ -483,7 +483,7 @@
         {
           "name": "multiline? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "multiline",
@@ -492,7 +492,7 @@
         {
           "name": "ignore case? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ignore_case",
@@ -501,7 +501,7 @@
         {
           "name": "input string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_string",
@@ -510,7 +510,7 @@
         {
           "name": "regular expression",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "regular_expression",
@@ -519,7 +519,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -528,7 +528,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -537,7 +537,7 @@
         {
           "name": "before match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "before_match",
@@ -546,7 +546,7 @@
         {
           "name": "whole match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "whole_match",
@@ -555,7 +555,7 @@
         {
           "name": "after match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "after_match",
@@ -564,7 +564,7 @@
         {
           "name": "offset past match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_match",
@@ -573,7 +573,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -623,7 +623,7 @@
         {
           "name": "relative",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relative",
@@ -632,7 +632,7 @@
         {
           "name": "array of strings",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_strings",
@@ -641,7 +641,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -662,7 +662,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -671,7 +671,7 @@
         {
           "name": "relative",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "relative",
@@ -680,7 +680,7 @@
         {
           "name": "array of strings",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_strings",
@@ -701,7 +701,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -710,7 +710,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -731,7 +731,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -740,7 +740,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -761,7 +761,7 @@
         {
           "name": "unsigned byte array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "unsigned_byte_array",
@@ -770,7 +770,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -791,7 +791,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -800,7 +800,7 @@
         {
           "name": "unsigned byte array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "unsigned_byte_array",
@@ -821,7 +821,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -830,7 +830,7 @@
         {
           "name": "input string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_string",
@@ -839,7 +839,7 @@
         {
           "name": "initial scan location",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "initial_scan_location",
@@ -848,7 +848,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -857,7 +857,7 @@
         {
           "name": "default value 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value_1",
@@ -866,7 +866,7 @@
         {
           "name": "remaining string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remaining_string",
@@ -875,7 +875,7 @@
         {
           "name": "offset past scan",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_scan",
@@ -884,7 +884,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -893,7 +893,7 @@
         {
           "name": "output 1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_1",
@@ -914,7 +914,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -923,7 +923,7 @@
         {
           "name": "initial string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "initial_string",
@@ -932,7 +932,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -941,7 +941,7 @@
         {
           "name": "input 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_1",
@@ -950,7 +950,7 @@
         {
           "name": "resulting string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resulting_string",
@@ -959,7 +959,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -980,7 +980,7 @@
         {
           "name": "time format string (%c)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_format_string",
@@ -989,7 +989,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -998,7 +998,7 @@
         {
           "name": "UTC format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "utc_format",
@@ -1007,7 +1007,7 @@
         {
           "name": "date/time string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "datetime_string",
@@ -1028,7 +1028,7 @@
         {
           "name": "Beginning Text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "beginning_text",
@@ -1037,7 +1037,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1046,7 +1046,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1055,7 +1055,7 @@
         {
           "name": "Result",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result",
@@ -1105,7 +1105,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1114,7 +1114,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1123,7 +1123,7 @@
         {
           "name": "decimal integer string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "decimal_integer_string",
@@ -1144,7 +1144,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1153,7 +1153,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1162,7 +1162,7 @@
         {
           "name": "hex integer string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "hex_integer_string",
@@ -1183,7 +1183,7 @@
         {
           "name": "use system decimal point (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_system_decimal_point",
@@ -1192,7 +1192,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1201,7 +1201,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1210,7 +1210,7 @@
         {
           "name": "precision (6)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -1219,7 +1219,7 @@
         {
           "name": "F-format string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "f_format_string",
@@ -1240,7 +1240,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1249,7 +1249,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1258,7 +1258,7 @@
         {
           "name": "octal integer string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "octal_integer_string",
@@ -1279,7 +1279,7 @@
         {
           "name": "use system decimal point (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_system_decimal_point",
@@ -1288,7 +1288,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1297,7 +1297,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1306,7 +1306,7 @@
         {
           "name": "precision (6)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -1315,7 +1315,7 @@
         {
           "name": "E-format string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "e_format_string",
@@ -1336,7 +1336,7 @@
         {
           "name": "use system decimal point (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_system_decimal_point",
@@ -1345,7 +1345,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1354,7 +1354,7 @@
         {
           "name": "width (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -1363,7 +1363,7 @@
         {
           "name": "precision (6)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -1372,7 +1372,7 @@
         {
           "name": "Engineering string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "engineering_string",
@@ -1393,7 +1393,7 @@
         {
           "name": "string (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1402,7 +1402,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1411,7 +1411,7 @@
         {
           "name": "value (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -1420,7 +1420,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -1441,7 +1441,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1450,7 +1450,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -1459,7 +1459,7 @@
         {
           "name": "default (0 I32)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default",
@@ -1468,7 +1468,7 @@
         {
           "name": "offset past number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_number",
@@ -1477,7 +1477,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1498,7 +1498,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1507,7 +1507,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -1516,7 +1516,7 @@
         {
           "name": "default (0 U32)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default",
@@ -1525,7 +1525,7 @@
         {
           "name": "offset past number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_number",
@@ -1534,7 +1534,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1555,7 +1555,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1564,7 +1564,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -1573,7 +1573,7 @@
         {
           "name": "default (0 U32)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default",
@@ -1582,7 +1582,7 @@
         {
           "name": "offset past number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_number",
@@ -1591,7 +1591,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1612,7 +1612,7 @@
         {
           "name": "use system decimal point (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_system_decimal_point",
@@ -1621,7 +1621,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1630,7 +1630,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -1639,7 +1639,7 @@
         {
           "name": "default (0 DBL)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default",
@@ -1648,7 +1648,7 @@
         {
           "name": "offset past number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_number",
@@ -1657,7 +1657,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -1678,7 +1678,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1687,7 +1687,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1696,7 +1696,7 @@
         {
           "name": "default (0 dbl)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default",
@@ -1705,7 +1705,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -1714,7 +1714,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -1735,7 +1735,7 @@
         {
           "name": "delimiter (Tab)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -1744,7 +1744,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1753,7 +1753,7 @@
         {
           "name": "spreadsheet string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "spreadsheet_string",
@@ -1762,7 +1762,7 @@
         {
           "name": "array type (2D Dbl)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_type",
@@ -1771,7 +1771,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -1792,7 +1792,7 @@
         {
           "name": "delimiter (Tab)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -1801,7 +1801,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1810,7 +1810,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -1819,7 +1819,7 @@
         {
           "name": "spreadsheet string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "spreadsheet_string",
@@ -1840,7 +1840,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1849,7 +1849,7 @@
         {
           "name": "all upper case string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_upper_case_string",
@@ -1870,7 +1870,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -1879,7 +1879,7 @@
         {
           "name": "all lower case string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_lower_case_string",
@@ -1961,7 +1961,7 @@
         {
           "name": "anything",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "anything",
@@ -1970,7 +1970,7 @@
         {
           "name": "prepend array or string size? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prepend_array_or_string_size",
@@ -1979,7 +1979,7 @@
         {
           "name": "byte order (0:big-endian, network order)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -1988,7 +1988,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1997,7 +1997,7 @@
         {
           "name": "data string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
@@ -2006,7 +2006,7 @@
         {
           "name": "type string (7.x only)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
@@ -2015,7 +2015,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2036,7 +2036,7 @@
         {
           "name": "type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -2045,7 +2045,7 @@
         {
           "name": "binary string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "binary_string",
@@ -2054,7 +2054,7 @@
         {
           "name": "data includes array or string size? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_includes_array_or_string_size",
@@ -2063,7 +2063,7 @@
         {
           "name": "byte order (0:big-endian, network order)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -2072,7 +2072,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2081,7 +2081,7 @@
         {
           "name": "rest of the binary string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rest_of_the_binary_string",
@@ -2090,7 +2090,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -2099,7 +2099,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2120,7 +2120,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -2129,7 +2129,7 @@
         {
           "name": "type string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
@@ -2138,7 +2138,7 @@
         {
           "name": "data string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
@@ -2159,7 +2159,7 @@
         {
           "name": "anything",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "anything",
@@ -2168,7 +2168,7 @@
         {
           "name": "xml string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "xml_string",
@@ -2189,7 +2189,7 @@
         {
           "name": "type string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
@@ -2198,7 +2198,7 @@
         {
           "name": "data string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
@@ -2207,7 +2207,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2216,7 +2216,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -2225,7 +2225,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2246,7 +2246,7 @@
         {
           "name": "xml string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xml_string",
@@ -2255,7 +2255,7 @@
         {
           "name": "type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -2264,7 +2264,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2273,7 +2273,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -2282,7 +2282,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2303,7 +2303,7 @@
         {
           "name": "enable LabVIEW extensions? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable_labview_extensions",
@@ -2312,7 +2312,7 @@
         {
           "name": "anything",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "anything",
@@ -2321,7 +2321,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2330,7 +2330,7 @@
         {
           "name": "JSON string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "json_string",
@@ -2339,7 +2339,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2360,7 +2360,7 @@
         {
           "name": "enable LabVIEW extensions? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable_labview_extensions",
@@ -2369,7 +2369,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -2378,7 +2378,7 @@
         {
           "name": "JSON string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "json_string",
@@ -2387,7 +2387,7 @@
         {
           "name": "type and defaults",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_and_defaults",
@@ -2396,7 +2396,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2405,7 +2405,7 @@
         {
           "name": "default null elements? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_null_elements",
@@ -2414,7 +2414,7 @@
         {
           "name": "strict validation? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strict_validation",
@@ -2423,7 +2423,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -2432,7 +2432,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2470,7 +2470,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2479,7 +2479,7 @@
         {
           "name": "search string/char (-)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "search_stringchar",
@@ -2488,7 +2488,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -2497,7 +2497,7 @@
         {
           "name": "substring before match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "substring_before_match",
@@ -2506,7 +2506,7 @@
         {
           "name": "match + rest of string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "match__rest_of_string",
@@ -2515,7 +2515,7 @@
         {
           "name": "offset of match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_of_match",
@@ -2536,7 +2536,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2545,7 +2545,7 @@
         {
           "name": "string array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string_array",
@@ -2554,7 +2554,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -2563,7 +2563,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2584,7 +2584,7 @@
         {
           "name": "string (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2593,7 +2593,7 @@
         {
           "name": "multi-line string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "multi_line_string",
@@ -2602,7 +2602,7 @@
         {
           "name": "line index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_index",
@@ -2611,7 +2611,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -2632,7 +2632,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2641,7 +2641,7 @@
         {
           "name": "true string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "true_string",
@@ -2650,7 +2650,7 @@
         {
           "name": "false string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "false_string",
@@ -2659,7 +2659,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -2668,7 +2668,7 @@
         {
           "name": "selection",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "selection",
@@ -2689,7 +2689,7 @@
         {
           "name": "allow empty tokens? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "allow_empty_tokens",
@@ -2698,7 +2698,7 @@
         {
           "name": "input string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_string",
@@ -2707,7 +2707,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -2716,7 +2716,7 @@
         {
           "name": "operators (none)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "operators",
@@ -2725,7 +2725,7 @@
         {
           "name": "delimiters (\\s,\\t,\\r,\\n)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiters",
@@ -2734,7 +2734,7 @@
         {
           "name": "use cached delim/oper data? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_cached_delimoper_data",
@@ -2743,7 +2743,7 @@
         {
           "name": "string out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string_out",
@@ -2752,7 +2752,7 @@
         {
           "name": "offset past token",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_token",
@@ -2761,7 +2761,7 @@
         {
           "name": "token string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "token_string",
@@ -2770,7 +2770,7 @@
         {
           "name": "token index",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "token_index",
@@ -2791,7 +2791,7 @@
         {
           "name": "replace all? (F)",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "replace_all",
@@ -2801,7 +2801,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2810,7 +2810,7 @@
         {
           "name": "regular expression (\"\")",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "regular_expression",
@@ -2820,7 +2820,7 @@
         {
           "name": "replace string (\"\")",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "replace_string",
@@ -2830,7 +2830,7 @@
         {
           "name": "offset (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -2840,7 +2840,7 @@
         {
           "name": "result string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "result_string",
@@ -2849,7 +2849,7 @@
         {
           "name": "offset past match",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_match",
@@ -2870,7 +2870,7 @@
         {
           "name": "string (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2879,7 +2879,7 @@
         {
           "name": "true string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "true_string",
@@ -2888,7 +2888,7 @@
         {
           "name": "false string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "false_string",
@@ -2897,7 +2897,7 @@
         {
           "name": "selector",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "selector",
@@ -2906,7 +2906,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -2927,7 +2927,7 @@
         {
           "name": "string (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2936,7 +2936,7 @@
         {
           "name": "string array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string_array",
@@ -2945,7 +2945,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2954,7 +2954,7 @@
         {
           "name": "output string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_string",
@@ -2975,7 +2975,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -2984,7 +2984,7 @@
         {
           "name": "first char last",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_char_last",
@@ -3005,7 +3005,7 @@
         {
           "name": "delimited string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimited_string",
@@ -3014,7 +3014,7 @@
         {
           "name": "delimiter",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -3023,7 +3023,7 @@
         {
           "name": "string array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string_array",
@@ -3044,7 +3044,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -3053,7 +3053,7 @@
         {
           "name": "reversed",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reversed_",
@@ -3074,7 +3074,7 @@
         {
           "name": "NI GUID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "ni_guid",

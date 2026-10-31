@@ -15,7 +15,7 @@
         {
           "name": "3D graph",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph",
@@ -24,7 +24,7 @@
         {
           "name": "plot style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_style",
@@ -33,7 +33,7 @@
         {
           "name": "fast draw",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fast_draw",
@@ -42,7 +42,7 @@
         {
           "name": "transparency",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transparency",
@@ -51,7 +51,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -60,7 +60,7 @@
         {
           "name": "coordinate system",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coordinate_system",
@@ -69,7 +69,7 @@
         {
           "name": "plot number (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_number",
@@ -78,7 +78,7 @@
         {
           "name": "3D graph out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph_out",
@@ -87,7 +87,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -108,7 +108,7 @@
         {
           "name": "invert x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "invert_x",
@@ -117,7 +117,7 @@
         {
           "name": "invert y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "invert_y",
@@ -126,7 +126,7 @@
         {
           "name": "invert z",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "invert_z",
@@ -135,7 +135,7 @@
         {
           "name": "3D graph",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph",
@@ -144,7 +144,7 @@
         {
           "name": "auto scale x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_scale_x",
@@ -153,7 +153,7 @@
         {
           "name": "auto scale y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_scale_y",
@@ -162,7 +162,7 @@
         {
           "name": "auto scale z",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_scale_z",
@@ -171,7 +171,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -180,7 +180,7 @@
         {
           "name": "plot number (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_number",
@@ -189,7 +189,7 @@
         {
           "name": "3D graph out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph_out",
@@ -198,7 +198,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -219,7 +219,7 @@
         {
           "name": "grid smoothing",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "grid_smoothing",
@@ -228,7 +228,7 @@
         {
           "name": "3D graph",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph",
@@ -237,7 +237,7 @@
         {
           "name": "xy grid",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_grid",
@@ -246,7 +246,7 @@
         {
           "name": "xz grid",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xz_grid",
@@ -255,7 +255,7 @@
         {
           "name": "yz grid",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "yz_grid",
@@ -264,7 +264,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -273,7 +273,7 @@
         {
           "name": "3D graph out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph_out",
@@ -282,7 +282,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -303,7 +303,7 @@
         {
           "name": "coordinate system",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coordinate_system",
@@ -312,7 +312,7 @@
         {
           "name": "3D graph",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph",
@@ -321,7 +321,7 @@
         {
           "name": "xy projection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_projection",
@@ -330,7 +330,7 @@
         {
           "name": "xz projection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xz_projection",
@@ -339,7 +339,7 @@
         {
           "name": "yz projection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "yz_projection",
@@ -348,7 +348,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -357,7 +357,7 @@
         {
           "name": "show projections only",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "show_projections_only",
@@ -366,7 +366,7 @@
         {
           "name": "plot number (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_number",
@@ -375,7 +375,7 @@
         {
           "name": "3D graph out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph_out",
@@ -384,7 +384,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -405,7 +405,7 @@
         {
           "name": "color in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_in",
@@ -414,7 +414,7 @@
         {
           "name": "color out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "color_out",
@@ -435,7 +435,7 @@
         {
           "name": "3D graph",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph",
@@ -444,7 +444,7 @@
         {
           "name": "# of plots(1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "_of_plots",
@@ -453,7 +453,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -462,7 +462,7 @@
         {
           "name": "3D graph out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_3d_graph_out",
@@ -471,7 +471,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -515,7 +515,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -524,7 +524,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -533,7 +533,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -542,7 +542,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -551,7 +551,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -560,7 +560,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -569,7 +569,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -578,7 +578,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -587,7 +587,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -596,7 +596,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -605,7 +605,7 @@
         {
           "name": "data array [mag, phase (deg)]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_array_mag_phase_deg",
@@ -614,7 +614,7 @@
         {
           "name": "phase",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "phase",
@@ -623,7 +623,7 @@
         {
           "name": "top left point(0, 0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left_point",
@@ -632,7 +632,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -641,7 +641,7 @@
         {
           "name": "dimensions (w,h)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions",
@@ -650,7 +650,7 @@
         {
           "name": "height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "height",
@@ -659,7 +659,7 @@
         {
           "name": "polar attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "polar_attributes",
@@ -668,7 +668,7 @@
         {
           "name": "minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -677,7 +677,7 @@
         {
           "name": "clip to min",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "clip_to_min",
@@ -686,7 +686,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -695,7 +695,7 @@
         {
           "name": "grid color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "grid_color",
@@ -704,7 +704,7 @@
         {
           "name": "plot color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_color",
@@ -713,7 +713,7 @@
         {
           "name": "fmt and prec",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fmt_and_prec",
@@ -722,7 +722,7 @@
         {
           "name": "precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -731,7 +731,7 @@
         {
           "name": "visible section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "visible_section",
@@ -740,7 +740,7 @@
         {
           "name": "Lines/Points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "linespoints",
@@ -749,7 +749,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -758,7 +758,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -779,7 +779,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -788,7 +788,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -797,7 +797,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -806,7 +806,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -815,7 +815,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -824,7 +824,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -833,7 +833,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -842,7 +842,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -851,7 +851,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -860,7 +860,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -869,7 +869,7 @@
         {
           "name": "smith plot",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_plot",
@@ -878,7 +878,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -887,7 +887,7 @@
         {
           "name": "dimensions (w,h)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions",
@@ -896,7 +896,7 @@
         {
           "name": "height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "height",
@@ -905,7 +905,7 @@
         {
           "name": "dimensions incl scales? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions_incl_scales",
@@ -914,7 +914,7 @@
         {
           "name": "top left point(0, 0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left_point",
@@ -923,7 +923,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -932,7 +932,7 @@
         {
           "name": "smith plot section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_plot_section",
@@ -941,7 +941,7 @@
         {
           "name": "x maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_maximum",
@@ -950,7 +950,7 @@
         {
           "name": "y minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_minimum",
@@ -959,7 +959,7 @@
         {
           "name": "y maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_maximum",
@@ -968,7 +968,7 @@
         {
           "name": "smith plot cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_plot_cosmetics",
@@ -977,7 +977,7 @@
         {
           "name": "Line Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_color",
@@ -986,7 +986,7 @@
         {
           "name": "Point Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "point_color",
@@ -995,7 +995,7 @@
         {
           "name": "smith grid cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_grid_cosmetics",
@@ -1004,7 +1004,7 @@
         {
           "name": "R grids",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "r_grids",
@@ -1013,7 +1013,7 @@
         {
           "name": "X color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_color",
@@ -1022,7 +1022,7 @@
         {
           "name": "X grids",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_grids",
@@ -1031,7 +1031,7 @@
         {
           "name": "Labels",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "labels",
@@ -1040,7 +1040,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -1061,7 +1061,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -1070,7 +1070,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -1079,7 +1079,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -1088,7 +1088,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -1097,7 +1097,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -1106,7 +1106,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -1115,7 +1115,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -1124,7 +1124,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -1133,7 +1133,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -1142,7 +1142,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -1151,7 +1151,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -1160,7 +1160,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -1169,7 +1169,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -1178,7 +1178,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -1187,7 +1187,7 @@
         {
           "name": "smith plot section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_plot_section",
@@ -1196,7 +1196,7 @@
         {
           "name": "x maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_maximum",
@@ -1205,7 +1205,7 @@
         {
           "name": "y minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_minimum",
@@ -1214,7 +1214,7 @@
         {
           "name": "y maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_maximum",
@@ -1223,7 +1223,7 @@
         {
           "name": "smith grid cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_grid_cosmetics",
@@ -1232,7 +1232,7 @@
         {
           "name": "R grids",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "r_grids",
@@ -1241,7 +1241,7 @@
         {
           "name": "X color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_color",
@@ -1250,7 +1250,7 @@
         {
           "name": "X grids",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_grids",
@@ -1259,7 +1259,7 @@
         {
           "name": "Labels",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "labels",
@@ -1268,7 +1268,7 @@
         {
           "name": "smith multi plot",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_multi_plot",
@@ -1277,7 +1277,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -1286,7 +1286,7 @@
         {
           "name": "smith plot cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "smith_plot_cosmetics",
@@ -1295,7 +1295,7 @@
         {
           "name": "Line Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_color",
@@ -1304,7 +1304,7 @@
         {
           "name": "Point Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "point_color",
@@ -1313,7 +1313,7 @@
         {
           "name": "dimensions incl scales? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions_incl_scales",
@@ -1322,7 +1322,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -1343,7 +1343,7 @@
         {
           "name": "Zo (50.0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "zo",
@@ -1352,7 +1352,7 @@
         {
           "name": "points {r,x}",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "points_rx",
@@ -1361,7 +1361,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -1370,7 +1370,7 @@
         {
           "name": "points complex",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "points_complex",
@@ -1379,7 +1379,7 @@
         {
           "name": "normalized smith points {r,x}",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "normalized_smith_points_rx",
@@ -1388,7 +1388,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -1409,7 +1409,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -1418,7 +1418,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -1427,7 +1427,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -1436,7 +1436,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -1445,7 +1445,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -1454,7 +1454,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -1463,7 +1463,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -1472,7 +1472,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -1481,7 +1481,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -1490,7 +1490,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -1499,7 +1499,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1508,7 +1508,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -1517,7 +1517,7 @@
         {
           "name": "dimensions (w,h)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions",
@@ -1526,7 +1526,7 @@
         {
           "name": "height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "height",
@@ -1535,7 +1535,7 @@
         {
           "name": "top left point(0, 0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left_point",
@@ -1544,7 +1544,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -1553,7 +1553,7 @@
         {
           "name": "cartesian axis attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_axis_attributes",
@@ -1562,7 +1562,7 @@
         {
           "name": "x maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_maximum",
@@ -1571,7 +1571,7 @@
         {
           "name": "x log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_log",
@@ -1580,7 +1580,7 @@
         {
           "name": "x precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_precision",
@@ -1589,7 +1589,7 @@
         {
           "name": "x format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_format",
@@ -1598,7 +1598,7 @@
         {
           "name": "y minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_minimum",
@@ -1607,7 +1607,7 @@
         {
           "name": "y maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_maximum",
@@ -1616,7 +1616,7 @@
         {
           "name": "y log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_log",
@@ -1625,7 +1625,7 @@
         {
           "name": "y precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_precision",
@@ -1634,7 +1634,7 @@
         {
           "name": "y format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_format",
@@ -1643,7 +1643,7 @@
         {
           "name": "cartesian grid cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_grid_cosmetics",
@@ -1652,7 +1652,7 @@
         {
           "name": "text color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -1661,7 +1661,7 @@
         {
           "name": "tick length(3)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tick_length",
@@ -1670,7 +1670,7 @@
         {
           "name": "crossing axes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "crossing_axes",
@@ -1679,7 +1679,7 @@
         {
           "name": "visible grid?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "visible_grid",
@@ -1688,7 +1688,7 @@
         {
           "name": "XY plot cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_plot_cosmetics",
@@ -1697,7 +1697,7 @@
         {
           "name": "XY plot type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_plot_type",
@@ -1706,7 +1706,7 @@
         {
           "name": "baseline",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "baseline",
@@ -1715,7 +1715,7 @@
         {
           "name": "[sized scatter plot cosmetics]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sized_scatter_plot_cosmetics",
@@ -1724,7 +1724,7 @@
         {
           "name": "max size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_size",
@@ -1733,7 +1733,7 @@
         {
           "name": "maps to max size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maps_to_max_size",
@@ -1742,7 +1742,7 @@
         {
           "name": "color array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_array",
@@ -1751,7 +1751,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -1772,7 +1772,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -1781,7 +1781,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -1790,7 +1790,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -1799,7 +1799,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -1808,7 +1808,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -1817,7 +1817,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -1826,7 +1826,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -1835,7 +1835,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -1844,7 +1844,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -1853,7 +1853,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -1862,7 +1862,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1871,7 +1871,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -1880,7 +1880,7 @@
         {
           "name": "dimensions (w,h)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimensions",
@@ -1889,7 +1889,7 @@
         {
           "name": "height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "height",
@@ -1898,7 +1898,7 @@
         {
           "name": "top left point(0, 0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left_point",
@@ -1907,7 +1907,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -1916,7 +1916,7 @@
         {
           "name": "cartesian axis attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_axis_attributes",
@@ -1925,7 +1925,7 @@
         {
           "name": "x maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_maximum",
@@ -1934,7 +1934,7 @@
         {
           "name": "x log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_log",
@@ -1943,7 +1943,7 @@
         {
           "name": "x precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_precision",
@@ -1952,7 +1952,7 @@
         {
           "name": "x format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_format",
@@ -1961,7 +1961,7 @@
         {
           "name": "y minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_minimum",
@@ -1970,7 +1970,7 @@
         {
           "name": "y maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_maximum",
@@ -1979,7 +1979,7 @@
         {
           "name": "y log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_log",
@@ -1988,7 +1988,7 @@
         {
           "name": "y precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_precision",
@@ -1997,7 +1997,7 @@
         {
           "name": "y format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_format",
@@ -2006,7 +2006,7 @@
         {
           "name": "cartesian grid cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_grid_cosmetics",
@@ -2015,7 +2015,7 @@
         {
           "name": "text color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -2024,7 +2024,7 @@
         {
           "name": "tick length(3)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tick_length",
@@ -2033,7 +2033,7 @@
         {
           "name": "crossing axes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "crossing_axes",
@@ -2042,7 +2042,7 @@
         {
           "name": "visible grid?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "visible_grid",
@@ -2051,7 +2051,7 @@
         {
           "name": "XY plot cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_plot_cosmetics",
@@ -2060,7 +2060,7 @@
         {
           "name": "XY plot type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "xy_plot_type",
@@ -2069,7 +2069,7 @@
         {
           "name": "baseline",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "baseline",
@@ -2078,7 +2078,7 @@
         {
           "name": "[sized scatter plot cosmetics]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sized_scatter_plot_cosmetics",
@@ -2087,7 +2087,7 @@
         {
           "name": "max size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_size",
@@ -2096,7 +2096,7 @@
         {
           "name": "maps to max size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "maps_to_max_size",
@@ -2105,7 +2105,7 @@
         {
           "name": "color array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_array",
@@ -2114,7 +2114,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -2135,7 +2135,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -2144,7 +2144,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2153,7 +2153,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -2162,7 +2162,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -2171,7 +2171,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2180,7 +2180,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -2189,7 +2189,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -2198,7 +2198,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -2207,7 +2207,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -2216,7 +2216,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -2225,7 +2225,7 @@
         {
           "name": "bounding rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bounding_rect",
@@ -2234,7 +2234,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -2243,7 +2243,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -2252,7 +2252,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -2261,7 +2261,7 @@
         {
           "name": "cartesian axis attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_axis_attributes",
@@ -2270,7 +2270,7 @@
         {
           "name": "x maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_maximum",
@@ -2279,7 +2279,7 @@
         {
           "name": "x log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_log",
@@ -2288,7 +2288,7 @@
         {
           "name": "x precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_precision",
@@ -2297,7 +2297,7 @@
         {
           "name": "x format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x_format",
@@ -2306,7 +2306,7 @@
         {
           "name": "y minimum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_minimum",
@@ -2315,7 +2315,7 @@
         {
           "name": "y maximum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_maximum",
@@ -2324,7 +2324,7 @@
         {
           "name": "y log?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_log",
@@ -2333,7 +2333,7 @@
         {
           "name": "y precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_precision",
@@ -2342,7 +2342,7 @@
         {
           "name": "y format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_format",
@@ -2351,7 +2351,7 @@
         {
           "name": "waveform data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_data",
@@ -2360,7 +2360,7 @@
         {
           "name": "delta X(1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delta_x",
@@ -2369,7 +2369,7 @@
         {
           "name": "Y data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_data",
@@ -2378,7 +2378,7 @@
         {
           "name": "cartesian grid cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_grid_cosmetics",
@@ -2387,7 +2387,7 @@
         {
           "name": "text color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -2396,7 +2396,7 @@
         {
           "name": "tick length(3)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tick_length",
@@ -2405,7 +2405,7 @@
         {
           "name": "crossing axes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "crossing_axes",
@@ -2414,7 +2414,7 @@
         {
           "name": "visible grid?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "visible_grid",
@@ -2423,7 +2423,7 @@
         {
           "name": "waveform plot cosmetics",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_plot_cosmetics",
@@ -2432,7 +2432,7 @@
         {
           "name": "waveform plot type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_plot_type",
@@ -2441,7 +2441,7 @@
         {
           "name": "baseline",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "baseline",
@@ -2450,7 +2450,7 @@
         {
           "name": "[bar style]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bar_style",
@@ -2459,7 +2459,7 @@
         {
           "name": "frame?(T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "frame",
@@ -2468,7 +2468,7 @@
         {
           "name": "frame color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "frame_color",
@@ -2477,7 +2477,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -2498,7 +2498,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -2507,7 +2507,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2516,7 +2516,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -2525,7 +2525,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -2534,7 +2534,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2543,7 +2543,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -2552,7 +2552,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -2561,7 +2561,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -2570,7 +2570,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -2579,7 +2579,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -2588,7 +2588,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -2597,7 +2597,7 @@
         {
           "name": "plot info",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_info",
@@ -2606,7 +2606,7 @@
         {
           "name": "plot color (white)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_color",
@@ -2615,7 +2615,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -2624,7 +2624,7 @@
         {
           "name": "axis info",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "axis_info",
@@ -2633,7 +2633,7 @@
         {
           "name": "max value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
@@ -2642,7 +2642,7 @@
         {
           "name": "min value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "min_value",
@@ -2651,7 +2651,7 @@
         {
           "name": "axes info",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "axes_info",
@@ -2660,7 +2660,7 @@
         {
           "name": "format and precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_and_precision",
@@ -2669,7 +2669,7 @@
         {
           "name": "precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -2678,7 +2678,7 @@
         {
           "name": "autoscale? (false)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "autoscale",
@@ -2687,7 +2687,7 @@
         {
           "name": "legend info",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "legend_info",
@@ -2696,7 +2696,7 @@
         {
           "name": "text color(white)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -2705,7 +2705,7 @@
         {
           "name": "dimension (w,h)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimension",
@@ -2714,7 +2714,7 @@
         {
           "name": "Height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "height",
@@ -2723,7 +2723,7 @@
         {
           "name": "top left point(0, 0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left_point",
@@ -2732,7 +2732,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -2741,7 +2741,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -2762,7 +2762,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -2771,7 +2771,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2780,7 +2780,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -2789,7 +2789,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -2798,7 +2798,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2807,7 +2807,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -2816,7 +2816,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -2825,7 +2825,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -2834,7 +2834,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -2843,7 +2843,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -2852,7 +2852,7 @@
         {
           "name": "plot info",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_info",
@@ -2861,7 +2861,7 @@
         {
           "name": "plot color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "plot_color",
@@ -2870,7 +2870,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -2879,7 +2879,7 @@
         {
           "name": "text color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -2888,7 +2888,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -2897,7 +2897,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -2906,7 +2906,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -2915,7 +2915,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -2924,7 +2924,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -2945,7 +2945,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -2954,7 +2954,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2963,7 +2963,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -2972,7 +2972,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -2981,7 +2981,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2990,7 +2990,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -2999,7 +2999,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -3008,7 +3008,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -3017,7 +3017,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -3026,7 +3026,7 @@
         {
           "name": "scale definition",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_definition",
@@ -3035,7 +3035,7 @@
         {
           "name": "value 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value_1",
@@ -3044,7 +3044,7 @@
         {
           "name": "coordinate 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coordinate_2",
@@ -3053,7 +3053,7 @@
         {
           "name": "value 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value_2",
@@ -3062,7 +3062,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -3071,7 +3071,7 @@
         {
           "name": "fmt and prec",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fmt_and_prec",
@@ -3080,7 +3080,7 @@
         {
           "name": "precision",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "precision",
@@ -3089,7 +3089,7 @@
         {
           "name": "scale attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_attributes",
@@ -3098,7 +3098,7 @@
         {
           "name": "left/top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lefttop",
@@ -3107,7 +3107,7 @@
         {
           "name": "draw bar",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "draw_bar",
@@ -3116,7 +3116,7 @@
         {
           "name": "line color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_color",
@@ -3125,7 +3125,7 @@
         {
           "name": "text color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -3134,7 +3134,7 @@
         {
           "name": "scale specs",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scale_specs",
@@ -3143,7 +3143,7 @@
         {
           "name": "label",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "label",
@@ -3164,7 +3164,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -3173,7 +3173,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -3182,7 +3182,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -3191,7 +3191,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -3200,7 +3200,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -3209,7 +3209,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -3218,7 +3218,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -3227,7 +3227,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -3236,7 +3236,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -3245,7 +3245,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3254,7 +3254,7 @@
         {
           "name": "scale specs",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_specs",
@@ -3263,7 +3263,7 @@
         {
           "name": "label",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "label",
@@ -3272,7 +3272,7 @@
         {
           "name": "constant coordinate",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "constant_coordinate",
@@ -3281,7 +3281,7 @@
         {
           "name": "tick length(3)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tick_length",
@@ -3290,7 +3290,7 @@
         {
           "name": "scale attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_attributes",
@@ -3299,7 +3299,7 @@
         {
           "name": "left/top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "lefttop",
@@ -3308,7 +3308,7 @@
         {
           "name": "draw bar",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "draw_bar",
@@ -3317,7 +3317,7 @@
         {
           "name": "line color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_color",
@@ -3326,7 +3326,7 @@
         {
           "name": "text color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -3335,7 +3335,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3356,7 +3356,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -3365,7 +3365,7 @@
         {
           "name": "coordinate 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coordinate_1",
@@ -3374,7 +3374,7 @@
         {
           "name": "value 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value_1",
@@ -3383,7 +3383,7 @@
         {
           "name": "coordinate 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "coordinate_2",
@@ -3392,7 +3392,7 @@
         {
           "name": "value 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value_2",
@@ -3401,7 +3401,7 @@
         {
           "name": "scale factors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factors",
@@ -3410,7 +3410,7 @@
         {
           "name": "b",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "b",
@@ -3419,7 +3419,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -3440,7 +3440,7 @@
         {
           "name": "scale factors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factors",
@@ -3449,7 +3449,7 @@
         {
           "name": "b",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "b",
@@ -3458,7 +3458,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -3467,7 +3467,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -3476,7 +3476,7 @@
         {
           "name": "pixel",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "pixel",
@@ -3497,7 +3497,7 @@
         {
           "name": "scale factors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factors",
@@ -3506,7 +3506,7 @@
         {
           "name": "b",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "b",
@@ -3515,7 +3515,7 @@
         {
           "name": "log?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "log",
@@ -3524,7 +3524,7 @@
         {
           "name": "pixel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pixel",
@@ -3533,7 +3533,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -3564,7 +3564,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3573,7 +3573,7 @@
         {
           "name": "point(x,y)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "point",
@@ -3582,7 +3582,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -3591,7 +3591,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -3600,7 +3600,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -3609,7 +3609,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -3618,7 +3618,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3639,7 +3639,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3648,7 +3648,7 @@
         {
           "name": "new position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_position",
@@ -3657,7 +3657,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -3666,7 +3666,7 @@
         {
           "name": "absolute coordinates?(T)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
@@ -3676,7 +3676,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3697,7 +3697,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3706,7 +3706,7 @@
         {
           "name": "end point",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "end_point",
@@ -3715,7 +3715,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -3724,7 +3724,7 @@
         {
           "name": "absolute coordinates?(T)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
@@ -3734,7 +3734,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -3743,7 +3743,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -3752,7 +3752,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3773,7 +3773,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3782,7 +3782,7 @@
         {
           "name": "line endpoints",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "line_endpoints",
@@ -3791,7 +3791,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -3800,7 +3800,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -3809,7 +3809,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -3818,7 +3818,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -3827,7 +3827,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -3836,7 +3836,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3857,7 +3857,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3866,7 +3866,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -3875,7 +3875,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -3884,7 +3884,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -3893,7 +3893,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -3902,7 +3902,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -3912,7 +3912,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -3921,7 +3921,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -3930,7 +3930,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -3951,7 +3951,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -3960,7 +3960,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -3969,7 +3969,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -3978,7 +3978,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -3987,7 +3987,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -3996,7 +3996,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4005,7 +4005,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4026,7 +4026,7 @@
         {
           "name": "oval height",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "oval_height",
@@ -4035,7 +4035,7 @@
         {
           "name": "oval width",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "oval_width",
@@ -4044,7 +4044,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4053,7 +4053,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -4062,7 +4062,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4071,7 +4071,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4080,7 +4080,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4089,7 +4089,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -4098,7 +4098,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4107,7 +4107,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -4116,7 +4116,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -4125,7 +4125,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4146,7 +4146,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4155,7 +4155,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -4164,7 +4164,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4173,7 +4173,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4182,7 +4182,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4191,7 +4191,7 @@
         {
           "name": "fill?(F)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -4201,7 +4201,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4210,7 +4210,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -4219,7 +4219,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -4228,7 +4228,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4249,7 +4249,7 @@
         {
           "name": "arc size[degrees]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "arc_sizedegrees",
@@ -4258,7 +4258,7 @@
         {
           "name": "start angle[degrees]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_angledegrees",
@@ -4267,7 +4267,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4276,7 +4276,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -4285,7 +4285,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4294,7 +4294,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4303,7 +4303,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4312,7 +4312,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -4321,7 +4321,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -4330,7 +4330,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -4339,7 +4339,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -4348,7 +4348,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4369,7 +4369,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -4378,7 +4378,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4387,7 +4387,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -4396,7 +4396,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -4405,7 +4405,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -4414,7 +4414,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -4423,7 +4423,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -4432,7 +4432,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -4441,7 +4441,7 @@
         {
           "name": "desired font(Application)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -4451,7 +4451,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4460,7 +4460,7 @@
         {
           "name": "origin",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "origin",
@@ -4469,7 +4469,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -4478,7 +4478,7 @@
         {
           "name": "alignment(left, top)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alignment",
@@ -4487,7 +4487,7 @@
         {
           "name": "vertical",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
@@ -4496,7 +4496,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -4505,7 +4505,7 @@
         {
           "name": "text color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -4514,7 +4514,7 @@
         {
           "name": "BG color(transparent)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bg_color",
@@ -4523,7 +4523,7 @@
         {
           "name": "text orientation",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
@@ -4533,7 +4533,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4542,7 +4542,7 @@
         {
           "name": "text rect",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "text_rect",
@@ -4551,7 +4551,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4560,7 +4560,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4569,7 +4569,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4590,7 +4590,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -4599,7 +4599,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4608,7 +4608,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -4617,7 +4617,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -4626,7 +4626,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -4635,7 +4635,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -4644,7 +4644,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -4653,7 +4653,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -4662,7 +4662,7 @@
         {
           "name": "desired font(Application)",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -4672,7 +4672,7 @@
         {
           "name": "alignment(left, top)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alignment",
@@ -4681,7 +4681,7 @@
         {
           "name": "vertical",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
@@ -4690,7 +4690,7 @@
         {
           "name": "origin(0,0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "origin",
@@ -4699,7 +4699,7 @@
         {
           "name": "vertical",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
@@ -4708,7 +4708,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -4717,7 +4717,7 @@
         {
           "name": "text orientation",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
@@ -4727,7 +4727,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -4736,7 +4736,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4745,7 +4745,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4754,7 +4754,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4775,7 +4775,7 @@
         {
           "name": "[user-specified font]",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
@@ -4784,7 +4784,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4793,7 +4793,7 @@
         {
           "name": "Strikeout?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strikeout",
@@ -4802,7 +4802,7 @@
         {
           "name": "Italic?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -4811,7 +4811,7 @@
         {
           "name": "Underline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -4820,7 +4820,7 @@
         {
           "name": "Outline?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "outline",
@@ -4829,7 +4829,7 @@
         {
           "name": "Shadow?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -4838,7 +4838,7 @@
         {
           "name": "Bold?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -4847,7 +4847,7 @@
         {
           "name": "desired font(Application)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
@@ -4856,7 +4856,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4865,7 +4865,7 @@
         {
           "name": "text orientation",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
@@ -4874,7 +4874,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -4883,7 +4883,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -4892,7 +4892,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -4901,7 +4901,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -4910,7 +4910,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -4919,7 +4919,7 @@
         {
           "name": "text color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -4928,7 +4928,7 @@
         {
           "name": "BG color(transparent)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bg_color",
@@ -4937,7 +4937,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -4958,7 +4958,7 @@
         {
           "name": "arc size(360)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "arc_size",
@@ -4967,7 +4967,7 @@
         {
           "name": "start angle(0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_angle",
@@ -4976,7 +4976,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -4985,7 +4985,7 @@
         {
           "name": "radius",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "radius",
@@ -4994,7 +4994,7 @@
         {
           "name": "pixel center",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pixel_center",
@@ -5003,7 +5003,7 @@
         {
           "name": "vertical",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
@@ -5012,7 +5012,7 @@
         {
           "name": "fill?(F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
@@ -5021,7 +5021,7 @@
         {
           "name": "color(black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -5030,7 +5030,7 @@
         {
           "name": "pen",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
@@ -5039,7 +5039,7 @@
         {
           "name": "Style",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "style",
@@ -5048,7 +5048,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -5069,7 +5069,7 @@
         {
           "name": "Color In",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_in",
@@ -5078,7 +5078,7 @@
         {
           "name": "Percentage(30)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "percentage",
@@ -5087,7 +5087,7 @@
         {
           "name": "Hilite",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "hilite",
@@ -5096,7 +5096,7 @@
         {
           "name": "Shadow",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shadow",
@@ -5159,7 +5159,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -5168,7 +5168,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -5177,7 +5177,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5186,7 +5186,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5195,7 +5195,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5204,7 +5204,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5213,7 +5213,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5222,7 +5222,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5231,7 +5231,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5240,7 +5240,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5249,7 +5249,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -5270,7 +5270,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -5279,7 +5279,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5288,7 +5288,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5297,7 +5297,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5306,7 +5306,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5315,7 +5315,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5324,7 +5324,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5333,7 +5333,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5342,7 +5342,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5351,7 +5351,7 @@
         {
           "name": "Mask Color (Black)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask_color",
@@ -5360,7 +5360,7 @@
         {
           "name": "1-Bit Mask Value (T)",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1_bit_mask_value",
@@ -5370,7 +5370,7 @@
         {
           "name": "Combine Masks? (F)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "combine_masks",
@@ -5380,7 +5380,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -5389,7 +5389,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5398,7 +5398,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5407,7 +5407,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5416,7 +5416,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5425,7 +5425,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5434,7 +5434,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5443,7 +5443,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5452,7 +5452,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5473,7 +5473,7 @@
         {
           "name": "picture",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
@@ -5482,7 +5482,7 @@
         {
           "name": "rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
@@ -5491,7 +5491,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5500,7 +5500,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5509,7 +5509,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5518,7 +5518,7 @@
         {
           "name": "depth",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "depth",
@@ -5528,7 +5528,7 @@
         {
           "name": "Background Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "background_color",
@@ -5537,7 +5537,7 @@
         {
           "name": "new picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
@@ -5546,7 +5546,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -5555,7 +5555,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5564,7 +5564,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5573,7 +5573,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5582,7 +5582,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5591,7 +5591,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5600,7 +5600,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5609,7 +5609,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5618,7 +5618,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5639,7 +5639,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -5648,7 +5648,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5657,7 +5657,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5666,7 +5666,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5675,7 +5675,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5684,7 +5684,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5693,7 +5693,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5702,7 +5702,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5711,7 +5711,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5720,7 +5720,7 @@
         {
           "name": "subset rect",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "subset_rect",
@@ -5729,7 +5729,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5738,7 +5738,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5747,7 +5747,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5756,7 +5756,7 @@
         {
           "name": "image subset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_subset",
@@ -5765,7 +5765,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -5774,7 +5774,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -5783,7 +5783,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -5792,7 +5792,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -5801,7 +5801,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -5810,7 +5810,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5819,7 +5819,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5828,7 +5828,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5837,7 +5837,7 @@
         {
           "name": "true subset rect",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "true_subset_rect",
@@ -5846,7 +5846,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -5855,7 +5855,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -5864,7 +5864,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -5885,7 +5885,7 @@
         {
           "name": "empty picture",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "empty_picture",
@@ -5906,7 +5906,7 @@
         {
           "name": "Color",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
@@ -5915,7 +5915,7 @@
         {
           "name": "Resolved Color",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolved_color",
@@ -5924,7 +5924,7 @@
         {
           "name": "R",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "r",
@@ -5933,7 +5933,7 @@
         {
           "name": "G",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "g",
@@ -5942,7 +5942,7 @@
         {
           "name": "B",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "b",
@@ -6011,7 +6011,7 @@
         {
           "name": "quality (80)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "quality",
@@ -6021,7 +6021,7 @@
         {
           "name": "path to JPEG file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_jpeg_file",
@@ -6030,7 +6030,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6039,7 +6039,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6048,7 +6048,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6057,7 +6057,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6066,7 +6066,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6075,7 +6075,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6084,7 +6084,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6093,7 +6093,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6102,7 +6102,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6111,7 +6111,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6120,7 +6120,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6129,7 +6129,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6150,7 +6150,7 @@
         {
           "name": "compression (default)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "compression",
@@ -6160,7 +6160,7 @@
         {
           "name": "path to PNG file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_png_file",
@@ -6169,7 +6169,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6178,7 +6178,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6187,7 +6187,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6196,7 +6196,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6205,7 +6205,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6214,7 +6214,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6223,7 +6223,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6232,7 +6232,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6241,7 +6241,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6250,7 +6250,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6259,7 +6259,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6268,7 +6268,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6289,7 +6289,7 @@
         {
           "name": "path to BMP file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_bmp_file",
@@ -6298,7 +6298,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6307,7 +6307,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6316,7 +6316,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6325,7 +6325,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6334,7 +6334,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6343,7 +6343,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6352,7 +6352,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6361,7 +6361,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6370,7 +6370,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6379,7 +6379,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6388,7 +6388,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6397,7 +6397,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6418,7 +6418,7 @@
         {
           "name": "path to JPEG file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_jpeg_file",
@@ -6427,7 +6427,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6436,7 +6436,7 @@
         {
           "name": "use 8 bit color table",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_8_bit_color_table",
@@ -6446,7 +6446,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6455,7 +6455,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6464,7 +6464,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6473,7 +6473,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6482,7 +6482,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6491,7 +6491,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6500,7 +6500,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6509,7 +6509,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6518,7 +6518,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6527,7 +6527,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6536,7 +6536,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6557,7 +6557,7 @@
         {
           "name": "path to PNG file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_png_file",
@@ -6566,7 +6566,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6575,7 +6575,7 @@
         {
           "name": "Transparency Thresh",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transparency_thresh",
@@ -6584,7 +6584,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6593,7 +6593,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6602,7 +6602,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6611,7 +6611,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6620,7 +6620,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6629,7 +6629,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6638,7 +6638,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6647,7 +6647,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6656,7 +6656,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6665,7 +6665,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6674,7 +6674,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6695,7 +6695,7 @@
         {
           "name": "path to BMP file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_to_bmp_file",
@@ -6704,7 +6704,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6713,7 +6713,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6722,7 +6722,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6731,7 +6731,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6740,7 +6740,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6749,7 +6749,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6758,7 +6758,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6767,7 +6767,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6776,7 +6776,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6785,7 +6785,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6794,7 +6794,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6803,7 +6803,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6824,7 +6824,7 @@
         {
           "name": "top left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top_left",
@@ -6833,7 +6833,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -6842,7 +6842,7 @@
         {
           "name": "24-bit pixmap",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_24_bit_pixmap",
@@ -6851,7 +6851,7 @@
         {
           "name": "8-bit pixmap",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_8_bit_pixmap",
@@ -6860,7 +6860,7 @@
         {
           "name": "4-bit pixmap",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_4_bit_pixmap",
@@ -6869,7 +6869,7 @@
         {
           "name": "1-bit pixmap",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1_bit_pixmap",
@@ -6878,7 +6878,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6887,7 +6887,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6896,7 +6896,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6905,7 +6905,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -6914,7 +6914,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -6923,7 +6923,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -6932,7 +6932,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -6941,7 +6941,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -6950,7 +6950,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -6959,7 +6959,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -6968,7 +6968,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -6989,7 +6989,7 @@
         {
           "name": "image data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
@@ -6998,7 +6998,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -7007,7 +7007,7 @@
         {
           "name": "image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image",
@@ -7016,7 +7016,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
@@ -7025,7 +7025,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -7034,7 +7034,7 @@
         {
           "name": "Rectangle",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rectangle",
@@ -7043,7 +7043,7 @@
         {
           "name": "top",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "top",
@@ -7052,7 +7052,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -7061,7 +7061,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -7070,7 +7070,7 @@
         {
           "name": "top left",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top_left",
@@ -7079,7 +7079,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -7088,7 +7088,7 @@
         {
           "name": "24-bit pixmap",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_24_bit_pixmap",
@@ -7097,7 +7097,7 @@
         {
           "name": "8-bit pixmap",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_8_bit_pixmap",
@@ -7106,7 +7106,7 @@
         {
           "name": "4-bit pixmap",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_4_bit_pixmap",
@@ -7115,7 +7115,7 @@
         {
           "name": "1-bit pixmap",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_1_bit_pixmap",
@@ -7124,7 +7124,7 @@
         {
           "name": "colors",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
@@ -7133,7 +7133,7 @@
         {
           "name": "mask",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",

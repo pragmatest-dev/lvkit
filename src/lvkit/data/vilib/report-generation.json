@@ -15,7 +15,7 @@
         {
           "name": "font settings",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "font_settings",
@@ -24,7 +24,7 @@
         {
           "name": "weight (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "weight",
@@ -33,7 +33,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -42,7 +42,7 @@
         {
           "name": "size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -51,7 +51,7 @@
         {
           "name": "print or save?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "print_or_save",
@@ -60,7 +60,7 @@
         {
           "name": "margins",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -69,7 +69,7 @@
         {
           "name": "left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left",
@@ -78,7 +78,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -87,7 +87,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -96,7 +96,7 @@
         {
           "name": "measurement system (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system",
@@ -105,7 +105,7 @@
         {
           "name": "text to be printed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_to_be_printed",
@@ -114,7 +114,7 @@
         {
           "name": "printer name (default) or file path (dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printer_name_default_or_file_path",
@@ -123,7 +123,7 @@
         {
           "name": "report type (HTML)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -132,7 +132,7 @@
         {
           "name": "orientation (portrait)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "orientation",
@@ -141,7 +141,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -150,7 +150,7 @@
         {
           "name": "headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "headers",
@@ -159,7 +159,7 @@
         {
           "name": "center",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "center",
@@ -168,7 +168,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -177,7 +177,7 @@
         {
           "name": "footers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "footers",
@@ -186,7 +186,7 @@
         {
           "name": "center",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "center",
@@ -195,7 +195,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -204,7 +204,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -314,7 +314,7 @@
         {
           "name": "layout options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "layout_options",
@@ -323,7 +323,7 @@
         {
           "name": "panel scaling for page (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "panel_scaling_for_page",
@@ -332,7 +332,7 @@
         {
           "name": "margins",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -341,7 +341,7 @@
         {
           "name": "margins (1.00)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -350,7 +350,7 @@
         {
           "name": "left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left",
@@ -359,7 +359,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -368,7 +368,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -377,7 +377,7 @@
         {
           "name": "measurement system (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system",
@@ -386,7 +386,7 @@
         {
           "name": "printer options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printer_options",
@@ -395,7 +395,7 @@
         {
           "name": "printing method (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printing_method",
@@ -404,7 +404,7 @@
         {
           "name": "color or monochrome (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_or_monochrome",
@@ -413,7 +413,7 @@
         {
           "name": "page header options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_options",
@@ -422,7 +422,7 @@
         {
           "name": "page header content options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_content_options",
@@ -431,7 +431,7 @@
         {
           "name": "Include VI Path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_path",
@@ -440,7 +440,7 @@
         {
           "name": "Include Last Modification Date",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_last_modification_date",
@@ -449,7 +449,7 @@
         {
           "name": "Include Date Printed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_date_printed",
@@ -458,7 +458,7 @@
         {
           "name": "Include Page Number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_page_number",
@@ -467,7 +467,7 @@
         {
           "name": "Include VI Icon",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_icon",
@@ -476,7 +476,7 @@
         {
           "name": "VI path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vi_path",
@@ -485,7 +485,7 @@
         {
           "name": "contents (complete front panel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "contents",
@@ -494,7 +494,7 @@
         {
           "name": "report type (Quick Print)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -503,7 +503,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -512,7 +512,7 @@
         {
           "name": "custom contents options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "custom_contents_options",
@@ -521,7 +521,7 @@
         {
           "name": "include VI description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_description",
@@ -530,7 +530,7 @@
         {
           "name": "include front panel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_front_panel",
@@ -539,7 +539,7 @@
         {
           "name": "surround front panel with border",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "surround_front_panel_with_border",
@@ -548,7 +548,7 @@
         {
           "name": "list of controls options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_of_controls_options",
@@ -557,7 +557,7 @@
         {
           "name": "list which controls?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_which_controls",
@@ -566,7 +566,7 @@
         {
           "name": "include control descriptions?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_descriptions",
@@ -575,7 +575,7 @@
         {
           "name": "include control data types?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_data_types",
@@ -584,7 +584,7 @@
         {
           "name": "block diagram options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "block_diagram_options",
@@ -593,7 +593,7 @@
         {
           "name": "hidden frames",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hidden_frames",
@@ -602,7 +602,7 @@
         {
           "name": "ordered (repeat from higher level if nested)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ordered",
@@ -611,7 +611,7 @@
         {
           "name": "include VI hierarchy",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_hierarchy",
@@ -620,7 +620,7 @@
         {
           "name": "include list of subVIs",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_list_of_subvis",
@@ -629,7 +629,7 @@
         {
           "name": "include VI history",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_history",
@@ -638,7 +638,7 @@
         {
           "name": "include Express VI configuration information",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_express_vi_configuration_information",
@@ -647,7 +647,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -656,7 +656,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -677,7 +677,7 @@
         {
           "name": "layout options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "layout_options",
@@ -686,7 +686,7 @@
         {
           "name": "panel scaling for page (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "panel_scaling_for_page",
@@ -695,7 +695,7 @@
         {
           "name": "margins",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -704,7 +704,7 @@
         {
           "name": "margins (1.00)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -713,7 +713,7 @@
         {
           "name": "left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left",
@@ -722,7 +722,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -731,7 +731,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -740,7 +740,7 @@
         {
           "name": "measurement system (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system",
@@ -749,7 +749,7 @@
         {
           "name": "printer options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printer_options",
@@ -758,7 +758,7 @@
         {
           "name": "printing method (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printing_method",
@@ -767,7 +767,7 @@
         {
           "name": "color or monochrome (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_or_monochrome",
@@ -776,7 +776,7 @@
         {
           "name": "page header options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_options",
@@ -785,7 +785,7 @@
         {
           "name": "page header content options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_content_options",
@@ -794,7 +794,7 @@
         {
           "name": "Include VI Path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_path",
@@ -803,7 +803,7 @@
         {
           "name": "Include Last Modification Date",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_last_modification_date",
@@ -812,7 +812,7 @@
         {
           "name": "Include Date Printed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_date_printed",
@@ -821,7 +821,7 @@
         {
           "name": "Include Page Number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_page_number",
@@ -830,7 +830,7 @@
         {
           "name": "Include VI Icon",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_icon",
@@ -839,7 +839,7 @@
         {
           "name": "VI reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vi_reference",
@@ -848,7 +848,7 @@
         {
           "name": "contents (complete front panel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "contents",
@@ -857,7 +857,7 @@
         {
           "name": "report type (Quick Print)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -866,7 +866,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -875,7 +875,7 @@
         {
           "name": "custom contents options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "custom_contents_options",
@@ -884,7 +884,7 @@
         {
           "name": "include VI description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_description",
@@ -893,7 +893,7 @@
         {
           "name": "include front panel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_front_panel",
@@ -902,7 +902,7 @@
         {
           "name": "surround front panel with border",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "surround_front_panel_with_border",
@@ -911,7 +911,7 @@
         {
           "name": "list of controls options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_of_controls_options",
@@ -920,7 +920,7 @@
         {
           "name": "list which controls?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_which_controls",
@@ -929,7 +929,7 @@
         {
           "name": "include control descriptions?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_descriptions",
@@ -938,7 +938,7 @@
         {
           "name": "include control data types?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_data_types",
@@ -947,7 +947,7 @@
         {
           "name": "block diagram options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "block_diagram_options",
@@ -956,7 +956,7 @@
         {
           "name": "hidden frames",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hidden_frames",
@@ -965,7 +965,7 @@
         {
           "name": "ordered (repeat from higher level if nested)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ordered",
@@ -974,7 +974,7 @@
         {
           "name": "include VI hierarchy",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_hierarchy",
@@ -983,7 +983,7 @@
         {
           "name": "include list of subVIs",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_list_of_subvis",
@@ -992,7 +992,7 @@
         {
           "name": "include VI history",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_history",
@@ -1001,7 +1001,7 @@
         {
           "name": "include Express VI configuration information",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_express_vi_configuration_information",
@@ -1010,7 +1010,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -1019,7 +1019,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1040,7 +1040,7 @@
         {
           "name": "layout options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "layout_options",
@@ -1049,7 +1049,7 @@
         {
           "name": "panel scaling for page (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "panel_scaling_for_page",
@@ -1058,7 +1058,7 @@
         {
           "name": "margins",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -1067,7 +1067,7 @@
         {
           "name": "margins (1.00)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -1076,7 +1076,7 @@
         {
           "name": "left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left",
@@ -1085,7 +1085,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -1094,7 +1094,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -1103,7 +1103,7 @@
         {
           "name": "measurement system (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system",
@@ -1112,7 +1112,7 @@
         {
           "name": "printer options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printer_options",
@@ -1121,7 +1121,7 @@
         {
           "name": "printing method (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printing_method",
@@ -1130,7 +1130,7 @@
         {
           "name": "color or monochrome (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color_or_monochrome",
@@ -1139,7 +1139,7 @@
         {
           "name": "page header options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_options",
@@ -1148,7 +1148,7 @@
         {
           "name": "page header content options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "page_header_content_options",
@@ -1157,7 +1157,7 @@
         {
           "name": "Include VI Path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_path",
@@ -1166,7 +1166,7 @@
         {
           "name": "Include Last Modification Date",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_last_modification_date",
@@ -1175,7 +1175,7 @@
         {
           "name": "Include Date Printed",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_date_printed",
@@ -1184,7 +1184,7 @@
         {
           "name": "Include Page Number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_page_number",
@@ -1193,7 +1193,7 @@
         {
           "name": "Include VI Icon",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_icon",
@@ -1202,7 +1202,7 @@
         {
           "name": "VI name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "vi_name",
@@ -1211,7 +1211,7 @@
         {
           "name": "contents (complete front panel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "contents",
@@ -1220,7 +1220,7 @@
         {
           "name": "report type (Quick Print)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -1229,7 +1229,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1238,7 +1238,7 @@
         {
           "name": "custom contents options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "custom_contents_options",
@@ -1247,7 +1247,7 @@
         {
           "name": "include VI description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_description",
@@ -1256,7 +1256,7 @@
         {
           "name": "include front panel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_front_panel",
@@ -1265,7 +1265,7 @@
         {
           "name": "surround front panel with border",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "surround_front_panel_with_border",
@@ -1274,7 +1274,7 @@
         {
           "name": "list of controls options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_of_controls_options",
@@ -1283,7 +1283,7 @@
         {
           "name": "list which controls?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_which_controls",
@@ -1292,7 +1292,7 @@
         {
           "name": "include control descriptions?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_descriptions",
@@ -1301,7 +1301,7 @@
         {
           "name": "include control data types?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_control_data_types",
@@ -1310,7 +1310,7 @@
         {
           "name": "block diagram options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "block_diagram_options",
@@ -1319,7 +1319,7 @@
         {
           "name": "hidden frames",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hidden_frames",
@@ -1328,7 +1328,7 @@
         {
           "name": "ordered (repeat from higher level if nested)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ordered",
@@ -1337,7 +1337,7 @@
         {
           "name": "include VI hierarchy",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_hierarchy",
@@ -1346,7 +1346,7 @@
         {
           "name": "include list of subVIs",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_list_of_subvis",
@@ -1355,7 +1355,7 @@
         {
           "name": "include VI history",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_vi_history",
@@ -1364,7 +1364,7 @@
         {
           "name": "include Express VI configuration information",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "include_express_vi_configuration_information",
@@ -1373,7 +1373,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -1382,7 +1382,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1818,7 +1818,7 @@
         {
           "name": "window state (normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "window_state",
@@ -1827,7 +1827,7 @@
         {
           "name": "display alerts? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "display_alerts",
@@ -1836,7 +1836,7 @@
         {
           "name": "report type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -1845,7 +1845,7 @@
         {
           "name": "template (empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "template",
@@ -1854,7 +1854,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1863,7 +1863,7 @@
         {
           "name": "machine name (empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "machine_name",
@@ -1872,7 +1872,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -1881,7 +1881,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1902,7 +1902,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -1911,7 +1911,7 @@
         {
           "name": "printer name (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "printer_name",
@@ -1920,7 +1920,7 @@
         {
           "name": "number of copies (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_copies",
@@ -1929,7 +1929,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1938,7 +1938,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -1947,7 +1947,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1968,7 +1968,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -1977,7 +1977,7 @@
         {
           "name": "report file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_file_path",
@@ -1986,7 +1986,7 @@
         {
           "name": "prompt to replace? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt_to_replace",
@@ -1995,7 +1995,7 @@
         {
           "name": "password (\"\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "password",
@@ -2004,7 +2004,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2013,7 +2013,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2022,7 +2022,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2043,7 +2043,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2052,7 +2052,7 @@
         {
           "name": "wait until printing completed? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "wait_until_printing_completed",
@@ -2061,7 +2061,7 @@
         {
           "name": "save changes? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "save_changes",
@@ -2070,7 +2070,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2079,7 +2079,7 @@
         {
           "name": "close report? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "close_report",
@@ -2088,7 +2088,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2109,7 +2109,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -2118,7 +2118,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -2127,7 +2127,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2136,7 +2136,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -2145,7 +2145,7 @@
         {
           "name": "size (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2154,7 +2154,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2163,7 +2163,7 @@
         {
           "name": "align (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "align",
@@ -2172,7 +2172,7 @@
         {
           "name": "width (100=default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width",
@@ -2181,7 +2181,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2190,7 +2190,7 @@
         {
           "name": "width units",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "width_units",
@@ -2199,7 +2199,7 @@
         {
           "name": "noshade (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "noshade",
@@ -2208,7 +2208,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2217,7 +2217,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2238,7 +2238,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -2247,7 +2247,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -2256,7 +2256,7 @@
         {
           "name": "name (excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2265,7 +2265,7 @@
         {
           "name": "bookmark (word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -2274,7 +2274,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2283,7 +2283,7 @@
         {
           "name": "URL of link - href",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "url_of_link___href",
@@ -2292,7 +2292,7 @@
         {
           "name": "link text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "link_text",
@@ -2301,7 +2301,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2310,7 +2310,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2319,7 +2319,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -2328,7 +2328,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -2337,7 +2337,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2358,7 +2358,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2367,7 +2367,7 @@
         {
           "name": "HTML text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "html_text",
@@ -2376,7 +2376,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2385,7 +2385,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2394,7 +2394,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2451,7 +2451,7 @@
         {
           "name": "font settings source (VI Inputs)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "font_settings_source",
@@ -2460,7 +2460,7 @@
         {
           "name": "text color (unchanged)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -2469,7 +2469,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2478,7 +2478,7 @@
         {
           "name": "text options",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_options",
@@ -2487,7 +2487,7 @@
         {
           "name": "Strike Through",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "strike_through",
@@ -2496,7 +2496,7 @@
         {
           "name": "Underline",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2505,7 +2505,7 @@
         {
           "name": "Bold",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -2514,7 +2514,7 @@
         {
           "name": "font settings",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "font_settings",
@@ -2523,7 +2523,7 @@
         {
           "name": "Weight (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "weight",
@@ -2532,7 +2532,7 @@
         {
           "name": "Name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2541,7 +2541,7 @@
         {
           "name": "Size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -2550,7 +2550,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2559,7 +2559,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2568,7 +2568,7 @@
         {
           "name": "font out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "font_out",
@@ -2577,7 +2577,7 @@
         {
           "name": "font size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "font_size",
@@ -2586,7 +2586,7 @@
         {
           "name": "bold",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -2595,7 +2595,7 @@
         {
           "name": "italic",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "italic",
@@ -2604,7 +2604,7 @@
         {
           "name": "underline",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -2613,7 +2613,7 @@
         {
           "name": "strike through",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "strike_through",
@@ -2622,7 +2622,7 @@
         {
           "name": "font color",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "font_color",
@@ -2631,7 +2631,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2700,7 +2700,7 @@
         {
           "name": "format string (%.3f)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -2709,7 +2709,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -2718,7 +2718,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -2727,7 +2727,7 @@
         {
           "name": "name (excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2736,7 +2736,7 @@
         {
           "name": "bookmark (word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -2745,7 +2745,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2754,7 +2754,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -2763,7 +2763,7 @@
         {
           "name": "append on new line? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append_on_new_line",
@@ -2772,7 +2772,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2781,7 +2781,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2790,7 +2790,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -2799,7 +2799,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -2808,7 +2808,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2829,7 +2829,7 @@
         {
           "name": "format string (%.3f)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -2838,7 +2838,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -2847,7 +2847,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -2856,7 +2856,7 @@
         {
           "name": "name (excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2865,7 +2865,7 @@
         {
           "name": "bookmark (word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -2874,7 +2874,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -2883,7 +2883,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -2892,7 +2892,7 @@
         {
           "name": "append on new line? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append_on_new_line",
@@ -2901,7 +2901,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2910,7 +2910,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -2919,7 +2919,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -2928,7 +2928,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -2937,7 +2937,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3054,7 +3054,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -3063,7 +3063,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -3072,7 +3072,7 @@
         {
           "name": "name (excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3081,7 +3081,7 @@
         {
           "name": "bookmark (word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -3090,7 +3090,7 @@
         {
           "name": "measurement system for column width (Default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system_for_column_width",
@@ -3099,7 +3099,7 @@
         {
           "name": "column width (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_width",
@@ -3108,7 +3108,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3117,7 +3117,7 @@
         {
           "name": "column headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_headers",
@@ -3126,7 +3126,7 @@
         {
           "name": "row headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_headers",
@@ -3135,7 +3135,7 @@
         {
           "name": "text data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text_data",
@@ -3144,7 +3144,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3153,7 +3153,7 @@
         {
           "name": "separate page? (NO)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "separate_page",
@@ -3162,7 +3162,7 @@
         {
           "name": "show grid lines (YES)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "show_grid_lines",
@@ -3171,7 +3171,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3180,7 +3180,7 @@
         {
           "name": "range (wd) - start (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "range_wd___start",
@@ -3189,7 +3189,7 @@
         {
           "name": "end (wd) - col (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_wd___col",
@@ -3198,7 +3198,7 @@
         {
           "name": "end (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end",
@@ -3207,7 +3207,7 @@
         {
           "name": "col (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "col",
@@ -3216,7 +3216,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3237,7 +3237,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -3246,7 +3246,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -3255,7 +3255,7 @@
         {
           "name": "name (excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3264,7 +3264,7 @@
         {
           "name": "bookmark (word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -3273,7 +3273,7 @@
         {
           "name": "measurement system for column width (Default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system_for_column_width",
@@ -3282,7 +3282,7 @@
         {
           "name": "column width (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_width",
@@ -3291,7 +3291,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3300,7 +3300,7 @@
         {
           "name": "column headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_headers",
@@ -3309,7 +3309,7 @@
         {
           "name": "row headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_headers",
@@ -3318,7 +3318,7 @@
         {
           "name": "numerical data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "numerical_data",
@@ -3327,7 +3327,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3336,7 +3336,7 @@
         {
           "name": "format string (%.3f)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -3345,7 +3345,7 @@
         {
           "name": "separate page?",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "separate_page",
@@ -3354,7 +3354,7 @@
         {
           "name": "show grid lines",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "show_grid_lines",
@@ -3363,7 +3363,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3372,7 +3372,7 @@
         {
           "name": "range (wd) - start (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "range_wd___start",
@@ -3381,7 +3381,7 @@
         {
           "name": "end (wd) - col (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_wd___col",
@@ -3390,7 +3390,7 @@
         {
           "name": "end (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end",
@@ -3399,7 +3399,7 @@
         {
           "name": "col (xl)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "col",
@@ -3408,7 +3408,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3429,7 +3429,7 @@
         {
           "name": "unordered item type (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "unordered_item_type",
@@ -3438,7 +3438,7 @@
         {
           "name": "ordered item type (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ordered_item_type",
@@ -3447,7 +3447,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3456,7 +3456,7 @@
         {
           "name": "list elements",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_elements",
@@ -3465,7 +3465,7 @@
         {
           "name": "list type (ordered)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "list_type",
@@ -3474,7 +3474,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3483,7 +3483,7 @@
         {
           "name": "ordered start (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ordered_start",
@@ -3492,7 +3492,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -3501,7 +3501,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3510,7 +3510,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -3519,7 +3519,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -3528,7 +3528,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3640,7 +3640,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3649,7 +3649,7 @@
         {
           "name": "margins (1.00)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "margins",
@@ -3658,7 +3658,7 @@
         {
           "name": "left",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left",
@@ -3667,7 +3667,7 @@
         {
           "name": "right",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right",
@@ -3676,7 +3676,7 @@
         {
           "name": "bottom",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bottom",
@@ -3685,7 +3685,7 @@
         {
           "name": "measurement system (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "measurement_system",
@@ -3694,7 +3694,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3703,7 +3703,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3712,7 +3712,7 @@
         {
           "name": "page width (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "page_width",
@@ -3721,7 +3721,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3742,7 +3742,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3751,7 +3751,7 @@
         {
           "name": "orientation (portrait)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "orientation",
@@ -3760,7 +3760,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3769,7 +3769,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3778,7 +3778,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3799,7 +3799,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3808,7 +3808,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -3817,7 +3817,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -3826,7 +3826,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3835,7 +3835,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -3844,7 +3844,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3853,7 +3853,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3862,7 +3862,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3883,7 +3883,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3892,7 +3892,7 @@
         {
           "name": "number of lines (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_lines",
@@ -3901,7 +3901,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3910,7 +3910,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -3919,7 +3919,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3940,7 +3940,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -3949,7 +3949,7 @@
         {
           "name": "left header text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left_header_text",
@@ -3958,7 +3958,7 @@
         {
           "name": "center header text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "center_header_text",
@@ -3967,7 +3967,7 @@
         {
           "name": "right header text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right_header_text",
@@ -3976,7 +3976,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3985,7 +3985,7 @@
         {
           "name": "HTML header size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "html_header_size",
@@ -3994,7 +3994,7 @@
         {
           "name": "header placement",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "header_placement",
@@ -4003,7 +4003,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4012,7 +4012,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4033,7 +4033,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4042,7 +4042,7 @@
         {
           "name": "left footer text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "left_footer_text",
@@ -4051,7 +4051,7 @@
         {
           "name": "center footer text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "center_footer_text",
@@ -4060,7 +4060,7 @@
         {
           "name": "right footer text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "right_footer_text",
@@ -4069,7 +4069,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4078,7 +4078,7 @@
         {
           "name": "HTML footer size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "html_footer_size",
@@ -4087,7 +4087,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4096,7 +4096,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4153,7 +4153,7 @@
         {
           "name": "image file type (.jpg)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_file_type",
@@ -4162,7 +4162,7 @@
         {
           "name": "alignment (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alignment",
@@ -4171,7 +4171,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4180,7 +4180,7 @@
         {
           "name": "image depth",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_depth",
@@ -4189,7 +4189,7 @@
         {
           "name": "ctrl reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ctrl_reference",
@@ -4198,7 +4198,7 @@
         {
           "name": "description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "description",
@@ -4207,7 +4207,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4216,7 +4216,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -4225,7 +4225,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -4234,7 +4234,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -4243,7 +4243,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -4252,7 +4252,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4261,7 +4261,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -4270,7 +4270,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -4279,7 +4279,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4384,7 +4384,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -4393,7 +4393,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -4402,7 +4402,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -4411,7 +4411,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -4420,7 +4420,7 @@
         {
           "name": "alignment (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alignment",
@@ -4429,7 +4429,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4438,7 +4438,7 @@
         {
           "name": "path or URL of image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_or_url_of_image",
@@ -4447,7 +4447,7 @@
         {
           "name": "caption or alternative string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "caption_or_alternative_string",
@@ -4456,7 +4456,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4465,7 +4465,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4474,7 +4474,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -4483,7 +4483,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -4492,7 +4492,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4513,7 +4513,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -4522,7 +4522,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -4531,7 +4531,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -4540,7 +4540,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -4549,7 +4549,7 @@
         {
           "name": "alignment (default)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "alignment",
@@ -4558,7 +4558,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4567,7 +4567,7 @@
         {
           "name": "path or URL of image",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_or_url_of_image",
@@ -4576,7 +4576,7 @@
         {
           "name": "caption or alternative string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "caption_or_alternative_string",
@@ -4585,7 +4585,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4594,7 +4594,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4603,7 +4603,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -4612,7 +4612,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -4621,7 +4621,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4683,7 +4683,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4692,7 +4692,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4701,7 +4701,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4710,7 +4710,7 @@
         {
           "name": "report type",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_type",
@@ -4719,7 +4719,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4740,7 +4740,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4749,7 +4749,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4758,7 +4758,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4767,7 +4767,7 @@
         {
           "name": "text options",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "text_options",
@@ -4776,7 +4776,7 @@
         {
           "name": "StrikeThrough",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "strikethrough",
@@ -4785,7 +4785,7 @@
         {
           "name": "Underline",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "underline",
@@ -4794,7 +4794,7 @@
         {
           "name": "Bold",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bold",
@@ -4803,7 +4803,7 @@
         {
           "name": "font settings",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "font_settings",
@@ -4812,7 +4812,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -4821,7 +4821,7 @@
         {
           "name": "weight",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "weight",
@@ -4830,7 +4830,7 @@
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4839,7 +4839,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4848,7 +4848,7 @@
         {
           "name": "text color",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "text_color",
@@ -4869,7 +4869,7 @@
         {
           "name": "MS Office parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_office_parameters",
@@ -4878,7 +4878,7 @@
         {
           "name": "column",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column",
@@ -4887,7 +4887,7 @@
         {
           "name": "name (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -4896,7 +4896,7 @@
         {
           "name": "bookmark (Word)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bookmark",
@@ -4905,7 +4905,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4914,7 +4914,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -4923,7 +4923,7 @@
         {
           "name": "is spreadsheet file? (Excel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "is_spreadsheet_file",
@@ -4932,7 +4932,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4941,7 +4941,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -4950,7 +4950,7 @@
         {
           "name": "start out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_out",
@@ -4959,7 +4959,7 @@
         {
           "name": "end out (Word)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_out",
@@ -4968,7 +4968,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4989,7 +4989,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -4998,7 +4998,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5007,7 +5007,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -5016,7 +5016,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5037,7 +5037,7 @@
         {
           "name": "report in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "report_in",
@@ -5046,7 +5046,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5055,7 +5055,7 @@
         {
           "name": "report out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "report_out",
@@ -5064,7 +5064,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5085,7 +5085,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5094,7 +5094,7 @@
         {
           "name": "system configured printers",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "system_configured_printers",
@@ -5103,7 +5103,7 @@
         {
           "name": "default printer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "default_printer",
@@ -5112,7 +5112,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",

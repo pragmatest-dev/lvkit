@@ -16,6 +16,8 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from lvkit.models import TerminalDirection
+
 from .terminal_layout import lay_out
 
 
@@ -29,7 +31,7 @@ class CatalogTerminal(Protocol):
     def index(self) -> int | None: ...
 
     @property
-    def direction(self) -> str | None: ...
+    def direction(self) -> TerminalDirection | None: ...
 
 
 @dataclass(frozen=True)
@@ -37,13 +39,15 @@ class NodeSlot:
     """One terminal of a node: its connector-pane index and direction."""
 
     index: int
-    direction: str  # "in" or "out", the one spelling every catalog uses
+    direction: TerminalDirection
 
 
-SlotKey = tuple[int, str]
+SlotKey = tuple[int, TerminalDirection]
 
 
-def _direction_fits(catalog_direction: str | None, node_direction: str) -> bool:
+def _direction_fits(
+    catalog_direction: TerminalDirection | None, node_direction: TerminalDirection
+) -> bool:
     """A catalog terminal with no recorded direction fits either direction."""
     return catalog_direction is None or catalog_direction == node_direction
 

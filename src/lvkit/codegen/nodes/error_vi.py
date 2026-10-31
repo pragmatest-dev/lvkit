@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import VINode
+from lvkit.models import TerminalDirection
 from lvkit.parser.constants import VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE
 from lvkit.vilib_resolver import get_resolver
 
@@ -46,7 +47,11 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     entry = resolver.resolve_recorded(catalog_path)
     if entry is None:
         return CodeFragment.empty()
-    index_of = {t.python_param: t.index for t in entry.terminals if t.direction == "in"}
+    index_of = {
+        t.python_param: t.index
+        for t in entry.terminals
+        if t.direction == TerminalDirection.INPUT
+    }
 
     def wired(role: str) -> str | None:
         index = index_of.get(_ERROR_CODE_TERMINALS[role])

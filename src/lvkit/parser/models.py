@@ -733,6 +733,9 @@ class ParsedFrontPanel:
     # and differs once controls were added, moved forward/back or nested.
     # Empty when the heap carried no ``<ddoList>``.
     dco_order: list[str] = field(default_factory=list)
+    # The fPDCO uids of the controls that record no label anywhere the VI
+    # keeps one: each is named ``control_<uid>``. Sorted.
+    unlabeled_controls: list[str] = field(default_factory=list)
 
     def control_uid_at_param_idx(self, param_idx: int) -> str | None:
         """The fPDCO uid a local variable's ``paramIdx`` refers to, or None
@@ -756,8 +759,8 @@ class ParsedVIMetadata:
     # The VI's OWNERSHIP CHAIN from its own ``<LIBN>`` block (owning .lvlib /
     # .lvclass, outermost first) — e.g. ``["NI …SDK.lvlib", "Foo.lvclass"]``. The
     # VI is self-describing, so this is present even for an isolated ``.vi`` (no
-    # class load, no filesystem). Used ONLY to build a DISPLAY-qualified name
-    # (``chain:leaf``); ``qualified_name`` above stays the bare resolution key.
+    # class load, no filesystem). The VI's qualified name is this chain plus its
+    # file name (``graph.loading.file_qualified_name``).
     owning_libraries: list[str] = field(default_factory=list)
     source_path: str | None = None  # Path to original .vi file
     type_map: dict[int, LVType] = field(default_factory=dict)  # TypeID → LVType mapping

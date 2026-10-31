@@ -15,7 +15,7 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
@@ -24,7 +24,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -33,7 +33,7 @@
         {
           "name": "map",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
@@ -54,7 +54,7 @@
         {
           "name": "map in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_in",
@@ -63,7 +63,7 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
@@ -72,7 +72,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -81,7 +81,7 @@
         {
           "name": "map out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_out",
@@ -90,7 +90,7 @@
         {
           "name": "key already included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_already_included",
@@ -99,7 +99,7 @@
         {
           "name": "value unchanged?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value_unchanged",
@@ -120,7 +120,7 @@
         {
           "name": "map in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_in",
@@ -129,7 +129,7 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
@@ -138,7 +138,7 @@
         {
           "name": "map out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "map_out",
@@ -147,7 +147,7 @@
         {
           "name": "key not found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
@@ -156,7 +156,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -177,7 +177,7 @@
         {
           "name": "map",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
@@ -186,7 +186,7 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
@@ -195,7 +195,7 @@
         {
           "name": "default value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
@@ -204,7 +204,7 @@
         {
           "name": "key not found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_not_found",
@@ -213,7 +213,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -234,7 +234,7 @@
         {
           "name": "map",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "map_",
@@ -243,7 +243,7 @@
         {
           "name": "maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -252,7 +252,7 @@
         {
           "name": "minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -273,7 +273,7 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
@@ -282,7 +282,7 @@
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -351,7 +351,7 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
@@ -360,7 +360,7 @@
         {
           "name": "empty?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "empty",
@@ -476,7 +476,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -485,7 +485,7 @@
         {
           "name": "set",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
@@ -506,7 +506,7 @@
         {
           "name": "set in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_in",
@@ -515,7 +515,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -524,7 +524,7 @@
         {
           "name": "set out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_out",
@@ -533,7 +533,7 @@
         {
           "name": "already included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "already_included",
@@ -554,7 +554,7 @@
         {
           "name": "set in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_in",
@@ -563,7 +563,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -572,7 +572,7 @@
         {
           "name": "set out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "set_out",
@@ -581,7 +581,7 @@
         {
           "name": "not included?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_included",
@@ -602,7 +602,7 @@
         {
           "name": "set",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
@@ -611,7 +611,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -620,7 +620,7 @@
         {
           "name": "found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "found",
@@ -641,7 +641,7 @@
         {
           "name": "set",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_",
@@ -650,7 +650,7 @@
         {
           "name": "maximum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "maximum",
@@ -659,7 +659,7 @@
         {
           "name": "minimum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minimum",
@@ -680,7 +680,7 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
@@ -689,7 +689,7 @@
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -710,7 +710,7 @@
         {
           "name": "collection",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "collection",
@@ -719,7 +719,7 @@
         {
           "name": "empty?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "empty",
@@ -776,7 +776,7 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
@@ -785,7 +785,7 @@
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
@@ -794,7 +794,7 @@
         {
           "name": "union",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "union",
@@ -815,7 +815,7 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
@@ -824,7 +824,7 @@
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
@@ -833,7 +833,7 @@
         {
           "name": "intersection",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "intersection",
@@ -854,7 +854,7 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
@@ -863,7 +863,7 @@
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
@@ -872,7 +872,7 @@
         {
           "name": "Cartesian product",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cartesian_product",
@@ -893,7 +893,7 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
@@ -902,7 +902,7 @@
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
@@ -911,7 +911,7 @@
         {
           "name": "difference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "difference",
@@ -932,7 +932,7 @@
         {
           "name": "set 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_1",
@@ -941,7 +941,7 @@
         {
           "name": "set 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_2",
@@ -950,7 +950,7 @@
         {
           "name": "symmetric difference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "symmetric_difference",

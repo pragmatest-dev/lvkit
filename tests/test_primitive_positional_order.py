@@ -99,7 +99,7 @@ def _positional_two_input_entries():
             and entry.get("source") == "vi-scripting-nodes-lv2025"
         ):
             continue  # see the UNVERIFIED-IMPORT CAVEAT in the module docstring
-        ins = [t for t in entry.get("terminals", []) if t.get("direction") == "in"]
+        ins = [t for t in entry.get("terminals", []) if t.get("direction") == "input"]
         if len(ins) != 2:
             continue
         names = {t.get("name") for t in ins}
@@ -114,7 +114,9 @@ def _positional_two_input_entries():
 
 def _input_indices(entry: dict) -> dict[str, int]:
     return {
-        t["name"]: t["index"] for t in entry["terminals"] if t.get("direction") == "in"
+        t["name"]: t["index"]
+        for t in entry["terminals"]
+        if t.get("direction") == "input"
     }
 
 

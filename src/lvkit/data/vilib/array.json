@@ -15,7 +15,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -24,7 +24,7 @@
         {
           "name": "size(s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -45,7 +45,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -54,7 +54,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -63,7 +63,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -84,7 +84,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -93,7 +93,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -102,7 +102,7 @@
         {
           "name": "new element/subarray",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubarray",
@@ -111,7 +111,7 @@
         {
           "name": "output array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
@@ -132,7 +132,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -141,7 +141,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -150,7 +150,7 @@
         {
           "name": "new element/subarray",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubarray",
@@ -159,7 +159,7 @@
         {
           "name": "output array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
@@ -180,7 +180,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -189,7 +189,7 @@
         {
           "name": "length",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "length",
@@ -198,7 +198,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -207,7 +207,7 @@
         {
           "name": "array w/ subset deleted",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_w_subset_deleted",
@@ -216,7 +216,7 @@
         {
           "name": "deleted portion",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "deleted_portion",
@@ -237,7 +237,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -246,7 +246,7 @@
         {
           "name": "dimension size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimension_size",
@@ -255,7 +255,7 @@
         {
           "name": "initialized array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "initialized_array",
@@ -276,7 +276,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -285,7 +285,7 @@
         {
           "name": "appended array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "appended_array",
@@ -306,7 +306,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -315,7 +315,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -324,7 +324,7 @@
         {
           "name": "length",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "length",
@@ -333,7 +333,7 @@
         {
           "name": "subarray",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "subarray",
@@ -354,7 +354,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -363,7 +363,7 @@
         {
           "name": "max value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "max_value",
@@ -372,7 +372,7 @@
         {
           "name": "max index(es)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "max_index",
@@ -381,7 +381,7 @@
         {
           "name": "min value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "min_value",
@@ -390,7 +390,7 @@
         {
           "name": "min index(es)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "min_index",
@@ -411,7 +411,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -420,7 +420,7 @@
         {
           "name": "dimension size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimension_size",
@@ -429,7 +429,7 @@
         {
           "name": "output array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_array",
@@ -450,7 +450,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -459,7 +459,7 @@
         {
           "name": "sorted array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array",
@@ -480,7 +480,7 @@
         {
           "name": "2D array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_array",
@@ -489,7 +489,7 @@
         {
           "name": "dimension to index (column)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dimension_to_index",
@@ -498,7 +498,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -507,7 +507,7 @@
         {
           "name": "sorted 2D array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_2d_array",
@@ -516,7 +516,7 @@
         {
           "name": "index out of range?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_out_of_range",
@@ -537,7 +537,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -546,7 +546,7 @@
         {
           "name": "shuffled array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shuffled_array",
@@ -567,7 +567,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -576,7 +576,7 @@
         {
           "name": "shuffled array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shuffled_array",
@@ -597,7 +597,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -606,7 +606,7 @@
         {
           "name": "reversed array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reversed_array",
@@ -627,7 +627,7 @@
         {
           "name": "1D array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1d_array",
@@ -636,7 +636,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -645,7 +645,7 @@
         {
           "name": "start index (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
@@ -654,7 +654,7 @@
         {
           "name": "index of element",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_of_element",
@@ -675,7 +675,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -684,7 +684,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -693,7 +693,7 @@
         {
           "name": "first subarray",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_subarray",
@@ -702,7 +702,7 @@
         {
           "name": "second subarray",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "second_subarray",
@@ -723,7 +723,7 @@
         {
           "name": "n",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "n",
@@ -732,7 +732,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -741,7 +741,7 @@
         {
           "name": "array (last n elements first)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -762,7 +762,7 @@
         {
           "name": "array in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_in",
@@ -771,7 +771,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -780,7 +780,7 @@
         {
           "name": "array out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_out",
@@ -801,7 +801,7 @@
         {
           "name": "array in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_in",
@@ -810,7 +810,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -819,7 +819,7 @@
         {
           "name": "array out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_out",
@@ -840,7 +840,7 @@
         {
           "name": "array of numbers or points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_numbers_or_points",
@@ -849,7 +849,7 @@
         {
           "name": "fractional index or x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fractional_index_or_x",
@@ -858,7 +858,7 @@
         {
           "name": "y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -879,7 +879,7 @@
         {
           "name": "array of numbers or points",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_numbers_or_points",
@@ -888,7 +888,7 @@
         {
           "name": "threshold y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "threshold_y",
@@ -897,7 +897,7 @@
         {
           "name": "start index (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
@@ -906,7 +906,7 @@
         {
           "name": "fractional index or x",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "fractional_index_or_x",
@@ -927,7 +927,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -936,7 +936,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -945,7 +945,7 @@
         {
           "name": "interleaved array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "interleaved_array",
@@ -966,7 +966,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -975,7 +975,7 @@
         {
           "name": "decimated array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "decimated_array",
@@ -984,7 +984,7 @@
         {
           "name": "decimated array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "decimated_array",
@@ -1005,7 +1005,7 @@
         {
           "name": "2D array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_array",
@@ -1014,7 +1014,7 @@
         {
           "name": "transposed array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "transposed_array",
@@ -1035,7 +1035,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -1044,7 +1044,7 @@
         {
           "name": "cluster",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
@@ -1065,7 +1065,7 @@
         {
           "name": "cluster",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
@@ -1074,7 +1074,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -1131,7 +1131,7 @@
         {
           "name": "Real 2D Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "real_2d_array",
@@ -1140,7 +1140,7 @@
         {
           "name": "Real Matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
@@ -1161,7 +1161,7 @@
         {
           "name": "Real 1D Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "real_1d_array",
@@ -1170,7 +1170,7 @@
         {
           "name": "Real Matrix (Column Vector)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
@@ -1191,7 +1191,7 @@
         {
           "name": "Complex 2D Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "complex_2d_array",
@@ -1200,7 +1200,7 @@
         {
           "name": "Complex Matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
@@ -1221,7 +1221,7 @@
         {
           "name": "Complex 1D Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "complex_1d_array",
@@ -1230,7 +1230,7 @@
         {
           "name": "Complex Matrix (Column Vector)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
@@ -1281,7 +1281,7 @@
         {
           "name": "Real Matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "real_matrix",
@@ -1290,7 +1290,7 @@
         {
           "name": "Real 2D Array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "real_2d_array",
@@ -1311,7 +1311,7 @@
         {
           "name": "Complex Matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "complex_matrix",
@@ -1320,7 +1320,7 @@
         {
           "name": "Complex 2D Array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "complex_2d_array",
@@ -1344,7 +1344,7 @@
           "enum_values": null,
           "python_param": "array",
           "index": 0,
-          "direction": "in"
+          "direction": "input"
         },
         {
           "name": "array with duplicates removed",
@@ -1352,7 +1352,7 @@
           "enum_values": null,
           "python_param": "array_with_duplicates_removed",
           "index": 1,
-          "direction": "out"
+          "direction": "output"
         },
         {
           "name": "indices of removed elements",
@@ -1360,7 +1360,7 @@
           "enum_values": null,
           "python_param": "indices_of_removed_elements",
           "index": 2,
-          "direction": "out"
+          "direction": "output"
         }
       ],
       "match_names": [
@@ -1380,7 +1380,7 @@
         {
           "name": "unsorted 1D array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "unsorted_1d_array",
@@ -1389,7 +1389,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -1398,7 +1398,7 @@
         {
           "name": "start index (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
@@ -1407,7 +1407,7 @@
         {
           "name": "equals function (built-in =)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "equals_function",
@@ -1416,7 +1416,7 @@
         {
           "name": "index of element",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_of_element",
@@ -1437,7 +1437,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -1446,7 +1446,7 @@
         {
           "name": "sorted array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array",
@@ -1467,7 +1467,7 @@
         {
           "name": "sorted 1D array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_1d_array",
@@ -1476,7 +1476,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -1485,7 +1485,7 @@
         {
           "name": "less function (built-in <)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "less_function",
@@ -1494,7 +1494,7 @@
         {
           "name": "found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "found",
@@ -1503,7 +1503,7 @@
         {
           "name": "nearest index",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "nearest_index",
@@ -1577,7 +1577,7 @@
         {
           "name": "sorted array in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array_in",
@@ -1586,7 +1586,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -1595,7 +1595,7 @@
         {
           "name": "less function (built-in <)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "less_function",
@@ -1604,7 +1604,7 @@
         {
           "name": "sorted array out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sorted_array_out",
@@ -1625,7 +1625,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1634,7 +1634,7 @@
         {
           "name": "number of rows",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
@@ -1643,7 +1643,7 @@
         {
           "name": "number of columns",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_columns",
@@ -1664,7 +1664,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -1673,7 +1673,7 @@
         {
           "name": "appended array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "appended_array",
@@ -1694,7 +1694,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1703,7 +1703,7 @@
         {
           "name": "number of rows",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
@@ -1712,7 +1712,7 @@
         {
           "name": "number of columns",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_columns",
@@ -1721,7 +1721,7 @@
         {
           "name": "resized matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resized_matrix",
@@ -1742,7 +1742,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1751,7 +1751,7 @@
         {
           "name": "transposed matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "transposed_matrix",
@@ -1772,7 +1772,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1781,7 +1781,7 @@
         {
           "name": "index (row)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1790,7 +1790,7 @@
         {
           "name": "index (col)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1799,7 +1799,7 @@
         {
           "name": "diagonal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "diagonal",
@@ -1820,7 +1820,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1829,7 +1829,7 @@
         {
           "name": "index (row)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1838,7 +1838,7 @@
         {
           "name": "index (col)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1847,7 +1847,7 @@
         {
           "name": "output matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
@@ -1868,7 +1868,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1877,7 +1877,7 @@
         {
           "name": "row 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_1",
@@ -1886,7 +1886,7 @@
         {
           "name": "row N",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_n",
@@ -1895,7 +1895,7 @@
         {
           "name": "column 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_1",
@@ -1904,7 +1904,7 @@
         {
           "name": "column N",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_n",
@@ -1913,7 +1913,7 @@
         {
           "name": "submatrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "submatrix",
@@ -1934,7 +1934,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -1943,7 +1943,7 @@
         {
           "name": "disabled index (row)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disabled_index",
@@ -1952,7 +1952,7 @@
         {
           "name": "index (col)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1961,7 +1961,7 @@
         {
           "name": "new diagonal/fill element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_diagonalfill_element",
@@ -1970,7 +1970,7 @@
         {
           "name": "output matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
@@ -1991,7 +1991,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -2000,7 +2000,7 @@
         {
           "name": "disabled index (row)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disabled_index",
@@ -2009,7 +2009,7 @@
         {
           "name": "index (col)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2018,7 +2018,7 @@
         {
           "name": "new element/submatrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_elementsubmatrix",
@@ -2027,7 +2027,7 @@
         {
           "name": "output matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",
@@ -2048,7 +2048,7 @@
         {
           "name": "matrix",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "matrix",
@@ -2057,7 +2057,7 @@
         {
           "name": "row 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_1",
@@ -2066,7 +2066,7 @@
         {
           "name": "row N",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "row_n",
@@ -2075,7 +2075,7 @@
         {
           "name": "column 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_1",
@@ -2084,7 +2084,7 @@
         {
           "name": "column N",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "column_n",
@@ -2093,7 +2093,7 @@
         {
           "name": "new submatrix/fill element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_submatrixfill_element",
@@ -2102,7 +2102,7 @@
         {
           "name": "output matrix",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_matrix",

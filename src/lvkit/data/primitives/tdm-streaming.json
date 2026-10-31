@@ -5,63 +5,63 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "data layout (0:decimated)",
           "type": "Enum16"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "group name in (Untitled)",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "group name out",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "channel name(s) in (Untitled)",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "channel name(s) out",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "data",
           "type": "Array"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -74,87 +74,87 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "offset (0)",
           "type": "NumInt64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "count (-1: all)",
           "type": "NumInt64"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "group name in",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "group name out",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "channel name(s) in",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "channel name(s) out",
           "type": "Array"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "Array"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Array"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "return channels in file order? (F)",
           "type": "Boolean"
         },
         {
           "index": 12,
-          "direction": "out",
+          "direction": "output",
           "name": "end of file?",
           "type": "Boolean"
         },
         {
           "index": 13,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -167,56 +167,56 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "create index file? (T)",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "disable buffering? (T)",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "file format version (2.0)",
           "type": "Enum16"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "byte order (2:little-endian)",
           "type": "Enum16"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "operation (0:open)",
           "type": "Enum16"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "file path",
           "type": "Path"
         }
@@ -229,25 +229,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "file path out",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -261,62 +261,62 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "channel name out",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "group name out",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "property values",
           "type": "Array"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "property names",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "channel name",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "group name",
           "type": "String"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -330,74 +330,74 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "channel name out",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "group name out",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "property values",
           "type": "Array"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "property names",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "property name",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "channel name",
           "type": "String"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "group name",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -411,44 +411,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "group/channel names",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "group names",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "group name",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -462,26 +462,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -495,19 +495,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "file path",
           "type": "Path"
         }

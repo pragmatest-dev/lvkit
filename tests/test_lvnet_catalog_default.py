@@ -211,7 +211,7 @@ def test_simple_error_handler_inputs_sit_at_the_slots_its_calls_wire() -> None:
 
     entry = get_resolver().resolve_by_name("Simple Error Handler.vi")
     assert entry is not None
-    inputs = {t.index: t.name for t in entry.terminals if t.direction == "in"}
+    inputs = {t.index: t.name for t in entry.terminals if t.direction == "input"}
     assert inputs == {
         3: "error code (no error:0)",
         4: 'error source (" ")',
@@ -241,6 +241,13 @@ NI_DOCUMENTED_DEFAULTS = [
     pytest.param(1506, 1, True, None, id="Number To Fractional String decimal"),
     pytest.param(1506, 2, 6, None, id="Number To Fractional String precision"),
     pytest.param(1187, 2, True, None, id="Fract/Exp String To Number decimal"),
+    pytest.param(1187, 3, 0.0, None, id="Fract/Exp String To Number default"),
+    pytest.param(
+        1505, 3, None, DefaultBehavior.NO_PADDING, id="Number To Exponential width"
+    ),
+    pytest.param(
+        1506, 3, None, DefaultBehavior.NO_PADDING, id="Number To Fractional width"
+    ),
     pytest.param(9111, 2, -1, None, id="Enqueue Element timeout"),
     pytest.param(9129, 2, -1, None, id="Enqueue Element At Opposite End timeout"),
     pytest.param(9113, 2, -1, None, id="Dequeue Element timeout"),
@@ -258,7 +265,7 @@ def test_the_catalog_holds_the_default_ni_documents(
     resolved = get_resolver().resolve(prim_id=prim_id)
     assert resolved is not None
     terminal = next(
-        t for t in resolved.terminals if t.direction == "in" and t.index == index
+        t for t in resolved.terminals if t.direction == "input" and t.index == index
     )
     assert terminal.default == default
     assert terminal.default_behavior == behavior

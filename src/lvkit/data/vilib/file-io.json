@@ -77,7 +77,7 @@
         {
           "name": "format (%.3f)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -86,7 +86,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -95,7 +95,7 @@
         {
           "name": "2D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_data",
@@ -104,7 +104,7 @@
         {
           "name": "1D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1d_data",
@@ -113,7 +113,7 @@
         {
           "name": "append to file? (new file:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append_to_file",
@@ -122,7 +122,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -131,7 +131,7 @@
         {
           "name": "transpose? (no:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -140,7 +140,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -149,7 +149,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -158,7 +158,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -179,7 +179,7 @@
         {
           "name": "format (%d)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -188,7 +188,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -197,7 +197,7 @@
         {
           "name": "2D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_data",
@@ -206,7 +206,7 @@
         {
           "name": "1D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1d_data",
@@ -215,7 +215,7 @@
         {
           "name": "append to file? (new file:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append_to_file",
@@ -224,7 +224,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -233,7 +233,7 @@
         {
           "name": "transpose? (no:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -242,7 +242,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -251,7 +251,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -260,7 +260,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -281,7 +281,7 @@
         {
           "name": "format (%s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -290,7 +290,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -299,7 +299,7 @@
         {
           "name": "2D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_2d_data",
@@ -308,7 +308,7 @@
         {
           "name": "1D data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "var_1d_data",
@@ -317,7 +317,7 @@
         {
           "name": "append to file? (new file:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append_to_file",
@@ -326,7 +326,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -335,7 +335,7 @@
         {
           "name": "transpose? (no:F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -344,7 +344,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -353,7 +353,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -362,7 +362,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -420,7 +420,7 @@
         {
           "name": "format (%.3f)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -429,7 +429,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -438,7 +438,7 @@
         {
           "name": "number of rows (all:-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
@@ -447,7 +447,7 @@
         {
           "name": "start of read offset (chars.:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_of_read_offset",
@@ -456,7 +456,7 @@
         {
           "name": "max characters/row (no limit:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_charactersrow",
@@ -465,7 +465,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -474,7 +474,7 @@
         {
           "name": "transpose? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -483,7 +483,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -492,7 +492,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -501,7 +501,7 @@
         {
           "name": "all rows",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_rows",
@@ -510,7 +510,7 @@
         {
           "name": "first row",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_row",
@@ -519,7 +519,7 @@
         {
           "name": "mark after read (chars.)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mark_after_read",
@@ -528,7 +528,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -537,7 +537,7 @@
         {
           "name": "EOF?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "eof",
@@ -558,7 +558,7 @@
         {
           "name": "format (%d)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -567,7 +567,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -576,7 +576,7 @@
         {
           "name": "number of rows (all:-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
@@ -585,7 +585,7 @@
         {
           "name": "start of read offset (chars.:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_of_read_offset",
@@ -594,7 +594,7 @@
         {
           "name": "max characters/row (no limit:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_charactersrow",
@@ -603,7 +603,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -612,7 +612,7 @@
         {
           "name": "transpose? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -621,7 +621,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -630,7 +630,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -639,7 +639,7 @@
         {
           "name": "all rows",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_rows",
@@ -648,7 +648,7 @@
         {
           "name": "first row",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_row",
@@ -657,7 +657,7 @@
         {
           "name": "mark after read (chars.)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mark_after_read",
@@ -666,7 +666,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -675,7 +675,7 @@
         {
           "name": "EOF?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "eof",
@@ -696,7 +696,7 @@
         {
           "name": "format (%s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_",
@@ -705,7 +705,7 @@
         {
           "name": "file path (dialog if empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -714,7 +714,7 @@
         {
           "name": "number of rows (all:-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_rows",
@@ -723,7 +723,7 @@
         {
           "name": "start of read offset (chars.:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_of_read_offset",
@@ -732,7 +732,7 @@
         {
           "name": "max characters/row (no limit:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_charactersrow",
@@ -741,7 +741,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -750,7 +750,7 @@
         {
           "name": "transpose? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transpose",
@@ -759,7 +759,7 @@
         {
           "name": "delimiter (\\t)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delimiter",
@@ -768,7 +768,7 @@
         {
           "name": "new file path (Not A Path if cancelled)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_file_path",
@@ -777,7 +777,7 @@
         {
           "name": "all rows",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_rows",
@@ -786,7 +786,7 @@
         {
           "name": "first row",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "first_row",
@@ -795,7 +795,7 @@
         {
           "name": "mark after read (chars.)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mark_after_read",
@@ -804,7 +804,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -813,7 +813,7 @@
         {
           "name": "EOF?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "eof",
@@ -834,7 +834,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -843,7 +843,7 @@
         {
           "name": "Comment",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "comment",
@@ -852,7 +852,7 @@
         {
           "name": "new_file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_file",
@@ -861,7 +861,7 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
@@ -870,7 +870,7 @@
         {
           "name": "Filename",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename",
@@ -879,7 +879,7 @@
         {
           "name": "DAQmx Task",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "daqmx_task",
@@ -888,7 +888,7 @@
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
@@ -897,7 +897,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -906,7 +906,7 @@
         {
           "name": "Saving Data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "saving_data",
@@ -915,7 +915,7 @@
         {
           "name": "Filename Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_out",
@@ -936,7 +936,7 @@
         {
           "name": "Enable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "enable",
@@ -945,7 +945,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -954,7 +954,7 @@
         {
           "name": "Filename",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename",
@@ -963,7 +963,7 @@
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
@@ -972,7 +972,7 @@
         {
           "name": "Signals",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signals",
@@ -981,7 +981,7 @@
         {
           "name": "Filename Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_out",
@@ -990,7 +990,7 @@
         {
           "name": "Comment",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "comment",
@@ -999,7 +999,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1008,7 +1008,7 @@
         {
           "name": "Description",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "description",
@@ -1017,7 +1017,7 @@
         {
           "name": "EOF?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "eof",
@@ -1038,7 +1038,7 @@
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -1047,7 +1047,7 @@
         {
           "name": "file path (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -1056,7 +1056,7 @@
         {
           "name": "operation (0:open)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "operation",
@@ -1065,7 +1065,7 @@
         {
           "name": "access (0:read/write)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access",
@@ -1074,7 +1074,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1083,7 +1083,7 @@
         {
           "name": "disable buffering (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disable_buffering",
@@ -1092,7 +1092,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -1101,7 +1101,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -1110,7 +1110,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1131,7 +1131,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -1140,7 +1140,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1149,7 +1149,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1158,7 +1158,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1179,7 +1179,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1188,7 +1188,7 @@
         {
           "name": "input file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_file",
@@ -1197,7 +1197,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1206,7 +1206,7 @@
         {
           "name": "input 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_1",
@@ -1215,7 +1215,7 @@
         {
           "name": "output file refnum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_file_refnum",
@@ -1224,7 +1224,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1245,7 +1245,7 @@
         {
           "name": "format string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string",
@@ -1254,7 +1254,7 @@
         {
           "name": "input file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_file",
@@ -1263,7 +1263,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1272,7 +1272,7 @@
         {
           "name": "default value 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value_1",
@@ -1281,7 +1281,7 @@
         {
           "name": "output file refnum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_file_refnum",
@@ -1290,7 +1290,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1299,7 +1299,7 @@
         {
           "name": "output 1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_1",
@@ -1320,7 +1320,7 @@
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -1329,7 +1329,7 @@
         {
           "name": "file (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -1338,7 +1338,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -1347,7 +1347,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1356,7 +1356,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -1365,7 +1365,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -1374,7 +1374,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1395,7 +1395,7 @@
         {
           "name": "prompt (Open existing file)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -1404,7 +1404,7 @@
         {
           "name": "file (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -1413,7 +1413,7 @@
         {
           "name": "count",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -1422,7 +1422,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1431,7 +1431,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -1440,7 +1440,7 @@
         {
           "name": "text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "text",
@@ -1449,7 +1449,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -1458,7 +1458,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1479,7 +1479,7 @@
         {
           "name": "prepend array or string size? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prepend_array_or_string_size",
@@ -1488,7 +1488,7 @@
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -1497,7 +1497,7 @@
         {
           "name": "file (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -1506,7 +1506,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1515,7 +1515,7 @@
         {
           "name": "byte order (0:big-endian, network order)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -1524,7 +1524,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1533,7 +1533,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -1542,7 +1542,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -1551,7 +1551,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1572,7 +1572,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -1581,7 +1581,7 @@
         {
           "name": "prompt (Open existing file)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -1590,7 +1590,7 @@
         {
           "name": "file (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -1599,7 +1599,7 @@
         {
           "name": "count (1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -1608,7 +1608,7 @@
         {
           "name": "byte order (0:big-endian, network order)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -1617,7 +1617,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1626,7 +1626,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -1635,7 +1635,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1644,7 +1644,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -1653,7 +1653,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1674,7 +1674,7 @@
         {
           "name": "base path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "base_path",
@@ -1683,7 +1683,7 @@
         {
           "name": "name or relative path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name_or_relative_path",
@@ -1692,7 +1692,7 @@
         {
           "name": "appended path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "appended_path",
@@ -1713,7 +1713,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1722,7 +1722,7 @@
         {
           "name": "stripped path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stripped_path",
@@ -1731,7 +1731,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -1752,7 +1752,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1776,7 +1776,7 @@
           "type": "sysdir.llb:System Directory Type.ctl",
           "python_param": "directory_type",
           "index": 11,
-          "direction": "in"
+          "direction": "input"
         },
         {
           "name": "create directory if not found? (F)",
@@ -1790,7 +1790,7 @@
           "enum_values": null,
           "python_param": "system_directory_path",
           "index": 2,
-          "direction": "out"
+          "direction": "output"
         }
       ],
       "imports": [
@@ -1819,7 +1819,7 @@
           "enum_values": null,
           "python_param": "separator",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "String"
         }
       ],
@@ -1842,7 +1842,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1863,7 +1863,7 @@
         {
           "name": "App:Default Data Directory",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "appdefault_data_directory",
@@ -1884,7 +1884,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1905,7 +1905,7 @@
         {
           "name": "Application Directory",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "application_directory",
@@ -1926,7 +1926,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -1995,7 +1995,7 @@
         {
           "name": "configuration file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "configuration_file_path",
@@ -2004,7 +2004,7 @@
         {
           "name": "create file if necessary (T)",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "create_file_if_necessary",
@@ -2014,7 +2014,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2023,7 +2023,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2032,7 +2032,7 @@
         {
           "name": "file created?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_created",
@@ -2041,7 +2041,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2188,7 +2188,7 @@
         {
           "name": "section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "section",
@@ -2197,7 +2197,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2206,7 +2206,7 @@
         {
           "name": "key",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "key",
@@ -2215,7 +2215,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2224,7 +2224,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -2233,7 +2233,7 @@
         {
           "name": "found?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "found",
@@ -2242,7 +2242,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2263,7 +2263,7 @@
         {
           "name": "section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "section",
@@ -2272,7 +2272,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2281,7 +2281,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2290,7 +2290,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -2299,7 +2299,7 @@
         {
           "name": "section exists?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "section_exists",
@@ -2308,7 +2308,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2329,7 +2329,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2338,7 +2338,7 @@
         {
           "name": "write file if changed (T)",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "write_file_if_changed",
@@ -2348,7 +2348,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2357,7 +2357,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -2366,7 +2366,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2387,7 +2387,7 @@
         {
           "name": "section",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "section",
@@ -2396,7 +2396,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2405,7 +2405,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2414,7 +2414,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -2423,7 +2423,7 @@
         {
           "name": "section exists?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "section_exists",
@@ -2432,7 +2432,7 @@
         {
           "name": "key names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "key_names",
@@ -2441,7 +2441,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2462,7 +2462,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2471,7 +2471,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2480,7 +2480,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -2489,7 +2489,7 @@
         {
           "name": "section names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "section_names",
@@ -2498,7 +2498,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2519,7 +2519,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -2528,7 +2528,7 @@
         {
           "name": "not a config data refnum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_a_config_data_refnum",
@@ -2549,7 +2549,7 @@
         {
           "name": "create index file? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "create_index_file",
@@ -2558,7 +2558,7 @@
         {
           "name": "file format version (2.0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_format_version",
@@ -2567,7 +2567,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -2576,7 +2576,7 @@
         {
           "name": "operation (0:open)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "operation",
@@ -2585,7 +2585,7 @@
         {
           "name": "byte order (2:little-endian)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -2594,7 +2594,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2603,7 +2603,7 @@
         {
           "name": "disable buffering? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disable_buffering",
@@ -2612,7 +2612,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -2621,7 +2621,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2642,7 +2642,7 @@
         {
           "name": "data layout (0:decimated)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_layout",
@@ -2651,7 +2651,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -2660,7 +2660,7 @@
         {
           "name": "group name in (Untitled)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_in",
@@ -2669,7 +2669,7 @@
         {
           "name": "channel name(s) in (Untitled)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_names_in",
@@ -2678,7 +2678,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -2687,7 +2687,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2696,7 +2696,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -2705,7 +2705,7 @@
         {
           "name": "group name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_out",
@@ -2714,7 +2714,7 @@
         {
           "name": "channel name(s) out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel_names_out",
@@ -2723,7 +2723,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2744,7 +2744,7 @@
         {
           "name": "count (-1: all)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -2753,7 +2753,7 @@
         {
           "name": "offset (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -2762,7 +2762,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -2771,7 +2771,7 @@
         {
           "name": "group name in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_in",
@@ -2780,7 +2780,7 @@
         {
           "name": "channel name(s) in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_names_in",
@@ -2789,7 +2789,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2798,7 +2798,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -2807,7 +2807,7 @@
         {
           "name": "return channels in file order? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "return_channels_in_file_order",
@@ -2816,7 +2816,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -2825,7 +2825,7 @@
         {
           "name": "group name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_out",
@@ -2834,7 +2834,7 @@
         {
           "name": "channel name(s) out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel_names_out",
@@ -2843,7 +2843,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -2852,7 +2852,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2861,7 +2861,7 @@
         {
           "name": "end of file?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "end_of_file",
@@ -2882,7 +2882,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -2891,7 +2891,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2900,7 +2900,7 @@
         {
           "name": "file path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_path_out",
@@ -2909,7 +2909,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2930,7 +2930,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -2939,7 +2939,7 @@
         {
           "name": "group name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "group_name",
@@ -2948,7 +2948,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2957,7 +2957,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -2966,7 +2966,7 @@
         {
           "name": "group names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group_names",
@@ -2975,7 +2975,7 @@
         {
           "name": "group/channel names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "groupchannel_names",
@@ -2984,7 +2984,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3005,7 +3005,7 @@
         {
           "name": "property values",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "property_values",
@@ -3014,7 +3014,7 @@
         {
           "name": "property names",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "property_names",
@@ -3023,7 +3023,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -3032,7 +3032,7 @@
         {
           "name": "group name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "group_name",
@@ -3041,7 +3041,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -3050,7 +3050,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3059,7 +3059,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -3068,7 +3068,7 @@
         {
           "name": "group name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_out",
@@ -3077,7 +3077,7 @@
         {
           "name": "channel name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name_out",
@@ -3086,7 +3086,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3107,7 +3107,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -3116,7 +3116,7 @@
         {
           "name": "property name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "property_name",
@@ -3125,7 +3125,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -3134,7 +3134,7 @@
         {
           "name": "group name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "group_name",
@@ -3143,7 +3143,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -3152,7 +3152,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3161,7 +3161,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -3170,7 +3170,7 @@
         {
           "name": "group name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group_name_out",
@@ -3179,7 +3179,7 @@
         {
           "name": "channel name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name_out",
@@ -3188,7 +3188,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3197,7 +3197,7 @@
         {
           "name": "property values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "property_values",
@@ -3206,7 +3206,7 @@
         {
           "name": "property names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "property_names",
@@ -3227,7 +3227,7 @@
         {
           "name": "tdms file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file",
@@ -3236,7 +3236,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3245,7 +3245,7 @@
         {
           "name": "tdms file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tdms_file_out",
@@ -3254,7 +3254,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3275,7 +3275,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -3284,7 +3284,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3293,7 +3293,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3324,7 +3324,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -3333,7 +3333,7 @@
         {
           "name": "function (open:0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "function",
@@ -3342,7 +3342,7 @@
         {
           "name": "DataPlugin name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name",
@@ -3351,7 +3351,7 @@
         {
           "name": "additional parameters",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "additional_parameters",
@@ -3360,7 +3360,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3369,7 +3369,7 @@
         {
           "name": "storage refnum (file)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3378,7 +3378,7 @@
         {
           "name": "DataPlugin name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name_out",
@@ -3387,7 +3387,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3408,7 +3408,7 @@
         {
           "name": "storage refnum (file)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3417,7 +3417,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3426,7 +3426,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -3435,7 +3435,7 @@
         {
           "name": "append / replace (append data values)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "append__replace",
@@ -3444,7 +3444,7 @@
         {
           "name": "Signal",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
@@ -3453,7 +3453,7 @@
         {
           "name": "storage refnum (file) out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum_file_out",
@@ -3462,7 +3462,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3471,7 +3471,7 @@
         {
           "name": "storage refnum (channel)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3492,7 +3492,7 @@
         {
           "name": "storage refnum (file)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3501,7 +3501,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3510,7 +3510,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -3519,7 +3519,7 @@
         {
           "name": "count",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -3528,7 +3528,7 @@
         {
           "name": "storage refnum (file) out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum_file_out",
@@ -3537,7 +3537,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3546,7 +3546,7 @@
         {
           "name": "storage refnums (channel)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnums",
@@ -3555,7 +3555,7 @@
         {
           "name": "Signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
@@ -3576,7 +3576,7 @@
         {
           "name": "storage refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3585,7 +3585,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3594,7 +3594,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -3603,7 +3603,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3634,7 +3634,7 @@
         {
           "name": "storage refnum (channel)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum",
@@ -3643,7 +3643,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3652,7 +3652,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -3661,7 +3661,7 @@
         {
           "name": "count",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -3670,7 +3670,7 @@
         {
           "name": "storage refnum (channel) out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "storage_refnum_channel_out",
@@ -3679,7 +3679,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3688,7 +3688,7 @@
         {
           "name": "Name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -3697,7 +3697,7 @@
         {
           "name": "Unit",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "unit",
@@ -3706,7 +3706,7 @@
         {
           "name": "Signal",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "signal",
@@ -3757,7 +3757,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -3766,7 +3766,7 @@
         {
           "name": "DataPlugin name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name",
@@ -3775,7 +3775,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3784,7 +3784,7 @@
         {
           "name": "file path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_path_out",
@@ -3793,7 +3793,7 @@
         {
           "name": "DataPlugin name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name_out",
@@ -3802,7 +3802,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3823,7 +3823,7 @@
         {
           "name": "DataPlugin name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name",
@@ -3832,7 +3832,7 @@
         {
           "name": "source file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "source_file_path",
@@ -3841,7 +3841,7 @@
         {
           "name": "target file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_file_path",
@@ -3850,7 +3850,7 @@
         {
           "name": "target file operation (3:create)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_file_operation",
@@ -3859,7 +3859,7 @@
         {
           "name": "target file format (TDMS)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_file_format",
@@ -3868,7 +3868,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3877,7 +3877,7 @@
         {
           "name": "data chunk size (1E+7)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_chunk_size",
@@ -3886,7 +3886,7 @@
         {
           "name": "DataPlugin name out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dataplugin_name_out",
@@ -3895,7 +3895,7 @@
         {
           "name": "source file path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "source_file_path_out",
@@ -3904,7 +3904,7 @@
         {
           "name": "target file path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "target_file_path_out",
@@ -3913,7 +3913,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4067,7 +4067,7 @@
         {
           "name": "target",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target",
@@ -4076,7 +4076,7 @@
         {
           "name": "confirm overwrite? (F)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "confirm_overwrite",
@@ -4086,7 +4086,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4095,7 +4095,7 @@
         {
           "name": "zip file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "zip_file_out",
@@ -4104,7 +4104,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -4113,7 +4113,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4134,7 +4134,7 @@
         {
           "name": "zip file in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "zip_file_in",
@@ -4143,7 +4143,7 @@
         {
           "name": "source file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "source_file_path",
@@ -4152,7 +4152,7 @@
         {
           "name": "destination path in zip",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "destination_path_in_zip",
@@ -4161,7 +4161,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4170,7 +4170,7 @@
         {
           "name": "zip file out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "zip_file_out",
@@ -4179,7 +4179,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4200,7 +4200,7 @@
         {
           "name": "zip file in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "zip_file_in",
@@ -4209,7 +4209,7 @@
         {
           "name": "comments",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "comments",
@@ -4218,7 +4218,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4227,7 +4227,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4297,7 +4297,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -4306,7 +4306,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4315,7 +4315,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -4324,7 +4324,7 @@
         {
           "name": "offset (in bytes)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -4333,7 +4333,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4354,7 +4354,7 @@
         {
           "name": "file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -4363,7 +4363,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4372,7 +4372,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -4381,7 +4381,7 @@
         {
           "name": "size (in bytes)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4390,7 +4390,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4411,7 +4411,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -4420,7 +4420,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4429,7 +4429,7 @@
         {
           "name": "permissions",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "permissions",
@@ -4438,7 +4438,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -4447,7 +4447,7 @@
         {
           "name": "owner",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "owner",
@@ -4456,7 +4456,7 @@
         {
           "name": "group",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "group",
@@ -4465,7 +4465,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4486,7 +4486,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -4495,7 +4495,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4504,7 +4504,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -4513,7 +4513,7 @@
         {
           "name": "type",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -4522,7 +4522,7 @@
         {
           "name": "creator",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "creator",
@@ -4531,7 +4531,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4552,7 +4552,7 @@
         {
           "name": "refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_in",
@@ -4561,7 +4561,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -4570,7 +4570,7 @@
         {
           "name": "byte order (0:big-endian, network order)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "byte_order",
@@ -4579,7 +4579,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4588,7 +4588,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -4597,7 +4597,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -4606,7 +4606,7 @@
         {
           "name": "num elements read",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "num_elements_read",
@@ -4615,7 +4615,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4636,7 +4636,7 @@
         {
           "name": "button label",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "button_label",
@@ -4645,7 +4645,7 @@
         {
           "name": "pattern (all files)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern",
@@ -4654,7 +4654,7 @@
         {
           "name": "start path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_path",
@@ -4663,7 +4663,7 @@
         {
           "name": "default name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_name",
@@ -4672,7 +4672,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4681,7 +4681,7 @@
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -4690,7 +4690,7 @@
         {
           "name": "pattern label",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern_label",
@@ -4699,7 +4699,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4708,7 +4708,7 @@
         {
           "name": "selected path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "selected_path",
@@ -4717,7 +4717,7 @@
         {
           "name": "exists",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "exists",
@@ -4726,7 +4726,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -4735,7 +4735,7 @@
         {
           "name": "selected paths",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "selected_paths",
@@ -4756,7 +4756,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -4765,7 +4765,7 @@
         {
           "name": "offset (in bytes) (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset_in_bytes",
@@ -4774,7 +4774,7 @@
         {
           "name": "from (0:start)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "from_",
@@ -4783,7 +4783,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4792,7 +4792,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -4801,7 +4801,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4822,7 +4822,7 @@
         {
           "name": "file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -4831,7 +4831,7 @@
         {
           "name": "size (in bytes)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -4840,7 +4840,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4849,7 +4849,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -4858,7 +4858,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4879,7 +4879,7 @@
         {
           "name": "permissions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "permissions",
@@ -4888,7 +4888,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -4897,7 +4897,7 @@
         {
           "name": "new owner",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_owner",
@@ -4906,7 +4906,7 @@
         {
           "name": "new group",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "new_group",
@@ -4915,7 +4915,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4924,7 +4924,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -4933,7 +4933,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4954,7 +4954,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -4963,7 +4963,7 @@
         {
           "name": "type (no change)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -4972,7 +4972,7 @@
         {
           "name": "creator (no change)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "creator",
@@ -4981,7 +4981,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4990,7 +4990,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -4999,7 +4999,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5020,7 +5020,7 @@
         {
           "name": "file or directory path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_or_directory_path",
@@ -5029,7 +5029,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5038,7 +5038,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5059,7 +5059,7 @@
         {
           "name": "filename",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename",
@@ -5068,7 +5068,7 @@
         {
           "name": "filename must be valid on all platforms (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filename_must_be_valid_on_all_platforms",
@@ -5077,7 +5077,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5086,7 +5086,7 @@
         {
           "name": "suggested filename",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "suggested_filename",
@@ -5095,7 +5095,7 @@
         {
           "name": "filename had conflict",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_had_conflict",
@@ -5104,7 +5104,7 @@
         {
           "name": "filename not crossplatform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_not_crossplatform",
@@ -5113,7 +5113,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5122,7 +5122,7 @@
         {
           "name": "problem description",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "problem_description",
@@ -5143,7 +5143,7 @@
         {
           "name": "format string (\" (%d)\")",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "format_string__d",
@@ -5152,7 +5152,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -5161,7 +5161,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5170,7 +5170,7 @@
         {
           "name": "disable buffering (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disable_buffering",
@@ -5179,7 +5179,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -5188,7 +5188,7 @@
         {
           "name": "actual path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_path",
@@ -5197,7 +5197,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5218,7 +5218,7 @@
         {
           "name": "prompt (Choose or enter target path for move)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -5227,7 +5227,7 @@
         {
           "name": "source path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "source_path",
@@ -5236,7 +5236,7 @@
         {
           "name": "target path (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_path",
@@ -5245,7 +5245,7 @@
         {
           "name": "overwrite (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "overwrite",
@@ -5254,7 +5254,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5263,7 +5263,7 @@
         {
           "name": "new path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_path",
@@ -5272,7 +5272,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -5281,7 +5281,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5302,7 +5302,7 @@
         {
           "name": "prompt (Choose or enter target path for copy)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -5311,7 +5311,7 @@
         {
           "name": "source path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "source_path",
@@ -5320,7 +5320,7 @@
         {
           "name": "target path (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_path",
@@ -5329,7 +5329,7 @@
         {
           "name": "overwrite (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "overwrite",
@@ -5338,7 +5338,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5347,7 +5347,7 @@
         {
           "name": "new path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_path",
@@ -5356,7 +5356,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -5365,7 +5365,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5386,7 +5386,7 @@
         {
           "name": "prompt (Delete)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -5395,7 +5395,7 @@
         {
           "name": "path (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5404,7 +5404,7 @@
         {
           "name": "entire hierarchy (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "entire_hierarchy",
@@ -5413,7 +5413,7 @@
         {
           "name": "confirm (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "confirm",
@@ -5422,7 +5422,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5431,7 +5431,7 @@
         {
           "name": "deleted path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "deleted_path",
@@ -5440,7 +5440,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -5449,7 +5449,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5470,7 +5470,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -5479,7 +5479,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5488,7 +5488,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -5497,7 +5497,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5518,7 +5518,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -5527,7 +5527,7 @@
         {
           "name": "deny mode (0:deny read/write)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "deny_mode",
@@ -5536,7 +5536,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5545,7 +5545,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -5554,7 +5554,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5575,7 +5575,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5584,7 +5584,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5593,7 +5593,7 @@
         {
           "name": "directory",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "directory",
@@ -5602,7 +5602,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -5611,7 +5611,7 @@
         {
           "name": "size",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -5620,7 +5620,7 @@
         {
           "name": "last mod",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "last_mod",
@@ -5629,7 +5629,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5638,7 +5638,7 @@
         {
           "name": "resolved path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolved_path",
@@ -5647,7 +5647,7 @@
         {
           "name": "shortcut",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shortcut",
@@ -5668,7 +5668,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5677,7 +5677,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5686,7 +5686,7 @@
         {
           "name": "volume path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "volume_path",
@@ -5695,7 +5695,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -5704,7 +5704,7 @@
         {
           "name": "size (bytes)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -5713,7 +5713,7 @@
         {
           "name": "free (bytes)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "free",
@@ -5722,7 +5722,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5743,7 +5743,7 @@
         {
           "name": "prompt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "prompt",
@@ -5752,7 +5752,7 @@
         {
           "name": "path (use dialog)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5761,7 +5761,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5770,7 +5770,7 @@
         {
           "name": "created path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "created_path",
@@ -5779,7 +5779,7 @@
         {
           "name": "cancelled",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cancelled",
@@ -5788,7 +5788,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5809,7 +5809,7 @@
         {
           "name": "datalog type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "datalog_type",
@@ -5818,7 +5818,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5827,7 +5827,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5836,7 +5836,7 @@
         {
           "name": "pattern",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern",
@@ -5845,7 +5845,7 @@
         {
           "name": "path out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
@@ -5854,7 +5854,7 @@
         {
           "name": "filenames",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filenames",
@@ -5863,7 +5863,7 @@
         {
           "name": "folder names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "folder_names",
@@ -5872,7 +5872,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5893,7 +5893,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5902,7 +5902,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5911,7 +5911,7 @@
         {
           "name": "dup path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dup_path",
@@ -5920,7 +5920,7 @@
         {
           "name": "file or folder exists?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "file_or_folder_exists",
@@ -5929,7 +5929,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5950,7 +5950,7 @@
         {
           "name": "Folder Path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "folder_path",
@@ -5959,7 +5959,7 @@
         {
           "name": "Treat LLBs as Folders?",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "treat_llbs_as_folders",
@@ -5969,7 +5969,7 @@
         {
           "name": "Continue Recursing on Error? (F)",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "continue_recursing_on_error",
@@ -5979,7 +5979,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5988,7 +5988,7 @@
         {
           "name": "pattern",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pattern",
@@ -5997,7 +5997,7 @@
         {
           "name": "Folders to Exclude",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "folders_to_exclude",
@@ -6006,7 +6006,7 @@
         {
           "name": "All Folders",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_folders",
@@ -6015,7 +6015,7 @@
         {
           "name": "dup Folder Path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dup_folder_path",
@@ -6024,7 +6024,7 @@
         {
           "name": "All Files in Dir",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "all_files_in_dir",
@@ -6033,7 +6033,7 @@
         {
           "name": "Number of Files",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_files",
@@ -6042,7 +6042,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6063,7 +6063,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6072,7 +6072,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -6093,7 +6093,7 @@
         {
           "name": "string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "string",
@@ -6102,7 +6102,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6123,7 +6123,7 @@
         {
           "name": "relative",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "relative",
@@ -6132,7 +6132,7 @@
         {
           "name": "array of strings",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_strings",
@@ -6141,7 +6141,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6162,7 +6162,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6171,7 +6171,7 @@
         {
           "name": "relative",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "relative",
@@ -6180,7 +6180,7 @@
         {
           "name": "array of strings",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_strings",
@@ -6201,7 +6201,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6210,7 +6210,7 @@
         {
           "name": "type",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -6231,7 +6231,7 @@
         {
           "name": "refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
@@ -6240,7 +6240,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -6261,7 +6261,7 @@
         {
           "name": "Path 1",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_1",
@@ -6270,7 +6270,7 @@
         {
           "name": "Path 2",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path_2",
@@ -6279,7 +6279,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6288,7 +6288,7 @@
         {
           "name": "Relative Path from 1 to 2",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "relative_path_from_1_to_2",
@@ -6297,7 +6297,7 @@
         {
           "name": "Common Path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "common_path",
@@ -6306,7 +6306,7 @@
         {
           "name": "Path 2 Relative to Path 1?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "path_2_relative_to_path_1",
@@ -6315,7 +6315,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6336,7 +6336,7 @@
         {
           "name": "file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file",
@@ -6345,7 +6345,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6354,7 +6354,7 @@
         {
           "name": "dup file",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dup_file",
@@ -6363,7 +6363,7 @@
         {
           "name": "lowercase file extension",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "lowercase_file_extension",
@@ -6372,7 +6372,7 @@
         {
           "name": "filename without extension",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "filename_without_extension",
@@ -6381,7 +6381,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6390,7 +6390,7 @@
         {
           "name": "unmodified file extension",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "unmodified_file_extension",
@@ -6447,7 +6447,7 @@
         {
           "name": "Temporary File Extension (tmp)",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "temporary_file_extension",
@@ -6457,7 +6457,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6466,7 +6466,7 @@
         {
           "name": "Unique Temporary File Path",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "unique_temporary_file_path",
@@ -6475,7 +6475,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6537,7 +6537,7 @@
         {
           "name": "directory",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "directory",
@@ -6546,7 +6546,7 @@
         {
           "name": "unused",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "unused",
@@ -6555,7 +6555,7 @@
         {
           "name": "permissions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "permissions",
@@ -6564,7 +6564,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6573,7 +6573,7 @@
         {
           "name": "directory copy",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "directory_copy",
@@ -6582,7 +6582,7 @@
         {
           "name": "directories created",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "directories_created",
@@ -6591,7 +6591,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6612,7 +6612,7 @@
         {
           "name": "file path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "file_path",
@@ -6621,7 +6621,7 @@
         {
           "name": "access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access",
@@ -6630,7 +6630,7 @@
         {
           "name": "permissions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "permissions",
@@ -6639,7 +6639,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6648,7 +6648,7 @@
         {
           "name": "disable buffering (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "disable_buffering",
@@ -6657,7 +6657,7 @@
         {
           "name": "refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
@@ -6666,7 +6666,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",

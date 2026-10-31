@@ -4,18 +4,15 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from lvkit.models import TerminalDirection
 from lvkit.terminal_default import TerminalDefault
 
 
 class PrimitiveTerminal(TerminalDefault):
-    """A terminal on a primitive.
-
-    Note: direction uses "in"/"out" (from JSON data), while
-    graph_types.Terminal uses "input"/"output" (from parser).
-    """
+    """A terminal on a primitive."""
 
     index: int
-    direction: str  # "in" or "out"
+    direction: TerminalDirection
     name: str | None = ""
     # LabVIEW type: "numeric", "string", "boolean", "array",
     # "cluster", "path", "refnum", "variant", "polymorphic"
@@ -55,7 +52,7 @@ class TerminalAlias(BaseModel):
     of the entry's own (primary) terminal it stands for."""
 
     index: int
-    direction: str  # "in" or "out"
+    direction: TerminalDirection
     terminal: int
 
 

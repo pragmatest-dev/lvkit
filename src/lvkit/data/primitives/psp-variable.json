@@ -5,57 +5,57 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "Void"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "timestamp",
           "type": "Timestamp"
         }
@@ -68,51 +68,51 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "access",
           "type": "Cluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms",
           "type": "NumInt32"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "buffer size in elements",
           "type": "NumUInt32"
         }
@@ -125,45 +125,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "access",
           "type": "Cluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "buffer size in elements",
           "type": "NumUInt32"
         }

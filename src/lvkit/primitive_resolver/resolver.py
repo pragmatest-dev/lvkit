@@ -12,6 +12,8 @@ from __future__ import annotations
 from collections.abc import Collection
 from pathlib import Path
 
+from lvkit.models import TerminalDirection
+
 from .._data import data_dir as _bundled_data_dir
 from .models import (
     PrimitiveTerminal,
@@ -166,14 +168,14 @@ class PrimitiveResolver:
                     sorted(
                         self._normalize_type(t.get("name", ""))
                         for t in terminals
-                        if t.get("direction") == "in"
+                        if t.get("direction") == TerminalDirection.INPUT
                     )
                 )
                 outputs = tuple(
                     sorted(
                         self._normalize_type(t.get("name", ""))
                         for t in terminals
-                        if t.get("direction") == "out"
+                        if t.get("direction") == TerminalDirection.OUTPUT
                     )
                 )
                 sig = (inputs, outputs)
@@ -213,7 +215,7 @@ class PrimitiveResolver:
             name: Primitive name (for name-based lookup)
             input_types: Input type signatures
             output_types: Output type signatures
-            node_slots: the node's (terminal index, "in"/"out") pairs. An entry
+            node_slots: the node's (terminal index, direction) pairs. An entry
                 with several numberings is returned in the node's numbering
                 (see ``terminal_sets``); required for such an entry.
 
@@ -463,11 +465,11 @@ class PrimitiveResolver:
         inputs = [
             t.get("name", f"in_{t['index']}")
             for t in terminals
-            if t.get("direction") == "in"
+            if t.get("direction") == TerminalDirection.INPUT
         ]
         outputs = [
             t.get("name", f"out_{t['index']}")
             for t in terminals
-            if t.get("direction") == "out"
+            if t.get("direction") == TerminalDirection.OUTPUT
         ]
         return inputs, outputs

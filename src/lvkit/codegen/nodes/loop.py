@@ -15,7 +15,6 @@ from lvkit.models import (
     TunnelMode,
     TunnelTerminal,
 )
-from lvkit.path_value import path_name_stem
 
 from ..ast_utils import (
     build_assign,
@@ -254,7 +253,8 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         # (outer_var, inner_term, outer_term)
         lpTun_array_inputs: list[tuple[str, str, str]] = []
         lpTun_scalar_inputs: list[tuple[str, str]] = []  # (outer_var, inner_term)
-        materialized: set[str] = set()  # literal array sources already assigned
+        # Each literal source already assigned, and the local it is in.
+        materialized: dict[str, str] = {}
 
         for tunnel in tunnels:
             if tunnel.tunnel_type == "lpTun" and _tunnel_is_input(
@@ -266,15 +266,15 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 # a real local before the loop instead of leaving it undefined.
                 if outer_var and not outer_var.isidentifier():
                     literal = outer_var
-                    outer_var = (
-                        to_var_name(_literal_name_stem(tunnel.outer_terminal_uid, ctx))
-                        or "items"
-                    )
-                    if outer_var not in materialized:
-                        pre_loop_stmts.append(
-                            build_assign(outer_var, parse_expr(literal))
+                    if literal not in materialized:
+                        materialized[literal] = ctx.make_output_var(
+                            _literal_local_name(tunnel.outer_terminal_uid, ctx),
+                            node.id,
                         )
-                        materialized.add(outer_var)
+                        pre_loop_stmts.append(
+                            build_assign(materialized[literal], parse_expr(literal))
+                        )
+                    outer_var = materialized[literal]
                 if outer_var and tunnel.inner_terminal_uid:
                     outer_term = tunnel.outer_terminal_uid
                     inner_term = tunnel.inner_terminal_uid
@@ -301,13 +301,17 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
         ]
 
         # The count terminal read inside the loop is the number of iterations:
-        # the wired count, or the shortest auto-indexed array.
+        # the wired count, or the shortest auto-indexed array. Its edge to its
+        # own outer terminal is the tunnel, not a read.
         count_inners = [
             t.inner_terminal_uid
             for t in tunnels
             if t.tunnel_type == "lMax"
             and t.inner_terminal_uid
-            and ctx.is_wired(t.inner_terminal_uid)
+            and any(
+                d.dest_terminal != t.outer_terminal_uid
+                for d in ctx.get_destinations(t.inner_terminal_uid)
+            )
         ]
         count_parts = [f"len({array})" for array, _ in for_input_arrays]
         if n_terminal_var:
@@ -674,24 +678,30 @@ def _singularize(array_var: str, ctx: CodeGenContext) -> str:
     return candidate
 
 
-def _literal_name_stem(terminal_uid: str, ctx: CodeGenContext) -> str:
-    """The text a literal source's local is named from: a Path constant's own
-    components, else the literal's expression."""
-    literal = ctx.resolve(terminal_uid) or ""
+def _literal_local_name(terminal_uid: str, ctx: CodeGenContext) -> str:
+    """The name of the local a literal source (a constant wired into a loop
+    tunnel) is assigned to before the loop. Never its value: the constant's
+    label, else the name of the terminal it flows to, pluralised, else a name
+    from its type."""
+    label = _constant_label(terminal_uid, ctx)
+    if label and to_var_name(label):
+        return to_var_name(label)
+    dest = _get_dest_terminal_name(terminal_uid, ctx)
+    if dest and to_var_name(dest):
+        return _pluralize(to_var_name(dest))
+    lv_type = _get_terminal_type(terminal_uid, ctx)
+    return "items" if lv_type is None or lv_type.kind == LVTypeKind.ARRAY else "value"
+
+
+def _constant_label(terminal_uid: str, ctx: CodeGenContext) -> str | None:
+    """The label of the one constant wired to ``terminal_uid``, if any."""
     if ctx.graph is None:
-        return literal
+        return None
     origins = ctx.graph.wire_origins(terminal_uid)
     if len(origins) != 1:
-        return literal
+        return None
     node, _ = origins[0]
-    if (
-        isinstance(node, ConstantNode)
-        and node.lv_type is not None
-        and node.lv_type.underlying_type == "Path"
-        and isinstance(node.value, str)
-    ):
-        return path_name_stem(node.value) or literal
-    return literal
+    return node.label if isinstance(node, ConstantNode) else None
 
 
 def _get_source_terminal_name(terminal_uid: str, ctx: CodeGenContext) -> str | None:

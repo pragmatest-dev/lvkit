@@ -7,19 +7,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "boolean"
         }
@@ -41,19 +41,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "boolean"
         }
@@ -75,19 +75,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -107,13 +107,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "not_x",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "Boolean"
         }
@@ -130,19 +130,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": ".not. (x .and. y)?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "Boolean"
         }
@@ -156,19 +156,19 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "Boolean"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "nor",
           "type": "Boolean"
         }
@@ -186,19 +186,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": ".not. (x .xor. y)?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "Boolean"
         }
@@ -211,19 +211,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x .implies. y?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "Boolean"
         }
@@ -236,13 +236,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "zero_or_one",
           "type": "NumInt16"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "boolean",
           "type": "polymorphic"
         }
@@ -261,13 +261,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "boolean array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         }
@@ -282,13 +282,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "boolean array",
           "type": "Array"
         }
@@ -303,13 +303,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "logical_or",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "boolean_array",
           "type": "Array"
         }
@@ -326,13 +326,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "logical_and",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "boolean_array",
           "type": "Array"
         }

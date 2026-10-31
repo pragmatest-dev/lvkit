@@ -5,32 +5,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "data",
           "type": "Array"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"
@@ -44,50 +44,50 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "tdms file out",
           "type": "Refnum",
           "refnum_type": "tdms_file"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "read process finished?",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "NumUInt8"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "count (-1)",
           "type": "NumInt64"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "tdms file",
           "type": "Refnum",
           "refnum_type": "tdms_file"

@@ -5,25 +5,25 @@
       "terminals": [
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "already included?",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "set out",
           "type": "SetCollection"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "set in",
           "type": "SetCollection"
         }
@@ -36,25 +36,25 @@
       "terminals": [
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "not included?",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "set out",
           "type": "SetCollection"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "set in",
           "type": "SetCollection"
         }
@@ -67,19 +67,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "found?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "set",
           "type": "SetCollection"
         }
@@ -92,13 +92,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "set",
           "type": "SetCollection"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         }

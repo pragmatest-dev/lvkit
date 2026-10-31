@@ -15,7 +15,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -24,7 +24,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -33,7 +33,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -42,7 +42,7 @@
         {
           "name": "access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access",
@@ -51,7 +51,7 @@
         {
           "name": "Write Access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "write_access",
@@ -60,7 +60,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -69,7 +69,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -90,7 +90,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -99,7 +99,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -108,7 +108,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -117,7 +117,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -126,7 +126,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -135,7 +135,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -144,7 +144,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -165,7 +165,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -174,7 +174,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -183,7 +183,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -192,7 +192,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -201,7 +201,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -222,7 +222,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -231,7 +231,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -240,7 +240,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -261,7 +261,7 @@
         {
           "name": "ms timeout (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
@@ -270,7 +270,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -279,7 +279,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -288,7 +288,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -297,7 +297,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -318,7 +318,7 @@
         {
           "name": "Local PSP Variable Root Container",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "local_psp_variable_root_container",
@@ -339,7 +339,7 @@
         {
           "name": "reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reference",
@@ -348,7 +348,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -357,7 +357,7 @@
         {
           "name": "reference out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
@@ -366,7 +366,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -375,7 +375,7 @@
         {
           "name": "Property",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "property_",
@@ -396,7 +396,7 @@
         {
           "name": "class",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "class_",
@@ -405,7 +405,7 @@
         {
           "name": "container refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "container_refnum_in",
@@ -414,7 +414,7 @@
         {
           "name": "regular expression",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "regular_expression",
@@ -423,7 +423,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -432,7 +432,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -441,7 +441,7 @@
         {
           "name": "access type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access_type",
@@ -450,7 +450,7 @@
         {
           "name": "Write Access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "write_access",
@@ -459,7 +459,7 @@
         {
           "name": "container refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "container_refnum_out",
@@ -468,7 +468,7 @@
         {
           "name": "refnum array out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "refnum_array_out",
@@ -477,7 +477,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -498,7 +498,7 @@
         {
           "name": "buffer size in elements",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "buffer_size_in_elements",
@@ -507,7 +507,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -516,7 +516,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -525,7 +525,7 @@
         {
           "name": "timeout ms",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -534,7 +534,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -543,7 +543,7 @@
         {
           "name": "access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access",
@@ -552,7 +552,7 @@
         {
           "name": "Write Access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "write_access",
@@ -561,7 +561,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -570,7 +570,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -591,7 +591,7 @@
         {
           "name": "buffer size in elements",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "buffer_size_in_elements",
@@ -600,7 +600,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -609,7 +609,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -618,7 +618,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -627,7 +627,7 @@
         {
           "name": "access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "access",
@@ -636,7 +636,7 @@
         {
           "name": "Write Access",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "write_access",
@@ -645,7 +645,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -654,7 +654,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -675,7 +675,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -684,7 +684,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -693,7 +693,7 @@
         {
           "name": "timeout ms",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -702,7 +702,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -711,7 +711,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -720,7 +720,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -729,7 +729,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -738,7 +738,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -747,7 +747,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -768,7 +768,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -777,7 +777,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -798,7 +798,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -807,7 +807,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -816,7 +816,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -825,7 +825,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -834,7 +834,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -843,7 +843,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -852,7 +852,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -873,7 +873,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -882,7 +882,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -891,7 +891,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -900,7 +900,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -909,7 +909,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -930,7 +930,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -939,7 +939,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -948,7 +948,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -957,7 +957,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -966,7 +966,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -975,7 +975,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -984,7 +984,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -1005,7 +1005,7 @@
         {
           "name": "shared variable refnum in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_in",
@@ -1014,7 +1014,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -1023,7 +1023,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1032,7 +1032,7 @@
         {
           "name": "shared variable refnum out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "shared_variable_refnum_out",
@@ -1041,7 +1041,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1062,7 +1062,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -1071,7 +1071,7 @@
         {
           "name": "writer buffer size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "writer_buffer_size",
@@ -1080,7 +1080,7 @@
         {
           "name": "writer name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "writer_name",
@@ -1089,7 +1089,7 @@
         {
           "name": "reader url",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reader_url",
@@ -1098,7 +1098,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -1107,7 +1107,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1116,7 +1116,7 @@
         {
           "name": "element allocation mode",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element_allocation_mode",
@@ -1125,7 +1125,7 @@
         {
           "name": "writer endpoint",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "writer_endpoint",
@@ -1134,7 +1134,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1155,7 +1155,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1164,7 +1164,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -1173,7 +1173,7 @@
         {
           "name": "timeout ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -1182,7 +1182,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1191,7 +1191,7 @@
         {
           "name": "endpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_out",
@@ -1200,7 +1200,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1209,7 +1209,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1230,7 +1230,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1239,7 +1239,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -1248,7 +1248,7 @@
         {
           "name": "timeout ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -1257,7 +1257,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1266,7 +1266,7 @@
         {
           "name": "endpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_out",
@@ -1275,7 +1275,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1284,7 +1284,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1305,7 +1305,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1314,7 +1314,7 @@
         {
           "name": "wait condition",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "wait_condition",
@@ -1323,7 +1323,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -1332,7 +1332,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1341,7 +1341,7 @@
         {
           "name": "endpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_out",
@@ -1350,7 +1350,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1359,7 +1359,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1380,7 +1380,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -1389,7 +1389,7 @@
         {
           "name": "reader buffer size",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reader_buffer_size",
@@ -1398,7 +1398,7 @@
         {
           "name": "reader name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reader_name",
@@ -1407,7 +1407,7 @@
         {
           "name": "writer url",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "writer_url",
@@ -1416,7 +1416,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -1425,7 +1425,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1434,7 +1434,7 @@
         {
           "name": "element allocation mode",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element_allocation_mode",
@@ -1443,7 +1443,7 @@
         {
           "name": "reader endpoint",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reader_endpoint",
@@ -1452,7 +1452,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1473,7 +1473,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1482,7 +1482,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1491,7 +1491,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1512,7 +1512,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1521,7 +1521,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -1530,7 +1530,7 @@
         {
           "name": "timeout ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -1539,7 +1539,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1548,7 +1548,7 @@
         {
           "name": "endpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_out",
@@ -1557,7 +1557,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -1566,7 +1566,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1575,7 +1575,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1596,7 +1596,7 @@
         {
           "name": "# elements",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "_elements",
@@ -1605,7 +1605,7 @@
         {
           "name": "endpoint in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_in",
@@ -1614,7 +1614,7 @@
         {
           "name": "data type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_type",
@@ -1623,7 +1623,7 @@
         {
           "name": "timeout ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -1632,7 +1632,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1641,7 +1641,7 @@
         {
           "name": "endpoint out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "endpoint_out",
@@ -1650,7 +1650,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -1659,7 +1659,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1668,7 +1668,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1689,7 +1689,7 @@
         {
           "name": "reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reference",
@@ -1698,7 +1698,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1707,7 +1707,7 @@
         {
           "name": "reference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reference",
@@ -1716,7 +1716,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1725,7 +1725,7 @@
         {
           "name": "Property",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "property_",
@@ -1746,7 +1746,7 @@
         {
           "name": "connection in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_in",
@@ -1755,7 +1755,7 @@
         {
           "name": "type (Variant)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -1764,7 +1764,7 @@
         {
           "name": "ms timeout (10000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
@@ -1773,7 +1773,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1782,7 +1782,7 @@
         {
           "name": "wait for updated value (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "wait_for_updated_value",
@@ -1791,7 +1791,7 @@
         {
           "name": "status",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "status",
@@ -1800,7 +1800,7 @@
         {
           "name": "quality",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "quality",
@@ -1809,7 +1809,7 @@
         {
           "name": "connection out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_out",
@@ -1818,7 +1818,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1827,7 +1827,7 @@
         {
           "name": "timed out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1836,7 +1836,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1845,7 +1845,7 @@
         {
           "name": "timestamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timestamp",
@@ -1866,7 +1866,7 @@
         {
           "name": "connection in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_in",
@@ -1875,7 +1875,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -1884,7 +1884,7 @@
         {
           "name": "ms timeout (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
@@ -1893,7 +1893,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1902,7 +1902,7 @@
         {
           "name": "connection out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_out",
@@ -1911,7 +1911,7 @@
         {
           "name": "timed out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -1920,7 +1920,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1941,7 +1941,7 @@
         {
           "name": "Options (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "options",
@@ -1950,7 +1950,7 @@
         {
           "name": "StartURL (empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "starturl",
@@ -1959,7 +1959,7 @@
         {
           "name": "Title (Select URL)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "title",
@@ -1968,7 +1968,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1977,7 +1977,7 @@
         {
           "name": "Filter (empty)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "filter_",
@@ -1986,7 +1986,7 @@
         {
           "name": "URL Selected",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "url_selected",
@@ -1995,7 +1995,7 @@
         {
           "name": "URL",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "url",
@@ -2004,7 +2004,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2025,7 +2025,7 @@
         {
           "name": "URL",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "url",
@@ -2034,7 +2034,7 @@
         {
           "name": "mode",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
@@ -2043,7 +2043,7 @@
         {
           "name": "ms timeout (10000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
@@ -2052,7 +2052,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2061,7 +2061,7 @@
         {
           "name": "connection id",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2070,7 +2070,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2091,7 +2091,7 @@
         {
           "name": "connection id",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2100,7 +2100,7 @@
         {
           "name": "ms timeout (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
@@ -2109,7 +2109,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2118,7 +2118,7 @@
         {
           "name": "timed out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -2127,7 +2127,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2148,7 +2148,7 @@
         {
           "name": "address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address",
@@ -2157,7 +2157,7 @@
         {
           "name": "remote port or service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "remote_port_or_service_name",
@@ -2166,7 +2166,7 @@
         {
           "name": "timeout ms (60000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2175,7 +2175,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2184,7 +2184,7 @@
         {
           "name": "local port (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "local_port",
@@ -2193,7 +2193,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2202,7 +2202,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2223,7 +2223,7 @@
         {
           "name": "mode (standard)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
@@ -2232,7 +2232,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2241,7 +2241,7 @@
         {
           "name": "bytes to read",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_to_read",
@@ -2250,7 +2250,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2259,7 +2259,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2268,7 +2268,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -2277,7 +2277,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -2286,7 +2286,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2307,7 +2307,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2316,7 +2316,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -2325,7 +2325,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2334,7 +2334,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2343,7 +2343,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -2352,7 +2352,7 @@
         {
           "name": "bytes written",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_written",
@@ -2361,7 +2361,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2382,7 +2382,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2391,7 +2391,7 @@
         {
           "name": "abort (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "abort",
@@ -2400,7 +2400,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2409,7 +2409,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -2418,7 +2418,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2439,7 +2439,7 @@
         {
           "name": "net address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "net_address",
@@ -2448,7 +2448,7 @@
         {
           "name": "dot notation? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dot_notation",
@@ -2457,7 +2457,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2478,7 +2478,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -2487,7 +2487,7 @@
         {
           "name": "net address",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "net_address",
@@ -2508,7 +2508,7 @@
         {
           "name": "App Refnum",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "app_refnum",
@@ -2517,7 +2517,7 @@
         {
           "name": "Machine Alias",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "machine_alias",
@@ -2526,7 +2526,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2535,7 +2535,7 @@
         {
           "name": "App Refnum Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "app_refnum_out",
@@ -2544,7 +2544,7 @@
         {
           "name": "Network Identity",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "network_identity",
@@ -2553,7 +2553,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2574,7 +2574,7 @@
         {
           "name": "net address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "net_address",
@@ -2583,7 +2583,7 @@
         {
           "name": "service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "service_name",
@@ -2592,7 +2592,7 @@
         {
           "name": "port",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "port",
@@ -2601,7 +2601,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2610,7 +2610,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2619,7 +2619,7 @@
         {
           "name": "listener ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id",
@@ -2628,7 +2628,7 @@
         {
           "name": "port",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "port",
@@ -2637,7 +2637,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2658,7 +2658,7 @@
         {
           "name": "listener ID in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_in",
@@ -2667,7 +2667,7 @@
         {
           "name": "resolve remote address (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "resolve_remote_address",
@@ -2676,7 +2676,7 @@
         {
           "name": "timeout ms (wait forever: -1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2685,7 +2685,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2694,7 +2694,7 @@
         {
           "name": "listener ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_out",
@@ -2703,7 +2703,7 @@
         {
           "name": "remote address",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_address",
@@ -2712,7 +2712,7 @@
         {
           "name": "remote port",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_port",
@@ -2721,7 +2721,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2730,7 +2730,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2793,7 +2793,7 @@
         {
           "name": "port",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "port",
@@ -2802,7 +2802,7 @@
         {
           "name": "service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "service_name",
@@ -2811,7 +2811,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2820,7 +2820,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2829,7 +2829,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2838,7 +2838,7 @@
         {
           "name": "port",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "port",
@@ -2847,7 +2847,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2868,7 +2868,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2877,7 +2877,7 @@
         {
           "name": "max size (548)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "max_size",
@@ -2886,7 +2886,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -2895,7 +2895,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2904,7 +2904,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -2913,7 +2913,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -2922,7 +2922,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2931,7 +2931,7 @@
         {
           "name": "port",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "port",
@@ -2940,7 +2940,7 @@
         {
           "name": "address",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "address",
@@ -2961,7 +2961,7 @@
         {
           "name": "port or service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "port_or_service_name",
@@ -2970,7 +2970,7 @@
         {
           "name": "address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address",
@@ -2979,7 +2979,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -2988,7 +2988,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -2997,7 +2997,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3006,7 +3006,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3015,7 +3015,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3024,7 +3024,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3045,7 +3045,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3054,7 +3054,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3063,7 +3063,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3072,7 +3072,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3093,7 +3093,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3102,7 +3102,7 @@
         {
           "name": "number of devices",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_devices",
@@ -3111,7 +3111,7 @@
         {
           "name": "device list",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "device_list",
@@ -3120,7 +3120,7 @@
         {
           "name": "Device Name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "device_name",
@@ -3129,7 +3129,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3150,7 +3150,7 @@
         {
           "name": "service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "service_name",
@@ -3159,7 +3159,7 @@
         {
           "name": "remote device id",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "remote_device_id",
@@ -3168,7 +3168,7 @@
         {
           "name": "timeout ms (60000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3177,7 +3177,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3186,7 +3186,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3195,7 +3195,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3216,7 +3216,7 @@
         {
           "name": "mode (standard)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
@@ -3225,7 +3225,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3234,7 +3234,7 @@
         {
           "name": "bytes to read",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_to_read",
@@ -3243,7 +3243,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3252,7 +3252,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3261,7 +3261,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3270,7 +3270,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -3279,7 +3279,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3300,7 +3300,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3309,7 +3309,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -3318,7 +3318,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3327,7 +3327,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3336,7 +3336,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3345,7 +3345,7 @@
         {
           "name": "bytes written",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_written",
@@ -3354,7 +3354,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3375,7 +3375,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3384,7 +3384,7 @@
         {
           "name": "abort (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "abort",
@@ -3393,7 +3393,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3402,7 +3402,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3411,7 +3411,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3432,7 +3432,7 @@
         {
           "name": "service name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "service_name",
@@ -3441,7 +3441,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3450,7 +3450,7 @@
         {
           "name": "listener ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id",
@@ -3459,7 +3459,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3480,7 +3480,7 @@
         {
           "name": "listener ID in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_in",
@@ -3489,7 +3489,7 @@
         {
           "name": "timeout ms (wait forever: -1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3498,7 +3498,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3507,7 +3507,7 @@
         {
           "name": "listener ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_out",
@@ -3516,7 +3516,7 @@
         {
           "name": "remote LSAP-SEL",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_lsap_sel",
@@ -3525,7 +3525,7 @@
         {
           "name": "remote device ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_device_id",
@@ -3534,7 +3534,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3543,7 +3543,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3564,7 +3564,7 @@
         {
           "name": "address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address",
@@ -3573,7 +3573,7 @@
         {
           "name": "channel (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -3582,7 +3582,7 @@
         {
           "name": "timeout ms (60000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3591,7 +3591,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3600,7 +3600,7 @@
         {
           "name": "uuid",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "uuid",
@@ -3609,7 +3609,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3618,7 +3618,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3639,7 +3639,7 @@
         {
           "name": "mode (standard)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mode",
@@ -3648,7 +3648,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3657,7 +3657,7 @@
         {
           "name": "bytes to read",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_to_read",
@@ -3666,7 +3666,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3675,7 +3675,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3684,7 +3684,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3693,7 +3693,7 @@
         {
           "name": "data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_out",
@@ -3702,7 +3702,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3723,7 +3723,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3732,7 +3732,7 @@
         {
           "name": "data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_in",
@@ -3741,7 +3741,7 @@
         {
           "name": "timeout ms (25000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3750,7 +3750,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3759,7 +3759,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3768,7 +3768,7 @@
         {
           "name": "bytes written",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "bytes_written",
@@ -3777,7 +3777,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3798,7 +3798,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -3807,7 +3807,7 @@
         {
           "name": "abort (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "abort",
@@ -3816,7 +3816,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3825,7 +3825,7 @@
         {
           "name": "connection ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id_out",
@@ -3834,7 +3834,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3855,7 +3855,7 @@
         {
           "name": "address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address",
@@ -3864,7 +3864,7 @@
         {
           "name": "uuid",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "uuid",
@@ -3873,7 +3873,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3882,7 +3882,7 @@
         {
           "name": "service description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "service_description",
@@ -3891,7 +3891,7 @@
         {
           "name": "description",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "description",
@@ -3900,7 +3900,7 @@
         {
           "name": "listener ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id",
@@ -3909,7 +3909,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -3918,7 +3918,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3939,7 +3939,7 @@
         {
           "name": "listener ID in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_in",
@@ -3948,7 +3948,7 @@
         {
           "name": "timeout ms (wait forever: -1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_ms",
@@ -3957,7 +3957,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3966,7 +3966,7 @@
         {
           "name": "listener ID out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "listener_id_out",
@@ -3975,7 +3975,7 @@
         {
           "name": "remote address",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_address",
@@ -3984,7 +3984,7 @@
         {
           "name": "remote channel",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "remote_channel",
@@ -3993,7 +3993,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4002,7 +4002,7 @@
         {
           "name": "connection ID",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connection_id",
@@ -4023,7 +4023,7 @@
         {
           "name": "time limit ms (10000)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_limit_ms",
@@ -4032,7 +4032,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4041,7 +4041,7 @@
         {
           "name": "number of devices",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_devices",
@@ -4050,7 +4050,7 @@
         {
           "name": "device list",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "device_list",
@@ -4059,7 +4059,7 @@
         {
           "name": "Device Name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "device_name",
@@ -4068,7 +4068,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4089,7 +4089,7 @@
         {
           "name": "address in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address_in",
@@ -4098,7 +4098,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4107,7 +4107,7 @@
         {
           "name": "address out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "address_out",
@@ -4116,7 +4116,7 @@
         {
           "name": "number of services",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_services",
@@ -4125,7 +4125,7 @@
         {
           "name": "service list",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "service_list",
@@ -4134,7 +4134,7 @@
         {
           "name": "uuid",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "uuid",
@@ -4143,7 +4143,7 @@
         {
           "name": "service name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "service_name",
@@ -4152,7 +4152,7 @@
         {
           "name": "service description",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "service_description",
@@ -4161,7 +4161,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4182,7 +4182,7 @@
         {
           "name": "address in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address_in",
@@ -4191,7 +4191,7 @@
         {
           "name": "discoverable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "discoverable",
@@ -4200,7 +4200,7 @@
         {
           "name": "connectable",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "connectable",
@@ -4209,7 +4209,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4218,7 +4218,7 @@
         {
           "name": "address out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "address_out",
@@ -4227,7 +4227,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4248,7 +4248,7 @@
         {
           "name": "address in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "address_in",
@@ -4257,7 +4257,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4266,7 +4266,7 @@
         {
           "name": "address out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "address_out",
@@ -4275,7 +4275,7 @@
         {
           "name": "discoverable",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "discoverable",
@@ -4284,7 +4284,7 @@
         {
           "name": "connectable",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "connectable",
@@ -4293,7 +4293,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4314,7 +4314,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4323,7 +4323,7 @@
         {
           "name": "Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message",
@@ -4332,7 +4332,7 @@
         {
           "name": "Subject",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "subject",
@@ -4341,7 +4341,7 @@
         {
           "name": "Recipients",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "recipients",
@@ -4350,7 +4350,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4371,7 +4371,7 @@
         {
           "name": "server address",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "server_address",
@@ -4380,7 +4380,7 @@
         {
           "name": "from",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "from_",
@@ -4389,7 +4389,7 @@
         {
           "name": "username",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "username",
@@ -4398,7 +4398,7 @@
         {
           "name": "password",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "password",
@@ -4407,7 +4407,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4416,7 +4416,7 @@
         {
           "name": "use TLS (false)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "use_tls",
@@ -4425,7 +4425,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4434,7 +4434,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4455,7 +4455,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4464,7 +4464,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4473,7 +4473,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4482,7 +4482,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4503,7 +4503,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4512,7 +4512,7 @@
         {
           "name": "to",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "to",
@@ -4521,7 +4521,7 @@
         {
           "name": "cc",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cc",
@@ -4530,7 +4530,7 @@
         {
           "name": "bcc",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "bcc",
@@ -4539,7 +4539,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4548,7 +4548,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4557,7 +4557,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4626,7 +4626,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4635,7 +4635,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4644,7 +4644,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4653,7 +4653,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4674,7 +4674,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4683,7 +4683,7 @@
         {
           "name": "attachments",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "attachments",
@@ -4692,7 +4692,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4701,7 +4701,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4710,7 +4710,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4731,7 +4731,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4740,7 +4740,7 @@
         {
           "name": "headers",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "headers",
@@ -4749,7 +4749,7 @@
         {
           "name": "Value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -4758,7 +4758,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4767,7 +4767,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4776,7 +4776,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4797,7 +4797,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4806,7 +4806,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4815,7 +4815,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4824,7 +4824,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4845,7 +4845,7 @@
         {
           "name": "private key password",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "private_key_password",
@@ -4854,7 +4854,7 @@
         {
           "name": "handle in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "handle_in",
@@ -4863,7 +4863,7 @@
         {
           "name": "CA certificate file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ca_certificate_file",
@@ -4872,7 +4872,7 @@
         {
           "name": "client certificate file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "client_certificate_file",
@@ -4881,7 +4881,7 @@
         {
           "name": "private key file",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "private_key_file",
@@ -4890,7 +4890,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4899,7 +4899,7 @@
         {
           "name": "verify server (true)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "verify_server",
@@ -4908,7 +4908,7 @@
         {
           "name": "handle out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "handle_out",
@@ -4917,7 +4917,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5090,7 +5090,7 @@
         {
           "name": "hostname or URL in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hostname_or_url_in",
@@ -5099,7 +5099,7 @@
         {
           "name": "timeout in ms",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -5108,7 +5108,7 @@
         {
           "name": "must be directly reachable? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "must_be_directly_reachable",
@@ -5117,7 +5117,7 @@
         {
           "name": "hostname or URL out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "hostname_or_url_out",
@@ -5126,7 +5126,7 @@
         {
           "name": "network status for remote host",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "network_status_for_remote_host",
@@ -5202,7 +5202,7 @@
         {
           "name": "session in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
@@ -5211,7 +5211,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5220,7 +5220,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5229,7 +5229,7 @@
         {
           "name": "timeout (ms)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout",
@@ -5238,7 +5238,7 @@
         {
           "name": "session out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
@@ -5247,7 +5247,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5323,7 +5323,7 @@
         {
           "name": "session in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
@@ -5332,7 +5332,7 @@
         {
           "name": "remote path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "remote_path",
@@ -5341,7 +5341,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5350,7 +5350,7 @@
         {
           "name": "timeout (ms)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout",
@@ -5359,7 +5359,7 @@
         {
           "name": "session out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
@@ -5368,7 +5368,7 @@
         {
           "name": "files and directories",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "files_and_directories",
@@ -5377,7 +5377,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5398,7 +5398,7 @@
         {
           "name": "session in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
@@ -5407,7 +5407,7 @@
         {
           "name": "path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "path",
@@ -5416,7 +5416,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5425,7 +5425,7 @@
         {
           "name": "timeout (ms)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout",
@@ -5434,7 +5434,7 @@
         {
           "name": "session out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
@@ -5443,7 +5443,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5464,7 +5464,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -5473,7 +5473,7 @@
         {
           "name": "elements",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "elements",
@@ -5482,7 +5482,7 @@
         {
           "name": "last element? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "last_element",
@@ -5491,7 +5491,7 @@
         {
           "name": "size (unlimited)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "size",
@@ -5500,7 +5500,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -5509,7 +5509,7 @@
         {
           "name": "count",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -5518,7 +5518,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -5527,7 +5527,7 @@
         {
           "name": "number unwritten",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number_unwritten",
@@ -5646,7 +5646,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -5655,7 +5655,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -5664,7 +5664,7 @@
         {
           "name": "number to read (-1, available)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_to_read",
@@ -5673,7 +5673,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -5682,7 +5682,7 @@
         {
           "name": "elements",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "elements",
@@ -5691,7 +5691,7 @@
         {
           "name": "last element?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "last_element",
@@ -5700,7 +5700,7 @@
         {
           "name": "count",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -6121,7 +6121,7 @@
         {
           "name": "id",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "id_",
@@ -6130,7 +6130,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -6235,7 +6235,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -6244,7 +6244,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -6253,7 +6253,7 @@
         {
           "name": "ack id (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ack_id",
@@ -6262,7 +6262,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -6283,7 +6283,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -6292,7 +6292,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -6301,7 +6301,7 @@
         {
           "name": "ack id (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "ack_id",
@@ -6310,7 +6310,7 @@
         {
           "name": "abort (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "abort",
@@ -6319,7 +6319,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -6328,7 +6328,7 @@
         {
           "name": "aborted?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "aborted",
@@ -6610,7 +6610,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -6619,7 +6619,7 @@
         {
           "name": "event registration refnum",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "event_registration_refnum",
@@ -6640,7 +6640,7 @@
         {
           "name": "channel",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel",
@@ -6649,7 +6649,7 @@
         {
           "name": "number of event structures",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_event_structures",
@@ -6658,7 +6658,7 @@
         {
           "name": "event registration refnums",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "event_registration_refnums",
@@ -7305,7 +7305,7 @@
         {
           "name": "Actor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor",
@@ -7314,7 +7314,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7323,7 +7323,7 @@
         {
           "name": "Open Actor Core front panel? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_actor_core_front_panel",
@@ -7332,7 +7332,7 @@
         {
           "name": "Debug Alias",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "debug_alias",
@@ -7341,7 +7341,7 @@
         {
           "name": "Actor's Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actors_enqueuer",
@@ -7350,7 +7350,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7371,7 +7371,7 @@
         {
           "name": "Caller Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "caller_actor_in",
@@ -7380,7 +7380,7 @@
         {
           "name": "Nested Actor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "nested_actor",
@@ -7389,7 +7389,7 @@
         {
           "name": "Auto-stop? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_stop",
@@ -7398,7 +7398,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7407,7 +7407,7 @@
         {
           "name": "Open Actor Core front panel? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_actor_core_front_panel",
@@ -7416,7 +7416,7 @@
         {
           "name": "Debug Alias",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "debug_alias",
@@ -7425,7 +7425,7 @@
         {
           "name": "Caller Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "caller_actor_out",
@@ -7434,7 +7434,7 @@
         {
           "name": "Nested Actor's Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "nested_actors_enqueuer",
@@ -7443,7 +7443,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7464,7 +7464,7 @@
         {
           "name": "Actor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor",
@@ -7473,7 +7473,7 @@
         {
           "name": "Caller Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "caller_enqueuer",
@@ -7494,7 +7494,7 @@
         {
           "name": "Actor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor",
@@ -7503,7 +7503,7 @@
         {
           "name": "Self Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "self_enqueuer",
@@ -7524,7 +7524,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7533,7 +7533,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7542,7 +7542,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7563,7 +7563,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7572,7 +7572,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7581,7 +7581,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7602,7 +7602,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7611,7 +7611,7 @@
         {
           "name": "final error code",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "final_error_code",
@@ -7620,7 +7620,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7629,7 +7629,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7650,7 +7650,7 @@
         {
           "name": "Last Ack",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "last_ack",
@@ -7659,7 +7659,7 @@
         {
           "name": "Actor",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor",
@@ -7680,7 +7680,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -7689,7 +7689,7 @@
         {
           "name": "Count",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "count",
@@ -7710,7 +7710,7 @@
         {
           "name": "Last Ack",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "last_ack",
@@ -7719,7 +7719,7 @@
         {
           "name": "Caller-to-Actor Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "caller_to_actor_enqueuer",
@@ -7740,7 +7740,7 @@
         {
           "name": "Last Ack",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "last_ack",
@@ -7749,7 +7749,7 @@
         {
           "name": "error report",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_report",
@@ -7770,7 +7770,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7779,7 +7779,7 @@
         {
           "name": "Error From Sender",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_from_sender",
@@ -7788,7 +7788,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -7797,7 +7797,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7806,7 +7806,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7827,7 +7827,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7836,7 +7836,7 @@
         {
           "name": "Messages Array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "messages_array",
@@ -7845,7 +7845,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -7854,7 +7854,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7863,7 +7863,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7884,7 +7884,7 @@
         {
           "name": "# Copies (0 = infinite repeat)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "_copies",
@@ -7893,7 +7893,7 @@
         {
           "name": "Message Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer",
@@ -7902,7 +7902,7 @@
         {
           "name": "Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message",
@@ -7911,7 +7911,7 @@
         {
           "name": "Milliseconds To Wait",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "milliseconds_to_wait",
@@ -7920,7 +7920,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7929,7 +7929,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -7938,7 +7938,7 @@
         {
           "name": "Delivery Notifier",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "delivery_notifier",
@@ -7947,7 +7947,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7968,7 +7968,7 @@
         {
           "name": "Destination",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "destination",
@@ -7977,7 +7977,7 @@
         {
           "name": "Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message",
@@ -7986,7 +7986,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -7995,7 +7995,7 @@
         {
           "name": "Self-Addressed Message",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "self_addressed_message",
@@ -8016,7 +8016,7 @@
         {
           "name": "Self-Addressed Message in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "self_addressed_message_in",
@@ -8025,7 +8025,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8034,7 +8034,7 @@
         {
           "name": "Self-Addressed Message out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "self_addressed_message_out",
@@ -8043,7 +8043,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8064,7 +8064,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -8073,7 +8073,7 @@
         {
           "name": "Message Enqueuer in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer_in",
@@ -8082,7 +8082,7 @@
         {
           "name": "Original Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "original_message",
@@ -8091,7 +8091,7 @@
         {
           "name": "timeout in ms (-1)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
@@ -8100,7 +8100,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8109,7 +8109,7 @@
         {
           "name": "Message Enqueuer out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "message_enqueuer_out",
@@ -8118,7 +8118,7 @@
         {
           "name": "Reply",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reply",
@@ -8127,7 +8127,7 @@
         {
           "name": "timed out?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
@@ -8136,7 +8136,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8157,7 +8157,7 @@
         {
           "name": "Message Priority (Normal)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_priority",
@@ -8166,7 +8166,7 @@
         {
           "name": "Self Enqueuer in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "self_enqueuer_in",
@@ -8175,7 +8175,7 @@
         {
           "name": "Nested Actor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "nested_actor",
@@ -8184,7 +8184,7 @@
         {
           "name": "Auto-stop? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_stop",
@@ -8193,7 +8193,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8202,7 +8202,7 @@
         {
           "name": "Open Actor Core front panel? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_actor_core_front_panel",
@@ -8211,7 +8211,7 @@
         {
           "name": "Self Enqueuer out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "self_enqueuer_out",
@@ -8220,7 +8220,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8264,7 +8264,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8273,7 +8273,7 @@
         {
           "name": "Actor-To-Caller Enqueuer",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_to_caller_enqueuer",
@@ -8282,7 +8282,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8291,7 +8291,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8300,7 +8300,7 @@
         {
           "name": "Actor-To-Self Enqueuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_to_self_enqueuer",
@@ -8309,7 +8309,7 @@
         {
           "name": "Actor-To-Self Dequeuer",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_to_self_dequeuer",
@@ -8318,7 +8318,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8339,7 +8339,7 @@
         {
           "name": "Custom Action",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "custom_action",
@@ -8348,7 +8348,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8369,7 +8369,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8378,7 +8378,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8387,7 +8387,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8396,7 +8396,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8471,7 +8471,7 @@
         {
           "name": "Reply Message",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reply_message",
@@ -8480,7 +8480,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8489,7 +8489,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8498,7 +8498,7 @@
         {
           "name": "Reply",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "reply",
@@ -8507,7 +8507,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8516,7 +8516,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8537,7 +8537,7 @@
         {
           "name": "Message in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "message_in",
@@ -8558,7 +8558,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8567,7 +8567,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8576,7 +8576,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8585,7 +8585,7 @@
         {
           "name": "stop actor?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "stop_actor",
@@ -8594,7 +8594,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8615,7 +8615,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8624,7 +8624,7 @@
         {
           "name": "Last Ack",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "last_ack",
@@ -8633,7 +8633,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -8642,7 +8642,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8651,7 +8651,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8672,7 +8672,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8681,7 +8681,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",
@@ -8690,7 +8690,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -8711,7 +8711,7 @@
         {
           "name": "Actor in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "actor_in",
@@ -8720,7 +8720,7 @@
         {
           "name": "final error code",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "final_error_code",
@@ -8729,7 +8729,7 @@
         {
           "name": "Actor out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actor_out",

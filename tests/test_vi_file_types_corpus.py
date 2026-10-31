@@ -62,8 +62,13 @@ def _describe(path: Path) -> str:
 @pytest.mark.parametrize(
     ("path", "signature", "lvnet_header"),
     [
-        (_VIM, _VIM_SIGNATURE, "vi Create Annotations.vim :"),
-        (_VIT, _VIT_SIGNATURE, "vi testExample.vit :"),
+        (
+            _VIM,
+            _VIM_SIGNATURE,
+            "vi NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+            "Create Annotations.vim :",
+        ),
+        (_VIT, _VIT_SIGNATURE, "vi TemplateTestCase.lvclass:testExample.vit :"),
     ],
 )
 def test_vim_and_vit_read_in_every_view(
@@ -128,9 +133,11 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
 def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None:
     text = _describe(_CALLER)
 
-    # The call is to Create Annotations.vim, with the terminal names of that VI.
+    # The call is to Create Annotations.vim, named by its own LIBN chain, with
+    # the terminal names of that VI.
     assert (
-        "  Create Annotations.vim: (annotation keys: [String], annotation "
+        "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Create Annotations.vim: (annotation keys: [String], annotation "
         "typedef: cluster{key, value}, error in: Error) -> (annotations array: "
         "[cluster{key, value}], error out: Error)"
     ) in text.splitlines()
@@ -144,7 +151,8 @@ def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None
 
     # A neighbouring ordinary subVI call is unchanged.
     assert (
-        "  Session Reservation Keys.vi: () -> (session reservation keys: [String])"
+        "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Session Reservation Keys.vi: () -> (session reservation keys: [String])"
     ) in text.splitlines()
     assert (
         "    NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
@@ -157,8 +165,12 @@ def test_caller_of_a_malleable_vi_lists_the_vi_in_lvnet_and_json() -> None:
     module = build_netlist_from_graph(graph, key)
 
     lvnet = render_lvnet(module, display_name=graph.vi_display_name(key))
-    assert "    subVI   Create Annotations.vim        ; ./" in lvnet
-    assert "subVI Create_Annotations_43 : Create Annotations.vim" in lvnet
+    qualified = (
+        "NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
+        "Create Annotations.vim"
+    )
+    assert f"    subVI   {qualified} ; ./" in lvnet
+    assert f"subVI Create_Annotations_43 : {qualified}" in lvnet
     assert "Instance" not in lvnet
     assert "Instance" not in str(netlist_to_dict(module))
 
@@ -167,11 +179,12 @@ def test_instances_of_one_malleable_vi_in_a_caller_share_its_file() -> None:
     text = _describe(_MANY_INSTANCES_CALLER)
     dependencies = text.split("## Dependencies\n")[1].split("\n\n")[0].splitlines()
 
-    assert [line.split(":")[0].strip() for line in dependencies] == [
-        "Assert Connections.vim",
-        "Create Connection Cluster.vim",
-        "NI Session Management niDigital.lvlib",
+    assert [line.strip().split(": (")[0] for line in dependencies] == [
+        "MeasurementServerTests.lvlib:Assert Connections.vim",
+        "MeasurementServerTests.lvlib:Create Connection Cluster.vim",
+        "MeasurementServerTests.lvlib:"
         "One Session Two Pins One Instrument Two Sites - Digital.vi",
+        "NI Session Management niDigital.lvlib:Get Connections.vi",
     ]
     assert "Instance:" not in text
 

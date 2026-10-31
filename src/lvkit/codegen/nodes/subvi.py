@@ -9,7 +9,7 @@ from typing import NoReturn
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     CatalogPaneMismatch,
@@ -36,7 +36,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane
-from . import accessor_call, error_vi, method_call
+from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
 
 
@@ -79,6 +79,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
 
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
+
+    # A catalog VI the generator writes from the graph.
+    if vilib_vi and vilib_vi.op:
+        return vilib_op.generate(node, ctx, vilib_vi)
 
     # Check for inline replacement first
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:
@@ -195,15 +199,15 @@ def _generate_inline(
         if vt.index is None:
             continue
         param_key = vt.python_param or to_var_name(vt.name)
-        if vt.direction == "in":
+        if vt.direction == TerminalDirection.INPUT:
             vilib_inputs[vt.index] = param_key
-        elif vt.direction == "out":
+        elif vt.direction == TerminalDirection.OUTPUT:
             vilib_outputs[vt.index] = param_key
 
     # Build default values from the catalog's documented terminal defaults
     vilib_defaults: dict[str, str] = {}
     for vt in vilib_vi.terminals:
-        if vt.direction == "in" and vt.default is not None:
+        if vt.direction == TerminalDirection.INPUT and vt.default is not None:
             param_key = vt.python_param or to_var_name(vt.name)
             vilib_defaults[param_key] = terminal_default_expression(vt.default, vt.type)
 
@@ -437,7 +441,9 @@ def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int, str]:
     return {
         t.index: terminal_default_expression(t.default, t.type)
         for t in vilib_vi.terminals
-        if t.direction == "in" and t.index is not None and t.default is not None
+        if t.direction == TerminalDirection.INPUT
+        and t.index is not None
+        and t.default is not None
     }
 
 
@@ -454,7 +460,7 @@ def _build_arguments(
 
     vilib_inputs = _build_vilib_terminal_map(
         vilib_vi,
-        "in",
+        TerminalDirection.INPUT,
     )
     catalog_defaults = _catalog_defaults(vilib_vi)
 
@@ -545,7 +551,7 @@ def _resolve_enum_value(
     # Find this terminal in vilib
     vilib_term = None
     for vt in vilib_vi.terminals:
-        if vt.index == term_index and vt.direction == "in":
+        if vt.index == term_index and vt.direction == TerminalDirection.INPUT:
             vilib_term = vt
             break
 
@@ -591,7 +597,7 @@ def _resolve_enum_value(
 
 def _build_vilib_terminal_map(
     vilib_vi: VIEntry | None,
-    direction: str,
+    direction: TerminalDirection,
 ) -> dict[int, str]:
     """Build index → terminal name mapping from vilib VI.
 
@@ -616,7 +622,7 @@ def _build_output_bindings(
 
     vilib_outputs = _build_vilib_terminal_map(
         vilib_vi,
-        "out",
+        TerminalDirection.OUTPUT,
     )
 
     bindings = {}

@@ -5,38 +5,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "Automation Refnum",
           "type": "Refnum",
           "refnum_type": "auto"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "open new instance (false)",
           "type": "Boolean"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "machine name",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "Automation Refnum",
           "type": "Refnum",
           "refnum_type": "auto"
@@ -50,48 +50,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "cluster"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "variant",
           "type": "polymorphic"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "type",
           "type": "polymorphic"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "polymorphic"
         }
       ],
       "alternative_terminal_sets": [
         [
-          {"index": 0, "direction": "in", "terminal": 0},
-          {"index": 1, "direction": "out", "terminal": 3},
-          {"index": 2, "direction": "in", "terminal": 8},
-          {"index": 3, "direction": "in", "terminal": 9},
-          {"index": 4, "direction": "out", "terminal": 11}
+          {"index": 0, "direction": "input", "terminal": 0},
+          {"index": 1, "direction": "output", "terminal": 3},
+          {"index": 2, "direction": "input", "terminal": 8},
+          {"index": 3, "direction": "input", "terminal": 9},
+          {"index": 4, "direction": "output", "terminal": 11}
         ]
       ],
-      "python_code": {
-        "error_out": "in_0",
-        "data": "in_8"
-      },
+      "op": "VARIANT_TO_DATA",
       "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/variant-to-data.html",
@@ -102,13 +99,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "variant",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "anything",
           "type": "polymorphic"
         }

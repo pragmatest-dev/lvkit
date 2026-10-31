@@ -81,13 +81,13 @@ def test_resolver_terminals() -> None:
     to_string = resolver.resolve(prim_id=1710)
     assert to_ip is not None and to_string is not None
     assert [(t.index, t.direction, t.name, t.type) for t in to_ip.terminals] == [
-        (0, "out", "net_address", "NumUInt32"),
-        (1, "in", "name", "String"),
+        (0, "output", "net_address", "NumUInt32"),
+        (1, "input", "name", "String"),
     ]
     assert [(t.index, t.direction, t.name, t.type) for t in to_string.terminals] == [
-        (0, "out", "name", "String"),
-        (1, "in", "dot_notation", "Boolean"),
-        (2, "in", "net_address", "NumUInt32"),
+        (0, "output", "name", "String"),
+        (1, "input", "dot_notation", "Boolean"),
+        (2, "input", "net_address", "NumUInt32"),
     ]
 
 

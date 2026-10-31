@@ -5,39 +5,39 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "path in",
           "type": "Path",
           "hidden": true
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "path out",
           "type": "Path",
           "hidden": true
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "",
           "type": "Void"
         }

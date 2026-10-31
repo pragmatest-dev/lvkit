@@ -121,7 +121,7 @@ def _entry(*terminals: VITerminal) -> VIEntry:
 
 
 def test_a_catalog_terminal_without_an_index_takes_its_controls_slot() -> None:
-    entry = _entry(VITerminal(name="path", direction="in"))
+    entry = _entry(VITerminal(name="path", direction="input"))
     pane = [
         _terminal(3, "path", "input", "Path"),
         _terminal(1, "other", "input", "Path"),
@@ -133,8 +133,8 @@ def test_a_catalog_terminal_without_an_index_takes_its_controls_slot() -> None:
 
 def test_an_input_the_catalog_gives_no_default_takes_the_saved_default() -> None:
     entry = _entry(
-        VITerminal(name="count", direction="in", index=0),
-        VITerminal(name="size", direction="in", index=1, default=7),
+        VITerminal(name="count", direction="input", index=0),
+        VITerminal(name="size", direction="input", index=1, default=7),
     )
     pane = [
         _terminal(0, "count", "input", "NumInt32", default=5),
@@ -146,8 +146,8 @@ def test_an_input_the_catalog_gives_no_default_takes_the_saved_default() -> None
 
 def test_an_index_or_type_that_disagrees_with_the_pane_is_reported() -> None:
     entry = _entry(
-        VITerminal(name="path", direction="in", index=2),
-        VITerminal(name="flag", direction="in", index=1, type="Boolean"),
+        VITerminal(name="path", direction="input", index=2),
+        VITerminal(name="flag", direction="input", index=1, type="Boolean"),
     )
     pane = [
         _terminal(3, "path", "input", "Path"),
@@ -163,7 +163,7 @@ def test_an_index_or_type_that_disagrees_with_the_pane_is_reported() -> None:
 
 
 def test_the_catalog_vocabulary_for_a_number_agrees_with_any_numeric_control() -> None:
-    entry = _entry(VITerminal(name="n", direction="in", index=0, type="stdNum"))
+    entry = _entry(VITerminal(name="n", direction="input", index=0, type="stdNum"))
     checked = check_against_pane(entry, [_terminal(0, "n", "input", "NumInt16")])
     assert checked.mismatches == []
 
@@ -193,7 +193,7 @@ def test_a_disagreement_is_a_terminal_mapping_gap_with_its_reason() -> None:
     ],
 )
 def test_a_numeric_catalog_terminal_matches_every_number_type(pane_type: str) -> None:
-    entry = _entry(VITerminal(name="x", direction="in", index=0, type="stdNum"))
+    entry = _entry(VITerminal(name="x", direction="input", index=0, type="stdNum"))
     checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
     assert checked.mismatches == []
 
@@ -202,6 +202,6 @@ def test_a_numeric_catalog_terminal_matches_every_number_type(pane_type: str) ->
 def test_a_numeric_catalog_terminal_disagrees_with_a_non_number(
     pane_type: str,
 ) -> None:
-    entry = _entry(VITerminal(name="x", direction="in", index=0, type="stdNum"))
+    entry = _entry(VITerminal(name="x", direction="input", index=0, type="stdNum"))
     checked = check_against_pane(entry, [_terminal(0, "x", "input", pane_type)])
     assert len(checked.mismatches) == 1

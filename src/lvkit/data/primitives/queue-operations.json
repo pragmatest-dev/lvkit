@@ -7,52 +7,52 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "max_queue_size",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String",
           "default": ""
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element_data_type",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "create_if_not_found",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "created",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -69,38 +69,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "force_destroy",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_name",
           "type": "String"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "remaining_elements",
           "type": "Array"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -116,68 +116,68 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "return_elements",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "max_queue_size",
           "type": "NumInt32"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "elements",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_name",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "elements_in_queue",
           "type": "NumInt32"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "pending_remove",
           "type": "NumInt32"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "pending_insert",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -193,44 +193,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -245,46 +245,46 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout in ms (-1)",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue out",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "String"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -300,44 +300,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -354,31 +354,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "remaining_elements",
           "type": "Array"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -395,44 +395,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "Cluster"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "queue_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -447,45 +447,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "queue",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "queue out",
           "type": "Refnum",
           "refnum_type": "queue"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow element",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "overflow?",
           "type": "Boolean"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

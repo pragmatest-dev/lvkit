@@ -5,31 +5,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "Variant",
           "type": "LVVariant"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "data string",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "type string",
           "type": "Array"
         }
@@ -43,19 +43,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "Variant",
           "type": "LVVariant"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "type string",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "data string",
           "type": "String"
         }
@@ -69,43 +69,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "replaced",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "Variant out",
           "type": "LVVariant"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "value",
           "type": "Cluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "Variant",
           "type": "LVVariant"
         }
@@ -119,51 +119,51 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "attribute_value",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "found",
           "type": "polymorphic"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "duplicate_variant",
           "type": "polymorphic"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "default_value",
           "type": "polymorphic",
           "default_behavior": "empty variant"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "attribute_name",
           "type": "polymorphic",
         "default_behavior": "all attributes"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "variant",
           "type": "polymorphic"
         }
@@ -183,37 +183,37 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "found",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "Variant out",
           "type": "LVVariant"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "name (all attributes)",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "Variant",
           "type": "LVVariant"
         }

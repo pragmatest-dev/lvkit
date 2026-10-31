@@ -5,13 +5,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "sorted_array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -29,13 +29,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "cluster",
           "type": "Cluster"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -48,13 +48,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "cluster",
           "type": "Cluster"
         }
@@ -69,13 +69,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "size",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array"
         }
@@ -88,13 +88,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "reversed_array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -112,26 +112,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "index_of_element",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "start_index",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "polymorphic"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array"
         }
@@ -149,13 +149,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "transposed_array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -172,19 +172,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "y value",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "fractional index or x",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "array of numbers or points",
           "type": "Array"
         }
@@ -198,19 +198,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "array (rotated)",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "n",
           "type": "NumInt32"
         }
@@ -226,25 +226,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "second subarray",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "first subarray",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "polymorphic"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "polymorphic"
         }
@@ -260,25 +260,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "fractional index or x",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "start index (0)",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "threshold y",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "array of numbers or points",
           "type": "Array"
         }
@@ -291,13 +291,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "appended array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "NumFloat64"
         }
@@ -310,19 +310,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "Void"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32"
         }
@@ -335,25 +335,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "subarray",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "NumInt32",
           "default_behavior": "rest"
@@ -367,19 +367,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "interleaved array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }
@@ -392,19 +392,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "decimated array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "decimated array",
           "type": "Array"
         }
@@ -417,19 +417,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "initialized array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "NumInt32"
         }
@@ -442,19 +442,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "NumInt32"
         }
@@ -467,25 +467,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32"
         }
@@ -498,26 +498,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "Void"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32",
           "default_behavior": "append"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "NumFloat64"
         }
@@ -530,32 +530,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "deleted portion",
           "type": "Void"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "NumInt32",
           "default_behavior": "one element"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "array w/ subset deleted",
           "type": "Void"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32",
           "default_behavior": "last element"

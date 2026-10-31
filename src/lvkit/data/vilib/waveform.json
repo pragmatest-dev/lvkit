@@ -15,7 +15,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -24,7 +24,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -33,7 +33,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -42,7 +42,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -51,7 +51,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -60,7 +60,7 @@
         {
           "name": "output waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_waveform",
@@ -81,7 +81,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -90,7 +90,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -99,7 +99,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -108,7 +108,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -117,7 +117,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -138,7 +138,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -147,7 +147,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -156,7 +156,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -165,7 +165,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -174,7 +174,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -183,7 +183,7 @@
         {
           "name": "replaced",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "replaced",
@@ -192,7 +192,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -213,7 +213,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -222,7 +222,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -231,7 +231,7 @@
         {
           "name": "default value (empty Variant)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
@@ -240,7 +240,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -249,7 +249,7 @@
         {
           "name": "duplicate waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duplicate_waveform",
@@ -258,7 +258,7 @@
         {
           "name": "names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "names",
@@ -267,7 +267,7 @@
         {
           "name": "values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "values",
@@ -276,7 +276,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -364,7 +364,7 @@
         {
           "name": "compress digital (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "compress_digital",
@@ -373,7 +373,7 @@
         {
           "name": "analog waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "analog_waveform",
@@ -382,7 +382,7 @@
         {
           "name": "resolution (16 bit)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -391,7 +391,7 @@
         {
           "name": "full-scale range (pk-pk)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -400,7 +400,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -409,7 +409,7 @@
         {
           "name": "data format (offset binary)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_format",
@@ -418,7 +418,7 @@
         {
           "name": "digital waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_waveform",
@@ -427,7 +427,7 @@
         {
           "name": "resolution (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -436,7 +436,7 @@
         {
           "name": "full-scale range (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -445,7 +445,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -466,7 +466,7 @@
         {
           "name": "compress digital (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "compress_digital",
@@ -475,7 +475,7 @@
         {
           "name": "analog waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "analog_waveform",
@@ -484,7 +484,7 @@
         {
           "name": "resolution (16 bit)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -493,7 +493,7 @@
         {
           "name": "full scale range (pk-pk)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -502,7 +502,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -511,7 +511,7 @@
         {
           "name": "data format (offset binary)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_format",
@@ -520,7 +520,7 @@
         {
           "name": "digital data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data",
@@ -529,7 +529,7 @@
         {
           "name": "resolution (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -538,7 +538,7 @@
         {
           "name": "full-scale range (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -547,7 +547,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -629,7 +629,7 @@
         {
           "name": "digital waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_waveform",
@@ -638,7 +638,7 @@
         {
           "name": "full-scale range (pk-pk)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -647,7 +647,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -656,7 +656,7 @@
         {
           "name": "data format (offset binary)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_format",
@@ -665,7 +665,7 @@
         {
           "name": "analog waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "analog_waveform",
@@ -674,7 +674,7 @@
         {
           "name": "resolution (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -683,7 +683,7 @@
         {
           "name": "full-scale range (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -692,7 +692,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -713,7 +713,7 @@
         {
           "name": "digital table",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_table",
@@ -722,7 +722,7 @@
         {
           "name": "full-scale range (pk-pk)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -731,7 +731,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -740,7 +740,7 @@
         {
           "name": "data format (offset binary)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_format",
@@ -749,7 +749,7 @@
         {
           "name": "analog waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "analog_waveform",
@@ -758,7 +758,7 @@
         {
           "name": "resolution (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
@@ -767,7 +767,7 @@
         {
           "name": "full-scale range (out)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
@@ -776,7 +776,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -845,7 +845,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -854,7 +854,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -863,7 +863,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -872,7 +872,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -881,7 +881,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -902,7 +902,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -911,7 +911,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -920,7 +920,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -929,7 +929,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -938,7 +938,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -959,7 +959,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -968,7 +968,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -977,7 +977,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -986,7 +986,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -995,7 +995,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1016,7 +1016,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1025,7 +1025,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1034,7 +1034,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1043,7 +1043,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1052,7 +1052,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1073,7 +1073,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1082,7 +1082,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1091,7 +1091,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1100,7 +1100,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1109,7 +1109,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1130,7 +1130,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1139,7 +1139,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1148,7 +1148,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1157,7 +1157,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1166,7 +1166,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1187,7 +1187,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1196,7 +1196,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1205,7 +1205,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1214,7 +1214,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1223,7 +1223,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1244,7 +1244,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1253,7 +1253,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1262,7 +1262,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1271,7 +1271,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1280,7 +1280,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1301,7 +1301,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1310,7 +1310,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1319,7 +1319,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1328,7 +1328,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1337,7 +1337,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1358,7 +1358,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1367,7 +1367,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1376,7 +1376,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1385,7 +1385,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1394,7 +1394,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1415,7 +1415,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1424,7 +1424,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1433,7 +1433,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1442,7 +1442,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1451,7 +1451,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1472,7 +1472,7 @@
         {
           "name": "waveform array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_array",
@@ -1481,7 +1481,7 @@
         {
           "name": "channel name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "channel_name",
@@ -1490,7 +1490,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1499,7 +1499,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -1508,7 +1508,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1572,7 +1572,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1581,7 +1581,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1590,7 +1590,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1599,7 +1599,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1608,7 +1608,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1629,7 +1629,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1638,7 +1638,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1647,7 +1647,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1656,7 +1656,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1665,7 +1665,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1686,7 +1686,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1695,7 +1695,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1704,7 +1704,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1713,7 +1713,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1722,7 +1722,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1743,7 +1743,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1752,7 +1752,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1761,7 +1761,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1770,7 +1770,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1779,7 +1779,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1800,7 +1800,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1809,7 +1809,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1818,7 +1818,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1827,7 +1827,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1836,7 +1836,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1857,7 +1857,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1866,7 +1866,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1875,7 +1875,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1884,7 +1884,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1893,7 +1893,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1914,7 +1914,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1923,7 +1923,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1932,7 +1932,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1941,7 +1941,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -1950,7 +1950,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -1971,7 +1971,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -1980,7 +1980,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -1989,7 +1989,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -1998,7 +1998,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2007,7 +2007,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2076,7 +2076,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2085,7 +2085,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2094,7 +2094,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2103,7 +2103,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2112,7 +2112,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2133,7 +2133,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2142,7 +2142,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2151,7 +2151,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2160,7 +2160,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2169,7 +2169,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2190,7 +2190,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2199,7 +2199,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2208,7 +2208,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2217,7 +2217,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2226,7 +2226,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2247,7 +2247,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2256,7 +2256,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2265,7 +2265,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2274,7 +2274,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2283,7 +2283,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2304,7 +2304,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2313,7 +2313,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2322,7 +2322,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2331,7 +2331,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2340,7 +2340,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2361,7 +2361,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2370,7 +2370,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2379,7 +2379,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2388,7 +2388,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2397,7 +2397,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2418,7 +2418,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2427,7 +2427,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2436,7 +2436,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2445,7 +2445,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2454,7 +2454,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2475,7 +2475,7 @@
         {
           "name": "waveforms in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_in",
@@ -2484,7 +2484,7 @@
         {
           "name": "index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "index",
@@ -2493,7 +2493,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2502,7 +2502,7 @@
         {
           "name": "waveforms out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveforms_out",
@@ -2511,7 +2511,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2584,7 +2584,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -2593,7 +2593,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -2602,7 +2602,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -2611,7 +2611,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -2620,7 +2620,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -2629,7 +2629,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2638,7 +2638,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -2647,7 +2647,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -2656,7 +2656,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -2665,7 +2665,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2686,7 +2686,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -2695,7 +2695,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -2704,7 +2704,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -2713,7 +2713,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -2722,7 +2722,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -2731,7 +2731,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2740,7 +2740,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -2749,7 +2749,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -2758,7 +2758,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -2767,7 +2767,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2788,7 +2788,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -2797,7 +2797,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -2806,7 +2806,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -2815,7 +2815,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -2824,7 +2824,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -2833,7 +2833,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2842,7 +2842,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -2851,7 +2851,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -2860,7 +2860,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -2869,7 +2869,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2890,7 +2890,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -2899,7 +2899,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -2908,7 +2908,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -2917,7 +2917,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -2926,7 +2926,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -2935,7 +2935,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -2944,7 +2944,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -2953,7 +2953,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -2962,7 +2962,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -2971,7 +2971,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -2992,7 +2992,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3001,7 +3001,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -3010,7 +3010,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3019,7 +3019,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -3028,7 +3028,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3037,7 +3037,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3046,7 +3046,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3055,7 +3055,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -3064,7 +3064,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -3073,7 +3073,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3094,7 +3094,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3103,7 +3103,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -3112,7 +3112,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3121,7 +3121,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -3130,7 +3130,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3139,7 +3139,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3148,7 +3148,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3157,7 +3157,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -3166,7 +3166,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -3175,7 +3175,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3196,7 +3196,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3205,7 +3205,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -3214,7 +3214,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3223,7 +3223,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -3232,7 +3232,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3241,7 +3241,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3250,7 +3250,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3259,7 +3259,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -3268,7 +3268,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -3277,7 +3277,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3298,7 +3298,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3307,7 +3307,7 @@
         {
           "name": "start/duration format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "startduration_format",
@@ -3316,7 +3316,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3325,7 +3325,7 @@
         {
           "name": "start samples/time",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_samplestime",
@@ -3334,7 +3334,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3343,7 +3343,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3352,7 +3352,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3361,7 +3361,7 @@
         {
           "name": "actual start samples/time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_start_samplestime",
@@ -3370,7 +3370,7 @@
         {
           "name": "actual duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_duration",
@@ -3379,7 +3379,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3400,7 +3400,7 @@
         {
           "name": "digital data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data",
@@ -3409,7 +3409,7 @@
         {
           "name": "start",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start",
@@ -3418,7 +3418,7 @@
         {
           "name": "number of samples",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number_of_samples",
@@ -3427,7 +3427,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3436,7 +3436,7 @@
         {
           "name": "digital data subset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_subset",
@@ -3445,7 +3445,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3521,7 +3521,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3530,7 +3530,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3539,7 +3539,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3548,7 +3548,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3557,7 +3557,7 @@
         {
           "name": "tf",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tf",
@@ -3566,7 +3566,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3587,7 +3587,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3596,7 +3596,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3605,7 +3605,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3614,7 +3614,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3623,7 +3623,7 @@
         {
           "name": "tf",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tf",
@@ -3632,7 +3632,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3653,7 +3653,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3662,7 +3662,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3671,7 +3671,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3680,7 +3680,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3689,7 +3689,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3698,7 +3698,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3774,7 +3774,7 @@
         {
           "name": "open interval? (T)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "open_interval",
@@ -3783,7 +3783,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3792,7 +3792,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3801,7 +3801,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3810,7 +3810,7 @@
         {
           "name": "duration",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duration",
@@ -3819,7 +3819,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3883,7 +3883,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3892,7 +3892,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -3901,7 +3901,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3910,7 +3910,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3919,7 +3919,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3940,7 +3940,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -3949,7 +3949,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -3958,7 +3958,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -3967,7 +3967,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -3976,7 +3976,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -3997,7 +3997,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4006,7 +4006,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4015,7 +4015,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4024,7 +4024,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4033,7 +4033,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4054,7 +4054,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4063,7 +4063,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4072,7 +4072,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4081,7 +4081,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4090,7 +4090,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4111,7 +4111,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4120,7 +4120,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4129,7 +4129,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4138,7 +4138,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4147,7 +4147,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4168,7 +4168,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4177,7 +4177,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4186,7 +4186,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4195,7 +4195,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4204,7 +4204,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4225,7 +4225,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4234,7 +4234,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4243,7 +4243,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4252,7 +4252,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4261,7 +4261,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4282,7 +4282,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4291,7 +4291,7 @@
         {
           "name": "scale factor",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale_factor",
@@ -4300,7 +4300,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4309,7 +4309,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4318,7 +4318,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4415,7 +4415,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4424,7 +4424,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4433,7 +4433,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4442,7 +4442,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4451,7 +4451,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4460,7 +4460,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4469,7 +4469,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4478,7 +4478,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4487,7 +4487,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4508,7 +4508,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4517,7 +4517,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4526,7 +4526,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4535,7 +4535,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4544,7 +4544,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4553,7 +4553,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4562,7 +4562,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4571,7 +4571,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4580,7 +4580,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4601,7 +4601,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4610,7 +4610,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4619,7 +4619,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4628,7 +4628,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4637,7 +4637,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4646,7 +4646,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4655,7 +4655,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4664,7 +4664,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4673,7 +4673,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4694,7 +4694,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4703,7 +4703,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4712,7 +4712,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4721,7 +4721,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4730,7 +4730,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4739,7 +4739,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4748,7 +4748,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4757,7 +4757,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4766,7 +4766,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4787,7 +4787,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4796,7 +4796,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4805,7 +4805,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4814,7 +4814,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4823,7 +4823,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4832,7 +4832,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4841,7 +4841,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4850,7 +4850,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4859,7 +4859,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4880,7 +4880,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4889,7 +4889,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4898,7 +4898,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -4907,7 +4907,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -4916,7 +4916,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -4925,7 +4925,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -4934,7 +4934,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -4943,7 +4943,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -4952,7 +4952,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -4973,7 +4973,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -4982,7 +4982,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -4991,7 +4991,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -5000,7 +5000,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5009,7 +5009,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -5018,7 +5018,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -5027,7 +5027,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -5036,7 +5036,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -5045,7 +5045,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5066,7 +5066,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5075,7 +5075,7 @@
         {
           "name": "Y position format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position_format",
@@ -5084,7 +5084,7 @@
         {
           "name": "Y position",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y_position",
@@ -5093,7 +5093,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5102,7 +5102,7 @@
         {
           "name": "X value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_value",
@@ -5111,7 +5111,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -5120,7 +5120,7 @@
         {
           "name": "actual Y position",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "actual_y_position",
@@ -5129,7 +5129,7 @@
         {
           "name": "Y value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_value",
@@ -5138,7 +5138,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5147,7 +5147,7 @@
         {
           "name": "waveform data value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_data_value",
@@ -5168,7 +5168,7 @@
         {
           "name": "digital data in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_in",
@@ -5177,7 +5177,7 @@
         {
           "name": "Start",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start",
@@ -5186,7 +5186,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5195,7 +5195,7 @@
         {
           "name": "Compressed Index",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "compressed_index",
@@ -5204,7 +5204,7 @@
         {
           "name": "digital data out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_out",
@@ -5213,7 +5213,7 @@
         {
           "name": "Sample Number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "sample_number",
@@ -5222,7 +5222,7 @@
         {
           "name": "digital value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_value",
@@ -5231,7 +5231,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5240,7 +5240,7 @@
         {
           "name": "digital data value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_value",
@@ -5303,7 +5303,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5312,7 +5312,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5321,7 +5321,7 @@
         {
           "name": "X array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_array",
@@ -5330,7 +5330,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5351,7 +5351,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5360,7 +5360,7 @@
         {
           "name": "match transition array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "match_transition_array",
@@ -5369,7 +5369,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5378,7 +5378,7 @@
         {
           "name": "X array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_array",
@@ -5387,7 +5387,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5425,7 +5425,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -5434,7 +5434,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -5443,7 +5443,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -5452,7 +5452,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -5461,7 +5461,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -5482,7 +5482,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -5491,7 +5491,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -5500,7 +5500,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -5509,7 +5509,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -5518,7 +5518,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -5527,7 +5527,7 @@
         {
           "name": "output waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_waveform",
@@ -5548,7 +5548,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -5557,7 +5557,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -5566,7 +5566,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -5575,7 +5575,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5584,7 +5584,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -5593,7 +5593,7 @@
         {
           "name": "replaced",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "replaced",
@@ -5602,7 +5602,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5623,7 +5623,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -5632,7 +5632,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -5641,7 +5641,7 @@
         {
           "name": "default value (empty Variant)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
@@ -5650,7 +5650,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5659,7 +5659,7 @@
         {
           "name": "duplicate waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duplicate_waveform",
@@ -5668,7 +5668,7 @@
         {
           "name": "names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "names",
@@ -5677,7 +5677,7 @@
         {
           "name": "values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "values",
@@ -5686,7 +5686,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5707,7 +5707,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5716,7 +5716,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -5725,7 +5725,7 @@
         {
           "name": "scale",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "scale",
@@ -5734,7 +5734,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5743,7 +5743,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -5752,7 +5752,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5773,7 +5773,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5782,7 +5782,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5791,7 +5791,7 @@
         {
           "name": "normalized waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "normalized_waveform",
@@ -5800,7 +5800,7 @@
         {
           "name": "scale",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "scale",
@@ -5809,7 +5809,7 @@
         {
           "name": "offset",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset",
@@ -5818,7 +5818,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5929,7 +5929,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -5938,7 +5938,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -5947,7 +5947,7 @@
         {
           "name": "max time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "max_time",
@@ -5956,7 +5956,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -5965,7 +5965,7 @@
         {
           "name": "Y max",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_max",
@@ -5974,7 +5974,7 @@
         {
           "name": "Y min",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y_min",
@@ -5983,7 +5983,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -5992,7 +5992,7 @@
         {
           "name": "min time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "min_time",
@@ -6013,7 +6013,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -6022,7 +6022,7 @@
         {
           "name": "compare condition",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "compare_condition",
@@ -6031,7 +6031,7 @@
         {
           "name": "limit",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "limit",
@@ -6040,7 +6040,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6049,7 +6049,7 @@
         {
           "name": "output waveforms",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_waveforms",
@@ -6058,7 +6058,7 @@
         {
           "name": "passed?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "passed",
@@ -6067,7 +6067,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6088,7 +6088,7 @@
         {
           "name": "tolerance (%)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "tolerance",
@@ -6097,7 +6097,7 @@
         {
           "name": "waveform in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_in",
@@ -6106,7 +6106,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -6115,7 +6115,7 @@
         {
           "name": "start index",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "start_index",
@@ -6124,7 +6124,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6133,7 +6133,7 @@
         {
           "name": "indices of fits",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "indices_of_fits",
@@ -6142,7 +6142,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -6151,7 +6151,7 @@
         {
           "name": "index of best fit",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "index_of_best_fit",
@@ -6160,7 +6160,7 @@
         {
           "name": "time of best fit",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_of_best_fit",
@@ -6169,7 +6169,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6178,7 +6178,7 @@
         {
           "name": "time of fits",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_of_fits",
@@ -6277,7 +6277,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6286,7 +6286,7 @@
         {
           "name": "transitions",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "transitions",
@@ -6295,7 +6295,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -6316,7 +6316,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6325,7 +6325,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -6334,7 +6334,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -6343,7 +6343,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -6352,7 +6352,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -6373,7 +6373,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6382,7 +6382,7 @@
         {
           "name": "t0",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "t0",
@@ -6391,7 +6391,7 @@
         {
           "name": "dt",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dt",
@@ -6400,7 +6400,7 @@
         {
           "name": "Y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -6409,7 +6409,7 @@
         {
           "name": "attributes",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "attributes",
@@ -6418,7 +6418,7 @@
         {
           "name": "output waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_waveform",
@@ -6439,7 +6439,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6448,7 +6448,7 @@
         {
           "name": "transitions",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "transitions",
@@ -6457,7 +6457,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -6466,7 +6466,7 @@
         {
           "name": "output waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_waveform",
@@ -6487,7 +6487,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6496,7 +6496,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -6505,7 +6505,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -6514,7 +6514,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6523,7 +6523,7 @@
         {
           "name": "waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "waveform_out",
@@ -6532,7 +6532,7 @@
         {
           "name": "replaced",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "replaced",
@@ -6541,7 +6541,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -6562,7 +6562,7 @@
         {
           "name": "waveform",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "waveform",
@@ -6571,7 +6571,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -6580,7 +6580,7 @@
         {
           "name": "default value (empty Variant)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
@@ -6589,7 +6589,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -6598,7 +6598,7 @@
         {
           "name": "duplicate waveform",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duplicate_waveform",
@@ -6607,7 +6607,7 @@
         {
           "name": "names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "names",
@@ -6616,7 +6616,7 @@
         {
           "name": "values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "values",
@@ -6625,7 +6625,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7280,7 +7280,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -7289,7 +7289,7 @@
         {
           "name": "Digital Data In",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_in",
@@ -7298,7 +7298,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -7307,7 +7307,7 @@
         {
           "name": "Digital Data Out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data_out",
@@ -7328,7 +7328,7 @@
         {
           "name": "digital waveform out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_waveform_out",
@@ -7385,7 +7385,7 @@
         {
           "name": "digital data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "digital_data",

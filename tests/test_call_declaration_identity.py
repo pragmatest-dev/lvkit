@@ -14,6 +14,7 @@ from lvkit.graph.loading import file_qualified_name
 from lvkit.graph.models import VINode
 from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
+from lvkit.graph.netlist_json import netlist_to_dict
 from lvkit.graph.node_kinds import NodeType
 from tests.corpus_graphs import load_corpus_vi
 
@@ -21,14 +22,12 @@ _SAMPLES = Path(".lvkit/cache/samples").resolve()
 
 
 def test_file_name_is_the_last_component() -> None:
-    assert file_qualified_name("TrackDroppedFrames_2P.vi", "Whisker_2P.vi") == (
-        "Whisker_2P.vi"
-    )
-    assert file_qualified_name("Lib.lvlib:Cls.lvclass:Old.vi", "New.vi") == (
+    """A VI's qualified name is its own ``LIBN`` owner chain, then its file
+    name; the name it stores for itself is not read."""
+    assert file_qualified_name([], "Whisker_2P.vi") == "Whisker_2P.vi"
+    assert file_qualified_name(["Lib.lvlib", "Cls.lvclass"], "New.vi") == (
         "Lib.lvlib:Cls.lvclass:New.vi"
     )
-    assert file_qualified_name(None, "New.vi") == "New.vi"
-    assert file_qualified_name("", "New.vi") == "New.vi"
 
 
 def _declarations(vi: Path) -> dict[str, str | None]:
@@ -115,6 +114,8 @@ def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
 
 @pytest.mark.needs_samples
 def test_absent_class_declared_without_a_machine_path() -> None:
+    """The absent SDK class is recorded by a machine path in a link record that
+    names no file; the record is still this VI's, named by its file."""
     template = (
         _SAMPLES
         / "measurement-plugin-labview/Source/Generator"
@@ -125,6 +126,8 @@ def test_absent_class_declared_without_a_machine_path() -> None:
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
     assert f"    class {sdk_class}\n" in lvnet
+    as_json = netlist_to_dict(build_netlist_from_graph(graph, key), verbose=True)
+    assert sdk_class in {d["qualified"] for d in as_json["dependencies"]}
     assert "Program Files" not in lvnet
 
 
@@ -141,7 +144,13 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     )
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
-    ] == [("Destroy.vi", real)]
+    ] == [
+        (
+            "ni.measurementlink.measurement.v1.api.lvlib:MeasurementServiceBaseV1"
+            ".lvclass:Destroy.vi",
+            real,
+        )
+    ]
     (call,) = [
         n
         for n in graph.iter_nodes(key)

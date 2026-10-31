@@ -776,13 +776,13 @@ def generate_python(
     try:
         for i, vi_name in enumerate(order, 1):
             if vi_name in class_of_member:
-                print(f"  [{i}/{len(order)}] {vi_name}")
+                print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (method of its class)")
                 continue
 
             # Skip variants - they'll be generated with their wrapper
             if vi_name in poly_variants:
-                print(f"  [{i}/{len(order)}] {vi_name}")
+                print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (included in polymorphic wrapper)")
                 continue
 
@@ -794,7 +794,7 @@ def generate_python(
             has_vilib = vilib_resolver.has_python(recorded)
             has_inline = has_vilib and vilib_resolver.has_inline(recorded)
 
-            print(f"  [{i}/{len(order)}] {vi_name}")
+            print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
 
             if has_inline or is_error_wire_vi(recorded, vilib_resolver):
                 # Skip - inlined at call sites by AST builder

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from lvkit.models import TerminalDirection
 from lvkit.primitive_resolver import NodeIcon
 from lvkit.terminal_default import TerminalDefault
 
@@ -13,7 +14,7 @@ class VITerminal(TerminalDefault):
 
     name: str = ""
     index: int | None = None
-    direction: str | None = None  # "in" or "out"; None = unknown, from observation
+    direction: TerminalDirection | None = None  # None = unknown, from observation
     type: str | None = None
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None
@@ -30,6 +31,9 @@ class VIEntry(BaseModel):
     terminals: list[VITerminal] = Field(default_factory=list)
     python: str = ""
     python_code: str | None = None
+    # A neutral operation the generator writes from the graph instead of a
+    # template (``codegen/nodes/vilib_op.py``).
+    op: str | None = None
     inline: bool = False
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"
