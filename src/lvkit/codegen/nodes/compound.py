@@ -133,7 +133,7 @@ def generate_compound_arith(
     sorted_inputs = sorted(inputs, key=lambda t: t.index)
     input_exprs = []
     for inp in sorted_inputs:
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if val:
             expr = parse_expr(val)
             if inp.inverted:
@@ -268,7 +268,7 @@ def generate_array_build(
     parts: list[ast.expr] = []
     input_names: list[str] = []
     for inp in sorted(inputs, key=lambda t: t.index):
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if val:
             input_names.append(val)
             is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
@@ -316,7 +316,7 @@ def generate_concat_strings(
 
     parts: list[ast.expr] = []
     for inp in sorted(inputs, key=lambda t: t.index):
-        val = ctx.resolve(inp.id)
+        val = ctx.wired_input(inp.id, node)
         if not val:
             continue
         is_array = inp.lv_type is not None and inp.lv_type.kind == LVTypeKind.ARRAY
@@ -399,7 +399,9 @@ def generate_array_init(
 
     imports: set[str] = set()
 
-    elem_val = ctx.resolve(element_term.id) if element_term is not None else None
+    elem_val = (
+        ctx.wired_input(element_term.id, node) if element_term is not None else None
+    )
     elem_expr: ast.expr
     if elem_val:
         elem_expr = parse_expr(elem_val)
@@ -419,7 +421,7 @@ def generate_array_init(
 
     dim_exprs: list[ast.expr] = []
     for dt in dim_terms:
-        val = ctx.resolve(dt.id)
+        val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
     if not dim_exprs:
@@ -495,7 +497,7 @@ def generate_array_replace(
     if not elements:
         return CodeFragment()
 
-    array_val = ctx.resolve(array_term.id) or "[]"
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
     statements: list[ast.stmt] = []
     for position, (placed, element_term) in enumerate(elements):
         indices = [
@@ -510,7 +512,7 @@ def generate_array_replace(
                 "the array.",
                 node,
             )
-        index_vals = [ctx.resolve(t.id) for t in indices]
+        index_vals = [ctx.wired_input(t.id, node) for t in indices]
         leading = rank - new_rank
         if new_rank and not all(index_vals[:leading]):
             raise ConversionGap(
@@ -519,7 +521,7 @@ def generate_array_replace(
                 "which axis the subarray runs otherwise.",
                 node,
             )
-        element_val = ctx.resolve(element_term.id)
+        element_val = ctx.wired_input(element_term.id, node)
         if element_val is None:
             element_val = "[]" if new_rank else "None"
         target = (
@@ -587,12 +589,9 @@ def generate_array_insert(
     if not element_terms:
         return CodeFragment()
 
-    array_val = ctx.resolve(array_term.id) or "[]"
-    wired = [
-        (axis, ctx.resolve(t.id))
-        for axis, t in enumerate(index_terms)
-        if ctx.resolve(t.id)
-    ]
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
+    index_vals = [ctx.wired_input(t.id, node) for t in index_terms]
+    wired = [(axis, value) for axis, value in enumerate(index_vals) if value]
     if len(wired) > 1:
         raise ConversionGap(
             "Insert Into Array with more than one index wired; LabVIEW allows "
@@ -614,7 +613,7 @@ def generate_array_insert(
     for element_term in element_terms:
         element_rank = _array_rank(element_term)
         is_subset = element_rank == rank
-        elem_val = ctx.resolve(element_term.id)
+        elem_val = ctx.wired_input(element_term.id, node)
         if elem_val is None:
             elem_val = "[]" if is_subset else "None"
         items.append(elem_val if is_subset else f"[{elem_val}]")
@@ -700,12 +699,12 @@ def generate_array_reshape(
         )
     source_ndim = lv_type.dimensions
 
-    array_val = ctx.resolve(array_term.id) or "[]"
+    array_val = ctx.wired_input(array_term.id, node) or "[]"
     flat_expr = _build_flatten_expr(array_val, source_ndim)
 
     dim_exprs: list[ast.expr] = []
     for dt in dim_terms:
-        val = ctx.resolve(dt.id)
+        val = ctx.wired_input(dt.id, node)
         dim_exprs.append(parse_expr(val) if val else ast.Constant(value=0))
 
     default_expr = _reshape_default_element(lv_type.element_type)

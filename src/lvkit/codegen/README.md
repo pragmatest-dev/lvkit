@@ -174,6 +174,7 @@ Variables live on the graph, not in a dict. `CodeGenContext` wraps `InMemoryVIGr
 
 - `ctx.bind(terminal_id, var_name)` — sets `var_name` on a terminal node
 - `ctx.resolve(terminal_id)` — BFS through incoming edges to find a bound terminal
+- `ctx.wired_input(terminal_id, node)` — the expression feeding a node's input: `None` when unwired or an error cluster, `"None"` when the source is a gap constant, `CodeGenError` naming the source when a wired input has no variable. Every generator that reads a node's input goes through it
 - `ctx.get_source(terminal_id)` — returns `SourceInfo` for the first incoming edge
 - `ctx.is_wired(terminal_id)` — checks if a terminal has any connections
 
@@ -189,7 +190,7 @@ This means variable resolution automatically traces through wires, tunnels, and 
 class MyNodeCodeGen(NodeCodeGen):
     def generate(self, node: Operation, ctx: CodeGenContext) -> CodeFragment:
         # Resolve inputs
-        input_val = ctx.resolve(node.terminals[0].id)
+        input_val = ctx.wired_input(node.terminals[0].id, node)
 
         # Build AST
         stmt = build_assign("result", parse_expr(f"my_func({input_val})"))

@@ -60,6 +60,25 @@ FLOAT_TYPE_NAMES: frozenset[str] = frozenset(
     )
 )
 
+# Every number type: integers, floating-point and complex numbers (with or
+# without a unit), the unsigned integers an enum or ring is stored as
+# (``UnitUInt8/16/32``, which pylabview names ``EB``/``EW``/``EL``), and
+# fixed-point numbers.
+NUMERIC_TYPE_NAMES: frozenset[str] = (
+    INTEGER_TYPE_NAMES
+    | FLOAT_TYPE_NAMES
+    | frozenset(
+        member.name
+        for member in (
+            TD_FULL_TYPE.UnitUInt8,
+            TD_FULL_TYPE.UnitUInt16,
+            TD_FULL_TYPE.UnitUInt32,
+            TD_FULL_TYPE.FixedPoint,
+            TD_FULL_TYPE.ComplexFixedPt,
+        )
+    )
+)
+
 # The bytes one value of each integer / floating-point type takes when flattened.
 INTEGER_BYTE_WIDTHS: dict[str, int] = {
     TD_FULL_TYPE.NumInt8.name: 1,
@@ -93,6 +112,17 @@ def is_boolean_type_name(type_name: str | None) -> bool:
 def is_string_type_name(type_name: str | None) -> bool:
     """Whether ``type_name`` is a string (however it is stored)."""
     return type_name in STRING_TYPE_NAMES
+
+
+def is_numeric_type_name(type_name: str | None) -> bool:
+    """Whether ``type_name`` is a number of any kind (integer, floating-point,
+    complex, fixed-point, with or without a unit)."""
+    return type_name in NUMERIC_TYPE_NAMES
+
+
+def is_int32_type_name(type_name: str | None) -> bool:
+    """Whether ``type_name`` is a signed 32-bit integer."""
+    return type_name == TD_FULL_TYPE.NumInt32.name
 
 
 def is_integer_type_name(type_name: str | None) -> bool:

@@ -1119,7 +1119,11 @@ class PolyInfo:
     """Polymorphic VI metadata."""
 
     is_polymorphic: bool = True
+    # The variants' qualified names as the wrapper's own link table records them.
     variants: list[str] = field(default_factory=list)
+    # The dep-graph key (the identity) of each variant that is a dependency of the
+    # wrapper, in the recorded order; empty until the wrapper's dependencies load.
+    variant_keys: list[str] = field(default_factory=list)
     selectors: list[str] = field(default_factory=list)
 
 
@@ -1252,9 +1256,11 @@ class ClassFieldEntry:
 class ClassHierarchyInfo:
     """Hierarchy info for one loaded LabVIEW class.
 
-    All names are fully-qualified (``"X.lvclass"``, or ``"Lib.lvlib:X.lvclass"``
-    for library-nested classes). ``methods`` and ``child_classes`` only include
-    entries that are themselves loaded/documented (no dangling links).
+    The class names are fully-qualified (``"X.lvclass"``, or
+    ``"Lib.lvlib:X.lvclass"`` for library-nested classes). ``methods`` holds the
+    keys (the identity) of the loaded VIs the class owns, ordered by display name;
+    ``methods`` and ``child_classes`` only include entries that are themselves
+    loaded/documented (no dangling links).
     """
 
     classname: str
@@ -1280,6 +1286,9 @@ class MethodAccessInfo:
 
     vi_name: str
     scope: str
+    # ``is_accessor``: the class lists the VI in a property folder (named
+    # ``accessor_field``); ``accessor_type`` is "getter" or "setter" from the
+    # VI's own connector pane, None when the pane is neither.
     is_accessor: bool
     accessor_type: str | None
     accessor_field: str | None
@@ -1292,9 +1301,10 @@ class MethodAccessInfo:
 class MethodOverrideInfo:
     """Bidirectional override links for a class method VI.
 
-    ``overrides`` is the immediate parent class's same-named method (if it is
-    itself a documented VI). ``overridden_by`` is every immediate child
-    class's same-named method that is documented.
+    ``overrides`` is the key of the immediate parent class's same-named method
+    (if it is itself a documented VI). ``overridden_by`` is the keys of every
+    immediate child class's same-named method that is documented, ordered by
+    display name.
     """
 
     vi_name: str

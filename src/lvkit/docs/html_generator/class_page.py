@@ -25,6 +25,7 @@ class ClassPageMixin:
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
         def _vi_name_to_filename(self, vi_name: str) -> str: ...
+        def _vi_short_label(self, vi_name: str) -> str: ...
         def _class_name_to_filename(self, classname: str) -> str: ...
         def _render_access_badge(self, access: MethodAccessInfo | None) -> str: ...
 
@@ -106,10 +107,10 @@ class ClassPageMixin:
 
         items = []
         for vi_name in methods:
-            display_name = vi_name.rsplit(":", 1)[-1]
+            display_name = escape(self._vi_short_label(vi_name))
             badge_html = self._render_access_badge(method_access.get(vi_name))
             items.append(
-                f'<li><a href="{method_link(vi_name)}">'
+                f'<li><a href="{escape(method_link(vi_name))}">'
                 f"<code>{display_name}</code></a>{badge_html}</li>"
             )
 
@@ -155,17 +156,18 @@ class ClassPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{classname} - {self.doc_title}</title>
+    <title>{escape(classname)} - {escape(self.doc_title)}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
     <nav class="breadcrumb">
-        <a href="../index.html">{self.doc_title}</a> / <span>{classname}</span>
+        <a href="../index.html">{escape(self.doc_title)}</a> /
+        <span>{escape(classname)}</span>
     </nav>
 
     <header>
         <div class="vi-header-text">
-            <h1>{classname}</h1>
+            <h1>{escape(classname)}</h1>
             <p class="vi-type">Class</p>
         </div>
     </header>

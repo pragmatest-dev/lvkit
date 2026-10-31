@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Grep
 Run `lvkit describe` on the VI:
 
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>"
+lvkit describe "<vi-path>"
 ```
 
 ## Getting the facts
@@ -33,7 +33,7 @@ To see the VI's faithful block diagram, render it to SVG (CLI-only, no MCP
 twin):
 
 ```bash
-lvkit render "<vi-path>" --search-path "<library-path>" -o "<vi>.svg"
+lvkit render "<vi-path>" -o "<vi>.svg"
 ```
 
 For a repo-wide question instead of one VI, use `/lvkit-query`.

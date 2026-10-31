@@ -11,7 +11,7 @@ document when inlined, one toggle on <html> flips the page AND the VI in lockste
 Usage:
     uv run python scripts/build_hero.py \
         --vi ".lvkit/cache/samples/.../MD5 Message Digest (Binary String)__ogtk.vi" \
-        --search-path .lvkit/cache/samples \
+        --userlib ".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib" \
         --top "What if you could read a VI" \
         --bottom "without installing LabVIEW" \
         --out .tmp/hero.html
@@ -35,7 +35,7 @@ SLATE = "#2b3038"  # dark ground / light-mode ink
 ORANGE = "#e8821e"  # LVKit accent — the LabVIEW DBL wire colour (locked)
 
 
-def render_svg(vi: str, search_path: str) -> str:
+def render_svg(vi: str, userlib: str) -> str:
     """Render the VI to a self-contained theme-auto svg and return its markup."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "vi.svg"
@@ -48,8 +48,8 @@ def render_svg(vi: str, search_path: str) -> str:
                 vi,
                 "-o",
                 str(out),
-                "--search-path",
-                search_path,
+                "--userlib",
+                userlib,
                 "--theme",
                 "auto",
             ],
@@ -151,13 +151,16 @@ sponsored by NI. Diagram reconstructed from the VI file; not NI artwork.</p>
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--vi", required=True)
-    ap.add_argument("--search-path", default=".lvkit/cache/samples")
+    ap.add_argument(
+        "--userlib",
+        default=".lvkit/cache/samples/OpenG/extracted/File Group 0/user.lib",
+    )
     ap.add_argument("--top", default="What if you could read a VI")
     ap.add_argument("--bottom", default="without installing LabVIEW")
     ap.add_argument("--out", default=".tmp/hero.html")
     args = ap.parse_args()
 
-    svg = render_svg(args.vi, args.search_path)
+    svg = render_svg(args.vi, args.userlib)
     doc = build_html(svg, args.top, args.bottom, Path(args.vi).name)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

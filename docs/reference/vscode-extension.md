@@ -38,7 +38,9 @@ failing.
 | Setting | Default | Description |
 |---|---|---|
 | `lvkit.path` | `lvkit` | Path to the `lvkit` executable. Leave as `lvkit` to auto-resolve: a repo-local `.venv` → `uv run lvkit` (when developing inside a lvkit checkout) → the bundled binary → `lvkit` on `PATH`. An absolute-path override is ignored in an untrusted workspace. |
-| `lvkit.searchPaths` | `[]` | Extra directories to search for SubVIs, in addition to the auto-detected repository root — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| `lvkit.vilib` | (empty) | LabVIEW's `vi.lib` folder, for SubVIs recorded as `<vilib>/…` (auto-detected when empty) — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| `lvkit.userlib` | (empty) | LabVIEW's `user.lib` folder, for SubVIs recorded as `<userlib>/…` (OpenG and other toolkits). |
+| `lvkit.instrlib` | (empty) | LabVIEW's `instr.lib` folder, for SubVIs recorded as `<instrlib>/…` (instrument drivers). |
 | `lvkit.diagramTheme` | `auto` | Color theme for the rendered diagram itself (`auto`/`light`/`dark`). The surrounding viewer chrome always follows your VS Code theme; this setting controls only the diagram, and updates automatically when you cycle the in-viewer theme control. |
 
 ## Requirements

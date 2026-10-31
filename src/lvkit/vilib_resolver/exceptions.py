@@ -73,3 +73,16 @@ class VILibResolutionNeeded(ConversionGap):
             " (cleanroom upstream)"
         )
         return msg
+
+
+class CatalogPaneMismatch(ConversionGap):
+    """The catalog's terminals for a vi.lib VI disagree with the connector pane of
+    the VI's own loaded file, so the catalog cannot be used for the call."""
+
+    def __init__(self, vi_name: str, mismatches: list[str]):
+        self.vi_name = vi_name
+        self.mismatches = mismatches
+        super().__init__(
+            f"the catalog's terminals for the vi.lib VI '{vi_name}' disagree with "
+            "its connector pane: " + "; ".join(mismatches)
+        )

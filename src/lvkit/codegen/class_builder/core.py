@@ -1,279 +1,217 @@
-"""Build Python class AST from LabVIEW class (lvclass)."""
+"""Build the Python class of a LabVIEW class.
+
+One LabVIEW class is one Python class in one module: it descends from the class
+generated for its parent, sets the private data fields it declares in
+``__init__``, and has the VIs it lists as methods and properties
+(``class_model``). A parent that was not found leaves the class with no base, and
+everything that would run raises (a gap). A member whose name another member has
+is not defined (its calls are gaps)."""
 
 from __future__ import annotations
 
 import ast
+from pathlib import Path
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext
-from lvkit.structure import LVClass, LVMethod
 
 from ..ast_optimizer import optimize_module
-from ..ast_utils import build_type_checking_block, to_var_name
-from ..gaps import Gap
-from ..import_resolver import ImportResolver
-from ._shared import _EMPTY_VI_CONTEXT
+from ..ast_utils import build_type_checking_block, to_module_name
+from ..class_attributes import Accessor
+from ..class_model import (
+    ClassModel,
+    MethodShape,
+    base_import,
+    class_model,
+    declares_result_class,
+    lazy_imports,
+    result_class_imports,
+    shares_refnums,
+)
+from ..context import type_namer
+from ..errors import CodeGenError
+from ..gaps import Gap, gap_of
+from ..import_resolver import ImportResolver, NameImport
+from ..type_fields import annotation_imports
+from ..value_copy import COPY_IMPORT, holds_refnum, share_refnums_method
 from .config import ClassConfig
 from .init_builder import _InitBuilderMixin
 from .methods import _MethodBuilderMixin
-from .naming import _NamingMixin
 from .properties import _PropertyBuilderMixin
-from .terminals import _TerminalClassifierMixin
+from .shared_state import ModuleParts
+
+_COMMON_IMPORTS: tuple[str, ...] = (
+    "from pathlib import Path",
+    "from typing import Any, NamedTuple, NoReturn",
+)
 
 
-class ClassBuilder(
-    _InitBuilderMixin,
-    _PropertyBuilderMixin,
-    _MethodBuilderMixin,
-    _TerminalClassifierMixin,
-    _NamingMixin,
-):
-    """Build Python class AST from LabVIEW class.
+class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin):
+    """Build the Python class of a LabVIEW class."""
 
-    Handles:
-    - Class definition with inheritance
-    - __init__ from private data
-    - Instance methods (with self)
-    - Static methods (@staticmethod)
-    - Properties from getter/setter pairs
-    - Visibility mapping (public, protected, private)
-    """
-
-    def __init__(
-        self,
-        config: ClassConfig | None = None,
-    ) -> None:
+    def __init__(self, config: ClassConfig | None = None) -> None:
         self.config = config or ClassConfig()
-        self._method_contexts: dict[str, VIContext] = {}
-        self._import_resolver: ImportResolver | None = None
 
     def build_class_module(
         self,
-        lvclass: LVClass,
-        method_contexts: dict[str, VIContext] | None = None,
-        parent_class_name: str | None = None,
-        import_resolver: ImportResolver | None = None,
-        graph: InMemoryVIGraph | None = None,
+        graph: InMemoryVIGraph,
+        class_key: str,
+        import_resolver: ImportResolver,
         gaps: list[Gap] | None = None,
+        data_files: dict[str, bytes] | None = None,
     ) -> ast.Module:
-        """Build complete module with class definition.
-
-        Args:
-            lvclass: Parsed LVClass object
-            method_contexts: Dict mapping method name to VI context
-            parent_class_name: Parent class name (overrides lvclass.parent_class)
-            import_resolver: Callable to resolve import paths for SubVIs
-            gaps: Receives the gaps found in the methods
-
-        Returns:
-            AST Module with imports and class definition
-        """
-        self._method_contexts = method_contexts or {}
-        self._import_resolver = import_resolver
+        """The module defining the class at ``class_key``. Every gap found is
+        added to ``gaps``."""
         self._graph = graph
+        self._import_resolver = import_resolver
         self._gaps: list[Gap] = gaps if gaps is not None else []
-        self._collected_imports: set[str] = set()
-        self._collected_annotation_imports: set[str] = set()
-        parent = parent_class_name or lvclass.parent_class
-
-        module_body: list[ast.stmt] = []
-
-        # Build class definition (collects imports from method bodies)
-        class_def = self._build_class_def(lvclass, parent)
-
-        # Build imports (static + collected from methods)
-        module_body.extend(self._build_imports(lvclass, parent))
-        module_body.append(class_def)
-
-        module = ast.Module(body=module_body, type_ignores=[])
-
-        # Run optimizer (dead code, unreachable, duplicate imports)
-        module = optimize_module(module)
-
-        return module
-
-    def _build_imports(
-        self,
-        lvclass: LVClass,
-        parent_class_name: str | None,
-    ) -> list[ast.stmt]:
-        """Build import statements for the module."""
-        imports: list[ast.stmt] = []
-
-        # Future annotations
-        imports.append(
-            ast.ImportFrom(
-                module="__future__",
-                names=[ast.alias(name="annotations", asname=None)],
-                level=0,
-            )
+        self._model: ClassModel = class_model(graph, class_key)
+        self._lazy = lazy_imports(graph, class_key)
+        self._parts = ModuleParts(
+            module_stem=to_module_name(Path(class_key).name), data_files=data_files
         )
+        self._unavailable: dict[str, str] = {}
 
-        # Common imports
-        common = [
-            "from pathlib import Path",
-            "from typing import Any, ClassVar",
-        ]
-        for imp in common:
-            try:
-                tree = ast.parse(imp)
-                imports.extend(tree.body)
-            except SyntaxError:
-                pass
+        base: NameImport | None = None
+        parent_gap: str | None = None
+        try:
+            base = base_import(graph, class_key, import_resolver)
+        except ConversionGap as exc:
+            gap = gap_of(exc, class_key, None)
+            self._gaps.append(gap)
+            parent_gap = gap.message
+        for key, reason in self._model.clashes.items():
+            self._gap_for(key, reason)
+        for key, reason in self._model.unavailable.items():
+            self._unavailable[key] = self._gap_for(key, reason)
+        if parent_gap is not None:
+            for key in self._model.shapes:
+                self._unavailable.setdefault(key, parent_gap)
 
-        # Parent class import
-        if parent_class_name:
-            parent_module = to_var_name(parent_class_name.replace(".lvclass", ""))
-            parent_class = self._to_class_name(parent_class_name)
-            imports.append(
-                ast.ImportFrom(
-                    module=f".{parent_module}",
-                    names=[ast.alias(name=parent_class, asname=None)],
-                    level=0,
-                )
-            )
-
-        # Add imports collected from method body generation
-        for imp_str in sorted(self._collected_imports):
-            try:
-                tree = ast.parse(imp_str)
-                imports.extend(tree.body)
-            except SyntaxError:
-                pass
-
-        imports.extend(build_type_checking_block(self._collected_annotation_imports))
-
-        return imports
-
-    def _build_class_def(
-        self,
-        lvclass: LVClass,
-        parent_class_name: str | None,
-    ) -> ast.ClassDef:
-        """Build the class definition AST node."""
-        class_name = self._to_class_name(lvclass.name)
-
-        # Base classes
-        bases: list[ast.expr] = []
-        if parent_class_name:
-            parent_class = self._to_class_name(parent_class_name)
-            bases.append(ast.Name(id=parent_class, ctx=ast.Load()))
-
-        # Class body
-        body: list[ast.stmt] = []
-
-        # Docstring
-        if self.config.include_docstrings:
-            body.append(
-                ast.Expr(
-                    value=ast.Constant(
-                        value=f"Converted from LabVIEW class: {lvclass.name}."
-                    )
-                )
-            )
-
-        # __init__ method
-        init_method = self._build_init(lvclass, parent_class_name)
-        body.append(init_method)
-
-        # Group methods by type for ordering
-        accessors: list[LVMethod] = []
-        public_methods: list[LVMethod] = []
-        protected_methods: list[LVMethod] = []
-        private_methods: list[LVMethod] = []
-
-        for method in lvclass.methods:
-            if method.is_accessor:
-                accessors.append(method)
-            elif method.scope == "public":
-                public_methods.append(method)
-            elif method.scope == "protected":
-                protected_methods.append(method)
-            else:  # private
-                private_methods.append(method)
-
-        # Build properties from accessor pairs
-        property_defs = self._build_properties(accessors)
-        body.extend(property_defs)
-
-        # Separate truly static methods from instance methods
-        # A method is an instance method if it has a class-typed input wire
-        actual_static: list[LVMethod] = []
-        actual_instance: list[LVMethod] = []
-        for method in public_methods + protected_methods + private_methods:
-            vi_ctx = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
-            has_class_wire = any(
-                self._is_self_input(inp, lvclass.name) for inp in vi_ctx.inputs
-            )
-            if has_class_wire:
-                actual_instance.append(method)
-            else:
-                actual_static.append(method)
-
-        # Build static methods (no class wire input)
-        for method in actual_static:
-            method_def = self._build_static_method(method, lvclass.name)
-            body.append(method_def)
-
-        # Build instance methods (have class wire input)
-        for method in actual_instance:
-            # Skip constructor-like methods (handled in __init__)
-            if self._is_constructor(method.name):
-                continue
-            # Add scope prefix for non-public methods
-            prefix = ""
-            if method.scope == "protected":
-                prefix = self.config.protected_prefix
-            elif method.scope == "private":
-                prefix = self.config.private_prefix
-            try:
-                method_def = self._build_instance_method(
-                    method,
-                    lvclass.name,
-                    prefix=prefix,
-                )
-                body.append(method_def)
-            except Exception:
-                # Method codegen failed (e.g. unresolved terminals) — skip
-                pass
-
-        # Ensure body is not empty
-        if not body:
-            body.append(ast.Pass())
-
-        return ast.ClassDef(
-            name=class_name,
-            bases=bases,
+        body = self._class_body(class_key, base, parent_gap)
+        class_def = ast.ClassDef(
+            name=self._model.name,
+            bases=[ast.Name(id=base.name, ctx=ast.Load())] if base else [],
             keywords=[],
             body=body,
             decorator_list=[],
         )
+        results = self._result_classes()
+        module_body = [
+            *self._build_imports(base),
+            *results,
+            *self._parts.statements(),
+            class_def,
+        ]
+        module = ast.Module(body=module_body, type_ignores=[])
+        return optimize_module(module)
+
+    def _class_body(
+        self, class_key: str, base: NameImport | None, parent_gap: str | None
+    ) -> list[ast.stmt]:
+        graph, model = self._graph, self._model
+        fields_resolver = self._import_resolver.scoped(
+            graph.class_private_data_key(class_key) or class_key
+        )
+        spell = type_namer(fields_resolver)
+        fields = graph.class_own_fields(class_key)
+        if len(fields) != len(model.attributes.fields):
+            raise CodeGenError(
+                f"The class {self._import_resolver.shown(class_key)} lists "
+                f"{len(fields)} private data fields, but its attributes number "
+                f"{len(model.attributes.fields)}"
+            )
+        self._parts.annotation_imports.update(
+            annotation_imports([f.type for f in fields], fields_resolver)
+        )
+        body: list[ast.stmt] = []
+        if self.config.include_docstrings:
+            body.append(
+                ast.Expr(value=ast.Constant(value=f"Class {Path(class_key).name}."))
+            )
+        body.extend(self._field_annotations(model, fields, spell))
+        body.append(self._build_init(model, fields, base is not None, parent_gap))
+        body.extend(self._refnum_methods(class_key, fields))
+
+        properties: list[tuple[MethodShape, Accessor]] = []
+        methods: list[MethodShape] = []
+        for key, shape in model.shapes.items():
+            accessor = model.attributes.accessors.get(key)
+            if accessor is not None:
+                properties.append((shape, accessor))
+            elif key not in model.clashes and self._has_diagram(key):
+                methods.append(shape)
+        body.extend(self._build_properties(properties, base))
+        for shape in methods:
+            body.append(self._build_method(shape))
+        return body
+
+    def _has_diagram(self, key: str) -> bool:
+        """Whether the member VI is written as a method: not a polymorphic VI (its
+        variants are members of their own) and not one that was not found."""
+        graph = self._graph
+        return not graph.is_stub(key) and not graph.get_poly_variants(key)
+
+    def _refnum_methods(self, class_key: str, fields: list) -> list[ast.stmt]:
+        """``__deepcopy__`` and its helper for a class that holds refnums: a copy
+        of an object shares the refnums."""
+        own = [
+            (attribute, f.type)
+            for attribute, f in zip(self._model.attributes.fields, fields, strict=True)
+            if holds_refnum(f.type)
+        ]
+        if not own:
+            return []
+        parent = self._graph.class_parent_key(class_key)
+        self._parts.imports.add(COPY_IMPORT)
+        return share_refnums_method(
+            own, base_shares=parent is not None and shares_refnums(self._graph, parent)
+        )
+
+    def _result_classes(self) -> list[ast.stmt]:
+        """The ``NamedTuple`` of each method of the class that returns two or more
+        results, defined once."""
+        defined: dict[str, ast.stmt] = {}
+        for shape in self._model.shapes.values():
+            if not declares_result_class(self._model, shape):
+                continue
+            assert shape.result_class is not None
+            if shape.result_class in defined:
+                continue
+            vi_context = self._graph.get_vi_context(shape.key)
+            defined[shape.result_class] = self._result_class_def(shape, vi_context)
+        return list(defined.values())
+
+    def _build_imports(self, base: NameImport | None) -> list[ast.stmt]:
+        imports: list[ast.stmt] = [
+            ast.ImportFrom(
+                module="__future__", names=[ast.alias(name="annotations")], level=0
+            )
+        ]
+        statements = list(_COMMON_IMPORTS)
+        if base is not None and base.statement:
+            statements.append(base.statement)
+        statements.extend(
+            result_class_imports(self._graph, self._model, self._import_resolver)
+        )
+        statements.extend(sorted(self._parts.imports))
+        for statement in statements:
+            imports.extend(ast.parse(statement).body)
+        imports.extend(build_type_checking_block(self._parts.annotation_imports))
+        return imports
 
 
-def build_class(
-    lvclass: LVClass,
-    method_contexts: dict[str, VIContext] | None = None,
-    parent_class_name: str | None = None,
+def build_class_module(
+    graph: InMemoryVIGraph,
+    class_key: str,
+    import_resolver: ImportResolver,
+    gaps: list[Gap] | None = None,
+    data_files: dict[str, bytes] | None = None,
     config: ClassConfig | None = None,
 ) -> str:
-    """Build Python code from a LabVIEW class.
-
-    Convenience function that creates a ClassBuilder and builds the module.
-
-    Args:
-        lvclass: Parsed LVClass object
-        method_contexts: Dict mapping method name to VI context
-        parent_class_name: Parent class name (overrides lvclass.parent_class)
-        config: Optional ClassConfig
-
-    Returns:
-        Python source code as string
-    """
-    builder = ClassBuilder(config=config)
-    module = builder.build_class_module(
-        lvclass,
-        method_contexts=method_contexts,
-        parent_class_name=parent_class_name,
+    """Module source of the class at ``class_key`` (see ``ClassBuilder``)."""
+    module = ClassBuilder(config).build_class_module(
+        graph, class_key, import_resolver, gaps, data_files
     )
     ast.fix_missing_locations(module)
     return ast.unparse(module)

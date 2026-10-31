@@ -15,7 +15,10 @@ import json
 from pathlib import Path
 from typing import NamedTuple
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from .load_mode import LoadMode
+from .run_report import Problem, RunSettings
 
 
 class DiffBody(NamedTuple):
@@ -33,6 +36,7 @@ class DiffBody(NamedTuple):
     before_name: str
     after_name: str
     dependencies: tuple[Path, ...] = ()
+    problems: tuple[Problem, ...] = ()
 
 
 def diff_vi_files(
@@ -41,24 +45,30 @@ def diff_vi_files(
     *,
     fmt: str = "html",
     verbose: bool = False,
-    search_paths: list[Path] | None = None,
     before_ref: str | None = None,
     after_ref: str | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
+    before_original: Path | None = None,
+    after_original: Path | None = None,
     warm_index: bool = True,
+    run_settings: RunSettings | None = None,
 ) -> DiffBody | None:
     """Diff two VI versions -> a :class:`DiffBody` (the body string in ``fmt``
     plus each side's qualified name).
 
     ``before_path`` is the BEFORE side, ``after_path`` the AFTER. Loads both with
-    one ``mode``/``search_paths``, then projects the UID-keyed change set:
+    one ``mode`` and the same library roots, then projects the UID-keyed change set:
     ``"text"`` (``format_diff``), ``"json"`` (``diff_to_dict``), or ``"html"``
     (the ``build_diff_viewer`` visual with both sides' faithful, theme-reactive
     SVGs). ``before_ref``/``after_ref`` are optional labels (e.g. git refs) for
-    the html title. Returns ``None`` ONLY when an ``html`` render declines
-    because required diagram geometry is missing. ``warm_index`` upserts both
+    the html title. ``before_original``/``after_original`` name the file a
+    side is a copy of (see ``InMemoryVIGraph.load_vi``). Returns ``None`` ONLY
+    when an ``html`` render declines because required diagram geometry is
+    missing. ``warm_index`` upserts both
     VIs' facts into their project index (best-effort; set ``False`` to skip)."""
     from .graph import load_vi_by_path
     from .graph.diff import (
@@ -79,18 +89,24 @@ def diff_vi_files(
     graph_a, name_a = load_vi_by_path(
         before_path,
         mode,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
+        search_path=search_path,
         layout=layout,
+        run_settings=run_settings,
+        original_path=before_original,
     )
     graph_b, name_b = load_vi_by_path(
         after_path,
         mode,
-        search_paths=search_paths,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
+        search_path=search_path,
         layout=layout,
+        run_settings=run_settings,
+        original_path=after_original,
     )
 
     if warm_index:
@@ -98,6 +114,8 @@ def diff_vi_files(
 
         warm_index_for_vi(graph_a, name_a, before_path)
         warm_index_for_vi(graph_b, name_b, after_path)
+
+    problems = tuple(graph_a.problems() + graph_b.problems())
 
     # DISPLAY-only names (qualified, never the vi_key = absolute source path).
     # name_a/name_b stay the vi_key for every graph op below (render, diff_uid,
@@ -114,10 +132,10 @@ def diff_vi_files(
 
     if fmt == "text":
         body = format_diff(graph_a, graph_b, name_a, name_b, verbose=verbose) or ""
-        return DiffBody(body, display_a, display_b, dependencies)
+        return DiffBody(body, display_a, display_b, dependencies, problems)
     if fmt == "json":
         body = json.dumps(diff_to_dict(graph_a, graph_b, name_a, name_b), indent=2)
-        return DiffBody(body, display_a, display_b, dependencies)
+        return DiffBody(body, display_a, display_b, dependencies, problems)
 
     # html — both diagrams render "auto" so the viewer's light/dark toggle can
     # re-theme them (a baked palette couldn't respond to the data-theme flip).
@@ -160,4 +178,4 @@ def diff_vi_files(
         after_label=after_label,
         netlist_rows=rows_to_json(rows),
     )
-    return DiffBody(body, display_a, display_b, dependencies)
+    return DiffBody(body, display_a, display_b, dependencies, problems)

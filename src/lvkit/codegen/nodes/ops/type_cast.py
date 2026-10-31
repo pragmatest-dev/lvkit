@@ -51,7 +51,7 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     result = terminal(node, "output", 2)
     if result is None or not ctx.is_wired(result.id):
         return CodeFragment.empty()
-    value = (ctx.resolve(source.id) if source else None) or "None"
+    value = (ctx.wired_input(source.id, node) if source else None) or "None"
     src_type = source.lv_type if source else None
     dst_type = result.lv_type
     if (src_type is not None and src_type == dst_type) or (

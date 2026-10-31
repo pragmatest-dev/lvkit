@@ -8,8 +8,8 @@ from lvkit.codegen.builder import build_module, build_result_class
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.subvi import _build_output_bindings
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
-from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
-from tests.helpers import build_graph
+from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
+from tests.helpers import build_graph, error_cluster_type
 
 
 @pytest.mark.parametrize("label", ["_status", "status", "class", "2nd result"])
@@ -114,10 +114,7 @@ def test_error_cluster_is_excluded_before_collision_check():
     regular = output("error out")
     regular.lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
     error = output("error out", 1)
-    error.lv_type = LVType(
-        kind=LVTypeKind.CLUSTER,
-        fields=[ClusterField(name=name) for name in ("status", "code", "source")],
-    )
+    error.lv_type = error_cluster_type()
     context = VIContext(name="Error Output.vi", outputs=[regular, error])
     result_class = build_result_class(context)
     assert result_class is not None

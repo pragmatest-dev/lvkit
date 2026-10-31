@@ -10,8 +10,9 @@ import math
 
 from lvkit.codegen.context import _format_constant
 from lvkit.graph.models import Constant
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
+from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.primitive_resolver import _collect_imports
+from tests.helpers import error_cluster_type
 
 # ── Fix A: Type-driven constant decoding ────────────────────────────
 
@@ -129,15 +130,7 @@ class TestErrorClusterByType:
     never string matching on terminal/parameter names."""
 
     def _error_cluster_type(self) -> LVType:
-        return LVType(
-            kind=LVTypeKind.CLUSTER,
-            underlying_type="Cluster",
-            fields=[
-                ClusterField(name="status"),
-                ClusterField(name="code"),
-                ClusterField(name="source"),
-            ],
-        )
+        return error_cluster_type()
 
     def test_error_named_terminal_without_error_type_is_not_skipped(self):
         """A terminal named 'error_out' but without error cluster type

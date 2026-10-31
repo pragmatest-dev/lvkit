@@ -20,7 +20,7 @@ from ..models import (
     ServerClass,
 )
 from .constants import CORRUPT_STUB_FORMAT
-from .flags import CONPANE_FLAG_OUTPUT
+from .flags import CONPANE_FLAG_DYNAMIC_DISPATCH, CONPANE_FLAG_OUTPUT
 from .heap_types import HeapTypes, decode_heap_types, heap_sidecar_path
 from .naming import build_qualified_name, build_relative_path
 from .utils import clean_labview_string
@@ -466,7 +466,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
 
         elif type_name == "Function":
             # A connector pane: one child per slot, the unused ones Void. Bit 8 of
-            # a slot's Flags marks an output.
+            # a slot's Flags marks an output, bit 15 a Dynamic Dispatch terminal.
             slots: list[PaneSlot] = []
             for index, child in enumerate(td.findall("TypeDesc[@TypeID]")):
                 slot_type = resolve_type(int(child.attrib["TypeID"]), visited)
@@ -480,6 +480,7 @@ def parse_vctp_types(xml_path: Path | str) -> dict[int, LVType]:
                         bool(flags & CONPANE_FLAG_OUTPUT),
                         slot_type,
                         label or None,
+                        bool(flags & CONPANE_FLAG_DYNAMIC_DISPATCH),
                     )
                 )
             lv_type = LVType(

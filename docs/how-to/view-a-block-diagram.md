@@ -5,7 +5,7 @@ Render a VI's block diagram to a faithful, interactive diagram and open it in a 
 ## Prerequisites
 
 - lvkit installed (`pip install lvkit`).
-- A `.vi` file. If it calls SubVIs that live outside its own directory, know where — you'll pass `--search-path`.
+- A `.vi` file. If it calls SubVIs from LabVIEW's `vi.lib`, `user.lib` or `instr.lib` (OpenG, toolkits, drivers), know where that folder is on this machine — you'll pass `--vilib`, `--userlib` or `--instrlib`.
 
 ## Render the diagram
 
@@ -15,15 +15,15 @@ lvkit render "path/to/Some VI.vi" --format html -o outputs/some-vi.html
 
 `--format html` wraps the block diagram in an interactive viewer page (zoom/pan and a theme toggle — see [Read the diagram](#read-the-diagram) below); the default `--format svg` writes just the diagram itself, no toolbar. `-o` writes the file at that path. Without `-o`, `render` only warms its internal build cache and prints where — it does *not* write an output file you can open — so **pass `-o` whenever you want a diagram to open, keep, or attach to a review**.
 
-If the VI calls SubVIs that live outside its own directory, add `--search-path`:
+If the VI calls SubVIs it records under `user.lib` (for example OpenG), name that folder with `--userlib`:
 
 ```bash
 lvkit render "path/to/Some VI.vi" --format html \
-  --search-path path/to/libraries \
+  --userlib path/to/user.lib \
   -o outputs/some-vi.html
 ```
 
-lvkit always searches the VI's own directory and its project root (the nearest enclosing `.lvkit/`) automatically — `--search-path` is only for dependencies elsewhere on disk. See [SubVI & vi.lib resolution](../reference/subvi-resolution.md) for the full set of resolution flags (`--vilib`, `--userlib`, `--no-auto-vilib`, ...), all accepted by `render` too.
+lvkit finds every SubVI at the path the VI records for it — a SubVI in your project needs no flag. See [SubVI & vi.lib resolution](../reference/subvi-resolution.md) for the full set of resolution flags (`--vilib`, `--userlib`, `--instrlib`, `--no-auto-vilib`, ...), all accepted by `render` too.
 
 ## Open it
 
@@ -58,6 +58,6 @@ lvkit render path/to/library/ --format html -o outputs/library-diagrams/
 ## See also
 
 - [reference/render](../reference/render.md) — the full `render` flag reference, including `--load-mode` and unresolved-SubVI behavior in depth.
-- [reference/subvi-resolution](../reference/subvi-resolution.md) — `--search-path`, `--vilib`, `--userlib`, `--no-auto-vilib`, shared by every command that resolves SubVIs.
+- [reference/subvi-resolution](../reference/subvi-resolution.md) — `--vilib`, `--userlib`, `--instrlib`, `--no-auto-vilib`, shared by every command that resolves SubVIs.
 - [reference/visualize](../reference/visualize.md) — a graph view across a whole library or class instead of one VI's block diagram.
 - [Compare two VIs](compare-two-vis.md) — the same faithful diagram, but overlaying two versions to show what changed.

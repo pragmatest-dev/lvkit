@@ -26,6 +26,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import PureWindowsPath
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.manager_functions import LABVIEW_LIBRARY
 from lvkit.models import LVType, Terminal
@@ -109,12 +110,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise_unknown(node, None, ctx)
     if call.library == LABVIEW_LIBRARY:
         return generate_manager_call(node, call, ctx)
+    if call.cut_name is not None:
+        raise ConversionGap(
+            f"The Call Library Function Node cannot be called: {call.cut_name}", node
+        )
     rows, reason = _rows(node, call)
     if reason is not None:
         raise_unknown(node, None, ctx, reason=reason)
 
     path_id = call.path_in_terminal_id
-    path_var = ctx.resolve(path_id) if path_id else None
+    path_var = ctx.wired_input(path_id, node) if path_id else None
     if not path_var and not call.library:
         raise_unknown(
             node, None, ctx, reason="it records no library and its path in is unwired"
@@ -127,7 +132,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     marshalled: list[Marshalled] = []
     for index, row in enumerate(rows[1:], start=1):
         input_id, output_id = call.row_terminal_ids[index]
-        var = ctx.resolve(input_id) if input_id else None
+        var = ctx.wired_input(input_id, node) if input_id else None
         wire_in = _wire_type(node, input_id)
         marshalled.append(
             marshal(

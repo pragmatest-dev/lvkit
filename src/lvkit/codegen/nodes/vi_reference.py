@@ -13,7 +13,9 @@ it holds is found when the code is generated, not when it runs:
 - the Name and Path properties of a VI reference are the function's own
   ``__name__`` and file (``vi_property_read``).
 
-A reference whose VI is only known when the diagram runs stops code generation.
+A reference to a member VI of a class is ``Class.method`` and the call passes
+the object as its ``self`` keyword; Call By Reference does not support a dynamic
+dispatch member VI, so a reference to one is a gap.
 
 The nodes that call through a reference have four terminals that are not
 terminals of the called VI: the VI reference in (index -1) and out (-2), then
@@ -24,7 +26,10 @@ connector pane.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+import os
+import posixpath
+import textwrap
+from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 
@@ -41,14 +46,24 @@ from lvkit.graph.vi_reference import (
     VIReferenceUnresolved,
 )
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
+from lvkit.vi_files import class_stem
 
-from ..ast_utils import GENERATED_MODULE_NAMES, build_assign, parse_expr
+from ..ast_utils import GENERATED_MODULE_NAMES, build_assign, module_part, parse_expr
 from ..callee_names import pane_names
+from ..class_attributes import run_time_name
+from ..class_model import (
+    MethodKind,
+    accessor_of,
+    member_shape,
+    not_a_method,
+    python_class_name,
+)
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from . import primitive, subvi
+from ..pane_candidates import candidates
+from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
@@ -64,6 +79,13 @@ _CLOSE_REFERENCE_INDEX = 11
 
 _EXECUTOR = "_async_call_pool"
 _EXECUTOR_IMPORT = "from concurrent.futures import ThreadPoolExecutor"
+
+# LabVIEW's reason a Call By Reference cannot call a dynamic dispatch member VI.
+_DYNAMIC_MEMBER = (
+    "Call By Reference does not support dynamic member VIs (NI: "
+    "https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/"
+    "dynamic-terminal-on-call-by-reference.html)"
+)
 
 
 class CallStyle(IntEnum):
@@ -111,6 +133,7 @@ class _Call:
     keywords: list[ast.keyword]
     result_var: str
     bindings: dict[str, str]
+    prelude: list[ast.stmt] = field(default_factory=list)
 
 
 def _reference_input(node: VINode, ctx: CodeGenContext) -> Terminal:
@@ -141,14 +164,42 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
             f"{_label(node)}: the VI {target.name!r} is not loaded with this VI.",
             node,
         )
+    shape = member_shape(ctx.graph, target.key)
+    if shape is not None:
+        reason = not_a_method(ctx.graph, target.key)
+        if reason is not None:
+            raise ConversionGap(reason, node)
+        if shape.kind is MethodKind.DYNAMIC:
+            raise ConversionGap(
+                f"{_label(node)}: {target.name} is a dynamic dispatch member VI; "
+                + _DYNAMIC_MEMBER,
+                node,
+            )
+        call = method_call.build_call(callee, ctx, shape, receiver_keyword="self")
+        result_var = call.result_var or ctx.make_output_var(
+            "vi_reference_result", node.id
+        )
+        return _Call(
+            ctx.vi_reference_expression(target.name, target.key),
+            call.keywords,
+            result_var,
+            call.bindings,
+            call.prelude,
+        )
     parts = subvi.build_call(callee, ctx, target.name, target.key, None)
-    return _Call(parts.func_name, parts.call.keywords, parts.result_var, parts.bindings)
+    return _Call(
+        parts.func_name,
+        parts.call.keywords,
+        parts.result_var,
+        parts.bindings,
+        parts.prelude,
+    )
 
 
 def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call:
     """A call of the function the reference holds when the code runs, with the
     keyword names its strictly typed refnum records for the connector pane."""
-    function = ctx.resolve(reference.id)
+    function = ctx.wired_input(reference.id, node)
     pane = pane_of(reference.lv_type)
     if function is None or pane is None:
         raise ConversionGap(
@@ -157,6 +208,15 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "parameters by.",
             node,
         )
+    if any(slot.dynamic_dispatch for slot in pane):
+        raise ConversionGap(
+            f"{_label(node)}: the reference's connector pane has a dynamic "
+            "dispatch terminal; " + _DYNAMIC_MEMBER,
+            node,
+        )
+    member_call = _member_value_call(node, ctx, function, pane)
+    if member_call is not None:
+        return member_call
     names = pane_names(pane)
     labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
@@ -172,7 +232,7 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         ):
             continue
         if term.direction == "input":
-            value = ctx.resolve(term.id)
+            value = ctx.wired_input(term.id, node)
             if value is not None:
                 keywords.append(
                     ast.keyword(
@@ -182,6 +242,36 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
+
+
+def _member_value_call(
+    node: VINode, ctx: CodeGenContext, function: str, pane: tuple[PaneSlot, ...]
+) -> _Call | None:
+    """The call of a reference value that may hold a method of a class: the
+    project's VIs with the reference's pane (``pane_candidates``) include a
+    member, so the call is the method's when every candidate is called the same
+    way, and a gap when they are not; None when no member has the pane (the call
+    is a VI's function's, by the pane's names)."""
+    assert ctx.graph is not None and ctx.vi_name is not None
+    found = candidates(ctx.graph, pane, ctx.vi_name)
+    if not found.members:
+        return None
+    form = found.one_form()
+    if form is None:
+        shown = ", ".join(ctx.graph.vi_display_name(k) for k in sorted(found.forms))
+        raise ConversionGap(
+            f"{_label(node)}: the VI the reference holds is only known when the "
+            f"diagram runs, and the project's VIs with its connector pane ({shown}) "
+            "are not all called the same way: a method of a class takes its object "
+            "as self and returns its results as one value or a NamedTuple, a VI "
+            "returns a NamedTuple of its outputs.",
+            node,
+        )
+    if form.member is None:
+        return None
+    call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
+    result_var = call.result_var or ctx.make_output_var("vi_reference_result", node.id)
+    return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
@@ -228,7 +318,8 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             func=parse_expr(call.function), args=[], keywords=call.keywords
         )
         return CodeFragment(
-            statements=[build_assign(call.result_var, invoke)], bindings=bindings
+            statements=[*call.prelude, build_assign(call.result_var, invoke)],
+            bindings=bindings,
         )
 
     ctx.add_import(_EXECUTOR_IMPORT)
@@ -239,9 +330,13 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         keywords=call.keywords,
     )
     if options is not None and options & CALL_AND_FORGET:
-        return CodeFragment(statements=[ast.Expr(value=submit)], bindings=bindings)
+        return CodeFragment(
+            statements=[*call.prelude, ast.Expr(value=submit)], bindings=bindings
+        )
     future = ctx.make_output_var("future", node.id)
-    return CodeFragment(statements=[build_assign(future, submit)], bindings=bindings)
+    return CodeFragment(
+        statements=[*call.prelude, build_assign(future, submit)], bindings=bindings
+    )
 
 
 def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -262,7 +357,7 @@ def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _generate_lookup(node, ctx, reference)
     except VIReferenceUnresolved as problem:
         raise _fail(node, problem) from None
-    func_name = ctx.import_function(target.name, target.key)
+    func_name = ctx.vi_reference_expression(target.name, target.key)
     bindings = {reference.id: func_name} if reference is not None else {}
     return CodeFragment(bindings=bindings)
 
@@ -297,7 +392,8 @@ def _function_name(stem):
 _IMPORT_BY_PATH = """\
 {here} = os.path.dirname(__file__)
 {path} = os.path.join({here}, os.fspath({value}).replace("\\\\", "/"))
-{parts} = os.path.relpath({path}, {here}).replace(os.sep, "/").split("/")
+{rel} = os.path.relpath({path}, {here}).replace(os.sep, "/")
+{parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
     {parts}.pop(0)
@@ -309,6 +405,18 @@ while {parts}[0] == "..":
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
 {package} = {owners}[{owner}]
+"""
+
+# A VI a class lists is a method of the class, found by the name or the path
+# the diagram computes among the project's class members.
+_CLASS_MEMBER = """\
+{member} = _class_members.get({key})
+if {member} is not None:
+    {reference} = getattr(
+        getattr(importlib.import_module({member}[0], __package__), {member}[1]),
+        {member}[2],
+    )
+else:
 """
 
 _IMPORT_MODULE = """\
@@ -330,7 +438,7 @@ def _generate_lookup(
     dictionary of the project's owners and their packages) and a file stem."""
     assert ctx.graph is not None
     path_term = next((t for t in node.terminals if t.index == OPEN_VI_PATH_INDEX), None)
-    value = ctx.resolve(path_term.id) if path_term is not None else None
+    value = ctx.wired_input(path_term.id, node) if path_term is not None else None
     if path_term is None or value is None:
         raise CodeGenError(f"{_label(node)}: the VI path has no value.", node)
     by_name = _computed_by_name(path_term, ctx)
@@ -344,6 +452,9 @@ def _generate_lookup(
         for key in ("here", "path", "parts", "up", "stem", "package", "owner", "module")
     }
     names.update(value=value, reference=reference_var)
+    names["rel"] = f"{reference_var}_rel"
+    names["member"] = f"{reference_var}_member"
+    has_members = bool(ctx.graph.class_members())
     if by_name:
         names["owners"] = _owners_table(node, ctx)
         locate = _IMPORT_BY_NAME
@@ -358,9 +469,73 @@ def _generate_lookup(
         (func_def,) = ast.parse(helper).body
         assert isinstance(func_def, ast.FunctionDef)
         ctx.add_module_function(func_def)
-    statements = ast.parse((locate + _IMPORT_MODULE).format(**names)).body
+    text = (locate + _IMPORT_MODULE).format(**names)
+    if has_members:
+        _class_members_table(node, ctx)
+        names["key"] = value if by_name else names["rel"]
+        if by_name:
+            head, rest = "", text
+        else:
+            head, rest = text.split(f"{names['parts']} = ", 1)
+            rest = f"{names['parts']} = " + rest
+        text = head + _CLASS_MEMBER.format(**names) + textwrap.indent(rest, "    ")
+    statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
+    """The module-level dictionary of the project's class members, by the name
+    (``Owner:VI.vi``) and by the path from the folder of the VI holding the node
+    that a diagram can compute, each with its class's module spec, its class's
+    name and its method's name."""
+    assert ctx.graph is not None and ctx.vi_name is not None
+    resolver = ctx.import_resolver
+    # The module being generated sits in the folder of its class file (a method)
+    # or of its VI; a path computed when the code runs is read from that folder.
+    module_key = ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
+    entries: dict[str, tuple[str, str, str]] = {}
+    for name, key, class_key in ctx.graph.class_members():
+        shape = member_shape(ctx.graph, key)
+        if (
+            shape is None
+            or not_a_method(ctx.graph, key) is not None
+            or accessor_of(ctx.graph, key) is not None
+        ):
+            continue
+        spec = (
+            resolver.package_spec(class_key)
+            if isinstance(resolver, ImportResolver)
+            else "."
+        )
+        module = spec + module_part(class_stem(Path(class_key).name))
+        class_name = python_class_name(class_key)
+        entry = (module, class_name, run_time_name(class_name, shape.name))
+        entries[name] = entry
+        entries[_path_from(resolver, key, module_key)] = entry
+    ctx.add_module_global(
+        "_class_members",
+        ast.Dict(
+            keys=[ast.Constant(value=name) for name in sorted(entries)],
+            values=[
+                ast.Tuple(
+                    elts=[ast.Constant(value=part) for part in entries[name]],
+                    ctx=ast.Load(),
+                )
+                for name in sorted(entries)
+            ],
+        ),
+    )
+
+
+def _path_from(resolver: object, key: str, module_key: str) -> str:
+    """The path of the file ``key`` from the folder of the module generated for
+    ``module_key``, both by the project-relative paths modules are placed by."""
+    if isinstance(resolver, ImportResolver):
+        member = resolver.shown(key)
+        folder = posixpath.dirname(resolver.shown(module_key))
+        return posixpath.relpath(member, folder or ".")
+    return Path(os.path.relpath(key, os.path.dirname(module_key))).as_posix()
 
 
 def _owners_table(node: PrimitiveNode, ctx: CodeGenContext) -> str:

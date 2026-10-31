@@ -26,14 +26,14 @@ lvkit generate <input_path> [options]
 |--------|-------------|
 | `-o OUTPUT`, `--output OUTPUT` | Output directory. Default: `outputs`. Generated files land in a VI-named subfolder beneath it (see [Output layout](#output-layout)). |
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. Codegen defaults to `full` — it compiles the whole SubVI/class-method tree. `--load-mode none` generates only the top-level VI, not the [SubVIs](subvi-resolution.md) it calls: the SubVI calls still appear in the output, but no module is generated for them. |
-| `--fail-fast` | End the run at the first gap: its warning is printed, nothing more is generated, and the exit code is `1` because the output is incomplete. What a gap generates is unchanged; use it to avoid waiting for a long run. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| `--fail-fast` | End the run at the first problem (a gap or a VI that cannot be read): its warning is printed, nothing more is generated, and the exit code is `1` because the output is incomplete. What a gap generates is unchanged; use it to avoid waiting for a long run. |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
 lvkit generate "Convert File Extension (String).vi" \
-  --search-path samples/OpenG/extracted \
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib" \
   -o outputs
 ```
 
@@ -59,8 +59,8 @@ with no Python meaning, a Call Library Function Node whose library file is not
 there, a VI reference with nothing to resolve to, an Event Structure, a VI that
 was not found. `generate` handles every gap the same way:
 
-- It prints `warning: <VI path>: <node>: <reason>` and counts the gaps in its
-  summary.
+- It prints `warning: <VI path>: generate: <node>: <reason> [<gap kind>]` and
+  counts the gaps in its summary.
 - The generated code raises `NotImplementedError("<reason>")` where the node
   would run, and the node's outputs are set to `None`, so the code after it is
   still there for you to finish. A gap that belongs to no node (a class whose
@@ -79,8 +79,8 @@ a bare success line.
 | Exit code | Meaning |
 |-----------|---------|
 | `0` | Every VI converted, no gaps. |
-| `2` | Partial: every VI was written, some nodes could not be converted. |
-| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`, and so does a `--fail-fast` run that reached a gap. |
+| `3` | Partial: the output was written, but some nodes could not be converted or a VI could not be read (see [problems](problems.md)). |
+| `1` | A VI could not be written (a stop, shown as `error` or `failed` in the summary), or two VIs would be written to the same module — the message is printed and nothing is written for the collision. A run with both stops and gaps exits `1`, and so does a `--fail-fast` run that reached a problem. |
 
 `lvkit unresolved <input-path> [--format json]` lists the same gaps, grouped by kind
 with the VIs each occurs in.

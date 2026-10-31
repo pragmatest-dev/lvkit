@@ -64,7 +64,7 @@ def _vi(path: Path) -> Path:
 
 
 def test_file_info_reads_a_files_information(generated_vi, tmp_path: Path) -> None:
-    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
+    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"))
     target = tmp_path / "data.bin"
     target.write_bytes(b"abcdef")
     os.chmod(target, 0o640)
@@ -94,7 +94,7 @@ def test_file_info_reads_a_files_information(generated_vi, tmp_path: Path) -> No
 
 
 def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) -> None:
-    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
+    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"))
     folder = tmp_path / "folder"
     folder.mkdir()
     for name in ("a", "b"):
@@ -108,7 +108,7 @@ def test_file_info_of_a_folder_counts_its_entries(generated_vi, tmp_path: Path) 
 def test_file_info_of_a_missing_file_raises_file_not_found(
     generated_vi, tmp_path: Path
 ) -> None:
-    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
+    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"))
     with pytest.raises(FileNotFoundError):
         module.file_info__ogtk(file=tmp_path / "nope", file_info=SimpleNamespace())
 
@@ -117,7 +117,7 @@ def test_file_info_of_a_missing_file_raises_file_not_found(
 def test_file_info_update_sets_the_permissions_and_modification_date(
     generated_vi, tmp_path: Path
 ) -> None:
-    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"), _OPENG)
+    module = generated_vi(_vi(_FILE / "File Info__ogtk.vi"))
     target = tmp_path / "data.bin"
     target.write_bytes(b"abcdef")
     os.chmod(target, 0o600)
@@ -136,10 +136,8 @@ def test_file_info_update_sets_the_permissions_and_modification_date(
 
 
 def test_file_refnum_round_trips_a_file_handle(generated_vi, tmp_path: Path) -> None:
-    create = generated_vi(_vi(_LARGEFILE / "LFU Create File Handle__ogtk.vi"), _OPENG)
-    retrieve = generated_vi(
-        _vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"), _OPENG
-    )
+    create = generated_vi(_vi(_LARGEFILE / "LFU Create File Handle__ogtk.vi"))
+    retrieve = generated_vi(_vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"))
     first = create.lfu_create_file_handle__ogtk(
         file_path=tmp_path / "a.bin", handle=4660
     ).file_refnum
@@ -160,9 +158,9 @@ _READ, _WRITE = 1, 2  # LF Open File's open modes: read only, write only
 def test_large_file_vis_write_then_read_a_file(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
-    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"), _OPENG)
-    writer = generated_vi(_vi(_LARGEFILE / "LF Write File (STR)__ogtk.vi"), _OPENG)
-    reader = generated_vi(_vi(_LARGEFILE / "LF Read File (STR)__ogtk.vi"), _OPENG)
+    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
+    writer = generated_vi(_vi(_LARGEFILE / "LF Write File (STR)__ogtk.vi"))
+    reader = generated_vi(_vi(_LARGEFILE / "LF Read File (STR)__ogtk.vi"))
     target = tmp_path / "big.bin"
     target.write_bytes(b"")
 
@@ -198,11 +196,9 @@ def test_large_file_vis_read_and_write_numbers(
     code: str,
     values: list[float],
 ) -> None:
-    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"), _OPENG)
-    writer = generated_vi(
-        _vi(_LARGEFILE / f"LF Write File ({suffix})__ogtk.vi"), _OPENG
-    )
-    reader = generated_vi(_vi(_LARGEFILE / f"LF Read File ({suffix})__ogtk.vi"), _OPENG)
+    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
+    writer = generated_vi(_vi(_LARGEFILE / f"LF Write File ({suffix})__ogtk.vi"))
+    reader = generated_vi(_vi(_LARGEFILE / f"LF Read File ({suffix})__ogtk.vi"))
     target = tmp_path / "numbers.bin"
     target.write_bytes(b"")
     expected = struct.pack(f"{code[0]}{len(values)}{code[1]}", *values)
@@ -229,13 +225,11 @@ def test_large_file_vis_read_and_write_numbers(
 def test_file_pointer_size_and_end_of_file_vis(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
-    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"), _OPENG)
-    retrieve = generated_vi(
-        _vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"), _OPENG
-    )
-    pointer = generated_vi(_vi(_LARGEFILE / "LFU Set File Pointer__ogtk.vi"), _OPENG)
-    size = generated_vi(_vi(_LARGEFILE / "LFU Get File Size__ogtk.vi"), _OPENG)
-    end = generated_vi(_vi(_LARGEFILE / "LFU Set End Of File__ogtk.vi"), _OPENG)
+    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
+    retrieve = generated_vi(_vi(_LARGEFILE / "LFU Retrieve File Handle__ogtk.vi"))
+    pointer = generated_vi(_vi(_LARGEFILE / "LFU Set File Pointer__ogtk.vi"))
+    size = generated_vi(_vi(_LARGEFILE / "LFU Get File Size__ogtk.vi"))
+    end = generated_vi(_vi(_LARGEFILE / "LFU Set End Of File__ogtk.vi"))
     target = tmp_path / "text.bin"
     target.write_bytes(b"hello world")
     refnum = opener.lf_open_file__ogtk(file_path=target, open_mode_0=_WRITE).refnum_out
@@ -252,7 +246,7 @@ def test_file_pointer_size_and_end_of_file_vis(
 
 
 def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
-    handler = generated_vi(_vi(_LARGEFILE / "LFU Error Handler__ogtk.vi"), _OPENG)
+    handler = generated_vi(_vi(_LARGEFILE / "LFU Error Handler__ogtk.vi"))
     handler.lfu_error_handler__ogtk(retval=1)  # a succeeded call: nothing to report
     kernel32.last_error = 5
     # a failed call reports error 6
@@ -265,7 +259,7 @@ def test_error_handler_vi_runs(generated_vi, kernel32: Kernel32) -> None:
 def test_a_missing_file_fails_to_open(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
-    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"), _OPENG)
+    opener = generated_vi(_vi(_LARGEFILE / "LF Open File__ogtk.vi"))
     with pytest.raises(_generated_error(opener)):
         opener.lf_open_file__ogtk(file_path=tmp_path / "nope.bin", open_mode_0=_READ)
     assert kernel32.last_error == 2  # ERROR_FILE_NOT_FOUND
@@ -288,9 +282,9 @@ def test_write_environment_variable(generated_vi, name: str, value: str) -> None
     if not _WINDOWS:
         # kernel32.dll is Windows only: the module loads it when it is imported.
         with pytest.raises(OSError, match="kernel32.dll"):
-            generated_vi(vi, _PLUGIN)
+            generated_vi(vi)
         return
-    module = generated_vi(vi, _PLUGIN)
+    module = generated_vi(vi)
     # SetEnvironmentVariableA changes the process environment block, which
     # os.environ (a snapshot from interpreter start) never sees: read it back
     # through the Windows API, and remove the variable afterwards.
@@ -313,9 +307,9 @@ def test_get_client_machine_details(generated_vi) -> None:
     )
     if not _WINDOWS:
         with pytest.raises(OSError, match="kernel32.dll"):
-            generated_vi(vi, _PLUGIN)
+            generated_vi(vi)
         return
-    details = generated_vi(vi, _PLUGIN).get_client_machine_details()
+    details = generated_vi(vi).get_client_machine_details()
     assert details.hostname.lower() == socket.gethostname().lower()[:15]
     assert details.username == getpass.getuser()
 
@@ -328,7 +322,7 @@ _KEY_FILE_VI = (
 def test_read_discovery_service_key_file(
     generated_vi, kernel32: Kernel32, tmp_path: Path
 ) -> None:
-    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
+    module = generated_vi(_vi(_KEY_FILE_VI))
     key_file = tmp_path / "key.json"
     key_file.write_text('{"insecurePort": "31763"}')
 
@@ -348,7 +342,7 @@ def test_read_discovery_service_key_file_of_a_missing_file_is_error_5054(
     VI builds error 5054 through Error Cluster From Error Code. The Clear Errors
     after the read only clears the wire to the handle close: the close still runs,
     and the error still reaches the caller."""
-    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
+    module = generated_vi(_vi(_KEY_FILE_VI))
     closed: list[int] = []
     close_handle = kernel32.CloseHandle
 
@@ -368,7 +362,7 @@ def test_read_discovery_service_key_file_when_it_cannot_be_opened_is_error_5053(
     generated_vi, kernel32: Kernel32, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """CreateFileA answering 0 is the case the VI reports as error 5053."""
-    module = generated_vi(_vi(_KEY_FILE_VI), _PLUGIN)
+    module = generated_vi(_vi(_KEY_FILE_VI))
     monkeypatch.setattr(kernel32, "CreateFileA", lambda *args: 0)
     with pytest.raises(_generated_error(module)) as raised:
         module.read_discovery_service_key_file(key_file_path=tmp_path / "key.json")

@@ -23,6 +23,7 @@ from lvkit.graph.models import (
     PrimitiveNode,
     SourceInfo,
     VIContext,
+    VINode,
 )
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
@@ -41,12 +42,19 @@ from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.string_literal import quote_string
 from lvkit.vilib_resolver import VILibResolver
 
-from .ast_utils import interface_names, to_function_name, to_var_name
+from .ast_utils import (
+    field_attribute_names,
+    interface_names,
+    to_function_name,
+    to_var_name,
+)
+from .class_model import member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
-from .errors import unwritable_value_error
+from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
 from .import_resolver import ImportResolver, NameImport
+from .local_indicators import LocalIndicators
 from .module_declarations import ModuleDeclarations
 from .references import REFERENCE_KINDS, generated_nodes
 
@@ -114,6 +122,8 @@ class CodeGenContext:
     # across the same generation pass.
     _branch_counter: int = field(default=0, repr=False)
     _allocated_vars: set[str] = field(default_factory=set, repr=False)
+    # Output tunnel (outer terminal id) -> the variable that is its merge.
+    _tunnel_var_names: dict[str, str] = field(default_factory=dict, repr=False)
     # Variable names bound to array-typed values, with each array's dimension
     # count. A final codegen pass uses this to write operators over operands
     # that turned out to be arrays as comprehensions, even after single-use
@@ -145,6 +155,14 @@ class CodeGenContext:
     # the VI function, sorted by name — dict/set iteration order is not
     # a name, so insertion order alone would not be byte-reproducible.
     module_globals: dict[str, ast.stmt] = field(default_factory=dict, repr=False)
+    # Nodes that lie on a cycle of the wires of one structure level, found by
+    # the dependency sort, with why. One dict per module, shared by child contexts.
+    circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
+    # The indicators a Local Variable reads, as variables of the function. One
+    # per function, shared by child contexts.
+    local_indicators: LocalIndicators = field(
+        default_factory=LocalIndicators, repr=False
+    )
     # Callback for recursive body generation. Set by builder.py,
     # used by case/loop codegen to generate inner node code without
     # importing back into the builder (which would create a cycle).
@@ -185,6 +203,12 @@ class CodeGenContext:
             self.merge(fragment.bindings)
             self.imports.update(fragment.imports)
         return stmts
+
+    def catalog_path(self, node: VINode) -> str | None:
+        """The path the vi.lib catalog looks the VI ``node`` calls up by."""
+        if self.graph is None:
+            return node.qualified_path
+        return self.graph.catalog_path(node)
 
     def is_wired(self, terminal_id: str) -> bool:
         """Check if a terminal has any edge connected."""
@@ -235,6 +259,42 @@ class CodeGenContext:
                     queue.append(src.terminal_id)
 
         return None
+
+    def wired_input(
+        self, terminal_id: str, node: AnyGraphNode, label: str | int | None = None
+    ) -> str | None:
+        """The expression feeding input terminal ``terminal_id`` of ``node``.
+
+        None when the terminal is unwired, or it or the terminal feeding it
+        carries an error cluster (errors are exceptions, so it has no value).
+        A source that is a gap constant is bound to ``None``, so a wire from it
+        reads ``"None"``: its function raises where it starts. A wired input
+        with no variable at all is a bug in lvkit and raises ``CodeGenError``
+        naming where the wire comes from; ``label`` names the input in the
+        message, else its own name or index does. A wire counts when it comes
+        from the terminal's own VI."""
+        value = self.resolve(terminal_id)
+        if value is not None:
+            return value
+        if self.graph is None:
+            return None
+        terminal = next((t for t in node.terminals if t.id == terminal_id), None)
+        if (
+            not self.graph.terminal_is_fed(terminal_id)
+            or (terminal is not None and terminal.is_error_cluster)
+            or self.graph.terminal_fed_by_error_cluster(terminal_id)
+        ):
+            return None
+        value = self.resolve(terminal_id, allow_none=True)
+        if value is None:
+            if label is None:
+                label = terminal.name or terminal.index if terminal else terminal_id
+            raise CodeGenError(
+                f"The wired input {label!r} of {node.name!r} has no variable "
+                f"(from {self.graph.terminal_sources_description(terminal_id)})",
+                node,
+            )
+        return value
 
     def var_name_in_use(self, name: str) -> bool:
         """Check if a variable name is already bound in this context.
@@ -321,7 +381,6 @@ class CodeGenContext:
                 # This terminal IS a tunnel inner — derive name from outer
                 name = self.output_tunnel_var_name(term.paired_id, dest.node_id)
                 if name:
-                    self._allocated_vars.add(name)
                     return name
 
         return None
@@ -329,10 +388,27 @@ class CodeGenContext:
     def output_tunnel_var_name(
         self, outer_id: str, structure_node_id: str
     ) -> str | None:
-        """Variable name for a structure output tunnel's merge, derived from
-        its outer terminal: the downstream consumer's name, else the outer
-        terminal's own name. ``None`` when neither is named — the caller then
-        picks a fallback.
+        """Variable name for a structure output tunnel's merge: the name derived
+        from its outer terminal (see ``_derived_tunnel_name``), made unique like
+        every other variable the first time the tunnel is named, and the same
+        for every later caller. ``None`` when the tunnel has no name."""
+        claimed = self._tunnel_var_names.get(outer_id)
+        if claimed is not None:
+            return claimed
+        name = self._derived_tunnel_name(outer_id, structure_node_id)
+        if name is None:
+            return None
+        if name in self._allocated_vars:
+            suffix = outer_id.split("::")[-1]
+            name = f"{name}_{suffix}"
+        self._allocated_vars.add(name)
+        self._tunnel_var_names[outer_id] = name
+        return name
+
+    def _derived_tunnel_name(self, outer_id: str, structure_node_id: str) -> str | None:
+        """The name of a structure output tunnel's merge, derived from its outer
+        terminal: the downstream consumer's name, else the outer terminal's own
+        name. ``None`` when neither is named — the caller then picks a fallback.
 
         A case output tunnel is a MERGE: one outer terminal, one inner per
         frame. All of a frame's producers and the case generator resolve the
@@ -491,12 +567,15 @@ class CodeGenContext:
             use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
+            local_indicators=self.local_indicators,
+            circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
             function_name=self.function_name,
             _allocated_vars=self._allocated_vars,  # Shared — same scope
+            _tunnel_var_names=self._tunnel_var_names,  # Shared — same scope
             array_vars=self.array_vars,  # Shared — one set across the VI
             vi_inputs=self.vi_inputs,
             import_resolver=self.import_resolver,
@@ -545,6 +624,24 @@ class CodeGenContext:
         self.add_import(imported.statement)
         return imported.name
 
+    def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
+        """The expression a reference to a VI is: its function, imported, or, for
+        a VI of a class, ``Class.method`` (the class imported; for an accessor VI
+        the getter or setter of its property)."""
+        shape = (
+            member_shape(self.graph, key)
+            if self.graph is not None and key is not None
+            else None
+        )
+        if shape is None or not isinstance(self.import_resolver, ImportResolver):
+            return self.import_function(vi_name, key)
+        assert self.graph is not None
+        expression, statement = member_reference(
+            self.graph, shape, self.import_resolver, self.vi_name
+        )
+        self.add_import(statement)
+        return expression
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""
@@ -560,7 +657,7 @@ class CodeGenContext:
             and lv_type.underlying_type == "VIRefnum"
             and isinstance(const.value, str)
         ):
-            return self.import_function(const.value, const.referenced_vi_key)
+            return self.vi_reference_expression(const.value, const.referenced_vi_key)
         if const.unwritable is not None:
             for statement in DATA_FILE_IMPORTS.splitlines():
                 self.add_import(statement)
@@ -947,7 +1044,12 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         elts = ", ".join(v for _name, v in ordered)
         trailing = "," if len(ordered) == 1 else ""
         return f"({elts}{trailing})"
-    kwargs = ", ".join(f"{to_var_name(name)}={v}" for name, v in ordered)
+    kwargs = ", ".join(
+        f"{attribute}={v}"
+        for attribute, (_name, v) in zip(
+            field_attribute_names(f.name for f in fields), ordered, strict=True
+        )
+    )
     return f"SimpleNamespace({kwargs})"
 
 
@@ -1027,9 +1129,10 @@ def _format_constant(
 
     # Cluster constant: emit a mutable attribute object so Bundle/Unbundle By
     # Name (which read and write ``.field``) operate on it. A named/typedef
-    # cluster uses attribute access with field names matched to nmux's
-    # ``to_var_name(field.name)``; an anonymous cluster (no field names) is a
-    # positional tuple, the representation nmux uses for anonymous clusters.
+    # cluster uses attribute access with the names ``field_attribute_names``
+    # gives its fields, the ones Bundle/Unbundle By Name use; an anonymous cluster
+    # (no field names) is a positional tuple, the representation nmux uses for
+    # anonymous clusters.
     if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
         cluster_expr = _format_cluster_constant(const)
         if cluster_expr is not None:

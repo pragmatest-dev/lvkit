@@ -42,7 +42,7 @@ from ._flat_node import add_flat_imports, terminal, unsupported_layout_error
 def _constant(ctx: CodeGenContext, node: PrimitiveNode, index: int, default):
     """The value of an input that must be a constant, or ``default`` unwired."""
     term = terminal(node, "input", index)
-    text = ctx.resolve(term.id) if term else None
+    text = ctx.wired_input(term.id, node) if term else None
     if text is None:
         return default
     try:
@@ -66,7 +66,7 @@ def unflatten_from_string(
     if not (wants_value or wants_rest):
         return CodeFragment.empty()
     string_term = terminal(node, "input", 11)
-    text = (ctx.resolve(string_term.id) if string_term else None) or "''"
+    text = (ctx.wired_input(string_term.id, node) if string_term else None) or "''"
     prefix = bool(_constant(ctx, node, 10, True))
     order = BYTE_ORDER_PREFIX[int(_constant(ctx, node, 9, 0))]
     try:

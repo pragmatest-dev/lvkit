@@ -132,6 +132,14 @@ def path_text(text: str) -> str | None:
     return "/" + joined if path_type == PathType.ABSOLUTE else joined
 
 
+def path_name_stem(text: str) -> str | None:
+    """The text a variable holding the path ``text`` is named from: the path's
+    own components (``Path('/C/Users')``), not the OS-dependent expression
+    ``python_path`` writes. None for Not a Path or text that is no path."""
+    spelled = path_text(text)
+    return None if spelled is None else f"Path({spelled!r})"
+
+
 def python_path(text: str) -> str | None:
     """The Python expression for a path text: ``None`` for Not a Path, else a
     ``Path(...)`` call of the components (pathlib joins them with the OS
@@ -142,7 +150,10 @@ def python_path(text: str) -> str | None:
     code runs on: ``Path("C:/" if os.name == "nt" else "/C", "Users")``. A path with
     no component, absolute or relative, is the empty ``Path('')`` (Python has no
     absolute path without a component). A path that starts at a symbolic LabVIEW
-    folder (``<vilib>``, ``<userlib>``) has no Python meaning and is a gap.
+    folder (``<vilib>``, ``<userlib>``) is a plain path value that keeps the
+    folder as its first component (``Path("<vilib>", "x.vi")``); code that opens
+    a file through it fails there with Python's own error. An absolute path with
+    an empty volume is a gap.
     """
     parsed = parse_path(text)
     if parsed is None:
@@ -156,13 +167,10 @@ def python_path(text: str) -> str | None:
     if path_type == PathType.RELATIVE:
         return f"Path({', '.join(repr(p) for p in parts)})"
     volume, rest = components[0], parts[1:]
-    if _SYMBOLIC.fullmatch(volume):
-        raise ConversionGap(
-            f"The path {text} starts at the symbolic LabVIEW folder {volume}, "
-            "which has no Python path; write the folder's real path."
-        )
     if volume == "":
         raise ConversionGap(f"The absolute path {text} has no volume name.")
+    if _SYMBOLIC.fullmatch(volume):
+        return f"Path({', '.join(repr(p) for p in parts)})"
     root = f"{volume}:/"
     posix = f"/{volume}"
     head = f'{root!r} if os.name == "nt" else {posix!r}'

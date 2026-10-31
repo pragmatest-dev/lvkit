@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 from lvkit.lv_type_codes import is_boolean_type_name
 
@@ -249,65 +249,70 @@ def _bool_value(raw: object) -> bool:
 # triangle with a small "?" (its "s?" selector), not the case-structure-like
 # ``node_type=="select"`` used internally for In-Place-Element decompose/
 # recompose (unrelated construct — see ``graph/builders/structures.py``).
+# Keyed by primResID (``tests/test_render_glyph_tables.py`` checks each ID's
+# catalog name); a function the catalog lists under several IDs has them all.
 _ARITH_SYMBOL = {
-    "Add": "+",
-    "Subtract": "−",
-    "Multiply": "×",
-    "Divide": "÷",
-    "Increment": "+1",
-    "Decrement": "-1",
-    "And Array Elements": "∧",
-    "Or Array Elements": "∨",
-    "Add Array Elements": "+",
-    "Multiply Array Elements": "×",
-    "Select": "?",
+    1050: "+",  # Add
+    3915: "+",  # Add
+    1051: "−",  # Subtract
+    3916: "−",  # Subtract
+    1052: "×",  # Multiply
+    3917: "×",  # Multiply
+    1053: "÷",  # Divide
+    3918: "÷",  # Divide
+    1057: "+1",  # Increment
+    1058: "-1",  # Decrement
+    1911: "∧",  # And Array Elements
+    1910: "∨",  # Or Array Elements
+    1903: "+",  # Add Array Elements
+    1904: "×",  # Multiply Array Elements
+    1516: "?",  # Select
 }
 
 # Comparison primitives — LabVIEW draws each as the same borderless triangle
 # as an arithmetic op, only the interior symbol differs (see NI docs slugs
-# equal/not-equal/greater/less/greater-or-equal/less-or-equal). Keyed by the
-# resolved primitive NAME (primitives.json), the same way _ARITH_SYMBOL keys
-# arithmetic — several type-variant prim_ids share one comparison name.
+# equal/not-equal/greater/less/greater-or-equal/less-or-equal). Keyed by
+# primResID, like _ARITH_SYMBOL.
 _COMPARE_SYMBOL = {
-    "Equal?": "=",
-    "Not Equal?": "≠",
-    "Greater?": ">",
-    "Less?": "<",
-    "Greater Or Equal?": "≥",
-    "Less Or Equal?": "≤",
+    1102: "=",  # Equal?
+    1105: "≠",  # Not Equal?
+    1110: ">",  # Greater?
+    1111: "<",  # Less?
+    1103: "≥",  # Greater Or Equal?
+    1104: "≤",  # Less Or Equal?
     # Comparison-to-0 variants (LabVIEW draws the same triangle with a "0").
-    "Equal To 0?": "=0",
-    "Not Equal To 0?": "≠0",
-    "Greater Than 0?": ">0",
-    "Less Than 0?": "<0",
-    "Greater Or Equal To 0?": "≥0",
-    "Less Or Equal To 0?": "≤0",
+    1113: "=0",  # Equal To 0?
+    1116: "≠0",  # Not Equal To 0?
+    1117: ">0",  # Greater Than 0?
+    1118: "<0",  # Less Than 0?
+    1114: "≥0",  # Greater Or Equal To 0?
+    1115: "≤0",  # Less Or Equal To 0?
 }
 
 # Boolean logic-GATE primitives (goal #99) -> (BooleanGateGlyph kind, interior
 # symbol, negated-output-bubble, negated-input-bubble). Keyed by the resolved
-# primitive NAME, same convention as ``_COMPARE_SYMBOL``. Only names actually
-# present in ``primitives.json`` fire: And (1062), Or (1061), Not (1064).
-# Exclusive Or / Not And / Not Or / Not Exclusive Or / Implies have no
-# confirmed primResID yet, so they still fall through to the labeled-box
-# fallback until a future primitive-resolution pass adds them.
+# primResID, same convention as ``_COMPARE_SYMBOL``. Only gates present in the
+# catalog fire: And (1061), Or (1062), Not (1064). Exclusive Or / Not And /
+# Not Or / Not Exclusive Or / Implies have no confirmed primResID yet, so they
+# still fall through to the labeled-box fallback until a future
+# primitive-resolution pass adds them.
 _BOOLEAN_GATE = {
-    "And": ("and", "∧", False, False),
-    "Or": ("or", "∨", False, False),
-    "Not": ("not", "¬", False, True),
+    1061: ("and", "∧", False, False),  # And
+    1062: ("or", "∨", False, False),  # Or
+    1064: ("not", "¬", False, True),  # Not
 }
 
 # ARRAY family (goal #14 follow-up) -> a fixed, stateless glyph instance,
-# keyed by the resolved primitive NAME (same convention as
+# keyed by primResID (same convention as
 # ``_COMPARE_SYMBOL``/``_BOOLEAN_GATE``). Build Array (``aBuild``) is NOT
 # here — it grows with its input count, so it's constructed per-node in
 # ``resolve()`` instead of shared as one instance.
-_ARRAY_GLYPH: dict[str, Glyph] = {
-    "Array Size": ArraySizeGlyph(),
-    "Reverse 1D Array": ArrayReverseGlyph(),
-    "Search 1D Array": ArraySearchGlyph(),
-    "Sort 1D Array": ArraySortGlyph(),
-    "Split 1D Array": ArraySplitGlyph(),
+_ARRAY_GLYPH: dict[int, Glyph] = {
+    1809: ArraySizeGlyph(),  # Array Size
+    1900: ArrayReverseGlyph(),  # Reverse 1D Array
+    1901: ArraySearchGlyph(),  # Search 1D Array
+    1120: ArraySortGlyph(),  # Sort 1D Array
+    1908: ArraySplitGlyph(),  # Split 1D Array
 }
 
 # ARRAY-family glyphs (the dict above + Build Array's ``ArrayBuildGlyph``) are
@@ -319,16 +324,29 @@ _ARRAY_GLYPH: dict[str, Glyph] = {
 _ARRAY_GLYPHS_ENABLED = False
 
 # CONVERTER family (goal #14 follow-up): target-type abbreviation shown by
-# ``ConvertGlyph``, keyed by the resolved primitive NAME.
+# ``ConvertGlyph``, keyed by primResID.
 _CONVERTER_ABBR = {
-    "To Long Integer": "I32",
-    "To Word Integer": "I16",
-    "To Byte Integer": "I8",
-    "To Unsigned Byte Integer": "U8",
-    "To Unsigned Word Integer": "U16",
-    "To Double Precision Float": "DBL",
-    "Boolean To (0,1)": "0,1",
+    1142: "I32",  # To Long Integer
+    1141: "I16",  # To Word Integer
+    1140: "I8",  # To Byte Integer
+    1143: "U8",  # To Unsigned Byte Integer
+    1144: "U16",  # To Unsigned Word Integer
+    1147: "DBL",  # To Double Precision Float
+    1167: "0,1",  # Boolean To (0,1)
 }
+
+
+_T = TypeVar("_T")
+
+
+def _by_prim_id(table: Mapping[int, _T], node: PrimitiveNode) -> _T | None:
+    """The entry of a primResID-keyed ``table`` for a plain ``class="prim"`` node.
+    A primResID is shared with other node classes (1809 is also Index Array), so
+    only that class is looked up."""
+    if node.node_type != "prim" or node.prim_id is None:
+        return None
+    return table.get(node.prim_id)
+
 
 # Cluster assemble/disassemble node classes. LabVIEW parses the palette Bundle
 # and Unbundle functions (and their case/loop-boundary variants) as these
@@ -489,9 +507,9 @@ def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
 @dataclass(frozen=True)
 class SubVISource:
     """A SubVI VINode's resolved on-disk ``.vi`` source, plus whether it was
-    found in a PROJECT-local location (an already-loaded VI, a search-path
-    filename match, or a literal existing ``qualified_path``) as opposed to
-    the user's own LOCAL vi.lib/user.lib install (``resolve_library_vi_path``).
+    found in a PROJECT-local location (the file the caller's record names, or
+    its recorded path relative to the caller) as opposed to the user's own
+    LOCAL vi.lib/user.lib install (``resolve_library_vi_path``).
 
     The distinction matters to any consumer that emits a portable reference
     to the path — e.g. render/scene.py's click-navigation
@@ -553,18 +571,12 @@ def resolve_subvi_source(
     and click-navigation (render/scene.py's ``data-lv-vi-rel``), so both
     features ask the identical question rather than each inventing its own.
 
-    Tries, in order:
+    Tries, in order, only the path the caller records for the call:
 
-    - ``graph.locate_vi_file(name)``: an already-loaded source (free — a
-      dict lookup) or a filename search of the graph's search paths —
-      PROJECT-local either way.
-    - ``node.qualified_path``, if it happens to already be a literal,
-      existing file path (rare: today's ``qualified_path`` values are raw
-      LabVIEW path TOKENS like ``"<vilib>/Utility/error.llb/Foo.vi"``, not
-      resolved filesystem paths — resolving the ``<vilib>``/``<userlib>``
-      tokens would need a library root the graph doesn't expose publicly;
-      see the JUDGMENT CALL note in this module's tests / the P2 report) —
-      PROJECT-local.
+    - ``node.interface_key``: the file the loader resolved the call to, when
+      it is on disk.
+    - ``node.qualified_path`` relative to the caller
+      (``_resolve_caller_relative_vi``) — PROJECT-local.
     - ``graph.resolve_library_vi_path(node.qualified_path)``: the user's
       LOCAL vi.lib/user.lib install — NOT project-local (a system path).
 
@@ -587,23 +599,12 @@ def resolve_subvi_source(
     # LabVIEW LinkSavePathRef token string whose leading empties (leading '/'s)
     # are '..' hops from the CALLER file, then the rest append. A same-library/
     # class call is stored as a bare LOCAL ref ("/Do.vi" -> the caller's own
-    # sibling); resolving that against the search ROOT (or by bare name) collides
-    # it with a same-named VI in another library (#29). Resolving from the caller
-    # places it correctly.
+    # sibling); resolving it by bare name would collide it with a same-named VI
+    # in another library (#29). Resolving from the caller places it correctly.
     src = _resolve_caller_relative_vi(node)
     if src is not None:
         return SubVISource(src, project_local=True)
 
-    # Pass qualified_path so two SubVIs that share a bare filename across
-    # libraries (Lib1/Do.vi vs Lib2/Do.vi) each resolve to their OWN file — a
-    # bare-name lookup would collide and give both the same icon.
-    src_path = graph.locate_vi_file(name, node.qualified_path)
-    if src_path is not None:
-        return SubVISource(src_path, project_local=True)
-    if node.qualified_path:
-        candidate = Path(node.qualified_path)
-        if candidate.is_file():
-            return SubVISource(candidate, project_local=True)
     # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
     # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
     # locally is not distribution; lvkit never ships this art, and a hosted
@@ -674,7 +675,7 @@ class JsonGlyphResolver:
         if isinstance(node, PrimitiveNode):
             icon = self._primitive_icon(node)
         elif isinstance(node, VINode):
-            icon = self._vi_icon(node)
+            icon = self._vi_icon(node, ctx.graph.catalog_path(node))
         if icon is None:
             return None
         return self._glyph_from_icon(icon)
@@ -692,13 +693,9 @@ class JsonGlyphResolver:
         return None
 
     @staticmethod
-    def _vi_icon(node: VINode) -> NodeIcon | None:
+    def _vi_icon(node: VINode, catalog_path: str | None) -> NodeIcon | None:
         resolver = get_vilib_resolver()
-        entry = None
-        if node.poly_variant_name and node.name:
-            entry = resolver.resolve_poly_variant(node.name, node.poly_variant_name)
-        if entry is None and node.name:
-            entry = resolver.resolve_by_name(node.name)
+        entry = resolver.resolve_call(catalog_path, node.poly_variant_name)
         return entry.icon if entry is not None else None
 
     @staticmethod
@@ -770,8 +767,8 @@ def _bundle_by_name_glyph(
     field list. ``bundling`` is True when the cluster is the OUTPUT (fields in →
     cluster out). Field names are resolved through a fall-through chain (each
     row independently): (1) for a class-typed aggregate, THIS VI's own inline
-    private-data typedef copy (cheap, available even under a MINIMAL load with
-    no search-path — see ``_own_class_private_data_fields``); (2)
+    private-data typedef copy (cheap, available even under a MINIMAL load whose
+    class file is absent — see ``_own_class_private_data_fields``); (2)
     ``graph.get_type_fields()`` — dep_graph class fields (authoritative once
     the owning class loads) or a non-class typedef/anonymous cluster's inline
     fields; (3) the field terminal's own resolved name; (4) the accessed
@@ -1202,12 +1199,12 @@ class OriginalGlyphResolver:
     - The boolean logic gates (And, Or, Not) — ``BooleanGateGlyph``'s
       D-shape/shield/triangle+bubble outlines (goal #99).
     - The ARRAY family (Array Size, Reverse/Search/Sort/Split 1D Array) —
-      the "little element boxes" motif, keyed by name via ``_ARRAY_GLYPH``.
+      the "little element boxes" motif, keyed by primResID via ``_ARRAY_GLYPH``.
     - Build Array (``aBuild``) — ``ArrayBuildGlyph``, a drawer that grows
       with its input count (same skeleton as Bundle/Compound Arithmetic).
     - The CONVERTER family (To Long/Word/Byte/Unsigned Integer, Boolean To
       (0,1)) — a small entering arrow into a bold type abbreviation,
-      ``ConvertGlyph``, keyed by name via ``_CONVERTER_ABBR``.
+      ``ConvertGlyph``, keyed by primResID via ``_CONVERTER_ABBR``.
     """
 
     def resolve(self, node: AnyGraphNode, ctx: GlyphContext) -> Glyph | None:
@@ -1245,10 +1242,10 @@ class OriginalGlyphResolver:
             # wire still routes correctly, because it targets this node's
             # own (shared) bounds, which the master's glyph already covers.
             return _NO_GLYPH
-        symbol = _COMPARE_SYMBOL.get(node.name or "")
+        symbol = _by_prim_id(_COMPARE_SYMBOL, node)
         if symbol is not None:
             return ArithGlyph(symbol)
-        gate = _BOOLEAN_GATE.get(node.name or "")
+        gate = _by_prim_id(_BOOLEAN_GATE, node)
         if gate is not None:
             kind, gate_symbol, negated, input_bubble = gate
             return BooleanGateGlyph(
@@ -1258,15 +1255,13 @@ class OriginalGlyphResolver:
                 input_bubble=input_bubble,
             )
         if _ARRAY_GLYPHS_ENABLED:
-            array_glyph = _ARRAY_GLYPH.get(node.name or "")
+            array_glyph = _by_prim_id(_ARRAY_GLYPH, node)
             if array_glyph is not None:
                 return array_glyph
-        abbr = _CONVERTER_ABBR.get(node.name or "")
+        abbr = _by_prim_id(_CONVERTER_ABBR, node)
         if abbr is not None:
             return ConvertGlyph(abbr)
-        if _ARRAY_GLYPHS_ENABLED and (
-            node.node_type == "aBuild" or node.name == "Build Array"
-        ):
+        if _ARRAY_GLYPHS_ENABLED and node.node_type == "aBuild":
             num_inputs = sum(1 for t in node.terminals if t.direction == "input")
             return ArrayBuildGlyph(num_inputs=max(1, num_inputs))
         return None
@@ -1872,7 +1867,7 @@ class GeneratedGlyphResolver:
                 _cpd_arith_operation(node),
                 num_inputs=max(1, num_inputs),
             )
-        sym = _ARITH_SYMBOL.get(node.operation or node.name or "")
+        sym = _by_prim_id(_ARITH_SYMBOL, node)
         if sym:
             return ArithGlyph(sym)
         # Unresolved primitive: show a compact "#<prim_id>" rather than the

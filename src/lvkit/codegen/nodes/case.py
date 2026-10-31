@@ -153,7 +153,7 @@ def generate(node: CaseStructureNode, ctx: CodeGenContext) -> CodeFragment:
 
     selector_var = None
     if node.selector_terminal:
-        selector_var = ctx.resolve(node.selector_terminal)
+        selector_var = ctx.wired_input(node.selector_terminal, node)
 
     if not selector_var:
         selector_var = _fallback_selector(node, ctx)

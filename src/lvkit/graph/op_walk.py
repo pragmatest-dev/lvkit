@@ -71,8 +71,8 @@ def _own_class_private_data_fields(
 ) -> list[ClusterField]:
     """This VI's OWN inline "Cluster of class private data" typedef — a
     snapshot embedded in the VI's own VCTP, resolvable WITHOUT loading the
-    owning ``.lvclass`` at all (works under a ``MINIMAL`` load with no
-    ``--search-path``: the VI's own extracted XML already carries it). Tried
+    owning ``.lvclass`` at all (works under a ``MINIMAL`` load whose class file
+    is absent: the VI's own extracted XML already carries it). Tried
     before the dep_graph class fields in ``_nmux_field_sources`` because
     it's cheap and available in the common case; ``get_type_fields`` (via
     ``get_class_fields``) is the fallback, authoritative once the owning
@@ -94,14 +94,12 @@ def _own_class_private_data_fields(
         return []
     if main_xml is None:
         return []
-    # allow_display_label_fallback: in the SINGLE-VI case (an uploaded VI with
-    # no .lvclass / .ctl on any search path) the class's private-data cluster is
-    # often labeled with its control's display name rather than "class private
-    # data"; accept it (identified by owner class + "<Class>.ctl") so fields
-    # resolve from the VI alone instead of falling back to raw [index]. The
-    # dep_graph/.ctl path (authoritative, and it dereferences by-reference data)
-    # is unaffected — it never sets this flag.
-    fields = _fields_from_xml(main_xml, classname, allow_display_label_fallback=True)
+    # A single VI has no class file to name the private-data control; the
+    # control is "<Class>.ctl", the name every class file in the corpus
+    # records. By-reference private data (a lone Data Value Reference) is
+    # left to the class's control file, which dereferences it.
+    class_stem = classname.rsplit(":", 1)[-1].rsplit(".", 1)[0]
+    fields = _fields_from_xml(main_xml, classname, f"{class_stem}.ctl")
     if not fields:
         return []
     return [private_data_field_to_cluster_field(f) for f in fields]
@@ -228,7 +226,7 @@ def stamp_nmux_lane_names(graph: InMemoryVIGraph) -> None:
     field name resolves -- never clobbers an already-resolved name, and
     never stamps a bracketed-index/no-name placeholder (a caller's own
     index fallback still applies for those, and a later fuller load, e.g.
-    once a class search-path resolves, can fill it in). Safe to call
+    once the class file is at its recorded path, can fill it in). Safe to call
     repeatedly (e.g. once per top-level ``load_vi``).
 
     Gated to ``NMUX_NAMED_LANE_NODE_CLASSES`` (``nMux``/
@@ -526,17 +524,17 @@ class ComponentPort:
 
 def _subvi_ports(
     graph: InMemoryVIGraph,
-    name: str,
     callee_key: str | None,
+    recorded_path: str | None,
 ) -> tuple[list[ComponentPort], list[ComponentPort]] | None:
     """Typed (inputs, outputs) port list for a called SubVI.
 
     ``callee_key`` is the loaded callee's ``vi_key`` (see
     ``InMemoryVIGraph.loaded_callee_key``): its resolved front-panel signature
     is used. Without one, an unloaded vilib ref falls back to the resolver's
-    terminal layout (looked up by ``name``). Returns ``None`` when neither is
-    available -- callers decide how to render that (bare name, or an empty-port
-    declaration), never fabricate ports.
+    terminal layout (looked up by the path the call records, ``recorded_path``).
+    Returns ``None`` when neither is available -- callers decide how to render
+    that (bare name, or an empty-port declaration), never fabricate ports.
     """
     if callee_key is not None:
         sctx = graph.get_vi_context(callee_key)
@@ -556,7 +554,7 @@ def _subvi_ports(
         ]
         return ins, outs
 
-    entry = _get_vilib_resolver().resolve_by_name(name)
+    entry = _get_vilib_resolver().resolve_recorded(recorded_path)
     if entry is not None and entry.terminals:
         # str(t.type): the vilib resolver's terminal type is frequently
         # unset for real entries (e.g. niDigital.* instrument handles) --

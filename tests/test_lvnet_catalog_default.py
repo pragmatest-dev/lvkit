@@ -332,16 +332,17 @@ def _vilib_call_lvnet(
 
 
 # (vi.lib VI, path under <vilib>, [(connector-pane slot, type)], expected lvnet
-# lines). The slots are the ones corpus callers record for the VI's controls.
+# lines). The slots are the ones corpus callers record for the VI's controls;
+# each input is named by the catalog's label for its slot.
 VILIB_CALL_DEFAULTS = [
     pytest.param(
         "System Exec.vi",
         ["Platform", "system.llb"],
         [(5, "NumUInt32"), (6, "Boolean"), (7, "Boolean"), (11, "String")],
         [
-            "in 5 : U32 default 4096",
-            "in 6 : TF default False",
-            "in 7 : TF default True",
+            "in expected output size (4096) : U32 default 4096",
+            "in run minimized? (F) : TF default False",
+            "in wait until completion? (T) : TF default True",
             "in 11 : String default",
         ],
         id="System Exec",
@@ -351,11 +352,11 @@ VILIB_CALL_DEFAULTS = [
         ["dialog"],
         [(4, "Boolean"), (7, "String"), (8, "String"), (9, "String"), (10, "String")],
         [
-            "in 4 : TF default True",
-            'in 7 : String default ""',
-            'in 8 : String default "Cancel"',
-            'in 9 : String default "No"',
-            'in 10 : String default "Yes"',
+            "in Allow user to close window? (TRUE) : TF default True",
+            'in Window Title ("") : String default ""',
+            'in Right Button Text ("Cancel") : String default "Cancel"',
+            'in Center Button Text ("No") : String default "No"',
+            'in Left Button Text ("Yes") : String default "Yes"',
         ],
         id="Three Button Dialog",
     ),
@@ -363,14 +364,14 @@ VILIB_CALL_DEFAULTS = [
         "Picture to Pixmap.vi",
         ["picture", "pictutil.llb"],
         [(9, "NumInt32")],
-        ["in 9 : I32 default 24"],
+        ["in depth : I32 default 24"],
         id="Picture to Pixmap",
     ),
     pytest.param(
         "Write to System Log.vi",
         ["Utility", "SystemLogging"],
         [(10, "NumInt32")],
-        ["in 10 : I32 default 0"],
+        ["in severity : I32 default 0"],
         id="Write to System Log",
     ),
     pytest.param(
@@ -378,9 +379,9 @@ VILIB_CALL_DEFAULTS = [
         ["Analysis", "3filter.llb"],
         [(0, "Boolean"), (4, "NumInt32"), (8, "NumFloat64")],
         [
-            "in 0 : TF default False",
-            "in 4 : I32 default 2",
-            "in 8 : DBL default 1",
+            "in init/cont (init:F) : TF default False",
+            "in order : I32 default 2",
+            "in sampling freq: fs : DBL default 1",
         ],
         id="Butterworth Filter",
     ),

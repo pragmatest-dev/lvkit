@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import _graph_node_to_op_kind
 from lvkit.graph.models import (
     AnyGraphNode,
@@ -76,6 +77,9 @@ def _generate(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
     right module. A ``PrimitiveNode`` fans out to property/invoke/primitive
     by its own fields (``.properties``/``.method_name``/plain primitive).
     """
+    circular = ctx.circular_nodes.get(node.id)
+    if circular is not None:
+        raise ConversionGap(circular, node)
     # Structures first (StructureNode subtypes). DisableStructureNode is NOT a
     # CaseStructureNode subclass: it has no runtime selector.
     if isinstance(node, InPlaceNode):

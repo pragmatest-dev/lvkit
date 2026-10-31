@@ -9,13 +9,19 @@ from pathlib import Path
 
 import pytest
 
-from lvkit.docs.generate import _prepare_vi_documentation_data, generate_documents
+from lvkit.docs.generate import (
+    NothingDocumentedError,
+    _prepare_vi_documentation_data,
+    generate_documents,
+)
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.page_names import PageName
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.typedef import TypedefField, TypedefInfo, TypedefRef
 from lvkit.models import EnumValue, LVType, LVTypeKind
+from lvkit.run_report import RunProblems
 
 from .conftest import SAMPLES_ROOT
 
@@ -76,7 +82,7 @@ def test_typedef_page_lists_fields_values_and_escapes(tmp_path: Path) -> None:
     html = gen._render_typedef_page(_info(fields=fields), "<svg id='fp'></svg>")
     assert "&lt;b&gt;Gain&lt;/b&gt;" in html and "<b>Gain</b>" not in html
     assert "<svg id='fp'></svg>" in html and "[1, 2]" in html
-    assert "Inner" in html and 'padding-left:2.5em' in html  # nested one level in
+    assert "Inner" in html and "padding-left:2.5em" in html  # nested one level in
     enum = LVType(LVTypeKind.ENUM, values={"Read": EnumValue(0), "Write": EnumValue(1)})
     values = gen._render_typedef_page(_info(root_type=enum, default="Write"), None)
     assert "<td>1</td><td>Write</td>" in values and "Front Panel" not in values
@@ -86,6 +92,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     gen = _generator(tmp_path)
     gen.register_typedefs([("/p/Cfg.ctl", "Cfg.ctl"), ("/p/Dep.ctl", "Dep.ctl")])
     gen.all_vis.add("/p/use.vi")
+    gen.register_vis({"/p/use.vi": PageName("p", "use")})
     gen.class_pages["Cls.lvclass"] = "Cls_lvclass/Cls.lvclass.html"
     info = _info(
         uses=(TypedefRef(NodeType.TYPEDEF, "Dep.ctl", "/p/Dep.ctl"),),
@@ -98,6 +105,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     html = gen._render_typedef_page(info, None)
     assert 'href="Dep.html"' in html  # another typedef page: same directory
     assert 'href="../Cls_lvclass/Cls.lvclass.html"' in html
+    assert 'href="../p/use.html"' in html
     assert "nopage.vi</code> (vi)" in html  # no page: listed, not linked
     assert html.count("<a href=") == 4  # breadcrumb + the 3 references with pages
 
@@ -108,6 +116,7 @@ def test_index_and_vi_page_link_to_typedef_pages(tmp_path: Path) -> None:
     index = gen._render_index_page([])
     assert "Type Definitions" in index and 'href="typedef/Cfg.html"' in index
     assert "type definitions: 1" in index
+
     def link(key: str) -> str | None:
         page = gen.typedef_pages.get(key)
         return "../" + page.filename if page else None
@@ -127,9 +136,11 @@ def test_a_control_free_index_is_unchanged(tmp_path: Path) -> None:
 def test_a_lone_unreadable_control_is_reported(tmp_path: Path) -> None:
     bad = tmp_path / "Bad.ctl"
     bad.write_bytes(b"not a labview file")
-    result = generate_documents(str(bad), str(tmp_path / "out"))
-    assert result.startswith("Failed to load any VIs or controls")
-    assert "Bad.ctl" in result
+    run = RunProblems()
+    with pytest.raises(NothingDocumentedError, match="Failed to load any VIs"):
+        generate_documents(str(bad), str(tmp_path / "out"), run=run)
+    (problem,) = run.report().problems
+    assert problem.vi == "Bad.ctl"
 
 
 @pytest.mark.needs_samples
@@ -154,7 +165,7 @@ def test_docs_on_a_control_and_on_a_directory_of_controls(tmp_path):
 @pytest.mark.needs_samples
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_lists_its_typedefs_apart_from_its_subvis():
-    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
+    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL)
     data = _prepare_vi_documentation_data(vi, graph, {}, None)
     assert data["type_definitions"], "the VI uses controls"
     typedefs = set(data["type_definitions"])
@@ -169,9 +180,10 @@ def test_a_corrupt_control_does_not_stop_the_others(tmp_path):
     project.mkdir()
     shutil.copy(_CLUSTER_CTL, project / "Good.ctl")
     (project / "Bad.ctl").write_bytes(b"not a labview file")
-    summary = generate_documents(str(project), str(tmp_path / "out"))
+    run = RunProblems()
+    summary = generate_documents(str(project), str(tmp_path / "out"), run=run)
     assert (tmp_path / "out" / "typedef" / "Good.html").is_file()
-    assert "Warnings (1 files skipped)" in summary and "Bad.ctl" in summary
+    assert [p.vi for p in run.report().problems] == ["Bad.ctl"]
     assert "Type definitions documented:" in summary
 
 
@@ -194,7 +206,9 @@ _ICON_LVLIB = _ICON_API / "LabVIEW Icon API.lvlib"
 def test_a_library_lists_its_controls_apart_from_its_vis():
     from lvkit.docs.generate import _collect_library_vis, _split_controls
 
-    vis, controls = _split_controls(_collect_library_vis(_ICON_LVLIB))
+    vis, controls = _split_controls(
+        _collect_library_vis(_ICON_LVLIB, RunProblems())
+    )
     assert vis and controls
     assert all(p.suffix.lower() == ".vi" for p in vis)
     assert all(p.suffix.lower() == ".ctl" and p.is_file() for p in controls)

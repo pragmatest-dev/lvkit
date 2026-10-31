@@ -269,6 +269,35 @@ qualified name; none is left unresolved. `tests/test_global_variable.py::
 test_every_global_variable_node_in_the_corpus_resolves_its_global_vi` asserts it.
 The record layout is in the `parser/link_table.py` module docstring.
 
+## A heap-to-VI link record holds a u32 after its flag in every LabVIEW version before 8.6 (issue #215)
+
+A heap-to-VI link record (`IUVI`, and the head `HpVL` / `DNDA` records share) reads
+name, path, flag, then a u32, then the type id. The u32 is there for LabVIEW 8.2
+**and 8.5**; the flag becomes a u32 itself at 8.6.0.1 and the extra u32 is gone by
+9.0 (pylabview decodes 9.0 records itself and the corpus has no 8.6 file).
+
+Evidence, Pico Technology's examples and their shared submodule (ISC; 388 VIs: 54
+saved in 8.5, 80 in 9.0, 249 in 10.0, 5 in 12.0). 36 of the 8.5 files leave the
+block-diagram link table raw (`_LIbd.bin`); they hold 105 `IUVI` records and none
+of the other versions' files do. `shared/PicoStatus.vi` (saved in 8.5.0): the record
+for `<vilib>/Utility/error.llb/Merge Errors.vi` ends its first path at byte 106:
+
+    106  00                       flag (u8 in 8.5)
+    107  00 00 00 00              the u32
+    111  00 00                    type id
+    113  00 00 00 01 + 8 bytes    VI link reference: u32 + u64
+    125  00 x 12                  u32 + u32 + i32
+    137  00 00 00 01              uid count = 1
+    141  00 00 01 af              uid 431, a node in the VI's block diagram
+
+With the u32 read, all 105 records decode and each one ends where the next list
+item (`00 02` + ident) or the end of the list (`00 03`) starts; the u32 is 0 in all
+105. Without it every field after the flag is read 4 bytes early and the uid count
+lands on zeros (`unrecognized path class b'\x00\x00\x00\x01'`).
+`tests/test_link_table.py::test_real_labview_85_sidecar_reads_the_u32_after_the_flag`
+asserts it on the real file. A heap-to-VI record of 8.5 other than `IUVI` was not
+seen in either repo, so the `HpVL` and `DNDA` use of the same head is unverified for 8.5.
+
 ## A Shared Variable node's library is named by the `HpVL` link-table record, found by the node's uid
 
 A **Shared Variable** node (`class="sharedVariable"`) names its variable in its
@@ -829,7 +858,7 @@ read the Item (prefer it; fall back to the binary).
 VIs read `../X.vi` and the parent reads `../../X/X.lvclass`; resolve against
 `lvclass_path` ITSELF (not its parent dir) so the extra leading `..` is absorbed:
 `Path(lvclass_path) / url` → correct. The parent commonly lives in a **sibling
-subtree** (`../../Layer/`), so a directory walk-UP (`_walk_up_find`) can NOT reach
+subtree** (`../../Layer/`), so a directory walk up from the child can NOT reach
 it — only the URL does.
 
 **A `PTH0` record's path type.** After the tag and a 4-byte length, a `PTH0` record
@@ -857,6 +886,12 @@ into a duplicate node (broke class private-data field resolution). A nested
 typedef used only inside another type (e.g. an enum inside a cluster) has NO
 `PTH0` link and resolves via the type system inline — that's the one thing not
 in the path index, and it needs no file staging.
+
+**Member URLs of a `.lvlib` / `.lvproj` / `.lvclass` are relative to the container FILE treated as a folder (LabVIEW 2010+), to its folder in a LabVIEW 8.x save.** Measured over every container in the sample corpus (member `Item` URLs; `.tmp` scan of which base holds the file): every `.lvlib` member URL (LVVersion 13–21: 2,028 of 2,030 resolve file-as-folder, 2 name absent files), `.lvproj` 10–21 and `.lvclass` 10–21 resolves as `<container>/<url>` (`../X.vi` is X.vi beside the container); the LVVersion 8.2 `.lvclass`/`.lvproj` files (17 + 16 URLs) write `X.vi`, relative to the container's folder. A class's `Class Private Data` URL (`X.ctl`, no `..`) is INSIDE the `.lvclass` (the control is embedded; no file is at that URL for any of the 155 corpus classes that list one).
+
+**A VI records its own class or library in a `VILB` link record ("VI To Lib Object Ref") whose `LinkSaveQualName` is empty** — e.g. `["", "", "TextTestRunner.JUnitXML.lvclass"]` from a method in the class's `protected/` subfolder. When pylabview decodes `LIvi` into the main XML the record is there as XML, not in a `_LIvi.bin` sidecar.
+
+**An absolute `PTH0` (`TpVal="0"`) starts with a drive letter (`C`) or an empty token (the current drive's root: `["", "Program Files", "Pico Technology", ...]`); a `<vilib>`/`<userlib>` path is also `TpVal="0"`, told apart by its symbolic first token.**
 
 **Follow the URL, never rglob.** Ancestor resolution must follow each class's
 recorded URL and STOP at the bare name when the file isn't vendored — do NOT fall
@@ -1225,6 +1260,17 @@ flatten matched the full flatten: nMux 349/349, event data 51/51, decompose
 `[pin map context {pin_map_id, sites}, gRPC server call]` — a drawer with
 `<i>`=0 is typed as the whole `pin map context` cluster, `<i>`=3 is `gRPC
 server call`.
+
+For a class wire the aggregate is the wire's OWN class's private data only,
+never the parent's followed by its own. Decoded by the drawer's TypeID → VCTP
+label, in three hierarchies with no contradiction: JKI `TextTestRunner` (own
+`stream, descriptions, verbosity`) of `TestRunner` (own `publicEvents, Start
+Time, Stop Time`): `Read stream` selects 0 → `stream`, `Read descriptions` 1,
+`Read verbosity` 2, `makeResult` 0/1/2 (a parent+own list would put `stream` at
+3 or more); JKI `_TextTestResult` (6 own) of `TestResult` (7 fields):
+`streamWrite` 0 → `stream` … `printErrorList` 5 → `separator2`; Actor Framework
+`Event Source Actor` (own `Registration Map`) of `Actor` (3 fields): seven VIs
+select 0 → `Registration Map`.
 
 ## A Property Node row is ONE `propItem`; its `propList` holds one `propItemInfo` per path segment, so a nested property (`Label.Text`) is one row, not two
 
@@ -1632,6 +1678,19 @@ VI's link records, measured on the corpus extraction cache (39 VIs with an
   11.0.0.3), laid out as pylabview `parseExtFuncLinkSaveInfo` reads it. The record
   for that VI lists uid 3101, the `extFunc` node in its `_BDHb.xml`.
 
+A node's `<nodeName>` is the function name **cut to 31 characters**; the whole
+name is the `NEXF` record's `ExtFuncLinkStr` (issue #216). Pico Technology's
+examples (ISC; 706 Call Library Function Nodes in 290 VIs) have 74 nodes whose
+function is longer than 31 characters (23 VIs): in all 74 `<nodeName>` is exactly the
+first 31 characters of `ExtFuncLinkStr`, and no `<nodeName>` is longer than 31.
+The other 632 nodes have the same name in both places; four of them are functions
+whose real name is exactly 31 characters (`ps6000aGetStreamingLatestValues`). The
+cut can merge functions: `ps3000aSetTriggerChannelConditions` and
+`...ConditionsV2` are both `ps3000aSetTriggerChannelConditi`. A `DSEF` record has no
+node identity, so a 31-character node name that is a prefix of the functions of
+several `DSEF` records of one library names none of them. The corpus has no
+function name longer than 31 characters.
+
 A recorded path is read by its tokens: a leading empty token is the VI's folder and
 each further empty token one folder up (the rule `LinkSavePathRef` has for VIs); a
 single token (`kernel32.dll`) is a name the operating system searches for; a path
@@ -1647,6 +1706,60 @@ platform's extension (`myshared.dll`, `myshared.so`, `myshared.framework`), `*` 
 the extension. When the replacement happens follows how the name is defined: a library
 named in the node's setup is resolved when the VI loads, a library wired to `path in`
 when the node runs (maintainer, on the reporter's issue).
+
+## A signal does not always list its source first; a terminal's DCO `objFlags` bit 0 says whether it is an output (Pico examples)
+
+A `signal` lists the terminals it joins in `termList`. Most list the source first,
+but not all: in `ps2000/PicoScope2000ExampleStreaming.vi` signal 922 is
+`[2264, 478]`, where 2264 is the input of an And (`primResID` 1061, a `parm` DCO with
+no `objFlags`) and 478 is the output of an Unbundle (an `nmxDCO` with `objFlags` 1).
+Taking the first as the source made the And's input an output and left the node with
+one input too few. The DCO's own bit 0 (`parm`, `nmxDCO`, `iUseDCO`: 512 is an input
+and 513 an output on a subVI call terminal, where 1022 and 306 of
+`lv-flex-channel-examples/DAQ AO SFP/Main.vi` are the output and input of signal 242)
+gives the direction, and an absent `objFlags` is an input. That And takes an error
+cluster (`TypeID(194)`) and a Boolean and returns a Boolean.
+
+`lv-flex-channel-examples/DAQ AO SFP/Main.vi` (LabVIEW 20, every `Bad*="0"`, no
+Feedback Node in its class list) reads as a cycle with these flags. Signal 242 joins
+DAQ AO's terminal 1022 (flag 513, output) to Control's 306 (flag 512, input);
+signals 372 and 346 join Control's 284 and 276 (513) to DAQ AO's 1027 and 1030
+(128); signal 343 joins WaveGen's 398 (513) to DAQ AO's 1001 (512). A saved,
+runnable VI cannot hold a cycle without a shift register or Feedback Node, so
+either 512/513 do not mean input/output on these terminals or something else breaks
+the cycle: **undecoded** (512 alone is not the explanation; 17,853 `iUseDCO` in
+the corpus carry it). The generated code makes the three nodes a gap that says so.
+
+## An nMux element with `<i>-1</i>`: no field in the four broken VIs, not decoded in the ten working ones
+
+A Bundle/Unbundle By Name element (`nmxDCO` in the node's `dcoList`) stores the
+index of the cluster field it selects in `<i>`; an absent `<i>` is field 0. The value
+`-1` appears on 35 elements in 14 VIs; a scan of every extracted block diagram in
+the corpus (33,810) finds no other. The 14 are two populations, told apart by the
+`Bad*` flags of `<Execution>` in the VI's `vi.xml`:
+
+- **Four VIs saved broken (`BadSignal="1" BadNode="1"`)**: LabVIEW-OOP-Classes
+  `Setup Power Supply Chain.vi` (LabVIEW 17) and `testy.vi` (17), actor-framework
+  `Read Attributes.vi` (20) and `Dummy Read Attributes.vi` (20). In each the
+  element's type is one no field of the node's cluster has: a DBL against fields
+  Boolean, U32 and Refnum (`testy.vi`); two `[DBL]` elements against a cluster with
+  none, while the node's other three elements carry real indices (`Setup Power
+  Supply Chain.vi`); `Void` against `Abstract Message Template.lvclass`, which has
+  no fields in the file (the two actor-framework VIs). Here `-1` fits "selects no
+  field": the field it named is gone.
+- **Ten VIs saved as working (every `Bad*="0"`, LabVIEW 10.0)**: Pico's streaming
+  examples (`ps2000`, `ps2000a`, `ps3000a` x2, `ps4000`, `ps4000a`, `ps5000a`,
+  `ps6000`, `ps6000a`, `psospa`). The element is `Void` (TypeID 192), the aggregate
+  is the anonymous `cluster` (TypeID 191) wired from Merge Errors' `error out`, and
+  the element feeds an And whose own input is an error cluster (TypeID 194; the
+  And's signal 922 in `PicoScope2000ExampleStreaming.vi` lists that input before
+  the Unbundle output). A working VI cannot pass "no value" into an And, so here
+  `-1` means something that compiles (the whole cluster, or an element LabVIEW
+  resolves when it loads are the candidates). **What it means is not decoded.**
+
+lvkit never indexes the field list with `-1`. Such an element is a gap: in a broken
+VI it says the element selects no field; in a working VI it says the index is not
+decoded yet.
 
 ## A diagram constant with no `DefaultData` in the heap keeps its value in the VI's DFDS (LabVIEW 8.2 VIs) — the parser drops it today
 
@@ -1681,3 +1794,7 @@ Read over every `aIndx` node in the 195 sample VIs plus the Pico set, on the `dc
 - Examples: a rank-2 node with the row unwired has dim 0 `0x210000` and dim 1 `0x400000`; with the column unwired, dim 0 `0x200000` and dim 1 `0x410000`; a rank-3 node wired on the first index only has `0x200000`, `0x10000`, `0x410000`; a rank-3 node with all three wired has `0x200000`, none, `0x400000`; a wired rank-1 index is `0x600000`.
 
 The same bit means "inverted" on a compound arithmetic terminal; lvkit reads it as indexing-disabled only for `aIndx` nodes (`Terminal.indexing_disabled`). Caveat: no corpus node is a 2-D (or higher) Index Array with nothing wired, so an index that is enabled but unwired in N-D is never observed; that case follows NI's rule that the first dimension is indexed by default and the others are disabled.
+
+## A method name in a link record is a pascal string wrapping a second one: `[len][0x01][name length][name bytes]`
+
+In the link records of `_LIbd.bin` (the `IUVI`, `DyOM` and `VIPI` name lists), a library or class name is a plain pascal string (`[len][text]`), but a method name is wrapped: the outer length counts the inner two bytes, then `0x01`, then the name's own byte length, then the name's bytes. Example (`Initialize MeasurementLink Session.vi`, 37 bytes): `27 01 25 49 6e 69 74 ...` (outer length 0x27 = 39 = 2 + 37, wrapper `01`, name length 0x25). The inner length is a raw byte, so for a name of 32 bytes or more it is a printable character (0x25 is `%`) and from 128 bytes on it is not ASCII; in the block-diagram XML the wrapper reaches lvkit as text (`&#x01;` then the length as a control-character entity or a character), so the length must be counted in bytes of the text encoding the XML was decoded with (the VI's own `vers` language, `text_encoding.xml_text_encoding`; not the reading machine's), not characters. A name whose inner length does not equal the bytes that follow is not a wrapped name. lvkit unwraps it in one place, `text_encoding.unwrap_pascal_name`, used by the binary readers (`parser/link_table.py`, `parse_vipi_from_livi` in `parser/metadata.py`) and, via re-encoding, for the XML text.

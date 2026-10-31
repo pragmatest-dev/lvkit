@@ -11,7 +11,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 the lvkit MCP server is connected; otherwise its CLI twin:
 
 ```bash
-lvkit describe "<vi-path>" --search-path "<library-path>" --format json
+lvkit describe "<vi-path>" --format json
 ```
 
 Both return the identical structured netlist IR (see "Getting the facts"
@@ -25,7 +25,7 @@ anything, it's re-run a tool. Run it to get a second implementation to diff
 your hand-written port against:
 
 ```bash
-lvkit generate "<vi-path>" -o outputs --search-path "<library-path>"
+lvkit generate "<vi-path>" -o outputs
 ```
 
 ```
@@ -55,7 +55,7 @@ wiring is expressed as `port -> source.net` bindings, not source order.
 `components` lists each distinct subVI/primitive's typed port interface
 once. This one call gives you everything — operations, wiring, structures,
 and constants — in one structured tree instead of five separate reads.
-`lvkit describe <vi-path> --search-path <library-path> --format netlist -v`
+`lvkit describe <vi-path> --format netlist -v`
 prints the same facts as prose for a human instead of JSON for a program (`-v`
 adds the typed `## Components` declarations ahead of the netlist body).
 

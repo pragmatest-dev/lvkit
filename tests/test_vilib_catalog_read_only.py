@@ -92,6 +92,7 @@ def _caller(
         id="op:1",
         vi_path="Caller.vi",
         name=vi,
+        qualified_path=f"<vilib>/Test/{vi}",
         terminals=[wired],
     )
     context = VIContext(
@@ -251,3 +252,10 @@ def test_a_fork_copies_only_the_entry_it_learns_into(
     assert fork.resolve_by_name("Learn Me.vi") is not shared.resolve_by_name(
         "Learn Me.vi"
     )
+
+
+def test_an_unnamed_terminal_number_is_not_guessed(read_only_catalog: Path) -> None:
+    resolver = VILibResolver(data_dir=read_only_catalog)
+    wired = Terminal(id="t:x", index=9, direction="input", name="Other Name")
+    entry = resolver.auto_update_terminals("Learn Me.vi", [wired])
+    assert 9 not in [t.index for t in entry.terminals]

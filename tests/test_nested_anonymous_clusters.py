@@ -222,10 +222,16 @@ def test_bundle_preserves_input(shape, indices, replacements, expected):
     assert result is not item.value
 
 
-@pytest.mark.parametrize("index", [None, -1, 99])
+@pytest.mark.parametrize("index", [None, 99])
 def test_missing_or_invalid_field_indices_raise_where_they_run(index):
     function = generated_unbundle("trailing", index)
     with pytest.raises(NotImplementedError, match="positional field"):
+        function(example("trailing").value)
+
+
+def test_an_element_stored_with_index_minus_one_is_not_decoded():
+    function = generated_unbundle("trailing", -1)
+    with pytest.raises(NotImplementedError, match="does not decode yet"):
         function(example("trailing").value)
 
 

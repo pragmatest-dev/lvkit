@@ -166,7 +166,6 @@ def test_collect_unresolved_on_corpus_vi() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     items = collect_unresolved(
         _JKI,
-        search_paths=[_JKI.parents[3]],
     )
     # The OpenG __ogtk.vi dependencies don't resolve here → at least one gap.
     assert items
@@ -187,24 +186,27 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    24 distinct gaps = 6 placeholder primitives + 4 unknown primitives + 1 Event
-    Structure + 1 Register For Events node (the Event Structure's registration
-    has no code generation either) + 12 VIs that were not found."""
+    20 distinct gaps = 6 placeholder primitives + 4 unknown primitives + 2
+    unsupported nodes (the Event Structure and the Register For Events node of
+    ``TestSuite.lvclass:run.vi``) + 8 VIs that were not found. (Four OpenG VIs
+    the catalog implements are found by the ``<userlib>`` path their callers
+    record.)"""
     from collections import Counter
 
     if not _TESTCASE_CLASS.exists():
         pytest.skip("JKI-VI-Tester sample corpus not present")
     items = collect_unresolved(
         _TESTCASE_CLASS,
-        search_paths=[_TESTCASE_CLASS.parents[2]],
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 24, f"expected 24 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 20, f"expected 20 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 6
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 4
+    # Event Structure + Register For Events: a node with no generator whose
+    # output is wired is a gap (codegen/nodes/primitive.py).
     assert counts["unsupported_node"] == 2
-    assert counts["missing_vi"] == 12
+    assert counts["missing_vi"] == 8
 
 
 def test_placeholder_primitive_raises_where_it_runs() -> None:

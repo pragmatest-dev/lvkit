@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import ast
 from collections import deque
+from collections.abc import Callable
+
+import networkx as nx
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import AnyGraphNode, VIContext, VINode
@@ -12,6 +15,7 @@ from lvkit.models import LVTypeKind, Terminal, TypeNamer
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
+    build_result_class_name,
     build_type_checking_block,
     interface_names,
     param_default_expr,
@@ -32,6 +36,7 @@ from .errors import CodeGenError
 from .gaps import Gap, catch_gap, vi_body
 from .global_module import build_global_module
 from .import_resolver import ImportResolver
+from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
 from .references import REFERENCE_KINDS, generated_nodes
 
@@ -93,7 +98,7 @@ def build_module(
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
 
-    body = vi_body(ctx, vi_name, lambda: _function_body(vi_context, vi_name, ctx))
+    body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
 
     # Build module structure
     module = build_module_ast(vi_context, vi_name, body, ctx)
@@ -106,19 +111,23 @@ def build_module(
     return ast.unparse(module)
 
 
-def _function_body(
-    vi_context: VIContext, vi_name: str, ctx: CodeGenContext
+def function_body(
+    vi_context: VIContext,
+    vi_name: str,
+    ctx: CodeGenContext,
+    parameter_names: dict[str, str] | None = None,
+    return_stmt: Callable[[], ast.stmt | None] | None = None,
 ) -> list[ast.stmt]:
-    """The statements of the VI's function."""
+    """The statements of the VI's function. ``parameter_names`` (terminal id to
+    name) and ``return_stmt`` are given by a caller that names the parameters or
+    returns the results itself (a method of a class)."""
     for term in annotated_terminals(vi_context):
         ctx.import_types(term.lv_type, at_run_time=False)
 
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
-        generated_nodes(
-            ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS)
-        )
+        generated_nodes(ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS))
         if ctx.graph is not None
         else []
     )
@@ -139,7 +148,8 @@ def _function_body(
     body.extend(
         build_array_input_normalization(
             parameters,
-            interface_names(
+            parameter_names
+            or interface_names(
                 vi_context.inputs, vi_context.off_pane_inputs, [], []
             ).parameters,
         )
@@ -149,6 +159,10 @@ def _function_body(
         ctx.import_labview_error()
         body.append(build_held_error_init())
 
+    # An indicator a Local Variable reads is a variable set to its default here.
+    ctx.local_indicators, indicator_defaults = LocalIndicators.declare(ctx, vi_name)
+    body.extend(indicator_defaults)
+
     # Generate operation code
     body.extend(generate_body(top_nodes, ctx))
 
@@ -157,9 +171,11 @@ def _function_body(
         body.append(build_held_error_check())
 
     # Add return statement
-    return_stmt = build_return_stmt(vi_context, ctx)
-    if return_stmt:
-        body.append(return_stmt)
+    final = (
+        return_stmt() if return_stmt is not None else build_return_stmt(vi_context, ctx)
+    )
+    if final:
+        body.append(final)
 
     # Final pass: write numeric operators over array-valued operands that were
     # inlined (single-use) into a consumer as comprehensions.
@@ -217,6 +233,9 @@ def generate_body(
             tier_ids = {op.id for op in remaining}
             for stmt in _generate_parallel_tier(remaining, ctx):
                 tagged.append((tier_ids, stmt))
+            for op in remaining:
+                for stmt in ctx.local_indicators.assignments_after(op, ctx):
+                    tagged.append((tier_ids, stmt))
         else:
             for node in remaining:
                 fragment = generate_node(node, ctx)
@@ -224,6 +243,8 @@ def generate_body(
                     tagged.append(({node.id}, s))
                 ctx.merge(fragment.bindings)
                 ctx.imports.update(fragment.imports)
+                for s in ctx.local_indicators.assignments_after(node, ctx):
+                    tagged.append(({node.id}, s))
 
         # A handler wraps the statements that produce the error it handles,
         # which are all in earlier tiers or earlier in this one.
@@ -242,6 +263,8 @@ def generate_body(
                 tagged.append(({op.id}, s))
             ctx.merge(fragment.bindings)
             ctx.imports.update(fragment.imports)
+            for s in ctx.local_indicators.assignments_after(op, ctx):
+                tagged.append(({op.id}, s))
 
     return [stmt for _, stmt in tagged]
 
@@ -301,6 +324,13 @@ def _generate_parallel_tier(
         bound_vars = list(dict.fromkeys(raw_vars))
 
         body = list(stmts)
+
+        # An indicator variable the branch assigns belongs to the function, not
+        # to the branch.
+        indicator_vars = set(ctx.local_indicators.variables.values())
+        shared = sorted(assigned_in_branch & indicator_vars)
+        if shared:
+            body.insert(0, ast.Nonlocal(names=shared))
 
         # Add return statement if branch produces bindings
         if bound_vars:
@@ -573,8 +603,37 @@ def topological_sort_tiered(
     circular = [op_by_id[oid] for oid in remaining if oid in op_by_id]
     if circular:
         tiers.append(circular)
+        _record_cycles(circular, remaining, op_by_id, ctx)
 
     return tiers
+
+
+def _record_cycles(
+    circular: list[AnyGraphNode],
+    remaining: dict[str, set[str]],
+    op_by_id: dict[str, AnyGraphNode],
+    ctx: CodeGenContext,
+) -> None:
+    """Record, for each node on a cycle of the wires at this structure level, why
+    it cannot be ordered. A node that only waits on a cycle is not on one."""
+    wires = nx.DiGraph()
+    for op_id, deps in remaining.items():
+        for dep in deps:
+            wires.add_edge(dep, op_id)
+    for component in nx.strongly_connected_components(wires):
+        if len(component) < 2:
+            continue
+        names = sorted(
+            op_by_id[op_id].display_name for op_id in component if op_id in op_by_id
+        )
+        reason = (
+            "The wires between "
+            + ", ".join(repr(name) for name in names)
+            + " read as a cycle, which a saved, runnable VI cannot have; lvkit is "
+            "likely misreading a terminal's direction here"
+        )
+        for op_id in component:
+            ctx.circular_nodes[op_id] = reason
 
 
 def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return | None:
@@ -596,6 +655,9 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
     ).fields
 
     # Resolve output values, skipping error clusters
+    vi_node = (
+        ctx.graph.get_graph_node(vi_context.name) if ctx.graph is not None else None
+    )
     keywords = []
     for out in outputs:
         if out.is_error_cluster:
@@ -609,7 +671,11 @@ def build_return_stmt(vi_context: VIContext, ctx: CodeGenContext) -> ast.Return 
         # parse it into a real AST — a bare ast.Name(id=expr) is malformed and
         # hides the variable loads from later passes (dead-code elimination then
         # deletes the assignments the return depends on).
-        value = ctx.resolve(out_id)
+        value = (
+            ctx.wired_input(out_id, vi_node)
+            if vi_node is not None
+            else ctx.resolve(out_id)
+        )
         if value:
             value_ast: ast.expr = parse_expr(value)
         else:
@@ -853,8 +919,7 @@ def build_args(
     terminal may be left unwired and then takes its own default value, so every
     generated parameter is optional-with-default — which also sidesteps Python's
     "non-default argument follows default argument" rule without reordering the
-    parameters (reordering would desync positional callers, e.g. class-method
-    dynamic dispatch, which pass arguments in connector-pane order). The default
+    parameters (callers pass arguments by keyword). The default
     is the terminal's real connector-pane default when known, else the type
     default (e.g. 0 / '' / None).
     """
@@ -937,12 +1002,3 @@ def _is_anonymous_cluster(term: Terminal) -> bool:
         and not lv_type.typedef_name
         and not lv_type.classname
     )
-
-
-def build_result_class_name(vi_name: str) -> str:
-    """Build result class name from VI name."""
-    base = to_function_name(vi_name)
-    # Convert to CamelCase
-    parts = base.split("_")
-    camel = "".join(p.capitalize() for p in parts if p)
-    return f"{camel}Result"

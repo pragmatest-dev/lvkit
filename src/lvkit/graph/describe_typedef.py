@@ -6,6 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from .describe import type_label
 from .load_ctl import load_ctl_by_path
 from .lvnet_typedef import render_lvnet_typedef
@@ -87,14 +89,24 @@ def describe_ctl_file(
     *,
     fmt: str = "text",
     verbose: bool = False,
-    search_paths: list[Path] | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
 ) -> str | dict[str, Any]:
     """Load the ``.ctl`` at ``path`` and describe it: the text page for
     ``fmt="text"``, the JSON shape (:func:`typedef_to_dict`) for ``"json"``, the
     lvnet ``typedef`` document for ``"lvnet"``. The one entry the CLI and the MCP
-    ``read_ctl`` tool share. ``ValueError`` for an unreadable control;
-    ``FileNotFoundError`` for a missing file."""
-    graph, key = load_ctl_by_path(path, search_paths=search_paths)
+    ``read_ctl`` tool share; the library roots shape its dependency load.
+    ``ValueError`` for an unreadable control; ``FileNotFoundError`` for a
+    missing file."""
+    graph, key = load_ctl_by_path(
+        path,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
+        search_path=search_path,
+    )
     info = graph.get_typedef(key)
     if fmt == "json":
         return typedef_to_dict(info, verbose=verbose)

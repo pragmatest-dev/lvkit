@@ -1,221 +1,84 @@
-"""Build @property accessors from LabVIEW getter/setter method pairs."""
+"""Build the Python property of each property folder of a class.
+
+The read VI is the property's getter and the write VI its setter, each written
+from its own diagram. A property with no write VI has no setter (assigning it
+raises ``AttributeError``); one with no read VI is ``@property().setter`` (reading
+it raises ``AttributeError``). A property the class it descends from has too (an
+override of the same long name) starts from the inherited one,
+``@Parent.name.getter`` / ``@Parent.name.setter``, so the side the class does not
+override stays the parent's."""
 
 from __future__ import annotations
 
 import ast
 from typing import TYPE_CHECKING
 
-from lvkit.structure import LVMethod
+from lvkit.class_property import PropertyRole
 
-from ..ast_utils import to_var_name
-from ._shared import _EMPTY_VI_CONTEXT
+from ..class_attributes import Accessor
+from ..class_model import ClassModel, MemberKind, MethodShape
+from ..import_resolver import NameImport
 
-if TYPE_CHECKING:
-    from lvkit.graph import InMemoryVIGraph
-    from lvkit.graph.models import VIContext
+_SIDES = {PropertyRole.GETTER: "getter", PropertyRole.SETTER: "setter"}
 
 
 class _PropertyBuilderMixin:
-    """Accessor complexity classification and @property generation."""
+    """The Python property of each property folder."""
 
     if TYPE_CHECKING:
-        # Populated on the composed ClassBuilder (core.py); declared here
-        # (type-check only, zero runtime effect) so pyright can resolve
-        # cross-mixin access.
-        _method_contexts: dict[str, VIContext]
-        _graph: InMemoryVIGraph | None
+        _model: ClassModel
 
-    def _is_simple_accessor(
-        self,
-        method: LVMethod,
-    ) -> bool:
-        """Check if accessor VI is simple (just unbundle/bundle + error handling).
-
-        Simple accessors only contain case structures and unbundle/bundle operations.
-        They translate to direct attribute access, not @property.
-
-        Complex accessors contain additional operations (math, SubVI calls, validation).
-        They need @property with backing field.
-
-        Without VI context, we assume all accessors are simple. This can be
-        refined when method_contexts is provided.
-        """
-        vi_context = self._method_contexts.get(method.name, _EMPTY_VI_CONTEXT)
-        if vi_context is _EMPTY_VI_CONTEXT:
-            # No VI context - assume simple accessor
-            return True
-
-        operations = (
-            self._graph.top_level_nodes(
-                self._graph.resolve_vi_name(
-                    vi_context.qualified_name or vi_context.name
-                )
-            )
-            if self._graph
-            else []
-        )
-        if not operations:
-            # No operations - simple accessor
-            return True
-
-        # Check if all operations are just unbundle/bundle/case/error handling
-        simple_node_types = {
-            "select",
-            "case",
-            "unbundle",
-            "bundle",
-            "nMux",
-            "nDmux",
-            "mux",
-            "demux",
-        }
-        # Error-handling primitives that keep an accessor "simple". Bundle /
-        # Unbundle are node-CLASSES, already covered by simple_node_types
-        # above -- they are not primResID prims and must not be listed here.
-        # Clear Errors is a vi.lib VI (no primResID), so it cannot be
-        # whitelisted by id. (This set was historically populated with stale
-        # ids -- 1340/1302/2075/2076 actually map to One Button Dialog / Wait
-        # (ms) / Destroy User Event / Unregister For Events -- so real Merge
-        # Errors was never recognized here; corrected to 2401, then to 2147
-        # once nodes.json's VI-Scripting export proved 2401 is really Swap
-        # Values and 2147 is the real Merge Errors -- #59.)
-        simple_prim_ids = {
-            2147,  # Merge Errors
-        }
-
-        for op in operations:
-            node_type = getattr(op, "node_type", "") or ""
-            prim_id = getattr(op, "prim_id", 0) or 0
-
-            if node_type in simple_node_types:
-                continue
-            if prim_id in simple_prim_ids:
-                continue
-
-            # Found a non-simple operation
-            return False
-
-        return True
+        def _build_method(
+            self,
+            shape: MethodShape,
+            name: str | None = None,
+            decorators: list[ast.expr] | None = None,
+        ) -> ast.FunctionDef: ...
 
     def _build_properties(
-        self,
-        accessors: list[LVMethod],
+        self, members: list[tuple[MethodShape, Accessor]], base: NameImport | None
     ) -> list[ast.stmt]:
-        """Build @property and @setter from getter/setter pairs.
+        """A getter for the read VI and a setter for the write VI of each property;
+        ``members`` lists the property VIs in the order the class file lists them,
+        ``base`` is the class this one descends from."""
+        stmts: list[ast.stmt] = []
+        by_property: dict[str, dict[PropertyRole, MethodShape]] = {}
+        names: dict[str, str] = {}
+        for shape, accessor in members:
+            by_property.setdefault(accessor.property_name, {})[accessor.role] = shape
+            names[accessor.property_name] = accessor.python_name
 
-        For SIMPLE accessors (just unbundle/bundle + error handling):
-        - Do NOT generate @property
-        - The field is already created in __init__ with correct visibility
-        - The accessor VI logic is just LabVIEW error handling idiom
-
-        For COMPLEX accessors (have real logic):
-        - Generate @property with private backing field (_field)
-        - The property can contain computed logic
-        """
-        property_stmts: list[ast.stmt] = []
-
-        # Group by field name
-        by_field: dict[str, dict[str, LVMethod]] = {}
-        for acc in accessors:
-            if acc.accessor_field:
-                field = acc.accessor_field
-                if field not in by_field:
-                    by_field[field] = {}
-                if acc.accessor_type:
-                    by_field[field][acc.accessor_type] = acc
-
-        # Build property definitions only for complex accessors
-        for field, acc_dict in by_field.items():
-            getter = acc_dict.get("getter")
-            setter = acc_dict.get("setter")
-
-            # Check if any accessor is complex
-            is_complex = False
-            if getter and not self._is_simple_accessor(getter):
-                is_complex = True
-            if setter and not self._is_simple_accessor(setter):
-                is_complex = True
-
-            if not is_complex:
-                # Simple accessors - skip property generation
-                # Field visibility is already set correctly in __init__
-                continue
-
-            prop_name = to_var_name(field)
-            # Complex accessor - always use private backing field
-            backing_field = "_" + prop_name
-
-            # Build getter
-            if getter:
-                getter_body: list[ast.stmt] = [
-                    ast.Return(
-                        value=ast.Attribute(
-                            value=ast.Name(id="self", ctx=ast.Load()),
-                            attr=backing_field,
-                            ctx=ast.Load(),
-                        )
+        for property_name, roles in by_property.items():
+            name = names[property_name]
+            # The property the next getter or setter is made from.
+            source: ast.expr | None = None
+            if base is not None and self._model.inherited.get(name) is (
+                MemberKind.PROPERTY
+            ):
+                source = _attribute(_name(base.name), name)
+            for role in (PropertyRole.GETTER, PropertyRole.SETTER):
+                shape = roles.get(role)
+                if shape is None:
+                    continue
+                if source is not None:
+                    decorator: ast.expr = _attribute(source, _SIDES[role])
+                elif role is PropertyRole.GETTER:
+                    decorator = _name("property")
+                else:
+                    decorator = _attribute(
+                        ast.Call(func=_name("property"), args=[], keywords=[]),
+                        "setter",
                     )
-                ]
-
-                getter_def = ast.FunctionDef(
-                    name=prop_name,
-                    args=ast.arguments(
-                        posonlyargs=[],
-                        args=[ast.arg(arg="self", annotation=None)],
-                        vararg=None,
-                        kwonlyargs=[],
-                        kw_defaults=[],
-                        kwarg=None,
-                        defaults=[],
-                    ),
-                    body=getter_body,
-                    decorator_list=[ast.Name(id="property", ctx=ast.Load())],
-                    returns=ast.Name(id="Any", ctx=ast.Load()),
+                stmts.append(
+                    self._build_method(shape, name=name, decorators=[decorator])
                 )
-                property_stmts.append(getter_def)
+                source = _name(name)
+        return stmts
 
-            # Build setter
-            if setter:
-                setter_body: list[ast.stmt] = [
-                    ast.Assign(
-                        targets=[
-                            ast.Attribute(
-                                value=ast.Name(id="self", ctx=ast.Load()),
-                                attr=backing_field,
-                                ctx=ast.Store(),
-                            )
-                        ],
-                        value=ast.Name(id="value", ctx=ast.Load()),
-                    )
-                ]
 
-                setter_def = ast.FunctionDef(
-                    name=prop_name,
-                    args=ast.arguments(
-                        posonlyargs=[],
-                        args=[
-                            ast.arg(arg="self", annotation=None),
-                            ast.arg(
-                                arg="value",
-                                annotation=ast.Name(id="Any", ctx=ast.Load()),
-                            ),
-                        ],
-                        vararg=None,
-                        kwonlyargs=[],
-                        kw_defaults=[],
-                        kwarg=None,
-                        defaults=[],
-                    ),
-                    body=setter_body,
-                    decorator_list=[
-                        ast.Attribute(
-                            value=ast.Name(id=prop_name, ctx=ast.Load()),
-                            attr="setter",
-                            ctx=ast.Load(),
-                        )
-                    ],
-                    returns=ast.Constant(value=None),
-                )
-                property_stmts.append(setter_def)
+def _name(identifier: str) -> ast.Name:
+    return ast.Name(id=identifier, ctx=ast.Load())
 
-        return property_stmts
+
+def _attribute(value: ast.expr, attr: str) -> ast.Attribute:
+    return ast.Attribute(value=value, attr=attr, ctx=ast.Load())

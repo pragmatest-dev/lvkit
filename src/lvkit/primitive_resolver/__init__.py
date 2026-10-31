@@ -14,6 +14,7 @@ as before the split.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path
 
 from .exceptions import PrimitiveResolutionNeeded as PrimitiveResolutionNeeded
@@ -25,6 +26,7 @@ from .models import ResolvedPrimitive as ResolvedPrimitive
 from .models import _collect_icon as _collect_icon
 from .models import _collect_imports as _collect_imports
 from .resolver import PrimitiveResolver as PrimitiveResolver
+from .terminal_sets import Slot as Slot
 
 # Global instance
 _resolver: PrimitiveResolver | None = None
@@ -61,6 +63,9 @@ def resolve_primitive(
     name: str | None = None,
     input_types: list[str] | None = None,
     output_types: list[str] | None = None,
+    node_slots: Collection[Slot] | None = None,
 ) -> ResolvedPrimitive | None:
     """Convenience function for resolving primitives."""
-    return get_resolver().resolve(prim_id, name, input_types, output_types)
+    return get_resolver().resolve(
+        prim_id, name, input_types, output_types, node_slots
+    )

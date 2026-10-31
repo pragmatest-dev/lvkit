@@ -15,7 +15,9 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.global_module import build_global_module
 from lvkit.codegen.type_module import build_type_module
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import (
     FPTerminal,
     LVType,
@@ -24,6 +26,8 @@ from lvkit.models import (
     ValuesNotKept,
 )
 from lvkit.module_layout import ModuleCollisionError
+from lvkit.pipeline import create_import_resolver
+from lvkit.run_report import Problem, ProblemKind, ProblemStage, RunProblems
 from tests.helpers import build_graph
 from tests.test_ext_func_library import Project
 
@@ -39,12 +43,21 @@ def _missing_library_vi(project: Project) -> Path:
     return project.write_vi("vendorlib.*", ["", "..", "libs", "vendorlib.dll"], "swap")
 
 
+def _warnings(err: str) -> list[str]:
+    """The warning lines printed as the run went (the summary repeats them)."""
+    return [
+        line
+        for line in err.split("\nPartial:")[0].split("\nStopped:")[0].splitlines()
+        if line.startswith("warning: ")
+    ]
+
+
 def _lvkit(monkeypatch: pytest.MonkeyPatch, *argv: str) -> int:
     monkeypatch.setattr(sys, "argv", ["lvkit", *argv])
     return cli.main()
 
 
-def test_generate_warns_once_per_gap_and_exits_two(
+def test_generate_warns_once_per_gap_and_exits_three(
     project: Project,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -52,14 +65,12 @@ def test_generate_warns_once_per_gap_and_exits_two(
     vi = _missing_library_vi(project)
     code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(project.base / "out"))
     captured = capsys.readouterr()
-    assert code == 2
-    warnings = [
-        line for line in captured.err.splitlines() if line.startswith("warning: ")
-    ]
+    assert code == 3
+    warnings = _warnings(captured.err)
     assert len(warnings) == 1
     assert warnings[0].startswith(
-        "warning: vis/sub/Clfn_BDHb.xml: lib.dll:swap: The Call Library Function "
-        "Node 'swap' records the library 'vendorlib.*'"
+        "warning: vis/sub/Clfn_BDHb.xml: generate: lib.dll:swap: The Call Library "
+        "Function Node 'swap' records the library 'vendorlib.*'"
     )
     assert "no file vendorlib.dll or vendorlib.so or vendorlib.framework" in warnings[0]
     assert "  gaps:  1\n" in captured.out
@@ -93,7 +104,9 @@ def test_unresolved_lists_the_gaps_generate_warns_about(
     gaps = project.result["gaps"]
     capsys.readouterr()
     assert _lvkit(monkeypatch, "unresolved", str(vi), "--json") == 0
-    items = json.loads(capsys.readouterr().out)
+    payload = json.loads(capsys.readouterr().out)
+    assert (payload["status"], payload["problems"]) == ("Complete", [])
+    items = payload["items"]
     assert [set(item) for item in items] == [
         {"kind", "identifier", "name", "count", "vi_names"}
     ]
@@ -118,21 +131,22 @@ def test_a_module_collision_prints_its_message_and_exits_nonzero(
     code = _lvkit(monkeypatch, "generate", str(vi), "-o", str(tmp_path / "out"))
     err = capsys.readouterr().err
     assert code == 1
-    assert "Error: '/a/X Y.vi' and '/a/X_Y.vi' both generate x_y." in err
+    assert "'/a/X Y.vi' and '/a/X_Y.vi' both generate x_y." in err
+    assert "Stopped: 1 problem(s)" in err
     assert "Traceback" not in err
 
 
 @pytest.mark.parametrize(
     "result,code",
     [
-        ({"error": 0, "failed": 0, "gaps": []}, 0),
-        ({"error": 0, "failed": 0, "gaps": [object()]}, 2),
-        ({"error": 1, "failed": 0, "gaps": []}, 1),
-        ({"error": 0, "failed": 1, "gaps": []}, 1),
-        ({"error": 1, "failed": 0, "gaps": [object()]}, 1),
+        ({"error": 0, "failed": 0, "gaps": 0}, 0),
+        ({"error": 0, "failed": 0, "gaps": 1}, 3),
+        ({"error": 1, "failed": 0, "gaps": 0}, 1),
+        ({"error": 0, "failed": 1, "gaps": 0}, 1),
+        ({"error": 1, "failed": 0, "gaps": 1}, 1),
     ],
 )
-def test_exit_code_is_0_for_complete_2_for_partial_1_for_a_stopped_vi(
+def test_exit_code_is_0_for_complete_3_for_partial_1_for_a_stopped_vi(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     result: dict,
@@ -140,7 +154,18 @@ def test_exit_code_is_0_for_complete_2_for_partial_1_for_a_stopped_vi(
 ) -> None:
     vi = tmp_path / "Any.vi"
     vi.write_bytes(b"")
-    monkeypatch.setattr("lvkit.pipeline.generate_python", lambda *a, **k: result)
+
+    def fake(*args: object, run: RunProblems, **kwargs: object) -> dict:
+        graph = run.new_graph()
+        for n in range(result["gaps"]):
+            graph.record_problem(
+                f"/p/V{n}.vi",
+                Problem(f"V{n}.vi", ProblemStage.GENERATE, ProblemKind.GAP, "gap"),
+            )
+        run.collect(graph)
+        return result
+
+    monkeypatch.setattr("lvkit.pipeline.generate_python", fake)
     assert _lvkit(monkeypatch, "generate", str(vi), "-o", str(tmp_path)) == code
 
 
@@ -151,7 +176,7 @@ def test_generate_help_documents_the_exit_codes(
         _lvkit(monkeypatch, "generate", "--help")
     help_text = capsys.readouterr().out
     assert "0  every VI converted, no gaps" in help_text
-    assert "2  partial" in help_text
+    assert "3  partial" in help_text
     assert "1  a VI could not be written" in help_text
 
 
@@ -198,16 +223,14 @@ def test_fail_fast_ends_the_run_at_the_first_gap(
     code = _lvkit(monkeypatch, "generate", str(folder), "-o", str(out), "--fail-fast")
     captured = capsys.readouterr()
     assert code == 1
-    warnings = [
-        line for line in captured.err.splitlines() if line.startswith("warning: ")
-    ]
+    warnings = _warnings(captured.err)
     assert len(warnings) == 1
-    assert "Stopped at the first gap (--fail-fast)" in captured.out
+    assert "Stopped at the first problem (--fail-fast)" in captured.out
     assert "Complete" not in captured.out and "Partial" not in captured.out
     assert _modules(out) == []
 
 
-def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_two(
+def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_three(
     project: Project,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -216,10 +239,8 @@ def test_without_fail_fast_the_same_run_writes_both_vis_and_exits_two(
     out = project.base / "out"
     code = _lvkit(monkeypatch, "generate", str(folder), "-o", str(out))
     captured = capsys.readouterr()
-    assert code == 2
-    warnings = [
-        line for line in captured.err.splitlines() if line.startswith("warning: ")
-    ]
+    assert code == 3
+    warnings = _warnings(captured.err)
     assert len(warnings) == 2
     assert _modules(out) == ["clfn_bdhbxml.py", "second_bdhbxml.py"]
     assert "Partial: 2 VIs generated, 2 with gaps (2 gaps)" in captured.out
@@ -280,39 +301,39 @@ def test_a_constant_with_no_value_to_write_raises_first_in_the_function() -> Non
         namespace["const"]()
 
 
-class _GraphWithoutItsParent:
-    def is_class(self, key: str) -> bool:
-        return True
-
-    def class_parent_key(self, key: str) -> None:
-        return None
-
-    def class_parent_name(self, key: str) -> str:
-        return "Base.lvclass"
-
-
-def test_a_class_whose_parent_is_not_loaded_raises_when_its_module_runs() -> None:
-    gaps: list[Gap] = []
-    source = build_type_module(
-        _GraphWithoutItsParent(),  # type: ignore[arg-type]
+def test_a_class_whose_parent_is_not_loaded_is_defined_and_raises_when_used() -> None:
+    graph = InMemoryVIGraph()
+    graph._dep_graph.add_node(  # noqa: SLF001
         "/p/Child.lvclass",
-        None,  # type: ignore[arg-type]
-        gaps=gaps,
+        node_type=NodeType.CLASS,
+        fields=[],
+        parent_class="Base",
     )
-    assert source == (
-        "from __future__ import annotations\n"
-        "raise NotImplementedError("
-        "'Parent class Base.lvclass of /p/Child.lvclass is not loaded\\n"
-        "gap kind: unsupported_vi\\nVI: Child.lvclass')"
+    out = Path("/pkg")
+    resolver = create_import_resolver(
+        "pkg",
+        out,
+        {"/p/Child.lvclass": out / "child.py"},
+        out / "child.py",
+        caller_key="/p/Child.lvclass",
+        graph=graph,
     )
+    gaps: list[Gap] = []
+    source = build_type_module(graph, "/p/Child.lvclass", resolver, gaps=gaps)
     (gap,) = gaps
     assert (gap.kind, gap.vi, gap.node_id) == (
         "unsupported_vi",
         "/p/Child.lvclass",
         None,
     )
-    with pytest.raises(NotImplementedError, match="Base.lvclass"):
-        exec(compile(source, "child", "exec"), {})  # noqa: S102
+    assert "The parent class Base of Child.lvclass was not found" in gap.reason
+    assert "/p/" not in gap.reason
+    # The module imports; the class has no base, and making one raises the gap.
+    namespace: dict = {}
+    exec(compile(source, "child", "exec"), namespace)  # noqa: S102
+    assert namespace["Child"].__bases__ == (object,)
+    with pytest.raises(NotImplementedError, match="parent class Base"):
+        namespace["Child"]()
 
 
 def test_a_global_control_with_no_value_to_write_raises_where_it_is_defined() -> None:
@@ -368,10 +389,9 @@ def _caller_of(callee_key: str, found: bool, tmp_path: Path):
     from lvkit.pipeline import create_import_resolver
 
     graph = InMemoryVIGraph()
-    graph._dep_graph.add_node(  # noqa: SLF001
-        callee_key,
-        node_type="vi",
-        path_tokens=["<vilib>", "daqmx", "Flatten Channel String.vi"],
+    graph._dep_graph.add_node(callee_key, node_type="vi")  # noqa: SLF001
+    graph._recorded.record(  # noqa: SLF001
+        callee_key, None, ["<vilib>", "daqmx", "Flatten Channel String.vi"]
     )
     if not found:
         graph._stubs.add(callee_key)  # noqa: SLF001
@@ -456,8 +476,9 @@ def test_a_call_of_a_vi_that_was_not_found_is_one_missing_vi_gap(
     )
     assert gap.reason == (
         "The VI 'Flatten Channel String.vi' (<vilib>/daqmx/Flatten Channel String.vi)"
-        " was not found; add it to the project or to a --search-path and generate "
-        "again"
+        " was not found at the path its caller records; put it there (a "
+        "<userlib>/<vilib>/<instrlib> path needs that folder named with "
+        "--userlib/--vilib/--instrlib) and generate again"
     )
     # The raise carries the types and directions of the terminals the call wires.
     assert "input index=0 type=array" in gap.message

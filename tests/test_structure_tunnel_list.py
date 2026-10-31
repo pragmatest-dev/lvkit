@@ -15,6 +15,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import _lvnet_ambiguous_named_types, render_lvnet
 from lvkit.load_mode import LoadMode
+from lvkit.parser.nodes.loop import extract_loops
 from lvkit.parser.vi import _inline_dco_definitions
 from tests.test_lvnet_identity import _assert_graph_identity
 
@@ -58,17 +59,65 @@ def test_listed_tunnels_round_trip_strictly() -> None:
     if not _NEW_VI.exists():
         pytest.skip(f"sample corpus VI not present: {_NEW_VI}")
     graph, vi_name = load_vi_by_path(
-        _NEW_VI, LoadMode.MINIMAL, search_paths=[_JKI], layout=False
+        _NEW_VI, LoadMode.MINIMAL, layout=False
     )
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name=_NEW_VI.name, verbose=True)
     parsed = parse_lvnet(text)
     ambiguous = _lvnet_ambiguous_named_types(module)
-    assert netlist_signature(module, ambiguous) == netlist_signature(
-        parsed, ambiguous
-    )
+    assert netlist_signature(module, ambiguous) == netlist_signature(parsed, ambiguous)
     reconstructed = reconstruct_module(parsed)
     _assert_graph_identity(module, reconstructed, _NEW_VI.name)
-    assert (
-        render_lvnet(reconstructed, display_name=_NEW_VI.name, verbose=True) == text
+    assert render_lvnet(reconstructed, display_name=_NEW_VI.name, verbose=True) == text
+
+
+_LOOP_WITH_RIGHT_REGISTER = """<r><n class="{kind}" uid="1">
+          <srDCOList>
+            <SL__arrayElement class="rSR" uid="30" index="0">
+              <lsrDCOList><SL__arrayElement uid="20"/></lsrDCOList>
+              <typeDesc>TypeID(5)</typeDesc>
+              <termList><SL__arrayElement uid="31"/><SL__arrayElement uid="32"/>
+              </termList>
+            </SL__arrayElement>
+            {extra}
+          </srDCOList>
+          <termList>
+            <SL__arrayElement class="term" uid="22">
+              <dco class="lSR" uid="20">
+                <typeDesc>TypeID(5)</typeDesc>
+                <termList><SL__arrayElement uid="21"/><SL__arrayElement uid="22"/>
+                </termList>
+                <rsrDCO uid="30"/>
+              </dco>
+            </SL__arrayElement>
+            <SL__arrayElement class="term" uid="32"><dco uid="30"/></SL__arrayElement>
+          </termList></n></r>"""
+
+
+@pytest.mark.parametrize("kind", ["forLoop", "whileLoop"])
+def test_a_loops_right_shift_register_listed_in_the_loop_is_a_tunnel(
+    kind: str,
+) -> None:
+    root = ET.fromstring(_LOOP_WITH_RIGHT_REGISTER.format(kind=kind, extra=""))
+    _inline_dco_definitions(root)
+    (loop,) = extract_loops(root)
+    pairs = {
+        (t.tunnel_type, t.inner_terminal_uid, t.outer_terminal_uid)
+        for t in loop.tunnels
+    }
+    assert ("rSR", "31", "32") in pairs
+    assert ("lSR", "21", "22") in pairs
+
+
+def test_a_bare_reference_does_not_replace_the_definition_with_its_uid() -> None:
+    root = ET.fromstring(
+        _LOOP_WITH_RIGHT_REGISTER.format(
+            kind="forLoop", extra='<SL__arrayElement uid="30"/>'
+        )
     )
+    _inline_dco_definitions(root)
+    (loop,) = extract_loops(root)
+    assert ("rSR", "31", "32") in {
+        (t.tunnel_type, t.inner_terminal_uid, t.outer_terminal_uid)
+        for t in loop.tunnels
+    }

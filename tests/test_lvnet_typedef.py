@@ -145,7 +145,7 @@ def test_a_real_control_through_describe_and_mcp():
     assert isinstance(text, str) and text.startswith("typedef API_Test Settings.ctl :")
     assert "    Font : String default" in text and "Text color" in text
     result = asyncio.run(srv.read_ctl(str(_CLUSTER_CTL), format="lvnet"))
-    assert result == {"lvnet": text}
+    assert result == {"lvnet": text, "status": "Complete", "problems": []}
     verbose = describe_ctl_file(_CLUSTER_CTL, fmt="lvnet", verbose=True)
     assert isinstance(verbose, str) and "  types :" in verbose
     assert "    API_Text Colors = Cluster{" in verbose  # the named type, lossless

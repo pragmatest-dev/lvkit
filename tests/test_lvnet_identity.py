@@ -99,37 +99,30 @@ _MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview
 _IDENTITY_CASES = [
     pytest.param(
         _JKI_SOURCE_ROOT / "Utilities" / "GetControlRef.vi",
-        _JKI_SOURCE_ROOT,
         id="GetControlRef_nested_property_loop_index",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
-        _JKI_SOURCE_ROOT,
         id="loadTestsFromTestCase",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestCase" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TestCase_run",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestSuite" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TestSuite_run",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TextTestRunner" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TextTestRunner_run",
     ),
     pytest.param(
         _FLEX_ROOT / "WaveGen" / "WaveGen.vi",
-        _FLEX_ROOT / "WaveGen",
         id="WaveGen",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Menu Launch" / "VI Tester Menu Launch.vi",
-        _JKI_SOURCE_ROOT,
         id="VI_Tester_Menu_Launch",
     ),
     pytest.param(
@@ -137,17 +130,14 @@ _IDENTITY_CASES = [
         / "User Interfaces"
         / "Graphical Test Runner"
         / "Graphical Test Runner - Main UI - .vi",
-        _JKI_SOURCE_ROOT,
         id="Graphical_Test_Runner_Main_UI",
     ),
     pytest.param(
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
-        _AF_ROOT,
         id="Force_Icon_Editor_to_Unload",
     ),
     pytest.param(
         _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
-        _ICON_EDITOR_ROOT,
         id="lv_icon_global_variables",
         marks=pytest.mark.xdist_group("lv_icon.vi"),
     ),
@@ -158,12 +148,10 @@ _IDENTITY_CASES = [
         / "NIIconEditor"
         / "Global Variables"
         / "Data.vi",
-        _ICON_EDITOR_ROOT,
         id="Data_global_vi",
     ),
     pytest.param(
         _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
-        _DCAF_ROOT,
         id="DCAF_init_in_place_element_border_elements",
     ),
     pytest.param(
@@ -174,12 +162,10 @@ _IDENTITY_CASES = [
         / "Session Management V1"
         / "Session Reservation"
         / "Initialize Sessions Impl.vi",
-        _MEASUREMENT_PLUGIN_ROOT,
         id="Initialize_Sessions_Impl_in_place_element_border_elements",
     ),
     pytest.param(
         _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
-        _DCAF_ROOT,
         id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
     pytest.param(
@@ -190,7 +176,6 @@ _IDENTITY_CASES = [
         / "Measurement Server"
         / "Helpers"
         / "Write Environment Variable.vi",
-        _MEASUREMENT_PLUGIN_ROOT,
         id="Write_Environment_Variable_call_library_function_node",
     ),
     pytest.param(
@@ -198,20 +183,19 @@ _IDENTITY_CASES = [
         / "largefile"
         / "largefile.llb"
         / "LF Write File (SGL)__ogtk.vi",
-        Path(".lvkit/cache/samples/OpenG/extracted"),
         id="LF_Write_File_SGL_call_library_function_node",
     ),
 ]
 
 
-def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | None:
+def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str] | None:
     if not vi_path.exists():
         return None
     try:
         # load_vi_by_path returns load_vi's OWN key for vi_path -- never
         # re-derived from vi_path.name, which collides across same-named
         # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
-        return load_corpus_vi(vi_path, search_root)
+        return load_corpus_vi(vi_path)
     except Exception:
         return None
 
@@ -763,16 +747,14 @@ def _assert_graph_identity(
 
 
 @pytest.mark.needs_samples
-@pytest.mark.parametrize("vi_path,search_root", _IDENTITY_CASES)
-def test_reconstruct_module_recovers_graph_identity(
-    vi_path: Path, search_root: Path
-) -> None:
+@pytest.mark.parametrize("vi_path", _IDENTITY_CASES)
+def test_reconstruct_module_recovers_graph_identity(vi_path: Path) -> None:
     """``reconstruct_module(parse_lvnet(render_lvnet(m, verbose=True)))``
     must be the SAME graph identity as ``m`` -- every node/constant/local-
     variable uid, every structure uid, the connector-pane pattern + every
     terminal's pane index, and every net reference's producer -- not merely
     a model that happens to re-render to the same bytes."""
-    loaded = _load(vi_path, search_root)
+    loaded = _load(vi_path)
     if loaded is None:
         pytest.skip(f"sample corpus VI not present: {vi_path}")
     graph, vi_name = loaded

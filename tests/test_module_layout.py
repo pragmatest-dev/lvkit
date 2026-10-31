@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from lvkit.cache_paths import project_root, store_root
 from lvkit.codegen.ast_utils import module_part
 from lvkit.graph import InMemoryVIGraph
 from lvkit.module_layout import (
@@ -14,7 +15,6 @@ from lvkit.module_layout import (
     ModuleLayout,
     ModulePlace,
     UnplacedVIError,
-    project_root,
 )
 
 
@@ -44,18 +44,14 @@ def tree(tmp_path: Path) -> _Tree:
 def _layout(
     *keys: str,
     root: Path,
-    search_roots: tuple[Path, ...] = (),
+    userlib_root: Path | None = None,
     shared: frozenset[str] = frozenset(),
     recorded: dict[str, str] | None = None,
 ) -> ModuleLayout:
-    return ModuleLayout(
-        _graph(*keys),
-        list(keys),
-        root,
-        list(search_roots),
-        shared,
-        recorded or {},
-    )
+    graph = _graph(*keys)
+    if userlib_root is not None:
+        graph.set_library_roots(userlib_root=userlib_root)
+    return ModuleLayout(graph, list(keys), root, shared, recorded or {})
 
 
 def test_modules_mirror_the_folders_below_the_project_folder(tree: _Tree) -> None:
@@ -72,9 +68,7 @@ def test_what_else_was_loaded_does_not_move_a_module(tree: _Tree) -> None:
     vi = tree.key("a", "x.vi")
     other = tree.key("other", "deep", "y.vi", under=tree.base)
     alone = _layout(vi, root=tree.proj)
-    with_others = _layout(
-        vi, other, root=tree.proj, search_roots=(tree.base / "other",)
-    )
+    with_others = _layout(vi, other, root=tree.proj, userlib_root=tree.base / "other")
     assert alone.places[vi] == with_others.places[vi] == ModulePlace(("a",), "x")
 
 
@@ -110,14 +104,16 @@ def test_a_file_outside_the_project_is_placed_by_the_path_its_caller_recorded(
     )
 
 
-def test_a_search_path_file_with_no_recorded_path_is_under_its_search_path(
+def test_a_library_root_file_with_no_recorded_path_is_placed_as_recorded_there(
     tree: _Tree,
 ) -> None:
-    key = tree.key("lib", "Sub", "b.vi", under=tree.base)
+    """A file under the configured user.lib with no recorded path is placed as if
+    recorded as ``<userlib>/...`` — the same package its recorded path gives."""
+    key = tree.key("user.lib", "Sub", "b.vi", under=tree.base)
     layout = _layout(
-        tree.key("a.vi"), key, root=tree.proj, search_roots=(tree.base / "lib",)
+        tree.key("a.vi"), key, root=tree.proj, userlib_root=tree.base / "user.lib"
     )
-    assert layout.places[key] == ModulePlace(("lib", "sub"), "b")
+    assert layout.places[key] == ModulePlace(("userlib", "sub"), "b")
 
 
 def test_any_other_file_outside_the_project_is_under_external(tree: _Tree) -> None:
@@ -162,8 +158,10 @@ def test_two_files_that_transform_to_one_module_stop_generation_naming_both(
     first, second = tree.key("Foo Bar", "x.vi"), tree.key("foo_bar", "x.vi")
     with pytest.raises(ModuleCollisionError) as caught:
         _layout(first, second, root=tree.proj)
-    assert repr(first) in str(caught.value)
-    assert repr(second) in str(caught.value)
+    # named by their project-relative paths, never absolute ones
+    assert repr("Foo Bar/x.vi") in str(caught.value)
+    assert repr("foo_bar/x.vi") in str(caught.value)
+    assert str(tree.proj) not in str(caught.value)
 
 
 def test_a_module_and_a_package_of_one_name_stop_generation(tree: _Tree) -> None:
@@ -184,6 +182,34 @@ def test_the_project_is_the_nearest_folder_with_a_project_marker(
     assert project_root(vi) == (tmp_path / "src").resolve()
 
 
+def test_a_lvproj_folder_inside_a_git_repo_is_the_project_but_the_repo_is_the_store(
+    tmp_path: Path,
+) -> None:
+    """A git repo whose ``.lvproj`` is in a subfolder: generated modules and every
+    shown name are relative to the ``.lvproj`` folder (the project); the cache and
+    the index are keyed by the repo (the store)."""
+    (tmp_path / ".git").mkdir()
+    labview = tmp_path / "LabVIEW"
+    (labview / "sub").mkdir(parents=True)
+    (labview / "My.lvproj").write_text("<Project/>")
+    vi = labview / "sub" / "A.vi"
+    vi.write_text("")
+    assert project_root(vi) == labview.resolve()
+    assert store_root(vi) == tmp_path.resolve()
+
+
+def test_a_git_repo_inside_a_store_is_its_own_project_but_shares_the_store(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".lvkit").mkdir()
+    vendored = tmp_path / "vendor" / "lib"
+    (vendored / ".git").mkdir(parents=True)
+    vi = vendored / "x.vi"
+    vi.write_text("")
+    assert project_root(vi) == vendored.resolve()
+    assert store_root(vi) == tmp_path.resolve()
+
+
 def test_with_no_marker_the_project_is_the_vis_own_folder(tmp_path: Path) -> None:
     vi = tmp_path / "x.vi"
     vi.write_text("")
@@ -200,9 +226,11 @@ def test_the_transform_is_valid_python_for_awkward_names(name: str) -> None:
 def test_an_absent_vi_is_placed_by_the_path_its_stub_records(tree: _Tree) -> None:
     key = "Flex-t'DAQmx AO.lvlib-Action.ctl'.lvlib:Read Event.vi"
     graph = _graph(tree.key("a.vi"), key)
-    graph._dep_graph.add_node(  # noqa: SLF001
+    graph._dep_graph.add_node(key)  # noqa: SLF001
+    graph._recorded.record(  # noqa: SLF001
         key,
-        path_tokens=["<extravilib>", "ChannelInstances", "Action.ctl", "Read Event.vi"],
+        None,
+        ["<extravilib>", "ChannelInstances", "Action.ctl", "Read Event.vi"],
     )
     layout = ModuleLayout(graph, [tree.key("a.vi"), key], tree.proj)
     assert layout.places[key] == ModulePlace(

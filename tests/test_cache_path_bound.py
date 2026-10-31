@@ -247,7 +247,7 @@ class TestGraphIdentityRetained:
         root = (_CORPUS / "29" / "Test LVKit").resolve()
         entry = root / "Lib2" / "Class" / "Test.vi"
         graph = InMemoryVIGraph()
-        graph.load_vi(entry, LoadMode.FULL, search_paths=[root])
+        graph.load_vi(entry, LoadMode.FULL)
 
         keys = list(graph._dep_graph.nodes)
         # No key leaks a cache-internal name.

@@ -54,7 +54,7 @@ _ZORDER_VI = _ISSUES / "39" / "zorder-not-respected.vi"
 
 
 def _load(vi: Path, mode: LoadMode = LoadMode.MINIMAL) -> tuple[InMemoryVIGraph, str]:
-    return load_vi_by_path(vi, mode, search_paths=[vi.parent], layout=False)
+    return load_vi_by_path(vi, mode, layout=False)
 
 
 @pytest.mark.parametrize("vi", _UNWIRED_PANE_VIS)
@@ -182,9 +182,7 @@ def test_partly_wired_vi_names_off_pane_net_by_its_label() -> None:
     )
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(
-        vi, LoadMode.MINIMAL, search_paths=[_SAMPLES / "JKI-EasyXML"], layout=False
-    )
+    graph, key = load_vi_by_path(vi, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, key)
     text = render_lvnet(module, display_name=vi.name)
     assert "::/" not in text
@@ -196,9 +194,7 @@ def test_partly_wired_vi_drives_its_off_pane_indicator() -> None:
     vi = _SAMPLES / "DCAF-DAQModule/source/testing/Add Remove Test.vi"
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(
-        vi, LoadMode.MINIMAL, search_paths=[vi.parent.parent], layout=False
-    )
+    graph, key = load_vi_by_path(vi, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, key)
     assert [o.name for o in module.off_pane_outputs] == ["Deleted Line"]
     text = render_lvnet(module, display_name=vi.name, verbose=True)
@@ -216,7 +212,7 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
     vi = root / "Classes/TestCase/failUnlessError.vi"
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(vi, LoadMode.FULL, search_paths=[root], layout=False)
+    graph, key = load_vi_by_path(vi, LoadMode.FULL, layout=False)
     code = build_module(graph.get_vi_context(key), key, graph=graph)
     assert "*, task_: str=''" in code
     namespace: dict[str, object] = {}
@@ -228,8 +224,8 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         def __init__(self) -> None:
             self.messages: list[str] = []
 
-        def fail(self, message: str) -> None:
-            self.messages.append(message)
+        def fail(self, message_: str) -> None:
+            self.messages.append(message_)
 
     default_case, named_case = Recorder(), Recorder()
     function(testcase_in=default_case)
@@ -343,9 +339,7 @@ def test_corpus_vi_with_shared_front_panel_labels_round_trips() -> None:
     )
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(
-        vi, LoadMode.MINIMAL, search_paths=[_SAMPLES / "JKI-EasyXML"], layout=False
-    )
+    graph, key = load_vi_by_path(vi, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, key)
     labels = [o.name for o in module.off_pane_outputs]
     assert labels.count("XML String") == 6
@@ -442,9 +436,7 @@ def test_front_panel_labels_with_delimiters_round_trip(
 def test_corpus_vi_with_delimiter_labels_round_trips(vi: Path, root: Path) -> None:
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
-    graph, key = load_vi_by_path(
-        vi, LoadMode.MINIMAL, search_paths=[root], layout=False
-    )
+    graph, key = load_vi_by_path(vi, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, key)
     text = render_lvnet(module, display_name=vi.name, verbose=True)
     parsed = parse_lvnet(text)

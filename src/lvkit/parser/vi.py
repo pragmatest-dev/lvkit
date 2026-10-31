@@ -47,6 +47,8 @@ from lvkit.models import (
     unique_names,
 )
 from lvkit.path_value import format_path
+from lvkit.text_encoding import xml_text_encoding
+from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -117,6 +119,7 @@ from .metadata import (
     parse_link_path_refs,
     parse_vi_metadata,
     parse_vipi_from_livi,
+    parse_xml_link_path_refs,
     pth0_path_type,
 )
 from .models import (
@@ -148,8 +151,9 @@ from .nodes import (
     is_disable_structure,
     parse_selector_tables,
 )
+from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
-from .type_resolution import resolve_type_rich
+from .type_resolution import resolve_type_rich, type_id_number
 from .utils import (
     decode_xml_entities_to_bytes,
     extract_caption,
@@ -417,29 +421,37 @@ def _parse_metadata(
     }
 
     # Recover the FULL subVI callee list from the VI-level _LIvi.bin link table.
-    # It records EVERY callee — including the dynamic-dispatch (dynIUse) methods
-    # that leave no IUVI in _LIbd.bin — so it is the only place those callees are
-    # named. Their concrete files are resolved against the owning class at load.
+    # It records EVERY callee -- including the dynamic-dispatch (dynIUse) methods
+    # that leave no IUVI in _LIbd.bin -- each with its owner chain and the path of
+    # the class that owns it; they are dependencies like the block-diagram ones.
     livi_bin = main_xml.with_name(main_xml.stem + "_LIvi.bin")
-    subvi_method_names = parse_vipi_from_livi(livi_bin) if livi_bin.exists() else []
+    if livi_bin.exists():
+        recorded = {(r.qualified_name, tuple(r.path_tokens)) for r in dependency_refs}
+        for vipi_ref in parse_vipi_from_livi(livi_bin):
+            key = (vipi_ref.qualified_name, tuple(vipi_ref.path_tokens))
+            if key not in recorded:
+                recorded.add(key)
+                dependency_refs.append(vipi_ref)
 
     # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
-    # from LabVIEW's link tables (_LIvi/_LIbd/_LIfp PTH0 records) — a leaf -> path
+    # from LabVIEW's link tables (the decoded LIvi/LIbd/LIfp records and the
+    # _LIvi/_LIbd/_LIfp PTH0 records pylabview left raw) — a leaf -> path
     # INDEX the loader consults to give the type-derived class/typedef deps a
-    # recorded path instead of a name-search, making the closure path-driven and
+    # recorded path, making the closure path-driven and
     # identical on web and desktop. Kept SEPARATE from dependency_refs (never
     # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
     link_path_refs: list[ParsedDependencyRef] = []
     seen_refs: set[tuple[str, ...]] = set()
+    recorded_refs = parse_xml_link_path_refs(main_root)
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
-        if not link_bin.exists():
-            continue
-        for ref in parse_link_path_refs(link_bin):
-            key = (ref.name, *ref.path_tokens)
-            if key not in seen_refs:
-                seen_refs.add(key)
-                link_path_refs.append(ref)
+        if link_bin.exists():
+            recorded_refs.extend(parse_link_path_refs(link_bin))
+    for ref in recorded_refs:
+        key = (ref.name, *ref.path_tokens)
+        if key not in seen_refs:
+            seen_refs.add(key)
+            link_path_refs.append(ref)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)
@@ -466,7 +478,6 @@ def _parse_metadata(
         dotnet_assemblies=sorted({link.assembly for link in dotnet_table.links}),
         dotnet_assembly_failures=dotnet_table.failures,
         dependency_refs=dependency_refs,
-        subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
         instance_files=parse_instance_files(main_root),
     )
@@ -743,8 +754,9 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
-# Direct children of a node or structure whose items define terminal DCOs.
-_DCO_LIST_TAGS = ("tunnelList", "dcoList")
+# Direct children of a node or structure whose items define terminal DCOs (a
+# loop lists its right shift registers in `srDCOList`).
+_DCO_LIST_TAGS = ("tunnelList", "dcoList", "srDCOList")
 
 
 def _is_named_dco_definition(child: ET.Element) -> bool:
@@ -780,7 +792,8 @@ def _inline_dco_definitions(root: ET.Element) -> None:
             listed = node.find(list_tag)
             if listed is not None:
                 for item in listed.findall("SL__arrayElement"):
-                    definitions[item.get("uid")] = item
+                    if item.get("class"):
+                        definitions[item.get("uid")] = item
         for child in node:
             if _is_named_dco_definition(child):
                 definitions[child.get("uid")] = child
@@ -902,6 +915,7 @@ def _resolve_bound_control_types(
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     """Extract wires (signals) from the block diagram."""
     wires = []
+    declared = declared_outputs(root)
 
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
         uid = sig.get("uid") or ""
@@ -912,6 +926,7 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
         ]
 
         if len(terms) >= 2:
+            terms = source_first(terms, declared)
             source = terms[0]
             for i, dest in enumerate(terms[1:]):
                 wires.append(
@@ -1048,6 +1063,12 @@ def _process_element_terminals(
     ext_func_roles = (
         extfunc_terminal_roles(elem, type_map)
         if elem_class == NODE_CLASS_EXT_FUNC
+        else {}
+    )
+
+    call_slot_names = (
+        _recorded_slot_names(elem, type_map)
+        if elem_class in _SUBVI_CALL_CLASSES
         else {}
     )
 
@@ -1209,6 +1230,8 @@ def _process_element_terminals(
             term_name = extract_xtunnel_name(dco)
         if ext_func_role is not None and ext_func_role.name:
             term_name = ext_func_role.name
+        if not term_name:
+            term_name = call_slot_names.get(parm_index)
 
         # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
         # terminal's DCO objFlags. This bit only means "invert" for
@@ -1235,6 +1258,28 @@ def _process_element_terminals(
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )
+
+
+_SUBVI_CALL_CLASSES = ("iUse", "polyIUse")
+
+
+def _recorded_slot_names(
+    elem: ET.Element, type_map: dict[int, LVType] | None
+) -> dict[int, str]:
+    """The label of each connector-pane slot of the VI a call node calls, as the
+    calling VI records it: the Function type its ``<connectorTM>`` names (or the
+    one Function a cluster there holds), by slot."""
+    if not type_map:
+        return {}
+    type_id = type_id_number(elem.findtext("connectorTM"))
+    recorded = type_map.get(type_id) if type_id is not None else None
+    if recorded is None:
+        return {}
+    if recorded.pane is None and recorded.fields:
+        functions = [f.type for f in recorded.fields if f.type and f.type.pane]
+        recorded = functions[0] if len(functions) == 1 else None
+    pane = recorded.pane if recorded is not None else None
+    return {slot.index: slot.name for slot in pane or () if slot.name}
 
 
 def _walk_and_extract_terminals(
@@ -1386,6 +1431,7 @@ def _extract_terminal_info(
 def _resolve_qualified_name(
     elem: ET.Element,
     caller_library: str | None,
+    encoding: str,
 ) -> str | None:
     """Resolve qualified name from an element with LinkSaveQualName.
 
@@ -1394,14 +1440,19 @@ def _resolve_qualified_name(
     Args:
         elem: Element with LinkSaveQualName and LinkSaveFlag attributes
         caller_library: Library name of the calling VI, for same-library refs
+        encoding: Text encoding the XML was decoded with
 
     Returns:
         Qualified name string, or None if no name found
     """
     strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
-    return qualified_link_name(
-        strings, int(elem.get("LinkSaveFlag", "0")), caller_library
+    qname = qualified_link_name(
+        strings, int(elem.get("LinkSaveFlag", "0")), caller_library, encoding
     )
+    if qname is None:
+        return None
+    tokens = [s.text or "" for s in elem.findall("LinkSavePathRef/String")]
+    return _class_owned_name(qname, tokens)
 
 
 _DOTNET_ITEM_INFO = "dnetItemInfo"
@@ -1513,9 +1564,11 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
     if not path_tokens and name_parts:
         return None
+    tp_val = path_ref.get("TpVal")
     return IUseLink(
         name_parts=name_parts,
         path_tokens=path_tokens,
+        path_type=int(tp_val) if tp_val is not None else None,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
             int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
@@ -1530,18 +1583,36 @@ def _caller_library(qualified_name: str | None) -> str | None:
     return None
 
 
+def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
+    """The qualified name of a record that names only a method but whose path is
+    a class file: that class owns the method, so it is the name's owner. Any
+    other name is returned as is."""
+    if (
+        ":" not in qname
+        and is_vi_file(qname)
+        and path_tokens
+        and path_tokens[-1].lower().endswith(".lvclass")
+    ):
+        return f"{path_tokens[-1]}:{qname}"
+    return qname
+
+
 def _link_dependency_ref(
-    link: IUseLink | DynamicDispatchLink, caller_library: str | None
+    link: IUseLink | DynamicDispatchLink, caller_library: str | None, encoding: str
 ) -> ParsedDependencyRef | None:
     """The VI a block-diagram link record refers to, with the path it records;
     None when the record names no VI."""
-    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    qname = qualified_link_name(
+        list(link.name_parts), link.link_flag, caller_library, encoding
+    )
     if not qname:
         return None
+    qname = _class_owned_name(qname, link.path_tokens)
     return ParsedDependencyRef(
         name=qname.rsplit(":", 1)[-1],
         path_tokens=list(link.path_tokens),
         qualified_name=qname,
+        path_type=link.path_type,
     )
 
 
@@ -1575,16 +1646,17 @@ def _extract_dyn_refs(
     of the class file the method sits beside. The record lists the calls it
     belongs to in ``APILinkCacheList``."""
     dyn_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/DyOM"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if ref is None:
             continue
         for offset in elem.findall("APILinkCacheList/Offset"):
             if offset.text:
                 dyn_refs[str(int(offset.text, 16))] = ref
     for raw in dyn_links:
-        ref = _link_dependency_ref(raw, caller_library)
+        ref = _link_dependency_ref(raw, caller_library, encoding)
         for uid in raw.node_uids:
             if ref is not None:
                 dyn_refs[str(uid)] = ref
@@ -1598,9 +1670,10 @@ def _extract_poly_refs(
     ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
     call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
     poly_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if link is None or ref is None:
             continue
         for uid in link.node_uids:
@@ -1632,6 +1705,7 @@ def _extract_subvi_info(
 
     # Get caller's library for qualifying same-library references
     caller_library = _caller_library(caller_qualified_name)
+    encoding = xml_text_encoding(main_root)
 
     # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
@@ -1661,7 +1735,10 @@ def _extract_subvi_info(
     ]
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
 
-    def _add_dependency(qname: str, path_tokens: Sequence[str]) -> None:
+    def _add_dependency(
+        qname: str, path_tokens: Sequence[str], path_type: int | None = None
+    ) -> None:
+        qname = _class_owned_name(qname, path_tokens)
         key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
         if key in seen_deps:
             return
@@ -1671,35 +1748,36 @@ def _extract_subvi_info(
                 name=qname.rsplit(":", 1)[-1],
                 path_tokens=list(path_tokens),
                 qualified_name=qname,
+                path_type=path_type,
             )
         )
 
     for xpath_template, tags in scopes:
         for tag in tags:
             for elem in main_root.findall(xpath_template.format(tag=tag)):
-                qname = _resolve_qualified_name(elem, caller_library)
+                qname = _resolve_qualified_name(elem, caller_library, encoding)
                 if not qname:
                     continue
                 link = _xml_iuse_link(elem)
                 if link is None:
                     continue
-                _add_dependency(qname, link.path_tokens)
+                _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The sidecar's records name the same dependencies the decoded elements do.
     for link in libd_links:
         qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
+            list(link.name_parts), link.link_flag, caller_library, encoding
         )
         if qname:
-            _add_dependency(qname, link.path_tokens)
+            _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The class method each raw dynamic-dispatch record names is a dependency.
     for dyn in dyn_links:
         qname = qualified_link_name(
-            list(dyn.name_parts), dyn.link_flag, caller_library
+            list(dyn.name_parts), dyn.link_flag, caller_library, encoding
         )
         if qname:
-            _add_dependency(qname, dyn.path_tokens)
+            _add_dependency(qname, dyn.path_tokens, dyn.path_type)
 
     # The project library each Shared Variable belongs to.
     for sv_link in shared_variable_links:
@@ -1709,7 +1787,7 @@ def _extract_subvi_info(
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
     for tag in ("VIVI", "VIPI", "DyOM", "VIPV", "BSVR"):
         for elem in main_root.findall(f".//LIvi//{tag}"):
-            qname = _resolve_qualified_name(elem, caller_library)
+            qname = _resolve_qualified_name(elem, caller_library, encoding)
             if qname:
                 subvi_qualified_names.append(qname)
 
@@ -1723,7 +1801,7 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        ref = _link_dependency_ref(link, caller_library)
+        ref = _link_dependency_ref(link, caller_library, encoding)
         if ref is None:
             continue
         for uid in link.node_uids:
@@ -2563,14 +2641,14 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
 MAX_STORED_ARRAY_ELEMENTS = 4_000_000
 
 
-# The unit-tagged unsigned integers an enum, ring or class field is stored as.
-_UNIT_INTEGER_TYPES = frozenset(
-    {
-        TD_FULL_TYPE.UnitUInt8.name,
-        TD_FULL_TYPE.UnitUInt16.name,
-        TD_FULL_TYPE.UnitUInt32.name,
-    }
-)
+# The unit-tagged unsigned integers an enum, ring or class field is stored as,
+# and the bytes each takes.
+_UNIT_INTEGER_BYTE_WIDTHS: dict[str, int] = {
+    TD_FULL_TYPE.UnitUInt8.name: 1,
+    TD_FULL_TYPE.UnitUInt16.name: 2,
+    TD_FULL_TYPE.UnitUInt32.name: 4,
+}
+_UNIT_INTEGER_TYPES = frozenset(_UNIT_INTEGER_BYTE_WIDTHS)
 
 
 def _quad_to_float(raw: bytes | memoryview) -> float:
@@ -2860,7 +2938,7 @@ def _decode_element(
     # Enum: decode as its underlying integer type
     if kind == LVTypeKind.ENUM or underlying in _UNIT_INTEGER_TYPES:
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         val = int.from_bytes(data[:size], "big")
         return str(val), size, str(val)
@@ -2868,7 +2946,7 @@ def _decode_element(
     # Numeric integer types
     if is_integer_type_name(underlying):
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         signed = underlying in SIGNED_INTEGER_TYPE_NAMES
         val = int.from_bytes(data[:size], "big", signed=signed)
@@ -3103,23 +3181,16 @@ def _fixed_element_width(lv_type: LVType | None) -> int | None:
     return None
 
 
-def _get_numeric_size(type_name: str) -> int:
-    """Byte size for a numeric/enum type name, read from its width digit."""
-    if "8" in type_name:
-        return 1
-    elif "16" in type_name:
-        return 2
-    elif "32" in type_name:
-        return 4
-    elif "64" in type_name:
-        return 8
-    # No width digit — e.g. the reconstructors' bare "Enum"/"Ring", which carry
-    # no ordinal width. Warn rather than SILENTLY assume 4 bytes and desync a
-    # default-data decode (VCTP enums arrive as "UnitUInt*", so this is a trap
-    # for the newer convention, not a path hit today).
-    logger.warning(
-        "no width digit in numeric/enum type name %r — assuming 4 bytes; a "
-        "default-data decode of this type may misalign",
-        type_name,
+def _get_numeric_size(type_name: str) -> int | None:
+    """Byte size of an integer / enum type name, from the width tables; None
+    (with a warning) for a name that has no entry."""
+    size = INTEGER_BYTE_WIDTHS.get(type_name) or _UNIT_INTEGER_BYTE_WIDTHS.get(
+        type_name
     )
-    return 4
+    if size is None:
+        logger.warning(
+            "no byte width known for numeric/enum type %r — its default data "
+            "is not decoded",
+            type_name,
+        )
+    return size
