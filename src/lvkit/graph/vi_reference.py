@@ -164,12 +164,21 @@ class VIReferenceMixin(WireOriginMixin):
             owner_name, colon, _ = display.rpartition(":")
             if not colon or self.is_stub(key) or self.node_type(key) != NodeType.VI:
                 continue
-            owner_key = self._owner_key(key, NodeType.CLASS) or self._owner_key(
-                key, NodeType.LIBRARY
-            )
-            if owner_key is not None:
+            owner_key = self._owner_key(key, NodeType.LIBRARY)
+            if owner_key is not None and self._owner_key(key, NodeType.CLASS) is None:
                 owners[owner_name] = owner_key
         return owners
+
+    def class_members(self) -> list[tuple[str, str, str]]:
+        """``(qualified name, member key, class key)`` of each loaded VI a class
+        lists: the VIs that are methods of their class's module, found by the
+        name or path a diagram computes when it runs."""
+        members = []
+        for key in sorted(self._vi_nodes):
+            class_key = self._owner_key(key, NodeType.CLASS)
+            if class_key is not None and not self.is_stub(key):
+                members.append((self.vi_display_name(key), key, class_key))
+        return members
 
     def _open_options(self, node: PrimitiveNode) -> int | None:
         options = _input_at(node, OPEN_OPTIONS_INDEX)

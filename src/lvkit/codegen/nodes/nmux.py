@@ -32,10 +32,12 @@ from ..ast_utils import (
     parse_expr,
     to_var_name,
 )
-from ..class_attributes import ClassAttributes, class_field_paths, type_attributes
+from ..class_attributes import ClassAttributes, class_field_paths
+from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..native_array import replaced_field
+from ..value_copy import owned_input
 
 
 def _is_anonymous_cluster(lv_type: LVType | None) -> bool:
@@ -151,9 +153,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                         f"{agg_var}.{_measure_component(t, measure_flavor, node)}"
                     )
                 else:
-                    bindings[t.id] = _field_expr(
-                        t, agg_var, class_fields, class_attrs
-                    )
+                    bindings[t.id] = _field_expr(t, agg_var, class_fields, class_attrs)
 
     elif list_in and not list_out:
         # LIST in only = bundle
@@ -188,6 +188,13 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 for t in agg_out:
                     bindings[t.id] = cluster_var
                 return CodeFragment(statements=statements, bindings=bindings)
+            # Bundle By Name changes the object in place: work on a copy when
+            # something else can still read the incoming value.
+            owned = owned_input(ctx, agg_in[0], node, statements)
+            if owned is not None and owned != agg_var:
+                agg_var = owned
+                for t in agg_out:
+                    bindings[t.id] = owned
             # Assign fields on the aggregate cluster. Bundle By Name mutates the
             # object in place, so the aggregate must be a single materialized
             # VARIABLE — when it resolves to an EXPRESSION (a cluster constant
@@ -239,10 +246,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     t.nmux_field_index if t.nmux_field_index is not None else t.index
                 ),
             )
-            elts = [
-                parse_expr(ctx.wired_input(t.id, node) or "None")
-                for t in ordered
-            ]
+            elts = [parse_expr(ctx.wired_input(t.id, node) or "None") for t in ordered]
             tup = ast.Tuple(elts=elts, ctx=ast.Load())
             for t in agg_out:
                 bindings[t.id] = ast.unparse(tup)

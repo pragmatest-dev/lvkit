@@ -382,17 +382,31 @@ def test_a_computed_path_with_backslashes_is_read_like_one_with_slashes(
             del sys.modules[name]
 
 
-def test_a_computed_name_finds_its_owner_and_imports_the_vi(tmp_path: Path) -> None:
+_CLASS_CALLEE = (
+    "from typing import NamedTuple\n"
+    "calls = []\n"
+    "class CalleeResult(NamedTuple):\n"
+    "    y: int\n"
+    "class Owner:\n"
+    "    @staticmethod\n"
+    "    def callee_bdhbxml(x=None):\n"
+    "        calls.append((x, None))\n"
+    "        return CalleeResult(y=0)\n"
+)
+
+
+def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
     loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
     d.type_terminal(loaded, 21, d.typed_vi_reference())
     d.type_terminal(loaded, 31, d.typed_vi_reference())
     d.own_by_class(loaded, "Owner.lvclass")
     source = _source(loaded)
-    assert "_vi_owners = {'Owner.lvclass': '.'}\n" in source
-    for refs in _package(tmp_path, source, _CALLEE):
-        callee = importlib.import_module("generated_refs.callee")
+    assert "_vi_owners = {}\n" in source
+    assert "'Owner.lvclass:Callee.vi': ('.owner', 'Owner', 'callee_bdhbxml')" in source
+    for refs in _package(tmp_path, source, _CLASS_CALLEE, "owner"):
+        owner = importlib.import_module("generated_refs.owner")
         refs.refs("Owner.lvclass:Callee.vi")  # type: ignore[attr-defined]
-        assert [x for x, _ in callee.calls] == [5]
+        assert [x for x, _ in owner.calls] == [5]
         with pytest.raises(KeyError):
             refs.refs("Other.lvclass:Callee.vi")  # type: ignore[attr-defined]
 
@@ -533,11 +547,13 @@ def test_close_reference_of_an_unwired_reference_is_not_a_vi_reference(
 # --- the generated package runs ----------------------------------------------
 
 
-def _package(tmp_path: Path, source: str, callee: str) -> Iterator[object]:
+def _package(
+    tmp_path: Path, source: str, callee: str, module: str = "callee"
+) -> Iterator[object]:
     package = tmp_path / "generated_refs"
     package.mkdir()
     (package / "__init__.py").write_text("")
-    (package / "callee.py").write_text(callee)
+    (package / f"{module}.py").write_text(callee)
     (package / "refs.py").write_text(source)
     sys.path.insert(0, str(tmp_path))
     try:

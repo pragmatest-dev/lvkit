@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from lvkit.codegen.ast_utils import field_attribute_names, field_attribute_paths
 from lvkit.codegen.context import _format_cluster_constant
 from lvkit.codegen.nodes.nmux import _attribute_target, _field_expr, _field_path
-from lvkit.codegen.type_module import _field_annotations
+from lvkit.codegen.type_fields import field_annotations
 from lvkit.graph.models import ConstantNode
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 
@@ -91,7 +91,10 @@ def test_a_cluster_constant_with_repeated_names_runs() -> None:
 
 
 def test_a_class_or_typedef_module_annotates_every_field_it_names() -> None:
-    annotations = _field_annotations(_cluster("Count", "count", "x"), None)
+    fields = _cluster("Count", "count", "x")
+    annotations = field_annotations(
+        field_attribute_names(f.name for f in fields), fields, None
+    )
     assert [a.target.id for a in annotations] == [  # type: ignore[attr-defined]
         "count",
         "count_2",

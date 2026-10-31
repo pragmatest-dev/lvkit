@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import NoReturn
 
-from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
@@ -22,25 +21,20 @@ from lvkit.vilib_resolver import (
 )
 
 from ..ast_utils import (
-    default_value_expr,
     parse_expr,
     result_field_name,
     to_function_name,
     to_var_name,
 )
-from ..callee_names import CalleeNames, callee_names
-from ..class_attributes import (
-    Accessor,
-    AccessorPane,
-    accessor_of,
-    scope_prefix,
-)
+from ..callee_names import callee_names
+from ..class_model import accessor_of, member_shape
 from ..context import CodeGenContext
 from ..error_path import is_error_wire_vi
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane, literal_default
-from . import error_vi
+from . import accessor_call, error_vi, method_call
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -57,18 +51,17 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     if is_error_wire_vi(catalog_path, get_resolver()):
         return error_vi.generate(node, ctx)
 
-    # A property accessor is the attribute or property of its class.
-    found = (
-        accessor_of(ctx.graph, node.callee_key)
-        if ctx.graph is not None and node.callee_key is not None
-        else None
-    )
-    if found is not None:
-        return _generate_accessor_call(node, ctx, *found)
-
-    # Dynamic dispatch → obj.method(args) / super().method(args)
-    if node.node_type in ("dynIUse", "callParentDynIUse"):
-        return _generate_dynamic_dispatch(node, ctx)
+    # A VI of a class is a method of its Python class; a property accessor is
+    # the attribute or property.
+    member = _class_member(node, ctx)
+    if member is not None:
+        found = accessor_of(ctx.graph, member) if ctx.graph is not None else None
+        if found is not None:
+            return accessor_call.generate(node, ctx, *found)
+        assert ctx.graph is not None
+        shape = member_shape(ctx.graph, member)
+        assert shape is not None
+        return method_call.generate(node, ctx, shape)
 
     # Look up VI — polymorphic variant if selected, otherwise the recorded path
     vilib_vi = None
@@ -112,7 +105,18 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         targets=[ast.Name(id=parts.result_var, ctx=ast.Store())],
         value=parts.call,
     )
-    return CodeFragment(statements=[stmt], bindings=parts.bindings)
+    return CodeFragment(statements=[*parts.prelude, stmt], bindings=parts.bindings)
+
+
+def _class_member(node: VINode, ctx: CodeGenContext) -> str | None:
+    """The key of the VI a call names when it is a member of a loaded class: the
+    callee, or the variant of a polymorphic VI the call selects."""
+    if ctx.graph is None:
+        return None
+    key = node.variant_key or node.callee_key
+    if key is not None and ctx.graph.owning_class_key(key) is not None:
+        return key
+    return None
 
 
 @dataclass(frozen=True)
@@ -124,6 +128,7 @@ class CallParts:
     call: ast.Call
     result_var: str
     bindings: dict[str, str]
+    prelude: list[ast.stmt] = field(default_factory=list)
 
 
 def build_call(
@@ -138,7 +143,8 @@ def build_call(
     the result by the callee's output name."""
     func_name = ctx.import_function(callee_name, callee_key)
     result_var = ctx.make_output_var(f"{func_name}_result", node.id)
-    args, keywords = _build_arguments(node, ctx, vilib_vi)
+    prelude: list[ast.stmt] = []
+    args, keywords = _build_arguments(node, ctx, vilib_vi, prelude)
     if keywords:
         call = ast.Call(
             func=ast.Name(id=func_name, ctx=ast.Load()),
@@ -158,6 +164,7 @@ def build_call(
         call=call,
         result_var=result_var,
         bindings=_build_output_bindings(node, result_var, vilib_vi, ctx),
+        prelude=prelude,
     )
 
 
@@ -317,9 +324,7 @@ def _generate_inline(
     )
 
 
-def _checked_against_pane(
-    entry: VIEntry, node: VINode, ctx: CodeGenContext
-) -> VIEntry:
+def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
     """``entry`` completed from the connector pane of the VI the call names when
     that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
     key = ctx.graph.loaded_callee_key(node) if ctx.graph is not None else None
@@ -435,8 +440,11 @@ def _build_arguments(
     node: VINode,
     ctx: CodeGenContext,
     vilib_vi: VIEntry | None,
+    prelude: list[ast.stmt],
 ) -> tuple[list[str], dict[str, str]]:
-    """Build input arguments, using vilib names if available."""
+    """Build input arguments, using vilib names if available. An argument that is
+    a class object or named cluster the callee may change is copied first (into
+    ``prelude``) when something else can still read it."""
     subvi_name = node.name or ""
 
     vilib_inputs = _build_vilib_terminal_map(
@@ -456,7 +464,11 @@ def _build_arguments(
         term_id = term.id
         term_index = term.index
         term_name = term.name or ""
-        value = ctx.wired_input(term_id, node)
+        value = (
+            owned_input(ctx, term, node, prelude)
+            if is_by_value_object(term.lv_type)
+            else ctx.wired_input(term_id, node)
+        )
         wired = value is not None
 
         # Skip error cluster terminals — Python uses exceptions
@@ -642,209 +654,6 @@ def _to_ast_value(value: str) -> ast.expr:
     unbound name.
     """
     return parse_expr(value)
-
-
-def _generate_accessor_call(
-    node: VINode, ctx: CodeGenContext, accessor: Accessor, pane: AccessorPane
-) -> CodeFragment:
-    """A call of a property accessor VI: ``obj.name`` read, or ``obj.name = value``
-    written, where ``name`` is the accessor's attribute or property."""
-    terminals = ctx.enriched_terminals(node)
-
-    def terminal(direction: str, index: int | None) -> Terminal | None:
-        if index is None:
-            return None
-        return next(
-            (t for t in terminals if t.direction == direction and t.index == index),
-            None,
-        )
-
-    receiver_term = terminal("input", pane.class_in)
-    receiver = ctx.wired_input(receiver_term.id, node) if receiver_term else None
-    if receiver is None:
-        raise ConversionGap(
-            f"The class wire of the call of property '{accessor.property_name}' "
-            "is not wired",
-            node,
-        )
-    target = ast.Attribute(
-        value=parse_expr(receiver), attr=accessor.python_name, ctx=ast.Load()
-    )
-    bindings: dict[str, str] = {}
-    class_out = terminal("output", pane.class_out)
-    if class_out is not None:
-        bindings[class_out.id] = receiver
-
-    if accessor.role is PropertyRole.SETTER:
-        value_term = terminal("input", pane.value_in)
-        value = ctx.wired_input(value_term.id, node) if value_term else None
-        target.ctx = ast.Store()
-        stmt: ast.stmt = ast.Assign(
-            targets=[target],
-            value=(
-                parse_expr(value)
-                if value is not None
-                else default_value_expr(value_term.lv_type if value_term else None)
-            ),
-        )
-        return CodeFragment(statements=[stmt], bindings=bindings)
-
-    value_out = terminal("output", pane.value_out)
-    if value_out is None:
-        return CodeFragment(statements=[ast.Expr(value=target)], bindings=bindings)
-    var = ctx.make_output_var(
-        to_var_name(accessor.property_name), node.id, value_out.id
-    )
-    bindings[value_out.id] = var
-    stmt = ast.Assign(targets=[ast.Name(id=var, ctx=ast.Store())], value=target)
-    return CodeFragment(statements=[stmt], bindings=bindings)
-
-
-def _generate_dynamic_dispatch(node: VINode, ctx: CodeGenContext) -> CodeFragment:
-    """Generate obj.method(args) for dynamic dispatch calls."""
-    subvi_name = node.name or ""
-    method_name = to_function_name(subvi_name)
-    access = (
-        ctx.graph.get_method_access(node.callee_key)
-        if ctx.graph is not None and node.callee_key is not None
-        else None
-    )
-    if access is not None:
-        method_name = scope_prefix(access.scope) + method_name
-
-    # Find receiver: input with lv_type.ref_type == "UDClassInst"
-    receiver_term = None
-    other_inputs: list[tuple[int, str]] = []  # (index, value)
-
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "input":
-            continue
-        # Skip error cluster inputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-        value = ctx.wired_input(term.id, node)
-        if value is None:
-            continue
-        if _is_class_terminal(term):
-            receiver_term = term
-        else:
-            other_inputs.append((term.index, value))
-
-    # Fallback: use lowest-indexed wired input as receiver
-    if receiver_term is None:
-        all_wired_inputs = []
-        for term in ctx.enriched_terminals(node):
-            if (
-                term.direction == "input"
-                and ctx.wired_input(term.id, node) is not None
-            ):
-                all_wired_inputs.append(term)
-        if all_wired_inputs:
-            all_wired_inputs.sort(key=lambda t: t.index)
-            receiver_term = all_wired_inputs[0]
-            # Rebuild other_inputs excluding receiver
-            other_inputs = [
-                (t.index, ctx.wired_input(t.id, node))  # type: ignore[arg-type]
-                for t in all_wired_inputs[1:]
-            ]
-
-    if receiver_term is None:
-        # No inputs at all — fall back to regular function call
-        return _generate_static_fallback(node, ctx, method_name)
-
-    receiver_var = ctx.wired_input(receiver_term.id, node) or "self"
-    # Call Parent: method is dispatched via super(), but the class-output
-    # passthrough still references the original receiver object.
-    call_receiver = "super()" if node.node_type == "callParentDynIUse" else receiver_var
-
-    # Sort other inputs by index for positional args
-    other_inputs.sort(key=lambda x: x[0])
-    args = [v for _, v in other_inputs]
-
-    # Build AST: receiver.method(args...)  or  super().method(args...)
-    call = ast.Call(
-        func=ast.Attribute(
-            value=parse_expr(call_receiver),
-            attr=method_name,
-            ctx=ast.Load(),
-        ),
-        args=[_to_ast_value(a) for a in args],
-        keywords=[],
-    )
-
-    # Build output bindings
-    bindings: dict[str, str] = {}
-    names = callee_names(ctx, node)
-    result_var = f"{method_name}_result"
-    has_non_class_output = False
-
-    for term in ctx.enriched_terminals(node):
-        if term.direction != "output":
-            continue
-        # Skip error cluster outputs — Python uses exceptions
-        if term.is_error_cluster:
-            continue
-        if _is_class_terminal(term):
-            # Class-typed output → passthrough to receiver variable
-            bindings[term.id] = receiver_var
-        else:
-            field = _result_field(names, term)
-            has_non_class_output = True
-            bindings[term.id] = f"{result_var}.{field}"
-
-    # Assignment
-    if has_non_class_output:
-        stmt = ast.Assign(
-            targets=[ast.Name(id=result_var, ctx=ast.Store())],
-            value=call,
-        )
-    else:
-        stmt = ast.Expr(value=call)
-
-    return CodeFragment(
-        statements=[stmt],
-        bindings=bindings,
-        imports=set(),
-    )
-
-
-def _generate_static_fallback(
-    node: VINode, ctx: CodeGenContext, func_name: str
-) -> CodeFragment:
-    """Fallback for dynIUse with no inputs — generate as static function call."""
-    func_name = ctx.import_function(node.name or func_name, node.callee_key)
-    result_var = f"{func_name}_result"
-    call = ast.Call(
-        func=ast.Name(id=func_name, ctx=ast.Load()),
-        args=[],
-        keywords=[],
-    )
-    stmt = ast.Assign(
-        targets=[ast.Name(id=result_var, ctx=ast.Store())],
-        value=call,
-    )
-    bindings: dict[str, str] = {}
-    names = callee_names(ctx, node)
-    for term in ctx.enriched_terminals(node):
-        if term.direction == "output":
-            if term.is_error_cluster:
-                continue
-            field = _result_field(names, term)
-            bindings[term.id] = f"{result_var}.{field}"
-
-    return CodeFragment(statements=[stmt], bindings=bindings)
-
-
-def _result_field(names: CalleeNames | None, term: Terminal) -> str:
-    """The field of the called VI's result that ``term`` reads."""
-    if names is not None and term.index in names.fields:
-        return names.fields[term.index]
-    return result_field_name(term.name or f"out_{term.index}")
-
-
-def _is_class_terminal(term: Terminal) -> bool:
-    """Check if a terminal carries a class instance (UDClassInst)."""
-    return bool(term.lv_type and term.lv_type.ref_type == "UDClassInst")
 
 
 def _raise_vilib_resolution(

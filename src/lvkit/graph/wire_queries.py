@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..models import FPTerminal, Terminal
-from .models import AnyGraphNode, LocalVariableNode, WireEnd
+import networkx as nx
+
+from ..models import FPTerminal, Terminal, TunnelTerminal
+from .models import AnyGraphNode, LocalVariableNode, LoopNode, WireEnd
 
 
 class WireQueriesMixin:
@@ -14,6 +16,7 @@ class WireQueriesMixin:
 
     if TYPE_CHECKING:
         _term_to_node: dict[str, str]
+        _graph: nx.MultiDiGraph
 
         def iter_nodes(self, vi_name: str) -> list[AnyGraphNode]: ...
         def get_graph_node(self, node_id: str) -> AnyGraphNode | None: ...
@@ -105,3 +108,50 @@ class WireQueriesMixin:
             else:
                 sources.append(src.terminal_id)
         return sources
+
+    def value_is_shared(self, terminal_id: str) -> bool:
+        """Whether the value that reaches the input ``terminal_id`` can still be
+        read by something that does not run before the node of that terminal, so
+        that node, if it changes the value in place, must work on a copy.
+        Following the wire back through structure tunnels to its producer, a
+        source on the way feeds another terminal whose node the node of
+        ``terminal_id`` does not wait for, or the wire enters a loop through an
+        input tunnel (each iteration reads the same value). A value that comes
+        from the VI's own control is the caller's to copy."""
+        home = self.terminal_vi(terminal_id)
+        return self._shared_from(
+            terminal_id, self.terminal_node_id(terminal_id), home, set()
+        )
+
+    def _shared_from(
+        self, terminal_id: str, changer: str, home: str | None, seen: set[str]
+    ) -> bool:
+        if terminal_id in seen:
+            return False
+        seen.add(terminal_id)
+        current = self.get_terminal(terminal_id)
+        for src in self.incoming_edges(terminal_id):
+            if self.terminal_vi(src.terminal_id) != home:
+                continue
+            for dest in self.outgoing_edges(src.terminal_id):
+                if (
+                    dest.terminal_id != terminal_id
+                    and self.terminal_vi(dest.terminal_id) == home
+                    and dest.node_id != changer
+                    and not nx.has_path(self._graph, dest.node_id, changer)
+                ):
+                    return True
+            if (
+                isinstance(current, TunnelTerminal)
+                and current.boundary == "inner"
+                and current.tunnel_type == "lpTun"
+                and current.paired_id == src.terminal_id
+                and isinstance(
+                    self.get_graph_node(self.terminal_node_id(terminal_id)),
+                    LoopNode,
+                )
+            ):
+                return True
+            if self._shared_from(src.terminal_id, changer, home, seen):
+                return True
+        return False

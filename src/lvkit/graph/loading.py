@@ -308,6 +308,9 @@ class LoadingMixin:
             self, class_key: str, method: str
         ) -> tuple[str, str] | None: ...
         def is_class(self, key: str) -> bool: ...
+        def is_class_wire(
+            self, lv_type: LVType | None, vi_key: str, class_key: str
+        ) -> bool: ...
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
@@ -865,7 +868,13 @@ class LoadingMixin:
                     role = None
                     if method.property_name is not None:
                         inputs, _, outputs, _ = self.vi_interface(method_key)
-                        role = property_role(inputs, outputs, cls.name)
+                        role = property_role(
+                            inputs,
+                            outputs,
+                            lambda t, vk=method_key, ck=cls_key: (
+                                self.is_class_wire(t.lv_type, vk, ck)
+                            ),
+                        )
                     self._add_ownership_edge(
                         cls_key,
                         method_key,

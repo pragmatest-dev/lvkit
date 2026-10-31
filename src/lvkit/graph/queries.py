@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, FPTerminal, Terminal
+from ..models import ClusterField, FPTerminal, LVType, Terminal
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from ..vi_files import rglob_vi_files
@@ -126,7 +126,10 @@ class QueryMixin:
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
-        def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None: ...
+        def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]: ...
+        def class_type_key(
+            self, lv_type: LVType, caller_vi_key: str | None = None
+        ) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
         def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None: ...
 
@@ -499,6 +502,54 @@ class QueryMixin:
         return (
             key in self._dep_graph
             and self._dep_graph.nodes[key].get("node_type") == NodeType.CLASS
+        )
+
+    def is_class_wire(
+        self, lv_type: LVType | None, vi_key: str, class_key: str
+    ) -> bool:
+        """Whether a wire of type ``lv_type`` in the VI ``vi_key`` carries an
+        object of the class at ``class_key``: the class the type names, found
+        among the VI's own links, is that class (never compared by name)."""
+        if lv_type is None or lv_type.ref_type != "UDClassInst":
+            return False
+        return self.class_type_key(lv_type, vi_key) == class_key
+
+    def class_child_keys(self, key: str) -> list[str]:
+        """The keys of the loaded classes whose parent is the class at ``key``,
+        sorted."""
+        return sorted(
+            node
+            for node, data in self._dep_graph.nodes(data=True)
+            if data.get("node_type") == NodeType.CLASS
+            and node not in self._stubs
+            and self._parent_class_key(node) == key
+        )
+
+    def class_declares(self, class_key: str, file_name: str) -> bool:
+        """Whether the class at ``class_key`` lists a VI file named ``file_name``
+        itself (not an ancestor)."""
+        return file_name in (
+            self._dep_graph.nodes[class_key].get("method_paths") or {}
+        )
+
+    def call_edges(self) -> list[tuple[str, str]]:
+        """``(caller, callee)`` for every plain reference of a VI to another VI,
+        sorted: the calls between VIs, not the ownership of members or private
+        data."""
+        return sorted(
+            (source, target)
+            for source, target, data in self._dep_graph.edges(data=True)
+            if data.get("rel") not in OWNERSHIP_RELS
+            and self._dep_graph.nodes[target].get("node_type", NodeType.VI)
+            == NodeType.VI
+        )
+
+    def list_class_keys(self) -> list[str]:
+        """The keys of the loaded (non-stub) classes, sorted."""
+        return sorted(
+            key
+            for key, data in self._dep_graph.nodes(data=True)
+            if data.get("node_type") == NodeType.CLASS and key not in self._stubs
         )
 
     def class_own_fields(self, key: str) -> list[ClusterField]:
@@ -1514,7 +1565,7 @@ class QueryMixin:
 
         own_fields: list[ClusterField] = data.get("fields") or []
         inherited_fields: list[ClusterField] = (
-            self._class_fields_by_key(parent_key) or []
+            self.class_fields_with_inherited(parent_key)
             if parent_class and parent_key is not None
             else []
         )

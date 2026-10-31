@@ -15,7 +15,9 @@ from lvkit.codegen.builder import build_module
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.global_module import build_global_module
 from lvkit.codegen.type_module import build_type_module
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import Constant, VIContext, VINode, Wire
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import (
     FPTerminal,
     LVType,
@@ -24,6 +26,7 @@ from lvkit.models import (
     ValuesNotKept,
 )
 from lvkit.module_layout import ModuleCollisionError
+from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
 from tests.test_ext_func_library import Project
 
@@ -280,39 +283,39 @@ def test_a_constant_with_no_value_to_write_raises_first_in_the_function() -> Non
         namespace["const"]()
 
 
-class _GraphWithoutItsParent:
-    def is_class(self, key: str) -> bool:
-        return True
-
-    def class_parent_key(self, key: str) -> None:
-        return None
-
-    def class_parent_name(self, key: str) -> str:
-        return "Base.lvclass"
-
-
-def test_a_class_whose_parent_is_not_loaded_raises_when_its_module_runs() -> None:
-    gaps: list[Gap] = []
-    source = build_type_module(
-        _GraphWithoutItsParent(),  # type: ignore[arg-type]
+def test_a_class_whose_parent_is_not_loaded_is_defined_and_raises_when_used() -> None:
+    graph = InMemoryVIGraph()
+    graph._dep_graph.add_node(  # noqa: SLF001
         "/p/Child.lvclass",
-        None,  # type: ignore[arg-type]
-        gaps=gaps,
+        node_type=NodeType.CLASS,
+        fields=[],
+        parent_class="Base",
     )
-    assert source == (
-        "from __future__ import annotations\n"
-        "raise NotImplementedError("
-        "'Parent class Base.lvclass of /p/Child.lvclass is not loaded\\n"
-        "gap kind: unsupported_vi\\nVI: Child.lvclass')"
+    out = Path("/pkg")
+    resolver = create_import_resolver(
+        "pkg",
+        out,
+        {"/p/Child.lvclass": out / "child.py"},
+        out / "child.py",
+        caller_key="/p/Child.lvclass",
+        graph=graph,
     )
+    gaps: list[Gap] = []
+    source = build_type_module(graph, "/p/Child.lvclass", resolver, gaps=gaps)
     (gap,) = gaps
     assert (gap.kind, gap.vi, gap.node_id) == (
         "unsupported_vi",
         "/p/Child.lvclass",
         None,
     )
-    with pytest.raises(NotImplementedError, match="Base.lvclass"):
-        exec(compile(source, "child", "exec"), {})  # noqa: S102
+    assert "The parent class Base of Child.lvclass was not found" in gap.reason
+    assert "/p/" not in gap.reason
+    # The module imports; the class has no base, and making one raises the gap.
+    namespace: dict = {}
+    exec(compile(source, "child", "exec"), namespace)  # noqa: S102
+    assert namespace["Child"].__bases__ == (object,)
+    with pytest.raises(NotImplementedError, match="parent class Base"):
+        namespace["Child"]()
 
 
 def test_a_global_control_with_no_value_to_write_raises_where_it_is_defined() -> None:

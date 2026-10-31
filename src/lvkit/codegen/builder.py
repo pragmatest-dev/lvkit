@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from collections import deque
+from collections.abc import Callable
 
 import networkx as nx
 
@@ -14,6 +15,7 @@ from lvkit.models import LVTypeKind, Terminal, TypeNamer
 from .ast_optimizer import optimize_module
 from .ast_utils import (
     build_assign,
+    build_result_class_name,
     build_type_checking_block,
     interface_names,
     param_default_expr,
@@ -96,7 +98,7 @@ def build_module(
     ctx.function_name = to_function_name(vi_context.name)
     ctx.qualified_vi_name = vi_context.qualified_name
 
-    body = vi_body(ctx, vi_name, lambda: _function_body(vi_context, vi_name, ctx))
+    body = vi_body(ctx, vi_name, lambda: function_body(vi_context, vi_name, ctx))
 
     # Build module structure
     module = build_module_ast(vi_context, vi_name, body, ctx)
@@ -109,19 +111,23 @@ def build_module(
     return ast.unparse(module)
 
 
-def _function_body(
-    vi_context: VIContext, vi_name: str, ctx: CodeGenContext
+def function_body(
+    vi_context: VIContext,
+    vi_name: str,
+    ctx: CodeGenContext,
+    parameter_names: dict[str, str] | None = None,
+    return_stmt: Callable[[], ast.stmt | None] | None = None,
 ) -> list[ast.stmt]:
-    """The statements of the VI's function."""
+    """The statements of the VI's function. ``parameter_names`` (terminal id to
+    name) and ``return_stmt`` are given by a caller that names the parameters or
+    returns the results itself (a method of a class)."""
     for term in annotated_terminals(vi_context):
         ctx.import_types(term.lv_type, at_run_time=False)
 
     # Top-level diagram nodes in dataflow order. Emitters walk structure
     # contents from here via ``ctx.child_nodes`` / ``ctx.frame_children``.
     top_nodes: list[AnyGraphNode] = (
-        generated_nodes(
-            ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS)
-        )
+        generated_nodes(ctx.graph.top_level_nodes(vi_name, extra_kinds=REFERENCE_KINDS))
         if ctx.graph is not None
         else []
     )
@@ -142,7 +148,8 @@ def _function_body(
     body.extend(
         build_array_input_normalization(
             parameters,
-            interface_names(
+            parameter_names
+            or interface_names(
                 vi_context.inputs, vi_context.off_pane_inputs, [], []
             ).parameters,
         )
@@ -164,9 +171,11 @@ def _function_body(
         body.append(build_held_error_check())
 
     # Add return statement
-    return_stmt = build_return_stmt(vi_context, ctx)
-    if return_stmt:
-        body.append(return_stmt)
+    final = (
+        return_stmt() if return_stmt is not None else build_return_stmt(vi_context, ctx)
+    )
+    if final:
+        body.append(final)
 
     # Final pass: write numeric operators over array-valued operands that were
     # inlined (single-use) into a consumer as comprehensions.
@@ -902,8 +911,7 @@ def build_args(
     terminal may be left unwired and then takes its own default value, so every
     generated parameter is optional-with-default — which also sidesteps Python's
     "non-default argument follows default argument" rule without reordering the
-    parameters (reordering would desync positional callers, e.g. class-method
-    dynamic dispatch, which pass arguments in connector-pane order). The default
+    parameters (callers pass arguments by keyword). The default
     is the terminal's real connector-pane default when known, else the type
     default (e.g. 0 / '' / None).
     """
@@ -986,12 +994,3 @@ def _is_anonymous_cluster(term: Terminal) -> bool:
         and not lv_type.typedef_name
         and not lv_type.classname
     )
-
-
-def build_result_class_name(vi_name: str) -> str:
-    """Build result class name from VI name."""
-    base = to_function_name(vi_name)
-    # Convert to CamelCase
-    parts = base.split("_")
-    camel = "".join(p.capitalize() for p in parts if p)
-    return f"{camel}Result"

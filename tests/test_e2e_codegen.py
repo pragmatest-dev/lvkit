@@ -18,9 +18,11 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
+from lvkit.pipeline import create_import_resolver
 
 SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 DCAF_SEARCH_PATHS = [
@@ -236,60 +238,37 @@ def test_codegen_is_hashseed_deterministic(tmp_path):
 
 
 class TestTestCaseLvclass:
-    """E2E: TestCase.lvclass — 74 methods, all must produce valid Python."""
+    """E2E: TestCase.lvclass -- the class module has every method as valid
+    Python."""
 
-    def _testcase_vis(self, testcase_graph):
-        """Get TestCase method VIs (not dependencies).
-
-        VIs are keyed by path (identity) now, so select them via the qname
-        reverse index — every loaded VI whose qualified name is a TestCase
-        method — and return their vi_keys for get_vi_context/build_module.
-        """
-        return [
-            key
-            for qname, keys in testcase_graph._qname_to_keys.items()
-            if qname.startswith("TestCase.lvclass:")
-            for key in keys
-        ]
+    def _class_module(self, graph: InMemoryVIGraph) -> str:
+        keys = graph.list_class_keys()
+        (class_key,) = [k for k in keys if Path(k).name == "TestCase.lvclass"]
+        out = Path("/pkg")
+        paths = {k: out / f"{Path(k).stem.lower()}.py" for k in keys}
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            paths[class_key],
+            caller_key=class_key,
+            graph=graph,
+        )
+        return build_type_module(graph, class_key, resolver)
 
     def test_all_methods_generate_valid_python(self, testcase_graph):
         """Every TestCase method must produce syntactically valid Python."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        successes = 0
-        failures = []
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                ast.parse(code)
-                successes += 1
-            except Exception as e:
-                failures.append((vi_name, str(e)))
-
-        if failures:
-            msg = f"{len(failures)} VIs failed:\n"
-            for vi_name, err in failures[:10]:
-                msg += f"  {vi_name}: {err}\n"
-            pytest.fail(msg)
-
-        assert successes >= 20, f"Expected 20+ AST successes, got {successes}"
+        code = self._class_module(testcase_graph)
+        tree = ast.parse(code)
+        (testcase,) = [
+            n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TestCase"
+        ]
+        methods = [n for n in testcase.body if isinstance(n, ast.FunctionDef)]
+        assert len(methods) >= 20, f"Expected 20+ methods, got {len(methods)}"
 
     def test_no_garbage_in_any_method(self, testcase_graph):
         """No method should contain unresolved placeholders."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                assert_no_garbage(code, vi_name)
-            except Exception:
-                pass  # Generation failures caught by other test
+        assert_no_garbage(self._class_module(testcase_graph), "TestCase.lvclass")
 
 
 # ── IPES (In Place Element Structure) ──────────────────────

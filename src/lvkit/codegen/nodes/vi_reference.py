@@ -24,7 +24,9 @@ connector pane.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+import os
+import textwrap
+from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 
@@ -41,14 +43,16 @@ from lvkit.graph.vi_reference import (
     VIReferenceUnresolved,
 )
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
+from lvkit.vi_files import class_stem
 
-from ..ast_utils import build_assign, parse_expr
+from ..ast_utils import build_assign, module_part, parse_expr
 from ..callee_names import pane_names
+from ..class_model import member_shape, python_class_name
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from . import primitive, subvi
+from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
@@ -111,6 +115,7 @@ class _Call:
     keywords: list[ast.keyword]
     result_var: str
     bindings: dict[str, str]
+    prelude: list[ast.stmt] = field(default_factory=list)
 
 
 def _reference_input(node: VINode, ctx: CodeGenContext) -> Terminal:
@@ -141,8 +146,27 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
             f"{_label(node)}: the VI {target.name!r} is not loaded with this VI.",
             node,
         )
+    shape = member_shape(ctx.graph, target.key)
+    if shape is not None:
+        call = method_call.build_call(callee, ctx, shape, receiver_keyword="self")
+        result_var = call.result_var or ctx.make_output_var(
+            "vi_reference_result", node.id
+        )
+        return _Call(
+            ctx.vi_reference_expression(target.name, target.key),
+            call.keywords,
+            result_var,
+            call.bindings,
+            call.prelude,
+        )
     parts = subvi.build_call(callee, ctx, target.name, target.key, None)
-    return _Call(parts.func_name, parts.call.keywords, parts.result_var, parts.bindings)
+    return _Call(
+        parts.func_name,
+        parts.call.keywords,
+        parts.result_var,
+        parts.bindings,
+        parts.prelude,
+    )
 
 
 def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call:
@@ -228,7 +252,8 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             func=parse_expr(call.function), args=[], keywords=call.keywords
         )
         return CodeFragment(
-            statements=[build_assign(call.result_var, invoke)], bindings=bindings
+            statements=[*call.prelude, build_assign(call.result_var, invoke)],
+            bindings=bindings,
         )
 
     ctx.add_import(_EXECUTOR_IMPORT)
@@ -239,9 +264,13 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         keywords=call.keywords,
     )
     if options is not None and options & CALL_AND_FORGET:
-        return CodeFragment(statements=[ast.Expr(value=submit)], bindings=bindings)
+        return CodeFragment(
+            statements=[*call.prelude, ast.Expr(value=submit)], bindings=bindings
+        )
     future = ctx.make_output_var("future", node.id)
-    return CodeFragment(statements=[build_assign(future, submit)], bindings=bindings)
+    return CodeFragment(
+        statements=[*call.prelude, build_assign(future, submit)], bindings=bindings
+    )
 
 
 def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -262,7 +291,7 @@ def generate_open(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _generate_lookup(node, ctx, reference)
     except VIReferenceUnresolved as problem:
         raise _fail(node, problem) from None
-    func_name = ctx.import_function(target.name, target.key)
+    func_name = ctx.vi_reference_expression(target.name, target.key)
     bindings = {reference.id: func_name} if reference is not None else {}
     return CodeFragment(bindings=bindings)
 
@@ -296,7 +325,8 @@ def _function_name(stem):
 _IMPORT_BY_PATH = """\
 {here} = os.path.dirname(__file__)
 {path} = os.path.join({here}, os.fspath({value}).replace("\\\\", "/"))
-{parts} = os.path.relpath({path}, {here}).replace(os.sep, "/").split("/")
+{rel} = os.path.relpath({path}, {here}).replace(os.sep, "/")
+{parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
     {parts}.pop(0)
@@ -308,6 +338,18 @@ while {parts}[0] == "..":
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
 {package} = {owners}[{owner}]
+"""
+
+# A VI a class lists is a method of the class, found by the name or the path
+# the diagram computes among the project's class members.
+_CLASS_MEMBER = """\
+{member} = _class_members.get({key})
+if {member} is not None:
+    {reference} = getattr(
+        getattr(importlib.import_module({member}[0], __package__), {member}[1]),
+        {member}[2],
+    )
+else:
 """
 
 _IMPORT_MODULE = """\
@@ -343,6 +385,9 @@ def _generate_lookup(
         for key in ("here", "path", "parts", "up", "stem", "package", "owner", "module")
     }
     names.update(value=value, reference=reference_var)
+    names["rel"] = f"{reference_var}_rel"
+    names["member"] = f"{reference_var}_member"
+    has_members = bool(ctx.graph.class_members())
     if by_name:
         names["owners"] = _owners_table(node, ctx)
         locate = _IMPORT_BY_NAME
@@ -357,9 +402,56 @@ def _generate_lookup(
         (func_def,) = ast.parse(helper).body
         assert isinstance(func_def, ast.FunctionDef)
         ctx.add_module_function(func_def)
-    statements = ast.parse((locate + _IMPORT_MODULE).format(**names)).body
+    text = (locate + _IMPORT_MODULE).format(**names)
+    if has_members:
+        _class_members_table(node, ctx)
+        names["key"] = value if by_name else names["rel"]
+        if by_name:
+            head, rest = "", text
+        else:
+            head, rest = text.split(f"{names['parts']} = ", 1)
+            rest = f"{names['parts']} = " + rest
+        text = head + _CLASS_MEMBER.format(**names) + textwrap.indent(rest, "    ")
+    statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
+    """The module-level dictionary of the project's class members, by the name
+    (``Owner:VI.vi``) and by the path from the folder of the VI holding the node
+    that a diagram can compute, each with its class's module spec, its class's
+    name and its method's name."""
+    assert ctx.graph is not None and ctx.vi_name is not None
+    resolver = ctx.import_resolver
+    caller_folder = os.path.dirname(ctx.vi_name)
+    entries: dict[str, tuple[str, str, str]] = {}
+    for name, key, class_key in ctx.graph.class_members():
+        shape = member_shape(ctx.graph, key)
+        if shape is None:
+            continue
+        spec = (
+            resolver.package_spec(class_key)
+            if isinstance(resolver, ImportResolver)
+            else "."
+        )
+        module = spec + module_part(class_stem(Path(class_key).name))
+        entry = (module, python_class_name(class_key), shape.name)
+        entries[name] = entry
+        entries[Path(os.path.relpath(key, caller_folder)).as_posix()] = entry
+    ctx.add_module_global(
+        "_class_members",
+        ast.Dict(
+            keys=[ast.Constant(value=name) for name in sorted(entries)],
+            values=[
+                ast.Tuple(
+                    elts=[ast.Constant(value=part) for part in entries[name]],
+                    ctx=ast.Load(),
+                )
+                for name in sorted(entries)
+            ],
+        ),
+    )
 
 
 def _owners_table(node: PrimitiveNode, ctx: CodeGenContext) -> str:

@@ -1,71 +1,57 @@
-"""Build the __init__ method from LabVIEW class private data fields."""
+"""Build the field annotations and ``__init__`` from a class's private data."""
 
 from __future__ import annotations
 
 import ast
 
-from lvkit.structure import LVClass
+from lvkit.models import ClusterField, TypeNamer
 
-from ..class_attributes import unclaimed_field_attributes
+from ..ast_utils import default_value_expr
+from ..class_model import ClassModel
+from ..gaps import raise_statement
+from ..type_fields import field_annotations
 
 
 class _InitBuilderMixin:
-    """Builds ``__init__`` from private data fields and default values."""
+    """The attributes a class declares and the ``__init__`` that sets them."""
+
+    def _field_annotations(
+        self,
+        model: ClassModel,
+        fields: list[ClusterField],
+        spell: TypeNamer | None,
+    ) -> list[ast.stmt]:
+        """One annotated attribute per private data field the class declares."""
+        return field_annotations(model.attributes.fields, fields, spell)
 
     def _build_init(
         self,
-        lvclass: LVClass,
-        has_parent: bool,
-        attributes: list[str] | None = None,
+        model: ClassModel,
+        fields: list[ClusterField],
+        has_base: bool,
+        unavailable: str | None,
     ) -> ast.FunctionDef:
-        """Build __init__ method from private data fields; ``attributes`` is the
-        attribute each field has (see ``class_attributes``), by default the
-        attribute of a field no property names."""
+        """``__init__``: the base's, then each field the class declares at its
+        default; ``unavailable`` (a gap) makes it raise instead."""
         body: list[ast.stmt] = []
-
-        # Call parent __init__ if there's a parent class
-        if has_parent:
-            body.append(
-                ast.Expr(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Call(
-                                func=ast.Name(id="super", ctx=ast.Load()),
-                                args=[],
-                                keywords=[],
-                            ),
-                            attr="__init__",
-                            ctx=ast.Load(),
-                        ),
-                        args=[],
-                        keywords=[],
+        if unavailable is not None:
+            body.append(raise_statement(unavailable))
+        else:
+            if has_base:
+                body.append(ast.parse("super().__init__()").body[0])
+            for attribute, field in zip(model.attributes.fields, fields, strict=True):
+                body.append(
+                    ast.Assign(
+                        targets=[
+                            ast.Attribute(
+                                value=ast.Name(id="self", ctx=ast.Load()),
+                                attr=attribute,
+                                ctx=ast.Store(),
+                            )
+                        ],
+                        value=default_value_expr(field.type),
                     )
                 )
-            )
-
-        fields = lvclass.private_data_fields
-        attr_names = attributes or unclaimed_field_attributes(
-            [f.name for f in fields]
-        )
-
-        for field, attr_name in zip(fields, attr_names, strict=True):
-            body.append(
-                ast.Assign(
-                    targets=[
-                        ast.Attribute(
-                            value=ast.Name(id="self", ctx=ast.Load()),
-                            attr=attr_name,
-                            ctx=ast.Store(),
-                        )
-                    ],
-                    value=self._get_default_for_type(field.python_type),
-                )
-            )
-
-        # Ensure body is not empty
-        if not body:
-            body.append(ast.Pass())
-
         return ast.FunctionDef(
             name="__init__",
             args=ast.arguments(
@@ -77,24 +63,7 @@ class _InitBuilderMixin:
                 kwarg=None,
                 defaults=[],
             ),
-            body=body,
+            body=body or [ast.Pass()],
             decorator_list=[],
             returns=ast.Constant(value=None),
         )
-
-    def _get_default_for_type(self, python_type: str) -> ast.expr:
-        """Get default value AST for a Python type."""
-        type_defaults = {
-            "str": ast.Constant(value=""),
-            "int": ast.Constant(value=0),
-            "float": ast.Constant(value=0.0),
-            "bool": ast.Constant(value=False),
-            "list": ast.List(elts=[], ctx=ast.Load()),
-            "dict": ast.Dict(keys=[], values=[]),
-            "Path": ast.Call(
-                func=ast.Name(id="Path", ctx=ast.Load()),
-                args=[],
-                keywords=[],
-            ),
-        }
-        return type_defaults.get(python_type, ast.Constant(value=None))

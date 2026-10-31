@@ -33,9 +33,11 @@ from lvkit.models import (
 )
 
 from ..ast_utils import parse_expr
-from ..class_attributes import ClassAttributes, type_attributes
+from ..class_attributes import ClassAttributes
+from ..class_model import type_attributes
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
+from ..value_copy import owned_input
 from .nmux import _attribute_target, _field_expr, _field_path
 
 _CLUSTER = "decomposeClusterNode"
@@ -103,10 +105,11 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
 
     # --- Input boundary ---
     _bind_input_tunnels(node, tunnels, ctx)
-    _bind_tile_inputs(node, tiles, ctx)
     tunnel_uids = {
         uid for t in tunnels for uid in (t.outer_terminal_uid, t.inner_terminal_uid)
     }
+    _own_data_inputs(node, tunnel_uids, ctx, all_stmts)
+    _bind_tile_inputs(node, tiles, ctx)
     data_var = _find_data_var(node, tunnel_uids, ctx)
     elements = _take_elements_out(tiles, data_var, ctx)
 
@@ -151,6 +154,24 @@ def _bind_input_tunnels(
         outer_var = ctx.resolve(tunnel.outer_terminal_uid)
         if outer_var:
             ctx.bind(tunnel.inner_terminal_uid, outer_var)
+
+
+def _own_data_inputs(
+    node: InPlaceNode,
+    tunnel_uids: set[str],
+    ctx: CodeGenContext,
+    statements: list[ast.stmt],
+) -> None:
+    """The structure changes its data where it is: an input port that carries a
+    class object or a named cluster something else can still read is given a copy
+    of it."""
+    for port in node.terminals:
+        if port.direction != "input" or port.id in tunnel_uids:
+            continue
+        value = ctx.wired_input(port.id, node)
+        owned = owned_input(ctx, port, node, statements)
+        if owned is not None and owned != value:
+            ctx.bind(port.id, owned)
 
 
 def _bind_tile_inputs(

@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import ast
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
-from lvkit.codegen.class_builder.init_builder import _InitBuilderMixin
-from lvkit.structure import LVClass, LVPrivateDataField, _resolve_type_ids
+from lvkit.codegen.class_builder import ClassBuilder
+from lvkit.codegen.class_model import class_model
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.node_kinds import NodeType
+from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.structure import _resolve_type_ids
 
 
 def _vctp(*labels: str) -> ET.Element:
@@ -23,21 +26,34 @@ def test_label_none_is_a_field_and_unlabelled_gets_position_name() -> None:
 
 
 def test_init_keeps_every_field() -> None:
-    cls = LVClass(
-        name="C",
-        path=Path("C.lvclass"),
-        private_data_fields=[
-            LVPrivateDataField(name="None", python_type="str"),
-            LVPrivateDataField(name="field_1", python_type="int"),
+    graph = InMemoryVIGraph()
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    number = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+    graph._dep_graph.add_node(  # noqa: SLF001
+        "/src/C.lvclass",
+        node_type=NodeType.CLASS,
+        fields=[
+            ClusterField(name="None", type=string),
+            ClusterField(name="field_1", type=number),
         ],
+        parent_class="LabVIEW Object",
     )
-    func = _InitBuilderMixin()._build_init(cls, None)
+    init = ClassBuilder()._build_init(  # noqa: SLF001
+        class_model(graph, "/src/C.lvclass"),
+        graph.class_own_fields("/src/C.lvclass"),
+        False,
+        None,
+    )
     targets = [
         stmt.targets[0].attr  # type: ignore[attr-defined]
-        for stmt in func.body
+        for stmt in init.body
         if isinstance(stmt, ast.Assign)
     ]
     assert targets == ["_none", "_field_1"]
+    assert [ast.unparse(s.value) for s in init.body if isinstance(s, ast.Assign)] == [
+        "''",
+        "0",
+    ]
 
 
 def test_position_name_never_repeats_a_labelled_field() -> None:

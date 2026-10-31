@@ -22,6 +22,7 @@ that caller.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,8 +48,9 @@ def redirect_member_beside_container(cand: Path, leaf: str) -> Path:
     Pure path math: it does not check that the file exists.
     """
     if cand.suffix.lower() in _CONTAINER_SUFFIXES and leaf != cand.name:
-        # A file name holds no separator: a name recorded as "/x.vi" is the file x.vi.
-        return cand.with_name(leaf.rsplit("/", 1)[-1])
+        # A file name holds no separator: a name recorded as "/x.vi" or "\\x.vi" is
+        # the file x.vi.
+        return cand.with_name(re.split(r"[/\\]", leaf)[-1])
     return cand
 
 

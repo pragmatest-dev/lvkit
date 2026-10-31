@@ -408,6 +408,15 @@ def to_function_name(vi_name: str) -> str:
     return to_var_name(name)
 
 
+def build_result_class_name(vi_name: str) -> str:
+    """Build result class name from VI name."""
+    base = to_function_name(vi_name)
+    # Convert to CamelCase
+    parts = base.split("_")
+    camel = "".join(p.capitalize() for p in parts if p)
+    return f"{camel}Result"
+
+
 def module_part(name: str) -> str:
     """One path part (a folder or a file stem) as the Python module or package
     name it is generated as: lower case, spaces and hyphens to ``_``, every other

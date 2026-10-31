@@ -17,11 +17,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvkit.codegen import ClassBuilder, ClassConfig, build_module
+from lvkit.codegen import build_module
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
     to_function_name,
-    to_module_name,
     unique_names,
 )
 from lvkit.codegen.error_path import is_error_wire_vi
@@ -42,7 +41,6 @@ from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.module_layout import ModuleLayout, project_root
 from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
-from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
 from lvkit.vilib_resolver import VILibResolver, run_in_own_resolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
@@ -222,17 +220,29 @@ def create_import_resolver(
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 
     def node_import(key: str) -> NameImport:
+        derived = derive_python_name(Path(key).name)
+        if vi_paths[key] == caller_path:
+            return NameImport("", derived)
         dots, package, module = relative(vi_paths[key])
         dotted = f"{package}.{module}" if package else module
-        derived = derive_python_name(Path(key).name)
         name = spell(key, derived)
         alias = "" if name == derived else f" as {name}"
         return NameImport(f"from {dots}{dotted} import {derived}{alias}", name)
 
-    def type_import(type_ref: str) -> NameImport | None:
-        if graph is None or caller_key is None:
+    def names_import(key: str, names: Collection[str]) -> str:
+        """The statement importing ``names`` from the module generated for the
+        class or VI at ``key``; empty for the module being generated."""
+        if vi_paths[key] == caller_path:
+            return ""
+        dots, package, module = relative(vi_paths[key])
+        dotted = f"{package}.{module}" if package else module
+        return f"from {dots}{dotted} import {', '.join(sorted(names))}"
+
+    def type_import(type_ref: str, scope: str | None) -> NameImport | None:
+        lookup_key = scope or caller_key
+        if graph is None or lookup_key is None:
             return None
-        key = graph.type_key(type_ref, caller_key)
+        key = graph.type_key(type_ref, lookup_key)
         if key is None or key not in vi_paths:
             return None
         return node_import(key)
@@ -273,6 +283,8 @@ def create_import_resolver(
         package_modules,
         root_module_import,
         project_file,
+        shown,
+        names_import,
     )
 
 
@@ -648,8 +660,24 @@ def generate_python(
     ]
     print(f"\nConversion order ({len(order)} VIs):")
 
-    # Identify polymorphic groups (from VI metadata, not heuristics)
-    poly_groups = graph.get_polymorphic_groups()
+    # The VIs a class lists are methods of its one Python class, in the module of
+    # the class file: they have no module of their own.
+    class_of_member: dict[str, str] = {
+        member: class_key
+        for class_key in order
+        if graph.node_type(class_key) is NodeType.CLASS
+        and not graph.is_stub(class_key)
+        for member in graph.class_member_keys(class_key)
+    }
+
+    # Identify polymorphic groups (from VI metadata, not heuristics). A group
+    # whose polymorphic VI a class lists has no wrapper module: its variants are
+    # members, or modules of their own.
+    poly_groups = {
+        wrapper: variants
+        for wrapper, variants in graph.get_polymorphic_groups().items()
+        if wrapper not in class_of_member
+    }
 
     # A variant the catalog gives a module for (a full implementation) is that
     # module; every other variant (its own diagram, or a catalog inline template)
@@ -684,7 +712,7 @@ def generate_python(
         order,
         project_root(input_path),
         search_path_list,
-        shared=frozenset(poly_variants),
+        shared=frozenset(poly_variants) | frozenset(class_of_member),
         reserved=[ERRORS_MODULE_NAME],
     )
     package_modules = PackageModules.from_graph(
@@ -694,6 +722,11 @@ def generate_python(
         key: output_dir_resolved.joinpath(*place.packages) / f"{place.module}.py"
         for key, place in layout.places.items()
     }
+
+    # A method's module is its class's
+    for member, class_key in class_of_member.items():
+        if class_key in vi_paths:
+            vi_paths[member] = vi_paths[class_key]
 
     # Redirect polymorphic variant paths to their wrapper's path
     for wrapper_name, variants in poly_groups.items():
@@ -707,6 +740,11 @@ def generate_python(
 
     try:
         for i, vi_name in enumerate(order, 1):
+            if vi_name in class_of_member:
+                print(f"  [{i}/{len(order)}] {vi_name}")
+                print("         -> (method of its class)")
+                continue
+
             # Skip variants - they'll be generated with their wrapper
             if vi_name in poly_variants:
                 print(f"  [{i}/{len(order)}] {vi_name}")
@@ -757,6 +795,7 @@ def generate_python(
 
             elif graph.is_class(vi_name) or graph.is_typedef(vi_name):
                 try:
+                    data_files: dict[str, bytes] = {}
                     code = build_type_module(
                         graph,
                         vi_name,
@@ -769,12 +808,15 @@ def generate_python(
                             graph=graph,
                             vilib_resolver=vilib_resolver,
                             defined_names=[derive_python_name(Path(vi_name).name)],
+                            package_modules=package_modules,
                             layout=layout,
                         ),
                         gaps=vi_gaps,
+                        data_files=data_files,
                     )
                     ast.parse(code)
                     output_path.write_text(code, encoding="utf-8")
+                    _write_data_files(output_path.parent, data_files)
                     _report_gaps(vi_gaps, all_gaps, layout)
                     print(f"         -> type: {output_path.name}")
                     generated.append((vi_name, output_path, "ast"))
@@ -907,55 +949,6 @@ def generate_python(
         init_path = output_dir_resolved / "__init__.py"
         if not init_path.exists():
             init_path.write_text('"""Generated package."""\n', encoding="utf-8")
-
-        # Generate class wrapper if input was an lvclass
-        if input_path.suffix.lower() == ".lvclass":
-            lvclass = parse_lvclass(input_path)
-
-            # Get method contexts from graph
-            method_contexts = {}
-            class_key = str(input_path.resolve())
-            for method in lvclass.methods:
-                member = graph.class_method(class_key, Path(method.vi_path).name)
-                if member is None:
-                    continue
-                ctx = graph.get_vi_context(member[1])
-                if ctx.inputs or ctx.outputs or graph.top_level_nodes(member[1]):
-                    method_contexts[method.name] = ctx
-
-            # Build class wrapper with context lookup for SubVI resolution
-            class_path = output_dir_resolved / (to_module_name(lvclass.name) + ".py")
-            import_resolver = create_import_resolver(
-                vi_folder_name,
-                output_dir_resolved,
-                vi_paths,
-                class_path,
-                graph=graph,
-                vilib_resolver=vilib_resolver,
-                package_modules=package_modules,
-                layout=layout,
-            )
-            builder = ClassBuilder(config=ClassConfig())
-            class_gaps = GapLog(fail_fast)
-            try:
-                module = builder.build_class_module(
-                    lvclass,
-                    method_contexts,
-                    import_resolver=import_resolver,
-                    graph=graph,
-                    gaps=class_gaps,
-                )
-                ast.fix_missing_locations(module)
-                class_code = ast.unparse(module)
-
-                # Write class file
-                class_path.write_text(class_code, encoding="utf-8")
-                _report_gaps(class_gaps, all_gaps, layout)
-                print(f"\nGenerated class wrapper: {class_path.name}")
-            except Exception as e:  # noqa: BLE001 — a class wrapper that cannot be built stops only itself
-                print(f"\n  [class wrapper] FAILED for {lvclass.name}: {e}")
-                traceback.print_exc()
-                generated.append((lvclass.name, None, "failed"))
 
     except GapStop as stop:
         _report_gaps([stop.gap], all_gaps, layout)

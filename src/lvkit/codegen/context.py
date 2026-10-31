@@ -43,6 +43,7 @@ from .ast_utils import (
     to_function_name,
     to_var_name,
 )
+from .class_model import member_reference, member_shape
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
@@ -393,9 +394,7 @@ class CodeGenContext:
         self._tunnel_var_names[outer_id] = name
         return name
 
-    def _derived_tunnel_name(
-        self, outer_id: str, structure_node_id: str
-    ) -> str | None:
+    def _derived_tunnel_name(self, outer_id: str, structure_node_id: str) -> str | None:
         """The name of a structure output tunnel's merge, derived from its outer
         terminal: the downstream consumer's name, else the outer terminal's own
         name. ``None`` when neither is named — the caller then picks a fallback.
@@ -613,6 +612,23 @@ class CodeGenContext:
         self.add_import(imported.statement)
         return imported.name
 
+    def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
+        """The expression a reference to a VI is: its function, imported, or, for
+        a VI of a class, ``Class.method`` (the class imported)."""
+        shape = (
+            member_shape(self.graph, key)
+            if self.graph is not None and key is not None
+            else None
+        )
+        if shape is None or not isinstance(self.import_resolver, ImportResolver):
+            return self.import_function(vi_name, key)
+        assert self.graph is not None
+        expression, statement = member_reference(
+            self.graph, shape, self.import_resolver
+        )
+        self.add_import(statement)
+        return expression
+
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
         one it cannot import; ``None`` when generated without import paths."""
@@ -628,7 +644,7 @@ class CodeGenContext:
             and lv_type.underlying_type == "VIRefnum"
             and isinstance(const.value, str)
         ):
-            return self.import_function(const.value, const.referenced_vi_key)
+            return self.vi_reference_expression(const.value, const.referenced_vi_key)
         if const.unwritable is not None:
             for statement in DATA_FILE_IMPORTS.splitlines():
                 self.add_import(statement)

@@ -144,31 +144,6 @@ def _get_primitive_default(type_name: str) -> str:
     return "None"
 
 
-def _is_class_refnum(lv_type: LVType, class_name: str) -> bool:
-    """Check if type is a class refnum matching the given class.
-
-    Args:
-        lv_type: The type to check
-        class_name: The class name to match (e.g., "TestCase" or "TestCase.lvclass")
-
-    Returns:
-        True if this is a UDClassInst refnum for the specified class
-    """
-    if lv_type.underlying_type != "Refnum":
-        return False
-    if lv_type.ref_type != "UDClassInst":
-        return False
-    if not lv_type.classname:
-        return False
-
-    # Compare the class's own name: without a library qualifier
-    # (``Lib.lvlib:Class.lvclass``) or the .lvclass suffix, ignoring case.
-    def own_name(name: str) -> str:
-        return name.rsplit(":", 1)[-1].lower().replace(".lvclass", "")
-
-    return own_name(class_name) == own_name(lv_type.classname)
-
-
 def get_default_for_control_type(control_type: str) -> str:
     """Get default for a front panel control type (stdXxx).
 

@@ -1,30 +1,39 @@
 """Private-data fields whose labels become one Python name each get their own
-attribute in the generated ``__init__``."""
+attribute in the generated class."""
 
 from __future__ import annotations
 
-import ast
 import xml.etree.ElementTree as ET
-from pathlib import Path
 
 import pytest
 
-from lvkit.codegen.class_builder.init_builder import _InitBuilderMixin
-from lvkit.structure import LVClass, LVMethod, LVPrivateDataField, _resolve_type_ids
+from lvkit.codegen.class_attributes import class_attributes
+from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.node_kinds import NodeType
+from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.structure import _resolve_type_ids
+
+_INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+
+
+def _class_graph(names: list[str]) -> tuple[InMemoryVIGraph, str]:
+    graph = InMemoryVIGraph()
+    graph._dep_graph.add_node(  # noqa: SLF001
+        "/src/C.lvclass",
+        node_type=NodeType.CLASS,
+        fields=[ClusterField(name=n, type=_INT) for n in names],
+        parent_class="LabVIEW Object",
+    )
+    return graph, "/src/C.lvclass"
 
 
 def _attributes(labels: tuple[str, ...]) -> tuple[list[str], list[str]]:
     descs = "".join(f'<TypeDesc Type="String" Label="{lb}"/>' for lb in labels)
     root = ET.fromstring(f"<R><VCTP><Section>{descs}</Section></VCTP></R>")
     fields = _resolve_type_ids(root, [str(i) for i in range(len(labels))])
-    cls = LVClass(name="C", path=Path("C.lvclass"), private_data_fields=fields)
-    func = _InitBuilderMixin()._build_init(cls, False)
-    attrs = [
-        s.targets[0].attr  # type: ignore[attr-defined]
-        for s in func.body
-        if isinstance(s, ast.Assign)
-    ]
-    return [f.name for f in fields], attrs
+    names = [f.name for f in fields]
+    graph, key = _class_graph(names)
+    return names, class_attributes(graph, key).fields
 
 
 @pytest.mark.parametrize(
@@ -44,27 +53,18 @@ def test_each_field_gets_its_own_attribute(
     assert attrs == attributes
 
 
-def test_fields_are_private_whatever_the_scope_of_a_property_over_them() -> None:
-    cls = LVClass(
-        name="C",
-        path=Path("C.lvclass"),
-        private_data_fields=[
-            LVPrivateDataField(name="Count", python_type="int"),
-            LVPrivateDataField(name="count", python_type="int"),
-        ],
-        methods=[
-            LVMethod(
-                name="Read count",
-                vi_path="Read count.vi",
-                scope="public",
-                property_name="count",
-            )
-        ],
+def test_a_field_no_accessor_names_is_private() -> None:
+    graph, key = _class_graph(["Count", "count"])
+    assert class_attributes(graph, key).fields == ["_count", "_count_2"]
+
+
+def test_a_child_field_never_takes_the_attribute_of_its_parents() -> None:
+    graph, parent = _class_graph(["Count"])
+    graph._dep_graph.add_node(  # noqa: SLF001
+        "/src/D.lvclass",
+        node_type=NodeType.CLASS,
+        fields=[ClusterField(name="count", type=_INT)],
+        parent_class="C",
+        parent_key=parent,
     )
-    func = _InitBuilderMixin()._build_init(cls, False)
-    attrs = [
-        s.targets[0].attr  # type: ignore[attr-defined]
-        for s in func.body
-        if isinstance(s, ast.Assign)
-    ]
-    assert attrs == ["_count", "_count_2"]
+    assert class_attributes(graph, "/src/D.lvclass").fields == ["_count_2"]

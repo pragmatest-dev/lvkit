@@ -223,8 +223,8 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         def __init__(self) -> None:
             self.messages: list[str] = []
 
-        def fail(self, message: str) -> None:
-            self.messages.append(message)
+        def fail(self, message_: str) -> None:
+            self.messages.append(message_)
 
     default_case, named_case = Recorder(), Recorder()
     function(testcase_in=default_case)

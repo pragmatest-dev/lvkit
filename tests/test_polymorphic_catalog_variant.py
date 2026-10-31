@@ -23,7 +23,8 @@ def test_a_catalog_variant_is_inlined_and_no_wrapper_module_is_written(
     generate_python(CALLER, tmp_path, search_paths=[OPENG])
     modules = [p.name for p in tmp_path.rglob("*.py")]
     assert not [m for m in modules if m.startswith("trim_whitespace")]
-    source = next(tmp_path.rglob("shortdescription.py")).read_text()
+    # shortDescription is a method of the TestCase class module.
+    source = next(tmp_path.rglob("testcase.py")).read_text()
     assert "import trim_whitespace" not in source
     line = next(ln.strip() for ln in source.splitlines() if ".strip() if" in ln)
     scope = {"element_0": "  hi \n"}

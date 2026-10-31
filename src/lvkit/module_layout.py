@@ -31,7 +31,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.parser.models import is_symbolic_root
 from lvkit.project_store import PROJECT_STORE_DIR, global_home
-from lvkit.vi_files import strip_vi_extension
+from lvkit.vi_files import class_stem, strip_vi_extension
 
 # The package a file outside the project and every search path is placed in.
 EXTERNAL_PACKAGE = "external"
@@ -198,7 +198,12 @@ class ModuleLayout:
             node_type = self._graph.node_type(key)
         except KeyError:
             node_type = None
-        stem = strip_vi_extension(name) if node_type in (None, NodeType.VI) else name
+        if node_type is NodeType.CLASS:
+            stem = class_stem(name)
+        elif node_type in (None, NodeType.VI):
+            stem = strip_vi_extension(name)
+        else:
+            stem = name
         return ModulePlace(_packages(folders), module_part(stem))
 
     def place_beside(self, key: str, sibling_keys: list[str]) -> ModulePlace:

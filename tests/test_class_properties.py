@@ -6,7 +6,6 @@ name."""
 
 from __future__ import annotations
 
-import ast
 import dataclasses
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -18,11 +17,12 @@ import pytest
 from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
 from lvkit.codegen.class_attributes import AccessorKind, class_attributes
-from lvkit.codegen.class_builder import ClassBuilder
+from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.pipeline import create_import_resolver
 from lvkit.structure import LVClass, LVPrivateDataField, parse_lvclass
 from tests.helpers import build_graph
 
@@ -36,6 +36,11 @@ _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 _FIELDS = [ClusterField(name="Count", type=_INT), ClusterField(name="Name", type=_INT)]
 
 _PUBLIC, _PRIVATE, _PROTECTED = 1, 2, 3
+
+
+def _is_c(terminal: Terminal) -> bool:
+    classname = terminal.lv_type.classname if terminal.lv_type else None
+    return classname is not None and classname.rsplit(":", 1)[-1] == "C.lvclass"
 
 
 def _item(vi: str, scope: int, indent: str = "\t\t\t") -> str:
@@ -112,10 +117,10 @@ def test_a_pane_decides_which_accessor_a_property_vi_is() -> None:
     self_out = _terminal("b", "output", _CLASS_TYPE, "C out", 1)
     value_in = _terminal("c", "input", _INT, "v", 2)
     value_out = _terminal("d", "output", _INT, "v", 3)
-    assert property_role([self_in], [self_out, value_out], "C") is PropertyRole.GETTER
-    assert property_role([self_in, value_in], [self_out], "C") is PropertyRole.SETTER
-    assert property_role([self_in], [self_out], "C") is None
-    assert property_role([self_in], [value_out, value_out], "C") is None
+    assert property_role([self_in], [self_out, value_out], _is_c) is PropertyRole.GETTER
+    assert property_role([self_in, value_in], [self_out], _is_c) is PropertyRole.SETTER
+    assert property_role([self_in], [self_out], _is_c) is None
+    assert property_role([self_in], [value_out, value_out], _is_c) is None
 
 
 # --- a handmade class: its VIs are built from nodes -------------------------------
@@ -265,11 +270,16 @@ class Built:
     contexts: dict[str, VIContext]
 
     def source(self) -> str:
-        module = ClassBuilder().build_class_module(
-            self.lvclass, method_contexts=self.contexts, graph=self.graph
+        out = Path("/pkg")
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            {self.class_key: out / "c.py"},
+            out / "c.py",
+            caller_key=self.class_key,
+            graph=self.graph,
         )
-        ast.fix_missing_locations(module)
-        return ast.unparse(module)
+        return build_type_module(self.graph, self.class_key, resolver)
 
     def instance(self) -> Any:
         namespace: dict[str, Any] = {}
@@ -317,7 +327,7 @@ def build_class(
             ),
         )
         graph._dep_graph.add_node(key)  # noqa: SLF001
-        role = property_role(context.inputs, context.outputs, "C")
+        role = property_role(context.inputs, context.outputs, _is_c)
         graph._add_ownership_edge(  # noqa: SLF001
             class_key,
             key,
@@ -490,12 +500,10 @@ def test_trivial_protected_accessors_make_a_protected_attribute(
 
 def test_trivial_private_accessors_make_a_private_attribute(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
-    assert class_attributes(built.graph, built.class_key).fields == [
-        "__count",
-        "_name",
-    ]
+    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
     source = built.source()
-    assert "self.__count = 0" in source and "return self.__count" in source
+    assert "self._count = 0" in source and "return self._count" in source
+    assert "__" not in source.replace("__init__", "").replace("__future__", "")
     assert built.instance().peek() == 0
 
 
@@ -540,18 +548,16 @@ def test_a_pair_with_one_side_of_logic_is_a_property(tmp_path: Path) -> None:
     assert obj._count == 4 and obj.count == 8
 
 
-# (e) the field takes a unique name when the property is spelled the same
-def test_a_field_gives_way_to_a_property_spelled_like_it(tmp_path: Path) -> None:
+# (e) a property with logic is the plain name whatever its scope; its storage is
+# the field `_count`
+def test_a_property_with_logic_is_the_plain_name_over_the_field(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0, doubled=True), None, _PROTECTED)
-    assert class_attributes(built.graph, built.class_key).fields == [
-        "_count_2",
-        "_name",
-    ]
+    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
     source = built.source()
-    assert "self._count_2 = 0" in source
+    assert "self._count = 0" in source and "def count(self)" in source
     obj = built.instance()
-    obj._count_2 = 3
-    assert obj._count == 6
+    obj._count = 3
+    assert obj.count == 6
 
 
 # (f) a VI outside every folder is a method, whatever its name
