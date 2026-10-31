@@ -46,6 +46,7 @@ class LoadProblemsMixin:
             mode: LoadMode = ...,
             clear_first: bool = ...,
             layout: bool = ...,
+            original_path: Path | str | None = ...,
         ) -> str | None: ...
         def resolve_vi_name(self, name: str) -> str: ...
         def _add_stub(

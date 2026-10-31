@@ -419,6 +419,7 @@ class LoadingMixin:
         mode: LoadMode = LoadMode.FULL,
         clear_first: bool = False,
         layout: bool = False,
+        original_path: Path | str | None = None,
     ) -> str | None:
         """Load a VI hierarchy into memory.
 
@@ -434,8 +435,18 @@ class LoadingMixin:
                 (see ``get_layout``). Off by default — only rendering needs it;
                 codegen/analysis loads pay nothing. Geometry comes from the same
                 parse, never a second heap read.
+            original_path: the file ``vi_path`` (a ``.vi``) is a copy of, e.g.
+                a git version written to a temporary folder. The VI is read from
+                ``vi_path`` but is the VI at ``original_path``: that is its
+                identity, the folder its relative recorded paths start from and
+                the project its paths are shown in. Its source file stays
+                ``vi_path``.
         """
         vi_path = Path(vi_path)
+        if original_path is not None and not is_vi_file(vi_path):
+            raise ValueError(f"original_path applies to a VI file, not {vi_path}")
+        # The file this VI is: the original a copy stands for, else itself.
+        identity = Path(original_path) if original_path is not None else vi_path
         self._want_layout = layout
 
         if clear_first:
@@ -471,7 +482,7 @@ class LoadingMixin:
         # no source path here, so it falls through to _load_vi_recursive, which
         # computes and dedups on the real vi_key.
         if is_vi_file(vi_path):
-            probe_key = str(vi_path.resolve())
+            probe_key = str(identity.resolve())
             if probe_key in self._loaded_vis and _mode_covers(
                 self._dep_load_mode.get(probe_key), mode
             ):
@@ -481,16 +492,18 @@ class LoadingMixin:
         # source_dir is the directory of the actual .vi file, not the extracted
         # BD XML (which may be in a temp cache dir). SubVI and type-dependency
         # resolution uses this to find siblings of the original source file.
-        source_dir = vi_path.parent if is_vi_file(vi_path) else None
+        source_dir = identity.parent if is_vi_file(vi_path) else None
         loaded_key = self._load_vi_recursive(
             bd_xml,
             fp_xml,
             main_xml,
             visited=set(),
             source_dir=source_dir,
-            source_override=(vi_path if is_vi_file(vi_path) else None),
+            source_override=(identity if is_vi_file(vi_path) else None),
             mode=mode,
         )
+        if original_path is not None and loaded_key is not None:
+            self._source_paths[loaded_key] = vi_path  # the bytes it was read from
 
         # Resolve + stamp nMux/decompose lane (field) NAMES onto
         # Terminal.display_name now that this VI and its referenced-type
@@ -1937,8 +1950,10 @@ class LoadingMixin:
         progressively (inv. 3) and the web loop learns the path to fetch. Pure
         path math (``_recorded_path``), no file need exist. Returns None for a
         symbolic-root ref (``<vilib>``, ``<resource>``, … with no
-        configured root) or a drive this machine has not: those have no local
-        path and must never be staged into ``/proj``. Applies the same
+        configured root), a drive this machine has not, or an absolute path
+        with no file on this machine (another machine's folder, never shown
+        or staged): those have no local path and must never be staged into
+        ``/proj``. Applies the same
         member-beside-container redirect (G1) as ``_resolve_dependency_path`` so
         a member ``.ctl``/``.vi`` sits beside its container, not joined into
         it."""
@@ -1949,6 +1964,8 @@ class LoadingMixin:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = _redirect_member_beside_container(cand, leaf)
+        if dep_ref.absolute_path() is not None and not cand.exists():
+            return None
         return cand.resolve()
 
     def _load_instance_dependency(
@@ -2475,6 +2492,7 @@ def load_vi_by_path(
     layout: bool = False,
     run_settings: RunSettings | None = None,
     graph: InMemoryVIGraph | None = None,
+    original_path: Path | None = None,
 ) -> tuple[InMemoryVIGraph, str]:
     """Load ONE VI, by its on-disk PATH, into a fresh graph and return
     ``(graph, vi_key)``.
@@ -2491,7 +2509,8 @@ def load_vi_by_path(
     re-deriving the key by bare name and getting it wrong the same way.
 
     ``vilib_root``/``userlib_root``/``instrlib_root`` are forwarded to
-    ``set_library_roots`` when given. Raises if ``load_vi`` returns no key
+    ``set_library_roots`` when given; ``original_path`` names the file ``path``
+    is a copy of (see ``load_vi``). Raises if ``load_vi`` returns no key
     (only possible for a ``.llb`` container, which none of these single-VI
     callers pass).
     """
@@ -2506,7 +2525,7 @@ def load_vi_by_path(
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
         )
-    key = graph.load_vi(str(path), mode, layout=layout)
+    key = graph.load_vi(str(path), mode, layout=layout, original_path=original_path)
     if key is None:
         raise ValueError(
             f"load_vi_by_path: load_vi returned no key for {path!r} "

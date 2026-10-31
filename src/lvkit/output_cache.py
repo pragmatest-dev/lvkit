@@ -422,12 +422,20 @@ def render_options_tag(
     theme_mode: str,
     ref: str | None,
     build: BuildOptions | None = None,
+    original_path: Path | None = None,
 ) -> str:
     """The render output-cache options key: everything besides VI content + the
-    lvkit version that changes the rendered bytes (format, theme, title ref and
-    the build options). The SubVIs' content is not in the key: the stored meta
-    records it (``dependencies``) and a lookup checks it."""
-    return f"{fmt}|{theme_mode}|ref={ref or ''}|{(build or BuildOptions()).tag()}"
+    lvkit version that changes the rendered bytes (format, theme, title ref, the
+    build options and the file a copy stands for). The SubVIs' content is not in
+    the key: the stored meta records it (``dependencies``) and a lookup checks
+    it."""
+    tag = f"{fmt}|{theme_mode}|ref={ref or ''}|{(build or BuildOptions()).tag()}"
+    return tag + _original_tag("original", original_path)
+
+
+def _original_tag(name: str, original_path: Path | None) -> str:
+    """The key fragment for the file a copy stands for; empty for none."""
+    return f"|{name}={original_path.resolve()}" if original_path else ""
 
 
 def diff_options_tag(
@@ -436,6 +444,8 @@ def diff_options_tag(
     before_ref: str | None,
     after_ref: str | None,
     build: BuildOptions | None = None,
+    before_original: Path | None = None,
+    after_original: Path | None = None,
 ) -> str:
     """The diff output-cache options key: everything besides the two VIs' content
     + the lvkit version that changes the output bytes (see
@@ -444,6 +454,8 @@ def diff_options_tag(
         f"{fmt}|verbose={int(bool(verbose))}"
         f"|before={before_ref or ''}|after={after_ref or ''}"
         f"|{(build or BuildOptions()).tag()}"
+        + _original_tag("before_original", before_original)
+        + _original_tag("after_original", after_original)
     )
 
 

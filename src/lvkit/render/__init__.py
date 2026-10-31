@@ -609,6 +609,7 @@ def render_vi_file(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
 ) -> str | None:
@@ -632,6 +633,7 @@ def render_vi_file(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme=theme,
         theme_mode=theme_mode,
     )[0]
@@ -644,19 +646,22 @@ def render_vi_file_titled(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
 ) -> tuple[str | None, str, tuple[Path, ...]]:
     """Like :func:`render_vi_file`, but also returns the VI's resolved
     (fully qualified, e.g. ``Class.lvclass:vi.vi``) name — for use as a viewer
     title — and the sorted file paths of the dependencies the load reached.
-    Same load/degrade behaviour."""
+    Same load/degrade behaviour. ``original_path`` names the file ``path`` is a
+    copy of (see ``InMemoryVIGraph.load_vi``)."""
     svg, title, dependencies, _ = render_vi_file_report(
         path,
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme=theme,
         theme_mode=theme_mode,
     )
@@ -670,6 +675,7 @@ def render_vi_file_report(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme: Theme = DEFAULT_THEME,
     theme_mode: ThemeMode = "light",
     run_settings: RunSettings | None = None,
@@ -696,7 +702,9 @@ def render_vi_file_report(
                 instrlib_root=instrlib_root,
             )
         try:
-            vi_key = graph.load_vi(path, mode=load_mode, layout=True)
+            vi_key = graph.load_vi(
+                path, mode=load_mode, layout=True, original_path=original_path
+            )
         except Exception:
             failed_attempt.extend(graph.problems())
             raise
@@ -748,6 +756,7 @@ def render_vi_body_with_name(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
     run_settings: RunSettings | None = None,
@@ -766,6 +775,7 @@ def render_vi_body_with_name(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme_mode=theme_mode,
         run_settings=run_settings,
     )
@@ -788,6 +798,7 @@ def render_vi_body(
     userlib_root: Path | None = None,
     instrlib_root: Path | None = None,
     mode: LoadMode = LoadMode.MINIMAL,
+    original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
 ) -> str | None:
@@ -808,6 +819,7 @@ def render_vi_body(
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
         mode=mode,
+        original_path=original_path,
         theme_mode=theme_mode,
         ref=ref,
     )

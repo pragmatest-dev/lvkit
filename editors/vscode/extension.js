@@ -411,6 +411,9 @@ class ViPreviewProvider {
       // (which stays the plain qualified name); a standalone preview is `file`
       // and gets no ref, so it stays clean.
       let refArg = '';
+      // A temp copy reads its recorded relative paths from the original's
+      // folder, so its SubVIs resolve as they do in the working tree.
+      let origArg = '';
       if (document.uri.scheme !== 'file') {
         const bytes = await vscode.workspace.fs.readFile(document.uri);
         if (!bytes || bytes.length === 0) {
@@ -423,6 +426,7 @@ class ViPreviewProvider {
         }
         file = path.join(tmp, path.basename(origPath)); // keep the VI file extension
         fs.writeFileSync(file, Buffer.from(bytes));
+        origArg = ` --original-path "${origPath}"`;
         const rl = gitRefLabel(document.uri, root);
         if (rl) refArg = ` --ref "${rl}"`;
       }
@@ -434,7 +438,7 @@ class ViPreviewProvider {
       // internally `--theme auto` (switchable in-viewer), so the injected
       // initial theme + the in-viewer control govern light/dark — no --theme
       // needed on this call.
-      run(`${cmd} render "${file}" ${libraryArgs()} --format html${refArg} -o "${out}"`, { cwd: root });
+      run(`${cmd} render "${file}"${origArg} ${libraryArgs()} --format html${refArg} -o "${out}"`, { cwd: root });
       const html = injectSubVIClickNav(injectInitialTheme(fs.readFileSync(out, 'utf8'), diagramTheme()));
       panel.webview.html = withNonceCsp(html);
       wireThemePersistence(panel.webview);
@@ -461,6 +465,7 @@ class ViTextProvider {
     try {
       const cmd = lvkitCmd(root);
       let file = origPath;
+      let origArg = '';
       if (document.uri.scheme !== 'file') {
         const bytes = await vscode.workspace.fs.readFile(document.uri);
         if (!bytes || bytes.length === 0) {
@@ -473,9 +478,10 @@ class ViTextProvider {
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lvkit-'));
         file = path.join(tmp, path.basename(origPath)); // keep the VI file extension
         fs.writeFileSync(file, Buffer.from(bytes));
+        origArg = ` --original-path "${origPath}"`;
       }
       const text = run(
-        `${cmd} describe "${file}" ${libraryArgs()} --format lvnet`, { cwd: root }
+        `${cmd} describe "${file}"${origArg} ${libraryArgs()} --format lvnet`, { cwd: root }
       ).toString();
       panel.webview.html = textHtml(text);
     } catch (e) {
@@ -530,17 +536,19 @@ function gitRawRef(uri) {
 
 // Materialize one side ({ref} or {file}) to a real VI file path lvkit can read + a
 // short label. A {file} side is the working copy (no ref label). A {ref} side is
-// extracted from git (`git show <ref>:<rel>`); rel uses POSIX separators — git
+// extracted from git (`git show <ref>:<rel>`) and carries the working-tree path it
+// is a copy of (`original`, for --before/after-original-path); rel uses POSIX
+// separators — git
 // reads a backslash path as a literal filename ("exists on disk, but not in
 // 'HEAD'") on Windows.
 function materialize(src, rel, root, tmp, tag) {
-  if (src.file) return { viPath: src.file, ref: null };
+  if (src.file) return { viPath: src.file, ref: null, original: null };
   const dest = path.join(tmp, `${tag}${path.extname(rel)}`);
   fs.writeFileSync(dest, run(`git show ${src.ref}:"${rel}"`, { cwd: root }));
   let label = src.ref;
   try { label = cp.execSync(`git rev-parse --short "${src.ref}"`, { cwd: root }).toString().trim(); }
   catch (_) { /* keep the raw ref */ }
-  return { viPath: dest, ref: label };
+  return { viPath: dest, ref: label, original: path.join(root, ...rel.split('/')) };
 }
 
 async function diffVI(arg) {
@@ -571,6 +579,8 @@ async function diffVI(arg) {
         const refArgs = [
           before.ref ? `--before-ref "${before.ref}"` : '',
           after.ref ? `--after-ref "${after.ref}"` : '',
+          before.original ? `--before-original-path "${before.original}"` : '',
+          after.original ? `--after-original-path "${after.original}"` : '',
         ].join(' ').trim();
         // --theme auto: the diff viewer chrome is prefers-color-scheme adaptive;
         // auto makes the embedded before/after diagrams follow the same signal.
