@@ -61,7 +61,7 @@ def _prim_nodes(xml_path: Path) -> Iterator[tuple[str, list[tuple[int, str]]]]:
             if dco is None:
                 continue
             flags = int(dco.findtext("objFlags") or 0)
-            direction = "out" if flags & _OUTPUT_FLAG else "in"
+            direction = "output" if flags & _OUTPUT_FLAG else "input"
             slots.append((int(dco.findtext("parmIndex") or 0), direction))
         yield prim_id, slots
         element.clear()

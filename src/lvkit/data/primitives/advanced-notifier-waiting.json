@@ -5,51 +5,51 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore previous (F)",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout in ms (-1)",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier out",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "notification",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -62,49 +62,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifiers",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore previous (F)",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout in ms (-1)",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier out",
           "type": "Array"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "notifiers out",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

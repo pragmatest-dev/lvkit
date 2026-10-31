@@ -40,6 +40,7 @@ from ..models import (
     LVTypeKind,
     SequenceFrame,
     Terminal,
+    TerminalDirection,
     Tunnel,
     TunnelTerminal,
     _is_error_cluster,
@@ -1191,7 +1192,9 @@ def _build_property_accesses_gn(
 
 
 def _is_real_terminal(t: Terminal) -> bool:
-    """Excludes a dead connector-pane pattern slot -- LabVIEW's own
+    """Excludes a dead connector-pane pattern slot (the Function type a caller
+    records gives an unused position the ``Void`` type,
+    ``labview-binary-format.md``) -- LabVIEW's own
     ``Void`` type marking a physical pane cell with no real callee
     parameter (never wired, never named -- e.g. a big class-method VI's
     spare/reserved pane slots). The SAME signal ``render/draw.py``'s
@@ -1352,7 +1355,11 @@ def _build_instance_gn(
         assert isinstance(node, GraphPrimitiveNode)
         object_name = (node.object_name or "").strip() or None
         method_name = (node.method_name or "").strip() or None
-    qualified_name = getattr(node, "qualified_name", None) or node.name
+    qualified_name = (
+        graph.call_qualified_name(node)
+        if isinstance(node, VINode)
+        else getattr(node, "qualified_name", None)
+    ) or node.name
     kind = _instance_kind_gn(node, is_property=is_property, is_invoke=is_invoke)
     return NetlistInstance(
         uid=uid,
@@ -2412,13 +2419,19 @@ def _build_components_gn(
     for identity in subvi_order:
         rep = subvi_reps[identity]
         assert isinstance(rep, VINode)
-        key = rep.qualified_name or rep.name
+        key = graph.call_qualified_name(rep) or rep.name
         assert key is not None
         ports = _subvi_ports(graph, graph.loaded_callee_key(rep), rep.qualified_path)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
-            ins, outs = _synthesize_ports_gn(graph.enriched_terminals(rep, vi_name))
+            ins, outs = _synthesize_ports_gn(
+                [
+                    t
+                    for t in graph.enriched_terminals(rep, vi_name)
+                    if _is_real_terminal(t)
+                ]
+            )
         components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group_gn(instances))
@@ -2432,26 +2445,23 @@ def _dependency_interface(
     graph: InMemoryVIGraph, kind: DependencyKind, dep_key: str
 ) -> list[ConnectorPaneTerminal]:
     """The §7a verbose-only inline interface for one ``uses :`` entry: a
-    ``subVI`` dependency's OWN connector-pane terminals (inputs then
-    outputs), pulled from the SAME already-leaf-loaded graph a
-    ``LoadMode.MINIMAL`` load populates for every direct SubVI (its own
-    connector pane, per ``graph/loading.py``'s leaf-load comment) -- never a
-    second, re-parsed VI. Reuses the exact primitives this VI's OWN boundary
-    is built from: ``InMemoryVIGraph.get_inputs``/``get_outputs`` (already
-    canonically ordered by ``interface_order.ordered_interface``) projected
-    through ``_pane_terminal``, the SAME helper ``build_netlist_from_graph``
-    calls for ``module.connector_pane``.
+    ``subVI`` dependency's OWN connector-pane terminals (inputs then outputs),
+    read from the VI loaded under exactly ``dep_key``
+    (``InMemoryVIGraph.pane_terminals``: no name resolution, so a stub never
+    matches another VI of the same file name) and projected through
+    ``_pane_terminal``, the helper ``build_netlist_from_graph`` uses for
+    ``module.connector_pane``.
 
-    ``class``/``typedef`` dependencies get no interface (a connector pane is
-    a VI-only concept) -- ``[]``. A ``subVI`` dependency that isn't
-    loaded in the graph (``dep_key`` is a stub) also yields ``[]``: ``get_inputs``/
-    ``get_outputs`` already return ``[]`` for a ``vi_name`` absent from the
-    graph, so this is never fabricated, only genuinely absent.
+    ``class``/``typedef`` dependencies get no interface (a connector pane is a
+    VI-only concept), and neither does a ``subVI`` dependency not loaded under
+    its key (a stub): ``[]``, never fabricated.
     """
     if kind != DependencyKind.SUBVI:
         return []
-    return [_pane_terminal(t, "input") for t in graph.get_inputs(dep_key)] + [
-        _pane_terminal(t, "output") for t in graph.get_outputs(dep_key)
+    inputs = graph.pane_terminals(dep_key, TerminalDirection.INPUT)
+    outputs = graph.pane_terminals(dep_key, TerminalDirection.OUTPUT)
+    return [_pane_terminal(t, "input") for t in inputs] + [
+        _pane_terminal(t, "output") for t in outputs
     ]
 
 
@@ -2488,11 +2498,10 @@ def _build_dependency_manifest(
     come from ``graph.get_vi_dependencies`` (the path-keyed ``_dep_graph``
     successors the loader already resolved, #26); each dep's on-disk path from
     ``graph._dependency_file_path`` (loaded / absent-stub / pseudo-root cases
-    all handled); its display qname from the dep node's own ``qname`` or, for a
-    minimal-load bare stub, from the caller's own subVI node
-    (``iter_nodes`` -> ``owning_libraries``/``name`` -- the SAME identity the
-    block-diagram prints); its interface from the graph. Empty only when the VI
-    has no dependencies -- never a guess, never a filesystem re-resolution.
+    all handled); its qualified name from its own dep node's ``qname`` (the
+    name the loaded file gives itself, or a stub's recorded name); its
+    interface from the graph. Empty only when the VI has no dependencies --
+    never a guess, never a filesystem re-resolution.
     """
     vi_name = graph.resolve_vi_name(vi_name)
     assemblies = [
@@ -2510,40 +2519,11 @@ def _build_dependency_manifest(
     if not dep_keys:
         return assemblies
 
-    # Caller-scoped subVI identities straight off the graph's own nodes -- the
-    # SAME qualified-name + owning-library chain the block-diagram prints. Keyed
-    # by the on-disk subpath they imply (``Lib1/Class/Do.vi``), so each resolved
-    # dependency path can be given its display qname even when a minimal-load
-    # dep node is a bare path-keyed stub with no qname attribute of its own.
-    def _subpath(ol: list[str], name: str) -> str:
-        return "/".join([*(Path(p).stem for p in ol), name])
-
-    subvi_qname_by_subpath: dict[str, str] = {}
-    for n in graph.iter_nodes(vi_name):
-        if getattr(n, "node_type", None) != "iUse":
-            continue
-        ol = list(getattr(n, "owning_libraries", None) or [])
-        name = getattr(n, "name", None) or ""
-        if not name:
-            continue
-        # Full qualified name from the owning chain (the bare ``qualified_name``
-        # field is only partially qualified for some intra-project callees).
-        qname = (
-            ":".join([*ol, name])
-            if ol
-            else (getattr(n, "qualified_name", None) or name)
-        )
-        subvi_qname_by_subpath[_subpath(ol, name)] = qname
-
     # Shown relative to the project of the VI's own path (its identity: the
     # original a copy stands for).
     own = Path(graph.resolve_vi_name(vi_name))
     rel_base = project_root(own) if own.is_absolute() else Path.cwd()
 
-    # A class/library member .vi lives in the SAME directory as its owning
-    # .lvclass/.lvlib -- so a member whose own node came out unqualified is
-    # qualified by the class dependency sitting beside it (both are already in
-    # this manifest's dep set). Graph-native: no path re-resolution.
     # The files this VI's variable nodes refer to -- a Global VI through its global
     # variable nodes, a project library through its Shared Variable nodes -- by
     # dependency key, with the kind and the qualified name those nodes spell (the
@@ -2566,16 +2546,6 @@ def _build_dependency_manifest(
                     n.library.qualified_name,
                 )
 
-    class_qname_by_dir: dict[str, str] = {}
-    for key in dep_keys:
-        if key in variable_dep_by_key:
-            continue
-        n = graph._dep_graph.nodes.get(key, {})
-        if n.get("node_type") in (NodeType.LIBRARY, NodeType.CLASS):
-            p = graph._dependency_file_path(key)
-            if p is not None and n.get("qname"):
-                class_qname_by_dir[str(p.parent)] = n["qname"]
-
     manifest: list[NetlistDependency] = []
     seen: set[str] = set()
     for key in dep_keys:
@@ -2593,26 +2563,12 @@ def _build_dependency_manifest(
                     )
                 )
             continue
-        # qname: the dep node's own (typedefs/classes/loaded VIs carry it);
-        # else the caller's subVI node matched by on-disk subpath; else the leaf.
-        qname = node.get("qname")
-        if not qname:
-            kpath = str(resolved or key)
-            qname = next(
-                (q for sp, q in subvi_qname_by_subpath.items() if kpath.endswith(sp)),
-                None,
-            ) or (resolved.name if resolved else Path(key).name)
-        # A bare subVI-member name is qualified by the class beside it on disk
-        # (only .vi members -- never the .lvclass/.lvlib node itself, nor a
-        # typedef, which stay on their own bare name).
-        if (
-            ":" not in qname
-            and resolved is not None
-            and is_vi_file(resolved)
-        ):
-            owner = class_qname_by_dir.get(str(resolved.parent))
-            if owner:
-                qname = f"{owner}:{resolved.name}"
+        # The dependency's own record names it: a loaded file by its own name
+        # (a VI by its LIBN chain and file name, a class or library by its
+        # file), a stub by the name its caller records for it.
+        qname = node.get("qname") or (
+            resolved.name if resolved is not None else Path(key).name
+        )
         if qname in seen:
             continue
         seen.add(qname)
@@ -2623,9 +2579,7 @@ def _build_dependency_manifest(
             hint = DependencyKind.TYPEDEF
         elif nt in (NodeType.LIBRARY, NodeType.CLASS):
             hint = DependencyKind.CLASS
-        elif qname in subvi_qname_by_subpath.values() or (
-            resolved is not None and is_vi_file(resolved)
-        ):
+        elif nt == NodeType.VI or (resolved is not None and is_vi_file(resolved)):
             hint = DependencyKind.SUBVI
         kind = _dependency_kind_for(qname, hint)
         manifest.append(

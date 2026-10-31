@@ -46,7 +46,7 @@ def test_primitive_resolution_needed_carries_qualified_vi_name() -> None:
     exc = PrimitiveResolutionNeeded(
         prim_id=9999,
         prim_name="Imaginary Primitive",
-        terminals=[{"index": 0, "direction": "in", "name": "x", "type": "DBL"}],
+        terminals=[{"index": 0, "direction": "input", "name": "x", "type": "DBL"}],
         vi_name="Foo.vi",
         qualified_vi_name="MyLib.lvlib:Bar.lvclass:Foo.vi",
     )

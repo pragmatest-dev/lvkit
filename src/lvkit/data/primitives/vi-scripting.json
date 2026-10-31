@@ -5,13 +5,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "object refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -20,7 +20,7 @@
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "vi object class",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -29,19 +29,19 @@
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "name/order",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "owner refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -57,13 +57,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "vi refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -72,7 +72,7 @@
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "type specifier VI Refnum (for type only)",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -82,39 +82,39 @@
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "password",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "options",
           "type": "NumUInt32",
           "default": 0
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "vi type (standard vi)",
           "type": "Enum32",
           "default": 1
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "template",
           "type": "Path"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "application refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -132,13 +132,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "object refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -147,26 +147,26 @@
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "bounds",
           "type": "Cluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "auto wire? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "vi object class",
           "type": "Refnum",
           "refnum_type": "vi_server",
@@ -175,25 +175,25 @@
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "location",
           "type": "Cluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "style",
           "type": "NumUInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "owner refnum",
           "type": "Refnum",
           "refnum_type": "vi_server",

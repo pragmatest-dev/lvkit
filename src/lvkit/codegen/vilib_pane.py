@@ -26,9 +26,6 @@ from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
 
 from .ast_utils import param_default_expr
 
-_DIRECTION = {"in": "input", "out": "output"}
-_CATALOG_DIRECTION = {pane: catalog for catalog, pane in _DIRECTION.items()}
-
 
 @dataclass(frozen=True)
 class PaneCheck:
@@ -76,7 +73,7 @@ def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
     terminals: list[VITerminal] = []
     mismatches: list[str] = []
     for catalog in entry.terminals:
-        wanted = _DIRECTION.get(catalog.direction or "")
+        wanted = catalog.direction
         same_label = [
             p
             for p in pane
@@ -113,7 +110,7 @@ def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
             if catalog.index is None:
                 update["index"] = match.index
             if catalog.direction is None:
-                update["direction"] = _CATALOG_DIRECTION[match.direction]
+                update["direction"] = match.direction
             if (
                 catalog.default is None
                 and catalog.default_behavior is None

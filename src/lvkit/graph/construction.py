@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import networkx as nx
 
+from lvkit.models import TerminalDirection
+
 from ..models import (
     CaseFrame,
     FPTerminal,
@@ -494,7 +496,7 @@ class ConstructionMixin:
             # A parsed connector pane decides which controls are on it; with
             # no pane record at all, every front-panel terminal is public.
             is_public = slot_index is not None or conpane is None
-            direction = "output" if fp_term.is_indicator else "input"
+            direction = TerminalDirection.of(fp_term.is_indicator)
             ctrl = fp_by_uid.get(fp_term.fp_dco_uid)
             wiring_rule = (
                 wiring_rules.get(slot_index, 0) if slot_index is not None else 0
@@ -614,7 +616,7 @@ class ConstructionMixin:
             const_terminal = Terminal(
                 id=q_const_uid,
                 index=0,
-                direction="output",
+                direction=TerminalDirection.OUTPUT,
                 lv_type=lv_type,
             )
 
@@ -738,7 +740,7 @@ class ConstructionMixin:
                 prim_resolved = resolve_primitive(
                     prim_id=node.prim_res_id,
                     node_slots={
-                        (t_info.index, "out" if t_info.is_output else "in")
+                        (t_info.index, TerminalDirection.of(t_info.is_output))
                         for _, t_info, _ in raw_terms
                     },
                 )
@@ -787,7 +789,7 @@ class ConstructionMixin:
             # keeps its bare index.
             known_names = catalog_terminal_names(
                 [
-                    NodeSlot(t_info.index, "out" if t_info.is_output else "in")
+                    NodeSlot(t_info.index, TerminalDirection.of(t_info.is_output))
                     for _, t_info, _ in raw_terms
                 ],
                 known_terminals or [],
@@ -811,11 +813,11 @@ class ConstructionMixin:
                 terminal = Terminal(
                     id=q_term_uid,
                     index=t_info.index,
-                    direction="output" if t_info.is_output else "input",
+                    direction=TerminalDirection.of(t_info.is_output),
                     name=t_info.name,
                     display_name=t_info.name
                     or known_names.get(
-                        (t_info.index, "out" if t_info.is_output else "in")
+                        (t_info.index, TerminalDirection.of(t_info.is_output))
                     ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
@@ -1264,7 +1266,7 @@ class ConstructionMixin:
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
-            direction="output" if ctrl.is_indicator else "input",
+            direction=TerminalDirection.of(ctrl.is_indicator),
             name=ctrl.name,
             lv_type=lv_type,
             is_indicator=ctrl.is_indicator,
@@ -1422,7 +1424,7 @@ class ConstructionMixin:
             if not lv_type or not lv_type.underlying_type:
                 continue
 
-            prim_dir = "out" if t_info.is_output else "in"
+            prim_dir = TerminalDirection.of(t_info.is_output)
             cat = _lv_type_category(lv_type.underlying_type, lv_type.kind)
             if cat in ("unknown", "void"):
                 continue
@@ -1539,7 +1541,7 @@ class ConstructionMixin:
                 prim_resolved = resolve_primitive(
                     prim_id=gnode.prim_id,
                     node_slots={
-                        (t.index, "out" if t.direction == "output" else "in")
+                        (t.index, t.direction)
                         for t in gnode.terminals
                     },
                 )
@@ -1669,7 +1671,7 @@ class ConstructionMixin:
             outer_terminal = TunnelTerminal(
                 id=q_outer_uid,
                 index=outer_ti.index if outer_ti else 0,
-                direction="input" if is_input_tunnel else "output",
+                direction=TerminalDirection.of(not is_input_tunnel),
                 name=outer_ti.name if outer_ti else None,
                 lv_type=outer_lv_type,
                 tunnel_type=ttype,
@@ -1704,7 +1706,7 @@ class ConstructionMixin:
             inner_terminal = TunnelTerminal(
                 id=q_inner_uid,
                 index=inner_ti.index if inner_ti else 0,
-                direction="output" if is_input_tunnel else "input",
+                direction=TerminalDirection.of(is_input_tunnel),
                 name=inner_ti.name if inner_ti else None,
                 lv_type=inner_lv_type,
                 tunnel_type=ttype,
@@ -1811,7 +1813,7 @@ class ConstructionMixin:
                     Terminal(
                         id=q_uid,
                         index=ti.index,
-                        direction="output" if ti.is_output else "input",
+                        direction=TerminalDirection.of(ti.is_output),
                         name=ti.name,
                         lv_type=lv_type,
                     )

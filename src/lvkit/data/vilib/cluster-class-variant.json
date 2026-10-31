@@ -25,7 +25,7 @@
         {
           "name": "input cluster",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_cluster",
@@ -34,7 +34,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -55,7 +55,7 @@
         {
           "name": "input cluster",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "input_cluster",
@@ -64,7 +64,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -73,7 +73,7 @@
         {
           "name": "output cluster",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "output_cluster",
@@ -94,7 +94,7 @@
         {
           "name": "element",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "element",
@@ -103,7 +103,7 @@
         {
           "name": "array of clusters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_clusters",
@@ -124,7 +124,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -133,7 +133,7 @@
         {
           "name": "array of clusters",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array_of_clusters",
@@ -154,7 +154,7 @@
         {
           "name": "cluster",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
@@ -163,7 +163,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -184,7 +184,7 @@
         {
           "name": "array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "array",
@@ -193,7 +193,7 @@
         {
           "name": "cluster",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
@@ -225,7 +225,7 @@
         {
           "name": "target class",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
@@ -234,7 +234,7 @@
         {
           "name": "reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reference",
@@ -243,7 +243,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -252,7 +252,7 @@
         {
           "name": "specific class reference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "specific_class_reference",
@@ -261,7 +261,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -282,7 +282,7 @@
         {
           "name": "target class",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
@@ -291,7 +291,7 @@
         {
           "name": "reference",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reference",
@@ -300,7 +300,7 @@
         {
           "name": "generic class reference",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "generic_class_reference",
@@ -321,7 +321,7 @@
         {
           "name": "target object",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "target_object",
@@ -330,7 +330,7 @@
         {
           "name": "object in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "object_in",
@@ -339,7 +339,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -348,7 +348,7 @@
         {
           "name": "object out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "object_out",
@@ -357,7 +357,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -378,7 +378,7 @@
         {
           "name": "class path",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "class_path",
@@ -387,7 +387,7 @@
         {
           "name": "options",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "options",
@@ -397,7 +397,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -406,7 +406,7 @@
         {
           "name": "object",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "object_",
@@ -415,7 +415,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -444,7 +444,7 @@
         {
           "name": "object",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "description": "object specifies the object for which you want to retrieve the path to the owning class.",
           "enum_values": null,
           "python_param": "object"
@@ -452,7 +452,7 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "description": "error in describes error conditions that occur before this node runs.",
           "enum_values": null,
           "python_param": "error_in_no_error"
@@ -460,7 +460,7 @@
         {
           "name": "class path",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "description": "class path specifies the absolute path to the .lvclass file on disk.",
           "enum_values": null,
           "python_param": "class_path"
@@ -468,7 +468,7 @@
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "description": "error out contains error information.",
           "enum_values": null,
           "python_param": "error_out"
@@ -488,7 +488,7 @@
         {
           "name": "class name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
@@ -497,7 +497,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -506,7 +506,7 @@
         {
           "name": "object",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "object_",
@@ -515,7 +515,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -536,7 +536,7 @@
         {
           "name": "object",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "object_",
@@ -545,7 +545,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -554,7 +554,7 @@
         {
           "name": "class name",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
@@ -563,7 +563,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -584,7 +584,7 @@
         {
           "name": "anything",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "anything",
@@ -593,7 +593,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -614,7 +614,7 @@
         {
           "name": "type",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_",
@@ -623,7 +623,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -632,7 +632,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -641,7 +641,7 @@
         {
           "name": "data",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data",
@@ -650,7 +650,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -671,7 +671,7 @@
         {
           "name": "type string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
@@ -680,7 +680,7 @@
         {
           "name": "data string",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
@@ -689,7 +689,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -698,7 +698,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -707,7 +707,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -728,7 +728,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -737,7 +737,7 @@
         {
           "name": "type string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
@@ -746,7 +746,7 @@
         {
           "name": "data string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
@@ -767,7 +767,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -776,7 +776,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -785,7 +785,7 @@
         {
           "name": "default value (empty variant)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
@@ -794,7 +794,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -803,7 +803,7 @@
         {
           "name": "duplicate variant",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "duplicate_variant",
@@ -812,7 +812,7 @@
         {
           "name": "names",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "names",
@@ -821,7 +821,7 @@
         {
           "name": "values",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "values",
@@ -830,7 +830,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -851,7 +851,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -860,7 +860,7 @@
         {
           "name": "name",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -869,7 +869,7 @@
         {
           "name": "value",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value",
@@ -878,7 +878,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -887,7 +887,7 @@
         {
           "name": "variant out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "variant_out",
@@ -896,7 +896,7 @@
         {
           "name": "replaced",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "replaced",
@@ -905,7 +905,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -926,7 +926,7 @@
         {
           "name": "variant",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "variant",
@@ -935,7 +935,7 @@
         {
           "name": "name (all attributes)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "name",
@@ -944,7 +944,7 @@
         {
           "name": "error in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -953,7 +953,7 @@
         {
           "name": "variant out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "variant_out",
@@ -962,7 +962,7 @@
         {
           "name": "found",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "found",
@@ -971,7 +971,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",

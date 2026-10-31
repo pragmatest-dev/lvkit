@@ -5,25 +5,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
@@ -37,19 +37,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "appended path",
           "type": "Path"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "name or relative path",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "base path",
           "type": "Path",
           "default": "Path(\"\")"
@@ -68,19 +68,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "path",
           "type": "Path"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "stripped path",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "name",
           "type": "String"
         }
@@ -99,45 +99,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "input file",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "output file refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "default value 14",
           "type": "NumFloat64"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "output 7",
           "type": "NumFloat64"
         }
@@ -150,38 +150,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "input file",
           "type": "Path"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "output file refnum",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "input 6",
           "type": "NumFloat64"
         }
@@ -194,57 +194,57 @@
       "terminals": [
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "advisory_locking",
           "type": "Boolean"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "access",
           "type": "enum",
           "default": 0
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "operation",
           "type": "enum",
           "default": 0
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "file_path",
           "type": "Path"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum",
           "type": "Refnum"
         }
@@ -262,61 +262,61 @@
       "terminals": [
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "byte_order",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "type",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "datalog_type",
           "type": "enum"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "count",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "eof",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "data",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -335,25 +335,25 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         }
@@ -372,50 +372,50 @@
       "terminals": [
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
           "type": "String",
           "default": "Open existing file"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "count",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "file",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "text",
           "type": "polymorphic"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -434,56 +434,56 @@
       "terminals": [
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "prepend_size",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "byte_order",
           "type": "String"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "datalog_type",
           "type": "enum"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "data",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "refnum",
           "type": "Refnum"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "eof",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum_out",
           "type": "Refnum"
         }
@@ -502,45 +502,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "cancelled",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
           "refnum_type": "byte_stream"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "prompt",
           "type": "String",
           "default": "Choose or enter file path"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "text",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "file (use dialog)",
           "type": "Path"
         }

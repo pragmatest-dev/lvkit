@@ -15,7 +15,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -24,7 +24,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -33,7 +33,7 @@
         {
           "name": "x .and. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_and_y",
@@ -54,7 +54,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -63,7 +63,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -72,7 +72,7 @@
         {
           "name": "x .or. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_or_y",
@@ -93,7 +93,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -102,7 +102,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -111,7 +111,7 @@
         {
           "name": "x .xor. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_xor_y",
@@ -132,7 +132,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -141,7 +141,7 @@
         {
           "name": ".not. x?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x",
@@ -162,7 +162,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -171,7 +171,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -180,7 +180,7 @@
         {
           "name": ".not. (x .and. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_and_y",
@@ -201,7 +201,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -210,7 +210,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -219,7 +219,7 @@
         {
           "name": ".not. (x .or. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_or_y",
@@ -240,7 +240,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -249,7 +249,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -258,7 +258,7 @@
         {
           "name": ".not. (x .xor. y)?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "not_x_xor_y",
@@ -279,7 +279,7 @@
         {
           "name": "x",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "x",
@@ -288,7 +288,7 @@
         {
           "name": "y",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "y",
@@ -297,7 +297,7 @@
         {
           "name": "x .implies. y?",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "x_implies_y",
@@ -318,7 +318,7 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
@@ -327,7 +327,7 @@
         {
           "name": "logical AND",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "logical_and",
@@ -348,7 +348,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -357,7 +357,7 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
@@ -378,7 +378,7 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
@@ -387,7 +387,7 @@
         {
           "name": "logical OR",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "logical_or",
@@ -408,7 +408,7 @@
         {
           "name": "Boolean array",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean_array",
@@ -417,7 +417,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -438,7 +438,7 @@
         {
           "name": "Boolean",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "boolean",
@@ -447,7 +447,7 @@
         {
           "name": "0, 1",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "var_0_1",

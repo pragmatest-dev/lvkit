@@ -380,9 +380,9 @@ def _parse_metadata(
 
     # The VI's OWN ownership chain (``<LIBN>`` "Library Names") — the owning
     # .lvlib/.lvclass, outermost first. Self-described in the VI's binary, so a
-    # class member .vi carries it even in isolation. DISPLAY only (see
-    # ParsedVIMetadata.owning_libraries) — the bare ``qualified_name`` above
-    # remains the resolution key.
+    # class member .vi carries it even in isolation. A loaded VI's qualified
+    # name is this chain plus its file name (``file_qualified_name``), in every
+    # view and every lookup; the name the VI stores for itself above is not.
     owning_libraries = [
         e.text for e in main_root.findall(".//LIBN/Section/Library") if e.text
     ]
@@ -441,14 +441,16 @@ def _parse_metadata(
     # identical on web and desktop. Kept SEPARATE from dependency_refs (never
     # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
     link_path_refs: list[ParsedDependencyRef] = []
-    seen_refs: set[tuple[str, ...]] = set()
-    recorded_refs = parse_xml_link_path_refs(main_root)
+    # One ref per name the records give a recorded path: two records of one
+    # file can name it differently (one omitting the caller's own owner).
+    seen_refs: set[tuple[str | None, ...]] = set()
+    recorded_refs = parse_xml_link_path_refs(main_root, owning_libraries)
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
         if link_bin.exists():
-            recorded_refs.extend(parse_link_path_refs(link_bin))
+            recorded_refs.extend(parse_link_path_refs(link_bin, owning_libraries))
     for ref in recorded_refs:
-        key = (ref.name, *ref.path_tokens)
+        key = (ref.qualified_name, ref.name, *ref.path_tokens)
         if key not in seen_refs:
             seen_refs.add(key)
             link_path_refs.append(ref)

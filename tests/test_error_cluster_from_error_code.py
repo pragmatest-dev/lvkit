@@ -92,12 +92,12 @@ def test_resolver_terminal_list() -> None:
     entry = get_resolver().resolve_by_name("Error Cluster From Error Code.vi")
     assert entry is not None
     assert [(t.index, t.name, t.direction, t.type) for t in entry.terminals] == [
-        (4, "is warning? (False)", "in", "Boolean"),
-        (5, "show call chain? (False)", "in", "Boolean"),
-        (6, "error in (no error)", "in", "Cluster"),
-        (8, 'error message ("")', "in", "String"),
-        (9, "error code (0)", "in", "NumInt32"),
-        (0, "error out", "out", "Cluster"),
+        (4, "is warning? (False)", "input", "Boolean"),
+        (5, "show call chain? (False)", "input", "Boolean"),
+        (6, "error in (no error)", "input", "Cluster"),
+        (8, 'error message ("")', "input", "String"),
+        (9, "error code (0)", "input", "NumInt32"),
+        (0, "error out", "output", "Cluster"),
     ]
 
 

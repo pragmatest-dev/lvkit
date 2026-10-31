@@ -98,7 +98,7 @@ def test_enriched_terminals_are_well_formed():
         for t in e.get("terminals", []):
             if (
                 not t.get("name")
-                or t.get("direction") not in ("in", "out")
+                or t.get("direction") not in ("input", "output")
                 or not t.get("python_param")
                 or t.get("index") is not None
             ):
@@ -128,8 +128,8 @@ def test_and_function_enriched_to_correct_pane():
         (e for _f, e in _all_entries() if e.get("name") == "And Function"), None
     )
     assert entry is not None
-    ins = [t["name"] for t in entry["terminals"] if t["direction"] == "in"]
-    outs = [t["name"] for t in entry["terminals"] if t["direction"] == "out"]
+    ins = [t["name"] for t in entry["terminals"] if t["direction"] == "input"]
+    outs = [t["name"] for t in entry["terminals"] if t["direction"] == "output"]
     assert ins == ["x", "y"], ins
     assert outs == ["x .and. y?"], outs
 

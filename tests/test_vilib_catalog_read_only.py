@@ -33,14 +33,14 @@ _CATALOG_ENTRY = {
         {
             "name": "Path",
             "index": None,
-            "direction": "in",
+            "direction": "input",
             "python_param": "file_path",
             "description": "Path is the file to open.",
         },
         {
             "name": "Mode",
             "index": 1,
-            "direction": "in",
+            "direction": "input",
             "python_param": "mode",
         },
     ],
@@ -157,7 +157,7 @@ def test_catalog_on_disk_keeps_docs_and_encoding(read_only_catalog: Path) -> Non
     assert category.read_bytes() == before
     entry = json.loads(before.decode("utf-8"))["entries"][0]
     assert entry["doc_url"] == _CATALOG_ENTRY["doc_url"]
-    assert entry["terminals"][0]["direction"] == "in"
+    assert entry["terminals"][0]["direction"] == "input"
     assert entry["terminals"][0]["description"] == "Path is the file to open."
     assert "©" in before.decode("utf-8")
 
@@ -172,7 +172,7 @@ def test_conflicting_observation_becomes_a_variant_in_memory(
     resolver.auto_update_terminals("Learn Me.vi", [other_name], caller_vi="Caller.vi")
 
     match = resolver.find_matching_variant(
-        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "in", "type": None}}
+        "Learn Me.vi", {1: {"name": "Open Mode", "direction": "input", "type": None}}
     )
     assert match is not None
     assert match.is_variant

@@ -12,28 +12,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -52,28 +52,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -92,28 +92,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -132,35 +132,35 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "method_magnitude"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -179,28 +179,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -219,35 +219,35 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "method_magnitude"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -266,28 +266,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -306,28 +306,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -346,28 +346,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -386,28 +386,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -426,35 +426,35 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Method (magnitude)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "method_magnitude"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -473,28 +473,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -513,28 +513,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -553,28 +553,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -593,28 +593,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -633,28 +633,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -673,28 +673,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Order",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "order"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers"
         }
@@ -713,14 +713,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -739,14 +739,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -765,14 +765,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -791,14 +791,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -817,14 +817,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -843,14 +843,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -869,14 +869,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -895,14 +895,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -921,14 +921,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -947,14 +947,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -973,14 +973,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -999,14 +999,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1025,14 +1025,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1051,14 +1051,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1077,14 +1077,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1103,14 +1103,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1129,14 +1129,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1155,14 +1155,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1181,14 +1181,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1207,14 +1207,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1233,14 +1233,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1259,14 +1259,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1285,14 +1285,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1311,14 +1311,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1337,14 +1337,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1363,14 +1363,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1389,14 +1389,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1415,14 +1415,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1441,14 +1441,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1467,14 +1467,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1493,14 +1493,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1519,14 +1519,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1545,14 +1545,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1571,14 +1571,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1597,14 +1597,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1623,14 +1623,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1649,14 +1649,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1675,14 +1675,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1701,14 +1701,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1727,14 +1727,14 @@
         {
           "name": "Array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Empty Array?",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "empty_array"
         }
@@ -1753,28 +1753,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1793,28 +1793,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1833,28 +1833,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1873,28 +1873,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1913,28 +1913,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdLvVariant",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1953,28 +1953,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -1993,28 +1993,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2033,28 +2033,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2073,28 +2073,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2113,28 +2113,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "udClassDDO",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2153,28 +2153,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2193,28 +2193,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2233,28 +2233,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2273,28 +2273,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2313,28 +2313,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2353,28 +2353,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2393,28 +2393,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2433,28 +2433,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2473,28 +2473,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2513,28 +2513,28 @@
         {
           "name": "Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "Element Data",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "element_data"
         },
         {
           "name": "Start Index (0)",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "start_index_0"
         },
         {
           "name": "Indices of Elements",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_elements"
         }
@@ -2553,28 +2553,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2593,28 +2593,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2633,28 +2633,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2673,28 +2673,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2713,28 +2713,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2753,28 +2753,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2793,28 +2793,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2833,28 +2833,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2873,28 +2873,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2913,28 +2913,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2953,28 +2953,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -2993,28 +2993,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3033,28 +3033,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3073,28 +3073,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3113,28 +3113,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3153,28 +3153,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3193,28 +3193,28 @@
         {
           "name": "Array in",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Sorted Pointers in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "sorted_pointers_in"
         },
         {
           "name": "Sorted Array out",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_array_out"
         },
         {
           "name": "Sorted Pointers out",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "sorted_pointers_out"
         }
@@ -3233,28 +3233,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3273,28 +3273,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3313,28 +3313,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3353,28 +3353,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3393,28 +3393,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3433,28 +3433,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3473,28 +3473,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3513,28 +3513,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3553,28 +3553,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3593,28 +3593,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3633,28 +3633,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3673,28 +3673,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3713,28 +3713,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3753,28 +3753,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3793,28 +3793,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3833,28 +3833,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3873,28 +3873,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3913,28 +3913,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3953,28 +3953,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -3993,28 +3993,28 @@
         {
           "name": "array",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "items to filter",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "items_to_filter"
         },
         {
           "name": "filtered array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array"
         },
         {
           "name": "filtered item indices",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_item_indices"
         }
@@ -4033,21 +4033,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4066,21 +4066,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4099,21 +4099,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4132,21 +4132,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4165,21 +4165,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4198,21 +4198,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4231,21 +4231,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4264,21 +4264,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4297,21 +4297,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4341,21 +4341,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4374,21 +4374,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4407,21 +4407,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4440,21 +4440,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4473,21 +4473,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4506,21 +4506,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4539,21 +4539,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4572,21 +4572,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4605,21 +4605,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4638,21 +4638,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4671,21 +4671,21 @@
         {
           "name": "Input Array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "input_array"
         },
         {
           "name": "Output Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "output_array"
         },
         {
           "name": "indices of removed elements",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "indices_of_removed_elements"
         }
@@ -4704,21 +4704,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4737,21 +4737,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4770,21 +4770,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4803,21 +4803,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4836,21 +4836,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4869,21 +4869,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4902,21 +4902,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4935,21 +4935,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -4968,21 +4968,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5001,21 +5001,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5034,21 +5034,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5067,21 +5067,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5100,21 +5100,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5133,21 +5133,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5166,21 +5166,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5199,21 +5199,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5232,21 +5232,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5265,21 +5265,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5298,21 +5298,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5331,21 +5331,21 @@
         {
           "name": "Array",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "by rows or columns (rows)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "by_rows_or_columns_rows"
         },
         {
           "name": "Reversed Array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "reversed_array"
         }
@@ -5364,21 +5364,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5397,21 +5397,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5430,21 +5430,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5463,21 +5463,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5496,21 +5496,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5529,21 +5529,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5562,21 +5562,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5595,21 +5595,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5628,21 +5628,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5661,21 +5661,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5694,21 +5694,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5727,21 +5727,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5760,21 +5760,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5793,21 +5793,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5826,21 +5826,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5859,21 +5859,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5892,21 +5892,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5925,21 +5925,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5958,21 +5958,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -5991,21 +5991,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -6024,21 +6024,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -6057,21 +6057,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -6090,21 +6090,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -6123,21 +6123,21 @@
         {
           "name": "Array in",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_in"
         },
         {
           "name": "Elements to keep",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "elements_to_keep"
         },
         {
           "name": "Filtered Array out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "filtered_array_out"
         }
@@ -6156,28 +6156,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6196,28 +6196,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6236,28 +6236,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6276,28 +6276,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6316,28 +6316,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6356,28 +6356,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6396,28 +6396,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6436,28 +6436,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6476,28 +6476,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6516,28 +6516,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6556,28 +6556,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6596,28 +6596,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6636,28 +6636,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6676,28 +6676,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6716,28 +6716,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6756,28 +6756,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6796,28 +6796,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6836,28 +6836,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6876,28 +6876,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }
@@ -6916,28 +6916,28 @@
         {
           "name": "indices",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "indices"
         },
         {
           "name": "array",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array"
         },
         {
           "name": "array w/ subset deleted",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_w__subset_deleted"
         },
         {
           "name": "deleted elements",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "deleted_elements"
         }

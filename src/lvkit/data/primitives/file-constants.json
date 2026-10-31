@@ -6,7 +6,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         }
@@ -23,7 +23,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         }
@@ -36,7 +36,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "path",
           "type": "Path"
         }

@@ -5,45 +5,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "Void"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timestamp",
           "type": "Timestamp"
         }
@@ -56,45 +56,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data type",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "Void"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timestamp",
           "type": "Timestamp"
         }
@@ -107,33 +107,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data in",
           "type": "Void"
         }
@@ -146,33 +146,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "shared variable refnum in",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "shared variable refnum out",
           "type": "Refnum",
           "refnum_type": "user_defined_refnum_tag"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "data in",
           "type": "Void"
         }

@@ -67,12 +67,12 @@ def test_extract_slots_sorted_by_index_with_direction_and_type():
 
     assert [s.index for s in slots] == [0, 1, 2, 3]
     by_index = {s.index: s for s in slots}
-    assert by_index[0].direction == "out"
+    assert by_index[0].direction == "output"
     assert by_index[0].observed_type == "NumInt32"
-    assert by_index[1].direction == "out"
-    assert by_index[2].direction == "in"
+    assert by_index[1].direction == "output"
+    assert by_index[2].direction == "input"
     assert by_index[2].observed_type == "Boolean"
-    assert by_index[3].direction == "in"
+    assert by_index[3].direction == "input"
     assert by_index[3].observed_type is None  # unwired -- never invented
 
 
@@ -117,17 +117,19 @@ def _clear_errors_shaped_entry() -> PrimEntry:
         terminals=(
             PrimTerminalEntry(
                 index=0,
-                direction="out",
+                direction="output",
                 name="error_out",
                 type="Cluster",
             ),
             PrimTerminalEntry(
                 index=3,
-                direction="in",
+                direction="input",
                 name="specific error code to clear",
                 type="NumInt32",
             ),
-            PrimTerminalEntry(index=4, direction="in", name="error_in", type="Cluster"),
+            PrimTerminalEntry(
+                index=4, direction="input", name="error_in", type="Cluster"
+            ),
         ),
     )
 
@@ -148,19 +150,19 @@ def _clear_errors_shaped_profile() -> PrimProfile:
         slots={
             0: SlotProfile(
                 index=0,
-                directions=frozenset({"out"}),
+                directions=frozenset({"output"}),
                 observed_types=frozenset({"Cluster"}),
                 **common,
             ),
             3: SlotProfile(
                 index=3,
-                directions=frozenset({"out"}),
+                directions=frozenset({"output"}),
                 observed_types=frozenset({"Boolean"}),
                 **common,
             ),
             4: SlotProfile(
                 index=4,
-                directions=frozenset({"in"}),
+                directions=frozenset({"input"}),
                 observed_types=frozenset({"Cluster"}),
                 **common,
             ),
@@ -186,8 +188,8 @@ def test_auditor_flags_direction_and_type_mismatch_clear_errors_shape():
         assert f.kind in FLAG_KINDS
 
     direction_finding = next(f for f in idx3_findings if f.kind == "DIRECTION_MISMATCH")
-    assert direction_finding.json_says.startswith("in")
-    assert direction_finding.corpus_shows == "out"
+    assert direction_finding.json_says.startswith("input")
+    assert direction_finding.corpus_shows == "output"
 
     type_finding = next(f for f in idx3_findings if f.kind == "TYPE_MISMATCH")
     assert "NumInt32" in type_finding.json_says
@@ -205,7 +207,7 @@ def test_auditor_direction_disagreement_flagged_not_silently_pooled():
         prim_res_id=8888,
         name="Fake Ambiguous Prim",
         terminals=(
-            PrimTerminalEntry(index=1, direction="in", name="x", type="NumInt32"),
+            PrimTerminalEntry(index=1, direction="input", name="x", type="NumInt32"),
         ),
     )
     profile = PrimProfile(
@@ -213,7 +215,7 @@ def test_auditor_direction_disagreement_flagged_not_silently_pooled():
         slots={
             1: SlotProfile(
                 index=1,
-                directions=frozenset({"in", "out"}),
+                directions=frozenset({"input", "output"}),
                 observed_types=frozenset({"NumInt32"}),
                 instance_count=2,
                 wired_instance_count=2,
@@ -239,7 +241,7 @@ def test_auditor_unobserved_and_missing_from_entry_are_notes_not_flags():
         terminals=(
             PrimTerminalEntry(
                 index=5,
-                direction="in",
+                direction="input",
                 name="never_wired",
                 type="String",
             ),
@@ -251,7 +253,7 @@ def test_auditor_unobserved_and_missing_from_entry_are_notes_not_flags():
             # index 5 (declared in JSON) never appears -- UNOBSERVED.
             2: SlotProfile(
                 index=2,
-                directions=frozenset({"out"}),
+                directions=frozenset({"output"}),
                 observed_types=frozenset({"Boolean"}),
                 instance_count=1,
                 wired_instance_count=1,

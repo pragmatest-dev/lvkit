@@ -6,20 +6,20 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "width",
           "type": "NumInt16",
           "default_behavior": "no padding"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "decimal_integer_string",
           "type": "polymorphic"
         }
@@ -37,20 +37,20 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "width",
           "type": "NumInt16",
           "default_behavior": "no padding"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "Array"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "hex_string",
           "type": "Array"
         }
@@ -64,19 +64,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "octal integer string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "width (-)",
           "type": "NumInt16"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumInt32"
         }
@@ -89,33 +89,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "Engineering string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "use system decimal point (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "precision (6)",
           "type": "NumInt16",
           "default": 6
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "width (-)",
           "type": "NumInt16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumFloat64"
         }
@@ -130,33 +130,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "offset_past_number",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "default",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -170,33 +170,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "NumUInt32"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past number",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "default (0uL)",
           "type": "NumUInt32",
           "default": 0
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -210,31 +210,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "NumUInt32"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past number",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "default (0uL)",
           "type": "NumUInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -247,39 +247,39 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "number",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past number",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "use system decimal point (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "default (0 dbl)",
           "type": "NumFloat64"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -293,33 +293,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "E-format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "use system decimal point (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "precision (6)",
           "type": "NumInt16",
           "default": 6
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "width (-)",
           "type": "NumInt16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumFloat64"
         }
@@ -332,33 +332,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "F-format string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "use system decimal point (T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "precision (6)",
           "type": "NumInt16",
           "default": 6
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "width (-)",
           "type": "NumInt16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "number",
           "type": "NumFloat64"
         }
@@ -371,25 +371,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "value (0)",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "string (\"\")",
           "type": "String",
           "default": ""
@@ -404,31 +404,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "value",
           "type": "NumFloat64"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "default (0 dbl)",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "format string",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }

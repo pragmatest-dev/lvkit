@@ -41,6 +41,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 
+from lvkit.models import TerminalDirection
+
 from .parser.layout import Rect
 from .parser.models import ParsedTerminalInfo
 
@@ -59,7 +61,7 @@ class Slot:
     """
 
     index: int
-    direction: str  # "in" | "out" -- derived from ParsedTerminalInfo.is_output
+    direction: TerminalDirection  # from ParsedTerminalInfo.is_output
     observed_type: str | None
     position: Rect | None = None
     # Filled only by rank_slots_by_geometry(); None otherwise.
@@ -74,7 +76,7 @@ def slot_from_terminal(terminal: ParsedTerminalInfo, position: Rect | None) -> S
     )
     return Slot(
         index=terminal.index,
-        direction="out" if terminal.is_output else "in",
+        direction=TerminalDirection.of(terminal.is_output),
         observed_type=observed_type,
         position=position,
     )

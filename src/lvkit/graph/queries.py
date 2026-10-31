@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from ..load_mode import LoadMode
-from ..models import ClusterField, FPTerminal, LVType, Terminal
+from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from ..vilib_resolver import get_resolver as get_vilib_resolver
@@ -59,6 +59,11 @@ from .recorded_paths import RecordedPaths, resolve_against
 if TYPE_CHECKING:
     from ..parser.layout import Layout
     from .core import InMemoryVIGraph
+
+
+def _off_pane(terminal: Terminal) -> bool:
+    """A front-panel control or indicator not wired to the connector pane."""
+    return isinstance(terminal, FPTerminal) and not terminal.is_public
 
 
 def _real_member_path(path: Path) -> Path | None:
@@ -129,6 +134,7 @@ class QueryMixin:
         ) -> str | None: ...
         def _parent_class_key(self, node_key: str) -> str | None: ...
         def _dependency_key(self, ref: str, caller_vi_key: str) -> str | None: ...
+        def key_label(self, key: str) -> str: ...
 
     # === Dependency Graph Queries ===
 
@@ -176,6 +182,19 @@ class QueryMixin:
         recorded for the call, never a lookup by the callee's name."""
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
+
+    def call_qualified_name(self, node: VINode) -> str | None:
+        """The qualified name a SubVI call node shows: the name the graph gives
+        the VI it calls (``VINode.callee_key``: a loaded file's own name, a
+        stub's recorded one), so a call and the ``uses :`` entry of its callee
+        spell one identity one way; the caller's record when the call has no
+        callee in the graph."""
+        key = node.callee_key
+        if key is not None and key in self._dep_graph:
+            qname = self._dep_graph.nodes[key].get("qname")
+            if qname:
+                return str(qname)
+        return node.qualified_name
 
     def catalog_path(self, node: VINode) -> str | None:
         """The path the vi.lib catalog looks a call up by (see
@@ -247,7 +266,8 @@ class QueryMixin:
             by_qname.setdefault(self._vi_display_names.get(key, key), []).append(key)
         if len(by_qname) > 1:
             groups = "; ".join(
-                f"{qname!r}: {sorted(group_keys)}"
+                f"{self.key_label(qname)!r}: "
+                f"{sorted(self.key_label(k) for k in group_keys)}"
                 for qname, group_keys in sorted(by_qname.items())
             )
             raise AmbiguousVIReferenceError(
@@ -409,7 +429,7 @@ class QueryMixin:
             outputs: list[StubTerminalInfo] = []
             for t in vilib_info.get("terminals", []):
                 term_type = t.get("type") or "Any"
-                if t.get("direction") == "in":
+                if t.get("direction") == TerminalDirection.INPUT:
                     inputs.append(StubTerminalInfo(name=t["name"], type=term_type))
                 else:
                     outputs.append(StubTerminalInfo(name=t["name"], type=term_type))
@@ -902,61 +922,64 @@ class QueryMixin:
                 d["typedef_name"] = t.lv_type.typedef_name
         return d
 
-    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """Get VI input terminals.
+    def pane_terminals(
+        self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
+    ) -> list[Terminal]:
+        """The terminals of the VI loaded under exactly ``vi_key`` in
+        ``direction`` (``"input"`` / ``"output"``), in connector-pane order.
 
-        Reads from the VINode's terminal list (FPTerminal controls).
-        """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._graph:
+        ``vi_key`` is an identity, never a name: nothing is resolved, so a key
+        that is not a loaded VI (a stub, a class method no class lists) has no
+        terminals instead of matching another VI of the same file name."""
+        if vi_key not in self._graph:
             return []
-
-        gnode = self._graph.nodes[vi_name].get("node")
+        gnode = self._graph.nodes[vi_key].get("node")
         if not isinstance(gnode, VINode):
             return []
+        results = [
+            t
+            for t in gnode.terminals
+            if t.direction == direction
+            and not (public_only and isinstance(t, FPTerminal) and not t.is_public)
+        ]
+        return ordered_interface(results, direction, gnode.connector_pattern_id)
 
-        results = []
-        for t in gnode.terminals:
-            if t.direction != "input":
-                continue
-            if public_only and isinstance(t, FPTerminal) and not t.is_public:
-                continue
-            results.append(t)
-        return ordered_interface(results, "input", gnode.connector_pattern_id)
+    def get_inputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
+        """The input terminals of the VI ``vi_name`` names (see
+        ``resolve_vi_name``); a caller holding a key uses ``pane_terminals``."""
+        return self.pane_terminals(
+            self.resolve_vi_name(vi_name),
+            TerminalDirection.INPUT,
+            public_only=public_only,
+        )
 
     def get_outputs(self, vi_name: str, *, public_only: bool = True) -> list[Terminal]:
-        """Get VI output terminals, in canonical connector-pane order.
-
-        Reads from the VINode's terminal list (FPTerminal indicators).
-        """
-        vi_name = self.resolve_vi_name(vi_name)
-        if vi_name not in self._graph:
-            return []
-
-        gnode = self._graph.nodes[vi_name].get("node")
-        if not isinstance(gnode, VINode):
-            return []
-
-        results = []
-        for t in gnode.terminals:
-            if t.direction != "output":
-                continue
-            if public_only and isinstance(t, FPTerminal) and not t.is_public:
-                continue
-            results.append(t)
-        return ordered_interface(results, "output", gnode.connector_pattern_id)
+        """The output terminals of the VI ``vi_name`` names, in canonical
+        connector-pane order; a caller holding a key uses ``pane_terminals``."""
+        return self.pane_terminals(
+            self.resolve_vi_name(vi_name),
+            TerminalDirection.OUTPUT,
+            public_only=public_only,
+        )
 
     def vi_interface(
-        self, vi_name: str
+        self, vi_key: str
     ) -> tuple[list[Terminal], list[Terminal], list[Terminal], list[Terminal]]:
-        """A VI's inputs, off-pane inputs, outputs and off-pane outputs, each in
-        interface order: what its function's parameters and result fields are
-        named from."""
+        """The inputs, off-pane inputs, outputs and off-pane outputs of the VI
+        loaded under exactly ``vi_key``, each in interface order: what its
+        function's parameters and result fields are named from. Nothing is
+        resolved by name (``pane_terminals``)."""
+        inputs = self.pane_terminals(
+            vi_key, TerminalDirection.INPUT, public_only=False
+        )
+        outputs = self.pane_terminals(
+            vi_key, TerminalDirection.OUTPUT, public_only=False
+        )
         return (
-            list(self.get_inputs(vi_name)),
-            list(self.get_off_pane_inputs(vi_name)),
-            list(self.get_outputs(vi_name)),
-            list(self.get_off_pane_outputs(vi_name)),
+            [t for t in inputs if not _off_pane(t)],
+            [t for t in inputs if _off_pane(t)],
+            [t for t in outputs if not _off_pane(t)],
+            [t for t in outputs if _off_pane(t)],
         )
 
     def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]:
@@ -964,7 +987,7 @@ class QueryMixin:
         return [
             t
             for t in self.get_inputs(vi_name, public_only=False)
-            if isinstance(t, FPTerminal) and not t.is_public
+            if _off_pane(t)
         ]
 
     def get_off_pane_outputs(self, vi_name: str) -> list[Terminal]:
@@ -972,7 +995,7 @@ class QueryMixin:
         return [
             t
             for t in self.get_outputs(vi_name, public_only=False)
-            if isinstance(t, FPTerminal) and not t.is_public
+            if _off_pane(t)
         ]
 
     def get_constants(self, vi_name: str) -> list[Constant]:

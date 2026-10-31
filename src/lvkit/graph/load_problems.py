@@ -48,7 +48,6 @@ class LoadProblemsMixin:
             layout: bool = ...,
             original_path: Path | str | None = ...,
         ) -> str | None: ...
-        def resolve_vi_name(self, name: str) -> str: ...
         def _add_stub(
             self,
             key: str,
@@ -64,9 +63,16 @@ class LoadProblemsMixin:
         return self.run_settings.label(path)
 
     def key_label(self, key: str) -> str:
-        """How a user sees a graph key: a file path as ``vi_label`` shows it, a
-        qualified name (a VI that is not a file) as it is."""
-        return self.vi_label(key) if Path(key).is_absolute() else key
+        """How a user sees a graph key: a file path as ``vi_label`` shows it; a
+        VI that is not a file (a class method no class lists) by the qualified
+        name recorded for it, else the key as it is."""
+        if Path(key).is_absolute():
+            return self.vi_label(key)
+        if key in self._dep_graph:
+            qname = self._dep_graph.nodes[key].get("qname")
+            if qname:
+                return str(qname)
+        return key
 
     def record_problem(
         self,
@@ -78,12 +84,9 @@ class LoadProblemsMixin:
         """Record ``problem`` on the node of ``vi_key`` (a file the graph has no
         node for gets a stub node of ``node_type``), once; announce it per the
         run's settings (a fail-fast run stops here unless ``may_stop`` is False,
-        for work that is best-effort)."""
-        if vi_key not in self._dep_graph:
-            try:
-                vi_key = self.resolve_vi_name(vi_key)
-            except (KeyError, ValueError):
-                pass
+        for work that is best-effort). ``vi_key`` is an identity: it is never
+        resolved by name, so a problem never lands on another VI of the same
+        file name."""
         if vi_key not in self._dep_graph:
             self._add_stub(vi_key, node_type, Path(vi_key).name, None, None, None)
         held: tuple[Problem, ...] = self._dep_graph.nodes[vi_key].get(

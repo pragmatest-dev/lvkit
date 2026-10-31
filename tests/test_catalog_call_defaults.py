@@ -102,15 +102,17 @@ def _entry(default: bool | None, *, inline: bool, template: str) -> VIEntry:
         python_code=template,
         inline=inline,
         terminals=[
-            VITerminal(name="FFT {X}", index=1, direction="in", python_param="fft_x"),
+            VITerminal(
+                name="FFT {X}", index=1, direction="input", python_param="fft_x"
+            ),
             VITerminal(
                 name="shift?",
                 index=2,
-                direction="in",
+                direction="input",
                 python_param="shift",
                 default=default,
             ),
-            VITerminal(name="x", index=3, direction="out", python_param="out"),
+            VITerminal(name="x", index=3, direction="output", python_param="out"),
         ],
     )
 

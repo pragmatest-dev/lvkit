@@ -12,14 +12,14 @@
         {
           "name": "String in",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "string_in"
         },
         {
           "name": "Remove (leading and trailing)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "remove_leading_and_trailing",
           "default": 2
@@ -27,7 +27,7 @@
         {
           "name": "String out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdString",
           "python_param": "string_out"
         }
@@ -46,21 +46,21 @@
         {
           "name": "Array of Strings",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "array_of_strings"
         },
         {
           "name": "delimiter (Tab)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "delimiter_tab"
         },
         {
           "name": "delimited string",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdString",
           "python_param": "delimited_string"
         }
@@ -79,28 +79,28 @@
         {
           "name": "delimiter (Tab)",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "delimiter_tab"
         },
         {
           "name": "string",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "string"
         },
         {
           "name": "ignore duplicate delimiters? (F=No)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "ignore_duplicate_delimiters_f=no"
         },
         {
           "name": "Array of Strings",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "array_of_strings"
         }
@@ -119,21 +119,21 @@
         {
           "name": "String in",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "string_in"
         },
         {
           "name": "Convert to:",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdRing",
           "python_param": "convert_to"
         },
         {
           "name": "String out",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdString",
           "python_param": "string_out"
         }

@@ -1,8 +1,9 @@
 """Where a VI extracted from an ``.llb`` came from.
 
-An LLB is extracted into a cache folder whose sentinel file records the archive and
-the members that could not be extracted. Anything that shows a user such a VI
-labels it by the archive's path, never by the cache folder.
+A VI inside an LLB is the file at ``<llb path>/<member>``; its bytes are read from
+a cache folder the archive is extracted into, whose sentinel file records the
+archive and the members that could not be extracted. Anything that shows a user
+such a VI labels it by the archive's path, never by the cache folder.
 """
 
 from __future__ import annotations
@@ -26,7 +27,12 @@ def read_llb_meta(cache_dir: Path) -> dict[str, Any] | None:
 
 
 def llb_container_of(vi_path: Path) -> Path | None:
-    """The ``.llb`` a VI file was extracted from, when it sits in an LLB's cache
-    folder (the folder's sentinel records its archive), else None."""
-    meta = read_llb_meta(vi_path.parent)
+    """The ``.llb`` a VI is a member of: the archive its path goes through
+    (``<llb path>/<member>``, the member's identity), or the one its extracted
+    copy came from (the copy's cache folder sentinel records its archive); else
+    None."""
+    parent = vi_path.parent
+    if parent.suffix.lower() == ".llb" and parent.is_file():
+        return parent
+    meta = read_llb_meta(parent)
     return Path(meta["source"]) if meta is not None else None

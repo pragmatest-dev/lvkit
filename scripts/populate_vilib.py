@@ -26,7 +26,7 @@ class Terminal:
     """A terminal (input or output) of a VI or function."""
 
     name: str
-    direction: str  # "in" or "out"
+    direction: str  # "input" or "output"
     type: str | None = None
     description: str = ""
     default_value: str | None = None
@@ -153,18 +153,18 @@ def parse_terminals_from_text(text: str, vi_name: str) -> list[Terminal]:
         description = re.sub(r"\s+", " ", description)
 
         # Determine direction based on keywords in name or description
-        direction = "in"
+        direction = "input"
 
         # Output indicators in name
         output_keywords = ["returns", "result", "output", "is the", "contains the"]
         if any(kw in name.lower() for kw in output_keywords):
-            direction = "out"
+            direction = "output"
         # Output indicators in description start (first 100 chars)
         elif any(
             kw in description.lower()[:100]
             for kw in ["returns", "is the resulting", "is the output"]
         ):
-            direction = "out"
+            direction = "output"
 
         # Try to determine type from description
         terminal_type = infer_type_from_description(description, name)

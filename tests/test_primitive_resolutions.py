@@ -204,7 +204,8 @@ def test_comparison_to_zero_block_verified_members():
     assert "in_1 >= 0" in str(res.resolve(prim_id=1114).python_code)
     assert "in_1 < 0" in str(res.resolve(prim_id=1118).python_code)
     # 1114 is the UNARY to-0 form (one data input), not the binary comparison.
-    in_terms = [t for t in res.resolve(prim_id=1114).terminals if t.direction == "in"]
+    resolved = res.resolve(prim_id=1114)
+    in_terms = [t for t in resolved.terminals if t.direction == "input"]
     assert len(in_terms) == 1
 
 
@@ -254,7 +255,7 @@ def test_1142_is_to_long_integer():
     res = get_resolver()
     r = res.resolve(prim_id=1142)
     assert r.name == "To Long Integer"
-    assert [t.type for t in r.terminals if t.direction == "out"] == ["NumInt32"]
+    assert [t.type for t in r.terminals if t.direction == "output"] == ["NumInt32"]
     code = str(r.python_code)
     # ties-to-even rounding + saturation to the signed 32-bit range
     for value, expected in [(2.5, 2), (3.5, 4), (3e9, 2147483647), (-3e9, -2147483648)]:

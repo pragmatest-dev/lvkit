@@ -5,44 +5,44 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "return count",
           "type": "NumUInt32"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "read buffer",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "byte count",
           "type": "NumUInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -56,38 +56,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "return count",
           "type": "NumUInt32"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "write buffer",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -101,26 +101,26 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -134,32 +134,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "status byte",
           "type": "NumUInt16"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"
@@ -173,32 +173,32 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
           "refnum_type": "visa"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "protocol (default:  0)",
           "type": "NumUInt16"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "VISA resource name",
           "type": "Refnum",
           "refnum_type": "visa"

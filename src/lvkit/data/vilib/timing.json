@@ -26,7 +26,7 @@
         {
           "name": "millisecond timer value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "millisecond_timer_value",
@@ -47,7 +47,7 @@
         {
           "name": "relative seconds",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "relative_seconds",
@@ -68,7 +68,7 @@
         {
           "name": "milliseconds to wait",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "milliseconds_to_wait",
@@ -77,7 +77,7 @@
         {
           "name": "millisecond timer value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "millisecond_timer_value",
@@ -98,7 +98,7 @@
         {
           "name": "millisecond multiple",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "millisecond_multiple",
@@ -107,7 +107,7 @@
         {
           "name": "millisecond timer value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "millisecond_timer_value",
@@ -128,7 +128,7 @@
         {
           "name": "date format (0)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "date_format",
@@ -137,7 +137,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -146,7 +146,7 @@
         {
           "name": "want seconds? (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "want_seconds",
@@ -155,7 +155,7 @@
         {
           "name": "date string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "date_string",
@@ -164,7 +164,7 @@
         {
           "name": "time string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_string",
@@ -185,7 +185,7 @@
         {
           "name": "milliseconds to wait",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "milliseconds_to_wait",
@@ -194,7 +194,7 @@
         {
           "name": "value in",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
@@ -203,7 +203,7 @@
         {
           "name": "millisecond timer value",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "millisecond_timer_value",
@@ -212,7 +212,7 @@
         {
           "name": "value out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
@@ -233,7 +233,7 @@
         {
           "name": "date time rec",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "date_time_rec",
@@ -242,7 +242,7 @@
         {
           "name": "second",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "second",
@@ -251,7 +251,7 @@
         {
           "name": "minute",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "minute",
@@ -260,7 +260,7 @@
         {
           "name": "hour",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "hour",
@@ -269,7 +269,7 @@
         {
           "name": "day of month",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_month",
@@ -278,7 +278,7 @@
         {
           "name": "month",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "month",
@@ -287,7 +287,7 @@
         {
           "name": "year",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "year",
@@ -296,7 +296,7 @@
         {
           "name": "day of week",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_week",
@@ -305,7 +305,7 @@
         {
           "name": "day of year",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_year",
@@ -314,7 +314,7 @@
         {
           "name": "DST",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "dst",
@@ -323,7 +323,7 @@
         {
           "name": "is UTC (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "is_utc",
@@ -332,7 +332,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -353,7 +353,7 @@
         {
           "name": "current time",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "current_time",
@@ -374,7 +374,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -383,7 +383,7 @@
         {
           "name": "to UTC (F)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "to_utc",
@@ -392,7 +392,7 @@
         {
           "name": "date time rec",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "date_time_rec",
@@ -401,7 +401,7 @@
         {
           "name": "second",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "second",
@@ -410,7 +410,7 @@
         {
           "name": "minute",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "minute",
@@ -419,7 +419,7 @@
         {
           "name": "hour",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "hour",
@@ -428,7 +428,7 @@
         {
           "name": "day of month",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_month",
@@ -437,7 +437,7 @@
         {
           "name": "month",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "month",
@@ -446,7 +446,7 @@
         {
           "name": "year",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "year",
@@ -455,7 +455,7 @@
         {
           "name": "day of week",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_week",
@@ -464,7 +464,7 @@
         {
           "name": "day of year",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "day_of_year",
@@ -473,7 +473,7 @@
         {
           "name": "DST",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "dst",
@@ -494,7 +494,7 @@
         {
           "name": "number",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "number",
@@ -503,7 +503,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -524,7 +524,7 @@
         {
           "name": "Tick Count(Ticks)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "tick_count",
@@ -545,7 +545,7 @@
         {
           "name": "Delay Time (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "delay_time",
@@ -554,7 +554,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -563,7 +563,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -584,7 +584,7 @@
         {
           "name": "Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "reset",
@@ -593,7 +593,7 @@
         {
           "name": "Time Target (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_target",
@@ -602,7 +602,7 @@
         {
           "name": "Auto Reset",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "auto_reset",
@@ -611,7 +611,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -620,7 +620,7 @@
         {
           "name": "Set Start Time (s)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "set_start_time",
@@ -629,7 +629,7 @@
         {
           "name": "Present (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "present",
@@ -638,7 +638,7 @@
         {
           "name": "Start Time Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "start_time_text",
@@ -647,7 +647,7 @@
         {
           "name": "Present Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "present_text",
@@ -656,7 +656,7 @@
         {
           "name": "Time has Elapsed",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "time_has_elapsed",
@@ -665,7 +665,7 @@
         {
           "name": "Get Start Time (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "get_start_time",
@@ -674,7 +674,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -683,7 +683,7 @@
         {
           "name": "Elapsed Time (s)",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "elapsed_time",
@@ -692,7 +692,7 @@
         {
           "name": "Elapsed Time Text",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "elapsed_time_text",
@@ -713,7 +713,7 @@
         {
           "name": "seconds to wait",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "seconds_to_wait",
@@ -722,7 +722,7 @@
         {
           "name": "error in (no error)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
@@ -731,7 +731,7 @@
         {
           "name": "error out",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
@@ -752,7 +752,7 @@
         {
           "name": "time format string (%c)",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_format_string",
@@ -761,7 +761,7 @@
         {
           "name": "time stamp",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "time_stamp",
@@ -770,7 +770,7 @@
         {
           "name": "UTC format",
           "index": null,
-          "direction": "in",
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "utc_format",
@@ -779,7 +779,7 @@
         {
           "name": "date/time string",
           "index": null,
-          "direction": "out",
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "datetime_string",

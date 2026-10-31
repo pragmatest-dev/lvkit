@@ -6,20 +6,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "equal",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic",
           "default": 0
@@ -39,20 +39,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "greater_or_equal",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic",
           "default": 0
@@ -72,20 +72,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x_less_or_equal_y",
           "type": "boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic",
           "default": 0
@@ -105,20 +105,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic",
           "default": 0
@@ -138,20 +138,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic",
           "default": 0
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic",
           "default": 0
@@ -171,19 +171,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x_less_than_y",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -202,13 +202,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "is_empty",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string_or_path",
           "type": "polymorphic"
         }
@@ -226,13 +226,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x_equals_zero",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -251,13 +251,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -275,13 +275,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "polymorphic"
         }
@@ -299,13 +299,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "x != 0?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         }
@@ -324,13 +324,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "numeric"
         }
@@ -349,13 +349,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "numeric"
         }
@@ -373,13 +373,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -395,13 +395,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "hex?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -414,13 +414,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "printable ASCII?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -433,13 +433,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "space, h/v tab, cr, lf, ff?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -452,13 +452,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "class number",
           "type": "NumInt16"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -472,31 +472,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "In Range?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "coerced(x)",
           "type": "NumFloat64"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "lower limit",
           "type": "NumFloat64"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumFloat64"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "upper limit",
           "type": "NumFloat64"
         }
@@ -513,13 +513,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "not_a_refnum",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "value",
           "type": "polymorphic"
         }
@@ -537,13 +537,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "octal?",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "char",
           "type": "String"
         }
@@ -556,25 +556,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "result",
           "type": "polymorphic"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "f_value",
           "type": "polymorphic"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "selector",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "t_value",
           "type": "polymorphic"
         }
@@ -592,13 +592,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "empty",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "Array"
         }

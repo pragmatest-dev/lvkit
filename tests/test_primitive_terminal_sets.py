@@ -21,14 +21,18 @@ from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.primitive_resolver import get_resolver
 from lvkit.primitive_resolver.models import PrimitiveEntry
+from lvkit.primitive_resolver.terminal_sets import apply_terminal_set
 from lvkit.render import render_vi
+from tests.helpers import error_cluster_type
 from tests.native_vi import generate, node, scalar
 
 VARIANT_TO_DATA = 8003
-OLD = [(0, "in"), (1, "out"), (2, "in"), (3, "in"), (4, "out")]
-NEW = [(0, "in"), (3, "out"), (8, "in"), (9, "in"), (11, "out")]
+OLD = [(0, "input"), (1, "output"), (2, "input"), (3, "input"), (4, "output")]
+NEW = [(0, "input"), (3, "output"), (8, "input"), (9, "input"), (11, "output")]
 # (variant in, data out) of each numbering
 VARIANT_AND_DATA = {"old": (2, 4), "new": (8, 11)}
+# (error in, error out) of each numbering
+ERROR_TERMINALS = {"old": (0, 1), "new": (0, 3)}
 VARIANT = scalar("Variant")
 
 
@@ -36,7 +40,7 @@ def _bd_xml(slots: list[tuple[int, str]]) -> str:
     terms = "".join(
         f'<SL__arrayElement class="term" uid="{11 + 2 * i}">'
         f'<dco class="parm" uid="{12 + 2 * i}">'
-        + ("<objFlags>1</objFlags>" if direction == "out" else "")
+        + ("<objFlags>1</objFlags>" if direction == "output" else "")
         + f"<termBounds>(0, {8 * i}, 8, {8 * i + 8})</termBounds>"
         + (f"<parmIndex>{index}</parmIndex>" if index else "")
         + "</dco></SL__arrayElement>"
@@ -94,8 +98,9 @@ def test_both_numberings_show_named_terminals_in_every_view(
 def _variant_to_data(numbering: str, gaps: list[Gap] | None = None):
     variant, data = VARIANT_AND_DATA[numbering]
     slots = OLD if numbering == "old" else NEW
+    errors = ERROR_TERMINALS[numbering]
     terminals = [
-        (index, "input" if direction == "in" else "output", VARIANT)
+        (index, direction, error_cluster_type() if index in errors else VARIANT)
         for index, direction in slots
     ]
     return generate(
@@ -119,33 +124,42 @@ def _resolve(slots: list[tuple[int, str]]):
     return resolved
 
 
-def test_a_chosen_numbering_renumbers_terminals_and_code_placeholders() -> None:
+def test_a_chosen_numbering_renumbers_terminals() -> None:
     new, old = _resolve(NEW), _resolve(OLD)
     assert [(t.index, t.direction, t.name) for t in new.terminals] == [
-        (0, "in", "error in"),
-        (3, "out", "error out"),
-        (8, "in", "variant"),
-        (9, "in", "type"),
-        (11, "out", "data"),
+        (0, "input", "error in"),
+        (3, "output", "error out"),
+        (8, "input", "variant"),
+        (9, "input", "type"),
+        (11, "output", "data"),
     ]
-    assert new.python_code == {"error_out": "in_0", "data": "in_8"}
+    assert new.op == old.op == "VARIANT_TO_DATA"
     assert [(t.index, t.direction, t.name, t.type) for t in old.terminals] == [
-        (0, "in", "error in", "ErrorCluster"),
-        (1, "out", "error out", "cluster"),
-        (2, "in", "variant", "polymorphic"),
-        (3, "in", "type", "polymorphic"),
-        (4, "out", "data", "polymorphic"),
+        (0, "input", "error in", "ErrorCluster"),
+        (1, "output", "error out", "cluster"),
+        (2, "input", "variant", "polymorphic"),
+        (3, "input", "type", "polymorphic"),
+        (4, "output", "data", "polymorphic"),
     ]
-    assert old.python_code == {"error_out": "in_0", "data": "in_2"}
     assert new.terminal_set_gap is None and old.terminal_set_gap is None
+
+
+def test_a_chosen_numbering_renumbers_the_code_placeholders() -> None:
+    """The ``in_N`` placeholders of an entry's code follow the node's numbering."""
+    entry = _entries()[str(VARIANT_TO_DATA)]
+    templated = _resolve(NEW).model_copy(
+        update={"python_code": {"error_out": "in_0", "data": "in_8"}}
+    )
+    old = apply_terminal_set(templated, entry.alternative_terminal_sets, OLD)
+    assert old.python_code == {"error_out": "in_0", "data": "in_2"}
 
 
 @pytest.mark.parametrize(
     ("slots", "reason"),
     [
-        ([(0, "in"), (5, "out")], "match no known numbering"),
-        ([(0, "in")], "fit several numberings"),
-        ([(3, "in"), (3, "out")], "match no known numbering"),
+        ([(0, "input"), (5, "output")], "match no known numbering"),
+        ([(0, "input")], "fit several numberings"),
+        ([(3, "input"), (3, "output")], "match no known numbering"),
     ],
     ids=["no-set", "ambiguous", "same-index-both-directions"],
 )
@@ -158,7 +172,7 @@ def test_a_node_fitting_no_single_numbering_is_a_gap(
     assert reason in resolved.terminal_set_gap
     assert "Variant To Data" in resolved.terminal_set_gap
     terminals = [
-        (index, "input" if direction == "in" else "output", VARIANT)
+        (index, "input" if direction == "input" else "output", VARIANT)
         for index, direction in slots
     ]
     gaps: list[Gap] = []
@@ -177,7 +191,7 @@ def test_a_node_fitting_no_single_numbering_is_a_gap(
 def test_a_single_numbering_primitive_is_untouched() -> None:
     resolver = get_resolver()
     plain = resolver.resolve(prim_id=1535)
-    with_slots = resolver.resolve(prim_id=1535, node_slots=[(99, "in")])
+    with_slots = resolver.resolve(prim_id=1535, node_slots=[(99, "input")])
     assert plain is not None and with_slots is not None
     assert with_slots.terminal_set_gap is None
     assert with_slots.terminals == plain.terminals != []

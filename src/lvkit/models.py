@@ -712,6 +712,24 @@ class TypeResolutionNeeded(ConversionGap):
         super().__init__(msg)
 
 
+class TerminalDirection(str, Enum):
+    """Which way data flows through a terminal: into its node or out of it.
+    One value set for a graph terminal and a catalog (primitive, vi.lib)
+    terminal; a ``str`` mix-in because the raw value is compared at many
+    sites, and it prints as that value."""
+
+    INPUT = "input"
+    OUTPUT = "output"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def of(cls, is_output: bool) -> TerminalDirection:
+        """The direction of a terminal that is, or is not, an output."""
+        return cls.OUTPUT if is_output else cls.INPUT
+
+
 class Terminal(BaseModel):
     """A connection point on a node. Edges connect to them."""
 
@@ -719,7 +737,7 @@ class Terminal(BaseModel):
 
     id: str
     index: int
-    direction: str  # "input" or "output"
+    direction: TerminalDirection
     name: str | None = None
     # Display-only label (resolved def's terminal name, e.g. "x"/"difference").
     # Separate from ``name`` because ``name`` drives codegen variable naming;

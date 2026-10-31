@@ -15,14 +15,14 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "appended array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "polymorphic",
           "expandable": true
@@ -36,21 +36,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "deleted portion",
           "type": "polymorphic",
           "dco_ref": "delDCO"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO4"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "numeric",
           "dco_ref": "lenDCO",
@@ -58,14 +58,14 @@
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
           "per_dimension_of": 1,
@@ -80,14 +80,14 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "element",
           "type": "polymorphic",
           "dco_ref": "dcoAgg",
@@ -96,7 +96,7 @@
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
           "per_dimension_of": 0,
@@ -114,21 +114,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "element",
           "type": "polymorphic",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "initialized array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "numeric",
           "per_dimension_of": 1
@@ -142,21 +142,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO3"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
           "per_dimension_of": 0,
@@ -164,7 +164,7 @@
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "polymorphic",
           "group": "new elements"
@@ -178,28 +178,28 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO2"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "new element/subarray",
           "type": "polymorphic",
           "group": "replacement"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
           "per_dimension_of": 0,
@@ -215,21 +215,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "srcDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "reshaped array",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "dimension size",
           "type": "numeric",
           "per_dimension_of": 1
@@ -243,21 +243,21 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "array",
           "type": "array",
           "dco_ref": "inArrDCO"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "subarray",
           "type": "polymorphic",
           "dco_ref": "dcoAgg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "numeric",
           "dco_ref": "dcoList",
@@ -268,7 +268,7 @@
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "length",
           "type": "numeric",
           "dco_ref": "lengthDCOList",

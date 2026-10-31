@@ -59,6 +59,18 @@ FLOAT_TYPE_NAMES: frozenset[str] = frozenset(
         TD_FULL_TYPE.UnitComplexExt,
     )
 )
+# The complex numbers among them, with or without a unit.
+COMPLEX_TYPE_NAMES: frozenset[str] = frozenset(
+    member.name
+    for member in (
+        TD_FULL_TYPE.NumComplex64,
+        TD_FULL_TYPE.NumComplex128,
+        TD_FULL_TYPE.NumComplexExt,
+        TD_FULL_TYPE.UnitComplex64,
+        TD_FULL_TYPE.UnitComplex128,
+        TD_FULL_TYPE.UnitComplexExt,
+    )
+)
 
 # Every number type: integers, floating-point and complex numbers (with or
 # without a unit), the unsigned integers an enum or ring is stored as

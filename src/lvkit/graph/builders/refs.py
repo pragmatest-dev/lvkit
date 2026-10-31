@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TerminalDirection
 from lvkit.parser.node_types import CtlRefConstNode, GRefNode, StatVIRefNode
 
 from ..models import (
@@ -91,7 +91,7 @@ class CtlRefConstHandler(RefBuildHandler):
 
         control_name = node.name or "Control Reference"
         is_write = bool(own_t_info) and not own_t_info.is_output
-        direction = "input" if is_write else "output"
+        direction = TerminalDirection.of(not is_write)
         lv_type = None
         if own_t_info and own_t_info.parsed_type:
             lv_type = ctx.enrich_type(own_t_info.parsed_type)
@@ -198,7 +198,7 @@ class LocalVariableHandler(RefBuildHandler):
         var_term = _variable_terminal(node, ctx)
         gref_term_uid = var_term.term_uid
         is_write = var_term.is_write
-        direction = "input" if is_write else "output"
+        direction = TerminalDirection.of(not is_write)
 
         q_gref_term_uid = ctx.qid(gref_term_uid) if gref_term_uid else q_node_uid
         gref_terminal = Terminal(
@@ -338,7 +338,7 @@ class GlobalVariableHandler(RefBuildHandler):
         _check_global_control(ctx, global_vi, param_idx, field.name)
 
         var_term = _variable_terminal(node, ctx)
-        direction = "input" if var_term.is_write else "output"
+        direction = TerminalDirection.of(not var_term.is_write)
         q_term_uid = ctx.qid(var_term.term_uid) if var_term.term_uid else q_node_uid
         global_node = GlobalVariableNode(
             id=q_node_uid,
@@ -409,7 +409,7 @@ class StatVIRefHandler(RefBuildHandler):
                 Terminal(
                     id=q_node_uid,
                     index=0,
-                    direction="output",
+                    direction=TerminalDirection.OUTPUT,
                     lv_type=vi_ref_type,
                 )
             ],

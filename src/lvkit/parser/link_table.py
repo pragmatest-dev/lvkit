@@ -672,6 +672,50 @@ def _record_starts(data: bytes, ident: bytes) -> list[int]:
     ]
 
 
+_PATH_IDENTS = (b"PTH0", b"PTH1", b"PTH2")
+
+
+@dataclass(frozen=True)
+class RecordName:
+    """The ident and name parts a link record starts with."""
+
+    ident: str
+    name_parts: tuple[str, ...]
+
+
+def decode_record_names(data: bytes) -> dict[int, RecordName]:
+    """The ident and name parts of every record of a link table whose head
+    reads, keyed by the offset of the path the head ends at. Every record starts
+    the same way (``_read_basic_head``: pad to 4, the name parts, pad to 2, the
+    path), whatever the saving version; nothing after the path is read."""
+    names: dict[int, RecordName] = {}
+    pattern = re.escape(_NEXT_LINK_ITEM) + rb"([A-Za-z0-9]{4})"
+    for match in re.finditer(pattern, data):
+        r = _Reader(data, match.end())
+        try:
+            r.align(4)
+            count = r.u32()
+            if count > _MAX_NAME_PARTS:
+                continue
+            parts = tuple(
+                decode_labview_text(unwrap_pascal_name(r.pascal()))
+                for _ in range(count)
+            )
+            r.align(2)
+        except LinkTableError:
+            continue
+        if data[r.pos : r.pos + 4] in _PATH_IDENTS:
+            names.setdefault(r.pos, RecordName(match.group(1).decode("ascii"), parts))
+    return names
+
+
+def unwrap_link_names(parts: Sequence[str], encoding: str) -> list[str]:
+    """Name parts read from XML text with a wrapped method name unwrapped
+    (``_unwrap_name``); ``encoding`` is the text encoding the XML was decoded
+    with."""
+    return [_unwrap_name(p, encoding) for p in parts]
+
+
 def _require_supported(version: LinkTableVersion) -> None:
     if not version.at_least(*_OLDEST_SUPPORTED):
         raise LinkTableError(

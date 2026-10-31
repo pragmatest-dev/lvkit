@@ -8,19 +8,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "event_reg_refnum",
           "type": "Refnum"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -33,45 +33,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "event callback refnum",
           "type": "Refnum",
           "refnum_type": "callback"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "event callback refnum",
           "type": "Refnum",
           "refnum_type": "callback"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "event source",
           "type": "Void"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "VI Ref",
           "type": "Void"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "User Parameter",
           "type": "LVVariant"
         }
@@ -84,20 +84,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "new reference",
           "type": "Refnum",
           "refnum_type": "dot_net"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

@@ -6,45 +6,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String",
           "default": ""
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "element_data_type",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "create_if_not_found",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "created_new",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         }
@@ -60,38 +60,38 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "force_destroy",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier_name",
           "type": "String"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "last_notification",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         }
@@ -106,45 +106,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier name",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier out",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "latest notification",
           "type": "String"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "# waiting",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -158,31 +158,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "notification",
           "type": "Boolean"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         }
@@ -198,51 +198,51 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore_previous",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout_ms",
           "type": "NumInt32",
           "default": -1
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier_out",
           "type": "Refnum"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "notification",
           "type": "Boolean"
         },
         {
           "index": 10,
-          "direction": "out",
+          "direction": "output",
           "name": "timed_out",
           "type": "Boolean"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         }
@@ -257,49 +257,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifiers",
           "type": "Array"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "ignore previous (F)",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout in ms (-1)",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier out",
           "type": "Array"
         },
         {
           "index": 5,
-          "direction": "out",
+          "direction": "output",
           "name": "notifiers out",
           "type": "Array"
         },
         {
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -312,33 +312,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "notifier",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "notifier out",
           "type": "Refnum",
           "refnum_type": "notifier"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "canceled notification",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

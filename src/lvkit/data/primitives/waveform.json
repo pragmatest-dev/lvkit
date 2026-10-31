@@ -5,19 +5,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "output waveform",
           "type": "Waveform"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "waveform",
           "type": "Waveform"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "Y",
           "type": "Array"
         }
@@ -30,13 +30,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "waveform",
           "type": "Waveform"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "Y",
           "type": "Array"
         }
@@ -49,43 +49,43 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "replaced",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "waveform out",
           "type": "Waveform"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "value",
           "type": "Cluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "waveform",
           "type": "Waveform"
         }
@@ -98,49 +98,49 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "values",
           "type": "Array"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "names",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "duplicate waveform",
           "type": "Waveform"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "default value (empty Variant)",
           "type": "LVVariant"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "waveform",
           "type": "Waveform"
         }

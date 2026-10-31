@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from lvkit.graph.models import VINode
-from lvkit.models import PaneSlot, Terminal
+from lvkit.models import PaneSlot, Terminal, TerminalDirection
 
 from .ast_utils import interface_names
 
@@ -72,7 +72,7 @@ def pane_names(pane: tuple[PaneSlot, ...]) -> CalleeNames:
             Terminal(
                 id=str(slot.index),
                 index=slot.index,
-                direction="output" if is_output else "input",
+                direction=TerminalDirection.of(is_output),
                 name=slot.name,
                 lv_type=slot.type,
             )

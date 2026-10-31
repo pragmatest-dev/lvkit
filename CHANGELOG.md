@@ -3,6 +3,14 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
+- **A VI is named by its own library and class chain plus its file name in every view** — `AF Debug.lvlib:Protected Actor Handle.lvclass:Ping.vi`, not `Ping.vi`; a call keeps its class in `uses :`, a class member is spelled by the class file that lists it, and a type is the caller's dependency only through a record of its own name.
+- **An `.llb` member is placed and shown under the archive's path** — `ps3000/…/picoscope3000llb/picoscope3000open.py`, not the extraction cache (#224).
+- **A constant feeding a loop is assigned to a local named by its label or where it flows, never by its value**, and a loop no longer emits a bare `len(...)` statement.
+- **describe shows the ports of a catalog-only dependency** — `DAQmx Clear Task.vi: (task in: Refnum) -> ()` instead of `() -> ()`.
+- **Variant To Data converts its value** — a number to any numeric type, anything else must already be the type; a mismatch raises `LabVIEWError` 91.
+- **JSON `components` list only the connector-pane positions a called VI uses** — no unnamed `Void` ports.
+- **generate's progress lines show project-relative paths, and pylabview's warnings while reading a class's private data no longer reach the terminal.**
 - **An unwired input shows and generates the default NI's page states** — Obtain Queue `name`, Move/Copy `overwrite`, Search/Split String and Fract/Exp String To Number `offset`, Pick Line `string`, Open/Create/Replace File `access` and `operation`, TCP and VISA timeouts and 30 more primitive inputs, and 47 vi.lib inputs (shown once their pane index is known) instead of the bare `default`; an input NI describes only as a behaviour or by context stays bare.
 - **Fix: OpenG Trim Whitespace removes what its ring says** — leading (0), trailing (1) or both (2, the default the VI saves); the catalog had read 0 as both and 2 as trailing.
 - **A LabVIEW class generates as one Python class whose methods are its VIs; import paths change** — the class lives in a module named from its file (`testcase`), a child descends from its parent's class and overrides with `super()`, a member VI has no module of its own, and a Bundle/Unbundle By Name counts the wire's own class's fields.

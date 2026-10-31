@@ -119,8 +119,7 @@ class VINode(GraphNode):
     connector_pattern_id: int | None = None
     # The VI's ownership chain from its own ``<LIBN>`` (owning .lvlib/.lvclass,
     # outermost first). On a SubVI-CALL node it's the CALLEE's chain (copied when
-    # the callee resolves). DISPLAY only — a ``chain:name`` label that
-    # disambiguates two classes' same-named methods; never a resolution key.
+    # the callee resolves). With the file name it is the VI's qualified name.
     owning_libraries: list[str] = []
     poly_variant_name: str | None = None
     # Fully qualified on-disk path components joined with /, e.g.

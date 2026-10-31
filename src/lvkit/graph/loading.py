@@ -20,7 +20,7 @@ import logging
 import os
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -33,7 +33,7 @@ from ..cache_paths import project_root
 from ..class_property import property_role
 from ..embedded_instances import read_instance_sources
 from ..extract_pool import ExtractionPool
-from ..extractor import extract_llb, extract_llb_members, extract_vi_xml
+from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import private_data_from_lvclass_xml
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
 from ..models import ClusterField, LVType, Terminal
@@ -73,6 +73,7 @@ from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
 from ..vilib_resolver import get_resolver as get_vilib_resolver
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
+from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
 from .models import (
     ExecSystem,
     ExecutionProps,
@@ -152,7 +153,7 @@ def _has_qualified_name(path: Path, qualified_name: str) -> bool:
     if main_xml is None:
         return False
     owners = parse_vi_metadata(main_xml).get("owning_libraries") or []
-    return ":".join([*owners, path.name]).lower() == qualified_name.lower()
+    return file_qualified_name(owners, path.name).lower() == qualified_name.lower()
 
 
 def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
@@ -263,13 +264,12 @@ def _mode_covers(have: LoadMode | None, want: LoadMode) -> bool:
     return have is not None and _MODE_RANK[have] >= _MODE_RANK[want]
 
 
-def file_qualified_name(stored_qname: str | None, file_name: str) -> str:
-    """A VI's qualified name: the stored owner prefix (class / library chain)
-    with the file name as its last component. LabVIEW names a VI by its file; a
-    VI copied and renamed outside LabVIEW still stores its old name."""
-    if not stored_qname:
-        return file_name
-    return ":".join([*stored_qname.split(":")[:-1], file_name])
+def file_qualified_name(owning_libraries: Sequence[str], file_name: str) -> str:
+    """A file's qualified name: the owner chain its own ``LIBN`` block records
+    (the libraries and classes it is in, outermost first) with its file name as
+    the last component. LabVIEW names a VI by its file; a VI copied and renamed
+    outside LabVIEW still stores its old name."""
+    return ":".join([*owning_libraries, file_name])
 
 
 def collect_direct_dep_qnames(
@@ -332,13 +332,24 @@ def build_dep_ref_map(
 
 
 def build_link_index(
-    link_path_refs: list[ParsedDependencyRef],
+    link_path_refs: list[ParsedDependencyRef], owners: Sequence[str]
 ) -> dict[str, list[ParsedDependencyRef]]:
-    """Every link-table record keyed by the file name its path ends in, in
-    record order (several records can end in one name)."""
+    """Every link-table record keyed by the qualified name it gives the file its
+    path ends in, in record order (several records can name one file). A record
+    in the caller's own library omits that library (as ``joined_link_name``
+    qualifies a same-library link), so it is also keyed with the first entry of
+    the caller's own ``LIBN`` chain (``owners``) before its name. Keys are
+    case-folded: LabVIEW compares names without regard to case. A record that
+    names no file is not indexed."""
     index: dict[str, list[ParsedDependencyRef]] = {}
     for ref in link_path_refs:
-        index.setdefault(ref.name, []).append(ref)
+        if ref.qualified_name is None:
+            continue
+        names = [ref.qualified_name]
+        if owners:
+            names.append(f"{owners[0]}:{ref.qualified_name}")
+        for name in names:
+            index.setdefault(name.casefold(), []).append(ref)
     return index
 
 
@@ -560,13 +571,15 @@ class LoadingMixin:
         is not (a built copy beside its source twin share a qname), so a class /
         typedef / library resolves to a file exactly as a VI does. The qname is
         recorded as the human-facing display name (never a lookup key)."""
-        self._source_paths[key] = source_file
+        self._source_paths[key] = vi_bytes_file(source_file)
         # The search path's <foundvi>: the folders this load found files in.
         self._search_path.found_folders.setdefault(Path(source_file).parent, None)
         self._vi_display_names[key] = qname
         # Reverse indexes: bare-name / qname -> [key]. List-valued: genuine
         # on-disk duplicates share a name/qname across distinct keys.
         self._register_dep_name(key, name, qname)
+        if self._dep_graph.has_node(key):
+            self._name_by_owner(key)
 
     def _register_dep_name(self, key: str, name: str, qname: str) -> None:
         """Index a dep node's bare-name and qname to its ``key`` for
@@ -637,6 +650,39 @@ class LoadingMixin:
         are told the owners changed."""
         self._dep_graph.add_edge(owner, member, rel=EdgeRel.OWNS, **attrs)
         self._recorded.owners_changed()
+        self._name_by_owner(member)
+
+    def _owner_qname(self, key: str) -> str | None:
+        """The qualified name of the class or library that lists ``key`` as its
+        member (its ``owns`` edge), None when nothing loaded lists it."""
+        for owner in sorted(self._dep_graph.predecessors(key)):
+            if self._dep_graph.edges[owner, key].get("rel") != EdgeRel.OWNS:
+                continue
+            qname = self._dep_graph.nodes[owner].get("qname")
+            if qname:
+                return str(qname)
+        return None
+
+    def _name_by_owner(self, key: str) -> None:
+        """Name ``key`` by the class or library that lists it: that owner's
+        qualified name (its own file's name) and the member's file name, so one
+        file has one name in every view whatever spelling its callers or its own
+        ``LIBN`` record use. The members it lists in turn follow. A file nothing
+        loaded lists keeps the name it was registered with."""
+        owner = self._owner_qname(key)
+        node = self._dep_graph.nodes[key]
+        name = node.get("name")
+        if owner is None or not name:
+            return
+        qname = f"{owner}:{name}"
+        if node.get("qname") == qname:
+            return
+        self._register_dep_name(key, name, qname)
+        if key in self._vi_display_names:
+            self._vi_display_names[key] = qname
+        for member in sorted(self._dep_graph.successors(key)):
+            if self._dep_graph.edges[key, member].get("rel") == EdgeRel.OWNS:
+                self._name_by_owner(member)
 
     def _note_recorded_path(
         self,
@@ -1010,24 +1056,12 @@ class LoadingMixin:
         malformed/older embedded control must never break class loading."""
         try:
             pd_fields = private_data_from_lvclass_xml(lvclass_path)
-        except Exception:
-            # Intentional hard best-effort boundary, not a narrowable
-            # set: private_data_from_lvclass_xml decodes a possibly
-            # malformed/legacy embedded RSRC container through
-            # pylabview's OWN VI-resource parser (parse_flattened_
-            # private_data -> lv_rsrc.VI(...).parseData()), whose
-            # exception surface on untrusted/old-format binary data
-            # isn't a documented closed set (struct/index/value/key
-            # errors and more have all been observed from that parser
-            # elsewhere) -- this docstring's own contract is "a
-            # malformed/older embedded control must never break class
-            # loading", so any failure here degrades to "no fields
-            # recovered", never propagates.
-            logger.debug(
-                "flattened private-data recovery failed for %s",
-                lvclass_path,
-                exc_info=True,
-            )
+        except Exception as exc:
+            # A malformed or older embedded control must never break class
+            # loading (pylabview's exception surface on such data is not a
+            # closed set): no fields are recovered, and why -- with what
+            # pylabview printed while reading it -- is the class file's problem.
+            self.record_load_failure(lvclass_path, exc, node_type=NodeType.CLASS)
             return []
         return [private_data_field_to_cluster_field(f) for f in pd_fields]
 
@@ -1213,54 +1247,37 @@ class LoadingMixin:
             return
         for failure in failures:
             # A member that could not be extracted is a problem on its own VI,
-            # labelled by the archive's path; a failure of the whole archive's
+            # at its path inside the archive; a failure of the whole archive's
             # content block belongs to the archive.
-            member = cache_dir / failure.member if failure.member else llb_path
+            member = llb_path / failure.member if failure.member else llb_path
             self.record_load_failure(
                 member,
                 UnreadableVIError(failure.reason),
                 node_type=NodeType.VI if failure.member else NodeType.LIBRARY,
             )
 
+        # Each member is the VI at its path inside the archive (its identity);
+        # its bytes are the extracted copy (``llb_members``).
         for vi_path in glob_vi_files(cache_dir):
-            self.load_vi_recording(vi_path, mode)
+            self.load_vi_recording(llb_path / vi_path.relative_to(cache_dir), mode)
 
     def _resolve_through_llb(self, candidate: Path) -> Path | None:
-        """Walk ``candidate``'s path components for a ``.llb`` file.
-
-        If any component resolves to an ``.llb`` binary archive, extract it to
-        the cache and return the path to the requested member VI inside the
-        cache directory.  Returns ``None`` if no ``.llb`` component exists or
-        the member is not found.
-        """
-        parts = candidate.parts
-        for i, part in enumerate(parts):
-            if part.lower().endswith(".llb"):
-                llb_path = Path(*parts[: i + 1])
-                if not llb_path.is_file():
-                    continue
-                # Remaining components give the member name
-                if i + 1 >= len(parts):
-                    continue
-                try:
-                    cache_dir = extract_llb(llb_path)
-                except RuntimeError:
-                    return None
-                member_path = cache_dir / Path(*parts[i + 1 :])
-                return member_path if member_path.exists() else None
-        return None
+        """``candidate`` when it names a member of a ``.llb`` archive on its
+        path (``llb_member_copy``): the member's identity is that path, as
+        LabVIEW records it; its bytes are read from the extracted copy
+        (``vi_bytes_file``). None when no ``.llb`` on the path holds it."""
+        return candidate if llb_member_copy(candidate) is not None else None
 
     def _pick_link_ref(
         self,
         candidates: list[ParsedDependencyRef] | None,
         caller_file: Path,
     ) -> ParsedDependencyRef | None:
-        """Pick the best link-table ref for a leaf-filename lookup out of
-        several candidates that share the leaf.
+        """Pick the best link-table ref out of several records that give one
+        file one qualified name (``build_link_index``).
 
-        ``parse_link_path_refs`` dedups on ``(leaf, *path_tokens)`` and
-        deliberately keeps distinct same-leaf refs — different link records
-        can name the same on-disk leaf via DIFFERENT recorded paths. Prefer
+        Different link records can name the same file via DIFFERENT recorded
+        paths, and the parse keeps each one. Prefer
         the one whose recorded path actually resolves to an EXISTING file
         against ``caller_file``; otherwise fall back to the first candidate
         (list order — deterministic, unlike a set)."""
@@ -1280,9 +1297,11 @@ class LoadingMixin:
         caller_file: Path,
     ) -> ParsedDependencyRef | None:
         """The recorded path ref for a dependency: its own LinkSavePathRef, else
-        the best link-table ref for its leaf filename."""
+        the best link-table record that gives its file exactly this qualified
+        name (``build_link_index``). None when no record names it: the type is
+        nested in a dependency that records it."""
         return dep_ref_map.get(qname) or self._pick_link_ref(
-            link_index.get(qname.rsplit(":", 1)[-1]), caller_file
+            link_index.get(qname.casefold()), caller_file
         )
 
     def _prefetch_dependencies(
@@ -1326,16 +1345,17 @@ class LoadingMixin:
             if resolved is not None and not self._dep_graph.has_node(
                 str(resolved.resolve())
             ):
-                files.append(resolved)
+                files.append(vi_bytes_file(resolved))
         pool.prefetch(files)
         return resolved_paths
 
     def _extract(self, path: Path) -> tuple[Path, Path | None, Path | None]:
         """``extract_vi_xml`` for a file the pool may be extracting: wait for
         that extraction first, so this call finds it cached."""
+        source = vi_bytes_file(path)
         if self._extract_pool is not None:
-            self._extract_pool.wait(path)
-        return extract_vi_xml(path)
+            self._extract_pool.wait(source)
+        return extract_vi_xml(source)
 
     def _already_handled(
         self, vi_key: str, visited: set[str], mode: LoadMode
@@ -1428,7 +1448,7 @@ class LoadingMixin:
         # for the self-dependency compare below and the qname reverse index. It
         # is NOT the identity: two on-disk copies (a source VI + its stripped
         # built copy) can share a qname while being distinct files.
-        own_qname = file_qualified_name(metadata.qualified_name, unqualified_name)
+        own_qname = file_qualified_name(metadata.owning_libraries, unqualified_name)
 
         # caller_file is the VI file itself (not its directory): each
         # leading empty in a LinkSavePathRef pops one level from it. It also
@@ -1508,6 +1528,7 @@ class LoadingMixin:
         # node (a node created here is not yet there when the identity is
         # registered above).
         self._dep_graph.add_node(vi_key, name=unqualified_name, qname=own_qname)
+        self._name_by_owner(vi_key)
 
         # Mark as loaded, and record the depth we're loading its deps at — BEFORE
         # the dependency walk below, so a cyclic callee that re-enters this VI at
@@ -1575,17 +1596,17 @@ class LoadingMixin:
                 *dep_ref_map,
             }
 
-            # A leaf-filename -> recorded-path index from LabVIEW's link tables:
-            # supplies a recorded PATH for a type-derived class/typedef dep that
-            # carries no LinkSavePathRef of its own, so it resolves by path
-            # (path-driven closure, web == desktop). It
-            # only ENRICHES deps already in all_dep_qnames — never adds one — so a
-            # library-prefixed dep's bare leaf can't shadow it into a duplicate.
-            # List-valued: parse_link_path_refs dedups on (leaf, *path_tokens),
-            # so several refs can legitimately share a leaf via DISTINCT recorded
-            # paths — grouping (not last-wins) keeps every one available to
-            # _pick_link_ref below.
-            link_index = build_link_index(metadata.link_path_refs)
+            # A qualified-name -> recorded-path index from LabVIEW's link
+            # tables (``build_link_index``): supplies a recorded PATH for a
+            # type-derived class/typedef dep that carries no LinkSavePathRef of
+            # its own, from a record that gives its file exactly that name, so
+            # it resolves by path (path-driven closure, web == desktop). It only
+            # ENRICHES deps already in all_dep_qnames — never adds one.
+            # List-valued: several records can name one file by DISTINCT
+            # recorded paths, all available to _pick_link_ref below.
+            link_index = build_link_index(
+                metadata.link_path_refs, metadata.owning_libraries
+            )
 
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
@@ -1870,7 +1891,9 @@ class LoadingMixin:
             link_index: dict[str, list[ParsedDependencyRef]] = {}
             if metadata is not None:
                 dep_ref_map = build_dep_ref_map(metadata.dependency_refs)
-                link_index = build_link_index(metadata.link_path_refs)
+                link_index = build_link_index(
+                    metadata.link_path_refs, metadata.owning_libraries
+                )
             for name in sorted(collect_direct_dep_qnames([], type_map, None)):
                 ref = self._recorded_dep_ref(name, dep_ref_map, link_index, ctl_path)
                 if ref is None:
@@ -2379,7 +2402,7 @@ class LoadingMixin:
             # path surfaces in get_dependency_paths — otherwise the extension has
             # nothing to stage and the SubVI never appears. A later round finds
             # the file and this upgrades to a real leaf-load.
-            if resolved.is_file():
+            if file_is_present(resolved):
                 self.record_load_failure(resolved, exc)
             stub_key = str(resolved.resolve())
             self._stub_subvi(qualified_name, key=stub_key)

@@ -15,9 +15,11 @@ from __future__ import annotations
 import re
 from collections.abc import Collection
 
+from lvkit.models import TerminalDirection
+
 from .models import PrimitiveTerminal, ResolvedPrimitive, TerminalAlias
 
-Slot = tuple[int, str]  # (connector-pane index, "in" or "out")
+Slot = tuple[int, TerminalDirection]  # (connector-pane index, direction)
 
 _INPUT_PLACEHOLDER = re.compile(r"\bin_(\d+)\b")
 
@@ -63,7 +65,9 @@ def apply_terminal_set(
         for t in resolved.terminals
         if (t.index, t.direction) in node_index
     ]
-    in_index = {p: n for (p, d), n in node_index.items() if d == "in"}
+    in_index = {
+        p: n for (p, d), n in node_index.items() if d == TerminalDirection.INPUT
+    }
 
     def renumber(match: re.Match[str]) -> str:
         primary = int(match.group(1))

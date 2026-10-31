@@ -24,6 +24,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from lvkit.models import TerminalDirection
+
 from ..models import LVType, LVTypeKind, Terminal
 
 
@@ -39,7 +41,7 @@ class LaidOutTerminal:
     """One catalog terminal placed at the index it takes on a node."""
 
     index: int
-    direction: str | None
+    direction: TerminalDirection | None
     name: str | None
     slot: int  # the catalog terminal's own index (its role in the entry)
     set_number: int  # which repetition of its group, from 0

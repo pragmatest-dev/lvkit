@@ -241,7 +241,7 @@ class _VILibVariantMixin:
 
             observed_map[wired_term.index] = {
                 "name": wired_term.name or "",
-                "direction": "out" if wired_term.direction == "output" else "in",
+                "direction": wired_term.direction,
                 "type": type_str,
             }
 

@@ -21,14 +21,12 @@ _SAMPLES = Path(".lvkit/cache/samples").resolve()
 
 
 def test_file_name_is_the_last_component() -> None:
-    assert file_qualified_name("TrackDroppedFrames_2P.vi", "Whisker_2P.vi") == (
-        "Whisker_2P.vi"
-    )
-    assert file_qualified_name("Lib.lvlib:Cls.lvclass:Old.vi", "New.vi") == (
+    """A VI's qualified name is its own ``LIBN`` owner chain, then its file
+    name; the name it stores for itself is not read."""
+    assert file_qualified_name([], "Whisker_2P.vi") == "Whisker_2P.vi"
+    assert file_qualified_name(["Lib.lvlib", "Cls.lvclass"], "New.vi") == (
         "Lib.lvlib:Cls.lvclass:New.vi"
     )
-    assert file_qualified_name(None, "New.vi") == "New.vi"
-    assert file_qualified_name("", "New.vi") == "New.vi"
 
 
 def _declarations(vi: Path) -> dict[str, str | None]:
@@ -114,7 +112,11 @@ def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
 
 
 @pytest.mark.needs_samples
-def test_absent_class_declared_without_a_machine_path() -> None:
+def test_a_class_recorded_only_by_an_unnamed_path_is_not_declared() -> None:
+    """The VI's class records its parent, the absent SDK class, by a machine
+    path inside its own link record, which names no file there; the VI's own
+    records give that path no qualified name, so the class is a type nested in
+    a dependency, not the VI's own, and no machine path is shown."""
     template = (
         _SAMPLES
         / "measurement-plugin-labview/Source/Generator"
@@ -124,7 +126,7 @@ def test_absent_class_declared_without_a_machine_path() -> None:
         template / "Build Assets" / "Post-Build Action.vi")
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
-    assert f"    class {sdk_class}\n" in lvnet
+    assert f"    class {sdk_class}\n" not in lvnet
     assert "Program Files" not in lvnet
 
 
@@ -141,7 +143,13 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     )
     assert [
         (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
-    ] == [("Destroy.vi", real)]
+    ] == [
+        (
+            "ni.measurementlink.measurement.v1.api.lvlib:MeasurementServiceBaseV1"
+            ".lvclass:Destroy.vi",
+            real,
+        )
+    ]
     (call,) = [
         n
         for n in graph.iter_nodes(key)

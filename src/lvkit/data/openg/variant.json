@@ -12,14 +12,14 @@
         {
           "name": "Type Descriptor Enumeration",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "UnitUInt8",
           "python_param": "type_descriptor_enumeration"
         },
         {
           "name": "Data",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": "LVVariant",
           "python_param": "data"
         }

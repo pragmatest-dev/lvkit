@@ -5,33 +5,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "event registration refnum",
           "type": "Refnum",
           "refnum_type": "event_reg"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "event registration refnum",
           "type": "Refnum",
           "refnum_type": "event_reg"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "event source",
           "type": "Void"
         }
@@ -47,25 +47,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "user_event_data_type",
           "type": "polymorphic"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "user_event_out",
           "type": "Refnum"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -78,40 +78,40 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "user event",
           "type": "Refnum",
           "refnum_type": "user_event"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "event data",
           "type": "Cluster"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "priority (normal)",
           "type": "Enum32",
           "default": 1
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "user event out",
           "type": "Refnum",
           "refnum_type": "user_event"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }
@@ -129,19 +129,19 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "user_event",
           "type": "Refnum"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "Cluster"
         }
@@ -154,57 +154,57 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "event registration refnum",
           "type": "Refnum",
           "refnum_type": "event_reg"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "include static events? (T)",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "event type or object",
           "type": "Enum32"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "oldest event time",
           "type": "NumUInt32"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "keep most recent",
           "type": "NumInt32"
         },
         {
           "index": 8,
-          "direction": "out",
+          "direction": "output",
           "name": "event reg refnum out",
           "type": "Refnum",
           "refnum_type": "event_reg"
         },
         {
           "index": 9,
-          "direction": "out",
+          "direction": "output",
           "name": "number of events discarded",
           "type": "NumUInt32"
         },
         {
           "index": 11,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         }

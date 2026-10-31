@@ -1,6 +1,7 @@
 """A literal wired into a For loop's input tunnel is assigned to a local before
-the loop. A Path constant's local is named from the path's own components, a
-String constant's from its text."""
+the loop. The local is never named from the literal's value: it is the
+constant's label, else the name of the terminal the value flows to, pluralised,
+else a name from its type."""
 
 from __future__ import annotations
 
@@ -33,7 +34,9 @@ from tests.structure_diagrams import (
 )
 
 
-def _loop_over(tmp_path: Path, source: str, saved: bytes | str) -> str:
+def _loop_over(
+    tmp_path: Path, source: str, saved: bytes | str, label: str | None = None
+) -> str:
     """The generated source of a VI whose For loop takes ``saved`` (a Path
     constant for ``source`` ``"path"``, else a String constant) as a tunnel input."""
     (tmp_path / "T_FPHb.xml").write_text(
@@ -44,6 +47,8 @@ def _loop_over(tmp_path: Path, source: str, saved: bytes | str) -> str:
         if source == "path"
         else constant(702, STR, saved)
     )
+    if label is not None:
+        literal = _labelled(literal, label)
     type_id = PATH if source == "path" else STR
     border = [
         term(410, dco("lMax", 411, type_id=I32, faces=[412, 410])),
@@ -67,16 +72,33 @@ def _loop_over(tmp_path: Path, source: str, saved: bytes | str) -> str:
     return build_module(context, "T.vi", graph=views.graph)
 
 
-def test_a_path_constant_local_is_named_from_the_path(tmp_path: Path) -> None:
+def _labelled(literal: str, label: str) -> str:
+    """``literal`` (a constant's terminal XML) with a visible label part."""
+    part = (
+        '<ddo><partsList><SL__arrayElement class="label"><objFlags>0</objFlags>'
+        f'<textRec><text>"{label}"</text></textRec></SL__arrayElement>'
+        "</partsList></ddo>"
+    )
+    return literal.replace("</dco>", part + "</dco>", 1)
+
+
+def test_a_path_constant_local_is_not_named_from_the_path(tmp_path: Path) -> None:
     saved = path_bytes(0, [b"C", b"Program Files", b"NI"])
     source = _loop_over(tmp_path, "path", saved)
     compile(source, "T.py", "exec")
     assignment = re.search(r"^\s*(\w+) = Path\(.*'Program Files'", source, re.M)
     assert assignment is not None, source
-    assert assignment.group(1) == "pathcprogram_filesni"
+    assert assignment.group(1) == "items"
 
 
-def test_a_string_constant_local_keeps_its_name(tmp_path: Path) -> None:
+def test_a_string_constant_local_is_not_named_from_its_text(tmp_path: Path) -> None:
     source = _loop_over(tmp_path, "string", "a b")
     compile(source, "T.py", "exec")
-    assert re.search(r"^\s*a_b = 'a b'", source, re.M), source
+    assert re.search(r"^\s*items = 'a b'", source, re.M), source
+    assert "a_b" not in source
+
+
+def test_a_labelled_constant_local_is_named_by_its_label(tmp_path: Path) -> None:
+    source = _loop_over(tmp_path, "string", "a b", label="search paths")
+    compile(source, "T.py", "exec")
+    assert re.search(r"^\s*search_paths = 'a b'", source, re.M), source

@@ -5,7 +5,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "name": "flag",
           "type": "Boolean"
         }
@@ -18,13 +18,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "Output",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "Input",
           "type": "NumInt32"
         }
@@ -37,32 +37,32 @@
       "terminals": [
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": " y'",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": " x'  ",
           "type": "NumInt32"
         },
         {
           "index": 12,
-          "direction": "in",
+          "direction": "input",
           "name": "y",
           "type": "NumInt32"
         },
         {
           "index": 13,
-          "direction": "in",
+          "direction": "input",
           "name": "?(T)",
           "type": "Boolean",
           "default": true
         },
         {
           "index": 14,
-          "direction": "in",
+          "direction": "input",
           "name": "x",
           "type": "NumInt32"
         }
@@ -78,25 +78,25 @@
       "terminals": [
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error_in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "data_value",
           "type": "polymorphic"
         },
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error_out",
           "type": "cluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "data_value_reference",
           "type": "Refnum"
         }
@@ -114,25 +114,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "data value",
           "type": "NumFloat64"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in",
           "type": "ErrorCluster"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "data value reference",
           "type": "Refnum",
           "refnum_type": "data_value"

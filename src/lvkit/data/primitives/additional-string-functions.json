@@ -6,25 +6,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "output_string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "line_index",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "multi_line_string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String",
           "default": ""
@@ -42,31 +42,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "selector",
           "type": "Boolean"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "false string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "true string",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string (\"\")",
           "type": "String"
         }
@@ -79,25 +79,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "index",
           "type": "NumInt32"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "string array",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "string (\"\")",
           "type": "String"
         }
@@ -110,25 +110,25 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "index",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "string array",
           "type": "Array"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -141,31 +141,31 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "selection",
           "type": "Boolean"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "output string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "false string",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "true string",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -178,13 +178,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "first char last",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -198,13 +198,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "reversed",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -218,39 +218,39 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "offset_of_match",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "match_rest_of_string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "substring_before_match",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32",
           "default": 0
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "search_string_char",
           "type": "String",
           "default": ""
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "string",
           "type": "String"
         }
@@ -268,63 +268,63 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "token index",
           "type": "NumInt32"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "token string",
           "type": "String"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "offset past token",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "string out",
           "type": "String"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "use cached delim/oper data? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "allow empty tokens? (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "delimiters (\\s,\\t,\\r,\\n)",
           "type": "Array"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "operators (none)",
           "type": "Array"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "offset",
           "type": "NumInt32"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "input string",
           "type": "String"
         }

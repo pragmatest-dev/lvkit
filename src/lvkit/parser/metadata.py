@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -12,11 +13,17 @@ from pylabview.LVinstrument import VI_TYPE  # type: ignore[import-untyped]
 
 from lvkit.models import vi_kind_label
 from lvkit.parser.xml_trees import parsed_xml
-from lvkit.text_encoding import decode_labview_text, unwrap_pascal_name
+from lvkit.text_encoding import (
+    decode_labview_text,
+    unwrap_pascal_name,
+    xml_text_encoding,
+)
 from lvkit.vi_files import is_vi_file
 
+from .link_table import decode_record_names, unwrap_link_names
 from .models import ParsedDependencyRef
 from .type_resolution import parse_typedef_refs
+from .utils import clean_labview_string
 
 # lock_state string values -- MUST mirror graph.models.LockState.value exactly
 # (parser/ never imports graph/, per graph/models.py's module docstring, so the
@@ -528,7 +535,30 @@ def parse_instance_files(root: ET.Element) -> list[str]:
     return [f for s in sections if (f := s.get("File"))]
 
 
-def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
+def recorded_file_name(
+    ident: str, name_parts: Sequence[str], leaf: str, owners: Sequence[str]
+) -> str | None:
+    """The qualified name a link record gives the file its path names
+    (``leaf``): its name parts up to the one that is that file, as the record
+    spells them (a record in the caller's own library or class omits that
+    owner). The ``VILB`` record is the VI's link to its own class or library and
+    names none: that file is the last of the VI's own ``LIBN`` chain
+    (``owners``), so its name is that chain. None when the record does not name
+    the file its path ends in. Names compare without regard to case, as
+    LabVIEW's do."""
+    if ident == "VILB":
+        own = owners[-1].casefold() == leaf.casefold() if owners else False
+        return ":".join(owners) if own else None
+    cleaned = [clean_labview_string(part).strip() for part in name_parts]
+    for i in range(len(cleaned) - 1, -1, -1):
+        if cleaned[i].casefold() == leaf.casefold():
+            return ":".join(part for part in cleaned[: i + 1] if part)
+    return None
+
+
+def parse_link_path_refs(
+    link_bin: Path, owners: Sequence[str] = ()
+) -> list[ParsedDependencyRef]:
     """A recorded PATH for EVERY file a link binary references, from its ``PTH0``
     path records. LabVIEW stores a ``PTH0`` for each dependency it tracks (it is
     what LabVIEW uses to relink / to prompt "find <this file>" when one is
@@ -541,13 +571,17 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
 
     Recovering these gives the loader a recorded path for the referenced CLASSES
     and TYPEDEFS too — not just SubVIs — so the whole dependency closure resolves
-    by PATH with no name-search, identically on web and desktop.
+    by PATH with no name-search, identically on web and desktop. Each ref's
+    qualified name is the one its record gives that file
+    (``recorded_file_name``; ``owners`` is the VI's own ``LIBN`` chain), None
+    when the record names none.
     """
     try:
         data = link_bin.read_bytes()
     except OSError:
         return []
 
+    record_names = decode_record_names(data)
     refs: list[ParsedDependencyRef] = []
     seen: set[tuple[str, ...]] = set()
     for m in re.finditer(b"PTH0", data):
@@ -564,11 +598,16 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
         # The ``PTH0`` header is the tag, the total length, the path type, the
         # component count.
         path_type = int.from_bytes(data[m.start() + 8 : m.start() + 10], "big")
+        record = record_names.get(m.start())
         refs.append(
             ParsedDependencyRef(
                 name=leaf,
                 path_tokens=tokens,
-                qualified_name=leaf,
+                qualified_name=(
+                    recorded_file_name(record.ident, record.name_parts, leaf, owners)
+                    if record is not None
+                    else None
+                ),
                 path_type=path_type,
             )
         )
@@ -586,33 +625,48 @@ def _names_a_dependency_file(leaf: str) -> bool:
 _LINK_TABLE_SECTIONS = ("LIvi", "LIbd", "LIfp")
 
 
-def parse_xml_link_path_refs(main_root: ET.Element) -> list[ParsedDependencyRef]:
+def parse_xml_link_path_refs(
+    main_root: ET.Element, owners: Sequence[str] = ()
+) -> list[ParsedDependencyRef]:
     """The recorded PATH of every file the DECODED link tables reference — the
     XML counterpart of :func:`parse_link_path_refs`, for a VI whose link tables
     pylabview decoded into its main XML (no ``_LI*.bin`` sidecar). Every
     ``LinkSavePathRef`` counts, also one whose record names no qualified name
     (``VILB``, the VI's link to its own class or library), so the loader finds
-    that file by the path the VI records for it. In document order."""
+    that file by the path the VI records for it. Each ref's qualified name is
+    the one its record gives that file (``recorded_file_name``, from the
+    record's ``LinkSaveQualName``). In document order."""
+    encoding = xml_text_encoding(main_root)
     refs: list[ParsedDependencyRef] = []
     for section in _LINK_TABLE_SECTIONS:
         for table in main_root.findall(section):
-            for path_ref in table.iter("LinkSavePathRef"):
-                # <String /> (self-closing) is an empty token: one '..' step.
-                tokens = [
-                    s.text if s.text is not None else ""
-                    for s in path_ref.findall("String")
-                ]
-                if not tokens or not _names_a_dependency_file(tokens[-1]):
-                    continue
-                tp_val = path_ref.get("TpVal")
-                refs.append(
-                    ParsedDependencyRef(
-                        name=tokens[-1],
-                        path_tokens=tokens,
-                        qualified_name=tokens[-1],
-                        path_type=int(tp_val) if tp_val is not None else None,
-                    )
+            for record in table.iter():
+                name_parts = unwrap_link_names(
+                    [
+                        s.text or ""
+                        for s in record.findall("LinkSaveQualName/String")
+                    ],
+                    encoding,
                 )
+                for path_ref in record.findall("LinkSavePathRef"):
+                    # <String /> (self-closing) is an empty token: one '..' step.
+                    tokens = [
+                        s.text if s.text is not None else ""
+                        for s in path_ref.findall("String")
+                    ]
+                    if not tokens or not _names_a_dependency_file(tokens[-1]):
+                        continue
+                    tp_val = path_ref.get("TpVal")
+                    refs.append(
+                        ParsedDependencyRef(
+                            name=tokens[-1],
+                            path_tokens=tokens,
+                            qualified_name=recorded_file_name(
+                                record.tag, name_parts, tokens[-1], owners
+                            ),
+                            path_type=int(tp_val) if tp_val is not None else None,
+                        )
+                    )
     return refs
 
 

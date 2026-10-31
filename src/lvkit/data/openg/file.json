@@ -12,21 +12,21 @@
         {
           "name": "file path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "file_path"
         },
         {
           "name": "exists",
           "index": 7,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "exists"
         },
         {
           "name": "is directory",
           "index": 6,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "is_directory"
         }
@@ -47,42 +47,42 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "Recursive? (FALSE)",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "recursive_false"
         },
         {
           "name": "Path",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "path"
         },
         {
           "name": "Ignore Read-Only? (FALSE)",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "ignore_read_only_false"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "dup Path",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "dup_path"
         }
@@ -103,42 +103,42 @@
         {
           "name": "Directory Path",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "directory_path"
         },
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "permissions (0755)",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "permissions_0755"
         },
         {
           "name": "dup Directory Path",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "dup_directory_path"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "Created Directories",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "created_directories"
         }
@@ -159,14 +159,14 @@
         {
           "name": "Relative path (.)",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "relative_path_"
         },
         {
           "name": "Temporary Directory (+ Relative)",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "temporary_directory___relative"
         }
@@ -188,14 +188,14 @@
         {
           "name": "Relative path (.)",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "relative_path_"
         },
         {
           "name": "Application Directory (+ Relative)",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "application_directory___relative"
         }
@@ -216,14 +216,14 @@
         {
           "name": "Relative path (.)",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "relative_path_"
         },
         {
           "name": "Current VI's Path (+ Relative)",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "current_vis_path___relative"
         }
@@ -244,14 +244,14 @@
         {
           "name": "Relative path (.)",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "relative_path_"
         },
         {
           "name": "Parent Directory (+ Relative)",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "parent_directory___relative"
         }
@@ -272,14 +272,14 @@
         {
           "name": "Relative path (.)",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "relative_path_"
         },
         {
           "name": "Default Directory (+ Relative)",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "default_directory___relative"
         }
@@ -300,21 +300,21 @@
         {
           "name": "base path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "base_path"
         },
         {
           "name": "name or relative path",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "name_or_relative_path"
         },
         {
           "name": "appended path",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "appended_path"
         }
@@ -335,21 +335,21 @@
         {
           "name": "base path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "base_path"
         },
         {
           "name": "name or relative path",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "name_or_relative_path"
         },
         {
           "name": "appended path",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "appended_path"
         }
@@ -370,21 +370,21 @@
         {
           "name": "path",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "path"
         },
         {
           "name": "name",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "stdString",
           "python_param": "name"
         },
         {
           "name": "stripped path",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "stripped_path"
         }
@@ -405,21 +405,21 @@
         {
           "name": "path array",
           "index": 0,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "path_array"
         },
         {
           "name": "name array",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "name_array"
         },
         {
           "name": "stripped path array",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "stripped_path_array"
         }
@@ -440,21 +440,21 @@
         {
           "name": "base path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "base_path"
         },
         {
           "name": "name array",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "name_array"
         },
         {
           "name": "appended path array",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "appended_path_array"
         }
@@ -475,21 +475,21 @@
         {
           "name": "base path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "base_path"
         },
         {
           "name": "path array",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "path_array"
         },
         {
           "name": "appended path array",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "appended_path_array"
         }
@@ -510,21 +510,21 @@
         {
           "name": "base path array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "base_path_array"
         },
         {
           "name": "name array",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "name_array"
         },
         {
           "name": "appended path array",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "appended_path_array"
         }
@@ -545,21 +545,21 @@
         {
           "name": "base path array",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "base_path_array"
         },
         {
           "name": "path array",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "indArr",
           "python_param": "path_array"
         },
         {
           "name": "appended path array",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "appended_path_array"
         }
@@ -580,49 +580,49 @@
         {
           "name": "directory path",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "directory_path"
         },
         {
           "name": "error in (no error)",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "pattern",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "pattern"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "file names",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "file_names"
         },
         {
           "name": "directory names",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "directory_names"
         },
         {
           "name": "dup directory path",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "dup_directory_path"
         }
@@ -643,63 +643,63 @@
         {
           "name": "error in (no error)",
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "Path",
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "path"
         },
         {
           "name": "pattern",
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "pattern"
         },
         {
           "name": "Treat llb files as directories? (FALSE)",
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "treat_llb_files_as_directories_false"
         },
         {
           "name": "List only Top-Level files in llbs? (FALSE)",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "stdBool",
           "python_param": "list_only_top_level_files_in_llbs_false"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "dup Path",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "dup_path"
         },
         {
           "name": "file paths",
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "file_paths"
         },
         {
           "name": "dir paths",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "indArr",
           "python_param": "dir_paths"
         }
@@ -720,42 +720,42 @@
         {
           "name": "block size (100000)",
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "type": "stdNum",
           "python_param": "block_size_100000"
         },
         {
           "name": "copy file",
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "copy_file"
         },
         {
           "name": "original file",
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "original_file"
         },
         {
           "name": "error in (no error)",
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "type": "stdClust",
           "python_param": "error_in_no_error"
         },
         {
           "name": "error out",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdClust",
           "python_param": "error_out"
         },
         {
           "name": "not equal",
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "not_equal"
         }
@@ -776,14 +776,14 @@
         {
           "name": "path",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "path"
         },
         {
           "name": "valid",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdBool",
           "python_param": "valid"
         }
@@ -804,28 +804,28 @@
         {
           "name": "file name",
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "file_name"
         },
         {
           "name": "new ending (none)",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdString",
           "python_param": "new_ending_none"
         },
         {
           "name": "new filename",
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "new_filename"
         },
         {
           "name": "prev ending",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdString",
           "python_param": "prev_ending"
         }
@@ -846,21 +846,21 @@
         {
           "name": "Root Path",
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "root_path"
         },
         {
           "name": "Absolute or Relative Path",
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "type": "stdPath",
           "python_param": "absolute_or_relative_path"
         },
         {
           "name": "Absolute or Appended Path",
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "type": "stdPath",
           "python_param": "absolute_or_appended_path"
         }

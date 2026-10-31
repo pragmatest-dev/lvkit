@@ -6,7 +6,7 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "first_call",
           "type": "Boolean"
         }

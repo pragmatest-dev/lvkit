@@ -211,7 +211,7 @@ def test_simple_error_handler_inputs_sit_at_the_slots_its_calls_wire() -> None:
 
     entry = get_resolver().resolve_by_name("Simple Error Handler.vi")
     assert entry is not None
-    inputs = {t.index: t.name for t in entry.terminals if t.direction == "in"}
+    inputs = {t.index: t.name for t in entry.terminals if t.direction == "input"}
     assert inputs == {
         3: "error code (no error:0)",
         4: 'error source (" ")',
@@ -258,7 +258,7 @@ def test_the_catalog_holds_the_default_ni_documents(
     resolved = get_resolver().resolve(prim_id=prim_id)
     assert resolved is not None
     terminal = next(
-        t for t in resolved.terminals if t.direction == "in" and t.index == index
+        t for t in resolved.terminals if t.direction == "input" and t.index == index
     )
     assert terminal.default == default
     assert terminal.default_behavior == behavior

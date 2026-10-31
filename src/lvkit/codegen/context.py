@@ -33,6 +33,7 @@ from lvkit.models import (
     LVTypeKind,
     ScalarValue,
     Terminal,
+    TerminalDirection,
     Tunnel,
     TunnelTerminal,
     TypeNamer,
@@ -756,7 +757,7 @@ class CodeGenContext:
                 vi_path="test.vi",
                 name=nid,
                 terminals=[
-                    Terminal(id=tid, index=i, direction="output")
+                    Terminal(id=tid, index=i, direction=TerminalDirection.OUTPUT)
                     for i, tid in enumerate(sorted(tids))
                 ],
             )
@@ -781,7 +782,11 @@ class CodeGenContext:
                         id=nid,
                         vi_path="test.vi",
                         name=nid,
-                        terminals=[Terminal(id=tid, index=0, direction="output")],
+                        terminals=[
+                            Terminal(
+                                id=tid, index=0, direction=TerminalDirection.OUTPUT
+                            )
+                        ],
                     )
                     graph._graph.add_node(nid, node=node)
                     graph._term_to_node[tid] = nid
@@ -860,7 +865,7 @@ class CodeGenContext:
                 vi_path="test.vi",
                 name=nid,
                 terminals=[
-                    Terminal(id=tid, index=0, direction="output"),
+                    Terminal(id=tid, index=0, direction=TerminalDirection.OUTPUT),
                 ],
             )
             graph._graph.add_node(nid, node=node)

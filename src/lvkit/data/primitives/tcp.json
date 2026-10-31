@@ -5,20 +5,20 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "name",
           "type": "String"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "dot_notation",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 2,
-          "direction": "in",
+          "direction": "input",
           "name": "net_address",
           "type": "NumUInt32"
         }
@@ -39,13 +39,13 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "net_address",
           "type": "NumUInt32"
         },
         {
           "index": 1,
-          "direction": "in",
+          "direction": "input",
           "name": "name",
           "type": "String"
         }
@@ -66,57 +66,57 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "remote port",
           "type": "NumUInt16"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "remote address",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "listener ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 4,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (wait forever: -1)",
           "type": "NumInt32"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "resolve remote address (T)",
           "type": "Boolean"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "listener ID in",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
@@ -130,33 +130,33 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "abort (F)",
           "type": "Boolean",
           "default": false
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
@@ -171,45 +171,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "bytes written",
           "type": "NumInt32"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (25000)",
           "type": "NumInt32",
           "default": 25000
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "data in",
           "type": "String"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
@@ -224,45 +224,45 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "local port",
           "type": "NumUInt16",
           "default": 0
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (60000)",
           "type": "NumInt32"
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "remote port or service name",
           "type": "NumUInt16"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "address",
           "type": "String"
         }
@@ -276,52 +276,52 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "data out",
           "type": "String"
         },
         {
           "index": 3,
-          "direction": "out",
+          "direction": "output",
           "name": "connection ID out",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "mode (standard)",
           "type": "Enum16",
           "default": 0
         },
         {
           "index": 8,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 9,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (25000)",
           "type": "NumInt32",
           "default": 25000
         },
         {
           "index": 10,
-          "direction": "in",
+          "direction": "input",
           "name": "bytes to read",
           "type": "NumInt32"
         },
         {
           "index": 11,
-          "direction": "in",
+          "direction": "input",
           "name": "connection ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
@@ -336,50 +336,50 @@
       "terminals": [
         {
           "index": 0,
-          "direction": "out",
+          "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
         },
         {
           "index": 1,
-          "direction": "out",
+          "direction": "output",
           "name": "port",
           "type": "NumUInt16"
         },
         {
           "index": 2,
-          "direction": "out",
+          "direction": "output",
           "name": "listener ID",
           "type": "Refnum",
           "refnum_type": "tcp_net_connection"
         },
         {
           "index": 3,
-          "direction": "in",
+          "direction": "input",
           "name": "net address",
           "type": "NumUInt32"
         },
         {
           "index": 4,
-          "direction": "in",
+          "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
           "index": 5,
-          "direction": "in",
+          "direction": "input",
           "name": "timeout ms (25000)",
           "type": "NumInt32"
         },
         {
           "index": 6,
-          "direction": "in",
+          "direction": "input",
           "name": "port",
           "type": "NumUInt16"
         },
         {
           "index": 7,
-          "direction": "in",
+          "direction": "input",
           "name": "service name",
           "type": "String"
         }
