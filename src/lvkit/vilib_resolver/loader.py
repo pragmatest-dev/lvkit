@@ -44,6 +44,9 @@ class _VILibLoaderMixin:
         self._types: dict[str, LVType] = {}  # Indexed by qualified name
         self._variants: dict[str, list[VIEntry]] = {}  # VI name → variants
         self._by_poly_selector: dict[tuple[str, str], VIEntry] = {}  # (base, sel)
+        # True on a fork, which shares its entries until it learns into one.
+        self._shares_entries = False
+        self._owned_entries: set[int] = set()
 
         # Project data wins: load project subdirs first. _load_vilib_data
         # has "only add if not present" semantics, so first-loaded entries

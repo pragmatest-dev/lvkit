@@ -29,7 +29,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_cluster",
-          "default_value": null,
           "description": "input cluster is the cluster whose elements you want to access."
         },
         {
@@ -39,7 +38,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element 0..m-1 is the element of input cluster called name 0..m-1. You can access only elements with owned labels. To select a named element, click a name terminal and select a name from the shortcut menu."
         }
       ]
@@ -61,7 +59,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_cluster",
-          "default_value": null,
           "description": "input cluster is the cluster whose elements you want to replace. At least one element of input cluster must have an owned label. You must always wire the input cluster terminal."
         },
         {
@@ -71,7 +68,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element 0..m-1 are the elements of input cluster you want to replace by name. You only can replace elements with owned labels. Select the correct element 0..m-1 by clicking a name terminal and selecting a name from the shortcut menu."
         },
         {
@@ -81,7 +77,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_cluster",
-          "default_value": null,
           "description": "output cluster is the cluster whose value is the resulting cluster."
         }
       ]
@@ -103,7 +98,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element 0..n-1 inputs must be of the same type as the value wired to the topmost element terminal."
         },
         {
@@ -113,7 +107,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_of_clusters",
-          "default_value": null,
           "description": "array of clusters is the resulting array. Each cluster contains a single element ."
         }
       ]
@@ -135,7 +128,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array of x..z can be a 1D array of any type. Array inputs do not all have to be the same type."
         },
         {
@@ -145,7 +137,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_of_clusters",
-          "default_value": null,
           "description": "array of cluster is a cluster array containing one element from each input array. The number of elements in the output array equals the number of elements in the shortest input array."
         }
       ]
@@ -167,7 +158,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
-          "default_value": null,
           "description": "The cluster components cannot be arrays."
         },
         {
@@ -177,7 +167,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "The elements in array are of the same type as the elements in cluster . The order of the elements in array is the same as the cluster order of the elements."
         }
       ]
@@ -199,7 +188,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array is a one-dimensional array of any type."
         },
         {
@@ -209,7 +197,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "cluster",
-          "default_value": null,
           "description": "Each element in cluster is the same as the corresponding element in array . The cluster order matches the order of the elements in the array ."
         }
       ]
@@ -242,7 +229,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to downcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -252,7 +238,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to downcast."
         },
         {
@@ -262,7 +247,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -272,7 +256,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "specific_class_reference",
-          "default_value": null,
           "description": "specific class reference is the downcast reference. If the target class is incompatible with the reference , the function returns an error and specific class reference is Not A Refnum ."
         },
         {
@@ -282,7 +265,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -304,7 +286,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to upcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -314,7 +295,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to upcast."
         },
         {
@@ -324,7 +304,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "generic_class_reference",
-          "default_value": null,
           "description": "generic class reference is the upcasted reference. If an error occurs, generic class reference is Not A Refnum ."
         }
       ]
@@ -346,7 +325,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_object",
-          "default_value": null,
           "description": "target object —is the object whose class you want to compare to the class of object in ."
         },
         {
@@ -356,7 +334,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_in",
-          "default_value": null,
           "description": "object in —is the object you want LabVIEW to downcast automatically."
         },
         {
@@ -366,7 +343,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -376,7 +352,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_out",
-          "default_value": null,
           "description": "object out —is the same as object in . If the target object is incompatible with object in , the function returns an error and the data value of object out is of the same wire type as target object ."
         },
         {
@@ -386,7 +361,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -408,7 +382,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_path",
-          "default_value": null,
           "description": "class path specifies the path to the LabVIEW class."
         },
         {
@@ -418,7 +391,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "default_value": null,
           "description": "options is a bit set that specifies the behavior of LabVIEW when loading the class into memory. The default is 0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies."
         },
         {
@@ -428,7 +400,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -438,7 +409,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_",
-          "default_value": null,
           "description": "object displays the data of the class wired to the class path input."
         },
         {
@@ -448,7 +418,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -476,7 +445,6 @@
           "index": 11,
           "direction": "in",
           "description": "object specifies the object for which you want to retrieve the path to the owning class.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "object"
         },
@@ -485,7 +453,6 @@
           "index": 8,
           "direction": "in",
           "description": "error in describes error conditions that occur before this node runs.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
@@ -494,7 +461,6 @@
           "index": 3,
           "direction": "out",
           "description": "class path specifies the absolute path to the .lvclass file on disk.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "class_path"
         },
@@ -503,7 +469,6 @@
           "index": 0,
           "direction": "out",
           "description": "error out contains error information.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -526,7 +491,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
-          "default_value": null,
           "description": "class name specifies the name of the class whose data you want to retrieve."
         },
         {
@@ -536,7 +500,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -546,7 +509,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_",
-          "default_value": null,
           "description": "object returns the data of the class you wire to the class name input."
         },
         {
@@ -556,7 +518,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -578,7 +539,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "object_",
-          "default_value": null,
           "description": "object specifies the object for which you want to retrieve the name of the owning class."
         },
         {
@@ -588,7 +548,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -598,7 +557,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_name",
-          "default_value": null,
           "description": "class name returns the class name of object ."
         },
         {
@@ -608,7 +566,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -630,7 +587,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "anything",
-          "default_value": null,
           "description": "anything is any LabVIEW data you want to convert. This parameter is polymorphic."
         },
         {
@@ -640,7 +596,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the resulting variant data."
         }
       ]
@@ -662,7 +617,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_",
-          "default_value": null,
           "description": "type specifies the LabVIEW data type of the data stored in variant . If the data is an integer, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number."
         },
         {
@@ -672,7 +626,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type ."
         },
         {
@@ -682,7 +635,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -692,7 +644,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "data is the variant changed to the data type specified by type . If variant could not be converted to the data type specified, this data returns the default value for the data type."
         },
         {
@@ -702,7 +653,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -724,7 +674,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
-          "default_value": null,
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string if the data type existed in LabVIEW 7.x or earlier."
         },
         {
@@ -734,7 +683,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
-          "default_value": null,
           "description": "data string is the flattened data you want to convert to variant data."
         },
         {
@@ -744,7 +692,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -754,7 +701,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the resulting variant data."
         },
         {
@@ -764,7 +710,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -786,7 +731,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want converted to a string of flattened data."
         },
         {
@@ -796,7 +740,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_string",
-          "default_value": null,
           "description": "type string is an array of numeric integers that identifies the data type of the flattened string."
         },
         {
@@ -806,7 +749,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data_string",
-          "default_value": null,
           "description": "data string is the resulting flattened data you converted from variant data."
         }
       ]
@@ -828,7 +770,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data for which you want to retrieve an attribute(s) and value(s)."
         },
         {
@@ -838,7 +779,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name is the name of the attribute whose value you want to retrieve. Do not wire this parameter if you want to retrieve all the attributes associated with the specified variant. If you wire name , the names output changes to a Boolean output found , the array output values changes to an output called value of the same type as default value , and the function searches for only the specified attribute."
         },
         {
@@ -848,7 +788,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "default_value",
-          "default_value": null,
           "description": "default value is a value and data type that you specify. If the function does not find the attribute specified in name , it returns the default value . If you wire default value , you must wire name ."
         },
         {
@@ -858,7 +797,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -868,7 +806,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "duplicate_variant",
-          "default_value": null,
           "description": "duplicate variant is the variant data you input in variant ."
         },
         {
@@ -878,7 +815,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "names",
-          "default_value": null,
           "description": "names returns a 1D array containing the names of all attributes associated with the variant. LabVIEW sorts this array and arranges the array elements in ascending order using the same algorithm as the Sort 1D Array function. If you wire the name parameter, this output changes to a Boolean value found . found returns TRUE if the function finds the attribute that you specify in name ."
         },
         {
@@ -888,7 +824,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "values",
-          "default_value": null,
           "description": "values returns a 1D array containing the values associated with each attribute of the specified variant in variant format. The values in this array appear in the same order as their corresponding names appear in the names output. You must unflatten each attribute value to an appropriate data type. If you wire name , this output changes to a single variant value . If the function does not find the attribute that you specify in name , it returns the value passed to default value ."
         },
         {
@@ -898,7 +833,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -920,7 +854,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want to create an attribute and value for or replace a value for."
         },
         {
@@ -930,7 +863,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name is the name of the attribute you want to edit or create. If name matches an attribute, this function replaces the attribute with the value specified. If name does not match an attribute, this function creates a new attribute. If name is an empty string, this function returns error code 1 because an empty string triggers a special behavior in the Delete Variant Attribute function."
         },
         {
@@ -940,7 +872,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the value of the attribute. This input is polymorphic, so you can wire any data to it."
         },
         {
@@ -950,7 +881,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -960,7 +890,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant_out",
-          "default_value": null,
           "description": "variant out is the variant data with new attributes."
         },
         {
@@ -970,7 +899,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "replaced",
-          "default_value": null,
           "description": "replaced is TRUE if an attribute and value were replaced."
         },
         {
@@ -980,7 +908,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1002,7 +929,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want to delete an attribute(s) and value(s) in."
         },
         {
@@ -1012,7 +938,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name is the name of the attribute you want to delete. If name matches an attribute, this function deletes the attribute and its value. If name is an empty string, this function deletes all the attributes and associated values in the variant data. The default is an empty string."
         },
         {
@@ -1022,7 +947,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1032,7 +956,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant_out",
-          "default_value": null,
           "description": "variant out is the variant data with the deleted attribute(s)."
         },
         {
@@ -1042,7 +965,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "found",
-          "default_value": null,
           "description": "found is TRUE if the function found the attribute specified in name . If name is unwired, found is TRUE if the function located and deleted attributes and FALSE otherwise."
         },
         {
@@ -1052,7 +974,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]

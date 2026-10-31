@@ -5,9 +5,10 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from lvkit.primitive_resolver import NodeIcon
+from lvkit.terminal_default import TerminalDefault
 
 
-class VITerminal(BaseModel):
+class VITerminal(TerminalDefault):
     """A terminal on a vilib VI."""
 
     name: str = ""
@@ -17,7 +18,6 @@ class VITerminal(BaseModel):
     enum: str | None = None
     enum_values: list[tuple[int, str]] | None = None
     python_param: str | None = None
-    default_value: str | None = None
 
 
 class VIEntry(BaseModel):

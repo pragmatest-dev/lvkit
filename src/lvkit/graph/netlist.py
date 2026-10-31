@@ -119,6 +119,9 @@ from .netlist_models import (
     NetlistConstant as NetlistConstant,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_models import (
+    NetlistControlRead as NetlistControlRead,  # noqa: F401 -- re-exported for external callers
+)
+from .netlist_models import (
     NetlistDependency as NetlistDependency,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_models import (
@@ -126,6 +129,9 @@ from .netlist_models import (
 )
 from .netlist_models import (
     NetlistFrame as NetlistFrame,  # noqa: F401 -- re-exported for external callers
+)
+from .netlist_models import (
+    NetlistIndicatorDrive as NetlistIndicatorDrive,  # noqa: F401 -- re-exported for external callers
 )
 from .netlist_models import (
     NetlistInstance as NetlistInstance,  # noqa: F401 -- re-exported for external callers

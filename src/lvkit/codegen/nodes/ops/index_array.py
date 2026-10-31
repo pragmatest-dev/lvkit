@@ -20,15 +20,18 @@ from __future__ import annotations
 import ast
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.index_array_plan import IndexUse, plan_index_array
 from lvkit.graph.models import PrimitiveNode
-from lvkit.models import LVTypeKind
+from lvkit.graph.unwired_default import unwired_behavior
+from lvkit.models import LVTypeKind, Terminal
 from lvkit.primitive_resolver import ResolvedPrimitive
+from lvkit.terminal_default import DefaultBehavior
 
 from ...ast_utils import build_assign, default_value_expr, parse_expr
 from ...context import CodeGenContext
 from ...errors import CodeGenError
 from ...fragment import CodeFragment
-from ...native_array import guarded_index
+from ...native_array import dimension_sizes, guarded_index
 from ..terminal_roles import laid_out_roles
 from . import register_op, register_op_fragment
 
@@ -51,9 +54,10 @@ def generate_1d_index_array(
         or array.direction != "input"
         or array.lv_type is None
         or array.lv_type.kind != LVTypeKind.ARRAY
-        or array.lv_type.dimensions != 1
     ):
         return None
+    if (array.lv_type.dimensions or 1) > 1:
+        return _generate_nd_index_array(node, ctx, array)
     # Roles come from the entry's layout for this node's array type: after the
     # array, one set per element output, each with its index input.
     try:
@@ -91,7 +95,10 @@ def generate_1d_index_array(
         if expr is None:
             if ctx.is_wired(index.id):
                 raise CodeGenError("Unresolved wired 1D Index Array index", node)
-            expr = "0" if previous_index is None else f"{previous_index} + 1"
+            follows_previous = (
+                unwired_behavior(node, index) == DefaultBehavior.NEXT_INDEX
+            )
+            expr = f"{previous_index} + 1" if follows_previous else "0"
         index_var = ctx.make_output_var(f"array_index_{position}", node.id)
         statements.append(build_assign(index_var, parse_expr(expr)))
         previous_index = index_var
@@ -114,6 +121,78 @@ def generate_1d_index_array(
         )
         bindings[output.id] = variable
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _generate_nd_index_array(
+    node: PrimitiveNode, ctx: CodeGenContext, array: Terminal
+) -> CodeFragment:
+    """Index Array on an array of several dimensions, one set of terminals.
+
+    The plan (``graph.index_array_plan``) says how each index is used: a wired
+    index picks its position, an unwired one that the output's rank says is indexed
+    picks 0, and the rest of the dimensions are taken whole. An index outside its
+    dimension gives an empty array when what is selected is still an array, else
+    the element default. Several output sets are not converted.
+    """
+    assert array.lv_type is not None and array.lv_type.element_type is not None
+    plan = plan_index_array(
+        node.terminals, lambda t: ctx.is_wired(t.id) or ctx.resolve(t.id) is not None
+    )
+    if plan is None:
+        raise ConversionGap(
+            "Index Array of a multi-dimensional array whose output type does not "
+            "match its indexes is not converted",
+            node,
+        )
+    rank = plan.rank
+    if not ctx.is_wired(plan.output.id):
+        return CodeFragment.empty()
+    array_expr = ctx.resolve(array.id)
+    if array_expr is None and ctx.is_wired(array.id):
+        raise CodeGenError("Unresolved wired Index Array input", node)
+    source = array_expr if array_expr is not None else "[]"
+    picks: list[str | None] = []
+    for index, use in zip(plan.indices, plan.uses):
+        if use == IndexUse.WIRED:
+            text = ctx.resolve(index.id)
+            if text is None:
+                raise CodeGenError("Unresolved wired Index Array index", node)
+            picks.append(text)
+        else:
+            picks.append("0" if use == IndexUse.ZERO else None)
+    picks.extend([None] * (rank - len(picks)))
+    sizes = dimension_sizes(source, rank)
+    guards = [
+        f"0 <= {pick} < {sizes[depth]}"
+        for depth, pick in enumerate(picks)
+        if pick is not None
+    ]
+    still_array = (plan.output.lv_type is not None) and (
+        plan.output.lv_type.kind == LVTypeKind.ARRAY
+    )
+    default = (
+        "[]"
+        if still_array
+        else ast.unparse(default_value_expr(array.lv_type.element_type))
+    )
+
+    def select(held: str, depth: int) -> str:
+        if depth == rank or all(p is None for p in picks[depth:]):
+            return held
+        pick = picks[depth]
+        if pick is None:
+            row = f"_row{depth}"
+            return f"[{select(row, depth + 1)} for {row} in {held}]"
+        return select(f"{held}[{pick}]", depth + 1)
+
+    expression = select(source, 0)
+    if guards:
+        expression = f"({expression} if {' and '.join(guards)} else {default})"
+    variable = ctx.make_output_var("element", node.id, terminal_id=plan.output.id)
+    return CodeFragment(
+        statements=[build_assign(variable, parse_expr(expression))],
+        bindings={plan.output.id: variable},
+    )
 
 
 @register_op("INDEX_ARRAY")

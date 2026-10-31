@@ -1,18 +1,16 @@
 """Delete From Array (node class ``aDelete``).
 
 The "deleted portion" output is polymorphic: deleting a single element (``length``
-unwired) yields that ELEMENT as a scalar, while deleting a run (``length`` wired)
-yields a SUBARRAY. The static template always sliced ``array[index:index+length]``,
-so a single-element delete produced a 1-element list — which an auto-indexing
-loop tunnel then accumulated into a 2-D array instead of a flat one. Branch on
-the resolved output type instead.
+unwired) yields that ELEMENT as a scalar, so an auto-indexing loop tunnel
+accumulates a flat array; deleting a run (``length`` wired) yields a SUBARRAY. The
+output type the node resolves to decides which.
 
 Terminals (from the node_types entry):
   out index 0 = deleted portion
   in  index 1 = array
-  in  index 2 = length (default 1)
+  in  index 2 = length (unwired: one element)
   out index 3 = output array
-  in  index 4 = index (default -1)
+  in  index 4 = index (unwired: the last ``length`` elements)
 """
 
 from __future__ import annotations
@@ -22,10 +20,11 @@ import ast
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVTypeKind
 from lvkit.primitive_resolver import ResolvedPrimitive
+from lvkit.terminal_default import DefaultBehavior
 
 from ...ast_utils import default_value_expr
 from ...native_array import guarded_index
-from . import register_op
+from . import register_op, register_op_behaviors
 
 
 @register_op("DELETE_FROM_ARRAY")
@@ -53,3 +52,15 @@ def delete_from_array(
         "deleted portion": deleted_expr,
         "output array": "array[:index] + array[index + length:]",
     }
+
+
+# Unwired, ``length`` deletes one element and ``index`` starts ``length`` elements
+# from the end of the array (``in_1``), at least at the first element: the last
+# ``length`` elements go, all of them when ``length`` exceeds the array.
+register_op_behaviors(
+    "DELETE_FROM_ARRAY",
+    {
+        DefaultBehavior.ONE_ELEMENT: "1",
+        DefaultBehavior.LAST_ELEMENT: "max(len(in_1) - in_2, 0)",
+    },
+)

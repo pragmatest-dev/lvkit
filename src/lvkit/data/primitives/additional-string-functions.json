@@ -243,7 +243,8 @@
           "index": 4,
           "direction": "in",
           "name": "search_string_char",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 5,

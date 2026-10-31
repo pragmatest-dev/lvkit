@@ -15,6 +15,7 @@ from ..models import (
     EventFrame,
     LVType,
     PaneSlot,
+    ServerClass,
     Tunnel,
     UnwritableValue,
 )
@@ -47,7 +48,7 @@ class ParsedType:
     typedef_name: str | None = None  # Qualified: "sysdir.llb:Type.ctl"
     typedef_file: str | None = None  # The typedef's own file: "Type.ctl"
     ref_type: str | None = None  # "UDClassInst", "Queue", etc.
-    server_class: str | None = None  # a generic reference's VI Server class
+    server_class: ServerClass | None = None  # a generic reference's VI Server class
     classname: str | None = None  # "Lib.lvlib:TestCase.lvclass"
     class_file: str | None = None  # The class's own file: "TestCase.lvclass"
     fields: list[ClusterField] | None = None  # Recursive cluster fields
@@ -138,6 +139,8 @@ class ParsedTerminalInfo:
     parsed_type: ParsedType | None = None  # Type info from same VI's XML
     name: str | None = None  # Terminal name (from FP, primitive ref, or SubVI)
     inverted: bool = False  # DCO objFlags bit 16: "Not" applied to this terminal
+    # Index Array: DCO objFlags bit 16 on an index terminal, indexing disabled.
+    indexing_disabled: bool = False
     # The uid of the DCO this terminal's ``<dco>`` element names. Terminals
     # that name the same DCO are one value (an In Place Element structure's
     # In/Out Element port and its border node's cluster/array/index terminal).

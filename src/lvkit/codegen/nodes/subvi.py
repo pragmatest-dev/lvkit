@@ -15,6 +15,7 @@ from lvkit.vilib_resolver import (
     ResolutionContext,
     VIEntry,
     VILibResolutionNeeded,
+    VILibResolver,
     derive_python_location,
     get_resolver,
 )
@@ -26,11 +27,13 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..callee_names import CalleeNames, callee_names
-from ..context import CodeGenContext
+from ..context import CodeGenContext, terminal_default_expression
 from ..error_path import ERROR_WIRE_VI_NAMES
+from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from . import error_vi
+from .template_inputs import template_reads
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -53,7 +56,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     # Look up VI — polymorphic variant if selected, otherwise base name
     vilib_vi = None
     if node.poly_variant_name:
-        vilib_vi = _resolve_poly_variant(subvi_name, node)
+        vilib_vi = _resolve_poly_variant(subvi_name, node, ctx)
         if not vilib_vi:
             # Variant not in JSON — fail or emit inline raise
             _raise_vilib_resolution(node, ctx, vilib_vi=None)
@@ -164,9 +167,10 @@ def _generate_inline(
     for vt in vilib_vi.terminals:
         if vt.direction == "in":
             param_key = vt.python_param or to_var_name(vt.name)
-            default = getattr(vt, "default_value", None)
-            if default is not None:
-                vilib_defaults[param_key] = default
+            if vt.default is not None:
+                vilib_defaults[param_key] = terminal_default_expression(
+                    vt.default, vt.type
+                )
 
     # Substitute input placeholders with wired values
     for term in ctx.enriched_terminals(node):
@@ -180,8 +184,16 @@ def _generate_inline(
         if term_index in vilib_inputs:
             param_key = vilib_inputs[term_index]
             placeholder = "{" + param_key + "}"
-            fallback = vilib_defaults.get(param_key, "None")
-            template = template.replace(placeholder, value or fallback)
+            if not value and template_reads(template, placeholder):
+                if term.is_error_cluster:
+                    value = "None"
+                elif param_key in vilib_defaults:
+                    value = vilib_defaults[param_key]
+                else:
+                    raise UnknownDefault(
+                        vilib_vi.name, term.name or param_key, node
+                    )
+            template = template.replace(placeholder, value or "None")
 
     # Substitute any remaining unresolved input placeholders with defaults
     for param_key, default in vilib_defaults.items():
@@ -274,7 +286,15 @@ def _generate_inline(
     )
 
 
-def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
+def _vilib_resolver(ctx: CodeGenContext | None) -> VILibResolver:
+    """The vi.lib resolver this run reads: its own copy once it has learned, else
+    the shared catalog."""
+    return ctx.learned_vilib[0] if ctx and ctx.learned_vilib else get_resolver()
+
+
+def _resolve_poly_variant(
+    base_name: str, node: VINode, ctx: CodeGenContext | None = None
+) -> VIEntry | None:
     """Resolve a polymorphic VI to its specific variant.
 
     Uses poly_variant_name (edit-time selection extracted from the VI's
@@ -284,7 +304,7 @@ def _resolve_poly_variant(base_name: str, node: VINode) -> VIEntry | None:
     variant = node.poly_variant_name
     if not variant:
         return None
-    return get_resolver().resolve_poly_variant(base_name, variant)
+    return _vilib_resolver(ctx).resolve_poly_variant(base_name, variant)
 
 
 def _get_vilib_vi(
@@ -296,7 +316,7 @@ def _get_vilib_vi(
     with context to help resolve the indices.
     """
     try:
-        resolver = get_resolver()
+        resolver = _vilib_resolver(ctx)
 
         # For polymorphic calls, resolve to the actual variant.
         # If variant not found, fail — don't silently use the wrapper.
@@ -338,12 +358,15 @@ def _get_vilib_vi(
                 else []
             )
 
-            if wired_node_terminals:
-                # Auto-update terminals
-                vi = resolver.auto_update_terminals(
+            if wired_node_terminals and ctx is not None:
+                # Learn the observed terminals into this run's own copy of the
+                # catalog.
+                if not ctx.learned_vilib:
+                    ctx.learned_vilib.append(get_resolver().fork())
+                vi = ctx.learned_vilib[0].auto_update_terminals(
                     vi_name=subvi_name,
                     wired_terminals=wired_node_terminals,
-                    caller_vi=ctx.vi_name if ctx else None,
+                    caller_vi=ctx.vi_name,
                 )
                 # Successfully updated - continue with updated VI
 
@@ -482,7 +505,7 @@ def _resolve_enum_value(
         return value
 
     # Get the LVType from vilib resolver
-    resolver = get_resolver()
+    resolver = _vilib_resolver(ctx)
     lv_type = resolver.resolve_type(vilib_term.type)
 
     if not lv_type or lv_type.kind != LVTypeKind.ENUM or not lv_type.values:

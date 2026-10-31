@@ -14,7 +14,7 @@
           "direction": "in",
           "name": "dot_notation",
           "type": "Boolean",
-          "default_value": "False"
+          "default": false
         },
         {
           "index": 2,

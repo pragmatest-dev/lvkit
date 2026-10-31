@@ -244,9 +244,9 @@ def test_lvnet_verbose(tmp_path: Path) -> None:
         "      out  net_address : String\n"
         "    function lib.dll:DoWork_20 : lib.dll:DoWork\n"
         "      in   path in             : Path   default\n"
-        "      in   error in (no error) : I32    default 0\n"
+        "      in   error in (no error) : I32    default\n"
         "      in   name                : String = String_To_IP_10::net_address\n"
-        "      in   retries             : I32    default 0\n"
+        "      in   retries             : I32    default\n"
         "      out  path out            : Path\n"
         "      out  error out           : I32\n"
         "      out  return value        : I32\n"
@@ -263,7 +263,7 @@ def test_generate_names_the_node(tmp_path: Path) -> None:
     source = build_module(
         graph.get_vi_context(vi_name), vi_name, graph=graph, gaps=gaps
     )
-    (gap,) = gaps
+    (gap,) = (g for g in gaps if g.kind == "unsupported_node")
     assert "raise NotImplementedError('Call Library Function Node lib.dll:DoWork" in (
         source
     )
@@ -323,7 +323,8 @@ def test_unresolved_report_names_the_node(tmp_path: Path) -> None:
     graph, vi_name = _load(tmp_path)
     gaps: list[Gap] = []
     build_module(graph.get_vi_context(vi_name), vi_name, graph=graph, gaps=gaps)
-    kind, identifier, name = _item_key(gaps[0])
+    (node_gap,) = (g for g in gaps if g.kind == "unsupported_node")
+    kind, identifier, name = _item_key(node_gap)
     report = format_unresolved_report(
         [UnresolvedItem(kind, identifier, name, ["Clfn.vi"], 1)], "Clfn.vi"
     )
@@ -331,7 +332,8 @@ def test_unresolved_report_names_the_node(tmp_path: Path) -> None:
         "# Gaps in Clfn.vi\n\n"
         "1 distinct gap(s): 0 unknown primitive(s), 0 placeholder primitive(s), "
         "1 node(s) that cannot be converted, 0 unmapped vi.lib VI(s), "
-        "0 terminal-mapping gap(s), 0 VI(s) not found, "
+        "0 terminal-mapping gap(s), 0 input(s) whose default is not known, "
+        "0 VI(s) not found, "
         "0 VI(s) or module(s) that cannot be converted."
         "\n\n"
         "## Nodes that cannot be converted\n"

@@ -15,7 +15,7 @@ from lvkit.lv_type_codes import (
 from lvkit.models import CaseFrame, LVTypeKind, SelectorRange, Tunnel
 from lvkit.text_encoding import decode_labview_text
 
-from ..constants import TERMINAL_CLASS
+from ..constants import TERMINAL_CLASS, TUNNEL_CLASS_CASE_SEL
 from ..models import (
     ParsedCaseStructure,
     ParsedTerminalInfo,
@@ -35,7 +35,7 @@ from .disable import is_structure_boundary
 CASE_TUNNEL_CLASSES = ("csTun",)  # Case structure tunnel
 
 # Selector DCO classes
-SELECTOR_DCO_CLASSES = ("cSelDCO", "caseSel")
+SELECTOR_DCO_CLASSES = ("cSelDCO", TUNNEL_CLASS_CASE_SEL)
 
 # All tunnel DCO classes
 ALL_TUNNEL_CLASSES = ("csTun", "selTun", "commentTun")
@@ -265,7 +265,7 @@ def _extract_one_case_structure(
     # caseSel termList: [...inner_per_frame..., outer_structural]
     # IMPORTANT: use _find_own_descendants to avoid picking up caseSel
     # elements from nested case structures.
-    for case_sel in _find_own_descendants(case_elem, "caseSel"):
+    for case_sel in _find_own_descendants(case_elem, TUNNEL_CLASS_CASE_SEL):
         cs_tl = case_sel.find("termList")
         if cs_tl is not None:
             term_refs: list[str] = [
@@ -278,7 +278,7 @@ def _extract_one_case_structure(
                         Tunnel(
                             outer_terminal_uid=outer_uid,
                             inner_terminal_uid=inner_uid,
-                            tunnel_type="caseSel",
+                            tunnel_type=TUNNEL_CLASS_CASE_SEL,
                         )
                     )
 

@@ -10,7 +10,6 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -132,6 +131,8 @@ def _restore_resolver() -> Iterator[None]:
 def test_learned_terminal_is_used_and_nothing_is_written(
     read_only_catalog: Path,
 ) -> None:
+    """The generated code uses the terminal learned from the call; the shared
+    catalog keeps its entry and nothing is written to disk."""
     before = _tree_digest(read_only_catalog)
     wired = Terminal(id="t:path", index=4, direction="input", name="Path")
     resolver = VILibResolver(data_dir=read_only_catalog)
@@ -139,10 +140,9 @@ def test_learned_terminal_is_used_and_nothing_is_written(
     source = _generate(resolver, wired, "a.txt")
 
     assert "file_path='a.txt'" in source
-    learned = resolver.resolve_by_name("Learn Me.vi")
-    assert learned is not None
-    assert [t.index for t in learned.terminals] == [4, 1]
-    assert learned.terminals[0].direction == "in"
+    kept = resolver.resolve_by_name("Learn Me.vi")
+    assert kept is not None
+    assert [t.index for t in kept.terminals] == [None, 1]
     assert _tree_digest(read_only_catalog) == before
 
 
@@ -220,46 +220,34 @@ def test_bundled_catalog_is_untouched_by_generation() -> None:
     assert _tree_digest(bundled) == before
 
 
-def test_a_generation_run_does_not_teach_the_next_load() -> None:
-    name = "High Resolution Relative Seconds.vi"
-    wired = Terminal(id="t:out", index=0, direction="output", name="relative seconds")
+def test_a_fork_learns_privately(read_only_catalog: Path) -> None:
+    """Generating code learns terminals into the run's own copy: the catalog every
+    view reads keeps its entry."""
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
 
-    @vilib_resolver.learns_in_own_scope
-    def run() -> int | None:
-        vilib_resolver.get_resolver().auto_update_terminals(name, [wired])
-        learned = vilib_resolver.get_resolver().resolve_by_name(name)
-        assert learned is not None
-        return learned.terminals[0].index
+    fork.auto_update_terminals("Learn Me.vi", [wired])
 
-    assert run() == 0
-    after = vilib_resolver.get_resolver().resolve_by_name(name)
-    assert after is not None
-    assert after.terminals[0].index is None
+    learned = fork.resolve_by_name("Learn Me.vi")
+    kept = shared.resolve_by_name("Learn Me.vi")
+    assert learned is not None and kept is not None
+    assert learned.terminals[0].index == 4
+    assert kept.terminals[0].index is None
 
 
-def test_a_generation_run_is_invisible_to_a_concurrent_thread() -> None:
-    name = "High Resolution Relative Seconds.vi"
-    wired = Terminal(id="t:out", index=0, direction="output", name="relative seconds")
-    taught = threading.Event()
-    seen = threading.Event()
-    other: list[int | None] = []
+def test_a_fork_copies_only_the_entry_it_learns_into(
+    read_only_catalog: Path,
+) -> None:
+    """Every entry the fork has not learned into is the very object the shared
+    catalog holds."""
+    shared = VILibResolver(data_dir=read_only_catalog)
+    fork = shared.fork()
+    wired = Terminal(id="t:path", index=4, direction="input", name="Path")
 
-    @vilib_resolver.learns_in_own_scope
-    def run() -> None:
-        vilib_resolver.get_resolver().auto_update_terminals(name, [wired])
-        taught.set()
-        assert seen.wait(timeout=30)
+    assert fork.resolve_by_name("Learn Me.vi") is shared.resolve_by_name("Learn Me.vi")
+    fork.auto_update_terminals("Learn Me.vi", [wired])
 
-    def read() -> None:
-        assert taught.wait(timeout=30)
-        entry = vilib_resolver.get_resolver().resolve_by_name(name)
-        assert entry is not None
-        other.append(entry.terminals[0].index)
-        seen.set()
-
-    reader = threading.Thread(target=read)
-    reader.start()
-    run()
-    reader.join()
-
-    assert other == [None]
+    assert fork.resolve_by_name("Learn Me.vi") is not shared.resolve_by_name(
+        "Learn Me.vi"
+    )

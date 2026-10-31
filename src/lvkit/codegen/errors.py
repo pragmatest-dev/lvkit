@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.primitive_resolver import TerminalResolutionNeeded
 
 if TYPE_CHECKING:
     from lvkit.graph.models import AnyGraphNode
     from lvkit.models import UnwritableValue
+    from lvkit.terminal_default import DefaultBehavior
 
 
 class CodeGenError(Exception):
@@ -77,3 +79,52 @@ class MissingVIError(ConversionGap):
             lines.append("  Terminals the call wires:")
             lines.extend(f"    - {line}" for line in self.call_terminals)
         return "\n".join(lines)
+
+
+class UnknownDefault(ConversionGap):
+    """An input the function's code reads is not wired, and the catalog does not
+    know what the input holds then: it has neither a documented value nor a
+    documented behaviour this generator writes."""
+
+    def __init__(
+        self,
+        function: str,
+        terminal: str,
+        node: AnyGraphNode | None = None,
+        behavior: DefaultBehavior | None = None,
+    ):
+        self.function = function
+        self.terminal = terminal
+        if behavior is None:
+            known = "its default is not known"
+        else:
+            known = f"its default ({behavior.value}) is not written for this function"
+        super().__init__(
+            f"The input '{terminal}' of {function} is not wired and {known}", node
+        )
+
+
+class TerminalNotOnCall(TerminalResolutionNeeded):
+    """The function's code reads an input the call does not have: the catalog
+    numbers the function's terminals differently from the call."""
+
+    def __init__(
+        self,
+        prim_id: str | int,
+        function: str,
+        terminal: str,
+        terminal_type: str | None,
+        node: AnyGraphNode | None = None,
+    ):
+        self.terminal = terminal
+        super().__init__(prim_id, function, "input", terminal_type, [])
+        self.node = node
+        self.node_id = node.id if node else None
+        self.node_name = node.name if node else None
+
+    def summary(self) -> str:
+        return (
+            f"The input '{self.terminal}' of {self.prim_name} is not on this call: "
+            "the catalog numbers the terminals of this function differently from "
+            "the call"
+        )

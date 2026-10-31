@@ -128,15 +128,15 @@ def test_a_chosen_numbering_renumbers_terminals_and_code_placeholders() -> None:
         (9, "in", "type"),
         (11, "out", "data"),
     ]
-    assert new.python_code == {"error out": "in_0", "data": "in_8"}
+    assert new.python_code == {"error_out": "in_0", "data": "in_8"}
     assert [(t.index, t.direction, t.name, t.type) for t in old.terminals] == [
-        (0, "in", "error in", "cluster"),
+        (0, "in", "error in", "ErrorCluster"),
         (1, "out", "error out", "cluster"),
         (2, "in", "variant", "polymorphic"),
         (3, "in", "type", "polymorphic"),
         (4, "out", "data", "polymorphic"),
     ]
-    assert old.python_code == {"error out": "in_0", "data": "in_2"}
+    assert old.python_code == {"error_out": "in_0", "data": "in_2"}
     assert new.terminal_set_gap is None and old.terminal_set_gap is None
 
 

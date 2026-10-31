@@ -73,7 +73,8 @@ def _extract_one_sequence(
     if frame_container is None:
         return None
 
-    # Also extract tunnels from the sequence's own termList
+    # Also extract tunnels from the sequence's own termList (a Stacked Sequence's
+    # tunnel has one inner face per frame, in frame order)
     _extract_tunnels_from_termlist(seq_elem, all_tunnels)
 
     for i, frame_elem in enumerate(
@@ -84,7 +85,7 @@ def _extract_one_sequence(
             continue
 
         # Extract tunnels from frame's termList
-        _extract_tunnels_from_termlist(frame_elem, all_tunnels)
+        _extract_tunnels_from_termlist(frame_elem, all_tunnels, frame_position=i)
 
         # Find inner nodes from the frame's diagram
         inner_node_uids = _extract_inner_node_uids(frame_elem)
@@ -138,8 +139,11 @@ def _extract_sequence_locals(seq_elem: ET.Element) -> list[SequenceLocal]:
 def _extract_tunnels_from_termlist(
     elem: ET.Element,
     tunnels: list[Tunnel],
+    frame_position: int | None = None,
 ) -> None:
-    """Extract tunnel mappings from an element's termList."""
+    """Extract tunnel mappings from an element's termList. Tunnels read from a
+    frame's own termList sit in that frame (``frame_position``); those of the
+    sequence's own termList have one inner face per frame."""
     term_list_elem = elem.find("termList")
     if term_list_elem is None:
         return
@@ -151,7 +155,15 @@ def _extract_tunnels_from_termlist(
         if dco is not None:
             dco_class = dco.get("class", "")
             if dco_class in TUNNEL_DCO_CLASSES:
-                tunnels.extend(extract_tunnel_mapping(dco, dco_class))
+                mapped = extract_tunnel_mapping(
+                    dco, dco_class, per_frame=frame_position is None
+                )
+                if frame_position is not None:
+                    mapped = [
+                        t.model_copy(update={"frame_position": frame_position})
+                        for t in mapped
+                    ]
+                tunnels.extend(mapped)
 
 
 def _frame_bg_color(frame_elem: ET.Element) -> str | None:

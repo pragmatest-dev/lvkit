@@ -75,7 +75,7 @@ vi loadTestsFromTestCase.vi :
           subVI TestCase_Init_772 : TestCase.lvclass:TestCase_Init.vi
             in   TestCase in            : TestCase.lvclass = listAllTestMethods_359::TestCase out
             in   methodName ("runTest") : String           = listAllTestMethods_359::test methods
-            in   GUID ("")              : String           default ""
+            in   GUID ("")              : String           default
             in   error in (no error)    : Error            = loop_879::shift0
             out  TestCase out           : TestCase.lvclass
             out  error out              : Error
@@ -87,7 +87,7 @@ vi loadTestsFromTestCase.vi :
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
           in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
-          in   GUID ("")                       : String            default ""
+          in   GUID ("")                       : String            default
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
           out  error out                       : Error
@@ -486,10 +486,16 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
                     assert stripped.endswith(":"), (
                         f"feedback-node header must open a block: {stripped!r}"
                     )
-                    assert next_line.startswith("init ="), (
-                        f"feedback-node must be followed by its init line, "
-                        f"got {next_line!r}"
-                    )
+                    if "uninitialized" in stripped:
+                        assert not next_line.startswith("init ="), (
+                            f"an uninitialized feedback-node has no init line, "
+                            f"got {next_line!r}"
+                        )
+                    else:
+                        assert next_line.startswith("init ="), (
+                            f"feedback-node must be followed by its init line, "
+                            f"got {next_line!r}"
+                        )
                 else:
                     assert " : " in stripped, (
                         f"{kw!r} header missing its more-specific-type: {stripped!r}"
@@ -556,11 +562,36 @@ def test_property_and_invoke_nodes_render_handle_and_component_no_todo() -> None
 
 
 @pytest.mark.needs_samples
+def test_generating_code_does_not_change_what_lvnet_shows() -> None:
+    """Code generation learns the terminals of the vi.lib VIs it calls into its own
+    copy of the catalog, so the lvnet of the same VI is the same before and after."""
+    from lvkit.codegen.builder import build_module
+
+    if not _FEEDBACK_VI.exists():
+        pytest.skip("lv-flex-channel-examples sample corpus not present")
+
+    def render() -> tuple[str, object, str]:
+        graph, vi_name = load_vi_by_path(
+            _FEEDBACK_VI,
+            LoadMode.MINIMAL,
+            search_path=[str(_FEEDBACK_SEARCH_ROOT)],
+            layout=False,
+        )
+        return render_lvnet(build_netlist_from_graph(graph, vi_name)), graph, vi_name
+
+    before, graph, vi_name = render()
+    build_module(graph.get_vi_context(vi_name), "WaveGen.vi", graph=graph)
+    after, _, _ = render()
+    assert after == before
+
+
+@pytest.mark.needs_samples
 def test_feedback_node_renders_handle_component_init_each() -> None:
     """A real split Feedback Node (1-iteration): renders
     `feedback-node <net> (<N> iteration[s]) :` (a state register -- no
     more-specific-type; the count is a parenthetical attribute; the handle IS
-    its own `fbK` net, §7), then `init =`/`each =` -- never a TODO."""
+    its own `fbK` net, §7), then `each =` (this node's initializer is unwired,
+    so it is `uninitialized` and has no `init =`) -- never a TODO."""
     if not _FEEDBACK_VI.exists():
         pytest.skip("lv-flex-channel-examples sample corpus not present")
     graph, vi_name = load_vi_by_path(
@@ -577,9 +608,8 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     idx = next(
         i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node ")
     )
-    assert lines[idx].strip() == "feedback-node fb0 (1 iteration) :"
-    assert lines[idx + 1].strip() == "init = 0.0"
-    assert lines[idx + 2].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
+    assert lines[idx].strip() == "feedback-node fb0 (1 iteration, uninitialized) :"
+    assert lines[idx + 1].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
 
 
 @pytest.mark.needs_samples
@@ -609,10 +639,10 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
 
     stripped_lines = [ln.strip() for ln in text.splitlines()]
     for expected in (
-        'local-variable Running_1974 : write = "False"',
-        'local-variable Running_1728 : write = "False"',
-        'local-variable Running_2013 : write = "False"',
-        'local-variable Running_2003 : write = "False"',
+        "local-variable Running_1974 : write = False",
+        "local-variable Running_1728 : write = False",
+        "local-variable Running_2013 : write = False",
+        "local-variable Running_2003 : write = False",
         "local-variable Running_1480 : read",
         "local-variable Gen_Params_1109 : read",
         "local-variable Running_1402 : read",
@@ -665,7 +695,7 @@ def test_anonymous_cluster_spells_field_types_inline_and_recovers_named() -> Non
     # ...and that named enum is recovered into the `types :` footnote (it is
     # reachable ONLY through the anonymous cluster's field), so it round-trips.
     assert any(
-        ln.strip().startswith("lveventtype = Enum{") for ln in text.splitlines()
+        ln.strip().startswith("lveventtype = enum{") for ln in text.splitlines()
     ), f"`lveventtype` should appear as a `types :` footnote entry:\n{text}"
 
 

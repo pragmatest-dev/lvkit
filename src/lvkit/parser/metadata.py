@@ -513,6 +513,12 @@ def _decode_pth0_components(
     return tokens, idx
 
 
+def pth0_path_type(data: bytes | memoryview, pth0_offset: int) -> int:
+    """The path type a ``PTH0`` record saves (bytes 8-9 after the tag offset):
+    0 absolute, 1 relative, 2 Not a Path."""
+    return int.from_bytes(data[pth0_offset + 8 : pth0_offset + 10], "big")
+
+
 def parse_instance_files(root: ET.Element) -> list[str]:
     """The sidecar file of each ``VINS`` section of a VI's main XML, in section
     order (empty when the VI has no ``VINS`` block)."""

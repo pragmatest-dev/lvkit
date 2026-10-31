@@ -15,11 +15,7 @@ This module is the facade: every name previously importable from the flat
 
 from __future__ import annotations
 
-import contextvars
-import functools
-from collections.abc import Callable
 from pathlib import Path
-from typing import ParamSpec, TypeVar
 
 from .exceptions import ResolutionContext, VILibResolutionNeeded
 from .models import VIEntry, VITerminal
@@ -35,25 +31,16 @@ __all__ = [
     "derive_python_location",
     "derive_python_name",
     "get_resolver",
-    "learns_in_own_scope",
     "reset_resolver",
 ]
 
 # Module-level singleton
 _resolver: VILibResolver | None = None
 
-# The resolver of the generation run the current context is inside, if any.
-_run_resolver: contextvars.ContextVar[VILibResolver | None] = contextvars.ContextVar(
-    "lvkit_run_vilib_resolver", default=None
-)
-
 
 def get_resolver() -> VILibResolver:
     """Get the global VILibResolver instance."""
     global _resolver
-    scoped = _run_resolver.get()
-    if scoped is not None:
-        return scoped
     if _resolver is None:
         _resolver = VILibResolver()
     return _resolver
@@ -75,31 +62,3 @@ def reset_resolver(project_data_dir: Path | None = None) -> None:
         _resolver = None
     else:
         _resolver = VILibResolver(project_data_dir=project_data_dir)
-
-
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-
-
-def learns_in_own_scope(func: Callable[_P, _R]) -> Callable[_P, _R]:
-    """Run ``func`` with a fresh resolver for the same project store.
-
-    Generation learns terminals from the VIs it reads (see
-    ``VILibResolver.auto_update_terminals``). That knowledge belongs to one run:
-    inside the decorated call ``get_resolver()`` returns a resolver of its own,
-    visible only to that call's context (and threads started from it with a
-    copied context), so a concurrent or later load, render or MCP call never
-    sees what this run learned.
-    """
-
-    @functools.wraps(func)
-    def scoped(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        token = _run_resolver.set(
-            VILibResolver(project_data_dir=get_resolver().project_data_dir)
-        )
-        try:
-            return func(*args, **kwargs)
-        finally:
-            _run_resolver.reset(token)
-
-    return scoped

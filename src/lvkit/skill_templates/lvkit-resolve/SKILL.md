@@ -46,6 +46,11 @@ A terminal-mapping gap is reported for a KNOWN primitive whose actual wired
 terminal index doesn't match the stored mapping — same workflow, smaller
 fix (correct the terminal `index`, don't re-identify the function).
 
+An `unknown_default` gap is a different fact: an input the function's code uses
+is unwired, and the catalog terminal has neither a `default` (the value NI
+documents) nor a `default_behavior` (a documented behavior that is no value).
+The fix is on that catalog terminal, read from NI's public page for the function.
+
 ### 1. Record the diagnostic
 
 `lvkit unresolved` reports the primitive's FULL connector pane — every terminal,

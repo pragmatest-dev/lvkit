@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from lvkit.terminal_default import TerminalDefault
 
-class PrimitiveTerminal(BaseModel):
+
+class PrimitiveTerminal(TerminalDefault):
     """A terminal on a primitive.
 
     Note: direction uses "in"/"out" (from JSON data), while
@@ -18,7 +20,6 @@ class PrimitiveTerminal(BaseModel):
     # LabVIEW type: "numeric", "string", "boolean", "array",
     # "cluster", "path", "refnum", "variant", "polymorphic"
     type: str | None = None
-    default_value: str | None = None
     expandable: bool = False  # True if this terminal can be resized (N instances)
     # Index of the array terminal whose dimension count sets how many
     # consecutive terminals this slot occupies (one per dimension).

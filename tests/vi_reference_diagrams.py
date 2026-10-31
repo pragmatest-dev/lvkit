@@ -8,7 +8,14 @@ from pathlib import Path
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import ConstantNode, VINode, WireEnd
-from lvkit.models import FPTerminal, LVType, LVTypeKind, PaneSlot, Terminal
+from lvkit.models import (
+    FPTerminal,
+    LVType,
+    LVTypeKind,
+    PaneSlot,
+    ServerClass,
+    Terminal,
+)
 
 CALLEE_FILE = "Callee_BDHb.xml"
 CALLEE_NAME = "Callee.vi"
@@ -39,17 +46,23 @@ def static_vi_reference(uid: int, vi_name: str) -> str:
     )
 
 
-def this_vi(uid: int) -> str:
-    """The "This VI" constant. Terminal ``uid + 1``; type it with
-    ``this_vi_type``."""
+def reference_constant(uid: int, text: str) -> str:
+    """A Control Reference constant labelled ``text``. Terminal ``uid + 1``; type
+    it with ``this_vi_type`` or ``application_type``."""
     return (
         f'<SL__arrayElement class="ctlRefConst" uid="{uid}">'
         '<termList elements="1">'
         f'<SL__arrayElement class="term" uid="{uid + 1}"><objFlags>4096</objFlags>'
         f'<dco class="ctlRefDCO" uid="{uid + 2}"><objFlags>1</objFlags></dco>'
         "</SL__arrayElement></termList>"
-        f"{label(uid + 3, 'This VI')}</SL__arrayElement>"
+        f"{label(uid + 3, text)}</SL__arrayElement>"
     )
+
+
+def this_vi(uid: int) -> str:
+    """The "This VI" constant. Terminal ``uid + 1``; type it with
+    ``this_vi_type``."""
+    return reference_constant(uid, "This VI")
 
 
 def this_vi_type() -> LVType:
@@ -58,7 +71,17 @@ def this_vi_type() -> LVType:
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
         ref_type="LVObjCtl",
-        server_class="VI",
+        server_class=ServerClass.VI,
+    )
+
+
+def application_type() -> LVType:
+    """The type of a generic VI Server reference of class Application."""
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="LVObjCtl",
+        server_class=ServerClass.APPLICATION,
     )
 
 

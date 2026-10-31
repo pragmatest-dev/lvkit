@@ -44,6 +44,7 @@ from ..models import (
     TunnelTerminal,
     _is_error_cluster,
 )
+from ..parser.constants import TUNNEL_CLASS_EVENT_DYNAMIC, TUNNEL_CLASS_LMAX
 from ..parser.node_types import get_display_name
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key, uid_of
 from .interface_order import ordered_interface, requirement_state
@@ -69,6 +70,11 @@ from .models import (
 from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
+from .netlist_fp_placement import (
+    FrontPanelPlacements,
+    PlacedTerminals,
+    PlacementKey,
+)
 from .netlist_models import (
     BoundaryOutput,
     ConnectorPane,
@@ -79,13 +85,16 @@ from .netlist_models import (
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
+    LoopCondition,
     MuMerge,
     NetlistBoundaryInput,
     NetlistComponent,
     NetlistConstant,
+    NetlistControlRead,
     NetlistDependency,
     NetlistFeedback,
     NetlistFrame,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
@@ -100,6 +109,15 @@ from .netlist_models import (
     SequenceLocalDrive,
     SequenceLocalUnreadable,
 )
+from .netlist_structure_io import (
+    FRAME_ONLY_NET_PREFIX,
+    StructureWires,
+    build_event_outputs,
+    build_frame_output_drives,
+    build_gamma_outputs,
+    build_structure_inputs,
+    frame_output_tunnel_outers,
+)
 from .node_kinds import NodeType
 from .op_walk import (
     ComponentPort,
@@ -112,11 +130,13 @@ from .op_walk import (
 )
 from .operations import frame_key
 from .queries import ClassContext, collect_class_context
+from .reference_target import is_reference_constant, reference_target
 from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
     project_relative_display,
 )
+from .unwired_default import instance_default, pane_default
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -261,6 +281,12 @@ def _build_class_context(
     return collect_class_context(graph, ctx)
 
 
+def _fp_terminal_uid(t: Terminal) -> str | None:
+    """A front-panel terminal's uid on the block diagram; a terminal that is not a
+    front-panel control has none."""
+    return uid_of(t.id) if isinstance(t, FPTerminal) else None
+
+
 def _fp_caption(t: Terminal) -> tuple[str | None, bool]:
     """A front-panel terminal's ``(caption, caption_visible)``; a terminal that is
     not a front-panel control has none."""
@@ -287,10 +313,11 @@ def _pane_terminal(
         direction=direction,
         index=None if off_pane else t.index,
         wiring_requirement=requirement_state(t, direction),
-        default=t.default_value,
+        default=pane_default(t),
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -366,6 +393,9 @@ class _GraphBuildCtx:
     const_by_id: dict[str, Constant]
     feedback_id_by_uid: dict[str, int]
     constant_occurrence_by_uid: dict[str, int]
+    # The front-panel terminals that sit inside a structure; filled once the
+    # boundary terminals are built (see ``FrontPanelPlacements``).
+    placements: FrontPanelPlacements
 
 
 def _display_name_gn(node: AnyGraphNode) -> str:
@@ -594,25 +624,17 @@ def _loop_iteration_net_name_gn(node: AnyGraphNode) -> str:
 # (``for``/``while``) to one net-vocabulary word (``loop``), each of these
 # three kinds already IS its own net-vocabulary word, so no such mapping is
 # needed beyond the node-type -> kind-string lookup below.
-_FRAME_ONLY_NET_PREFIX: dict[type, str] = {
-    SequenceNode: "sequence",
-    DisableStructureNode: "disabled",
-    EventStructureNode: "event",
-}
-
-
-def _frame_output_tunnel_outers_gn(node: AnyGraphNode) -> list[Terminal]:
-    """Output-tunnel outer terminals for a frame-only structure (sequence/
-    disabled/event) -- the analogue of ``_case_output_tunnel_outers_gn``/
-    ``_loop_output_tunnel_outers_gn`` for the structure kinds with no
-    dedicated merge model of their own."""
-    return [
-        t
-        for t in node.terminals
-        if isinstance(t, TunnelTerminal)
-        and t.boundary == "outer"
-        and t.direction == "output"
-    ]
+def _is_event_dynamic_gn(node: AnyGraphNode, term: Terminal) -> bool:
+    """True for a terminal that reads the Event Structure's dynamic-event value:
+    the inside left terminal (read in a frame) or the outside right terminal. Both
+    are the one net ``event_<uid>.dynamic`` -- a frame that does not wire the right
+    terminal passes the left value through."""
+    return (
+        isinstance(node, EventStructureNode)
+        and isinstance(term, TunnelTerminal)
+        and term.tunnel_type == TUNNEL_CLASS_EVENT_DYNAMIC
+        and term.direction == "output"
+    )
 
 
 def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
@@ -628,21 +650,22 @@ def _is_frame_output_tunnel_gn(node: AnyGraphNode, term: Terminal) -> bool:
     already apply uniformly to their own output tunnels (§ ``_tunnel_net_
     name_gn``), extended to the frame-only kinds that never got a merge
     model to carry it."""
-    if type(node) not in _FRAME_ONLY_NET_PREFIX:
+    if type(node) not in FRAME_ONLY_NET_PREFIX:
         return False
     return (
         isinstance(term, TunnelTerminal)
         and term.boundary == "outer"
         and term.direction == "output"
+        and term.tunnel_type != TUNNEL_CLASS_EVENT_DYNAMIC
     )
 
 
 def _frame_net_name_gn(node: AnyGraphNode, term: Terminal) -> str:
     """``<prefix>_<uid>.out<k>`` for a frame-only structure's output tunnel
-    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``_FRAME_ONLY_NET_PREFIX``'s
+    -- see ``_tunnel_net_name_gn``; ``prefix`` is ``FRAME_ONLY_NET_PREFIX``'s
     lookup for ``node``'s own type."""
-    prefix = _FRAME_ONLY_NET_PREFIX[type(node)]
-    return _tunnel_net_name_gn(node, term, _frame_output_tunnel_outers_gn, prefix)
+    prefix = FRAME_ONLY_NET_PREFIX[type(node)]
+    return _tunnel_net_name_gn(node, term, frame_output_tunnel_outers, prefix)
 
 
 def sequence_local_read_gn(
@@ -677,7 +700,7 @@ def _inplace_output_outers_gn(node: AnyGraphNode) -> list[Terminal]:
     a border ``decomposeRecomposeTunnel``'s outer-output terminal AND a plain
     In-Place-In/Out-Element output port (e.g. the Error passed through a DVR
     element), which -- unlike a loop/case/sequence output tunnel -- is NOT a
-    ``TunnelTerminal`` at all, so the frame-only ``_frame_output_tunnel_outers_gn``
+    ``TunnelTerminal`` at all, so the frame-only ``frame_output_tunnel_outers``
     (TunnelTerminal-only) can't name it. Ordered by ``.index`` so the ``outK``
     numbering is stable/byte-reproducible."""
     outers = [
@@ -862,6 +885,7 @@ class StructureBorder(Enum):
     SEQUENCE_LOCAL = "sequence local"
     IN_PLACE_OUTPUT = "In Place Element output"
     FEEDBACK_NODE = "Feedback Node"
+    EVENT_DYNAMIC = "Event Structure dynamic terminal"
 
 
 @dataclass(frozen=True)
@@ -895,6 +919,8 @@ def _border_of_gn(
         return StructureBorder.SHIFT_REGISTER
     if _is_loop_iteration_terminal_gn(owner, term):
         return StructureBorder.ITERATION_TERMINAL
+    if _is_event_dynamic_gn(owner, term):
+        return StructureBorder.EVENT_DYNAMIC
     if _is_frame_output_tunnel_gn(owner, term):
         return StructureBorder.FRAME_OUTPUT_TUNNEL
     if sequence_local_read_gn(owner, term.id) is not None:
@@ -924,6 +950,8 @@ def _border_net_name_gn(
             return _loop_iteration_net_name_gn(owner)
         case StructureBorder.FRAME_OUTPUT_TUNNEL:
             return _frame_net_name_gn(owner, term)
+        case StructureBorder.EVENT_DYNAMIC:
+            return f"event_{uid_of(owner.id)}.dynamic"
         case StructureBorder.SEQUENCE_LOCAL:
             local_net = _sequence_local_net_name_gn(owner, term.id)
             assert local_net is not None
@@ -1028,9 +1056,15 @@ def _resolve_source_gn(
         return NetRef(node=None, terminal=net, occurrence=None, bare=net)
 
     if traced.boundary is not None:
-        bare = traced.boundary.name or str(traced.boundary.index)
+        # An unnamed control reads under the name its front-panel row gives it.
+        bare = traced.boundary.name or traced.boundary.direction
         return NetRef(
-            node=None, terminal=bare, occurrence=None, bare=bare, boundary=True
+            node=None,
+            terminal=bare,
+            occurrence=None,
+            bare=bare,
+            boundary=True,
+            boundary_uid=uid_of(traced.boundary.id),
         )
 
     const = build_ctx.const_by_id.get(src.node_id)
@@ -1058,7 +1092,7 @@ def _resolve_source_gn(
         )
 
     node_name = src.name or uid_of(src.node_id)
-    terminal = str(src.index) if src.index is not None else src.terminal_id
+    terminal = str(src.index) if src.index is not None else uid_of(src.terminal_id)
     return NetRef(
         node=node_name,
         terminal=terminal,
@@ -1228,6 +1262,8 @@ def _instance_kind_gn(
     plain primitive)."""
     if isinstance(node, VINode):
         return NetlistInstanceKind.SUBVI
+    if is_reference_constant(node):
+        return NetlistInstanceKind.VI_SERVER_REFERENCE
     if is_property:
         return NetlistInstanceKind.PROPERTY_NODE
     if is_invoke:
@@ -1273,7 +1309,7 @@ def _build_instance_gn(
             terminal=_component_terminal_name(t),
             type=t.type_descriptor() or "?",
             net=(net := _input_ref_gn(graph, ctx, vi_name, build_ctx, t)),
-            default=None if net is not None else _type_default(t.lv_type),
+            default=None if net is not None else instance_default(graph, node, t, name),
             inverted=t.inverted,
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,
@@ -1287,6 +1323,7 @@ def _build_instance_gn(
             type=t.type_descriptor() or "?",
             pane_rank=pane_rank_by_id.get(t.id, t.index),
             lv_type=t.lv_type,
+            read=bool(graph.outgoing_edges(t.id)),
         )
         for t in terminals
         if t.direction == "output"
@@ -1351,6 +1388,9 @@ def _build_instance_gn(
         ),
         library_unreadable=(
             node.library_unreadable if isinstance(node, SharedVariableNode) else None
+        ),
+        reference=(
+            reference_target(graph, node) if is_reference_constant(node) else None
         ),
     )
 
@@ -1741,6 +1781,7 @@ def _build_case_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
@@ -1758,6 +1799,27 @@ def _build_case_scope_gn(
         selector=selector,
         frames=frames,
         outputs=outputs,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+    )
+
+
+def _wires_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    build_ctx: _GraphBuildCtx,
+) -> StructureWires:
+    """The wire lookups a structure's border builders (``netlist_structure_io``)
+    use."""
+    return StructureWires(
+        wire=lambda tid: _resolve_source_gn(graph, ctx, vi_name, tid, build_ctx),
+        wire_or_default=lambda tid, inner, outer: _resolve_or_default_gn(
+            graph, ctx, vi_name, build_ctx, tid, inner, outer
+        ),
+        has_reader=lambda tid: bool(graph.outgoing_edges(tid)),
+        source_node=lambda tid: next(
+            (e.node_id for e in graph.incoming_edges(tid)), None
+        ),
     )
 
 
@@ -1783,17 +1845,21 @@ def _build_disabled_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
         uid=uid_of(node.id),
         kind="disabled",
         selector=None,
         frames=frames,
         disable_kind=node.kind,
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_gamma_outputs(wires, node, frames),
     )
 
 
@@ -1819,13 +1885,20 @@ def _build_event_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=passthrough,
         )
         for i, frame in enumerate(node.frames)
     ]
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
-        uid=uid_of(node.id), kind="event", selector=None, frames=frames
+        uid=uid_of(node.id),
+        kind="event",
+        selector=None,
+        frames=frames,
+        inputs=build_structure_inputs(wires, node),
+        outputs=build_event_outputs(wires, node, frames),
     )
 
 
@@ -1850,6 +1923,7 @@ def _build_sequence_scope_gn(
                 _frame_nodes_gn(graph, vi_name, node, frame, i),
                 build_ctx,
                 owner_children=_frame_child_uids_gn(graph, node, frame, i),
+                placement=(node.id, frame_key(frame, i)),
             ),
             passthrough=False,
         )
@@ -1878,13 +1952,15 @@ def _build_sequence_scope_gn(
                     value=value,
                 )
             )
+    wires = _wires_gn(graph, ctx, vi_name, build_ctx)
     return NetlistScope(
         uid=seq_uid,
         kind="sequence",
         selector=None,
         frames=frames,
-        outputs=drives,
+        outputs=[*drives, *build_frame_output_drives(wires, node, frames)],
         sequence_is_flat=node.is_flat,
+        inputs=build_structure_inputs(wires, node),
     )
 
 
@@ -1957,6 +2033,45 @@ def _build_loop_outputs_gn(
     return merges
 
 
+def _loop_condition_mode_gn(node: LoopNode) -> LoopCondition | None:
+    """How the loop's conditional terminal reads its Boolean: every While Loop
+    has one; a For Loop has one only when it shows a conditional terminal (the
+    heap's ``loopTestDCO``, whose terminal is ``stop_condition_terminal``)."""
+    if node.loop_type != "whileLoop" and node.stop_condition_terminal is None:
+        return None
+    if node.stop_condition_inverted:
+        return LoopCondition.CONTINUE_IF_TRUE
+    return LoopCondition.STOP_IF_TRUE
+
+
+def _loop_count_ref_gn(
+    graph: InMemoryVIGraph,
+    ctx: VIContext,
+    vi_name: str,
+    node: LoopNode,
+    build_ctx: _GraphBuildCtx,
+) -> NetRef | None:
+    """The wire into a For Loop's count terminal (N), or ``None`` when nothing is
+    wired to it."""
+    count_outer = next(
+        (
+            t
+            for t in node.terminals
+            if isinstance(t, TunnelTerminal)
+            and t.tunnel_type == TUNNEL_CLASS_LMAX
+            and t.boundary == "outer"
+        ),
+        None,
+    )
+    return _selector_ref_gn(
+        graph,
+        ctx,
+        vi_name,
+        build_ctx,
+        count_outer.id if count_outer is not None else None,
+    )
+
+
 def _build_loop_scope_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -1978,6 +2093,7 @@ def _build_loop_scope_gn(
         _body_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -2015,6 +2131,9 @@ def _build_loop_scope_gn(
         frames=[frame],
         parallel=node.parallel,
         parallel_static_workers=node.parallel_static_workers,
+        inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
+        condition_mode=_loop_condition_mode_gn(node),
+        count=_loop_count_ref_gn(graph, ctx, vi_name, node, build_ctx),
         tunnels=tunnel_info,
         outputs=outputs,
     )
@@ -2091,6 +2210,7 @@ def _build_inplace_scope_gn(
         _ipes_regular_nodes_gn(graph, vi_name, node),
         build_ctx,
         owner_children=node.children,
+        placement=(node.id, None),
     )
     frame = NetlistFrame(
         label="",
@@ -2116,6 +2236,7 @@ def _build_items_gn(
     nodes: list[AnyGraphNode],
     build_ctx: _GraphBuildCtx,
     owner_children: list[str] | tuple[str, ...] = (),
+    placement: PlacementKey | None = None,
 ) -> list[NetlistItem]:
     """Build the body items (instances, scopes, feedback nodes, promoted
     labeled constants) for one container -- a VI's top level or a
@@ -2129,9 +2250,19 @@ def _build_items_gn(
     list. Every labeled constant among ``owner_children`` is placed FIRST
     (see ``_labeled_constant_items_gn``); callers with no meaningful raw
     child list (there are none left after Phase A -- every caller now passes
-    one) default to ``()``, meaning "no constants to promote here"."""
+    one) default to ``()``, meaning "no constants to promote here".
+
+    ``placement`` names the structure body being built: the controls read in
+    it come first and the drive lines of the indicators it holds come last. The
+    VI's own diagram passes none."""
+    placed = (
+        build_ctx.placements.take(placement)
+        if placement is not None
+        else PlacedTerminals()
+    )
     items: list[NetlistItem] = [
-        *_labeled_constant_items_gn(graph, owner_children, build_ctx)
+        *placed.reads,
+        *_labeled_constant_items_gn(graph, owner_children, build_ctx),
     ]
     for node in nodes:
         if isinstance(node, CaseStructureNode):
@@ -2162,6 +2293,7 @@ def _build_items_gn(
                 items.append(_build_feedback_gn(graph, ctx, vi_name, node, build_ctx))
         else:
             items.append(_build_instance_gn(graph, ctx, vi_name, node, build_ctx))
+    items.extend(placed.drives)
     return items
 
 
@@ -2525,6 +2657,7 @@ def _boundary_output(
         source=_resolve_source_gn(graph, ctx, vi_name, t.id, build_ctx),
         caption=_fp_caption(t)[0],
         caption_visible=_fp_caption(t)[1],
+        terminal_uid=_fp_terminal_uid(t),
     )
 
 
@@ -2553,6 +2686,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             ),
         ),
         constant_occurrence_by_uid=_assign_constant_occurrences(ctx.constants),
+        placements=FrontPanelPlacements(),
     )
 
     inputs = [
@@ -2562,6 +2696,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
             lv_type=t.lv_type,
             caption=_fp_caption(t)[0],
             caption_visible=_fp_caption(t)[1],
+            terminal_uid=_fp_terminal_uid(t),
         )
         for t in ctx.inputs
     ]
@@ -2571,13 +2706,21 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
     # holder of the label is listed, in row order, so a drive line maps to
     # exactly one row).
     label_counts = Counter(t.name or "output" for t in ctx.off_pane_outputs)
-    off_pane_outputs = [
-        out
+    off_pane_pairs = [
+        (t, out)
         for t in ctx.off_pane_outputs
         if (out := _boundary_output(graph, ctx, vi_name, t, build_ctx)).source
         is not None
         or label_counts[out.name] > 1
     ]
+    off_pane_outputs = [out for _, out in off_pane_pairs]
+
+    # A control or indicator whose terminal sits inside a structure is a line
+    # of that structure's body, not of the diagram (see ``FrontPanelPlacements``).
+    for t in (*ctx.inputs, *ctx.off_pane_inputs):
+        build_ctx.placements.add_control(t)
+    for t, out in (*zip(ctx.outputs, outputs, strict=True), *off_pane_pairs):
+        build_ctx.placements.add_indicator(t, out)
 
     # On-pane terminals first (unchanged order/identity -- `@<index>` rows),
     # THEN every off-pane front-panel control/indicator (`is_public=False`,
@@ -2604,6 +2747,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         build_ctx,
         owner_children=top_level_children,
     )
+    build_ctx.placements.check_all_claimed()
     components = _build_components_gn(graph, vi_name, flat)
     dependencies = _build_dependency_manifest(graph, vi_name)
 
@@ -2656,6 +2800,8 @@ def index_module(
                 case NetlistConstant():
                     # Not indexed here either -- diff.py's use of this index
                     # predates Phase A's constant promotion.
+                    pass
+                case NetlistIndicatorDrive() | NetlistControlRead():
                     pass
 
     walk(module.body)

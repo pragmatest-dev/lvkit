@@ -557,13 +557,13 @@ def test_corpus_a_loaded_class_shows_the_private_data_of_its_default():
     root = SAMPLES / "ni-labview-icon-editor/vi.lib/LabVIEW Icon API/lv_icon"
     vi = root / "Support/Extract Default Icon Data.vi"
 
-    def default_of(search_paths):
+    def default_of():
         g = InMemoryVIGraph()
         g.load_vi(vi, mode=LoadMode.FULL)
         node = g._graph.nodes[str(vi.resolve())]["node"]
         return next(t.default_value for t in node.terminals if "Icon Data" in t.name)
 
-    loaded = default_of(None)
+    loaded = default_of()
     assert "'All User Layers': [Layer.lvclass{'Origin': {'Horizontal': 0, " in loaded
     assert (
         "'LayerName': 'VI Icon', 'Opacity': 100, 'Visibility?': True}, 'Type': 2}]"

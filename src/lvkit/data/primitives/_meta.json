@@ -54,7 +54,7 @@
           "name": "length",
           "type": "numeric",
           "dco_ref": "lenDCO",
-          "default_value": "1"
+          "default_behavior": "one element"
         },
         {
           "index": 3,
@@ -68,8 +68,8 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "-1",
-          "per_dimension_of": 1
+          "per_dimension_of": 1,
+          "default_behavior": "last element"
         }
       ],
       "op": "DELETE_FROM_ARRAY"
@@ -99,9 +99,11 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "per_dimension_of": 0,
-          "group": "indexed element"
+          "group": "indexed element",
+          "default": 0,
+          "later_set_default_behavior": "previous index + 1",
+          "later_dimension_default_behavior": "entire row or column"
         }
       ],
       "op": "INDEX_ARRAY"
@@ -157,7 +159,8 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "per_dimension_of": 0
+          "per_dimension_of": 0,
+          "default_behavior": "append"
         },
         {
           "index": 3,
@@ -199,9 +202,9 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "per_dimension_of": 0,
-          "group": "replacement"
+          "group": "replacement",
+          "default": 0
         }
       ],
       "python_code": "array[:index] + [new_element_subarray] + array[index + 1:]"
@@ -257,22 +260,22 @@
           "direction": "in",
           "name": "index",
           "type": "numeric",
-          "default_value": "0",
           "dco_ref": "dcoList",
           "expandable": true,
           "per_dimension_of": 0,
-          "group": "span"
+          "group": "span",
+          "default": 0
         },
         {
           "index": 3,
           "direction": "in",
           "name": "length",
           "type": "numeric",
-          "default_value": "None",
           "dco_ref": "lengthDCOList",
           "expandable": true,
           "per_dimension_of": 0,
-          "group": "span"
+          "group": "span",
+          "default_behavior": "rest"
         }
       ],
       "op": "ARRAY_SUBSET"

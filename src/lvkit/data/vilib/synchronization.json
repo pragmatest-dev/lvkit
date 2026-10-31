@@ -14,49 +14,43 @@
         {
           "name": "name (unnamed)",
           "description": "name contains the name of the notifier that you want to obtain or create. The default is an empty string to create an unnamed notifier. Functions 1930 ni.com",
-          "default_value": "an empty string to create an unnamed notifier",
           "enum_values": null,
-          "python_param": "name_unnamed"
+          "python_param": "name_unnamed",
+          "default": ""
         },
         {
           "name": "element data type",
           "description": "element data type is the type of data that you want the notifier to contain. You can wire any data type to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element_data_type"
         },
         {
           "name": "create if not found? (T)",
           "description": "create if not found? specifies whether you want to create a new notifier if one with the same name as name does not exist. If TRUE (default), the function creates a notifier if one with the same name does not exist.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "create_if_not_found_t"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "notifier out",
           "description": "notifier out is a reference to the existing named notifier or the new notifier created by this function.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "notifier_out"
         },
         {
           "name": "created new?",
           "description": "created new? is TRUE if the function created a new notifier.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "created_new"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Use named notifiers to pass data between two sections of a block diagram or between two VIs. If you do not wire name, the function creates a new, unnamed notifier reference. If you wire name, the function first searches for an existing notifier with the same name and returns a new reference to the existing notifier. If a notifier with the same name does not already exist and create if not found? is TRUE,",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -79,7 +73,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the notifier that you want to obtain or create. The default is an empty string to create an unnamed notifier."
         },
         {
@@ -89,7 +82,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element_data_type",
-          "default_value": null,
           "description": "element data type is the type of data that you want the notifier to contain. You can wire any data type to this input."
         },
         {
@@ -99,7 +91,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "create_if_not_found",
-          "default_value": null,
           "description": "create if not found? specifies whether you want to create a new notifier if one with the same name as name does not exist. If TRUE (default), the function creates a notifier if one with the same name does not exist."
         },
         {
@@ -109,7 +100,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -119,7 +109,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_out",
-          "default_value": null,
           "description": "notifier out is a reference to the existing named notifier or the new notifier created by this function."
         },
         {
@@ -129,7 +118,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "created_new",
-          "default_value": null,
           "description": "created new? is TRUE if the function created a new notifier."
         },
         {
@@ -139,7 +127,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -161,7 +148,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier",
-          "default_value": null,
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -171,7 +157,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notification",
-          "default_value": null,
           "description": "notification is the message to send. This data type changes to match the subtype of notifier ."
         },
         {
@@ -181,7 +166,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -191,7 +175,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_out",
-          "default_value": null,
           "description": "notifier out returns notifier unchanged."
         },
         {
@@ -201,7 +184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -223,7 +205,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier",
-          "default_value": null,
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -233,7 +214,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -243,7 +223,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_out",
-          "default_value": null,
           "description": "notifier out returns notifier unchanged."
         },
         {
@@ -253,7 +232,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "canceled_notification",
-          "default_value": null,
           "description": "cancelled notification contains the last notification sent to the notifier. This data type changes to match the subtype of notifier ."
         },
         {
@@ -263,7 +241,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -285,7 +262,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier",
-          "default_value": null,
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -295,7 +271,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -305,7 +280,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_name",
-          "default_value": null,
           "description": "notifier name specifies the name of the notifier."
         },
         {
@@ -315,7 +289,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_out",
-          "default_value": null,
           "description": "notifier out returns notifier unchanged."
         },
         {
@@ -325,7 +298,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "latest_notification",
-          "default_value": null,
           "description": "latest notification is the most recent uncancelled notification sent to the notifier. If no notification is available, the function returns the zero value for the element data type you wired in the Obtain Notifier function. This data type changes to match the subtype of notifier ."
         },
         {
@@ -335,7 +307,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_waiting",
-          "default_value": null,
           "description": "# waiting is the number of functions currently waiting on the notifier. These functions include Wait on Notification and Wait on Notification from Multiple ."
         },
         {
@@ -345,7 +316,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -367,7 +337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier",
-          "default_value": null,
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -377,7 +346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "force_destroy",
-          "default_value": null,
           "description": "force destroy? indicates whether to destroy the notifier. If FALSE (default) and you want to destroy the notifier, call the Release Notifier function a number of times equal to the number of times you obtained a reference to the notifier or stop all VIs using the notifier reference. If TRUE, the function destroys the notifier and you do not have to call the function multiple times or stop all VIs using the notifier reference."
         },
         {
@@ -387,7 +355,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -397,7 +364,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_name",
-          "default_value": null,
           "description": "notifier name specifies the name of the notifier."
         },
         {
@@ -407,7 +373,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "last_notification",
-          "default_value": null,
           "description": "last notification is the last uncancelled notification sent to the notifier. If no notification is available, the function returns the zero value for the element data type you wired in the Obtain Notifier function. This data type changes to match the subtype of notifier ."
         },
         {
@@ -417,7 +382,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -439,7 +403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier",
-          "default_value": null,
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -449,7 +412,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ignore_previous",
-          "default_value": null,
           "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute."
         },
         {
@@ -459,7 +421,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE."
         },
         {
@@ -469,7 +430,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -479,7 +439,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifier_out",
-          "default_value": null,
           "description": "notifier out returns notifier unchanged."
         },
         {
@@ -489,7 +448,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notification",
-          "default_value": null,
           "description": "notification is the last message the notifier receives. This data type changes to match the subtype of notifier ."
         },
         {
@@ -499,7 +457,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? is TRUE if the notifier does not receive a message before the function times out or if an error occurs."
         },
         {
@@ -509,7 +466,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -531,7 +487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifiers",
-          "default_value": null,
           "description": "notifiers is an array of notifier references. Use the Obtain Notifier function to obtain a notifier reference."
         },
         {
@@ -541,7 +496,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ignore_previous",
-          "default_value": null,
           "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute."
         },
         {
@@ -551,7 +505,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE."
         },
         {
@@ -561,7 +514,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -571,7 +523,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifiers_out",
-          "default_value": null,
           "description": "notifiers out returns an array of the notifier references from which messages were received."
         },
         {
@@ -581,7 +532,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "notifications",
-          "default_value": null,
           "description": "notifications is an array of the last messages the notifiers receive. This data type changes to match the subtype of notifiers , unless the subtype is an array. If the subtype is an array, the data type becomes a cluster of arrays."
         },
         {
@@ -591,7 +541,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? is TRUE if the notifier does not receive a message before the function times out or if an error occurs."
         },
         {
@@ -601,7 +550,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -618,56 +566,49 @@
         {
           "name": "notifier",
           "description": "notifier is a reference to a notifier. Use the Obtain Notifier function to obtain a notifier reference.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "notifier"
         },
         {
           "name": "ignore previous (F)",
           "description": "ignore previous indicates whether to ignore messages that LabVIEW sends to the notifier before it calls this function. If TRUE and the notifier contains a message before you call this function, this function waits until the notifier receives another message. If FALSE (default) and the notifier contains a message before you call this function, this function continues to execute.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "ignore_previous_f"
         },
         {
           "name": "timeout in ms (-1)",
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for the notifier to receive a message. The default is –1, which indicates never to time out. If the function waits timeout in ms and the notifier does not receive a message, timed out? is TRUE.",
-          "default_value": "–1, which indicates never to time out",
           "enum_values": null,
-          "python_param": "timeout_in_ms_1"
+          "python_param": "timeout_in_ms_1",
+          "default": -1
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "notifier out",
           "description": "notifier out returns notifier unchanged.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "notifier_out"
         },
         {
           "name": "notification",
           "description": "notification is the last message the notifier receives. This data type changes to match the subtype of notifier.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "notification"
         },
         {
           "name": "timed out?",
           "description": "Functions 1942 ni.com timed out? is TRUE if the notifier does not receive a message before the function times out or if an error occurs.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "timed_out"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Each unique instance of this function remembers the timestamp of the most recent message that each individual notifier receives. Maintaining notifier history prevents dropped messages and other problems when you use this function repeatedly with different notifiers. When the notifier receives a message, this function continues to execute. Use the Send Notification function to send the message. If a notif",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -685,35 +626,32 @@
         {
           "name": "max queue size (-1, unlimited)",
           "description": "max queue size is the maximum number of elements you want the queue to hold. The default is –1, specifying that the queue can hold an unlimited number of elements. If a queue reaches max queue size, the Enqueue Element or Enqueue Element at Opposite End functions wait until the Dequeue Element or Flush Queue functions remove elements from the queue. If a queue with the same name exists, LabVIEW ignores this input and uses the size from the existing queue.",
-          "default_value": "–1, specifying that the queue can hold an unlimited number of elements",
           "enum_values": null,
-          "python_param": "max_queue_size_1_unlimited"
+          "python_param": "max_queue_size_1_unlimited",
+          "default": -1
         },
         {
           "name": "name (unnamed)",
           "description": "name contains the name of the queue that you want to obtain or create. The default is an empty string to create an unnamed queue.",
-          "default_value": "an empty string to create an unnamed queue",
           "enum_values": null,
-          "python_param": "name_unnamed"
+          "python_param": "name_unnamed",
+          "default": ""
         },
         {
           "name": "element data type",
           "description": "element data type is the type of data that you want the queue to contain. You can wire any data type to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "element_data_type"
         },
         {
           "name": "create if not found? (T)",
           "description": "create if not found? specifies whether you want to create a new queue if one with the same name as name does not exist. If TRUE (default), the function creates a queue if one with the same name does not exist.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "create_if_not_found_t"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides Note (Real-Time Module) max queue size preallocates the specified number of elements in the queue of scalar data types when running on an RT target. Note When not running on an RT target, max queue size only limits the number of elements in the queue and does not preallocate the queue. To preallocate memory for a queue, enqueue that number of elements and then flush the queue. The space remains allocated fo",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         }
@@ -736,7 +674,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_queue_size",
-          "default_value": null,
           "description": "max queue size is the maximum number of elements you want the queue to hold. The default is –1, specifying that the queue can hold an unlimited number of elements. If a queue reaches max queue size , the Enqueue Element or Enqueue Element at Opposite End functions wait until the Dequeue Element or Flush Queue functions remove elements from the queue. If a queue with the same name exists, LabVIEW ignores this input and uses the size from the existing queue. Note (Real-Time Module) max queue size preallocates the specified number of elements in the queue of scalar data types when running on an RT target."
         },
         {
@@ -746,7 +683,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the queue that you want to obtain or create. The default is an empty string to create an unnamed queue."
         },
         {
@@ -756,7 +692,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element_data_type",
-          "default_value": null,
           "description": "element data type is the type of data that you want the queue to contain. You can wire any data type to this input."
         },
         {
@@ -766,7 +701,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "create_if_not_found",
-          "default_value": null,
           "description": "create if not found? specifies whether you want to create a new queue if one with the same name as name does not exist. If TRUE (default), the function creates a queue if one with the same name does not exist."
         },
         {
@@ -776,7 +710,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -786,7 +719,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out is a reference to the existing queue or the new queue created by this function."
         },
         {
@@ -796,7 +728,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "created_new",
-          "default_value": null,
           "description": "created new? is TRUE if the function created a new queue."
         },
         {
@@ -806,7 +737,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -828,7 +758,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -838,7 +767,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the element you want to add to the back of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -848,7 +776,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for available space in the queue if the queue is full. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains full, timed out? is TRUE."
         },
         {
@@ -858,7 +785,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -868,7 +794,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -878,7 +803,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? returns TRUE if space in the queue did not become available before the function times out. timed out? also returns TRUE if this function encounters an error."
         },
         {
@@ -888,7 +812,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -910,7 +833,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -920,7 +842,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for an element to become available in the queue if the queue is empty. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains empty, timed out? is TRUE."
         },
         {
@@ -930,7 +851,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -940,7 +860,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -950,7 +869,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the element at the front of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -960,7 +878,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? returns TRUE if an element did not become available in the queue before the function timed out. timed out? also returns TRUE if this function encounters an error."
         },
         {
@@ -970,7 +887,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -992,7 +908,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1002,7 +917,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_elements",
-          "default_value": null,
           "description": "return elements? indicates whether to return the elements in the queue. If FALSE (default), the function does not return the elements in the queue."
         },
         {
@@ -1012,7 +926,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1022,7 +935,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_queue_size",
-          "default_value": null,
           "description": "max queue size is the maximum number of elements the queue can contain. If max queue size is –1, the queue can contain any number of elements. Note max queue size only limits the number of elements in the queue. It does not preallocate that number of elements in the queue."
         },
         {
@@ -1032,7 +944,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_name",
-          "default_value": null,
           "description": "queue name is the name of the queue."
         },
         {
@@ -1042,7 +953,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -1052,7 +962,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_pending_remove",
-          "default_value": null,
           "description": "# pending remove is the number of Dequeue Element or Preview Queue Element functions currently waiting to remove an element from the queue. Refer to the Dequeue Element and Preview Queue Element functions for more information."
         },
         {
@@ -1062,7 +971,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_pending_insert",
-          "default_value": null,
           "description": "# pending insert is the number of functions currently waiting to insert an element in the queue. Use the Enqueue Element or Enqueue Element at Opposite End functions to insert an element in the queue. If the max queue size is –1 , # pending insert is 0 ."
         },
         {
@@ -1072,7 +980,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -1082,7 +989,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_elements_in_queue",
-          "default_value": null,
           "description": "# elements in queue returns the current number of elements in the queue."
         },
         {
@@ -1092,7 +998,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "elements",
-          "default_value": null,
           "description": "elements returns all the elements currently in the queue, but does not remove them from the queue. If return elements? is FALSE, this array is empty. This data type changes to match the subtype of queue ."
         }
       ]
@@ -1114,7 +1019,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1124,7 +1028,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "force_destroy",
-          "default_value": null,
           "description": "force destroy? indicates whether to destroy the queue. If FALSE (default) and you want to destroy the queue, either call the Release Queue function a number of times equal to the number of times you obtained a reference to the queue or stop all VIs using the queue reference. If TRUE, the function destroys the queue and you do not have to call the function multiple times or stop all VIs using the queue reference. Destroying the queue invalidates all references to the queue."
         },
         {
@@ -1134,7 +1037,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -1144,7 +1046,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_name",
-          "default_value": null,
           "description": "queue name is the name of the queue."
         },
         {
@@ -1154,7 +1055,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "remaining_elements",
-          "default_value": null,
           "description": "remaining elements is the array of elements that were in the queue before the function released the queue. The first element in the array is the element from the front of the queue and the last element in the array is the element from the back of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -1164,7 +1064,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1186,7 +1085,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1196,7 +1094,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the element you want to add to the back of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -1206,7 +1103,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1216,7 +1112,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out is a reference to the existing queue."
         },
         {
@@ -1226,7 +1121,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "overflow_element",
-          "default_value": null,
           "description": "overflow element is the element LabVIEW removed from the front of the queue if the queue was full."
         },
         {
@@ -1236,7 +1130,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "overflow",
-          "default_value": null,
           "description": "overflow? returns TRUE if the queue was full and LabVIEW removed an element to create space. overflow? returns FALSE if the queue accepted the element and did not remove an element to make space."
         },
         {
@@ -1246,7 +1139,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1268,7 +1160,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1278,7 +1169,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the element you want to add to the front of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -1288,7 +1178,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for available space in the queue if the queue is full. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains full, timed out? is TRUE."
         },
         {
@@ -1298,7 +1187,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1308,7 +1196,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -1318,7 +1205,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? returns TRUE if space in the queue did not become available before the function times out. timed out? also returns TRUE if this function encounters an error."
         },
         {
@@ -1328,7 +1214,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1350,7 +1235,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1360,7 +1244,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timeout_in_ms",
-          "default_value": null,
           "description": "timeout in ms specifies the time, in milliseconds, that the function waits for an element to become available in the queue if the queue is empty. The default is –1, indicating never to time out. If the function waits timeout in ms and the queue remains empty, timed out? is TRUE."
         },
         {
@@ -1370,7 +1253,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1380,7 +1262,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -1390,7 +1271,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "element",
-          "default_value": null,
           "description": "element is the element at the front of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -1400,7 +1280,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out? returns TRUE if an element did not become available in the queue before the function timed out. timed out? also returns TRUE if this function encounters an error."
         },
         {
@@ -1410,7 +1289,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1432,7 +1310,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue",
-          "default_value": null,
           "description": "queue is a reference to a queue. Use the Obtain Queue function to obtain a queue reference."
         },
         {
@@ -1442,7 +1319,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1452,7 +1328,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "queue_out",
-          "default_value": null,
           "description": "queue out returns the reference to the queue unchanged."
         },
         {
@@ -1462,7 +1337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "remaining_elements",
-          "default_value": null,
           "description": "remaining elements is an array of elements removed from the queue. The first element in the array is the element from the front of the queue and the last element in the array is the element from the back of the queue. This data type changes to match the subtype of queue ."
         },
         {
@@ -1472,7 +1346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1494,7 +1367,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the semaphore you want to look up or create."
         },
         {
@@ -1504,7 +1376,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size specifies how many tasks can acquire the semaphore at the same time. If a named semaphore already exists, wiring a value to this parameter does not resize the semaphore."
         },
         {
@@ -1514,7 +1385,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "create_if_not_found",
-          "default_value": null,
           "description": "create if not found specifies whether you want to create a new semaphore if one with that name does not exist."
         },
         {
@@ -1524,7 +1394,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1534,7 +1403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to an existing or newly created semaphore."
         },
         {
@@ -1544,7 +1412,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "created_new",
-          "default_value": null,
           "description": "created new is TRUE if the VI created a new semaphore."
         },
         {
@@ -1554,7 +1421,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1576,7 +1442,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to a semaphore."
         },
         {
@@ -1586,7 +1451,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
-          "default_value": null,
           "description": "ms timeout specifies how many milliseconds the function should wait for the semaphore to become available."
         },
         {
@@ -1596,7 +1460,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -1606,7 +1469,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore_out",
-          "default_value": null,
           "description": "semaphore out has the same value as semaphore ."
         },
         {
@@ -1616,7 +1478,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out is TRUE if the semaphore did not become available before the function timed out or if an error occurred."
         },
         {
@@ -1626,7 +1487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1648,7 +1508,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to a semaphore."
         },
         {
@@ -1658,7 +1517,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -1668,7 +1526,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore_out",
-          "default_value": null,
           "description": "semaphore out has the same value as semaphore ."
         },
         {
@@ -1678,7 +1535,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1700,7 +1556,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to a semaphore."
         },
         {
@@ -1710,7 +1565,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "force_destroy",
-          "default_value": null,
           "description": "force destroy? specifies whether to destroy the semaphore."
         },
         {
@@ -1720,7 +1574,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -1730,7 +1583,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore_name",
-          "default_value": null,
           "description": "semaphore name is the name of the semaphore."
         },
         {
@@ -1740,7 +1592,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1762,7 +1613,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to a semaphore."
         },
         {
@@ -1772,7 +1622,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1782,7 +1631,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the semaphore."
         },
         {
@@ -1792,7 +1640,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore_out",
-          "default_value": null,
           "description": "semaphore out has the same value as semaphore ."
         },
         {
@@ -1802,7 +1649,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_available",
-          "default_value": null,
           "description": "# available contains the number of tasks that can acquire the semaphore at the current time. This number is always less than or equal to size ."
         },
         {
@@ -1812,7 +1658,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_waiting",
-          "default_value": null,
           "description": "# waiting is the number of Acquire Semaphore functions currently waiting to acquire the semaphore."
         },
         {
@@ -1822,7 +1667,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -1832,7 +1676,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size contains the maximum number of tasks that can acquire the semaphore at a time."
         }
       ]
@@ -1854,7 +1697,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "semaphore",
-          "default_value": null,
           "description": "semaphore is a reference to a semaphore."
         },
         {
@@ -1864,7 +1706,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "not_a_semaphore",
-          "default_value": null,
           "description": "not a semaphore is TRUE if semaphore is not a valid semaphore reference."
         }
       ]
@@ -1886,7 +1727,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the rendezvous that you are looking up or creating."
         },
         {
@@ -1896,7 +1736,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size specifies how many tasks initially meet at the rendezvous to continue execution."
         },
         {
@@ -1906,7 +1745,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_existing",
-          "default_value": null,
           "description": "return existing (F) specifies whether the rendezvous must already exist for this function to succeed."
         },
         {
@@ -1916,7 +1754,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1926,7 +1763,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference to an existing or newly created rendezvous."
         },
         {
@@ -1936,7 +1772,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "created_new",
-          "default_value": null,
           "description": "created new is TRUE if the VI created a new rendezvous."
         },
         {
@@ -1946,7 +1781,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1968,7 +1802,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference associated with a rendezvous."
         },
         {
@@ -1978,7 +1811,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
-          "default_value": null,
           "description": "ms timeout specifies how many milliseconds the function should wait for other tasks to arrive at the rendezvous."
         },
         {
@@ -1988,7 +1820,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1998,7 +1829,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous_out",
-          "default_value": null,
           "description": "rendezvous out has the same value as rendezvous ."
         },
         {
@@ -2008,7 +1838,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out is TRUE if not enough tasks arrived before the function timed out or if an error occurred."
         },
         {
@@ -2018,7 +1847,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2040,7 +1868,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference associated with a rendezvous."
         },
         {
@@ -2050,7 +1877,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size_change",
-          "default_value": null,
           "description": "size change specifies how many more tasks want to meet at the rendezvous."
         },
         {
@@ -2060,7 +1886,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2070,7 +1895,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous_out",
-          "default_value": null,
           "description": "rendezvous out has the same value as rendezvous ."
         },
         {
@@ -2080,7 +1904,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_size",
-          "default_value": null,
           "description": "new size is the new number of tasks meeting at the rendezvous ."
         },
         {
@@ -2090,7 +1913,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2112,7 +1934,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference associated with a rendezvous."
         },
         {
@@ -2122,7 +1943,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -2132,7 +1952,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous_name",
-          "default_value": null,
           "description": "rendezvous name is the name of rendezvous."
         },
         {
@@ -2142,7 +1961,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2164,7 +1982,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference associated with a rendezvous."
         },
         {
@@ -2174,7 +1991,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2184,7 +2000,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "name",
-          "default_value": null,
           "description": "name contains the name of the rendezvous."
         },
         {
@@ -2194,7 +2009,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous_out",
-          "default_value": null,
           "description": "rendezvous out has the same value as rendezvous ."
         },
         {
@@ -2204,7 +2018,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "_waiting",
-          "default_value": null,
           "description": "# waiting is the number of Wait at Rendezvous functions currently waiting at the rendezvous."
         },
         {
@@ -2214,7 +2027,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "size is the number of tasks meeting at the rendezvous."
         },
         {
@@ -2224,7 +2036,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2246,7 +2057,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "rendezvous",
-          "default_value": null,
           "description": "rendezvous is a reference associated with a rendezvous."
         },
         {
@@ -2256,7 +2066,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "not_a_rendezvous",
-          "default_value": null,
           "description": "not a rendezvous is TRUE if rendezvous is not a valid rendezvous reference."
         }
       ]
@@ -2278,7 +2087,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "occurrence",
-          "default_value": null,
           "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence."
         }
       ]
@@ -2300,7 +2108,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ms_timeout",
-          "default_value": null,
           "description": "ms timeout is the specified amount of time, in milliseconds, for occurrence to occur. If occurrence does not occur within the specified ms timeout , the function returns a value of TRUE. If ms timeout is –1 (default), the function does not time out unless the occurrence wired to this function is invalid. If occurrence is invalid, the function immediately returns TRUE for timed out , even if ms timeout is equal to –1 (default)."
         },
         {
@@ -2310,7 +2117,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "occurrence",
-          "default_value": null,
           "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence ."
         },
         {
@@ -2320,7 +2126,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ignore_previous",
-          "default_value": null,
           "description": "If ignore previous is TRUE (default) and another node has set the occurrence before this function began executing, the function ignores the previous occurrence and waits for another one. When ignore previous is FALSE, the function checks whether another node previously set an occurrence. If so, the function executes. However, the Wait on Occurrence function only processes one occurrence at a time and does not hold multiple previous occurrences in memory."
         },
         {
@@ -2330,7 +2135,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "timed_out",
-          "default_value": null,
           "description": "timed out is TRUE if occurrence does not occur within the specified ms timeout or if occurrence is invalid, even if ms timeout is equal to –1. If ms timeout is –1 and occurrence is valid, timed out is FALSE."
         }
       ]
@@ -2352,7 +2156,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "occurrence",
-          "default_value": null,
           "description": "occurrence is the occurrence refnum that links Wait on Occurrence and Set Occurrence."
         }
       ]
@@ -2374,7 +2177,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "first_call_tf",
-          "default_value": null,
           "description": "First Call? is TRUE if the subVI is running for the first time since you ran the entire VI."
         }
       ]
@@ -2396,7 +2198,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_1",
-          "default_value": null,
           "description": "input 1 specifies the value of the first wire. This input accepts any data type. The default data type is a variant."
         },
         {
@@ -2406,7 +2207,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_2",
-          "default_value": null,
           "description": "input 2 specifies the value of the second wire. This input accepts any data type. The default data type is a variant."
         },
         {
@@ -2416,7 +2216,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_3",
-          "default_value": null,
           "description": "input 3 specifies the value of the third wire. This input accepts any data type. The default data type is a variant."
         },
         {
@@ -2426,7 +2225,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_4",
-          "default_value": null,
           "description": "input 4 specifies the value of the fourth wire. This input accepts any data type. The default data type is a variant."
         },
         {
@@ -2436,7 +2234,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_1",
-          "default_value": null,
           "description": "output 1 returns the value of input 1 ."
         },
         {
@@ -2446,7 +2243,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_2",
-          "default_value": null,
           "description": "output 2 returns the value of input 2 ."
         },
         {
@@ -2456,7 +2252,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_3",
-          "default_value": null,
           "description": "output 3 returns the value of input 3 ."
         },
         {
@@ -2466,7 +2261,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "output_4",
-          "default_value": null,
           "description": "output 4 returns the value of input 4 ."
         }
       ]

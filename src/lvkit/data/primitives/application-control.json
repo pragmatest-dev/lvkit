@@ -7,12 +7,14 @@
           "index": 0,
           "direction": "in",
           "name": "stop? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         }
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/stop.html"
     },
     "1352": {
       "name": "Quit LabVIEW",
@@ -21,7 +23,8 @@
           "index": 0,
           "direction": "in",
           "name": "quit? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         }
       ],
       "verified": false,
@@ -215,25 +218,28 @@
           "index": 6,
           "direction": "in",
           "name": "password",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 7,
           "direction": "in",
           "name": "application_reference",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "application of the calling VI"
         },
         {
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
           "direction": "in",
           "name": "options",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 10,
@@ -245,7 +251,8 @@
           "index": 11,
           "direction": "in",
           "name": "type_specifier",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "generic VI reference"
         },
         {
           "index": 0,
@@ -273,7 +280,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 11,

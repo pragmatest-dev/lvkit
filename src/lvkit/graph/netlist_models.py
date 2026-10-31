@@ -72,6 +72,9 @@ class NetRef:
     # (``bare`` is its label), so it renders as a NAME (quoted when the label
     # needs it), never as a literal.
     boundary: bool = False
+    # A control's net: the control's terminal on the block diagram, which tells two
+    # controls with one label apart (written ` (id <uid>)` then).
+    boundary_uid: str | None = None
     # Phase 3, ``render_lvnet``-ONLY (mirrors ``constant_uid`` above): the
     # producing NODE's own uid (the SAME id ``NetlistInstance.uid`` uses) for
     # a genuine node-terminal reference -- lets ``render_lvnet`` resolve the
@@ -103,7 +106,7 @@ class NetlistTerminalBinding:
     type, and how it's bound -- wired to a driver (``net``) or, since Phase A
     (lvnet ``default <value>`` -- see ``docs/_internal/design/netlist-
     language.md`` §4), genuinely unwired (``net is None``, ``default``
-    carries the type's faithful substitute value).
+    carries what the callee records for the input).
 
     Verilog ``.port(net)`` / VHDL ``port => signal`` / Python-kwargs named-
     terminal association -- rendered as ``terminal=net`` (see
@@ -118,9 +121,10 @@ class NetlistTerminalBinding:
     ``LVType.type_descriptor()`` (never a Python type), present on every
     binding wired or not (lvnet §3: "never dropped").
 
-    ``default`` is populated ONLY when ``net is None`` -- the type's
-    faithful "use default if unwired" substitute (``_type_default``), NEVER
-    fabricated. ``inverted`` mirrors the INPUT terminal's own
+    ``default`` is populated ONLY when ``net is None`` -- the value or documented
+    behaviour the callee records for the input (``instance_default``), the bare
+    ``default`` when it records none, NEVER fabricated. ``inverted`` mirrors the
+    INPUT terminal's own
     ``Terminal.inverted`` flag (the "Not" bubble LabVIEW draws directly on a
     Compound Arithmetic input -- that input is negated before the node's own
     operation runs, e.g. ``x AND NOT y``). Annotation ONLY, exactly like
@@ -203,6 +207,18 @@ class NetlistOutput:
     pane_rank: int = 0
     # Mirrors ``NetlistTerminalBinding.lv_type`` -- see there.
     lv_type: LVType | None = None
+    # Whether a wire leaves this output. A ``Void`` output nothing reads is a
+    # dead connector-pane slot and is not shown; one that is read keeps its line.
+    read: bool = False
+
+
+class LoopCondition(str, Enum):
+    """How a loop's conditional terminal reads its Boolean: a While Loop (and a
+    For Loop that shows a conditional terminal) either stops or continues on
+    True. The value is the text lvnet writes in the loop header."""
+
+    STOP_IF_TRUE = "stop if true"
+    CONTINUE_IF_TRUE = "continue if true"
 
 
 class NetlistInstanceKind(str, Enum):
@@ -222,10 +238,33 @@ class NetlistInstanceKind(str, Enum):
     PROPERTY_NODE = "property-node"
     INVOKE_NODE = "invoke-node"
     LOCAL_VARIABLE = "local-variable"
+    VI_SERVER_REFERENCE = "vi-server-reference"
     GLOBAL_VARIABLE = "global-variable"
     SHARED_VARIABLE = "shared-variable"
     IN_PLACE_ELEMENT = "in-place-element"
     FORMULA_NODE = "formula-node"
+
+
+class ReferenceTargetKind(Enum):
+    """What a VI Server reference constant references."""
+
+    THIS_VI = "This VI"
+    THIS_APPLICATION = "This Application"
+    CONTROL = "control"
+    # The reference's type does not name its class and it names no control.
+    UNKNOWN = "?"
+
+
+@dataclass(frozen=True)
+class ReferenceTarget:
+    """What a VI Server reference constant references: the VI or the application
+    (the class its type records), or the front-panel control named ``control``."""
+
+    kind: ReferenceTargetKind
+    control: str | None = None
+    # The control's terminal on the block diagram: tells two controls with one
+    # label apart.
+    control_uid: str | None = None
 
 
 @dataclass
@@ -294,6 +333,9 @@ class NetlistInstance:
     # record for it did not decode) -- ``None`` for every other instance kind and
     # for a variable whose library is known.
     library_unreadable: str | None = None
+    # What a VI Server reference constant references (``kind`` is
+    # ``VI_SERVER_REFERENCE``) -- ``None`` for every other instance kind.
+    reference: ReferenceTarget | None = None
 
 
 @dataclass
@@ -490,6 +532,31 @@ class SequenceLocalUnreadable:
     reason: str
 
 
+@dataclass(frozen=True)
+class FrameOutputDrive:
+    """The value ONE frame of a Sequence, Disable or Event structure passes out:
+    the net (``sequence_<uid>.out<K>``, or ``event_<uid>.dynamic`` for the right
+    terminal of an Event Structure's dynamic pair) driven by ``value`` inside
+    frame ``frame`` (the frame's ``NetlistFrame.value``). Only a frame that wires
+    the tunnel has one -- data leaves each frame as it finishes."""
+
+    net: str
+    frame: str
+    value: NetRef
+
+
+@dataclass(frozen=True)
+class StructureInput:
+    """A wire into a structure that is written as a line of the structure's own
+    block: an input tunnel no frame reads (``sequence_<uid>.in<K>``, ``K``
+    counting ALL of the structure's input tunnels), an Event Structure's timeout
+    (``event_<uid>.timeout``) and the wire into the left terminal of its dynamic
+    pair (``event_<uid>.dynamic``)."""
+
+    net: str
+    value: NetRef
+
+
 ScopeOutput = (
     GammaMerge
     | MuMerge
@@ -497,6 +564,7 @@ ScopeOutput = (
     | InPlaceBorderDrive
     | SequenceLocalDrive
     | SequenceLocalUnreadable
+    | FrameOutputDrive
 )
 
 
@@ -516,6 +584,7 @@ class NetlistScope:
 
     uid: str
     kind: str  # "case"|"for"|"while"|"sequence"|"disabled"|"event"|"inplace"
+    # A case's selector; a loop's conditional-terminal wire (None when unwired).
     selector: NetRef | None
     frames: list[NetlistFrame]
     # Sequence-only (kind == "sequence") sub-kind: the EXPLICIT flat-vs-
@@ -538,6 +607,15 @@ class NetlistScope:
     # ``scope_header`` never reads these.
     parallel: bool = False
     parallel_static_workers: int | None = None
+    # Loop-only: how the conditional terminal reads its Boolean. ``None`` for a
+    # For Loop with no conditional terminal (and for every non-loop scope).
+    condition_mode: LoopCondition | None = None
+    # For-Loop-only: the wire into the count terminal (N); ``None`` when
+    # nothing is wired (an auto-indexing input tunnel then sets the count).
+    count: NetRef | None = None
+    # Wires into the structure written as lines first in its block -- see
+    # ``StructureInput``.
+    inputs: list[StructureInput] = field(default_factory=list)
     tunnels: list[NetlistTunnelInfo] = field(default_factory=list)
     # One merge per structural value-merge point on this scope: a case
     # (kind == "case") carries one ``GammaMerge`` per output tunnel (see
@@ -613,7 +691,37 @@ class NetlistConstant:
     lvnet_value: str
 
 
-NetlistItem = NetlistInstance | NetlistScope | NetlistFeedback | NetlistConstant
+@dataclass(frozen=True)
+class NetlistIndicatorDrive:
+    """The drive line of a front-panel indicator whose terminal sits inside a
+    structure: ``Rate = Subtract_3734::difference`` as a line of the loop body
+    or case frame that holds the terminal. ``output`` is the SAME
+    ``BoundaryOutput`` the module lists (its ``placed`` flag is set), so the
+    name, type and source are never written twice."""
+
+    output: BoundaryOutput
+
+
+@dataclass(frozen=True)
+class NetlistControlRead:
+    """``read <Control>``: a front-panel control whose terminal sits inside a
+    structure is read in that scope -- once per frame run, or every iteration
+    of a loop. A control on the VI's own diagram has no such item.
+    ``terminal_uid`` is the control's terminal on the block diagram, which tells
+    two controls with one label apart."""
+
+    name: str
+    terminal_uid: str | None = None
+
+
+NetlistItem = (
+    NetlistInstance
+    | NetlistScope
+    | NetlistFeedback
+    | NetlistConstant
+    | NetlistIndicatorDrive
+    | NetlistControlRead
+)
 
 
 @dataclass
@@ -653,6 +761,12 @@ class BoundaryOutput:
     # facts ``ConnectorPaneTerminal`` carries for this terminal).
     caption: str | None = None
     caption_visible: bool = False
+    # True when the drive line is a ``NetlistIndicatorDrive`` inside the
+    # structure that holds the terminal, not a line at the end of the diagram.
+    placed: bool = False
+    # The indicator's terminal on the block diagram (its ``fPTerm`` uid): the
+    # identity two indicators with one label are told apart by.
+    terminal_uid: str | None = None
 
 
 @dataclass(frozen=True)
@@ -672,6 +786,8 @@ class NetlistBoundaryInput:
     # facts ``ConnectorPaneTerminal`` carries for this terminal).
     caption: str | None = None
     caption_visible: bool = False
+    # The control's terminal on the block diagram -- see ``BoundaryOutput``.
+    terminal_uid: str | None = None
 
 
 @dataclass
@@ -699,6 +815,9 @@ class ConnectorPaneTerminal:
     # label (``name``) stays the identity; the caption is display text.
     caption: str | None = None
     caption_visible: bool = False
+    # The control's or indicator's terminal on the block diagram -- see
+    # ``BoundaryOutput``.
+    terminal_uid: str | None = None
 
     @property
     def is_required(self) -> bool:

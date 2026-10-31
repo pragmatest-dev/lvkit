@@ -52,7 +52,7 @@
           "index": 0,
           "direction": "in",
           "name": "error in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 3,
@@ -89,7 +89,7 @@
         ]
       ],
       "python_code": {
-        "error out": "in_0",
+        "error_out": "in_0",
         "data": "in_8"
       },
       "inline": true,

@@ -444,12 +444,14 @@ async def unresolved(
     front. Returns ``{items, status, problems}``: ``items`` is a list of
     ``{kind, identifier, name, count, vi_names}`` (kind ∈
     ``unknown_primitive``/``placeholder_primitive``/``unsupported_node``/
-    ``unmapped_vilib``/``terminal_mapping``/``missing_vi``/``unsupported_vi``);
-    an empty list means no gaps. ``problems`` lists the VIs that could not be
-    read or written (they are not gaps). ``target`` may be relative to the
-    client's workspace root. ``vilib``/``userlib``/``instrlib`` are the folders a
-    recorded ``<vilib>``/``<userlib>``/``<instrlib>`` dependency path starts from
-    (each dependency is found only at the path its caller records)."""
+    ``unmapped_vilib``/``terminal_mapping``/``unknown_default``/``missing_vi``/
+    ``unsupported_vi``); an empty list means no gaps. ``problems`` lists the VIs
+    that could not be read or written (they are not gaps). ``target`` may be
+    relative to the client's workspace root. ``vilib``/``userlib``/``instrlib``
+    are the folders a recorded ``<vilib>``/``<userlib>``/``<instrlib>``
+    dependency path starts from (each one folder or several, tried in order);
+    ``search_path`` is the VI search path a file not at its recorded path is
+    looked for on."""
     target = await _facade._resolve_target(target, ctx)
     _configure_resolvers_for_vi(target)
 

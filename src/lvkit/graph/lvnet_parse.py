@@ -39,10 +39,18 @@ silent best-effort fallback.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from enum import Enum
 from typing import Any, NamedTuple
 
-from ..models import DisableStructureKind, ScalarValue
+from ..models import DisableStructureKind, LVType, ScalarValue
+from .lvnet_drives import (
+    frame_drives,
+    is_dead_slot,
+    loop_condition_drives,
+    loop_count_drives,
+    structure_input_drives,
+)
 from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
@@ -61,50 +69,62 @@ from .lvnet_grammar import (
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LIBRARY_UNREADABLE,
+    _LVNET_LOOP_CONDITION_TERMINAL,
+    _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
+    _LVNET_READ_KEYWORD,
+    _LVNET_REFERENCE_KEYWORD,
+    _LVNET_REFERENCE_TARGET_WORDS,
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
+    _LVNET_UNINITIALIZED,
     _OPEN_INSTANCE_TRAILING_TODO,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
+    lvnet_net_separator,
+    split_id_suffix,
 )
+from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
 from .netlist import (
     ConnectorPaneTerminal,
+    DefaultValue,
     DependencyKind,
     EtaMerge,
-    GammaMerge,
     InPlaceBorderDrive,
     MuMerge,
     NetlistConstant,
+    NetlistControlRead,
     NetlistFeedback,
+    NetlistIndicatorDrive,
     NetlistInstance,
     NetlistInstanceKind,
     NetlistItem,
     NetlistModule,
     NetlistScope,
 )
+from .netlist_models import LoopCondition, ReferenceTarget, ReferenceTargetKind
 from .render_lvnet import (
     _assign_lvnet_handles,
-    _is_void_type,
     _lv_type_comparison_shape,
     _lvnet_ambiguous_named_types,
     _lvnet_case_header,
     _lvnet_component,
     _lvnet_default_token,
     _lvnet_default_trailing,
-    _lvnet_net_separator,
+    _lvnet_loop_keyword,
     _lvnet_requirement_trailing,
     _LvnetHandles,
-    _quoted_frame_label,
     _render_lvnet_source,
-    _sequence_frame_drives,
-    lvnet_literal_token,
+    lvnet_feedback_attribute,
+    lvnet_item_suffix,
+    lvnet_reference_target_token,
+    lvnet_source_text,
 )
 
 # lvnet §5's three real dispositions -- ``unknown`` never renders a keyword
@@ -207,7 +227,7 @@ class LvnetUnsupportedConstructError(NotImplementedError):
 # xfail)
 # ============================================================
 
-# The exact reverse of ``netlist._LVNET_STRING_ESCAPES`` (md §4/§10): every
+# The exact reverse of ``string_literal.STRING_ESCAPES`` (md §4/§10): every
 # two-char escape lvnet's string-literal renderer can emit, mapped back to
 # its real character. ``\xHH`` (any OTHER C0 control char) is handled
 # separately in ``_unescape_lvnet_string`` since it's three chars wide, not
@@ -368,16 +388,18 @@ class ParsedBoundaryTerminal:
     # ``caption`` clause) and whether it is shown (no ``hidden`` marker).
     caption: str | None = None
     caption_visible: bool = False
+    # The ` (id <uid>)` after the name, when the label is shared (verbose text).
+    uid: str | None = None
 
 
 def _top_level_word_index(words: list[str], target: str) -> int:
     """Index of the first ``target`` word at brace/bracket DEPTH ZERO, or
     ``-1``. A terminal's ``<Type>`` may now be an inline anonymous composite
-    in the capital lossless grammar (``Enum{ m = 0 }`` / ``Cluster{ a : X }``)
+    in the capital lossless grammar (``enum{m = 2}`` / ``Cluster{ a : X }``)
     whose OWN tokens include bare ``=``/``default``/``:`` -- those live at
     depth >= 1 and must never be mistaken for the LINE's own ``= <driver>`` /
     ``default`` operator. Depth is accumulated from the words BEFORE each one
-    (the lossless grammar always spaces its braces -- ``Enum{ ... }`` -- so a
+    (a brace is counted from the word it sits in, so a
     ``{``/``}`` is its own boundary character within a word), so the
     separator words that open a driver/default clause are seen at depth 0."""
     depth = 0
@@ -389,17 +411,29 @@ def _top_level_word_index(words: list[str], target: str) -> int:
 
 
 def _find_top_level_sep(text: str, token: str) -> int:
-    """Index of the first ``token`` substring at brace/bracket DEPTH ZERO in
-    ``text``, or ``-1`` -- the string counterpart of ``_top_level_word_index``
-    for splitters that scan the raw tail (``constant`` lines) rather than a
-    word list, so an inline ``Enum{ m = 0 }`` type's own ``=`` can't be
-    mistaken for the line's ``= <value>`` separator."""
+    """Index of the first ``token`` substring at brace/bracket DEPTH ZERO and
+    OUTSIDE any quoted literal in ``text``, or ``-1`` -- the string counterpart of
+    ``_top_level_word_index`` for splitters that scan the raw tail (``constant``
+    lines) rather than a word list, so an inline ``enum{m = 2}`` type's own ``=``
+    or a quoted ``(unreadable "a : b")`` reason can't be mistaken for the line's own
+    separator."""
     depth = 0
+    in_quote = False
+    escaped = False
     i = 0
     end = len(text) - len(token)
     while i <= end:
         c = text[i]
-        if c in "{[":
+        if in_quote:
+            if escaped:
+                escaped = False
+            elif c == "\\":
+                escaped = True
+            elif c == '"':
+                in_quote = False
+        elif c == '"':
+            in_quote = True
+        elif c in "{[":
             depth += 1
         elif c in "}]":
             depth -= 1
@@ -541,7 +575,7 @@ def _split_node_terminal_tail(
     is a later slice).
 
     The line's own ``= <driver>`` / ``default <value>`` operator is found at
-    brace/bracket DEPTH ZERO (so an inline ``Enum{ m = 0 }`` type's own ``=``
+    brace/bracket DEPTH ZERO (so an inline ``enum{m = 2}`` type's own ``=``
     is skipped), and the value after it is taken as a RAW substring -- NEVER
     ``" ".join(split())`` -- so a string literal's or a path's consecutive
     spaces survive verbatim (a multi-space UI status literal; a VI filename
@@ -655,6 +689,15 @@ class ParsedLocalVariable:
 
 
 @dataclass(frozen=True)
+class ParsedVIServerReference:
+    """``vi-server-reference <handle> : <target>`` (§7): a Control Reference
+    constant, one line with no terminal block."""
+
+    handle: str
+    target: ReferenceTarget
+
+
+@dataclass(frozen=True)
 class ParsedGlobalVariable:
     """``global-variable <handle> : read <Global VI>::<control>`` (a SOURCE) or
     ``global-variable <handle> : write <Global VI>::<control> = <source>`` (a
@@ -668,23 +711,85 @@ class ParsedGlobalVariable:
     source: str | None = None  # write only; None for a read
 
 
+class DriveKind(Enum):
+    """What a ``<structure>_<uid>::<terminal> = <source>`` line drives, read once
+    from the terminal's name."""
+
+    STRUCTURE_INPUT = "input"  # `::in<K>` and `::timeout`: a wire into the structure
+    EVENT_DYNAMIC = "dynamic"  # `::dynamic`: the Event Structure's dynamic pair
+    LOOP_COUNT = "count"  # `::N`: a For Loop's count
+    LOOP_CONDITION = "condition"  # `::condition`: a loop's conditional terminal
+    SEQUENCE_LOCAL = "local"  # `::local<K>`: a Stacked Sequence local
+    OUTPUT = "output"  # `::out<K>`, `::put<K>`: a value the structure passes out
+
+
+_DRIVE_NET_RE = re.compile(
+    rf"^[a-z]+_(?P<uid>\d+){re.escape(_LVNET_TERMINAL_SEP)}(?P<terminal>.+)$"
+)
+_DRIVE_TERMINAL_KINDS: tuple[tuple[re.Pattern[str], DriveKind], ...] = (
+    (re.compile(r"^(?:in\d+|timeout)$"), DriveKind.STRUCTURE_INPUT),
+    (re.compile(r"^dynamic$"), DriveKind.EVENT_DYNAMIC),
+    (re.compile(rf"^{_LVNET_LOOP_COUNT_TERMINAL}$"), DriveKind.LOOP_COUNT),
+    (re.compile(rf"^{_LVNET_LOOP_CONDITION_TERMINAL}$"), DriveKind.LOOP_CONDITION),
+    (re.compile(r"^local\d+$"), DriveKind.SEQUENCE_LOCAL),
+)
+
+
+def classify_drive(net: str) -> tuple[DriveKind, str | None]:
+    """A structure net's drive kind and the structure's uid (``None`` when the
+    net does not read as ``<structure>_<uid>::<terminal>``)."""
+    m = _DRIVE_NET_RE.match(net)
+    if m is None:
+        return DriveKind.OUTPUT, None
+    terminal = m.group("terminal")
+    for pattern, kind in _DRIVE_TERMINAL_KINDS:
+        if pattern.match(terminal):
+            return kind, m.group("uid")
+    return DriveKind.OUTPUT, m.group("uid")
+
+
 @dataclass(frozen=True)
 class ParsedDrive:
-    """A bare ``<net> = <source>`` line -- a case frame's own contribution
-    to a case-output tunnel (§8), OR (at the very end of the document,
-    outside any scope) a VI boundary output being driven (§2)."""
+    """A bare ``<structure>_<uid>::<terminal> = <source>`` line -- a case
+    frame's own contribution to a case-output tunnel, a loop's count or
+    condition wire, any structure's output or input tunnel (§8). A drive whose
+    sink is a front-panel indicator is a ``ParsedIndicatorDrive``. ``kind`` and
+    ``structure_uid`` are read from the net once, here."""
 
     net: str
     source: str
+    kind: DriveKind = DriveKind.OUTPUT
+    structure_uid: str | None = None
+
+
+@dataclass(frozen=True)
+class ParsedIndicatorDrive:
+    """``<Indicator> = <source>``: the drive line of a front-panel indicator --
+    at the end of the diagram, or inside the structure that holds its terminal.
+    Its sink is a control name, never a ``<structure>_<uid>::<terminal>`` net."""
+
+    name: str
+    source: str
+    uid: str | None = None  # the ` (id <uid>)` after the name, when the label is shared
+
+
+@dataclass(frozen=True)
+class ParsedControlRead:
+    """``read <Control>``: a control whose terminal sits inside this structure."""
+
+    name: str
+    uid: str | None = None
 
 
 @dataclass(frozen=True)
 class ParsedShiftRegister:
-    """``shift-register <net> :`` + its ``init``/``each`` lines (§8)."""
+    """``shift-register <net> :`` + its ``init``/``each`` lines (§8); an
+    ``(uninitialized)`` register has no ``init`` line (``init`` is ``None``)."""
 
     net: str
-    init: str
+    init: str | None
     each: str | None
+    uninitialized: bool = False
 
 
 @dataclass(frozen=True)
@@ -705,8 +810,11 @@ class ParsedFeedback:
     (§7)."""
 
     net: str
-    attribute: str  # e.g. "1 iteration", "3 iterations", "? iterations"
-    init: str
+    # The parenthesised settings, e.g. "1 iteration", "3 iterations, uninitialized",
+    # "? iterations"; an ``uninitialized`` one has no ``init`` line (``init`` is
+    # ``None``).
+    attribute: str
+    init: str | None
     each: str | None
 
 
@@ -760,7 +868,15 @@ class ParsedScope:
     body: tuple[ParsedBodyItem, ...] = ()  # loop only
     shift_registers: tuple[ParsedShiftRegister, ...] = ()  # loop only
     tunnels: tuple[ParsedTunnel, ...] = ()  # loop only
-    drives: tuple[ParsedDrive, ...] = ()  # in-place-element only
+    # Drive lines of a structure with a single implicit body: a loop's count /
+    # conditional-terminal wires, an In Place Element's border inputs.
+    drives: tuple[ParsedDrive, ...] = ()
+    # Case / Sequence / Disable / Event: the drive lines that open the block
+    # before the first frame (wires into the structure that no frame reads).
+    inputs: tuple[ParsedDrive, ...] = ()
+    # Loop only: how the conditional terminal reads its Boolean (a
+    # ``LoopCondition`` value); ``None`` for a For Loop with none.
+    condition_mode: str | None = None
     # Phase 4: the header's own OPTIONAL trailing ``(id <uid>)`` annotation
     # (``_LVNET_SCOPE_ID_PREFIX``, verbose-only) -- the structure's real BD
     # uid, recovered by ``_split_scope_header_id`` BEFORE this scope's own
@@ -779,7 +895,10 @@ ParsedBodyItem = (
     | ParsedFeedback
     | ParsedConstant
     | ParsedLocalVariable
+    | ParsedVIServerReference
     | ParsedGlobalVariable
+    | ParsedIndicatorDrive
+    | ParsedControlRead
 )
 
 
@@ -817,7 +936,7 @@ class ParsedDependency:
 @dataclass(frozen=True)
 class ParsedTypeDef:
     """One ``types :`` footnote entry (§10): the lossless structural
-    ``def_text`` (``Enum{...}``/``Cluster{...}``) and, when the entry carried
+    ``def_text`` (``enum{...}``/``Cluster{...}``) and, when the entry carried
     a ``; ./path`` nav suffix, the ``path`` from it (the ``./`` prefix
     removed) -- kept so ``reconstruct_module`` can restore
     ``LVType.typedef_path`` and re-render the exact ``; ./path``."""
@@ -851,7 +970,7 @@ class ParsedLvnet:
     pattern_id: int | None = None
     boundary: tuple[ParsedBoundaryTerminal, ...] = field(default_factory=tuple)
     body: tuple[ParsedBodyItem, ...] = field(default_factory=tuple)
-    output_drives: tuple[ParsedDrive, ...] = field(default_factory=tuple)
+    output_drives: tuple[ParsedIndicatorDrive, ...] = field(default_factory=tuple)
     types: dict[str, ParsedTypeDef] = field(default_factory=dict)
 
 
@@ -1035,6 +1154,30 @@ def _parse_local_variable(content: str, line_no: int) -> ParsedLocalVariable:
             f"line {line_no}: local-variable write has an empty source: {content!r}"
         )
     return ParsedLocalVariable(handle=handle, is_write=True, source=source)
+
+
+def _parse_vi_server_reference(content: str, line_no: int) -> ParsedVIServerReference:
+    """``vi-server-reference <handle> : <target>`` (§7) -- a single line."""
+    rest = content[len(_LVNET_REFERENCE_KEYWORD) + 1 :]
+    sep_idx = rest.find(_LVNET_TYPE_SEP)
+    handle = rest[:sep_idx] if sep_idx != -1 else ""
+    if not handle or " " in handle:
+        raise LvnetParseError(
+            f"line {line_no}: expected 'vi-server-reference <handle> : <target>' "
+            f"with a single space-free handle (§7): {content!r}"
+        )
+    text, uid = split_id_suffix(rest[sep_idx + len(_LVNET_TYPE_SEP) :])
+    for kind, word in _LVNET_REFERENCE_TARGET_WORDS.items():
+        if text == word:
+            return ParsedVIServerReference(handle, ReferenceTarget(kind))
+    name = _unquote_name_token(text)
+    if not name:
+        raise LvnetParseError(
+            f"line {line_no}: a vi-server-reference needs a target (§7): {content!r}"
+        )
+    return ParsedVIServerReference(
+        handle, ReferenceTarget(ReferenceTargetKind.CONTROL, name, uid)
+    )
 
 
 def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
@@ -1238,7 +1381,7 @@ def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:
 def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
     """``constant <handle> : <Type> = <value>`` (§7). The ``= <value>``
     separator is found at brace DEPTH ZERO (``_find_top_level_sep``): a
-    ``<Type>`` that is an inline anonymous ``Enum{ m = 0 }`` carries its own
+    ``<Type>`` that is an inline anonymous ``enum{m = 2}`` carries its own
     ``=`` tokens, so a naive first-``" = "`` would split inside the type --
     the first DEPTH-ZERO match is always the real operator, regardless of
     what the (possibly quoted, md §4/§10) value afterward contains."""
@@ -1277,9 +1420,14 @@ def _parse_feedback(
         )
     net = rest[:open_paren]
     attribute = rest[open_paren + 2 : -1]
+    uninitialized = attribute.endswith(f", {_LVNET_UNINITIALIZED}")
     child_indent = indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=True)
-    assert init is not None
+    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
+    if uninitialized and init is not None:
+        raise LvnetParseError(
+            f"line {line_no}: an uninitialized feedback-node has no 'init' line "
+            f"(§7): {content!r}"
+        )
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
     return ParsedFeedback(net=net, attribute=attribute, init=init, each=each)
 
@@ -1294,11 +1442,21 @@ def _parse_shift_register(
             f"(§8): {content!r}"
         )
     net = rest[: -len(_LVNET_BLOCK_OPEN)]
+    uninit_suffix = f" ({_LVNET_UNINITIALIZED})"
+    uninitialized = net.endswith(uninit_suffix)
+    if uninitialized:
+        net = net[: -len(uninit_suffix)]
     child_indent = body_indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=True)
-    assert init is not None
+    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
+    if uninitialized and init is not None:
+        raise LvnetParseError(
+            f"line {line_no}: an uninitialized shift-register has no 'init' line "
+            f"(§8): {content!r}"
+        )
     each = _expect_kv_line(cursor, child_indent, "each", required=False)
-    return ParsedShiftRegister(net=net, init=init, each=each)
+    return ParsedShiftRegister(
+        net=net, init=init, each=each, uninitialized=uninitialized
+    )
 
 
 def _parse_tunnel(
@@ -1366,20 +1524,43 @@ def _split_scope_header_id(content: str) -> tuple[str, str | None]:
     return body[:open_idx] + _LVNET_BLOCK_OPEN, uid
 
 
+_LOOP_HEADER_RE = re.compile(
+    rf"^(?P<kind>for-loop|while-loop)(?: \((?P<mode>[^()]*)\))?{_LVNET_BLOCK_OPEN}$"
+)
+
+
+def _split_loop_header(content: str, line_no: int) -> tuple[str, str | None] | None:
+    """A loop header's ``(kind, condition mode)``, or ``None`` when ``content`` is
+    not a loop header. The mode is the parenthesised ``stop if true`` / ``continue
+    if true``; a While Loop must carry one."""
+    m = _LOOP_HEADER_RE.match(content)
+    if m is None:
+        return None
+    kind, mode = m.group("kind"), m.group("mode")
+    if mode is not None and mode not in {c.value for c in LoopCondition}:
+        raise LvnetParseError(
+            f"line {line_no}: a loop header's setting must be '(stop if true)' or "
+            f"'(continue if true)' (§8): {content!r}"
+        )
+    if kind == "while-loop" and mode is None:
+        raise LvnetParseError(
+            f"line {line_no}: a while-loop header must say '(stop if true)' or "
+            f"'(continue if true)' (§8): {content!r}"
+        )
+    return kind, mode
+
+
 def _parse_loop_scope(
-    cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
+    cursor: _Cursor,
+    indent: int,
+    kind: str,
+    condition_mode: str | None,
+    uid: str | None,
 ) -> ParsedScope:
-    kind = "while-loop" if content == f"while-loop{_LVNET_BLOCK_OPEN}" else "for-loop"
     body_indent = indent + _LVNET_INDENT_WIDTH
     body, drives = _parse_items(
         cursor, body_indent, stop_prefixes=("shift-register ", "tunnel ")
     )
-    if drives:
-        raise LvnetParseError(
-            f"line {line_no}: a {kind} body must not contain bare "
-            f"'net = source' drive lines (those belong to a case frame, "
-            f"§8): {drives!r}"
-        )
     shift_registers: list[ParsedShiftRegister] = []
     tunnels: list[ParsedTunnel] = []
     while True:
@@ -1405,6 +1586,8 @@ def _parse_loop_scope(
         body=tuple(body),
         shift_registers=tuple(shift_registers),
         tunnels=tuple(tunnels),
+        drives=tuple(drives),
+        condition_mode=condition_mode,
         uid=uid,
     )
 
@@ -1479,6 +1662,7 @@ def _parse_case_scope(
     selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
     frame_indent = indent + _LVNET_INDENT_WIDTH
     body_indent = indent + _LVNET_INDENT_WIDTH * 2
+    inputs = _parse_block_inputs(cursor, frame_indent)
     frames: list[ParsedFrame] = []
     while True:
         line = cursor.peek()
@@ -1513,30 +1697,50 @@ def _parse_case_scope(
         raise LvnetParseError(
             f"line {line_no}: case scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind="case", selector=selector, frames=tuple(frames), uid=uid)
+    return ParsedScope(
+        kind="case",
+        selector=selector,
+        frames=tuple(frames),
+        inputs=tuple(inputs),
+        uid=uid,
+    )
+
+
+def _parse_block_inputs(cursor: _Cursor, frame_indent: int) -> list[ParsedDrive]:
+    """The drive lines that open a frame-bearing structure's block -- wires into
+    the structure that no frame reads -- ahead of its first ``frame`` header."""
+    inputs: list[ParsedDrive] = []
+    while True:
+        line = cursor.peek()
+        if line is None or line.strip() == "" or _indent_len(line) != frame_indent:
+            break
+        content = line[frame_indent:]
+        if content.startswith("frame "):
+            break
+        drive = _parse_drive_line(content, cursor.line_no)
+        if not isinstance(drive, ParsedDrive):
+            break
+        cursor.take()
+        inputs.append(drive)
+    return inputs
 
 
 def _parse_labeled_frames(
     cursor: _Cursor,
     frame_indent: int,
     body_indent: int,
-    *,
-    allow_drives: bool = False,
-) -> list[ParsedFrame]:
-    """Parse a run of ``frame <label> :`` blocks (§8) at EXACTLY
-    ``frame_indent`` spaces -- shared by the sequence/disabled/event-
+) -> tuple[list[ParsedDrive], list[ParsedFrame]]:
+    """Parse the opening input lines and a run of ``frame <label> :`` blocks (§8)
+    at EXACTLY ``frame_indent`` spaces -- shared by the sequence/disabled/event-
     structure families (``_parse_sequence_scope``/``_parse_disabled_scope``/
     ``_parse_event_scope``), unlike ``_parse_case_scope`` which requires its
     label to be quoted: these families render some labels bare (``[0]``,
     ``Enabled``) and some quoted (a Conditional Disable symbol condition, an
     event label) -- so ``label`` is kept VERBATIM, quotes and all, exactly as
     ``_parse_case_scope`` already does for its own (always-quoted) labels.
-
-    Only a sequence frame may carry ``net = source`` drive lines (the
-    sequence locals it writes, ``allow_drives``); for disabled/event frames
-    encountering one is a genuine grammar violation, raised rather than
-    silently accepted.
+    A frame ends with the ``net = source`` drive lines of what it passes out.
     """
+    inputs = _parse_block_inputs(cursor, frame_indent)
     frames: list[ParsedFrame] = []
     while True:
         line = cursor.peek()
@@ -1556,12 +1760,6 @@ def _parse_labeled_frames(
         header = frame_content[len("frame ") : -len(_LVNET_BLOCK_OPEN)]
         label, is_default = _split_trailing_default(header)
         items, drives = _parse_items(cursor, body_indent)
-        if drives and not allow_drives:
-            raise LvnetParseError(
-                f"line {frame_line_no}: this scope family has no output "
-                f"merge to drive, so its frames must not contain bare "
-                f"'net = source' lines (§8): {drives!r}"
-            )
         frames.append(
             ParsedFrame(
                 label=label,
@@ -1570,7 +1768,7 @@ def _parse_labeled_frames(
                 is_default=is_default,
             )
         )
-    return frames
+    return inputs, frames
 
 
 def _parse_sequence_scope(
@@ -1579,17 +1777,16 @@ def _parse_sequence_scope(
     """``flat-sequence :`` / ``stacked-sequence :`` (§8) -- ``frame [i] :``
     per frame, matching ``_render_lvnet_sequence_scope`` exactly."""
     kind = "flat-sequence" if content == "flat-sequence :" else "stacked-sequence"
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor,
         indent + _LVNET_INDENT_WIDTH,
         indent + _LVNET_INDENT_WIDTH * 2,
-        allow_drives=True,
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
+    return ParsedScope(kind=kind, frames=tuple(frames), inputs=tuple(inputs), uid=uid)
 
 
 def _parse_disabled_scope(
@@ -1601,14 +1798,14 @@ def _parse_disabled_scope(
     ``" :"``), so ``netlist_signature`` compares it directly against
     ``_LVNET_DISABLE_KEYWORD[scope.disable_kind]`` with no extra mapping."""
     kind = content[: -len(_LVNET_BLOCK_OPEN)]
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: {kind} scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind=kind, frames=tuple(frames), uid=uid)
+    return ParsedScope(kind=kind, frames=tuple(frames), inputs=tuple(inputs), uid=uid)
 
 
 def _parse_inplace_scope(
@@ -1635,21 +1832,59 @@ def _parse_event_scope(
 ) -> ParsedScope:
     """``event-structure :`` (§8) -- ``frame "<event>" :`` per event case,
     matching ``_render_lvnet_event_scope`` exactly."""
-    frames = _parse_labeled_frames(
+    inputs, frames = _parse_labeled_frames(
         cursor, indent + _LVNET_INDENT_WIDTH, indent + _LVNET_INDENT_WIDTH * 2
     )
     if not frames:
         raise LvnetParseError(
             f"line {line_no}: event-structure scope has no frames (§8): {content!r}"
         )
-    return ParsedScope(kind="event-structure", frames=tuple(frames), uid=uid)
+    return ParsedScope(
+        kind="event-structure", frames=tuple(frames), inputs=tuple(inputs), uid=uid
+    )
+
+
+def _parse_drive_line(
+    content: str, line_no: int
+) -> ParsedDrive | ParsedIndicatorDrive | None:
+    """A ``<net> = <source>`` drive line, or ``None`` when ``content`` is not
+    one. A line with a top-level `` = `` and no top-level `` : `` before it is a
+    drive line whatever its first word is -- a node, constant or variable line
+    always carries its `` : `` first, and a net name is bare or quoted, so a
+    control named ``case x`` still drives as ``case x = <source>``."""
+    sep = _find_first_top_level(content, _LVNET_DRIVER_OP)
+    if sep == -1:
+        return None
+    type_sep = _find_first_top_level(content, _LVNET_TYPE_SEP)
+    if type_sep != -1 and type_sep < sep:
+        return None
+    source = content[sep + len(_LVNET_DRIVER_OP) :]
+    _validate_if_quoted(source, line_no)
+    sink, uid = split_id_suffix(content[:sep])
+    net = _unquote_name_token(sink)
+    # A structure net is never quoted and always holds ``::``; a control name
+    # that holds it is written quoted (``lvnet_control_name_token``).
+    if uid is None and not sink.startswith('"') and _LVNET_TERMINAL_SEP in net:
+        kind, structure_uid = classify_drive(net)
+        return ParsedDrive(
+            net=net, source=source, kind=kind, structure_uid=structure_uid
+        )
+    return ParsedIndicatorDrive(name=net, source=source, uid=uid)
 
 
 def _parse_one_item_or_drive(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedBodyItem | ParsedDrive:
+    drive = _parse_drive_line(content, line_no)
+    if drive is not None:
+        return drive
+    if content.startswith(f"{_LVNET_READ_KEYWORD} "):
+        token, uid = split_id_suffix(content[len(_LVNET_READ_KEYWORD) + 1 :])
+        return ParsedControlRead(name=_unquote_name_token(token), uid=uid)
     if content.startswith("local-variable "):
         return _parse_local_variable(content, line_no)
+    if content.startswith(f"{_LVNET_REFERENCE_KEYWORD} "):
+        return _parse_vi_server_reference(content, line_no)
     if content.startswith("global-variable "):
         return _parse_global_variable(content, line_no)
     if content.startswith("constant "):
@@ -1665,11 +1900,11 @@ def _parse_one_item_or_drive(
     # AS IF that annotation never existed, and stays correct unchanged once
     # it's peeled off here (see ``_split_scope_header_id``'s own docstring).
     scope_content, scope_uid = _split_scope_header_id(content)
-    if scope_content in (
-        f"for-loop{_LVNET_BLOCK_OPEN}",
-        f"while-loop{_LVNET_BLOCK_OPEN}",
-    ):
-        return _parse_loop_scope(cursor, indent, scope_content, line_no, scope_uid)
+    loop_header = _split_loop_header(scope_content, line_no)
+    if loop_header is not None:
+        return _parse_loop_scope(
+            cursor, indent, loop_header[0], loop_header[1], scope_uid
+        )
     if scope_content.startswith("case ") and scope_content.endswith(_LVNET_BLOCK_OPEN):
         return _parse_case_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content in _SEQUENCE_SCOPE_HEADERS:
@@ -1680,16 +1915,6 @@ def _parse_one_item_or_drive(
         return _parse_event_scope(cursor, indent, scope_content, line_no, scope_uid)
     if scope_content == _INPLACE_SCOPE_HEADER:
         return _parse_inplace_scope(cursor, indent, scope_content, line_no, scope_uid)
-    sep = _find_first_top_level(content, _LVNET_DRIVER_OP)
-    if sep != -1:
-        # FIRST top-level occurrence: a net name is bare (never contains " = ")
-        # or quoted (``lvnet_name_token``), so it's always the real operator
-        # regardless of what a (possibly quoted, md §4/§10) literal source
-        # afterward contains.
-        net = _unquote_name_token(content[:sep])
-        source = content[sep + len(_LVNET_DRIVER_OP) :]
-        _validate_if_quoted(source, line_no)
-        return ParsedDrive(net=net, source=source)
     raise LvnetParseError(f"line {line_no}: unrecognized body line: {content!r}")
 
 
@@ -1895,7 +2120,8 @@ def _parse_boundary_terminal_line(
         raise LvnetParseError(
             f"line {line_no}: missing ' : <Type>' clause (§3): {line!r}"
         )
-    name = _unquote_name_token(rest[:sep_idx])
+    name_token, uid = split_id_suffix(rest[:sep_idx].rstrip())
+    name = _unquote_name_token(name_token)
     tail = rest[sep_idx + len(_LVNET_TYPE_SEP) :]
     if not name:
         raise LvnetParseError(f"line {line_no}: empty terminal name: {line!r}")
@@ -1909,6 +2135,7 @@ def _parse_boundary_terminal_line(
         index=split.index,
         caption=split.caption,
         caption_visible=split.caption_visible,
+        uid=uid,
     )
 
 
@@ -2064,16 +2291,28 @@ def parse_lvnet(text: str) -> ParsedLvnet:
     cursor = _Cursor(lines, pos=1)
     uses = _parse_uses_block(cursor)
     pattern_id, boundary = _parse_front_panel_block(cursor)
-    body_items, output_drives = _parse_block_diagram_block(cursor)
+    body_items, structure_drives = _parse_block_diagram_block(cursor)
     type_defs = _parse_types_block(cursor)
+    if structure_drives:
+        raise LvnetParseError(
+            f"the diagram drives {structure_drives[0].net!r}, which is a "
+            f"structure's terminal (§8): that line belongs inside the structure"
+        )
+    if any(isinstance(item, ParsedControlRead) for item in body_items):
+        raise LvnetParseError(
+            "'read <Control>' belongs inside a structure (§8): a control on the "
+            "VI's own diagram has no line"
+        )
 
     return ParsedLvnet(
         vi_name=vi_name,
         uses=uses,
         pattern_id=pattern_id,
         boundary=tuple(boundary),
-        body=tuple(body_items),
-        output_drives=tuple(output_drives),
+        body=tuple(i for i in body_items if not isinstance(i, ParsedIndicatorDrive)),
+        output_drives=tuple(
+            i for i in body_items if isinstance(i, ParsedIndicatorDrive)
+        ),
         types=type_defs,
     )
 
@@ -2095,7 +2334,7 @@ TypeShape = tuple[Any, ...]
 
 def _split_top_level_commas(text: str) -> list[str]:
     """Split ``text`` on ``,`` at brace/bracket DEPTH ZERO and OUTSIDE any
-    quoted token -- separates an ``Enum{...}``'s members or a ``Cluster{...}``'s
+    quoted token -- separates an ``enum{...}``'s members or a ``Cluster{...}``'s
     fields (§10) without breaking on a comma inside a NESTED structural type
     (a cluster field whose own type is another ``Cluster{...}``/array) NOR on a
     comma inside a QUOTED member/field NAME (a real LabVIEW name like
@@ -2187,21 +2426,21 @@ def _unquote_name_token(raw: str) -> str:
     return raw
 
 
-def _parse_lossless_members(body: str) -> tuple[tuple[str, int], ...]:
-    """Parse an ``Enum{...}``/``Ring{...}`` footnote body (§10) into
-    ``(member_name, ordinal)`` pairs, sorted by ordinal -- the SAME
-    canonical order ``netlist._lv_type_comparison_shape`` builds on the
-    module side. ``body`` is the text BETWEEN the outer braces."""
+def parse_item_labels(body: str) -> tuple[tuple[str, int], ...]:
+    """The ``(name, value)`` items of an ``enum{...}`` or ``ring{...}`` body, in
+    value order: an item is ``name = value``, or just ``name`` for the next of
+    0, 1, 2, .... ``?`` or empty is no items."""
     body = body.strip()
     if not body or body == "?":
         return ()
-    members: list[tuple[str, int]] = []
-    for part in _split_top_level_commas(body):
-        # The ordinal (an int) never contains `` = ``, so the LAST `` = `` is
-        # always the name/ordinal separator even when a QUOTED name embeds one.
-        name, _, ordinal_text = part.rpartition(_LVNET_DRIVER_OP)
-        members.append((_unquote_name_token(name), int(ordinal_text.strip())))
-    return tuple(sorted(members, key=lambda kv: kv[1]))
+    items: list[tuple[str, int]] = []
+    for position, part in enumerate(_split_top_level_commas(body)):
+        name, _, value_text = part.rpartition(_LVNET_DRIVER_OP)
+        if name and value_text.strip().lstrip("-").isdigit():
+            items.append((_unquote_name_token(name), int(value_text)))
+        else:
+            items.append((_unquote_name_token(part), position))
+    return tuple(sorted(items, key=lambda item: item[1]))
 
 
 def _parse_lossless_cluster_fields(
@@ -2259,7 +2498,7 @@ def _parsed_type_ref_shape(
     Recognizes, in order: an array wrapper (``[...]``, one or more dims);
     a refnum wrapper (``<ref_type> refnum{...}`` / ``<ref_type> refnum`` /
     bare ``refnum``); the NEW capitalized lossless-grammar structural forms
-    (``Enum{...}``/``Ring{...}``/``Cluster{...}`` -- these NEVER appear in
+    (``enum{...}``/``ring{...}``/``Cluster{...}`` -- these NEVER appear in
     the OLD terse/anonymous inline label, only inside a resolved footnote's
     own def text, so there's no ambiguity with an anonymous cluster's
     lowercase ``cluster{...}`` label); and finally a bare NAME that
@@ -2308,9 +2547,9 @@ def _parsed_type_ref_shape(
     if text.endswith(" refnum") and "{" not in text:
         return ("leaf", text)
     if text.startswith(_LVNET_ENUM_OPEN) and text.endswith("}"):
-        return ("enum", _parse_lossless_members(text[len(_LVNET_ENUM_OPEN) : -1]))
+        return ("enum", parse_item_labels(text[len(_LVNET_ENUM_OPEN) : -1]))
     if text.startswith(_LVNET_RING_OPEN) and text.endswith("}"):
-        return ("ring", _parse_lossless_members(text[len(_LVNET_RING_OPEN) : -1]))
+        return ("ring", parse_item_labels(text[len(_LVNET_RING_OPEN) : -1]))
     if text.startswith(_LVNET_CLUSTER_OPEN) and text.endswith("}"):
         fields = _parse_lossless_cluster_fields(
             text[len(_LVNET_CLUSTER_OPEN) : -1], types_dict, seen, ambiguous
@@ -2329,7 +2568,9 @@ def _parsed_type_ref_shape(
     return ("leaf", text)
 
 
-def _module_default_token(default: ScalarValue) -> str | None:
+def _module_default_token(
+    default: ScalarValue, lv_type: LVType | None
+) -> str | None:
     """The comparable ``default`` token for a MODULE-side BOUNDARY terminal
     (``ConnectorPaneTerminal.default``, a raw ``ScalarValue``) -- ``None``
     when the pane genuinely has no default recorded, else the exact literal
@@ -2337,7 +2578,7 @@ def _module_default_token(default: ScalarValue) -> str | None:
     ``lvnet_literal_token`` in ``netlist.py``)."""
     if default is None:
         return None
-    return lvnet_literal_token(default)
+    return lvnet_value_token(default, lv_type) + lvnet_item_suffix(lv_type, default)
 
 
 BoundarySignatureEntry = tuple[
@@ -2411,7 +2652,7 @@ def boundary_signature(
                 else ("leaf", inp.type_descriptor),
                 "in",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
@@ -2426,7 +2667,7 @@ def boundary_signature(
                 else ("leaf", o.type_descriptor),
                 "out",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
@@ -2441,7 +2682,7 @@ def boundary_signature(
                 else ("leaf", pane.type),
                 "in" if pane.direction == "input" else "out",
                 _lvnet_requirement_trailing(pane),
-                _module_default_token(pane.default),
+                _module_default_token(pane.default, pane.lv_type),
                 pane.index,
                 pane.caption,
                 pane.caption_visible,
@@ -2490,7 +2731,7 @@ def _module_terminal_tuple(
 ) -> tuple[tuple[str, str, TypeShape, str | None, str | None, bool], ...]:
     entries: list[tuple[str, str, TypeShape, str | None, str | None, bool]] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
-        if _is_void_type(b.type):
+        if is_dead_slot(b.type, b.net is not None):
             continue
         type_shape = (
             _lv_type_comparison_shape(b.lv_type, ambiguous=ambiguous)
@@ -2506,7 +2747,7 @@ def _module_terminal_tuple(
             default = _strip_default_prefix(_lvnet_default_trailing(b.default))
         entries.append(("in", b.terminal, type_shape, driver, default, b.inverted))
     for o in sorted(instance.outputs, key=lambda o: o.pane_rank):
-        if _is_void_type(o.type):
+        if is_dead_slot(o.type, o.read):
             continue
         type_shape = (
             _lv_type_comparison_shape(o.lv_type, ambiguous=ambiguous)
@@ -2535,6 +2776,13 @@ def _module_instance_signature(
                 source_str = _lvnet_default_token(binding.default)
             return ("local-variable", handle, "write", source_str)
         return ("local-variable", handle, "read")
+    if instance.kind == NetlistInstanceKind.VI_SERVER_REFERENCE:
+        assert instance.reference is not None
+        return (
+            "vi-server-reference",
+            handles.by_uid[instance.uid],
+            lvnet_reference_target_token(instance.reference),
+        )
     if instance.kind == NetlistInstanceKind.GLOBAL_VARIABLE:
         # Matches ``_parsed_item_signature``'s ``ParsedGlobalVariable`` branch
         # exactly -- see ``_render_lvnet_global_variable``.
@@ -2573,13 +2821,13 @@ def _module_constant_signature(const: NetlistConstant, handles: _LvnetHandles) -
 
 
 def _module_feedback_signature(fb: NetlistFeedback, handles: _LvnetHandles) -> tuple:
-    if fb.delay is None:
-        attr = "? iterations"
-    else:
-        attr = f"{fb.delay} iteration" + ("" if fb.delay == 1 else "s")
-    init_str = _render_lvnet_source(fb.init, handles)
+    init_str = (
+        None
+        if isinstance(fb.init, DefaultValue)
+        else _render_lvnet_source(fb.init, handles)
+    )
     each_str = _render_lvnet_source(fb.recur, handles) if fb.recur is not None else None
-    return ("feedback", fb.net, attr, init_str, each_str)
+    return ("feedback", fb.net, lvnet_feedback_attribute(fb), init_str, each_str)
 
 
 def _module_case_scope_signature(
@@ -2590,37 +2838,38 @@ def _module_case_scope_signature(
         if scope.selector is not None
         else "?"
     )
-    gammas = [m for m in scope.outputs if isinstance(m, GammaMerge)]
-    frames: list[tuple] = []
-    for frame in scope.frames:
-        label = _lvnet_case_header(frame.values, frame.is_default)
-        body_sig = _module_body_signature(frame.body, handles, ambiguous)
-        frame_key = "default" if frame.is_default else frame.label
-        drive_entries: list[tuple[str, str]] = []
-        for gamma in gammas:
-            case_entry = next(
-                (c for c in gamma.cases if c.frame_key == frame_key), None
-            )
-            if case_entry is None:
-                continue
-            source_str = _render_lvnet_source(case_entry.source, handles)
-            net = _lvnet_net_separator(gamma.net)
-            drive_entries.append((net, source_str))
-        frames.append((label, body_sig, tuple(drive_entries)))
-    return ("scope", "case", sel, tuple(frames))
+    frames = tuple(
+        (
+            _lvnet_case_header(frame.values, frame.is_default),
+            _module_body_signature(frame.body, handles, ambiguous),
+            tuple(frame_drives(scope, frame, lvnet_source_text(handles))),
+        )
+        for frame in scope.frames
+    )
+    return (
+        "scope",
+        "case",
+        sel,
+        frames,
+        tuple(structure_input_drives(scope, lvnet_source_text(handles))),
+    )
 
 
 def _module_loop_scope_signature(
     scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
-    kind_word = "while-loop" if scope.kind == "while" else "for-loop"
+    kind_word = _lvnet_loop_keyword(scope)
     body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
-    shift_regs: list[tuple[str, str, str | None]] = []
+    shift_regs: list[tuple[str, str | None, str | None]] = []
     tunnels: list[tuple[str, str, str, str | None]] = []
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
-            net = _lvnet_net_separator(merge.net)
-            init_str = _render_lvnet_source(merge.init, handles)
+            net = lvnet_net_separator(merge.net)
+            init_str = (
+                None
+                if isinstance(merge.init, DefaultValue)
+                else _render_lvnet_source(merge.init, handles)
+            )
             each_str = (
                 _render_lvnet_source(merge.recur, handles)
                 if merge.recur is not None
@@ -2637,33 +2886,55 @@ def _module_loop_scope_signature(
                 if merge.condition is not None
                 else None
             )
-            net = _lvnet_net_separator(merge.net)
+            net = lvnet_net_separator(merge.net)
             tunnels.append((net, mode_word, value_str, condition_str))
-    return ("scope", kind_word, None, body_sig, tuple(shift_regs), tuple(tunnels))
+    condition_mode = (
+        scope.condition_mode.value if scope.condition_mode is not None else None
+    )
+    drives = (
+        *structure_input_drives(scope, lvnet_source_text(handles)),
+        *loop_count_drives(scope, lvnet_source_text(handles)),
+        *loop_condition_drives(scope, lvnet_source_text(handles)),
+    )
+    return (
+        "scope",
+        kind_word,
+        condition_mode,
+        body_sig,
+        tuple(shift_regs),
+        tuple(tunnels),
+        drives,
+    )
 
 
 def _module_frame_only_scope_signature(
     kind_word: str,
-    frame_labels_and_bodies: list[tuple[str, list[NetlistItem]]],
+    scope: NetlistScope,
+    frame_labels: list[str],
     handles: _LvnetHandles,
     ambiguous: frozenset[str],
-    frame_drives: list[list[tuple[str, str]]] | None = None,
 ) -> tuple:
     """Shared by the three frame-only scope families (sequence/disabled/
     event, see ``_parse_labeled_frames``'s docstring for why they share one
     shape): a frame's signature is its already-rendered label, its body and
-    its drive lines -- ``frame_drives`` (one list per frame) for a sequence's
-    sequence locals, empty for disabled/event frames. The 3-tuple matches a
-    case frame's shape, so ``_parsed_item_signature``'s matching branch needs
-    no special case."""
-    drives = frame_drives or [[] for _ in frame_labels_and_bodies]
+    its drive lines, then the structure's opening input lines. The tuple
+    matches a case scope's shape, so ``_parsed_item_signature``'s matching
+    branch needs no special case."""
     frames = tuple(
-        (label, _module_body_signature(body, handles, ambiguous), tuple(frame_drive))
-        for (label, body), frame_drive in zip(
-            frame_labels_and_bodies, drives, strict=True
+        (
+            label,
+            _module_body_signature(frame.body, handles, ambiguous),
+            tuple(frame_drives(scope, frame, lvnet_source_text(handles))),
         )
+        for label, frame in zip(frame_labels, scope.frames, strict=True)
     )
-    return ("scope", kind_word, None, frames)
+    return (
+        "scope",
+        kind_word,
+        None,
+        frames,
+        tuple(structure_input_drives(scope, lvnet_source_text(handles))),
+    )
 
 
 def _module_sequence_scope_signature(
@@ -2675,10 +2946,10 @@ def _module_sequence_scope_signature(
     kind_word = "flat-sequence" if scope.sequence_is_flat else "stacked-sequence"
     return _module_frame_only_scope_signature(
         kind_word,
-        [(f"[{frame.value}]", frame.body) for frame in scope.frames],
+        scope,
+        [f"[{frame.value}]" for frame in scope.frames],
         handles,
         ambiguous,
-        [_sequence_frame_drives(scope, f.value, handles) for f in scope.frames],
     )
 
 
@@ -2695,13 +2966,8 @@ def _module_disabled_scope_signature(
     quote = scope.disable_kind is DisableStructureKind.CONDITIONAL
     return _module_frame_only_scope_signature(
         kind_word,
-        [
-            (
-                _quoted_frame_label(frame.label) if quote else frame.label,
-                frame.body,
-            )
-            for frame in scope.frames
-        ],
+        scope,
+        [lvnet_literal_token(f.label) if quote else f.label for f in scope.frames],
         handles,
         ambiguous,
     )
@@ -2710,11 +2976,12 @@ def _module_disabled_scope_signature(
 def _module_event_scope_signature(
     scope: NetlistScope, handles: _LvnetHandles, ambiguous: frozenset[str]
 ) -> tuple:
-    """``event-structure`` (§8) -- every frame label quoted, matching
+    """``event-structure`` (§8) -- every frame label a string literal, matching
     ``_render_lvnet_event_scope`` exactly."""
     return _module_frame_only_scope_signature(
         "event-structure",
-        [(_quoted_frame_label(frame.label), frame.body) for frame in scope.frames],
+        scope,
+        [lvnet_literal_token(f.label) for f in scope.frames],
         handles,
         ambiguous,
     )
@@ -2729,7 +2996,7 @@ def _module_inplace_scope_signature(
     body_sig = _module_body_signature(scope.frames[0].body, handles, ambiguous)
     drive_entries = tuple(
         (
-            _lvnet_net_separator(drive.net),
+            lvnet_net_separator(drive.net),
             _render_lvnet_source(drive.value, handles),
         )
         for drive in scope.outputs
@@ -2766,6 +3033,18 @@ def _module_body_signature(
             out.append(_module_feedback_signature(item, handles))
         elif isinstance(item, NetlistConstant):
             out.append(_module_constant_signature(item, handles))
+        elif isinstance(item, NetlistIndicatorDrive):
+            out.append(
+                (
+                    "indicator-drive",
+                    item.output.name,
+                    _render_lvnet_source(item.output.source, handles)
+                    if item.output.source is not None
+                    else "?",
+                )
+            )
+        elif isinstance(item, NetlistControlRead):
+            out.append(("read", item.name))
     return tuple(out)
 
 
@@ -2802,6 +3081,12 @@ def _parsed_item_signature(
         if item.is_write:
             return ("local-variable", item.handle, "write", item.source)
         return ("local-variable", item.handle, "read")
+    if isinstance(item, ParsedVIServerReference):
+        return (
+            "vi-server-reference",
+            item.handle,
+            lvnet_reference_target_token(item.target),
+        )
     if isinstance(item, ParsedGlobalVariable):
         # Matches ``_module_instance_signature``'s ``NetlistInstanceKind.
         # GLOBAL_VARIABLE`` branch exactly.
@@ -2817,6 +3102,10 @@ def _parsed_item_signature(
         return ("global-variable", item.handle, "read", item.global_vi, item.control)
     if isinstance(item, ParsedFeedback):
         return ("feedback", item.net, item.attribute, item.init, item.each)
+    if isinstance(item, ParsedIndicatorDrive):
+        return ("indicator-drive", item.name, item.source)
+    if isinstance(item, ParsedControlRead):
+        return ("read", item.name)
     if isinstance(item, ParsedScope):
         if item.kind == "case" or item.kind in _FRAME_ONLY_SCOPE_KINDS:
             # Same 3-tuple frame shape as a case scope (label, body, drives)
@@ -2841,7 +3130,13 @@ def _parsed_item_signature(
                 )
                 for f in item.frames
             )
-            return ("scope", item.kind, item.selector, frames)
+            return (
+                "scope",
+                item.kind,
+                item.selector,
+                frames,
+                tuple((d.net, d.source) for d in item.inputs),
+            )
         body_sig = tuple(
             _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
         )
@@ -2855,7 +3150,16 @@ def _parsed_item_signature(
             )
         shift_regs = tuple((sr.net, sr.init, sr.each) for sr in item.shift_registers)
         tunnels = tuple((t.net, t.mode, t.source, t.condition) for t in item.tunnels)
-        return ("scope", item.kind, None, body_sig, shift_regs, tunnels)
+        drives = tuple((d.net, d.source) for d in item.drives)
+        return (
+            "scope",
+            item.kind,
+            item.condition_mode,
+            body_sig,
+            shift_regs,
+            tunnels,
+            drives,
+        )
     if isinstance(item, ParsedNode):
         terminals = tuple(
             (
@@ -2954,7 +3258,7 @@ def netlist_signature(
         body = tuple(
             _parsed_item_signature(item, types_dict, ambiguous) for item in parsed.body
         )
-        drives = tuple((d.net, d.source) for d in parsed.output_drives)
+        drives = tuple((d.name, d.source) for d in parsed.output_drives)
         return (uses, parsed.pattern_id, boundary, body, drives)
 
     module = module_or_parsed
@@ -2973,7 +3277,9 @@ def netlist_signature(
         )
         for d in module.dependencies
     )
-    handles = _assign_lvnet_handles(module)
+    # The text the signature is compared with is verbose, which names a shared
+    # label's terminal by uid.
+    handles = replace(_assign_lvnet_handles(module), show_ids=True)
     boundary = boundary_signature(module, ambiguous=ambiguous)
     body = _module_body_signature(module.body, handles, ambiguous)
     drives = tuple(
@@ -2982,5 +3288,6 @@ def netlist_signature(
             _render_lvnet_source(o.source, handles) if o.source is not None else "?",
         )
         for o in (*module.outputs, *module.off_pane_outputs)
+        if not o.placed
     )
     return (uses, module.connector_pane.pattern_id, boundary, body, drives)

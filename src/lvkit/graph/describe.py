@@ -14,11 +14,13 @@ from ..models import (
     CaseFrame,
     FPTerminal,
     LVType,
+    LVTypeKind,
     ScalarValue,
     Terminal,
     TunnelTerminal,
 )
 from ..parser.node_types import get_display_name
+from ..path_value import is_path_text
 from ..vi_files import is_vi_file, strip_vi_extension
 from ..vilib_resolver import get_resolver as _get_vilib_resolver
 from .interface_order import is_required
@@ -63,6 +65,7 @@ from .op_walk import (
     selector_values_quoted_one_by_one,
 )
 from .queries import collect_class_context
+from .reference_target import is_reference_constant, reference_phrase, reference_target
 from .render_lvnet import lvnet_literal_token
 from .tunnel_names import (
     carried_name,
@@ -252,7 +255,7 @@ def _format_signature(ctx: VIContext) -> str:
     return f"{func_name}({params}) -> {ret}"
 
 
-def default_suffix(default: ScalarValue) -> str:
+def default_suffix(default: ScalarValue, lv_type: LVType | None = None) -> str:
     """`` = <value>`` for a terminal's default, or ``''`` when it has none.
 
     Only a genuinely-set default annotates (``default`` is ``None`` when the
@@ -261,7 +264,21 @@ def default_suffix(default: ScalarValue) -> str:
     """
     if default is None:
         return ""
-    return f' = "{default}"' if isinstance(default, str) else f" = {default}"
+    item = lv_type.item_for(default) if lv_type is not None else None
+    shown = f" ({item})" if item is not None else ""
+    is_item_type = lv_type is not None and lv_type.kind in (
+        LVTypeKind.ENUM,
+        LVTypeKind.RING,
+    )
+    is_path = (
+        lv_type is not None
+        and lv_type.underlying_type == "Path"
+        and isinstance(default, str)
+        and is_path_text(default)
+    )
+    quoted = isinstance(default, str) and not is_item_type and not is_path
+    value = f'"{default}"' if quoted else f"{default}"
+    return f" = {value}{shown}"
 
 
 def _shown_caption(t: Terminal) -> str | None:
@@ -310,7 +327,7 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
         line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
-    line += default_suffix(t.default_value)
+    line += default_suffix(t.default_value, t.lv_type)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"
     return line
@@ -631,10 +648,15 @@ def _structure_word(node: AnyGraphNode) -> str:
     return f'{type_word} "{author}"' if author else type_word
 
 
-def _node_output_name(node: AnyGraphNode, term: Terminal) -> str:
-    """A node's output as a selector/stop wire's source: a local variable by
-    its control, any other node by its identity plus the terminal's name (the
-    bare node when it has one output and this terminal is unnamed)."""
+def _node_output_name(
+    graph: InMemoryVIGraph, node: AnyGraphNode, term: Terminal
+) -> str:
+    """A node's output as a selector/stop wire's source: a reference constant
+    by what it references, a local variable by its control, any other node by
+    its identity plus the terminal's name (the bare node when it has one output
+    and this terminal is unnamed)."""
+    if is_reference_constant(node):
+        return reference_phrase(reference_target(graph, node))
     if isinstance(node, LocalVariableNode):
         return f"{node.control_name or node.display_name} (local variable)"
     identity = node.display_name if node.name else _structure_word(node)
@@ -679,12 +701,12 @@ def _name_traced_source(
     if traced.owner is not None and traced.term is not None:
         if isinstance(traced.owner, StructureNode):
             return _border_name(traced.owner, traced.term, traced.border)
-        return _node_output_name(traced.owner, traced.term)
+        return _node_output_name(graph, traced.owner, traced.term)
     if traced.element_net is not None:
         node = graph.get_graph_node(src.node_id)
         term = graph.get_terminal(src.terminal_id)
         if node is not None and term is not None:
-            return _node_output_name(node, term)
+            return _node_output_name(graph, node, term)
         return None
     if traced.boundary is not None:
         return traced.boundary.name
@@ -763,7 +785,10 @@ def _collect_structures(
                     constants,
                     node.stop_condition_terminal,
                 )
-                structures.append(f"{kind} (stops when {gated})" if gated else kind)
+                verb = (
+                    "continues while" if node.stop_condition_inverted else "stops when"
+                )
+                structures.append(f"{kind} ({verb} {gated})" if gated else kind)
             case SequenceNode():
                 structures.append(
                     f"{node.kind_word} sequence ({_frame_count(len(node.frames))})"
@@ -833,7 +858,9 @@ def _const_type_str(c: Constant) -> str:
 def _describe_constant_line(c: Constant) -> str:
     """One-line ``name: type = value`` for a constant."""
     name = c.label or "(unnamed)"
-    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}"
+    item = c.lv_type.item_for(c.value) if c.lv_type else None
+    shown = f" ({item})" if item is not None else ""
+    return f"{name}: {_const_type_str(c)} = {_const_value_str(c)}{shown}"
 
 
 def _describe_label_line(lbl: Label) -> str:
