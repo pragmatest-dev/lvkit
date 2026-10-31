@@ -1,11 +1,14 @@
 """The model of the classes a run generates: for each LabVIEW class, the Python
-names of its attributes (``class_attributes``) and the shape of each method.
+names of its fields and members (``class_attributes``) and the shape of each
+method.
 
-A class is one Python class in one module. Its member VIs are its methods:
+A class is one Python class in one module. Its member VIs are its methods and
+properties:
 
 * a dynamic-dispatch VI, and a static VI that takes the class wire, is an
   instance method (the class input is ``self``);
-* a static VI with no class input is a ``@staticmethod``.
+* a static VI with no class input is a ``@staticmethod``;
+* the VIs of a property folder are a property.
 
 A method's ``MethodShape`` is what the definition and every call read, so the two
 agree: its parameters (by keyword), what it returns (nothing, the one result, or
@@ -26,25 +29,24 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 
+from lvkit.class_property import PropertyRole
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import derive_python_name
 
-from .accessor_field import carries_receiver
-from .ast_utils import (
-    build_result_class_name,
-    interface_names,
-    to_function_name,
-)
+from .ast_utils import build_result_class_name, interface_names
 from .class_attributes import (
     Accessor,
-    AccessorKind,
     AccessorPane,
     ClassAttributes,
     accessor_pane,
-    class_attributes,
-    member_name,
+    is_private,
+    method_name,
+    property_accessors,
+    storage_names,
 )
+from .errors import CodeGenError
+from .receiver_flow import carries_receiver
 from .value_copy import holds_refnum
 
 if TYPE_CHECKING:
@@ -89,17 +91,38 @@ class MethodShape:
     root_class_key: str
 
 
+# The methods the class body has that no VI makes (``class_builder/init_builder``,
+# ``value_copy.share_refnums_method``).
+GENERATED_NAMES = ("__init__", "_share_refnums", "__deepcopy__")
+
+
+class MemberKind(str, Enum):
+    """What a name of a class is in Python."""
+
+    METHOD = "method"
+    PROPERTY = "property"
+
+
 @dataclass
 class ClassModel:
-    """The Python names and methods of one class."""
+    """The Python names and methods of one class.
+
+    ``names`` are the names the class's objects answer to that are not private,
+    the class's own and those it inherits, and what each is; ``inherited`` are
+    those of the class it descends from."""
 
     key: str
     name: str
     attributes: ClassAttributes
     shapes: dict[str, MethodShape] = field(default_factory=dict)
-    # A member VI whose Python name is also an attribute or property, or the name
-    # of another member of the class: the reason it cannot be a method.
+    names: dict[str, MemberKind] = field(default_factory=dict)
+    inherited: dict[str, MemberKind] = field(default_factory=dict)
+    # A member VI whose Python name is that of another member of the class, or
+    # that a class it descends from has as the other kind (a method and a
+    # property): the reason it is not defined; its calls are gaps.
     clashes: dict[str, str] = field(default_factory=dict)
+    # A member VI that is defined but cannot run: the reason it raises.
+    unavailable: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -136,11 +159,31 @@ def type_attributes(
     graph: InMemoryVIGraph, lv_type: LVType | None, caller_vi_key: str | None
 ) -> ClassAttributes | None:
     """The attributes of the class a wire of type ``lv_type`` carries, found among
-    the calling VI's own links; ``None`` for a wire that is not a loaded class."""
+    the calling VI's own links, for a Bundle/Unbundle By Name or In Place Element
+    on its private data; ``None`` for a wire that is not a loaded class. Only the
+    class's own VIs reach its private data (its storage is private), so a node
+    in any other VI is an lvkit error."""
     if lv_type is None:
         return None
     key = graph.class_type_key(lv_type, caller_vi_key)
-    return class_model(graph, key).attributes if key is not None else None
+    if key is None:
+        return None
+    _require_own_class(graph, key, caller_vi_key, "Its private data")
+    return class_model(graph, key).attributes
+
+
+def _require_own_class(
+    graph: InMemoryVIGraph, class_key: str, caller_key: str | None, what: str
+) -> None:
+    """``what`` of the class at ``class_key`` is reached from ``caller_key``,
+    which must be one of the class's own VIs (written in its body, where Python
+    finds a private name); anything else is an lvkit error."""
+    caller_class = graph.owning_class_key(caller_key) if caller_key else None
+    if caller_class != class_key:
+        raise CodeGenError(
+            f"{what} of {python_class_name(class_key)} is reached from outside "
+            "the class"
+        )
 
 
 def accessor_of(
@@ -173,55 +216,70 @@ def python_class_name(class_key: str) -> str:
 
 def _build_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
     parent_key = graph.class_parent_key(class_key)
-    attributes = class_attributes(
-        graph,
+    inherited = dict(class_model(graph, parent_key).names) if parent_key else {}
+    accessors = property_accessors(graph, class_key)
+    model = ClassModel(
         class_key,
-        class_model(graph, parent_key).attributes if parent_key else None,
+        python_class_name(class_key),
+        ClassAttributes(),
+        inherited=inherited,
     )
-    model = ClassModel(class_key, python_class_name(class_key), attributes)
-    taken: dict[str, str] = {}
-    model.clashes.update(attributes.clashes)
     for key in graph.class_member_keys(class_key):
         shape = _shape(graph, class_key, key)
         model.shapes[key] = shape
         access = graph.get_method_access(key)
         if shape.receiver_in is None and access is not None and not access.is_static:
-            model.clashes[key] = (
+            model.unavailable[key] = (
                 f"The dynamic-dispatch VI {graph.vi_display_name(key)} has no input "
                 f"of its class {model.name}, so there is no object to dispatch on"
             )
-            continue
-        accessor = attributes.accessors.get(key)
-        if accessor is not None and shape.returns_receiver:
+            accessors.pop(key, None)
+        elif key in accessors and shape.returns_receiver:
             # An accessor that gives back another object is an ordinary method:
             # `obj.name` cannot stand for it.
-            del attributes.accessors[key]
-            accessor = None
-        if accessor is not None:
-            continue
-        label = graph.vi_display_name(key)
-        if shape.name in attributes.names:
+            del accessors[key]
+
+    # The names the class body defines itself (``class_builder``) are taken.
+    own: dict[str, tuple[MemberKind, str]] = {
+        name: (MemberKind.METHOD, f"method {name} lvkit writes")
+        for name in GENERATED_NAMES
+    }
+
+    def claim(key: str, name: str, kind: MemberKind, label: str) -> bool:
+        held = own.get(name)
+        if held is not None and held != (kind, label):
             model.clashes[key] = (
-                f"The method {label} and an attribute or property of "
-                f"{model.name} are both '{shape.name}' in Python"
+                f"The {label} and the {held[1]} of {model.name} are both "
+                f"'{name}' in Python"
             )
-        elif shape.name in taken:
+            return False
+        if inherited.get(name, kind) is not kind:
             model.clashes[key] = (
-                f"The methods {taken[shape.name]} and {label} of {model.name} "
-                f"are both '{shape.name}' in Python"
+                f"The {label} of {model.name} is '{name}' in Python, a "
+                f"{inherited[name].value} of a class {model.name} descends from"
             )
-        else:
-            taken[shape.name] = label
+            return False
+        own[name] = (kind, label)
+        return True
+
+    for key, accessor in list(accessors.items()):
+        label = f"property {accessor.property_name!r}"
+        if not claim(key, accessor.python_name, MemberKind.PROPERTY, label):
+            del accessors[key]
+    for key, shape in model.shapes.items():
+        if key not in accessors and key not in model.clashes:
+            label = f"method {graph.vi_display_name(key)}"
+            claim(key, shape.name, MemberKind.METHOD, label)
+
+    taken = [name for name in own if is_private(name)]
+    model.attributes = ClassAttributes(
+        storage_names(graph.class_own_fields(class_key), taken), accessors
+    )
+    model.names = dict(inherited)
+    model.names.update(
+        (name, kind) for name, (kind, _) in own.items() if not is_private(name)
+    )
     return model
-
-
-def _scope_of(graph: InMemoryVIGraph, vi_key: str) -> str:
-    access = graph.get_method_access(vi_key)
-    return access.scope if access is not None else "public"
-
-
-def _method_name(graph: InMemoryVIGraph, vi_key: str) -> str:
-    return member_name(to_function_name(Path(vi_key).name), _scope_of(graph, vi_key))
 
 
 def _receivers(
@@ -352,7 +410,7 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
         key=vi_key,
         class_key=class_key,
         kind=kind,
-        name=_method_name(graph, vi_key),
+        name=method_name(graph, vi_key),
         receiver_in=receiver_in.index if receiver_in else None,
         receiver_out=receiver_out.index if receiver_out else None,
         parameters=parameters,
@@ -401,36 +459,53 @@ def class_import(
 
 
 def not_a_method(graph: InMemoryVIGraph, vi_key: str) -> str | None:
-    """Why the member VI ``vi_key`` is not a method of its class (an attribute or
-    property accessor, a polymorphic VI, a VI that was not found), or None."""
+    """Why the member VI ``vi_key`` has no function in its class (a polymorphic
+    VI, a VI that was not found, one whose name another member has), or None."""
     class_key = graph.owning_class_key(vi_key)
     if class_key is None:
         return None
-    label = graph.vi_display_name(vi_key)
     model = class_model(graph, class_key)
-    accessor = model.attributes.accessors.get(vi_key)
-    if accessor is not None:
-        what = "attribute" if accessor.kind is AccessorKind.ATTRIBUTE else "property"
-        return (
-            f"The VI {label} is the {what} '{accessor.python_name}' of "
-            f"{model.name}, which has no function to refer to"
-        )
+    if vi_key in model.clashes:
+        return model.clashes[vi_key]
     if graph.is_stub(vi_key) or graph.get_poly_variants(vi_key):
-        return f"The VI {label} is not a method of {model.name}"
+        return f"The VI {graph.vi_display_name(vi_key)} is not a method of {model.name}"
     return None
 
 
+def check_private_access(
+    graph: InMemoryVIGraph, name: str, class_key: str, caller_key: str | None
+) -> None:
+    """A private member ``name`` of the class at ``class_key`` is reached only
+    from that class's own VIs (LabVIEW lets no other VI call it), which are
+    written in the class body where Python finds the name; anything else is an
+    lvkit error."""
+    if is_private(name):
+        _require_own_class(
+            graph, class_key, caller_key, f"The private member '{name}'"
+        )
+
+
 def member_reference(
-    graph: InMemoryVIGraph, shape: MethodShape, resolver: ImportResolver
+    graph: InMemoryVIGraph,
+    shape: MethodShape,
+    resolver: ImportResolver,
+    caller_key: str | None,
 ) -> tuple[str, str]:
     """``(Class.method, the import of the class)``: what a reference to a VI of a
-    class is. The object the method works on is passed as its ``self`` keyword.
-    A member that is no method is a gap."""
+    class is; for the read or write VI of a property, the property's
+    ``fget`` / ``fset``. The object the method works on is passed as its ``self``
+    keyword. A member with no function is a gap."""
     reason = not_a_method(graph, shape.key)
     if reason is not None:
         raise ConversionGap(reason)
     imported = class_import(graph, shape.class_key, resolver)
-    return f"{imported.name}.{shape.name}", imported.statement
+    accessor = class_model(graph, shape.class_key).attributes.accessors.get(shape.key)
+    if accessor is None:
+        check_private_access(graph, shape.name, shape.class_key, caller_key)
+        return f"{imported.name}.{shape.name}", imported.statement
+    check_private_access(graph, accessor.python_name, shape.class_key, caller_key)
+    side = "fget" if accessor.role is PropertyRole.GETTER else "fset"
+    return f"{imported.name}.{accessor.python_name}.{side}", imported.statement
 
 
 def result_class_imports(

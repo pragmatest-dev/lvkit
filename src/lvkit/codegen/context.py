@@ -614,7 +614,8 @@ class CodeGenContext:
 
     def vi_reference_expression(self, vi_name: str, key: str | None) -> str:
         """The expression a reference to a VI is: its function, imported, or, for
-        a VI of a class, ``Class.method`` (the class imported)."""
+        a VI of a class, ``Class.method`` (the class imported; for an accessor VI
+        the getter or setter of its property)."""
         shape = (
             member_shape(self.graph, key)
             if self.graph is not None and key is not None
@@ -624,7 +625,7 @@ class CodeGenContext:
             return self.import_function(vi_name, key)
         assert self.graph is not None
         expression, statement = member_reference(
-            self.graph, shape, self.import_resolver
+            self.graph, shape, self.import_resolver, self.vi_name
         )
         self.add_import(statement)
         return expression

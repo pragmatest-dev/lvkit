@@ -13,7 +13,9 @@ it holds is found when the code is generated, not when it runs:
 - the Name and Path properties of a VI reference are the function's own
   ``__name__`` and file (``vi_property_read``).
 
-A reference whose VI is only known when the diagram runs stops code generation.
+A reference to a member VI of a class is ``Class.method`` and the call passes
+the object as its ``self`` keyword; Call By Reference does not support a dynamic
+dispatch member VI, so a reference to one is a gap.
 
 The nodes that call through a reference have four terminals that are not
 terminals of the called VI: the VI reference in (index -1) and out (-2), then
@@ -48,7 +50,14 @@ from lvkit.vi_files import class_stem
 
 from ..ast_utils import build_assign, module_part, parse_expr
 from ..callee_names import pane_names
-from ..class_model import member_shape, not_a_method, python_class_name
+from ..class_attributes import run_time_name
+from ..class_model import (
+    MethodKind,
+    accessor_of,
+    member_shape,
+    not_a_method,
+    python_class_name,
+)
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -69,6 +78,13 @@ _CLOSE_REFERENCE_INDEX = 11
 
 _EXECUTOR = "_async_call_pool"
 _EXECUTOR_IMPORT = "from concurrent.futures import ThreadPoolExecutor"
+
+# LabVIEW's reason a Call By Reference cannot call a dynamic dispatch member VI.
+_DYNAMIC_MEMBER = (
+    "Call By Reference does not support dynamic member VIs (NI: "
+    "https://docs-be.ni.com/api/bundle/labview-api-ref/page/errors/"
+    "dynamic-terminal-on-call-by-reference.html)"
+)
 
 
 class CallStyle(IntEnum):
@@ -152,6 +168,12 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
         reason = not_a_method(ctx.graph, target.key)
         if reason is not None:
             raise ConversionGap(reason, node)
+        if shape.kind is MethodKind.DYNAMIC:
+            raise ConversionGap(
+                f"{_label(node)}: {target.name} is a dynamic dispatch member VI; "
+                + _DYNAMIC_MEMBER,
+                node,
+            )
         call = method_call.build_call(callee, ctx, shape, receiver_keyword="self")
         result_var = call.result_var or ctx.make_output_var(
             "vi_reference_result", node.id
@@ -185,15 +207,10 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "parameters by.",
             node,
         )
-    members = _members_with_pane(ctx, pane)
-    if members:
+    if any(slot.dynamic_dispatch for slot in pane):
         raise ConversionGap(
-            f"{_label(node)}: the VI the reference holds is only known when the "
-            "diagram runs, and the project's "
-            + ", ".join(sorted(members))
-            + " have its connector pane: a method of a class takes its object and "
-            "returns its results as Python's methods do, which a call by reference "
-            "does not know at generation time.",
+            f"{_label(node)}: the reference's connector pane has a dynamic "
+            "dispatch terminal; " + _DYNAMIC_MEMBER,
             node,
         )
     names = pane_names(pane)
@@ -221,29 +238,6 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
-
-
-def _members_with_pane(ctx: CodeGenContext, pane: tuple[PaneSlot, ...]) -> list[str]:
-    """The names of the class members of the project whose connector pane is
-    ``pane``: the VIs a reference of that type may hold that are methods."""
-    assert ctx.graph is not None
-    wanted = {
-        (slot.index, slot.is_output)
-        for slot in pane
-        if slot.type is None
-        or not Terminal(
-            id="", index=slot.index, direction="input", lv_type=slot.type
-        ).is_error_cluster
-    }
-    found = []
-    for name, key, _ in ctx.graph.class_members():
-        inputs, _, outputs, _ = ctx.graph.vi_interface(key)
-        slots = {(t.index, False) for t in inputs if not t.is_error_cluster} | {
-            (t.index, True) for t in outputs if not t.is_error_cluster
-        }
-        if slots == wanted:
-            found.append(name)
-    return found
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
@@ -468,7 +462,11 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)
-        if shape is None or not_a_method(ctx.graph, key) is not None:
+        if (
+            shape is None
+            or not_a_method(ctx.graph, key) is not None
+            or accessor_of(ctx.graph, key) is not None
+        ):
             continue
         spec = (
             resolver.package_spec(class_key)
@@ -476,7 +474,8 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
             else "."
         )
         module = spec + module_part(class_stem(Path(class_key).name))
-        entry = (module, python_class_name(class_key), shape.name)
+        class_name = python_class_name(class_key)
+        entry = (module, class_name, run_time_name(class_name, shape.name))
         entries[name] = entry
         entries[_path_from(resolver, key, module_key)] = entry
     ctx.add_module_global(

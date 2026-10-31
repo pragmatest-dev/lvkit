@@ -8,7 +8,10 @@ A class is one Python class and its member VIs are its methods
 * Call Parent is ``super().method(...)``;
 * a static call that takes no class wire is ``Class.method(...)``.
 
-Arguments go by keyword. The results are read the way the shape of the method
+A private member is called only from its class's own VIs, written in the class
+body (``class_model.check_private_access``). A member with no method (its name is
+another member's, its VI was not found) makes the call a gap. Arguments go by
+keyword. The results are read the way the shape of the method
 says (``MethodShape``): nothing, the one value, or the fields of its
 ``NamedTuple``; the class output is the receiver, which the method changed in
 place, unless the shape returns it.
@@ -19,11 +22,19 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
 from lvkit.models import Terminal
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
-from ..class_model import MethodKind, MethodShape, class_import, python_class_name
+from ..class_model import (
+    MethodKind,
+    MethodShape,
+    check_private_access,
+    class_import,
+    not_a_method,
+    python_class_name,
+)
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -46,6 +57,11 @@ class MethodCall:
 
 def generate(node: VINode, ctx: CodeGenContext, shape: MethodShape) -> CodeFragment:
     """Generate the call of the method ``shape`` from ``node``."""
+    assert ctx.graph is not None
+    reason = not_a_method(ctx.graph, shape.key)
+    if reason is not None:
+        raise ConversionGap(reason, node)
+    check_private_access(ctx.graph, shape.name, shape.class_key, ctx.vi_name)
     call = build_call(node, ctx, shape, receiver_keyword=None)
     if node.node_type == "callParentDynIUse":
         target: ast.expr = _super(node, ctx, call.receiver)

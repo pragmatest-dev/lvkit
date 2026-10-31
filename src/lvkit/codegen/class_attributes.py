@@ -1,93 +1,136 @@
-"""How a class's private data fields and property accessors are spelled in Python.
+"""How a class's private data fields, properties and methods are spelled in Python.
 
-One rule, applied to each property folder of the class file:
+- A private data field belongs to its class alone: it is stored as
+  ``self.__<field>`` and read and written only inside the class's own methods.
+  Python writes such a name with the class's own name in front (``self._C__count``
+  in the class ``C``), so a parent's and a child's field of one name are two
+  values.
+- The VIs of a property folder are a Python property named by the property's long
+  name: the read VI its getter, the write VI its setter, each written from its own
+  diagram (``class_builder/properties.py``). A child's property of the long name
+  of an ancestor's has the same spelling, so it overrides it.
+- Any other member VI is a method named by its file.
 
-- every accessor in the folder only reads or writes the one private data field
-  (``accessor_field.accessed_field``), and none of them overrides or is
-  overridden by an accessor of another loaded class: the field itself is the
-  attribute, named by the property and spelled by the accessor's scope (``count``
-  for a public one, ``_count`` otherwise); the accessor VIs write no code and
-  their calls read and write the attribute;
-- otherwise the accessors are a Python ``@property`` (the read VI) and its setter
-  (the write VI), each written from its own diagram, under the property's plain
-  name whatever its scope; their calls use ``obj.name``;
-- an accessor whose connector pane is not a getter or a setter, or a setter that
-  does not hand back the object it changed, is an ordinary method (left out of
-  ``ClassAttributes.accessors``).
+Access levels belong to the VIs: a name is ``name`` for a public VI, ``_name`` for
+a protected or community one and ``__name`` for a private one; a property takes
+the widest level of its read and write VIs. An accessor whose connector pane is
+not a getter or a setter, or a setter that does not hand back the object it
+changed, is an ordinary method.
 
-A field no attribute accessor names is the attribute ``_<field>`` (the storage of
-a property too). A method is spelled ``name`` when public and ``_name`` otherwise.
-This module is the one place that names a class's attributes; ``__init__``,
-Bundle/Unbundle By Name and the calls of accessors all read the names from here.
-"""
+This module is the one place that names a class's members and fields;
+``__init__``, Bundle/Unbundle By Name, In Place Element and the calls of methods
+and accessors all read the names from here."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import keyword
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.class_property import PropertyRole, value_terminals
 
-from .accessor_field import accessed_field, carries_receiver
-from .ast_utils import field_attribute_paths, to_var_name
+from .ast_utils import (
+    field_attribute_names,
+    field_attribute_paths,
+    to_function_name,
+    to_var_name,
+)
+from .receiver_flow import carries_receiver
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
     from lvkit.models import ClusterField, Terminal
 
-NON_PUBLIC_PREFIX = "_"
+_PROTECTED_PREFIX = "_"
+_PRIVATE_PREFIX = "__"
 
-
-def member_name(base: str, scope: str) -> str:
-    """The name a method of ``scope`` has in Python: ``base`` when public,
-    ``_<base>`` for a private, protected or community one."""
-    return base if scope == "public" else NON_PUBLIC_PREFIX + base
-
-
-# Scopes from the widest; a scope this does not list is as narrow as private.
-_SCOPES = ("public", "protected", "private")
+# How wide each access level is, from the widest; a level this does not list is
+# as narrow as private.
+_BREADTH = {"public": 0, "protected": 1, "community": 1, "private": 2}
+_NARROWEST = 2
 
 
 def _breadth(scope: str) -> int:
-    return _SCOPES.index(scope) if scope in _SCOPES else len(_SCOPES)
+    return _BREADTH.get(scope, _NARROWEST)
+
+# What a field's storage takes after its name when a private member of the class
+# has the name the storage would have.
+_STORAGE_SUFFIX = "_value"
 
 
-class AccessorKind(str, Enum):
-    """What an accessor VI of a property folder is in the generated class (an
-    accessor whose pane fits neither is an ordinary method and is not listed)."""
+def member_name(base: str, scope: str) -> str:
+    """The name a member of access level ``scope`` has in Python: ``base`` when
+    public, ``__<base>`` when private, ``_<base>`` otherwise (protected,
+    community). The leading underscores of ``base`` are dropped first, so only a
+    private name starts with ``__`` (``is_private``), and a private name never
+    ends in ``__`` (Python leaves such a name as written)."""
+    if scope == "private":
+        return _PRIVATE_PREFIX + (base.strip("_") or "var")
+    stem = base.lstrip("_") or "var"
+    if keyword.iskeyword(stem):
+        stem += "_"
+    return stem if scope == "public" else _PROTECTED_PREFIX + stem
 
-    ATTRIBUTE = "attribute"
-    PROPERTY = "property"
+
+def is_private(name: str) -> bool:
+    """Whether ``name`` (spelled by ``member_name``) is a private member's or a
+    field's: Python stores it with the name of the class it is written in."""
+    return name.startswith(_PRIVATE_PREFIX) and not name.endswith(_PRIVATE_PREFIX)
+
+
+def run_time_name(class_name: str, name: str) -> str:
+    """The name Python stores the member ``name`` of the class ``class_name``
+    under, as ``getattr`` reads it outside the class body."""
+    if is_private(name):
+        return f"_{class_name.lstrip('_')}{name}"
+    return name
+
+
+def method_name(graph: InMemoryVIGraph, vi_key: str) -> str:
+    """The name of the member VI ``vi_key`` as a method: its file name, spelled
+    by its access level."""
+    access = graph.get_method_access(vi_key)
+    scope = access.scope if access is not None else "public"
+    return member_name(to_function_name(Path(vi_key).name), scope)
 
 
 @dataclass(frozen=True)
 class Accessor:
-    """One VI of a property folder: its role and how it is written;
-    ``python_name`` is the attribute or the property."""
+    """One VI of a property folder: its role and ``python_name``, the name of the
+    property it is the getter or the setter of."""
 
     key: str
     property_name: str
-    role: PropertyRole | None
-    kind: AccessorKind
+    role: PropertyRole
     python_name: str
 
 
 @dataclass(frozen=True)
 class ClassAttributes:
-    """The attributes of one class: ``fields`` holds the attribute of each private
-    data field the class declares (not its ancestors'); ``accessors`` the VIs of
-    its property folders by key; ``names`` every attribute and property name of
-    the class and its ancestors."""
+    """The Python names of one class: ``fields`` the storage of each private data
+    field the class declares (not its ancestors'), in order; ``accessors`` the VIs
+    of its property folders that are a property, by key."""
 
     fields: list[str] = field(default_factory=list)
     accessors: dict[str, Accessor] = field(default_factory=dict)
-    names: frozenset[str] = frozenset()
-    # The accessor VIs whose property has the name of an attribute or property of
-    # an ancestor it does not override: the reason each cannot be that property.
-    clashes: dict[str, str] = field(default_factory=dict)
+
+
+def storage_names(fields: list[ClusterField], taken: Collection[str]) -> list[str]:
+    """The storage ``__<field>`` of each private data field (the names
+    ``field_attribute_names`` gives the fields, distinct); a field whose storage
+    would have a name in ``taken`` (a private member of the class) is
+    ``__<field>_value``."""
+    names: list[str] = []
+    used = set(taken)
+    for base in field_attribute_names(f.name for f in fields):
+        candidate = member_name(base, "private")
+        while candidate in used:
+            candidate += _STORAGE_SUFFIX
+        used.add(candidate)
+        names.append(candidate)
+    return names
 
 
 @dataclass
@@ -95,8 +138,6 @@ class _Member:
     key: str
     scope: str
     role: PropertyRole
-    field_index: int | None = None  # among the class's own fields
-    in_override_chain: bool = False
 
 
 def _fits(
@@ -114,27 +155,6 @@ def _fits(
     if role is PropertyRole.GETTER:
         return True
     return not value_terminals(outputs, is_class)
-
-
-def in_override_chain(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> bool:
-    """Whether the VI ``vi_key`` of the class at ``class_key`` overrides a VI of an
-    ancestor or is overridden by one of a loaded descendant: the VI of the same
-    file name."""
-    name = Path(vi_key).name
-    parent_key = graph.class_parent_key(class_key)
-    if parent_key is not None and graph.class_method(parent_key, name) is not None:
-        return True
-    pending = graph.class_child_keys(class_key)
-    seen: set[str] = set()
-    while pending:
-        child = pending.pop()
-        if child in seen:
-            continue
-        seen.add(child)
-        if graph.class_declares(child, name):
-            return True
-        pending.extend(graph.class_child_keys(child))
-    return False
 
 
 def _hands_back_receiver(
@@ -175,102 +195,29 @@ def _members(graph: InMemoryVIGraph, class_key: str) -> dict[str, list[_Member]]
         members = groups.setdefault(access.accessor_field, [])
         if any(m.role is role for m in members):
             continue
-        member = _Member(
-            key,
-            access.scope,
-            role,
-            in_override_chain=in_override_chain(graph, class_key, key),
-        )
-        member.field_index = accessed_field(
-            inputs, outputs, graph, class_key, role, key
-        )
-        members.append(member)
+        members.append(_Member(key, access.scope, role))
     return groups
 
 
-def class_attributes(
-    graph: InMemoryVIGraph,
-    class_key: str,
-    parent: ClassAttributes | None = None,
-) -> ClassAttributes:
-    """The attributes of the class at ``class_key``; ``parent`` are those of the
-    class it descends from, worked out when not given."""
-    if parent is None:
-        parent_key = graph.class_parent_key(class_key)
-        parent = (
-            class_attributes(graph, parent_key) if parent_key else ClassAttributes()
-        )
-    own_fields = graph.class_own_fields(class_key)
-    groups = _members(graph, class_key)
-
+def property_accessors(graph: InMemoryVIGraph, class_key: str) -> dict[str, Accessor]:
+    """The accessor VIs of the class at ``class_key`` that are a property, by key:
+    each named by its property's long name, spelled by the widest access level of
+    the property's read and write VIs."""
     accessors: dict[str, Accessor] = {}
-    clashes: dict[str, str] = {}
-    taken = set(parent.names)
-    attribute_of_field: dict[int, str] = {}
-    properties: list[tuple[str, str, list[_Member]]] = []
-    for property_name, members in groups.items():
-        overrides = any(m.in_override_chain for m in members)
-        python_name = member_name(
-            to_var_name(property_name), min((m.scope for m in members), key=_breadth)
-        )
-        if not overrides and (
-            python_name in parent.names or to_var_name(property_name) in parent.names
-        ):
-            for m in members:
-                clashes[m.key] = (
-                    f"The property {property_name!r} is '{python_name}' in Python, "
-                    "the name of an attribute or property of a class this class "
-                    "descends from"
-                )
-            continue
-        indices = {m.field_index for m in members}
-        index = next(iter(indices)) if len(indices) == 1 else None
-        if (
-            index is not None
-            and index < len(own_fields)
-            and index not in attribute_of_field
-            and not any(m.in_override_chain for m in members)
-        ):
-            spelled = member_name(
-                to_var_name(property_name),
-                min((m.scope for m in members), key=_breadth),
-            )
-            attribute_of_field[index] = spelled
-            for m in members:
-                accessors[m.key] = Accessor(
-                    m.key, property_name, m.role, AccessorKind.ATTRIBUTE, spelled
-                )
-        else:
-            properties.append((property_name, to_var_name(property_name), members))
-    for property_name, plain, members in properties:
-        taken.add(plain)
+    for property_name, members in _members(graph, class_key).items():
+        widest = min((m.scope for m in members), key=_breadth)
+        python_name = member_name(to_var_name(property_name), widest)
         for m in members:
-            accessors[m.key] = Accessor(
-                m.key, property_name, m.role, AccessorKind.PROPERTY, plain
-            )
-    attributes: list[str] = []
-    for i, own in enumerate(own_fields):
-        base = attribute_of_field.get(i) or NON_PUBLIC_PREFIX + to_var_name(own.name)
-        candidate, n = base, 1
-        while candidate in taken:
-            n += 1
-            candidate = f"{base}_{n}"
-        taken.add(candidate)
-        attributes.append(candidate)
-    return ClassAttributes(
-        fields=attributes,
-        accessors=accessors,
-        names=frozenset(taken),
-        clashes=clashes,
-    )
+            accessors[m.key] = Accessor(m.key, property_name, m.role, python_name)
+    return accessors
 
 
 def class_field_paths(
     attributes: ClassAttributes, fields: list[ClusterField]
 ) -> list[list[str]]:
     """The attribute path of every field slot of the private data a class
-    declares (see ``field_attribute_paths``): a field of the class is the
-    attribute the class names it, what is inside a field keeps its names."""
+    declares (see ``field_attribute_paths``): a field of the class is its
+    storage, what is inside a field keeps its names."""
     paths = field_attribute_paths(fields)
     result: list[list[str]] = []
     top = -1

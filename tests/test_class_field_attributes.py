@@ -1,5 +1,5 @@
 """Private-data fields whose labels become one Python name each get their own
-attribute in the generated class."""
+storage in the generated class, ``__<field>`` (private to the class)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lvkit.codegen.class_attributes import class_attributes
+from lvkit.codegen.class_model import class_model
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.models import ClusterField, LVType, LVTypeKind
@@ -33,16 +33,16 @@ def _attributes(labels: tuple[str, ...]) -> tuple[list[str], list[str]]:
     fields = _resolve_type_ids(root, [str(i) for i in range(len(labels))])
     names = [f.name for f in fields]
     graph, key = _class_graph(names)
-    return names, class_attributes(graph, key).fields
+    return names, class_model(graph, key).attributes.fields
 
 
 @pytest.mark.parametrize(
     ("labels", "labelled", "attributes"),
     [
-        (("", "Field 0"), ["field_0", "Field 0"], ["_field_0", "_field_0_2"]),
-        (("Count", "count"), ["Count", "count"], ["_count", "_count_2"]),
-        (("a b", "a_b"), ["a b", "a_b"], ["_a_b", "_a_b_2"]),
-        (("x", "y"), ["x", "y"], ["_x", "_y"]),
+        (("", "Field 0"), ["field_0", "Field 0"], ["__field_0", "__field_0_2"]),
+        (("Count", "count"), ["Count", "count"], ["__count", "__count_2"]),
+        (("a b", "a_b"), ["a b", "a_b"], ["__a_b", "__a_b_2"]),
+        (("x", "y"), ["x", "y"], ["__x", "__y"]),
     ],
 )
 def test_each_field_gets_its_own_attribute(
@@ -55,10 +55,10 @@ def test_each_field_gets_its_own_attribute(
 
 def test_a_field_no_accessor_names_is_private() -> None:
     graph, key = _class_graph(["Count", "count"])
-    assert class_attributes(graph, key).fields == ["_count", "_count_2"]
+    assert class_model(graph, key).attributes.fields == ["__count", "__count_2"]
 
 
-def test_a_child_field_never_takes_the_attribute_of_its_parents() -> None:
+def test_a_child_field_of_a_parents_name_is_stored_by_its_own_class() -> None:
     graph, parent = _class_graph(["Count"])
     graph._dep_graph.add_node(  # noqa: SLF001
         "/src/D.lvclass",
@@ -67,4 +67,5 @@ def test_a_child_field_never_takes_the_attribute_of_its_parents() -> None:
         parent_class="C",
         parent_key=parent,
     )
-    assert class_attributes(graph, "/src/D.lvclass").fields == ["_count_2"]
+    # Python stores each with its class's name: `_C__count` and `_D__count`.
+    assert class_model(graph, "/src/D.lvclass").attributes.fields == ["__count"]

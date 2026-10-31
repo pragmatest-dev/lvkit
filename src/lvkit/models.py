@@ -232,12 +232,14 @@ TypeNamer = Callable[["LVType"], str | None]
 class PaneSlot:
     """One used terminal of a connector pane: its slot ``index``, whether it is an
     output, the type of the value it carries and, when its descriptor is labelled,
-    the terminal's ``name``."""
+    the terminal's ``name``; ``dynamic_dispatch`` for a Dynamic Dispatch terminal
+    (the pane is a dynamic-dispatch member VI's)."""
 
     index: int
     is_output: bool
     type: LVType
     name: str | None = None
+    dynamic_dispatch: bool = False
 
 
 @dataclass

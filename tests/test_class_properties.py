@@ -1,8 +1,8 @@
 """A class property is the VIs a ``.lvclass`` lists in a ``Property Definition``
-folder. Accessors that only move one private data field are that field's
-attribute; accessors with logic are a Python property written from their own
-diagrams; a VI outside every folder is a method. Nothing is decided by a VI's
-name."""
+folder: a Python property named by its long name and spelled by the access level
+of its VIs, its getter and setter written from their own diagrams, over the
+private storage ``__<field>``; a VI outside every folder is a method. Nothing is
+decided by a VI's name."""
 
 from __future__ import annotations
 
@@ -16,7 +16,9 @@ import pytest
 
 from lvkit.class_property import PropertyRole, property_role
 from lvkit.codegen import build_module
-from lvkit.codegen.class_attributes import AccessorKind, class_attributes
+from lvkit.codegen.class_attributes import ClassAttributes
+from lvkit.codegen.class_model import class_model
+from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, VIContext, VINode, Wire
@@ -35,7 +37,7 @@ _CLASS_TYPE = LVType(
 _INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
 _FIELDS = [ClusterField(name="Count", type=_INT), ClusterField(name="Name", type=_INT)]
 
-_PUBLIC, _PRIVATE, _PROTECTED = 1, 2, 3
+_PUBLIC, _PRIVATE, _PROTECTED, _COMMUNITY = 1, 2, 3, 4
 
 
 def _is_c(terminal: Terminal) -> bool:
@@ -345,38 +347,48 @@ def build_class(
 
 def _count_class(
     tmp_path: Path,
-    read: Spec,
+    read: Spec | None,
     write: Spec | None,
     scope: int = _PUBLIC,
+    write_scope: int | None = None,
 ) -> Built:
-    vis = [("Read Count", scope)] + ([("Write Count", scope)] if write else [])
+    """The class ``C`` with fields Count and Name, the property ``Count`` (its
+    read and write VIs of ``scope``, the write VI of ``write_scope`` when given)
+    and the methods Peek (reads Count) and Get Config."""
+    vis = [("Read Count", scope)] if read else []
+    if write:
+        vis.append(("Write Count", scope if write_scope is None else write_scope))
     xml = _lvclass([("Count", "Count", vis)], [("Peek", _PUBLIC), ("Get Config", 1)])
-    specs: dict[str, Spec] = {
-        "Read Count": read,
-        "Peek": reader(0),
-        "Get Config": passthrough,
-    }
+    specs: dict[str, Spec] = {"Peek": reader(0), "Get Config": passthrough}
+    if read:
+        specs["Read Count"] = read
     if write:
         specs["Write Count"] = write
     return build_class(tmp_path, xml, specs, _FIELDS)
 
 
-# (a) a trivial public read and write: the field is the attribute `count`
-def test_trivial_public_accessors_make_the_field_a_public_attribute(
+def _attributes(built: Built) -> ClassAttributes:
+    return class_model(built.graph, built.class_key).attributes
+
+
+# (a) a public read and write VI: the property `count` over the storage `__count`
+def test_public_accessors_are_a_public_property_over_the_private_field(
     tmp_path: Path,
 ) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
-    attributes = class_attributes(built.graph, built.class_key)
-    assert attributes.fields == ["count", "_name"]
-    assert {a.kind for a in attributes.accessors.values()} == {AccessorKind.ATTRIBUTE}
+    attributes = _attributes(built)
+    assert attributes.fields == ["__count", "__name"]
+    assert {a.python_name for a in attributes.accessors.values()} == {"count"}
     source = built.source()
-    assert "property" not in source
+    assert source.count("@property") == 1 and "@count.setter" in source
     assert "def read_count" not in source and "def write_count" not in source
+    assert "self.__count = 0" in source and "return self.__count" in source
     obj = built.instance()
-    assert obj.count == 0 and obj._name == 0
+    assert sorted(vars(obj)) == ["_C__count", "_C__name"]
+    assert obj.count == 0
     obj.count = 7
-    # A method of the class reads the attribute by the same spelling.
-    assert "return self.count" in source
+    assert obj._C__count == 7
+    # A method of the class reads the field, not the property.
     assert obj.peek() == 7
 
 
@@ -393,8 +405,8 @@ def _call(
     )
 
 
-def test_a_call_of_an_attribute_reads_the_attribute(tmp_path: Path) -> None:
-    built = _count_class(tmp_path, reader(0), writer(0))
+def _reading_caller(built: Built) -> VIContext:
+    """A VI of no class that reads the property Count of its ``obj``."""
     read_call = _call(
         "Read Count.vi",
         built.keys["Read Count"],
@@ -414,7 +426,12 @@ def test_a_call_of_an_attribute_reads_the_attribute(tmp_path: Path) -> None:
         ],
     )
     build_graph(reading, "caller", [read_call], graph=built.graph)
-    code = build_module(reading, "caller", graph=built.graph)
+    return reading
+
+
+def test_a_call_of_a_read_vi_reads_the_property(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0))
+    code = build_module(_reading_caller(built), "caller", graph=built.graph)
     assert "obj.count" in code
     assert "read_count" not in code
     namespace: dict[str, Any] = {}
@@ -424,7 +441,7 @@ def test_a_call_of_an_attribute_reads_the_attribute(tmp_path: Path) -> None:
     assert namespace["caller"](obj).result == 9
 
 
-def test_a_call_of_an_attribute_writes_the_attribute(tmp_path: Path) -> None:
+def test_a_call_of_a_write_vi_writes_the_property(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
     write_call = _call(
         "Write Count.vi",
@@ -459,25 +476,9 @@ def test_a_call_of_an_attribute_writes_the_attribute(tmp_path: Path) -> None:
     assert obj.count == 5
 
 
-def test_a_call_of_a_property_reads_the_property(tmp_path: Path) -> None:
+def test_a_call_of_a_read_vi_with_logic_runs_its_diagram(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0, doubled=True), writer(0, doubled=True))
-    read_call = _call(
-        "Read Count.vi",
-        built.keys["Read Count"],
-        [Terminal(id="c:in", index=0, direction="input", lv_type=_CLASS_TYPE)],
-        [Terminal(id="c:val", index=2, direction="output", lv_type=_INT)],
-    )
-    reading = VIContext(
-        name="caller",
-        inputs=[_terminal("obj", "input", _CLASS_TYPE, "obj", 0)],
-        outputs=[_terminal("result", "output", _INT, "result", 1)],
-        data_flow=[
-            Wire.from_terminals("obj", "c:in"),
-            Wire.from_terminals("c:val", "result"),
-        ],
-    )
-    build_graph(reading, "caller", [read_call], graph=built.graph)
-    code = build_module(reading, "caller", graph=built.graph)
+    code = build_module(_reading_caller(built), "caller", graph=built.graph)
     assert "obj.count" in code and "read_count" not in code
     namespace: dict[str, Any] = {}
     exec(compile(code, "<caller>", "exec"), namespace)  # noqa: S102
@@ -486,81 +487,111 @@ def test_a_call_of_a_property_reads_the_property(tmp_path: Path) -> None:
     assert namespace["caller"](obj).result == 8
 
 
-# (b) trivial protected: `_count`
-def test_trivial_protected_accessors_make_a_protected_attribute(
+# (b) the access level of the accessor VIs spells the property
+@pytest.mark.parametrize(
+    ("scope", "spelled"),
+    [(_PUBLIC, "count"), (_PROTECTED, "_count"), (_COMMUNITY, "_count")],
+)
+def test_the_access_level_of_the_accessors_spells_the_property(
+    tmp_path: Path, scope: int, spelled: str
+) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0), scope)
+    attributes = _attributes(built)
+    assert attributes.fields == ["__count", "__name"]
+    assert {a.python_name for a in attributes.accessors.values()} == {spelled}
+    obj = built.instance()
+    setattr(obj, spelled, 3)
+    assert getattr(obj, spelled) == 3 and obj.peek() == 3
+
+
+def test_a_private_property_is_spelled_private_and_its_storage_kept_apart(
     tmp_path: Path,
 ) -> None:
-    built = _count_class(tmp_path, reader(0), writer(0), _PROTECTED)
-    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
-    assert "property" not in built.source()
-    obj = built.instance()
-    obj._count = 3
-    assert obj.peek() == 3
-
-
-def test_trivial_private_accessors_make_a_private_attribute(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
-    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
+    attributes = _attributes(built)
+    # The property is `__count`, so the field it would share the name with is
+    # stored as `__count_value`.
+    assert {a.python_name for a in attributes.accessors.values()} == {"__count"}
+    assert attributes.fields == ["__count_value", "__name"]
     source = built.source()
-    assert "self._count = 0" in source and "return self._count" in source
-    assert "__" not in source.replace("__init__", "").replace("__future__", "")
-    assert built.instance().peek() == 0
+    assert "def __count(self)" in source and "@__count.setter" in source
+    assert "return self.__count_value" in source
+    obj = built.instance()
+    obj._C__count = 4
+    assert obj._C__count == 4 and obj._C__count_value == 4 and obj.peek() == 4
 
 
-def test_a_getter_alone_that_moves_the_field_is_the_attribute(tmp_path: Path) -> None:
+def test_a_private_property_read_outside_its_class_is_an_lvkit_error(
+    tmp_path: Path,
+) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0), _PRIVATE)
+    with pytest.raises(CodeGenError, match="private member '__count'"):
+        build_module(_reading_caller(built), "caller", graph=built.graph)
+
+
+def test_read_and_write_vis_of_two_levels_are_spelled_by_the_wider(
+    tmp_path: Path,
+) -> None:
+    built = _count_class(tmp_path, reader(0), writer(0), _PUBLIC, _PRIVATE)
+    assert {a.python_name for a in _attributes(built).accessors.values()} == {"count"}
+    (tmp_path / "other").mkdir()
+    other = _count_class(tmp_path / "other", reader(0), writer(0), _PRIVATE, _COMMUNITY)
+    assert {a.python_name for a in _attributes(other).accessors.values()} == {"_count"}
+    obj = other.instance()
+    obj._count = 6
+    assert obj._count == 6
+
+
+# (c) a read VI alone is a read-only property; a write VI alone a write-only one
+def test_a_read_vi_alone_is_a_property_with_no_setter(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), None)
-    assert class_attributes(built.graph, built.class_key).fields[0] == "count"
+    source = built.source()
+    assert "@property" in source and ".setter" not in source
+    obj = built.instance()
+    assert obj.count == 0
+    with pytest.raises(AttributeError):
+        obj.count = 1
 
 
-# (c) accessors with logic are a property and its setter
+def test_a_write_vi_alone_is_a_property_with_no_getter(tmp_path: Path) -> None:
+    built = _count_class(tmp_path, None, writer(0))
+    source = built.source()
+    assert "@property().setter\n    def count(self, value" in source
+    obj = built.instance()
+    obj.count = 5
+    assert obj.peek() == 5
+    with pytest.raises(AttributeError):
+        _ = obj.count
+
+
+# (d) accessors with logic are written from their diagrams
 def test_accessors_with_logic_are_a_property_written_from_their_diagrams(
     tmp_path: Path,
 ) -> None:
     built = _count_class(tmp_path, reader(0, doubled=True), writer(0, doubled=True))
-    attributes = class_attributes(built.graph, built.class_key)
-    assert attributes.fields == ["_count", "_name"]
-    assert {a.kind for a in attributes.accessors.values()} == {AccessorKind.PROPERTY}
     source = built.source()
     assert source.count("@property") == 1 and "@count.setter" in source
     obj = built.instance()
     obj.count = 4
-    assert obj._count == 8
+    assert obj._C__count == 8
     assert obj.count == 16
     assert obj.peek() == 8
 
 
-# (d) a pair where one side is trivial is still one property
-def test_a_pair_with_one_side_of_logic_is_a_property(tmp_path: Path) -> None:
+def test_a_pair_with_one_side_of_logic_is_one_property(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0, doubled=True))
-    kinds = {
-        a.kind
-        for a in class_attributes(built.graph, built.class_key).accessors.values()
-    }
-    assert kinds == {AccessorKind.PROPERTY}
     obj = built.instance()
     obj.count = 4
-    assert obj._count == 8 and obj.count == 8
+    assert obj._C__count == 8 and obj.count == 8
 
     (tmp_path / "other").mkdir()
     other = _count_class(tmp_path / "other", reader(0, doubled=True), writer(0))
     obj = other.instance()
     obj.count = 4
-    assert obj._count == 4 and obj.count == 8
+    assert obj._C__count == 4 and obj.count == 8
 
 
-# (e) a property with logic is the plain name whatever its scope; its storage is
-# the field `_count`
-def test_a_property_with_logic_is_the_plain_name_over_the_field(tmp_path: Path) -> None:
-    built = _count_class(tmp_path, reader(0, doubled=True), None, _PROTECTED)
-    assert class_attributes(built.graph, built.class_key).fields == ["_count", "_name"]
-    source = built.source()
-    assert "self._count = 0" in source and "def count(self)" in source
-    obj = built.instance()
-    obj._count = 3
-    assert obj.count == 6
-
-
-# (f) a VI outside every folder is a method, whatever its name
+# (e) a VI outside every folder is a method, whatever its name
 def test_a_vi_outside_every_property_folder_is_a_method(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
     obj = built.instance()
@@ -568,25 +599,24 @@ def test_a_vi_outside_every_property_folder_is_a_method(tmp_path: Path) -> None:
     assert not isinstance(type(obj).__dict__.get("get_config"), property)
 
 
-# (g) a field no property names is `_<field>`
-def test_a_field_without_an_accessor_is_a_private_attribute(tmp_path: Path) -> None:
+# (f) a field no property reads is stored the same way
+def test_a_field_without_an_accessor_is_private_storage(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0), writer(0))
-    assert built.instance()._name == 0
-    assert "self._name = 0" in built.source()
+    assert built.instance()._C__name == 0
+    assert "self.__name = 0" in built.source()
 
 
 def test_an_accessor_with_an_extra_input_is_a_method(tmp_path: Path) -> None:
     built = _count_class(tmp_path, reader(0, extra_input=True), writer(0))
-    attributes = class_attributes(built.graph, built.class_key)
+    attributes = _attributes(built)
     assert built.keys["Read Count"] not in attributes.accessors
     source = built.source()
     assert "def read_count(self, x" in source
-    assert "@property" not in source
+    # The write VI alone is the property.
+    assert "@property().setter" in source
 
 
-def test_two_properties_over_one_field_make_one_of_them_an_attribute(
-    tmp_path: Path,
-) -> None:
+def test_two_properties_over_one_field_are_two_properties(tmp_path: Path) -> None:
     xml = _lvclass(
         [
             ("Count", "Count", [("Read Count", 1), ("Write Count", 1)]),
@@ -600,13 +630,22 @@ def test_two_properties_over_one_field_make_one_of_them_an_attribute(
         {"Read Count": reader(0), "Write Count": writer(0), "Read Total": reader(0)},
         _FIELDS,
     )
-    attributes = class_attributes(built.graph, built.class_key)
-    assert attributes.fields == ["count", "_name"]
-    kinds = {a.property_name: a.kind for a in attributes.accessors.values()}
-    assert kinds == {"Count": AccessorKind.ATTRIBUTE, "Total": AccessorKind.PROPERTY}
+    attributes = _attributes(built)
+    assert attributes.fields == ["__count", "__name"]
+    names = {a.property_name: a.python_name for a in attributes.accessors.values()}
+    assert names == {"Count": "count", "Total": "total"}
     obj = built.instance()
     obj.count = 2
     assert obj.total == 2
+
+
+def test_a_class_with_no_fields_has_an_empty_init(tmp_path: Path) -> None:
+    xml = _lvclass([], [("Get Config", 1)])
+    built = build_class(tmp_path, xml, {"Get Config": passthrough}, [])
+    assert _attributes(built).fields == []
+    obj = built.instance()
+    assert vars(obj) == {}
+    obj.get_config()
 
 
 # --- a class owned by a library ----------------------------------------------------
@@ -630,9 +669,9 @@ def test_bundle_and_unbundle_on_a_library_owned_class_use_its_fields(
     qualified = dataclasses.replace(_CLASS_TYPE, classname="Lib.lvlib:C.lvclass")
     monkeypatch.setattr("tests.test_class_properties._CLASS_TYPE", qualified)
     built = _count_class(tmp_path, reader(0), writer(0))
-    assert class_attributes(built.graph, built.class_key).fields == ["count", "_name"]
+    assert _attributes(built).fields == ["__count", "__name"]
     source = built.source()
-    assert "return self.count" in source
+    assert "return self.__count" in source
     obj = built.instance()
     obj.count = 4
     assert obj.peek() == 4

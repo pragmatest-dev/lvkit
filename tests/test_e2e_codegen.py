@@ -360,7 +360,7 @@ class TestIPESDeleteLine:
         code = _generate(delete_line_graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         # IPES writes modified field back to the input variable
-        assert "._lines" in code, "Expected field write-back"
+        assert ".__lines" in code, "Expected field write-back"
 
     def test_same_variable_in_and_out(self, delete_line_graph):
         """Return value must reference the same variable as input."""
@@ -401,11 +401,13 @@ class TestClassPrivateDataNmux:
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
-        assert "._testsrun" in code, "Expected attribute access on the class field"
+        assert ".__testsrun" in code, "Expected attribute access on the class field"
 
         ns: dict = {}
         exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
-        this = types.SimpleNamespace(_testsrun=42)
+        # Generated alone, outside its class body, the field keeps the name it
+        # is written with (the class module stores it as `_TestResult__testsrun`).
+        this = types.SimpleNamespace(**{"__testsrun": 42})
         result = ns["gettestsrun"](this)
         assert result.testsrun == 42
         assert result.testresult_out is this
@@ -432,13 +434,14 @@ class TestClassPrivateDataNmux:
         result = ns["testresult_init"](this, "event_ref")
         out = result.testresult_out
         assert out is this
-        assert out._testsrun == 0
-        assert out._shouldstop is False
+        fields = vars(out)
+        assert fields["__testsrun"] == 0
+        assert fields["__shouldstop"] is False
         # errors/failures are arrays: an empty array constant is a real empty
         # list, not the string "[]" (that was the array-constant-as-string bug).
-        assert out._errors == []
-        assert out._failures == []
-        assert out._resultstatuschangedeventref == "event_ref"
+        assert fields["__errors"] == []
+        assert fields["__failures"] == []
+        assert fields["__resultstatuschangedeventref"] == "event_ref"
 
 
 # ── Uninitialized shift register + First Call? (functional-global idiom) ──

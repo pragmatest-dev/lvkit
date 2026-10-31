@@ -3,7 +3,8 @@
 Each case is a handmade project of classes (``tests/class_graphs.py``) generated
 into a package that is imported and run: the dispatch, the by-value copies, the
 attributes and properties, and the gaps are checked on what the generated code
-does, and every VI is described in every text view the graph has."""
+does, and every VI is described in every text view the graph has. A private data
+field is ``self.__<field>``, which Python stores as ``_<Class>__<field>``."""
 
 from __future__ import annotations
 
@@ -14,14 +15,13 @@ from pathlib import Path
 import pytest
 
 from lvkit.class_property import PropertyRole
-from lvkit.codegen.class_attributes import AccessorKind, class_attributes
-from lvkit.codegen.class_model import MethodKind, member_shape
+from lvkit.codegen.class_attributes import ClassAttributes
+from lvkit.codegen.class_model import MethodKind, class_model, member_shape
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import (
     CaseFrame,
     CaseStructureNode,
-    Constant,
     GraphNode,
     LoopNode,
     VIContext,
@@ -29,7 +29,7 @@ from lvkit.graph.models import (
 from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
 from lvkit.graph.op_walk import stamp_nmux_lane_names
-from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, TunnelTerminal
 from tests.class_graphs import (
     INT,
     Project,
@@ -349,6 +349,10 @@ def passthrough(owner: LVType) -> Recipe:
     return build
 
 
+def attributes_of(project: Project, cls: str = "Base") -> ClassAttributes:
+    return class_model(project.graph, project.classes[cls]).attributes
+
+
 # --- every view ------------------------------------------------------------------
 
 
@@ -400,8 +404,8 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
     base_source, child_source = package.sources["base"], package.sources["child"]
     assert "lvkit" not in base_source + child_source
     assert "class Base:" in base_source and "class Child(Base):" in child_source
-    assert "def _add(self, n" in base_source
-    assert "self._add(n=n)" in base_source
+    assert "def __add(self, n" in base_source
+    assert "self.__add(n=n)" in base_source
     assert "super().increment(n=n)" in child_source
     # The members have no module of their own.
     assert sorted(path.stem for path in package.root.glob("*.py")) == [
@@ -415,15 +419,15 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         obj = child()
         # The child's own field is its first field: a Bundle By Name on its wire
         # reads and writes `Extra`, never the parent's `Count`.
-        assert sorted(vars(obj)) == ["_count", "_extra"]
+        assert sorted(vars(obj)) == ["_Base__count", "_Child__extra"]
         obj.increment(n=2)
-        assert (obj._count, obj._extra) == (2, 2)
+        assert (obj._Base__count, obj._Child__extra) == (2, 2)
         parent = base()
         parent.increment(n=5)
-        assert parent._count == 5
-        # A private helper works from a child object.
-        obj._add(n=1)
-        assert obj._count == 3
+        assert parent._Base__count == 5
+        # The private helper is the parent's own: it runs on a child object too.
+        obj._Base__add(n=1)
+        assert obj._Base__count == 3
 
 
 def test_the_class_methods_have_one_shape_each(tmp_path: Path) -> None:
@@ -433,7 +437,7 @@ def test_the_class_methods_have_one_shape_each(tmp_path: Path) -> None:
     inc = member_shape(graph, project.vis["Base.Increment"])
     child_inc = member_shape(graph, project.vis["Child.Increment"])
     assert add_shape is not None and inc is not None and child_inc is not None
-    assert (add_shape.kind, add_shape.name) == (MethodKind.INSTANCE, "_add")
+    assert (add_shape.kind, add_shape.name) == (MethodKind.INSTANCE, "__add")
     assert (inc.kind, inc.name) == (MethodKind.DYNAMIC, "increment")
     assert add_shape.results == () and inc.returns_receiver is False
     assert child_inc.root_key == inc.key
@@ -499,19 +503,22 @@ def test_a_dispatch_with_two_results_reads_one_shape_from_either_class(
     assert "obj.info()" in package.sources["probe"]
     with package.use() as module:
         base, child = module("base").Base(), module("child").Child()
-        base._count = child._count = 3
+        base._Base__count = child._Base__count = 3
         assert tuple(module("probe").probe(obj=base)) == (3, 6)
         assert tuple(module("probe").probe(obj=child)) == (6, 3)
         assert isinstance(child.info(), module("base").InfoResult)
 
 
-# --- 4: an accessor overridden by a child ----------------------------------------
+# --- 4: a property overridden by a child -----------------------------------------
 
 
 def accessor_project(tmp_path: Path) -> Project:
+    """A parent and a child that each have a field ``Count``; the child's property
+    ``Count`` overrides the parent's: its getter adds its own Count to the
+    parent's (Call Parent), its setter passes the value to the parent's."""
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
-    project.add_class("Child", [OFFSET], parent="Base")
+    project.add_class("Child", [COUNT], parent="Base")
     read_key = project.key_of("Base", "Read Count")
     write_key = project.key_of("Base", "Write Count")
     project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
@@ -525,26 +532,54 @@ def accessor_project(tmp_path: Path) -> Project:
     return project
 
 
-def test_an_overridden_accessor_is_a_property_in_the_parent_too(
+def test_a_child_property_of_the_same_long_name_overrides_the_parents(
     tmp_path: Path,
 ) -> None:
     project = accessor_project(tmp_path)
-    parent = class_attributes(project.graph, project.classes["Base"])
-    assert {a.kind for a in parent.accessors.values()} == {AccessorKind.PROPERTY}
-    assert parent.fields == ["_count"]
+    parent = attributes_of(project)
+    assert parent.fields == ["__count"]
+    assert {a.python_name for a in parent.accessors.values()} == {"count"}
     package = project.generate()
     assert package.gaps == []
-    assert "@property" in package.sources["base"]
-    assert "@count.setter" in package.sources["base"]
-    assert "super().count" in package.sources["child"]
-    assert "Base.count.fset(self, value)" in package.sources["child"]
+    base_source, child_source = package.sources["base"], package.sources["child"]
+    assert "@property\n    def count(self)" in base_source
+    assert "@count.setter\n    def count(self, value" in base_source
+    assert "return self.__count" in base_source
+    # The child's property starts from the parent's and reads its own field.
+    assert "@Base.count.getter\n    def count(self)" in child_source
+    assert "@count.setter\n    def count(self, value" in child_source
+    assert "super().count" in child_source
+    assert "Base.count.fset(self, value)" in child_source
+    assert "self.__count" in child_source
     with package.use() as module:
         child, base = module("child").Child(), module("base").Base()
         child.count = 5
-        child._offset = 3
-        assert child._count == 5 and child.count == 8
+        child._Child__count = 3
+        assert sorted(vars(child)) == ["_Base__count", "_Child__count"]
+        assert child._Base__count == 5 and child.count == 8
         base.count = 2
-        assert base.count == 2 and base._count == 2
+        assert base.count == 2 and base._Base__count == 2
+
+
+def test_a_child_that_overrides_only_the_getter_keeps_the_parents_setter(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [OFFSET], parent="Base")
+    project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
+    project.add_method("Child", "Read Total", reader(CHILD), property_name="Count")
+    package = project.generate()
+    assert package.gaps == []
+    assert "@Base.count.getter" in package.sources["child"]
+    with package.use() as module:
+        obj = module("child").Child()
+        obj.count = 4
+        obj._Child__offset = 9
+        # The child's getter reads its own Offset; the parent's setter is kept.
+        assert (obj.count, obj._Base__count) == (9, 4)
+        assert module("base").Base().count == 0
 
 
 # --- 5: a fork, then a change ----------------------------------------------------
@@ -584,7 +619,7 @@ def fork_project(tmp_path: Path, forked: bool) -> Project:
             nodes,
         )
 
-    project.add_vi("Run", build)
+    project.add_method("Counter", "Run", build, static=True)
     return project
 
 
@@ -592,24 +627,23 @@ def test_a_value_read_by_another_branch_is_copied_before_it_is_changed(
     tmp_path: Path,
 ) -> None:
     package = fork_project(tmp_path, forked=True).generate()
-    source = package.sources["run"]
-    assert "copy.deepcopy(obj)" in source
+    assert "copy.deepcopy(self)" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
-        original._count = 3
-        result = module("run").run(obj=original)
-        assert original._count == 3
+        original._Counter__count = 3
+        result = original.run()
+        assert original._Counter__count == 3
         assert result.seen == 3
-        assert result.out is not original and result.out._count == 3
+        assert result.out is not original and result.out._Counter__count == 3
 
 
 def test_a_value_nothing_else_reads_is_changed_where_it_is(tmp_path: Path) -> None:
     package = fork_project(tmp_path, forked=False).generate()
-    assert "deepcopy" not in package.sources["run"]
+    assert "deepcopy" not in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
-        result = module("run").run(obj=original)
-        assert result.out is original
+        # The object is changed in place, so the method returns nothing.
+        assert original.run() is None
 
 
 def test_a_named_cluster_is_copied_when_it_forks(tmp_path: Path) -> None:
@@ -734,11 +768,12 @@ def test_a_class_holding_a_refnum_copies_everything_but_the_refnum(
     assert "def __deepcopy__" in package.sources["holder"]
     with package.use() as module:
         holder = module("holder").Holder()
-        holder._queue = queue.Queue()
-        holder._items = [1, 2]
+        holder._Holder__queue = queue.Queue()
+        holder._Holder__items = [1, 2]
         clone = copy.deepcopy(holder)
-        assert clone._queue is holder._queue
-        assert clone._items == [1, 2] and clone._items is not holder._items
+        assert clone._Holder__queue is holder._Holder__queue
+        assert clone._Holder__items == [1, 2]
+        assert clone._Holder__items is not holder._Holder__items
         assert type(clone) is type(holder)
 
 
@@ -766,101 +801,7 @@ def test_a_missing_parent_leaves_the_class_importable_and_its_code_raising(
             orphan.passthrough(None)
 
 
-# --- 9: what makes an accessor only move its field -------------------------------
-
-
-def case_around(selector_is_error: bool) -> Recipe:
-    """A getter of Count with a case structure beside it, selected by the error
-    cluster in or by a constant."""
-    error_type = LVType(
-        kind=LVTypeKind.CLUSTER,
-        fields=[
-            ClusterField(
-                name="status",
-                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
-            ),
-            ClusterField(name="code", type=INT),
-            ClusterField(
-                name="source",
-                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
-            ),
-        ],
-    )
-    boolean = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
-
-    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
-        selector = Terminal(
-            id=f"{vi}:case.sel",
-            index=0,
-            direction="input",
-            lv_type=error_type if selector_is_error else boolean,
-        )
-        structure = CaseStructureNode(
-            id=f"{vi}:case",
-            vi_path=vi,
-            node_type="select",
-            selector_terminal=selector.id,
-            terminals=[selector],
-            frames=[
-                CaseFrame(selector_value="False", is_no_error=True),
-                CaseFrame(selector_value="True"),
-            ],
-        )
-        inputs = [pane(vi, "input", "in", BASE, "Self", 0)]
-        constants: list[Constant] = []
-        if selector_is_error:
-            inputs.append(pane(vi, "input", "err", error_type, "error in", 3))
-            source = "err"
-        else:
-            constants.append(Constant(id=f"{vi}:flag", value="True", lv_type=boolean))
-            source = "flag"
-        return (
-            VIContext(
-                name=vi,
-                inputs=inputs,
-                outputs=[
-                    pane(vi, "output", "out", BASE, "Self out", 1),
-                    pane(vi, "output", "value", INT, "value", 2),
-                ],
-                constants=constants,
-                data_flow=[
-                    wire(vi, source, "case.sel"),
-                    wire(vi, "in", "get.agg"),
-                    wire(vi, "in", "out"),
-                    wire(vi, "get.field", "value"),
-                ],
-            ),
-            [structure, mux(vi, "get", False, BASE, INT, 0)],
-        )
-
-    return build
-
-
-def kinds_of(project: Project, cls: str = "Base") -> set[AccessorKind]:
-    return {
-        a.kind
-        for a in class_attributes(
-            project.graph, project.classes[cls]
-        ).accessors.values()
-    }
-
-
-def test_an_accessor_beside_an_error_case_structure_is_still_the_field(
-    tmp_path: Path,
-) -> None:
-    project = Project(tmp_path)
-    project.add_class("Base", [COUNT])
-    project.add_method("Base", "Read Count", case_around(True), property_name="Count")
-    assert kinds_of(project) == {AccessorKind.ATTRIBUTE}
-
-
-def test_an_accessor_with_a_case_not_selected_by_the_error_cluster_is_a_property(
-    tmp_path: Path,
-) -> None:
-    project = Project(tmp_path)
-    project.add_class("Base", [COUNT])
-    project.add_method("Base", "Read Count", case_around(False), property_name="Count")
-    assert kinds_of(project) == {AccessorKind.PROPERTY}
+# --- 9: what an accessor is ---------------------------------------------------------
 
 
 def test_a_setter_that_hands_back_another_object_is_a_method(tmp_path: Path) -> None:
@@ -869,19 +810,21 @@ def test_a_setter_that_hands_back_another_object_is_a_method(tmp_path: Path) -> 
     project.add_method(
         "Base", "Write Count", writer(BASE, hands_back=False), property_name="Count"
     )
-    assert class_attributes(project.graph, project.classes["Base"]).accessors == {}
+    assert attributes_of(project).accessors == {}
     assert project.graph.get_method_access(project.vis["Base.Write Count"]) is not None
 
 
-def test_a_getter_and_a_setter_over_one_field_are_the_attribute(tmp_path: Path) -> None:
+def test_a_getter_and_a_setter_over_one_field_are_one_property(tmp_path: Path) -> None:
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
     project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
     project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
-    attributes = class_attributes(project.graph, project.classes["Base"])
-    assert attributes.fields == ["count"]
-    roles = {a.role for a in attributes.accessors.values()}
-    assert roles == {PropertyRole.GETTER, PropertyRole.SETTER}
+    attributes = attributes_of(project)
+    assert attributes.fields == ["__count"]
+    assert {(a.role, a.python_name) for a in attributes.accessors.values()} == {
+        (PropertyRole.GETTER, "count"),
+        (PropertyRole.SETTER, "count"),
+    }
 
 
 # --- 10: a static member with no class input -------------------------------------
@@ -913,24 +856,48 @@ def test_a_static_member_with_no_class_input_is_a_static_method(tmp_path: Path) 
         assert module("base").Base.make(seed=7) == 7
 
 
-# --- 11: a method named like an attribute ----------------------------------------
+# --- 11: a method named like a property -------------------------------------------
 
 
-def test_a_method_with_the_name_of_an_attribute_is_a_gap(tmp_path: Path) -> None:
+def test_a_method_with_the_name_of_a_property_is_a_gap(tmp_path: Path) -> None:
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
     project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
     project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
-    project.add_method("Base", "count", passthrough(BASE))
+    method = project.add_method("Base", "count", passthrough(BASE))
+
+    def use(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "obj", BASE, "obj", 0)],
+                outputs=[],
+                data_flow=[wire(vi, "obj", "c.self")],
+            ),
+            [
+                call(
+                    vi,
+                    "c",
+                    method,
+                    "dynIUse",
+                    [("self", 0, BASE)],
+                    [("self out", 1, BASE)],
+                )
+            ],
+        )
+
+    project.add_vi("Use", use)
     gaps: list[Gap] = []
     package = project.generate(gaps)
-    (gap,) = gaps
-    assert "both 'count' in Python" in gap.reason
+    reasons = [g.reason for g in gaps]
+    assert len(reasons) == 2 and all("both 'count' in Python" in r for r in reasons)
+    # The method is not defined: the name is the property's.
+    assert package.sources["base"].count("def count(") == 2
     with package.use() as module:
-        base = module("base").Base
-        assert base().count == 0
+        base = module("base").Base()
+        assert base.count == 0
         with pytest.raises(NotImplementedError, match="both 'count'"):
-            base.count(base())
+            module("use").use(obj=base)
 
 
 def test_the_python_of_a_class_calls_nothing_in_lvkit(tmp_path: Path) -> None:
@@ -986,7 +953,7 @@ def test_a_method_that_cannot_be_written_is_that_vis_gap_not_the_classs(
     assert any("no input of its class Base" in r for r in reasons)
     with package.use() as module:
         base = module("base").Base()
-        base._count = 4
+        base._Base__count = 4
         assert tuple(base.info()) == (4, 8)
         with pytest.raises(NotImplementedError, match="no object wired"):
             base.broken()
@@ -1063,6 +1030,7 @@ def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> N
     project = Project(tmp_path)
     project.add_class("Counter", [COUNT])
     project.add_class("Holder", [ClusterField(name="Inner", type=counter)])
+    put = project.add_method("Counter", "Put", writer(counter), static=True)
 
     def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
         return (
@@ -1075,26 +1043,34 @@ def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> N
                 outputs=[pane(vi, "output", "out", counter, "out", 2)],
                 data_flow=[
                     wire(vi, "holder", "get.agg"),
-                    wire(vi, "get.field", "set.agg"),
-                    wire(vi, "v", "set.field"),
-                    wire(vi, "set.agg_out", "out"),
+                    wire(vi, "get.field", "c.self"),
+                    wire(vi, "v", "c.value"),
+                    wire(vi, "c.self out", "out"),
                 ],
             ),
             [
                 mux(vi, "get", False, holder, counter, 0),
-                mux(vi, "set", True, counter, INT, 0),
+                call(
+                    vi,
+                    "c",
+                    put,
+                    "iUse",
+                    [("self", 0, counter), ("value", 2, INT)],
+                    [("self out", 1, counter)],
+                ),
             ],
         )
 
-    project.add_vi("Take", take)
+    project.add_method("Holder", "Take", take, static=True)
     package = project.generate()
-    assert "copy.deepcopy(" in package.sources["take"]
+    assert package.gaps == []
+    assert "copy.deepcopy(self.__inner)" in package.sources["holder"]
     with package.use() as module:
         holding = module("holder").Holder()
-        holding._inner = module("counter").Counter()
-        result = module("take").take(holder=holding, v=5)
-        assert holding._inner._count == 0
-        assert result.out._count == 5 and result.out is not holding._inner
+        holding._Holder__inner = module("counter").Counter()
+        result = holding.take(v=5)
+        assert holding._Holder__inner._Counter__count == 0
+        assert result._Counter__count == 5 and result is not holding._Holder__inner
 
 
 def test_an_object_entering_a_loop_is_copied_in_each_iteration(
@@ -1189,15 +1165,15 @@ def test_an_object_entering_a_loop_is_copied_in_each_iteration(
             [loop, changer],
         )
 
-    project.add_vi("Run", run)
+    project.add_method("Counter", "Run", run, static=True)
     package = project.generate()
     assert package.gaps == []
-    assert "copy.deepcopy(" in package.sources["run"]
+    assert "copy.deepcopy(" in package.sources["counter"]
     with package.use() as module:
         original = module("counter").Counter()
-        result = module("run").run(obj=original, v=7, n=2)
-        assert original._count == 0
-        assert result.out._count == 7
+        result = original.run(v=7, n=2)
+        assert original._Counter__count == 0
+        assert result._Counter__count == 7
 
 
 def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
@@ -1218,24 +1194,6 @@ def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
 
     class_model._STATES.pop(graph, None)  # noqa: SLF001
     assert lazy_imports(graph, project.classes["Base"])
-
-
-def test_a_reference_to_an_attribute_or_property_accessor_is_a_gap(
-    tmp_path: Path,
-) -> None:
-    from lvkit.codegen.class_model import not_a_method
-
-    project = Project(tmp_path)
-    project.add_class("Base", [COUNT])
-    read = project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
-    write = project.add_method(
-        "Base", "Write Count", writer(BASE), property_name="Count"
-    )
-    other = project.add_method("Base", "Peek", passthrough(BASE))
-    reason = not_a_method(project.graph, read)
-    assert reason is not None and "attribute 'count' of Base" in reason
-    assert not_a_method(project.graph, write) is not None
-    assert not_a_method(project.graph, other) is None
 
 
 def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:
@@ -1322,24 +1280,248 @@ def test_call_parent_of_a_forked_object_works_on_a_copy(tmp_path: Path) -> None:
         assert result.seen == 0
 
 
-def test_an_accessor_named_like_an_ancestors_attribute_is_a_gap(
+# --- the private data of each class is its own -------------------------------------
+
+
+GRAND = class_type("Grand")
+
+
+def three_levels(tmp_path: Path) -> Project:
+    """Base, Child and Grand each have a field ``Count`` and a method that adds to
+    it; Base has the property ``Count``, which Child overrides (adding its own
+    Count to the parent's) and Grand overrides again."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [COUNT], parent="Base")
+    project.add_class("Grand", [COUNT], parent="Child")
+    project.add_method("Base", "Bump Base", bump(BASE, 0, True))
+    project.add_method("Child", "Bump Child", bump(CHILD, 0, True))
+    project.add_method("Grand", "Bump Grand", bump(GRAND, 0, True))
+    read_key = project.key_of("Base", "Read Count")
+    project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
+    child_read = project.key_of("Child", "Read Count")
+    project.add_method(
+        "Child", "Read Count", parent_reader(read_key), property_name="Count"
+    )
+
+    def grand_reader(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        context, nodes = parent_reader(child_read)(vi)
+        for node in nodes:
+            for t in node.terminals:
+                if t.lv_type == CHILD:
+                    t.lv_type = GRAND
+        for t in [*context.inputs, *context.outputs]:
+            if t.lv_type == CHILD:
+                t.lv_type = GRAND
+        return context, nodes
+
+    project.add_method("Grand", "Read Count", grand_reader, property_name="Count")
+    return project
+
+
+def test_a_parent_and_a_child_field_of_one_name_are_two_values(
+    tmp_path: Path,
+) -> None:
+    package = three_levels(tmp_path).generate()
+    assert package.gaps == []
+    with package.use() as module:
+        obj = module("grand").Grand()
+        assert sorted(vars(obj)) == ["_Base__count", "_Child__count", "_Grand__count"]
+        obj.bump_base(n=1)
+        obj.bump_child(n=10)
+        obj.bump_grand(n=100)
+        # Each class's method sees its own class's field.
+        assert (obj._Base__count, obj._Child__count, obj._Grand__count) == (
+            1,
+            10,
+            100,
+        )
+        # Each override reads its own field and the parent's through Call Parent.
+        assert obj.count == 111
+        child = module("child").Child()
+        child.bump_child(n=4)
+        assert (child.count, child._Base__count) == (4, 0)
+
+
+def test_overriding_a_read_only_property_keeps_it_read_only(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [COUNT], parent="Base")
+    read_key = project.key_of("Base", "Read Count")
+    project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    project.add_method(
+        "Child", "Read Count", parent_reader(read_key), property_name="Count"
+    )
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        obj = module("child").Child()
+        obj._Child__count = 2
+        assert obj.count == 2
+        with pytest.raises(AttributeError):
+            obj.count = 1
+
+
+def test_a_child_method_reads_a_parent_property_never_the_parents_field(
     tmp_path: Path,
 ) -> None:
     project = Project(tmp_path)
     project.add_class("Base", [COUNT])
-    project.add_class("Child", [OFFSET], parent="Base")
-    project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    project.add_class("Child", [COUNT], parent="Base")
+    read_key = project.add_method(
+        "Base", "Read Count", reader(BASE), property_name="Count"
+    )
     project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
-    project.add_method("Child", "Read Total", reader(CHILD), property_name="Count")
-    gaps: list[Gap] = []
-    package = project.generate(gaps)
-    child = class_attributes(project.graph, project.classes["Child"])
-    assert child.accessors == {}
-    assert child.fields == ["_offset"]
-    (gap,) = gaps
-    assert "'count'" in gap.reason and "descends from" in gap.reason
+
+    def peek(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "in", CHILD, "Self", 0)],
+                outputs=[
+                    pane(vi, "output", "out", CHILD, "Self out", 1),
+                    pane(vi, "output", "seen", INT, "seen", 2),
+                ],
+                data_flow=[
+                    wire(vi, "in", "c.self"),
+                    wire(vi, "c.self out", "out"),
+                    wire(vi, "c.value", "seen"),
+                ],
+            ),
+            [
+                call(
+                    vi,
+                    "c",
+                    read_key,
+                    "dynIUse",
+                    [("self", 0, BASE)],
+                    [("self out", 1, BASE), ("value", 2, INT)],
+                )
+            ],
+        )
+
+    project.add_method("Child", "Parent Count", peek)
+    package = project.generate()
+    assert package.gaps == []
+    child_source = package.sources["child"]
+    assert "self.count" in child_source and "_Base__" not in child_source
     with package.use() as module:
         obj = module("child").Child()
-        assert obj.count == 0 and sorted(vars(obj)) == ["_offset", "count"]
-        with pytest.raises(NotImplementedError, match="descends from"):
-            obj.read_total()
+        obj.count = 7
+        obj._Child__count = 1
+        assert obj.parent_count() == 7
+
+
+# --- Call By Reference of a member VI -----------------------------------------------
+
+
+def _by_reference(callee: str, owner: LVType) -> Recipe:
+    """A VI of no class that calls ``callee`` by a Call By Reference node whose VI
+    is chosen in its setup, on its ``obj``, with its ``n``."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        node = call(
+            vi,
+            "c",
+            callee,
+            "callByRefNode",
+            [("self", 0, owner), ("n", 2, INT)],
+            [("self out", 1, owner)],
+        )
+        node.qualified_name = Path(callee).name
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "obj", owner, "obj", 0),
+                    pane(vi, "input", "n", INT, "n", 1),
+                ],
+                outputs=[pane(vi, "output", "out", owner, "out", 2)],
+                data_flow=[
+                    wire(vi, "obj", "c.self"),
+                    wire(vi, "n", "c.n"),
+                    wire(vi, "c.self out", "out"),
+                ],
+            ),
+            [node],
+        )
+
+    return build
+
+
+def test_a_call_by_reference_of_a_static_member_calls_the_method(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    add_key = project.add_method("Base", "Add", bump(BASE, 0, True), static=True)
+    project.add_vi("Caller", _by_reference(add_key, BASE))
+    package = project.generate()
+    assert package.gaps == []
+    assert "Base.add(self=obj, n=n)" in package.sources["caller"]
+    with package.use() as module:
+        obj = module("base").Base()
+        assert module("caller").caller(obj=obj, n=3).out is obj
+        assert obj._Base__count == 3
+
+
+def test_a_call_by_reference_of_a_dynamic_member_is_a_gap(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    add_key = project.add_method("Base", "Add", bump(BASE, 0, True))
+    project.add_vi("Caller", _by_reference(add_key, BASE))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    (gap,) = gaps
+    assert "Call By Reference does not support dynamic member VIs" in gap.reason
+    assert "dynamic-terminal-on-call-by-reference" in gap.reason
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="dynamic member VIs"):
+            module("caller").caller(obj=module("base").Base(), n=1)
+
+
+def test_a_reference_to_a_property_read_vi_is_its_getter(tmp_path: Path) -> None:
+    from lvkit.codegen.class_model import member_reference, not_a_method
+    from lvkit.pipeline import create_import_resolver
+
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    read = project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    write = project.add_method(
+        "Base", "Write Count", writer(BASE), property_name="Count"
+    )
+    graph = project.graph
+    assert not_a_method(graph, read) is None
+    out = tmp_path / "pkg"
+    paths = {project.classes["Base"]: out / "base.py"}
+    resolver = create_import_resolver("pkg", out, paths, out / "x.py", graph=graph)
+    for key, side in ((read, "fget"), (write, "fset")):
+        shape = member_shape(graph, key)
+        assert shape is not None
+        expression, _ = member_reference(graph, shape, resolver, None)
+        assert expression == f"Base.count.{side}"
+
+
+def test_only_a_private_member_is_spelled_with_two_underscores() -> None:
+    from lvkit.codegen.class_attributes import is_private, member_name
+
+    assert member_name("_helper", "protected") == "_helper"
+    assert member_name("__x", "public") == "x"
+    assert member_name("_class", "public") == "class_"
+    assert member_name("count__", "private") == "__count"
+    assert [is_private(member_name("_x", s)) for s in ("public", "protected")] == [
+        False,
+        False,
+    ]
+
+
+def test_a_member_named_like_a_method_lvkit_writes_is_a_gap(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "share_refnums", passthrough(BASE), "protected")
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    (gap,) = gaps
+    assert "'_share_refnums'" in gap.reason
+    assert "def _share_refnums" not in package.sources["base"]

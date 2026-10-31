@@ -9,6 +9,7 @@ writes, and the result of running that Python next to a hand-written callee.
 from __future__ import annotations
 
 import builtins
+import dataclasses
 import importlib
 import keyword
 import sys
@@ -407,16 +408,18 @@ def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
             refs.refs("Other.lvclass:Callee.vi")  # type: ignore[attr-defined]
 
 
-def test_a_call_by_reference_of_a_method_found_when_the_code_runs_is_a_gap(
+def test_a_call_by_reference_of_a_static_method_found_when_the_code_runs_calls_it(
     tmp_path: Path,
 ) -> None:
     loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
     d.type_terminal(loaded, 21, d.typed_vi_reference())
     d.type_terminal(loaded, 31, d.typed_vi_reference())
     d.own_by_class(loaded, "Owner.lvclass")
-    reason = _failure(loaded)
-    assert "Owner.lvclass:Callee.vi" in reason
-    assert "only known when the diagram runs" in reason
+    source = _source(loaded)
+    assert source.endswith("    vi_reference(x=5)")
+    for refs in _package(tmp_path, source, _CLASS_CALLEE, "owner"):
+        refs.refs("Owner.lvclass:Callee.vi")  # type: ignore[attr-defined]
+        assert sys.modules["generated_refs.owner"].calls == [(5, None)]
 
 
 def test_a_computed_name_with_no_owner_in_the_project_finds_nothing(
@@ -642,6 +645,24 @@ def test_a_reference_that_is_a_value_is_called_with_the_panes_names(
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
     assert _source(loaded).endswith("def refs(vi_ref: Any=None):\n    vi_ref(x=5)")
+
+
+def test_a_reference_whose_pane_has_a_dynamic_dispatch_terminal_is_a_gap(
+    tmp_path: Path,
+) -> None:
+    loaded = d.load(tmp_path, [_CALL], [], [_X])
+    reference = d.typed_vi_reference()
+    assert reference.element_type is not None and reference.element_type.pane
+    first, *rest = reference.element_type.pane
+    reference.element_type.pane = (
+        dataclasses.replace(first, dynamic_dispatch=True),
+        *rest,
+    )
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    reason = _failure(loaded)
+    assert "dynamic dispatch terminal" in reason
+    assert "Call By Reference does not support dynamic member VIs" in reason
 
 
 def test_a_started_call_of_a_reference_value_is_submitted(tmp_path: Path) -> None:

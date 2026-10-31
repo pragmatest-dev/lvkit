@@ -49,7 +49,7 @@ def test_init_keeps_every_field() -> None:
         for stmt in init.body
         if isinstance(stmt, ast.Assign)
     ]
-    assert targets == ["_none", "_field_1"]
+    assert targets == ["__none", "__field_1"]
     assert [ast.unparse(s.value) for s in init.body if isinstance(s, ast.Assign)] == [
         "''",
         "0",

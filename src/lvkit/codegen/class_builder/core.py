@@ -4,7 +4,8 @@ One LabVIEW class is one Python class in one module: it descends from the class
 generated for its parent, sets the private data fields it declares in
 ``__init__``, and has the VIs it lists as methods and properties
 (``class_model``). A parent that was not found leaves the class with no base, and
-everything that would run raises (a gap)."""
+everything that would run raises (a gap). A member whose name another member has
+is not defined (its calls are gaps)."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from lvkit.graph import InMemoryVIGraph
 
 from ..ast_optimizer import optimize_module
 from ..ast_utils import build_type_checking_block, to_module_name
-from ..class_attributes import Accessor, AccessorKind
+from ..class_attributes import Accessor
 from ..class_model import (
     ClassModel,
     MethodShape,
@@ -80,6 +81,8 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             self._gaps.append(gap)
             parent_gap = gap.message
         for key, reason in self._model.clashes.items():
+            self._gap_for(key, reason)
+        for key, reason in self._model.unavailable.items():
             self._unavailable[key] = self._gap_for(key, reason)
         if parent_gap is not None:
             for key in self._model.shapes:
@@ -134,13 +137,11 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
         methods: list[MethodShape] = []
         for key, shape in model.shapes.items():
             accessor = model.attributes.accessors.get(key)
-            if accessor is not None and accessor.kind is AccessorKind.ATTRIBUTE:
-                continue
-            if accessor is not None and accessor.kind is AccessorKind.PROPERTY:
+            if accessor is not None:
                 properties.append((shape, accessor))
-            elif self._has_diagram(key):
+            elif key not in model.clashes and self._has_diagram(key):
                 methods.append(shape)
-        body.extend(self._build_properties(properties))
+        body.extend(self._build_properties(properties, base))
         for shape in methods:
             body.append(self._build_method(shape))
         return body

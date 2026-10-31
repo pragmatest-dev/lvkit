@@ -1,9 +1,10 @@
 """Code generator for a call of a property accessor VI of a LabVIEW class.
 
-The accessor is the attribute or property of its class (``class_attributes``):
-the call reads ``obj.name`` or writes ``obj.name = value``. Call Parent of a
-property's read VI is ``super().name``, of its write VI ``Parent.name.fset(self,
-value)`` with ``Parent`` the class the calling class descends from."""
+The accessor is the getter or the setter of a property of its class
+(``class_attributes``): the call reads ``obj.name`` or writes ``obj.name =
+value``. Call Parent of a property's read VI is ``super().name``, of its write VI
+``Parent.name.fset(self, value)`` with ``Parent`` the class the calling class
+descends from. A private property is reached only from its class's own VIs."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ from lvkit.models import Terminal
 
 from ..ast_utils import param_default_expr, parse_expr, to_var_name
 from ..class_attributes import Accessor, AccessorPane
-from ..class_model import base_import, python_class_name
+from ..class_model import base_import, check_private_access, python_class_name
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -28,8 +29,11 @@ def generate(
     node: VINode, ctx: CodeGenContext, accessor: Accessor, pane: AccessorPane
 ) -> CodeFragment:
     """A call of a property accessor VI: ``obj.name`` read, or ``obj.name = value``
-    written, where ``name`` is the accessor's attribute or property."""
+    written, where ``name`` is the accessor's property."""
     assert ctx.graph is not None
+    class_key = ctx.graph.owning_class_key(accessor.key)
+    assert class_key is not None
+    check_private_access(ctx.graph, accessor.python_name, class_key, ctx.vi_name)
     terminals = ctx.enriched_terminals(node)
 
     def terminal(direction: str, index: int | None) -> Terminal | None:

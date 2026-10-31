@@ -176,7 +176,7 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
     guarded = next(n for n in ast.parse(call).body if isinstance(n, ast.If))
     imported = {a.name for n in guarded.body for a in n.names}
     assert "MethodEnum" in imported
-    assert "def _calltestmethod(self, method: MethodEnum" in call
+    assert "def __calltestmethod(self, method: MethodEnum" in call
 
     modules = _import_all(package, monkeypatch)
     enum = modules[
@@ -283,7 +283,7 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     assert _unresolved_relative_imports(package) == []
     source = _module_named(package, "session_reservation/session_reservation.py")
     assert (
-        "is_dvr_valid(dvr_valid_in=self._session_and_driver_infos[0].dvr_valid)"
+        "is_dvr_valid(dvr_valid_in=self.__session_and_driver_infos[0].dvr_valid)"
     ) in source.read_text()
 
 
