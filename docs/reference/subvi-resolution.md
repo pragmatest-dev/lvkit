@@ -31,27 +31,38 @@ name. A recorded path is one of:
 lvkit also reads a member stored inside a `.llb` on that path, a class or
 library member stored beside its `.lvclass`/`.lvlib`, and the one file whose
 name differs from the recorded one only in letter case (LabVIEW file names
-ignore case). If nothing is at the recorded path, the dependency is **missing**:
-it keeps the path its caller recorded, and lvkit carries on. A file with the
-same name somewhere else is never used in its place — it may be a different
-VI.
+ignore case). A recorded `<vilib>`, `<userlib>` or `<instrlib>` path is tried
+in each folder given for it, in order.
+
+If nothing is at the recorded path, lvkit looks on the **VI search path**, as
+LabVIEW does: each entry in order, with its subfolders, for the file whose path
+ends in the longest piece of the recorded path (for
+`<userlib>/_OpenG.lib/array/array.llb/x.vi`: `_OpenG.lib/array/array.llb/x.vi`,
+then `array/array.llb/x.vi`, down to `x.vi`). Only a file with the qualified
+name the caller records counts (its library or class, then its name), so a
+same-named member of another class is never taken; two equally good matches
+are reported as ambiguous instead of guessed. A file found this way is a note,
+not a problem: the run stays complete, its summary says how many were found
+this way, and `--format json` lists each one. If nothing is found, the
+dependency is **missing**: it keeps the path its caller recorded, and lvkit
+carries on.
 
 ## Options
 
 | Option | Description |
 |--------|-------------|
-| `--vilib DIR` | Path to LabVIEW's `vi.lib` directory on disk. When set, `<vilib>/...` recorded paths resolve to real files under it, their terminal layouts are captured automatically, and lvkit caches the result to `.lvkit/vilib/` for future runs (only if a `.lvkit/` store exists — see `--project-root` below). When omitted, lvkit auto-detects a local LabVIEW install unless `--no-auto-vilib` is set — see [Auto-detection](#auto-detection) below. |
-| `--userlib DIR` | Path to LabVIEW's `user.lib` directory on disk (where toolkits such as OpenG install). When set, `<userlib>/...` recorded paths resolve to real files under it. |
-| `--instrlib DIR` | Path to LabVIEW's `instr.lib` directory on disk (instrument drivers). When set, `<instrlib>/...` recorded paths resolve to real files under it. |
+| `--vilib DIR` | A folder `<vilib>` names (LabVIEW's `vi.lib`); give it several times for several, tried in order. When set, `<vilib>/...` recorded paths resolve to real files under it, their terminal layouts are captured automatically, and lvkit caches the result to `.lvkit/vilib/` for future runs (only if a `.lvkit/` store exists — see `--project-root` below). When omitted, lvkit auto-detects a local LabVIEW install unless `--no-auto-vilib` is set — see [Auto-detection](#auto-detection) below. |
+| `--userlib DIR` | A folder `<userlib>` names (LabVIEW's `user.lib`, where toolkits such as OpenG install); give it several times for several. When set, `<userlib>/...` recorded paths resolve to real files under it. |
+| `--instrlib DIR` | A folder `<instrlib>` names (LabVIEW's `instr.lib`, instrument drivers); give it several times for several. When set, `<instrlib>/...` recorded paths resolve to real files under it. |
+| `--search-path ENTRY` | One entry of the VI search path: a folder, or `<topvi>` (the folder of the VI you name), `<foundvi>` (the folders this run has found files in), `<vilib>`, `<userlib>` or `<instrlib>` (their folders). Give it several times, in priority order. Default: `<topvi>` `<foundvi>` `<vilib>` `<userlib>` `<instrlib>`, LabVIEW's own default. A trailing `\*` is accepted and ignored: every entry is searched with its subfolders. |
 | `--project-root DIR` | Project root containing a `.lvkit/` resolution store. Defaults to walking up from the current directory looking for `.lvkit/`. No store is required: without one, resolution still runs using only lvkit's bundled primitive and vi.lib data. A store (created by [`setup`](setup.md)) adds your project's own mappings and lets a `--vilib` run cache newly-observed terminal layouts to `.lvkit/vilib/` for future runs. |
 | `--no-auto-vilib` | Disable auto-detection of a locally installed LabVIEW's `vi.lib`/`user.lib`/`instr.lib` when `--vilib` is not given. Use this for reproducible, machine-independent runs (e.g. CI). |
 
-`--search-path` no longer exists. Passing it is a usage error (exit code 2)
-whose message names the flags above: name the folder a recorded
-`<userlib>`/`<vilib>`/`<instrlib>` path starts from instead. A folder of
-extracted toolkit VIs (for example an OpenG package) is used by naming the
-folder that plays the role of `user.lib` — the one holding `_OpenG.lib` — with
-`--userlib`.
+A folder of extracted toolkit VIs laid out like `user.lib` (for example an
+OpenG package, the folder holding `_OpenG.lib`) is best named with `--userlib`:
+its files are then at their recorded paths. Any other folder of dependencies (a
+toolkit checked out from git, files moved after LabVIEW saved their callers) is
+named with `--search-path`.
 
 ## Auto-detection
 

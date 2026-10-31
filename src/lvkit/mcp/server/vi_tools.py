@@ -29,6 +29,7 @@ from ...graph.lvnet_typedef import render_lvnet_typedef
 from ...graph.netlist import build_netlist_from_graph, netlist_to_dict, render_lvnet
 from ...graph.netlist_json import typedef_to_dict
 from ...index.build import warm_all_loaded
+from ...library_folders import folder_list
 from ...load_mode import LoadMode
 from ...output_cache import (
     cached_diff,
@@ -56,21 +57,23 @@ def _check_format(format: str) -> None:
 
 
 def _build(
-    vilib: str | None,
-    userlib: str | None,
-    instrlib: str | None,
+    vilib: str | list[str] | None,
+    userlib: str | list[str] | None,
+    instrlib: str | list[str] | None,
+    search_path: list[str] | None = None,
     store: Path | None = None,
 ) -> BuildOptions:
-    """The build options of one tool call: the library roots it names (each
-    resolved) and the project store."""
+    """The build options of one tool call: the folders each pseudo path names
+    (each resolved, in order), the VI Search Path and the project store."""
 
-    def _root(folder: str | None) -> Path | None:
-        return Path(folder).resolve() if folder else None
+    def _roots(folders: str | list[str] | None) -> tuple[Path, ...]:
+        return tuple(p.resolve() for p in folder_list(folders))
 
     return BuildOptions(
-        vilib_root=_root(vilib),
-        userlib_root=_root(userlib),
-        instrlib_root=_root(instrlib),
+        vilib_root=_roots(vilib),
+        userlib_root=_roots(userlib),
+        instrlib_root=_roots(instrlib),
+        search_path=tuple(search_path) if search_path else None,
         project_store=store,
     )
 
@@ -105,6 +108,7 @@ def _load_one(
         vilib_root=build.vilib_root,
         userlib_root=build.userlib_root,
         instrlib_root=build.instrlib_root,
+        search_path=build.search_path,
         graph=run.new_graph(),
     )
     # Progressive index: every parse warms the store — a MINIMAL load parses
@@ -117,9 +121,10 @@ def _load_one(
 @mcp.tool()
 async def read_vi(
     vi_path: str,
-    vilib: str | None = None,
-    userlib: str | None = None,
-    instrlib: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
     format: str = "json",
     verbose: bool = False,
     ctx: Context | None = None,
@@ -171,7 +176,8 @@ async def read_vi(
     def _work() -> dict[str, Any]:
         run = new_run(vi_path)
         try:
-            graph, vi_name = _load_one(vi_path, _build(vilib, userlib, instrlib), run)
+            build = _build(vilib, userlib, instrlib, search_path)
+            graph, vi_name = _load_one(vi_path, build, run)
             module = build_netlist_from_graph(graph, vi_name)
         except FileNotFoundError:
             raise
@@ -196,9 +202,10 @@ async def read_vi(
 @mcp.tool()
 async def read_ctl(
     ctl_path: str,
-    vilib: str | None = None,
-    userlib: str | None = None,
-    instrlib: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
     format: str = "json",
     verbose: bool = False,
     ctx: Context | None = None,
@@ -233,7 +240,7 @@ async def read_ctl(
             raise FileNotFoundError(f"Control not found: {ctl_path}")
         _configure_resolvers_for_vi(p)
         run = new_run(p)
-        build = _build(vilib, userlib, instrlib)
+        build = _build(vilib, userlib, instrlib, search_path)
         try:
             graph, key = load_ctl_by_path(
                 p,
@@ -241,6 +248,7 @@ async def read_ctl(
                 vilib_root=build.vilib_root,
                 userlib_root=build.userlib_root,
                 instrlib_root=build.instrlib_root,
+                search_path=build.search_path,
             )
             info = graph.get_typedef(key)
         except Exception as exc:
@@ -257,9 +265,10 @@ async def read_ctl(
 @mcp.tool()
 async def render(
     vi_path: str,
-    vilib: str | None = None,
-    userlib: str | None = None,
-    instrlib: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Render one VI's **block diagram** — or a ``.ctl`` control's **front
@@ -296,7 +305,7 @@ async def render(
         if not p.exists():
             raise FileNotFoundError(f"File not found: {vi_path}")
         store = _configure_resolvers_for_vi(p)
-        build = _build(vilib, userlib, instrlib, store)
+        build = _build(vilib, userlib, instrlib, search_path, store)
         opts = render_options_tag("html", "auto", None, build)
         # Shared cached core: look up, and only on a miss build + refresh the slot.
         # "auto" theme so the viewer's live light/dark toggle can re-theme it.
@@ -345,9 +354,10 @@ async def render(
 async def diff(
     before_vi: str,
     after_vi: str,
-    vilib: str | None = None,
-    userlib: str | None = None,
-    instrlib: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Diff two versions of a VI — write a **visual HTML diff** and return its
@@ -380,7 +390,7 @@ async def diff(
             if not p.exists():
                 raise FileNotFoundError(f"VI not found: {p}")
         store = _configure_resolvers_for_vi(pa)
-        build = _build(vilib, userlib, instrlib, store)
+        build = _build(vilib, userlib, instrlib, search_path, store)
         opts = diff_options_tag("html", False, None, None, build)
         run = new_run(pb)
         try:
@@ -422,9 +432,10 @@ async def diff(
 @mcp.tool()
 async def unresolved(
     target: str,
-    vilib: str | None = None,
-    userlib: str | None = None,
-    instrlib: str | None = None,
+    vilib: str | list[str] | None = None,
+    userlib: str | list[str] | None = None,
+    instrlib: str | list[str] | None = None,
+    search_path: list[str] | None = None,
     ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Every gap under ``target`` (a VI, library, class, or directory): what
@@ -446,13 +457,14 @@ async def unresolved(
         from ...unresolved import collect_unresolved
 
         run = new_run(target)
-        build = _build(vilib, userlib, instrlib)
+        build = _build(vilib, userlib, instrlib, search_path)
         try:
             items = collect_unresolved(
                 target,
                 vilib_root=build.vilib_root,
                 userlib_root=build.userlib_root,
                 instrlib_root=build.instrlib_root,
+                search_path=build.search_path,
                 run=run,
             )
         except Exception as exc:

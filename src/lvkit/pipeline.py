@@ -40,6 +40,7 @@ from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
+from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.module_layout import ModuleLayout
 from lvkit.project_store import find_project_store
@@ -567,9 +568,10 @@ def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     run: RunProblems | None = None,
 ) -> dict:
     """Generate Python from VI files.
@@ -615,11 +617,12 @@ def generate_python(
     print(f"Loading: {input_path}")
 
     graph = run.new_graph()
-    if vilib_root or userlib_root or instrlib_root:
+    if vilib_root or userlib_root or instrlib_root or search_path:
         graph.set_library_roots(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
 
     # Detect input type and load appropriately

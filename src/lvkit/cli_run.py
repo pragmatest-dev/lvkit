@@ -45,7 +45,9 @@ def command_run(
         root = project_root(input_path)
     run = RunProblems(
         RunSettings(
-            echo=True, fail_fast=getattr(args, "fail_fast", False), root=root
+            echo=True,
+            fail_fast=getattr(args, "fail_fast", False),
+            root=root,
         )
     )
     args.run = run  # for `run_command`, which reports it if a fail-fast stop ends it
@@ -53,10 +55,10 @@ def command_run(
 
 
 def finish(run: RunProblems, stopped: bool = False) -> int:
-    """Print the summary on stderr when the run was not Complete and return the
-    run's exit code."""
+    """Print the summary on stderr when the run was not Complete or has notes,
+    and return the run's exit code."""
     report = run.report()
-    if report.outcome(stopped) is not Outcome.COMPLETE:
+    if report.outcome(stopped) is not Outcome.COMPLETE or report.notes:
         report.print_summary(stopped, sys.stderr)
     return report.exit_code(stopped)
 

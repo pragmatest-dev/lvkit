@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from ..load_mode import LoadMode
 from ..run_report import RunSettings
 from . import ThemeMode, render_vi_body
@@ -20,9 +22,10 @@ def render_body(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
@@ -38,6 +41,7 @@ def render_body(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             theme_mode=theme_mode,
             ref=ref,
         )
@@ -47,6 +51,7 @@ def render_body(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme_mode=theme_mode,
@@ -58,9 +63,10 @@ def render_body_with_name(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     mode: LoadMode = LoadMode.MINIMAL,
     original_path: Path | None = None,
     theme_mode: ThemeMode = "auto",
@@ -84,6 +90,7 @@ def render_body_with_name(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             theme_mode=theme_mode,
             ref=ref,
         )
@@ -93,6 +100,7 @@ def render_body_with_name(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=mode,
         original_path=original_path,
         theme_mode=theme_mode,

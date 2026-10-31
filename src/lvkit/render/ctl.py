@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from ..graph.load_ctl import load_ctl_by_path
 from . import ThemeMode
 from .front_panel import render_ctl_front_panel
@@ -17,9 +19,10 @@ def render_ctl_body_with_name(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
 ) -> RenderedBody | None:
@@ -32,6 +35,7 @@ def render_ctl_body_with_name(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
     )
     svg = render_ctl_front_panel(graph, key, theme_mode=theme_mode)
     if svg is None:
@@ -48,9 +52,10 @@ def render_ctl_body(
     path: Path,
     *,
     fmt: str = "html",
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
     theme_mode: ThemeMode = "auto",
     ref: str | None = None,
 ) -> str | None:
@@ -65,6 +70,7 @@ def render_ctl_body(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         theme_mode=theme_mode,
         ref=ref,
     )

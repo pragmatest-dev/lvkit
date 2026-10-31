@@ -269,9 +269,9 @@ def test_cli_uses_detected_when_vilib_absent(tmp_path, monkeypatch):
         source="test",
     )
     _patch_detected(monkeypatch, detected)
-    vilib, userlib, _instrlib = cli._parse_library_roots(_ns())
-    assert vilib == tmp_path / "vi.lib"
-    assert userlib == tmp_path / "user.lib"
+    vilib, userlib, _instrlib, _ = cli._parse_library_roots(_ns())
+    assert vilib == (tmp_path / "vi.lib",)
+    assert userlib == (tmp_path / "user.lib",)
 
 
 def test_cli_explicit_vilib_overrides_detection(tmp_path, monkeypatch):
@@ -282,9 +282,11 @@ def test_cli_explicit_vilib_overrides_detection(tmp_path, monkeypatch):
         raise AssertionError("detection should not run")
 
     monkeypatch.setattr(lv_detect, "detect_labview", _boom)
-    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(vilib="/explicit/vi.lib"))
-    assert vilib == Path("/explicit/vi.lib")
-    assert userlib is None
+    vilib, userlib, _instrlib, _ = cli._parse_library_roots(
+        _ns(vilib=["/explicit/vi.lib"])
+    )
+    assert vilib == (Path("/explicit/vi.lib"),)
+    assert userlib == ()
 
 
 def test_cli_no_auto_vilib_suppresses_detection(monkeypatch):
@@ -294,9 +296,11 @@ def test_cli_no_auto_vilib_suppresses_detection(monkeypatch):
         raise AssertionError("detection should not run")
 
     monkeypatch.setattr(lv_detect, "detect_labview", _boom)
-    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(no_auto_vilib=True))
-    assert vilib is None
-    assert userlib is None
+    vilib, userlib, _instrlib, _ = cli._parse_library_roots(
+        _ns(no_auto_vilib=True)
+    )
+    assert vilib == ()
+    assert userlib == ()
 
 
 def test_cli_explicit_userlib_kept_with_detected_vilib(tmp_path, monkeypatch):
@@ -310,9 +314,11 @@ def test_cli_explicit_userlib_kept_with_detected_vilib(tmp_path, monkeypatch):
         source="test",
     )
     _patch_detected(monkeypatch, detected)
-    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(userlib="/my/user.lib"))
-    assert vilib == tmp_path / "vi.lib"
-    assert userlib == Path("/my/user.lib")  # explicit userlib preserved
+    vilib, userlib, _instrlib, _ = cli._parse_library_roots(
+        _ns(userlib=["/my/user.lib"])
+    )
+    assert vilib == (tmp_path / "vi.lib",)
+    assert userlib == (Path("/my/user.lib"),)  # explicit userlib preserved
 
 
 def test_cli_detected_instrlib_unless_given(tmp_path, monkeypatch):
@@ -327,9 +333,11 @@ def test_cli_detected_instrlib_unless_given(tmp_path, monkeypatch):
         instrlib_root=tmp_path / "instr.lib",
     )
     _patch_detected(monkeypatch, detected)
-    assert cli._parse_library_roots(_ns())[2] == tmp_path / "instr.lib"
-    _, _, instrlib = cli._parse_library_roots(_ns(instrlib="/my/instr.lib"))
-    assert instrlib == Path("/my/instr.lib")
+    assert cli._parse_library_roots(_ns())[2] == (tmp_path / "instr.lib",)
+    _, _, instrlib, _ = cli._parse_library_roots(
+        _ns(instrlib=["/my/instr.lib"])
+    )
+    assert instrlib == (Path("/my/instr.lib"),)
 
 
 def test_detected_dataclass_is_frozen(tmp_path):

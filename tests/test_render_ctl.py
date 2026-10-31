@@ -54,6 +54,7 @@ def test_dispatcher_sends_a_ctl_to_the_control_renderer(monkeypatch) -> None:
         "vilib_root",
         "userlib_root",
         "instrlib_root",
+        "search_path",
         "theme_mode",
         "ref",
     }
@@ -82,6 +83,7 @@ def test_with_name_dispatcher_mirrors_render_body(monkeypatch) -> None:
         "vilib_root",
         "userlib_root",
         "instrlib_root",
+        "search_path",
         "theme_mode",
         "ref",
     }

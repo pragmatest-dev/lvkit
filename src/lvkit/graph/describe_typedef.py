@@ -6,6 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from lvkit.library_folders import Folders, SearchEntries
+
 from .describe import type_label
 from .load_ctl import load_ctl_by_path
 from .lvnet_typedef import render_lvnet_typedef
@@ -87,9 +89,10 @@ def describe_ctl_file(
     *,
     fmt: str = "text",
     verbose: bool = False,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
-    instrlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
 ) -> str | dict[str, Any]:
     """Load the ``.ctl`` at ``path`` and describe it: the text page for
     ``fmt="text"``, the JSON shape (:func:`typedef_to_dict`) for ``"json"``, the
@@ -102,6 +105,7 @@ def describe_ctl_file(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
     )
     info = graph.get_typedef(key)
     if fmt == "json":

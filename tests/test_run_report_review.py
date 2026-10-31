@@ -735,7 +735,7 @@ def test_fail_labels_a_library_vi_and_an_llb_member_like_the_graph_does(
     vilib = tmp_path / "vi.lib"
     (vilib / "Utility").mkdir(parents=True)
     run = RunProblems(RunSettings(root=tmp_path / "proj"))
-    run.settings.library_roots = {"<vilib>": vilib}
+    run.settings.library_roots = {"<vilib>": (vilib,)}
     run.fail(vilib / "Utility" / "Y.vi", ProblemStage.DESCRIBE, UnreadableVIError("x"))
     archive = _write_archive(tmp_path / "arch", "UCRF", _MEMBERS)
     cache = extractor.extract_llb(archive)

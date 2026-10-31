@@ -8,7 +8,9 @@ import subprocess
 import sys
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, NamedTuple, cast
+
+from .library_folders import folder_list
 
 if TYPE_CHECKING:
     from .graph import InMemoryVIGraph
@@ -92,28 +94,6 @@ def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
-_SEARCH_PATH_REMOVED = (
-    "--search-path no longer exists: lvkit finds each dependency only at the "
-    "path the VI records for it. Name the folder a recorded <userlib>, <vilib> "
-    "or <instrlib> path starts from with --userlib DIR, --vilib DIR or "
-    "--instrlib DIR."
-)
-
-
-class _RemovedSearchPathAction(argparse.Action):
-    """``--search-path``: a usage error (exit 2) naming the library-root flags
-    that replace it."""
-
-    def __call__(
-        self,
-        parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: object,
-        option_string: str | None = None,
-    ) -> None:
-        parser.error(_SEARCH_PATH_REMOVED)
-
-
 def _original_path(value: str) -> Path:
     """An ``--original-path`` value: the file a VI copy stands for. Its folder
     must exist (its recorded relative paths start there); the file need not."""
@@ -146,14 +126,17 @@ def _add_original_path_arg(
 
 
 def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
-    """Add --vilib, --userlib, --instrlib and --no-auto-vilib flags to a
-    subparser (and the removed --search-path, which is a usage error)."""
+    """Add --vilib, --userlib, --instrlib, --search-path and --no-auto-vilib
+    flags to a subparser. Each folder flag may be given several times; the
+    folders are tried in the order given."""
     parser.add_argument(
         "--vilib",
+        action="append",
         default=None,
         metavar="DIR",
         help=(
-            "Path to LabVIEW's vi.lib directory on disk. When set, "
+            "A folder <vilib> names (LabVIEW's vi.lib); give it several times "
+            "for several, tried in order. When set, "
             "<vilib> dependency refs resolve to real .vi files, "
             "terminal layouts are captured automatically, and results "
             "are cached to .lvkit/vilib/ for future runs. When omitted, "
@@ -164,26 +147,39 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--userlib",
+        action="append",
         default=None,
         metavar="DIR",
         help=(
-            "Path to LabVIEW's user.lib directory on disk. When set, "
-            "<userlib> dependency refs resolve to real .vi files."
+            "A folder <userlib> names (LabVIEW's user.lib); give it several "
+            "times for several, tried in order. When set, <userlib> dependency "
+            "refs resolve to real .vi files."
         ),
     )
     parser.add_argument(
         "--instrlib",
+        action="append",
         default=None,
         metavar="DIR",
         help=(
-            "Path to LabVIEW's instr.lib directory on disk. When set, "
-            "<instrlib> dependency refs resolve to real .vi files."
+            "A folder <instrlib> names (LabVIEW's instr.lib); give it several "
+            "times for several, tried in order. When set, <instrlib> dependency "
+            "refs resolve to real .vi files."
         ),
     )
     parser.add_argument(
         "--search-path",
-        action=_RemovedSearchPathAction,
-        help=argparse.SUPPRESS,
+        action="append",
+        default=None,
+        metavar="ENTRY",
+        help=(
+            "One entry of LabVIEW's VI Search Path: a folder, or <topvi>, "
+            "<foundvi>, <vilib>, <userlib> or <instrlib>. Give it several "
+            "times, in priority order. A file not at the path its caller "
+            "records is looked for in these, with their subfolders, by the "
+            "recorded path's tail; the run's summary counts those finds. "
+            "Default: <topvi> <foundvi> <vilib> <userlib> <instrlib>."
+        ),
     )
     parser.add_argument(
         "--no-auto-vilib",
@@ -196,30 +192,40 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _parse_library_roots(
-    args: argparse.Namespace,
-) -> tuple[Path | None, Path | None, Path | None]:
-    """Extract ``(vilib, userlib, instrlib)`` roots from parsed args as Paths.
+class LibraryArgs(NamedTuple):
+    """The folders each pseudo path names, in order, and the VI Search Path
+    (None: LabVIEW's default)."""
+
+    vilib: tuple[Path, ...]
+    userlib: tuple[Path, ...]
+    instrlib: tuple[Path, ...]
+    search_path: tuple[str, ...] | None
+
+
+def _parse_library_roots(args: argparse.Namespace) -> LibraryArgs:
+    """The library folders and VI Search Path from parsed args.
 
     When --vilib is not given (and --no-auto-vilib was not passed), attempt a
     best-effort auto-detection of a locally installed LabVIEW and use its
     vi.lib / user.lib / instr.lib. Explicit flags always win; detection is
     non-fatal.
     """
-    vilib_root = Path(args.vilib) if args.vilib else None
-    userlib_root = Path(args.userlib) if args.userlib else None
-    instrlib_root = Path(args.instrlib) if getattr(args, "instrlib", None) else None
+    vilib_root = folder_list(getattr(args, "vilib", None))
+    userlib_root = folder_list(getattr(args, "userlib", None))
+    instrlib_root = folder_list(getattr(args, "instrlib", None))
+    entries = getattr(args, "search_path", None)
+    search_path = tuple(entries) if entries else None
 
-    if vilib_root is None and not getattr(args, "no_auto_vilib", False):
+    if not vilib_root and not getattr(args, "no_auto_vilib", False):
         from .lv_detect import detect_labview
 
         detected = detect_labview()
         if detected is not None:
-            vilib_root = detected.vilib_root
-            if userlib_root is None:
-                userlib_root = detected.userlib_root
-            if instrlib_root is None:
-                instrlib_root = detected.instrlib_root
+            vilib_root = (detected.vilib_root,)
+            if not userlib_root:
+                userlib_root = folder_list(detected.userlib_root)
+            if not instrlib_root:
+                instrlib_root = folder_list(detected.instrlib_root)
             version = detected.version or "?"
             print(
                 f"lvkit: auto-detected LabVIEW {version} vi.lib at "
@@ -227,17 +233,19 @@ def _parse_library_roots(
                 file=sys.stderr,
             )
 
-    return vilib_root, userlib_root, instrlib_root
+    return LibraryArgs(vilib_root, userlib_root, instrlib_root, search_path)
 
 
 def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -> None:
     """Apply --vilib / --userlib / --instrlib from parsed args to the graph."""
-    vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
-    if vilib_root or userlib_root or instrlib_root:
+    roots = _parse_library_roots(args)
+    vilib_root, userlib_root, instrlib_root, search_path = roots
+    if vilib_root or userlib_root or instrlib_root or search_path:
         graph.set_library_roots(
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
 
 
@@ -1224,7 +1232,8 @@ def _describe_ctl(args: argparse.Namespace, input_path: Path) -> int:
     """``describe`` on a ``.ctl`` control: the text page, or ``--format json``."""
     from .graph.describe_typedef import describe_ctl_file
 
-    vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+    roots = _parse_library_roots(args)
+    vilib_root, userlib_root, instrlib_root, search_path = roots
     try:
         out = describe_ctl_file(
             input_path,
@@ -1233,6 +1242,7 @@ def _describe_ctl(args: argparse.Namespace, input_path: Path) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
         )
     except Exception as e:
         return stop_on(
@@ -1271,7 +1281,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
         from .graph import load_vi_by_path
         from .index.build import warm_all_loaded
 
-        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+        roots = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root, search_path = roots
         # Path IS a VI's identity: ``load_vi_by_path`` returns ``load_vi``'s
         # OWN key for the exact file requested, never re-derived from the
         # input's bare leaf name (which would collide across e.g.
@@ -1282,6 +1293,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             original_path=args.original_path,
             graph=run.new_graph(),
         )
@@ -1563,16 +1575,19 @@ def cmd_detect(args: argparse.Namespace) -> int:
 
 def _build_options(
     args: argparse.Namespace,
-    roots: tuple[Path | None, Path | None, Path | None] | None = None,
+    roots: LibraryArgs | None = None,
 ) -> BuildOptions:
     """The build options of a render/diff from CLI args: vi.lib / user.lib /
     instr.lib roots (``roots``, else resolved here), load mode and project
     store. They key the output cache and feed the build."""
-    vilib_root, userlib_root, instrlib_root = roots or _parse_library_roots(args)
+    vilib_root, userlib_root, instrlib_root, search_path = (
+        roots or _parse_library_roots(args)
+    )
     return BuildOptions(
         vilib_root=vilib_root,
         userlib_root=userlib_root,
         instrlib_root=instrlib_root,
+        search_path=search_path,
         mode=_resolve_load_mode(args, LoadMode.MINIMAL),
         project_store=_find_project_store(args),
     )
@@ -1938,7 +1953,8 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     run = command_run(args, input_path)
     try:
-        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+        roots = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root, search_path = roots
         result = generate_python(
             input_path,
             args.output,
@@ -1946,6 +1962,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             run=run,
         )
         return finish(run, bool(result["error"] or result["failed"]))
@@ -1977,13 +1994,15 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
 
     run = command_run(args, input_path)
     try:
-        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+        roots = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root, search_path = roots
         items = collect_unresolved(
             input_path,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             run=run,
         )
     except (ModuleCollisionError, ConversionGap) as e:
@@ -2031,7 +2050,8 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
     run = command_run(args, input_path)
     try:
-        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+        roots = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root, search_path = roots
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
@@ -2039,6 +2059,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
             vilib_root=vilib_root,
             userlib_root=userlib_root,
             instrlib_root=instrlib_root,
+            search_path=search_path,
             run=run,
         )
         print("\n" + result)
