@@ -163,7 +163,9 @@ def create_import_resolver(
             if key in vi_paths:
                 return found(key, vi_name)
         raise MissingVIError(
-            vi_name, graph.recorded_path(qualified) if graph is not None else None
+            vi_name,
+            graph.recorded_path(qualified) if graph is not None else None,
+            graph.stub_reason(qualified) if graph is not None else None,
         )
 
     def found(key: str, name: str) -> Path:
@@ -173,7 +175,7 @@ def create_import_resolver(
             key
         )
         if graph is not None and graph.is_stub(key) and not implemented:
-            raise MissingVIError(name, graph.recorded_path(key))
+            raise MissingVIError(name, graph.recorded_path(key), graph.stub_reason(key))
         return vi_paths[key]
 
     def locate(subvi_name: str, callee_key: str | None) -> Path:

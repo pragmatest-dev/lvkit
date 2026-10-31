@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape
 import pytest
 
 from lvkit.extract_pool import ExtractionPool
-from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
+from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import ConstantNode, VINode
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
@@ -422,14 +422,27 @@ def test_a_moved_callee_is_the_file_whose_owning_library_matches(tree: _Tree) ->
     assert _call(graph, key).callee_key == _key(tree, "TestSuite/skip.vi")
 
 
-def test_a_moved_callee_with_two_matching_files_is_ambiguous(tree: _Tree) -> None:
-    with pytest.raises(AmbiguousVIReferenceError, match="dup.vi"):
-        _load(tree, "caller_dup.vi")
+def _missing_reason(tree: _Tree, name: str) -> str:
+    graph, key = _load(tree, name)
+    assert graph.loaded_callee_key(_call(graph, key)) is None
+    (stub,) = [d for d in graph.get_vi_dependencies(key) if graph.is_stub(d)]
+    reason = graph.stub_reason(stub)
+    assert reason is not None and str(tree.root) not in reason
+    return reason
+
+
+def test_a_moved_callee_with_two_matching_files_is_a_missing_call(
+    tree: _Tree,
+) -> None:
+    reason = _missing_reason(tree, "caller_dup.vi")
+    assert "'dup.vi'" in reason and "matches several files" in reason
+    assert "./Dup1/dup.vi" in reason and "./Dup2/dup.vi" in reason
 
 
 def test_copies_of_one_file_are_still_two_matching_files(tree: _Tree) -> None:
-    with pytest.raises(AmbiguousVIReferenceError, match="same.vi"):
-        _load(tree, "caller_same.vi")
+    reason = _missing_reason(tree, "caller_same.vi")
+    assert "'same.vi'" in reason and "matches several files" in reason
+    assert "./Same1/same.vi" in reason and "./Same2/same.vi" in reason
 
 
 def test_a_vi_loaded_without_dependencies_gets_its_callee_on_upgrade(

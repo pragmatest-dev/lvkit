@@ -353,6 +353,14 @@ class QueryMixin:
         tokens = self._dep_graph.nodes[key].get("path_tokens")
         return "/".join(tokens) if tokens else None
 
+    def stub_reason(self, key: str) -> str | None:
+        """Why the absent dependency ``key`` is missing, when more than its
+        absence (several files of its name, a candidate that cannot be read);
+        None otherwise."""
+        if key not in self._stubs or key not in self._dep_graph:
+            return None
+        return self._dep_graph.nodes[key].get("stub_reason")
+
     def get_stub_vi_info(self, vi_name: str) -> StubVIInfo | None:
         """Get stub VI info from vilib reference or call site inference."""
         if vi_name not in self._stubs:

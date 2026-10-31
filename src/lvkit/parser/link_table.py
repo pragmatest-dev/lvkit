@@ -137,7 +137,6 @@ from lvkit.dotnet_types import DotNetAssembly
 from lvkit.models import SharedVariableKind
 from lvkit.text_encoding import (
     decode_labview_text,
-    labview_text_encoding,
     unwrap_pascal_name,
 )
 
@@ -297,7 +296,7 @@ class SharedVariableLink:
     @property
     def library_qualified_name(self) -> str:
         """The library's qualified name, ``a:b`` from its name parts."""
-        name = qualified_link_name(list(self.library_parts), 0, None)
+        name = joined_link_name(list(self.library_parts), 0, None)
         if name is None:
             raise LinkTableError("Shared Variable record names no library")
         return name
@@ -940,33 +939,34 @@ _NAME_WRAPPER_RE = re.compile(
 )
 
 
-def _unwrap_name(part: str) -> str:
+def _unwrap_name(part: str, encoding: str) -> str:
     """A method name in a block-diagram link record, as XML text, is the decoded
     wrapped name (see ``unwrap_pascal_name``), its control characters written as
-    ``&#xNN;`` entities. It is turned back into the record's bytes in the text
-    encoding it was decoded with, so the name's length is counted in bytes and
-    the same helper unwraps it as the binary reader."""
+    ``&#xNN;`` entities. ``encoding`` is the text encoding the XML was decoded
+    with (``xml_text_encoding``): the text is turned back into the record's bytes
+    in it, so the name's length is counted in bytes and the same helper unwraps it
+    as the binary reader. Text that has no bytes in that encoding is not a wrapped
+    name, and is returned as it is."""
     wrapped = _NAME_WRAPPER_RE.match(part)
     if wrapped is None:
         return part
-    encoding = labview_text_encoding()
     hex_length, char_length, name = wrapped.groups()
-    length = (
-        bytes([int(hex_length, 16)])
-        if hex_length is not None
-        else char_length.encode(encoding, errors="replace")
-    )
-    raw = b"\x01" + length + name.encode(encoding, errors="replace")
-    unwrapped = unwrap_pascal_name(raw)
-    return part if unwrapped is raw else decode_labview_text(unwrapped)
+    try:
+        length = (
+            bytes([int(hex_length, 16)])
+            if hex_length is not None
+            else char_length.encode(encoding)
+        )
+        raw = b"\x01" + length + name.encode(encoding)
+    except UnicodeEncodeError:
+        return part
+    return part if unwrap_pascal_name(raw) is raw else name
 
 
-def qualified_link_name(
-    parts: list[str],
-    link_flag: int,
-    caller_library: str | None,
+def joined_link_name(
+    parts: list[str], link_flag: int, caller_library: str | None
 ) -> str | None:
-    """The qualified name of a link record, ``a:b:c`` from its name parts.
+    """The qualified name of a link record, ``a:b:c`` from its decoded name parts.
 
     Control characters and surrounding whitespace are stripped from each part (a
     member name can carry a spurious newline from the binary that would corrupt
@@ -974,10 +974,24 @@ def qualified_link_name(
     a same-library reference: its single part is qualified with the caller's own
     library. ``None`` when no part is left.
     """
-    cleaned = [clean_labview_string(_unwrap_name(p)).strip() for p in parts]
+    cleaned = [clean_labview_string(p).strip() for p in parts]
     cleaned = [p for p in cleaned if p]
     if not cleaned:
         return None
     if link_flag == 2 and caller_library and len(cleaned) == 1:
         return f"{caller_library}:{cleaned[0]}"
     return ":".join(cleaned)
+
+
+def qualified_link_name(
+    parts: list[str],
+    link_flag: int,
+    caller_library: str | None,
+    encoding: str,
+) -> str | None:
+    """``joined_link_name`` of name parts read from XML text: a method name
+    wrapped as the record holds it is unwrapped first (``_unwrap_name``).
+    ``encoding`` is the text encoding the XML was decoded with."""
+    return joined_link_name(
+        [_unwrap_name(p, encoding) for p in parts], link_flag, caller_library
+    )

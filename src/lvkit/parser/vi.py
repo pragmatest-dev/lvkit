@@ -45,6 +45,7 @@ from lvkit.models import (
     leading_element,
     unique_names,
 )
+from lvkit.text_encoding import xml_text_encoding
 from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
@@ -1382,6 +1383,7 @@ def _extract_terminal_info(
 def _resolve_qualified_name(
     elem: ET.Element,
     caller_library: str | None,
+    encoding: str,
 ) -> str | None:
     """Resolve qualified name from an element with LinkSaveQualName.
 
@@ -1390,13 +1392,14 @@ def _resolve_qualified_name(
     Args:
         elem: Element with LinkSaveQualName and LinkSaveFlag attributes
         caller_library: Library name of the calling VI, for same-library refs
+        encoding: Text encoding the XML was decoded with
 
     Returns:
         Qualified name string, or None if no name found
     """
     strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
     qname = qualified_link_name(
-        strings, int(elem.get("LinkSaveFlag", "0")), caller_library
+        strings, int(elem.get("LinkSaveFlag", "0")), caller_library, encoding
     )
     if qname is None:
         return None
@@ -1547,11 +1550,13 @@ def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
 
 
 def _link_dependency_ref(
-    link: IUseLink | DynamicDispatchLink, caller_library: str | None
+    link: IUseLink | DynamicDispatchLink, caller_library: str | None, encoding: str
 ) -> ParsedDependencyRef | None:
     """The VI a block-diagram link record refers to, with the path it records;
     None when the record names no VI."""
-    qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
+    qname = qualified_link_name(
+        list(link.name_parts), link.link_flag, caller_library, encoding
+    )
     if not qname:
         return None
     qname = _class_owned_name(qname, link.path_tokens)
@@ -1593,16 +1598,17 @@ def _extract_dyn_refs(
     of the class file the method sits beside. The record lists the calls it
     belongs to in ``APILinkCacheList``."""
     dyn_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/DyOM"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if ref is None:
             continue
         for offset in elem.findall("APILinkCacheList/Offset"):
             if offset.text:
                 dyn_refs[str(int(offset.text, 16))] = ref
     for raw in dyn_links:
-        ref = _link_dependency_ref(raw, caller_library)
+        ref = _link_dependency_ref(raw, caller_library, encoding)
         for uid in raw.node_uids:
             if ref is not None:
                 dyn_refs[str(uid)] = ref
@@ -1616,9 +1622,10 @@ def _extract_poly_refs(
     ``PUPV`` record names. The same uid's ``IUVI`` record names the variant the
     call resolves to (``_extract_subvi_info``'s ``iuse_refs``)."""
     poly_refs: dict[str, ParsedDependencyRef] = {}
+    encoding = xml_text_encoding(main_root)
     for elem in main_root.findall(".//LIbd//BDHP/PUPV"):
         link = _xml_iuse_link(elem)
-        ref = _link_dependency_ref(link, caller_library) if link else None
+        ref = _link_dependency_ref(link, caller_library, encoding) if link else None
         if link is None or ref is None:
             continue
         for uid in link.node_uids:
@@ -1650,6 +1657,7 @@ def _extract_subvi_info(
 
     # Get caller's library for qualifying same-library references
     caller_library = _caller_library(caller_qualified_name)
+    encoding = xml_text_encoding(main_root)
 
     # --- Collect dependency path refs from ALL link element types ---
     # Every element that carries both LinkSaveQualName + LinkSavePathRef uses
@@ -1699,7 +1707,7 @@ def _extract_subvi_info(
     for xpath_template, tags in scopes:
         for tag in tags:
             for elem in main_root.findall(xpath_template.format(tag=tag)):
-                qname = _resolve_qualified_name(elem, caller_library)
+                qname = _resolve_qualified_name(elem, caller_library, encoding)
                 if not qname:
                     continue
                 link = _xml_iuse_link(elem)
@@ -1710,14 +1718,16 @@ def _extract_subvi_info(
     # The sidecar's records name the same dependencies the decoded elements do.
     for link in libd_links:
         qname = qualified_link_name(
-            list(link.name_parts), link.link_flag, caller_library
+            list(link.name_parts), link.link_flag, caller_library, encoding
         )
         if qname:
             _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The class method each raw dynamic-dispatch record names is a dependency.
     for dyn in dyn_links:
-        qname = qualified_link_name(list(dyn.name_parts), dyn.link_flag, caller_library)
+        qname = qualified_link_name(
+            list(dyn.name_parts), dyn.link_flag, caller_library, encoding
+        )
         if qname:
             _add_dependency(qname, dyn.path_tokens, dyn.path_type)
 
@@ -1729,7 +1739,7 @@ def _extract_subvi_info(
     # VIVI/VIPI/DyOM/VIPV: SubVI calls. BSVR: statVIRef targets.
     for tag in ("VIVI", "VIPI", "DyOM", "VIPV", "BSVR"):
         for elem in main_root.findall(f".//LIvi//{tag}"):
-            qname = _resolve_qualified_name(elem, caller_library)
+            qname = _resolve_qualified_name(elem, caller_library, encoding)
             if qname:
                 subvi_qualified_names.append(qname)
 
@@ -1743,7 +1753,7 @@ def _extract_subvi_info(
                 bdhp_links.append(link)
     bdhp_links.extend(libd_links)
     for link in bdhp_links:
-        ref = _link_dependency_ref(link, caller_library)
+        ref = _link_dependency_ref(link, caller_library, encoding)
         if ref is None:
             continue
         for uid in link.node_uids:

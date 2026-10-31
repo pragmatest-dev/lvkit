@@ -276,13 +276,15 @@ def test_a_table_without_iuvi_records_is_empty() -> None:
 
 
 def test_qualified_link_name_rules() -> None:
-    assert qualified_link_name(["A.lvclass", "m.vi"], 0, None) == "A.lvclass:m.vi"
-    assert qualified_link_name(["\nToTable.vi"], 0, None) == "ToTable.vi"
+    enc = "cp1252"
+    assert qualified_link_name(["A.lvclass", "m.vi"], 0, None, enc) == "A.lvclass:m.vi"
+    assert qualified_link_name(["\nToTable.vi"], 0, None, enc) == "ToTable.vi"
     assert (
-        qualified_link_name(["Data.vi"], 2, "lv_icon.lvlib") == "lv_icon.lvlib:Data.vi"
+        qualified_link_name(["Data.vi"], 2, "lv_icon.lvlib", enc)
+        == "lv_icon.lvlib:Data.vi"
     )
-    assert qualified_link_name(["Data.vi"], 0, "lv_icon.lvlib") == "Data.vi"
-    assert qualified_link_name(["", " "], 0, None) is None
+    assert qualified_link_name(["Data.vi"], 0, "lv_icon.lvlib", enc) == "Data.vi"
+    assert qualified_link_name(["", " "], 0, None, enc) is None
 
 
 def _sidecar(vi: Path) -> tuple[Path, LinkTableVersion]:

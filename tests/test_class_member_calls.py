@@ -10,20 +10,25 @@ real file, and the call node's callee is that file.
 from __future__ import annotations
 
 import struct
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
 
+from lvkit.codegen.errors import MissingVIError
 from lvkit.extract_pool import ExtractionPool
 from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import _case_insensitive_match, class_owner_ref
 from lvkit.graph.netlist import build_netlist_from_graph, render_lvnet
 from lvkit.load_mode import LoadMode
-from lvkit.parser.link_table import qualified_link_name
+from lvkit.parser.link_table import _unwrap_name, qualified_link_name
 from lvkit.parser.metadata import parse_vipi_from_livi
 from lvkit.parser.models import ParsedDependencyRef
 from lvkit.parser.vi import _class_owned_name
-from lvkit.text_encoding import labview_text_encoding, unwrap_pascal_name
+from lvkit.text_encoding import (
+    unwrap_pascal_name,
+    xml_text_encoding,
+)
 from tests.test_call_identity import _Call, _calls, _key, _load, _Tree
 
 _CLASS = """<?xml version='1.0' encoding='UTF-8'?>
@@ -84,13 +89,13 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     built.vi(
         "caller_over.vi", "caller_over.vi", [], [_dispatch("Over", "Stop.vi", "Over")]
     )
-    # A file beside the class that records the class as its owner but is missing
-    # from the class's member list is the class's own method, not the parent's.
+    # A file beside a class that is on disk and records the class as its owner but
+    # is missing from the class's member list is not the class's method: the class's
+    # member list decides, then the parent's.
     _write_class(built, "Sib", "Sib", {}, parent="../../Base/Base.lvclass")
     built.vi("Sib/Stop.vi", "Sib.lvclass:Stop.vi", ["Sib.lvclass"])
     built.vi("caller_sib.vi", "caller_sib.vi", [], [_dispatch("Sib", "Stop.vi", "Sib")])
-    # A file in a subfolder of the class that records the class as its owner:
-    # the class's own method, found before the parent's.
+    # The same in a subfolder of the class.
     _write_class(built, "Deep", "Deep", {}, parent="../../Base/Base.lvclass")
     built.vi("Deep/sub/Stop.vi", "Deep.lvclass:Stop.vi", ["Deep.lvclass"])
     built.vi(
@@ -105,6 +110,16 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [],
         [_dispatch("Wrong", "Stop.vi", "Wrong")],
     )
+    # A class that is not on disk: a file that records it as its owner is its method.
+    built.vi("Abs/sub/Stop.vi", "Abs.lvclass:Stop.vi", ["Abs.lvclass"])
+    built.vi("caller_abs.vi", "caller_abs.vi", [], [_dispatch("Abs", "Stop.vi", "Abs")])
+    # A file that records an absent class as its owner but cannot be read.
+    built.vi("Bad/Stop.vi", "Bad.lvclass:Stop.vi", ["Bad.lvclass"])
+    built.vi("caller_bad.vi", "caller_bad.vi", [], [_dispatch("Bad", "Stop.vi", "Bad")])
+    # A class whose file name exists twice, differing only in case.
+    _write_class(built, "Amb", "amb", {"Run.vi": "../Run.vi"})
+    _write_class(built, "Amb", "AMB", {"Run.vi": "../Run.vi"})
+    built.vi("caller_amb.vi", "caller_amb.vi", [], [_dispatch("Amb", "Run.vi", "Amb")])
     # A method no class of the chain lists and no file records.
     built.vi(
         "caller_gone.vi", "caller_gone.vi", [], [_dispatch("Sub", "Gone.vi", "Sub")]
@@ -259,12 +274,12 @@ def test_record_naming_only_a_method_under_a_class_path_is_owned_by_the_class() 
     assert _class_owned_name("Go.vi", ["", "Cls", "Go.vi"]) == "Go.vi"
 
 
-def test_file_beside_the_class_that_records_the_class_as_owner_is_the_method(
+def test_file_beside_a_class_on_disk_that_it_does_not_list_is_not_the_method(
     tree: _Tree,
 ) -> None:
     graph, key = _load(tree, "caller_sib.vi")
     (call,) = _calls(graph, key)
-    assert call.callee_key == _key(tree, "Sib/Stop.vi")
+    assert call.callee_key == _key(tree, "Base/Stop.vi")
 
 
 def test_method_no_class_of_the_chain_lists_has_no_invented_path(tree: _Tree) -> None:
@@ -284,20 +299,65 @@ def test_long_method_name_drops_its_printable_length_byte() -> None:
     assert len(name) == 37
     for wrapper in ("&#x01;%", "\x01%"):
         assert (
-            qualified_link_name(["Cls.lvclass", wrapper + name], 0, None)
+            qualified_link_name(["Cls.lvclass", wrapper + name], 0, None, "cp1252")
             == f"Cls.lvclass:{name}"
         )
-    assert qualified_link_name(["Cls.lvclass", "&#x01;&#x05;Run.vi"], 0, None) == (
-        "Cls.lvclass:Run.vi"
-    )
+    assert qualified_link_name(
+        ["Cls.lvclass", "&#x01;&#x05;Run.vi"], 0, None, "cp1252"
+    ) == ("Cls.lvclass:Run.vi")
 
 
-def test_member_in_a_class_subfolder_the_class_does_not_list_is_the_method(
+def test_member_in_a_class_subfolder_the_class_does_not_list_is_the_ancestors(
     tree: _Tree,
 ) -> None:
     graph, key = _load(tree, "caller_deep.vi")
     (call,) = _calls(graph, key)
-    assert call.callee_key == _key(tree, "Deep/sub/Stop.vi")
+    assert call.callee_key == _key(tree, "Base/Stop.vi")
+
+
+def test_file_that_records_a_class_not_on_disk_as_owner_is_its_method(
+    tree: _Tree,
+) -> None:
+    graph, key = _load(tree, "caller_abs.vi")
+    (call,) = _calls(graph, key)
+    assert call.callee_key == _key(tree, "Abs/sub/Stop.vi")
+
+
+def test_files_of_a_class_name_differing_only_in_case_make_the_call_missing(
+    tree: _Tree,
+) -> None:
+    if len([p for p in (tree.root / "Amb").iterdir() if p.suffix == ".lvclass"]) < 2:
+        pytest.skip("case-insensitive filesystem")
+    graph, key = _load(tree, "caller_amb.vi")
+    (call,) = _calls(graph, key)
+    assert call.callee_key is None
+    (reason,) = [
+        r for d in graph.get_vi_dependencies(key) if (r := graph.stub_reason(d))
+    ]
+    assert "differ only in case" in reason
+    assert "./Amb/AMB.lvclass" in reason and "./Amb/amb.lvclass" in reason
+    text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
+    assert "subVI Amb.lvclass:Run.vi" in text
+    assert str(tree.root) not in text and str(tree.root) not in reason
+
+
+def test_unreadable_file_that_could_be_the_method_makes_the_call_missing(
+    tree: _Tree, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def extract(path: Path) -> tuple[Path, Path | None, Path | None]:
+        if Path(path).parent.name == "Bad":
+            raise RuntimeError(f"cannot read {path}")
+        return tree.extract(path)
+
+    monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", extract)
+    graph, key = _load(tree, "caller_bad.vi")
+    (call,) = _calls(graph, key)
+    assert call.callee_key is None
+    (reason,) = [
+        r for d in graph.get_vi_dependencies(key) if (r := graph.stub_reason(d))
+    ]
+    assert "'Stop.vi' could not be read" in reason
+    assert "./Bad/Stop.vi" in reason and str(tree.root) not in reason
 
 
 def test_file_beside_the_class_owned_by_another_class_is_not_the_method(
@@ -369,8 +429,8 @@ def test_the_one_file_differing_in_case_is_the_match(tmp_path: Path) -> None:
     assert _case_insensitive_match(tmp_path, "missing.lvclass") is None
 
 
-def _encoded_wrapped(name: str) -> bytes:
-    raw = name.encode(labview_text_encoding())
+def _encoded_wrapped(name: str, encoding: str) -> bytes:
+    raw = name.encode(encoding)
     return bytes([2 + len(raw), 0x01, len(raw)]) + raw
 
 
@@ -385,10 +445,11 @@ def test_unwrap_pascal_name_keeps_only_the_name_bytes() -> None:
 
 @pytest.mark.parametrize("name", ["Größe über.vi", "Ä" * 130 + ".vi"])
 def test_vipi_unwraps_a_non_ascii_or_long_method_name(
-    tmp_path: Path, name: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
 ) -> None:
+    monkeypatch.setenv("LVKIT_TEXT_ENCODING", "cp1252")
     path = tmp_path / "vi_LIvi.bin"
-    names = _plain("Cls.lvclass") + _encoded_wrapped(name)
+    names = _plain("Cls.lvclass") + _encoded_wrapped(name, "cp1252")
     comp = b"".join(_plain(t) for t in ["", "Cls", "Cls.lvclass"])
     pth0 = b"PTH0" + struct.pack(">I", len(comp) + 4) + struct.pack(">HH", 1, 3) + comp
     path.write_bytes(b"VIPI" + struct.pack(">I", 2) + names + pth0)
@@ -396,12 +457,45 @@ def test_vipi_unwraps_a_non_ascii_or_long_method_name(
     assert ref.qualified_name == f"Cls.lvclass:{name}"
 
 
-@pytest.mark.parametrize("name", ["Größe über.vi", "Ä" * 130 + ".vi"])
-def test_xml_text_name_unwraps_by_byte_length(name: str) -> None:
-    encoding = labview_text_encoding()
+@pytest.mark.parametrize(
+    ("encoding", "name"),
+    [
+        ("cp1252", "Größe über.vi"),
+        ("cp1252", "Ä" * 130 + ".vi"),
+        ("cp932", "テスト.vi"),
+        ("cp932", "日本語のメソッド.vi"),
+    ],
+)
+def test_xml_text_name_unwraps_by_byte_length(encoding: str, name: str) -> None:
     length = len(name.encode(encoding))
     for prefix in ("\x01", "&#x01;"):
         text = prefix + bytes([length]).decode(encoding) + name
-        assert qualified_link_name(["Cls.lvclass", text], 0, None) == (
+        assert qualified_link_name(["Cls.lvclass", text], 0, None, encoding) == (
             f"Cls.lvclass:{name}"
         )
+        entity = f"{prefix}&#x{length:02X};{name}"
+        assert qualified_link_name(["Cls.lvclass", entity], 0, None, encoding) == (
+            f"Cls.lvclass:{name}"
+        )
+
+
+def test_xml_text_name_that_is_not_in_the_encoding_is_left_as_it_is() -> None:
+    text = "&#x01;&#x03;テスト"
+    assert _unwrap_name(text, "cp1252") == text
+    assert _unwrap_name(text, "cp932") == text
+    assert _unwrap_name("&#x01;&#x06;テスト", "cp932") == "テスト"
+
+
+def test_xml_text_encoding_is_the_one_the_extractor_normalizes_with() -> None:
+    root = ET.fromstring(
+        '<RSRC><vers><Section><Version Language="14"/></Section></vers></RSRC>'
+    )
+    assert xml_text_encoding(root) == "cp932"
+
+
+def test_missing_vi_gap_names_the_reason_the_file_is_not_known() -> None:
+    plain = MissingVIError("Gone.vi", "./Gone.vi")
+    assert "add it to the project" in plain.summary()
+    reason = "Several files. Files: ./A/Dup.vi, ./B/Dup.vi."
+    why = MissingVIError("Dup.vi", None, reason)
+    assert why.summary() == f"The VI 'Dup.vi' was not found: {reason}"

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
@@ -47,7 +48,11 @@ from ..structure import (
 )
 from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
 from .builders.operations import callee_keys
-from .errors import AmbiguousVIReferenceError
+from .errors import (
+    AmbiguousVIReferenceError,
+    DependencyFileError,
+    UnreadableDependencyError,
+)
 from .models import (
     ExecSystem,
     ExecutionProps,
@@ -127,8 +132,8 @@ def _case_insensitive_match(directory: Path, filename: str) -> Path | None:
     if len(matches) > 1:
         raise AmbiguousVIReferenceError(
             f"Ambiguous reference -- {filename!r} matches several files that "
-            f"differ only in case: {[str(m) for m in matches]}. Keep the one "
-            "it names."
+            "differ only in case. Keep the one it names.",
+            matches,
         )
     return matches[0] if matches else None
 
@@ -521,6 +526,7 @@ class LoadingMixin:
         caller: str | None,
         rel: EdgeRel | None = None,
         path_type: int | None = None,
+        reason: str | None = None,
     ) -> None:
         """Add one path-keyed STUB node for a dependency whose file is absent
         (or unresolved) -- the single shape shared by every stub-creation site
@@ -537,7 +543,8 @@ class LoadingMixin:
         for a class/library member; no ``rel`` attribute for a plain SubVI/
         type reference); when None, no edge is added (a caller with no
         dep_graph node of its own, e.g. a ``.lvproj`` member, cannot be
-        edged from).
+        edged from). ``reason`` is why the dependency is missing when more than
+        its absence (``stub_reason``).
         """
         if not self._dep_graph.has_node(key):
             self._dep_graph.add_node(
@@ -547,6 +554,8 @@ class LoadingMixin:
                 path_type=path_type,
             )
             self._stubs.add(key)
+        if reason is not None and key in self._stubs:
+            self._dep_graph.nodes[key]["stub_reason"] = reason
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
             if rel:
@@ -1399,9 +1408,12 @@ class LoadingMixin:
                 continue
             if class_owner_ref(name, ref) is not None:
                 continue
-            resolved = self._resolve_dependency_path(
-                name, ref, caller_file, search_paths
-            )
+            try:
+                resolved = self._resolve_dependency_path(
+                    name, ref, caller_file, search_paths
+                )
+            except DependencyFileError:
+                continue  # ``_load_dependency`` resolves it again and records why
             resolved_paths[name] = resolved
             if resolved is not None and not self._dep_graph.has_node(
                 str(resolved.resolve())
@@ -2027,12 +2039,11 @@ class LoadingMixin:
         file its recorded path names (loaded here when no call has loaded it),
         and the method is that class's member, else the nearest ancestor's
         (``class_method``). The member sits wherever the class lists it -- in a
-        subfolder, or in an ancestor's folder. A method the class does not list
-        is the file of the recorded qualified name found by
-        ``_find_recorded_vi`` (the class's folder and the search paths), else
-        the ancestor's. A class not on disk is stubbed by its recorded path (so
-        a progressive load names it) and only ``_find_recorded_vi`` can find the
-        method. ``None`` when none of these holds the file."""
+        subfolder, or in an ancestor's folder. A class on disk decides by its
+        member list: a method it does not list is the ancestor's. A class not on
+        disk is stubbed by its recorded path (so a progressive load names it) and
+        only ``_find_recorded_vi`` can find the method: a file whose owners are
+        the record's. ``None`` when none of these holds the file."""
         owner_name = owner_ref.qualified_name or owner_ref.name
         class_path = self._resolve_dependency_path(
             owner_name, owner_ref, caller_file, search_paths
@@ -2070,16 +2081,8 @@ class LoadingMixin:
         found = self.class_method(cls_key, method)
         if found is not None and found[0] == cls_key:
             return Path(found[1])
-        # The class does not list the method itself: a file of the recorded
-        # qualified name (its owners are the record's) wherever the class's
-        # folder or the search paths hold it, else the ancestor's member.
-        recorded = self._find_recorded_vi(
-            f"{owner_name}:{method}",
-            [class_path.parent, *search_paths],
-            caller_file.parent,
-        )
-        if recorded is not None:
-            return recorded
+        # The class is on disk and does not list the method itself: the
+        # ancestor's member.
         return Path(found[1]) if found is not None else None
 
     def _class_method_stub_key(
@@ -2156,9 +2159,12 @@ class LoadingMixin:
             mode=mode,
             resolved_paths=resolved_paths,
         )
-        target = self._resolve_dependency_path(
-            qualified_name, source, caller_file, search_paths
-        )
+        try:
+            target = self._resolve_dependency_path(
+                qualified_name, source, caller_file, search_paths
+            )
+        except DependencyFileError:
+            target = None
         if target is not None:
             return (
                 self._vi_display_names.get(str(target.resolve()), qualified_name),
@@ -2193,7 +2199,37 @@ class LoadingMixin:
 
         LabVIEW's one-qname-per-memory invariant means the dep_graph node check
         at the top is the definitive dedup — resolution only runs on first visit.
+
+        A dependency whose file cannot be determined (several files of its name,
+        a candidate that cannot be read) is missing, with the reason recorded
+        (``_stub_undetermined``); the load goes on.
         """
+        try:
+            return self._load_dependency_file(
+                qualified_name,
+                dep_ref,
+                caller_file,
+                search_paths,
+                caller_qname,
+                mode,
+                resolved_paths,
+            )
+        except DependencyFileError as exc:
+            return self._stub_undetermined(
+                qualified_name, dep_ref, caller_file, caller_qname, exc
+            )
+
+    def _load_dependency_file(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None,
+        mode: LoadMode,
+        resolved_paths: dict[str, Path | None] | None,
+    ) -> str | None:
+        """Resolve and load one dependency (see ``_load_dependency``)."""
         leaf = qualified_name.rsplit(":", 1)[-1]
         owner_ref = class_owner_ref(qualified_name, dep_ref)
         if owner_ref is not None:
@@ -2417,6 +2453,74 @@ class LoadingMixin:
                 self._dep_graph.add_edge(caller_qname, stub_key)
             return None
 
+    def _display_path(self, path: Path) -> str:
+        """``path`` as a ``./``-prefixed, forward-slash path relative to the
+        first search path (the working folder without one); the file name alone
+        when no relative path exists."""
+        base = self._search_paths[0] if self._search_paths else Path.cwd()
+        try:
+            rel = os.path.relpath(path.resolve(), base.resolve())
+        except (OSError, ValueError):
+            return path.name
+        return "./" + rel.replace(os.sep, "/")
+
+    def _stub_undetermined(
+        self,
+        qualified_name: str,
+        dep_ref: ParsedDependencyRef | None,
+        caller_file: Path,
+        caller_qname: str | None,
+        error: DependencyFileError,
+    ) -> str | None:
+        """A dependency whose file cannot be determined (``error``) is a stub
+        that carries the reason (``stub_reason``), edged to its caller: a call of
+        it is missing, and the reason names the files involved project-relative.
+        The load goes on. Keyed by the path its record intends (a class method by
+        its qualified name and its class's intended path), else its qualified
+        name; returns that path like any other unresolved dependency."""
+        leaf = qualified_name.rsplit(":", 1)[-1]
+        reason = error.summary()
+        if error.candidates:
+            files = ", ".join(self._display_path(p) for p in error.candidates)
+            reason += f" Files: {files}."
+        owner_ref = class_owner_ref(qualified_name, dep_ref)
+        if owner_ref is not None:
+            owner_name = owner_ref.qualified_name or owner_ref.name
+            class_path = self._intended_dep_path(owner_name, owner_ref, caller_file)
+            stub_key = (
+                f"{owner_name}@{class_path}:{leaf}" if class_path else qualified_name
+            )
+            path_tokens = None
+            identity = None
+        else:
+            intended = self._intended_dep_path(qualified_name, dep_ref, caller_file)
+            stub_key = str(intended) if intended is not None else qualified_name
+            path_tokens = (
+                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
+            )
+            identity = str(intended) if intended is not None else None
+        node_type = (
+            NodeType.CLASS
+            if leaf.endswith(".lvclass")
+            else NodeType.TYPEDEF
+            if leaf.endswith(".ctl")
+            else NodeType.LIBRARY
+            if leaf.endswith(".lvlib")
+            else NodeType.VI
+        )
+        self._add_stub(
+            stub_key,
+            node_type,
+            leaf,
+            qualified_name,
+            path_tokens=path_tokens,
+            caller=caller_qname,
+            path_type=dep_ref.path_type if dep_ref else None,
+            reason=reason,
+        )
+        logger.warning("%s: %s", qualified_name, reason)
+        return identity
+
     def _stub_subvi(
         self,
         name: str,
@@ -2601,7 +2705,8 @@ class LoadingMixin:
         path: a VI of the recorded file name in the search paths whose own
         owning libraries (its ``LIBN`` chain) are the recorded qualified name's.
         A same-named VI of another library or class is not it. Several files
-        that carry that qualified name raise ``AmbiguousVIReferenceError``; none
+        that carry that qualified name raise ``AmbiguousVIReferenceError``; a
+        candidate that cannot be read raises ``UnreadableDependencyError``; none
         gives ``None``."""
         *owners, leaf = qualified_name.split(":")
         found: dict[Path, Path] = {}
@@ -2611,10 +2716,19 @@ class LoadingMixin:
                 continue
             try:
                 _, _, main_xml = self._extract(candidate)
-            except (RuntimeError, OSError):
-                continue
+            except (RuntimeError, OSError) as exc:
+                raise UnreadableDependencyError(
+                    f"A file named {leaf!r} could not be read "
+                    f"({type(exc).__name__}), so it is not known whether it is "
+                    f"{qualified_name!r}.",
+                    [candidate],
+                ) from exc
             if main_xml is None:
-                continue
+                raise UnreadableDependencyError(
+                    f"A file named {leaf!r} has no readable block diagram, so it "
+                    f"is not known whether it is {qualified_name!r}.",
+                    [candidate],
+                )
             chain = parse_vi_metadata(main_xml).get("owning_libraries", [])
             if list(chain) == owners:
                 found[real] = candidate
@@ -2622,8 +2736,8 @@ class LoadingMixin:
             raise AmbiguousVIReferenceError(
                 f"Ambiguous VI reference -- {qualified_name!r} is not at the path "
                 "its caller records and matches several files of that qualified "
-                f"name: {sorted(str(p) for p in found)}. Put the one it calls on "
-                "the recorded path."
+                "name. Put the one it calls on the recorded path.",
+                sorted(found),
             )
         return next(iter(found.values()), None)
 
