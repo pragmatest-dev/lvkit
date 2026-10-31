@@ -16,12 +16,13 @@ import ast
 from dataclasses import dataclass
 
 from lvkit.lv_type_codes import (
+    INTEGER_TYPE_NAMES,
     TD_FULL_TYPE,
     is_boolean_type_name,
     is_numeric_type_name,
     is_string_type_name,
 )
-from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
+from lvkit.models import LVType, LVTypeKind, Terminal, control_type_to_lvtype
 from lvkit.vilib_resolver import VIEntry, VITerminal, get_resolver
 
 from .ast_utils import param_default_expr
@@ -53,6 +54,35 @@ def _family(type_name: str) -> str | None:
     if is_numeric_type_name(underlying):
         return "Numeric"
     return None
+
+
+def literal_default(text: str | None, lv_type: LVType | None) -> str | None:
+    """``text`` as Python source when it is a literal of ``lv_type`` (a boolean, a
+    string, an integer or a float, or the integer of an enum or ring); None for
+    anything else, such as the prose a catalog description gives ("value is
+    30000") or a value of another type."""
+    if text is None or lv_type is None:
+        return None
+    try:
+        value = ast.literal_eval(text.strip())
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        return None
+    underlying = lv_type.underlying_type
+    if lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING):
+        fits = type(value) is int
+    elif underlying is None:
+        fits = False
+    elif is_boolean_type_name(underlying):
+        fits = type(value) is bool
+    elif is_string_type_name(underlying):
+        fits = type(value) is str
+    elif underlying in INTEGER_TYPE_NAMES:
+        fits = type(value) is int
+    elif is_numeric_type_name(underlying):
+        fits = type(value) in (int, float)
+    else:
+        fits = False
+    return ast.unparse(ast.Constant(value=value)) if fits else None
 
 
 def _type_disagrees(catalog: VITerminal, pane: Terminal) -> bool:
@@ -119,6 +149,8 @@ def check_against_pane(entry: VIEntry, pane: list[Terminal]) -> PaneCheck:
                 and match.direction == "input"
                 and match.default_value is not None
             ):
-                update["default_value"] = ast.unparse(param_default_expr(match))
+                saved = param_default_expr(match)
+                if not (isinstance(saved, ast.Constant) and saved.value is None):
+                    update["default_value"] = ast.unparse(saved)
         terminals.append(catalog.model_copy(update=update) if update else catalog)
     return PaneCheck(entry.model_copy(update={"terminals": terminals}), mismatches)

@@ -144,7 +144,7 @@ from .nodes import (
 )
 from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
-from .type_resolution import resolve_type_rich
+from .type_resolution import resolve_type_rich, type_id_number
 from .utils import (
     decode_xml_entities_to_bytes,
     extract_caption,
@@ -776,7 +776,8 @@ def _inline_dco_definitions(root: ET.Element) -> None:
             listed = node.find(list_tag)
             if listed is not None:
                 for item in listed.findall("SL__arrayElement"):
-                    definitions[item.get("uid")] = item
+                    if item.get("class"):
+                        definitions[item.get("uid")] = item
         for child in node:
             if _is_named_dco_definition(child):
                 definitions[child.get("uid")] = child
@@ -1049,6 +1050,12 @@ def _process_element_terminals(
         else {}
     )
 
+    call_slot_names = (
+        _recorded_slot_names(elem, type_map)
+        if elem_class in _SUBVI_CALL_CLASSES
+        else {}
+    )
+
     for list_position, term in enumerate(term_list):
         term_uid = term.get("uid")
         if not term_uid:
@@ -1207,6 +1214,8 @@ def _process_element_terminals(
             term_name = extract_xtunnel_name(dco)
         if ext_func_role is not None and ext_func_role.name:
             term_name = ext_func_role.name
+        if not term_name:
+            term_name = call_slot_names.get(parm_index)
 
         # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
         # terminal's DCO objFlags. This bit only means "invert" for
@@ -1229,6 +1238,28 @@ def _process_element_terminals(
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )
+
+
+_SUBVI_CALL_CLASSES = ("iUse", "polyIUse")
+
+
+def _recorded_slot_names(
+    elem: ET.Element, type_map: dict[int, LVType] | None
+) -> dict[int, str]:
+    """The label of each connector-pane slot of the VI a call node calls, as the
+    calling VI records it: the Function type its ``<connectorTM>`` names (or the
+    one Function a cluster there holds), by slot."""
+    if not type_map:
+        return {}
+    type_id = type_id_number(elem.findtext("connectorTM"))
+    recorded = type_map.get(type_id) if type_id is not None else None
+    if recorded is None:
+        return {}
+    if recorded.pane is None and recorded.fields:
+        functions = [f.type for f in recorded.fields if f.type and f.type.pane]
+        recorded = functions[0] if len(functions) == 1 else None
+    pane = recorded.pane if recorded is not None else None
+    return {slot.index: slot.name for slot in pane or () if slot.name}
 
 
 def _walk_and_extract_terminals(

@@ -109,9 +109,10 @@ class RecordedPaths:
     def __init__(self, dep_graph: nx.DiGraph) -> None:
         self._dep_graph = dep_graph
         self._references: dict[str, set[_Reference]] = {}
-        # Resolved tokens by key, valid while the references and the ownership
-        # edges are as they were (``_stamp``).
-        self._settled: dict[str, list[str] | None] = {}
+        # The round a key settled in and its resolved tokens (round 0 and None for
+        # a key with no path), valid while the references and the ownership edges
+        # are as they were (``_stamp``).
+        self._settled: dict[str, tuple[int, list[str] | None]] = {}
         self._stamp: tuple[int, int] = (-1, -1)
         self._recorded = 0
         self._owners = 0
@@ -160,7 +161,7 @@ class RecordedPaths:
             self._stamp = stamp
         if key not in self._settled:
             self._settle(key)
-        return self._settled[key]
+        return self._settled[key][1]
 
     def path(self, key: str) -> str | None:
         """``resolved`` joined with ``/``."""
@@ -190,26 +191,32 @@ class RecordedPaths:
                 continue
             above.add(current)
             pending.extend(s for s in self._sources(current) if s not in self._settled)
-        values: dict[str, list[str] | None] = {}
+        values: dict[str, tuple[int, list[str]]] = {}
         unsettled = sorted(above)
+        # A key settled by an earlier query keeps its round, and is usable by a
+        # key below it only from the next round, as if it had settled just now.
+        last = max((round_ for round_, _ in self._settled.values()), default=0)
+        round_ = 1
         while unsettled:
-            update = {k: self._candidate(k, values) for k in unsettled}
+            update = {k: self._candidate(k, values, round_) for k in unsettled}
             gained = {k: v for k, v in update.items() if v is not None}
-            if not gained:
+            if not gained and round_ > last:
                 break
-            values.update(gained)
+            values.update({k: (round_, v) for k, v in gained.items()})
             unsettled = [k for k in unsettled if k not in gained]
-        self._settled.update(dict.fromkeys(above))
+            round_ += 1
+        self._settled.update(dict.fromkeys(above, (0, None)))
         self._settled.update(values)
 
     def _candidate(
-        self, key: str, values: dict[str, list[str] | None]
+        self, key: str, values: dict[str, tuple[int, list[str]]], round_: int
     ) -> list[str] | None:
-        """The installation path ``key`` gets from the paths ``values`` already
-        settled for the keys above it."""
+        """The installation path ``key`` gets in round ``round_`` from the paths the
+        keys above it settled in the rounds before."""
 
         def of(source: str) -> list[str] | None:
-            return values[source] if source in values else self._settled.get(source)
+            settled = values[source] if source in values else self._settled.get(source)
+            return settled[1] if settled is not None and settled[0] < round_ else None
 
         candidates: list[list[str]] = []
         for reference in self._references.get(key, ()):

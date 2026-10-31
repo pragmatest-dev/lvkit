@@ -299,3 +299,36 @@ def test_a_catalog_vi_first_reached_by_a_relative_path_still_stops_the_tree(
     modules = _modules(tree, tmp_path, "both")
     assert any(m.endswith("get_system_directory.py") for m in modules)
     assert not [m for m in modules if m.endswith(("helper.py", "deep.py"))]
+
+
+def test_a_requested_vi_called_only_by_a_catalog_vi_gets_a_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tree = _tree(tmp_path, monkeypatch, "Aother.vi")
+    out = tmp_path / "gen"
+    generate_python(tree.root, out, vilib_root=tree.root / "vilib")
+    modules = sorted(p.name for p in out.rglob("*.py"))
+    assert "helper.py" in modules
+    assert "deep.py" in modules
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        ["/p/y.vi", "/p/s.vi"],
+        ["/p/s.vi", "/p/y.vi"],
+        ["/p/s.vi", "/p/t.vi", "/p/y.vi"],
+        ["/p/t.vi", "/p/s.vi", "/p/y.vi"],
+    ],
+)
+def test_a_path_does_not_depend_on_which_key_was_asked_first(order: list[str]) -> None:
+    recorded = _paths(
+        ("/p/r.vi", None, ["<userlib>", "R", "r.vi"]),
+        ("/p/s.vi", "/p/r.vi", ["", "s.vi"]),
+        ("/p/t.vi", None, ["<userlib>", "T", "t.vi"]),
+        ("/p/y.vi", "/p/s.vi", ["", "y.vi"]),
+        ("/p/y.vi", "/p/t.vi", ["", "y.vi"]),
+    )
+    for key in order:
+        recorded.path(key)
+    assert recorded.path("/p/y.vi") == "<userlib>/T/y.vi"

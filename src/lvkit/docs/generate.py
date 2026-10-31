@@ -13,6 +13,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from lvkit.docs.html_generator import HTMLDocGenerator
@@ -201,14 +202,21 @@ def _collect_icons(
     return icon_map
 
 
+class DocsStage(str, Enum):
+    """The stage of documentation generation a problem happened in."""
+
+    LOAD = "load"
+    DIAGRAM = "diagram"
+    PAGE = "page"
+
+
 @dataclass(frozen=True)
 class DocsProblem:
     """One problem of one VI: its path as generation shows it
-    (``ModuleLayout.display_path``), the stage that failed (``load``, ``diagram``
-    or ``page``) and why."""
+    (``ModuleLayout.display_path``), the stage that failed (a ``DocsStage``) and why."""
 
     vi: str
-    stage: str
+    stage: DocsStage
     reason: str
 
     def __str__(self) -> str:
@@ -348,7 +356,9 @@ def _prepare_vi_documentation_data(
         logger.exception("SVG diagram render failed for %s", shown(vi_name))
         problems.append(
             DocsProblem(
-                shown(vi_name), "diagram", f"the diagram could not be drawn ({e})"
+                shown(vi_name),
+                DocsStage.DIAGRAM,
+                f"the diagram could not be drawn ({e})",
             )
         )
         diagram_svg, subvi_nodes = None, {}
@@ -479,7 +489,9 @@ def generate_documents(
                 flush=True,
             )
         except Exception as e:
-            problems.append(DocsProblem(_failed_path(layout, vi_path), "load", str(e)))
+            problems.append(
+                DocsProblem(_failed_path(layout, vi_path), DocsStage.LOAD, str(e))
+            )
             print(
                 f"[TIMING]   Failed VI {i}/{len(vi_paths)}: {vi_path.name} - {str(e)}",
                 flush=True,
@@ -498,13 +510,15 @@ def generate_documents(
         try:
             key = graph.load_typedef(ctl_path, search_paths=search_path_objs or None)
         except Exception as e:
-            problems.append(DocsProblem(_failed_path(layout, ctl_path), "load", str(e)))
+            problems.append(
+                DocsProblem(_failed_path(layout, ctl_path), DocsStage.LOAD, str(e))
+            )
             continue
         if graph.is_stub(key):
             problems.append(
                 DocsProblem(
                     _failed_path(layout, ctl_path),
-                    "load",
+                    DocsStage.LOAD,
                     "could not be read as a control",
                 )
             )
@@ -577,7 +591,9 @@ def generate_documents(
                     f"({time.time() - t0:.2f}s elapsed)"
                 )
         except Exception as e:
-            problems.append(DocsProblem(layout.display_path(vi_name), "page", str(e)))
+            problems.append(
+                DocsProblem(layout.display_path(vi_name), DocsStage.PAGE, str(e))
+            )
     print(
         f"[TIMING] HTML generation: {time.time() - t0:.2f}s"
         f" - Generated {generated_count} pages"

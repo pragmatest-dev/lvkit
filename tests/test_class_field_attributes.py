@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.class_builder.init_builder import _InitBuilderMixin
-from lvkit.structure import LVClass, _resolve_type_ids
+from lvkit.structure import LVClass, LVMethod, LVPrivateDataField, _resolve_type_ids
 
 
 def _attributes(labels: tuple[str, ...]) -> tuple[list[str], list[str]]:
@@ -45,8 +45,6 @@ def test_each_field_gets_its_own_attribute(
 
 
 def test_an_accessor_scope_applies_to_the_field_it_names_exactly() -> None:
-    from lvkit.structure import LVMethod, LVPrivateDataField
-
     cls = LVClass(
         name="C",
         path=Path("C.lvclass"),

@@ -44,7 +44,7 @@ from lvkit.polymorphic_variants import variants_to_generate
 from lvkit.project_store import find_project_store
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
-from lvkit.vilib_resolver import VILibResolver
+from lvkit.vilib_resolver import VILibResolver, run_in_own_resolver
 from lvkit.vilib_resolver import get_resolver as get_vilib_resolver
 
 # Increase recursion limit for deeply nested VIs
@@ -540,6 +540,7 @@ def _generate_polymorphic_module(
 # ---------------------------------------------------------------------------
 
 
+@run_in_own_resolver
 def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
@@ -636,8 +637,10 @@ def generate_python(
 
     # A library only scopes its members: it has no module, and nothing imports it.
     # Where the catalog gives Python for a VI, what only it calls is no part of
-    # the output.
-    reached = graph.keys_reached_without_entering(catalog_gives_python)
+    # the output, except a VI the user asked for by naming its folder or file.
+    reached = graph.keys_reached_without_entering(
+        catalog_gives_python, graph.keys_loaded_from(input_path)
+    )
     order = [
         key
         for key in graph.get_conversion_order()

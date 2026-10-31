@@ -8,7 +8,11 @@ import keyword
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.lv_type_codes import (
+    INTEGER_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
 from lvkit.models import ClusterField, LVType, LVTypeKind, ScalarValue, Terminal
 from lvkit.vi_files import strip_vi_extension
 
@@ -35,16 +39,7 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
             return ast.Constant(value="")
         if is_boolean_type_name(underlying):
             return ast.Constant(value=False)
-        if underlying in (
-            "NumInt8",
-            "NumInt16",
-            "NumInt32",
-            "NumInt64",
-            "NumUInt8",
-            "NumUInt16",
-            "NumUInt32",
-            "NumUInt64",
-        ):
+        if underlying in INTEGER_TYPE_NAMES:
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)

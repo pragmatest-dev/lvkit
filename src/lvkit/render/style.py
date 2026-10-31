@@ -217,8 +217,6 @@ _CLASS_CHAIN_PATTERN: tuple[int, ...] = (0xC3,) * 8
 _CLASS_WIRE_W = 3.0
 _CLASS_WIRE_CORE_W = 1.0
 
-
-
 _FLOAT_TYPES = {"NumFloat32", "NumFloat64", "NumFloatExt"}
 # Complex is orange like floats in LabVIEW (was falling through to "unknown").
 _COMPLEX_TYPES = {"NumComplex64", "NumComplex128", "NumComplexExt"}

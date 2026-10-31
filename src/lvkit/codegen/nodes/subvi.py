@@ -9,7 +9,7 @@ from typing import NoReturn
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import VINode
-from lvkit.models import LVTypeKind, Terminal
+from lvkit.models import LVTypeKind, Terminal, control_type_to_lvtype
 from lvkit.primitive_resolver import TerminalResolutionNeeded
 from lvkit.vilib_resolver import (
     CatalogPaneMismatch,
@@ -31,7 +31,7 @@ from ..context import CodeGenContext
 from ..error_path import is_error_wire_vi
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..vilib_pane import check_against_pane
+from ..vilib_pane import check_against_pane, literal_default
 from . import error_vi
 
 
@@ -173,14 +173,24 @@ def _generate_inline(
         elif vt.direction == "out":
             vilib_outputs[vt.index] = param_key
 
-    # Build default values from vilib terminal definitions
+    # Defaults from the catalog: a value that is a literal of the input's type is
+    # substituted; a default the catalog only describes in words is unknown, so an
+    # unwired input with one leaves its placeholder for the code that reads it.
+    node_types = {t.index: t.lv_type for t in ctx.enriched_terminals(node)}
     vilib_defaults: dict[str, str] = {}
+    unknown_defaults: set[str] = set()
     for vt in vilib_vi.terminals:
-        if vt.direction == "in":
+        if vt.direction == "in" and vt.default_value is not None:
             param_key = vt.python_param or to_var_name(vt.name)
-            default = getattr(vt, "default_value", None)
-            if default is not None:
-                vilib_defaults[param_key] = default
+            literal = literal_default(
+                vt.default_value,
+                (node_types.get(vt.index) if vt.index is not None else None)
+                or control_type_to_lvtype(vt.type or ""),
+            )
+            if literal is None:
+                unknown_defaults.add(param_key)
+            else:
+                vilib_defaults[param_key] = literal
 
     # Substitute input placeholders with wired values
     for term in ctx.enriched_terminals(node):
@@ -193,6 +203,8 @@ def _generate_inline(
 
         if term_index in vilib_inputs:
             param_key = vilib_inputs[term_index]
+            if value is None and param_key in unknown_defaults:
+                continue
             placeholder = "{" + param_key + "}"
             fallback = vilib_defaults.get(param_key, "None")
             template = template.replace(placeholder, value or fallback)
@@ -390,8 +402,10 @@ def _raise_terminal_resolution(
 
 
 def _catalog_defaults(vilib_vi: VIEntry | None) -> dict[int | None, str]:
-    """The default each input terminal of the catalog entry carries, by index."""
-    if vilib_vi is None:
+    """The default each input terminal of the catalog entry carries, by index.
+    Only a call that runs the entry's Python takes them: a call of a generated
+    module already carries the control's own default."""
+    if vilib_vi is None or vilib_vi.python_code is None:
         return {}
     return {
         t.index: t.default_value
@@ -436,7 +450,7 @@ def _build_arguments(
         # the loaded VI's control) gives it; any other unwired input uses the
         # called function's own default.
         if value is None:
-            value = catalog_defaults.get(term_index)
+            value = literal_default(catalog_defaults.get(term_index), term.lv_type)
         if value is None:
             continue
 

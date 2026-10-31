@@ -8,7 +8,7 @@ get_stub_vi_info, dependency graph queries, polymorphic VI methods.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -628,11 +628,22 @@ class QueryMixin:
             return []
         return list(self._dep_graph.predecessors(vi_name))
 
-    def keys_reached_without_entering(self, stop: Callable[[str], bool]) -> set[str]:
+    def keys_loaded_from(self, root: Path) -> set[str]:
+        """The keys of the loaded VIs whose file is ``root`` or lies inside it."""
+        root = root.resolve()
+        return {
+            key
+            for key, path in self._source_paths.items()
+            if path.resolve() == root or root in path.resolve().parents
+        }
+
+    def keys_reached_without_entering(
+        self, stop: Callable[[str], bool], requested: Iterable[str] = ()
+    ) -> set[str]:
         """The keys reachable from the ones nothing references (every member of a
-        cycle that nothing outside it references), without going through a key for
-        which ``stop`` is true: such a key is reached, but what only it references
-        is not."""
+        cycle that nothing outside it references) and from the ``requested`` ones,
+        without going through a key for which ``stop`` is true: such a key is
+        reached, but what only it references is not."""
         components = nx.condensation(self._dep_graph)
         reached: set[str] = set()
         pending = [
@@ -641,6 +652,7 @@ class QueryMixin:
             if components.in_degree(node) == 0
             for key in data["members"]
         ]
+        pending.extend(key for key in requested if key in self._dep_graph)
         while pending:
             key = pending.pop()
             if key in reached:
