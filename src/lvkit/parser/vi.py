@@ -151,8 +151,9 @@ from .nodes import (
     is_disable_structure,
     parse_selector_tables,
 )
+from .signal_sources import declared_outputs, source_first
 from .type_mapping import parse_type_map_rich
-from .type_resolution import resolve_type_rich
+from .type_resolution import resolve_type_rich, type_id_number
 from .utils import (
     decode_xml_entities_to_bytes,
     extract_caption,
@@ -753,8 +754,9 @@ def _is_generic_operation_node(elem: ET.Element) -> bool:
     )
 
 
-# Direct children of a node or structure whose items define terminal DCOs.
-_DCO_LIST_TAGS = ("tunnelList", "dcoList")
+# Direct children of a node or structure whose items define terminal DCOs (a
+# loop lists its right shift registers in `srDCOList`).
+_DCO_LIST_TAGS = ("tunnelList", "dcoList", "srDCOList")
 
 
 def _is_named_dco_definition(child: ET.Element) -> bool:
@@ -790,7 +792,8 @@ def _inline_dco_definitions(root: ET.Element) -> None:
             listed = node.find(list_tag)
             if listed is not None:
                 for item in listed.findall("SL__arrayElement"):
-                    definitions[item.get("uid")] = item
+                    if item.get("class"):
+                        definitions[item.get("uid")] = item
         for child in node:
             if _is_named_dco_definition(child):
                 definitions[child.get("uid")] = child
@@ -912,6 +915,7 @@ def _resolve_bound_control_types(
 def _extract_wires(root: ET.Element) -> list[ParsedWire]:
     """Extract wires (signals) from the block diagram."""
     wires = []
+    declared = declared_outputs(root)
 
     for sig in root.findall(".//signalList/SL__arrayElement[@class='signal']"):
         uid = sig.get("uid") or ""
@@ -922,6 +926,7 @@ def _extract_wires(root: ET.Element) -> list[ParsedWire]:
         ]
 
         if len(terms) >= 2:
+            terms = source_first(terms, declared)
             source = terms[0]
             for i, dest in enumerate(terms[1:]):
                 wires.append(
@@ -1058,6 +1063,12 @@ def _process_element_terminals(
     ext_func_roles = (
         extfunc_terminal_roles(elem, type_map)
         if elem_class == NODE_CLASS_EXT_FUNC
+        else {}
+    )
+
+    call_slot_names = (
+        _recorded_slot_names(elem, type_map)
+        if elem_class in _SUBVI_CALL_CLASSES
         else {}
     )
 
@@ -1219,6 +1230,8 @@ def _process_element_terminals(
             term_name = extract_xtunnel_name(dco)
         if ext_func_role is not None and ext_func_role.name:
             term_name = ext_func_role.name
+        if not term_name:
+            term_name = call_slot_names.get(parm_index)
 
         # Per-terminal "Not" flag: bit 16 (0x00010000) set in the
         # terminal's DCO objFlags. This bit only means "invert" for
@@ -1245,6 +1258,28 @@ def _process_element_terminals(
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )
+
+
+_SUBVI_CALL_CLASSES = ("iUse", "polyIUse")
+
+
+def _recorded_slot_names(
+    elem: ET.Element, type_map: dict[int, LVType] | None
+) -> dict[int, str]:
+    """The label of each connector-pane slot of the VI a call node calls, as the
+    calling VI records it: the Function type its ``<connectorTM>`` names (or the
+    one Function a cluster there holds), by slot."""
+    if not type_map:
+        return {}
+    type_id = type_id_number(elem.findtext("connectorTM"))
+    recorded = type_map.get(type_id) if type_id is not None else None
+    if recorded is None:
+        return {}
+    if recorded.pane is None and recorded.fields:
+        functions = [f.type for f in recorded.fields if f.type and f.type.pane]
+        recorded = functions[0] if len(functions) == 1 else None
+    pane = recorded.pane if recorded is not None else None
+    return {slot.index: slot.name for slot in pane or () if slot.name}
 
 
 def _walk_and_extract_terminals(
@@ -2606,14 +2641,14 @@ def _decode_variant(data: bytes | memoryview) -> tuple[str | None, int, object]:
 MAX_STORED_ARRAY_ELEMENTS = 4_000_000
 
 
-# The unit-tagged unsigned integers an enum, ring or class field is stored as.
-_UNIT_INTEGER_TYPES = frozenset(
-    {
-        TD_FULL_TYPE.UnitUInt8.name,
-        TD_FULL_TYPE.UnitUInt16.name,
-        TD_FULL_TYPE.UnitUInt32.name,
-    }
-)
+# The unit-tagged unsigned integers an enum, ring or class field is stored as,
+# and the bytes each takes.
+_UNIT_INTEGER_BYTE_WIDTHS: dict[str, int] = {
+    TD_FULL_TYPE.UnitUInt8.name: 1,
+    TD_FULL_TYPE.UnitUInt16.name: 2,
+    TD_FULL_TYPE.UnitUInt32.name: 4,
+}
+_UNIT_INTEGER_TYPES = frozenset(_UNIT_INTEGER_BYTE_WIDTHS)
 
 
 def _quad_to_float(raw: bytes | memoryview) -> float:
@@ -2903,7 +2938,7 @@ def _decode_element(
     # Enum: decode as its underlying integer type
     if kind == LVTypeKind.ENUM or underlying in _UNIT_INTEGER_TYPES:
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         val = int.from_bytes(data[:size], "big")
         return str(val), size, str(val)
@@ -2911,7 +2946,7 @@ def _decode_element(
     # Numeric integer types
     if is_integer_type_name(underlying):
         size = _get_numeric_size(underlying)
-        if len(data) < size:
+        if size is None or len(data) < size:
             return None, 0, None
         signed = underlying in SIGNED_INTEGER_TYPE_NAMES
         val = int.from_bytes(data[:size], "big", signed=signed)
@@ -3146,23 +3181,16 @@ def _fixed_element_width(lv_type: LVType | None) -> int | None:
     return None
 
 
-def _get_numeric_size(type_name: str) -> int:
-    """Byte size for a numeric/enum type name, read from its width digit."""
-    if "8" in type_name:
-        return 1
-    elif "16" in type_name:
-        return 2
-    elif "32" in type_name:
-        return 4
-    elif "64" in type_name:
-        return 8
-    # No width digit — e.g. the reconstructors' bare "Enum"/"Ring", which carry
-    # no ordinal width. Warn rather than SILENTLY assume 4 bytes and desync a
-    # default-data decode (VCTP enums arrive as "UnitUInt*", so this is a trap
-    # for the newer convention, not a path hit today).
-    logger.warning(
-        "no width digit in numeric/enum type name %r — assuming 4 bytes; a "
-        "default-data decode of this type may misalign",
-        type_name,
+def _get_numeric_size(type_name: str) -> int | None:
+    """Byte size of an integer / enum type name, from the width tables; None
+    (with a warning) for a name that has no entry."""
+    size = INTEGER_BYTE_WIDTHS.get(type_name) or _UNIT_INTEGER_BYTE_WIDTHS.get(
+        type_name
     )
-    return 4
+    if size is None:
+        logger.warning(
+            "no byte width known for numeric/enum type %r — its default data "
+            "is not decoded",
+            type_name,
+        )
+    return size

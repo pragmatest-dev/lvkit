@@ -156,7 +156,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
-            value = ctx.resolve(term.id)
+            value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
             statements.append(

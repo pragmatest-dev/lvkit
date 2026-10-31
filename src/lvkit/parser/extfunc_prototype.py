@@ -92,6 +92,9 @@ class ExtFuncCall:
     params: tuple[ExtFuncParam, ...] = field(default=())
     library_path_tokens: tuple[str, ...] = ()
     library_path_kind: LibraryPathKind = LibraryPathKind.BY_NAME
+    # Set when ``function`` is 31 characters (LabVIEW cuts a node's name to 31) and
+    # no link record gave the whole name: why, naming what it matches.
+    cut_name: str | None = None
 
 
 NUMERIC_C_TYPES = {

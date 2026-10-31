@@ -15,25 +15,16 @@ from lvkit.codegen.nodes import property_node
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import (
-    ClusterField,
     LVType,
     LVTypeKind,
     PropertyDef,
     PropertySegment,
     Terminal,
 )
-from tests.helpers import make_graph_with_terminals
+from tests.helpers import error_cluster_type, make_graph_with_terminals
 
 REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
-ERROR = LVType(
-    kind=LVTypeKind.CLUSTER,
-    underlying_type="Cluster",
-    fields=[
-        ClusterField(name="status"),
-        ClusterField(name="code"),
-        ClusterField(name="source"),
-    ],
-)
+ERROR = error_cluster_type()
 
 
 class Reference:
@@ -184,6 +175,13 @@ def test_value_type_does_not_reclassify_a_property_as_fixed_port(value_type):
     assert namespace["ref"].events == [("read", "value", sentinel)]
 
 
+def test_a_write_wired_from_a_gap_constant_writes_none():
+    node, ctx, namespace = fixture([("Value", "input")])
+    ctx.bind("peer_row_0", "None")
+    assert execute(node, ctx, namespace) == {}
+    assert namespace["ref"].events == [("write", "value", None)]
+
+
 @pytest.mark.parametrize(
     "failure",
     [
@@ -220,7 +218,7 @@ def test_unresolved_or_unsupported_nodes_fail_without_guessing(failure):
             [("Value", "input"), ("Value", "output")], unwired=("row_0",)
         )
     elif failure == "unresolved_write":
-        ctx.bind("peer_row_0", "None")
+        ctx.graph.set_var_name("peer_row_0", None)  # type: ignore[union-attr,arg-type]
     else:
         node.terminals[1].lv_type = None
         connect(ctx, "ref_out", "output")
@@ -287,7 +285,9 @@ def test_wired_reference_without_a_value_is_an_error():
         [("Value", "output")], ref_value=None, class_name="Application"
     )
     connect(ctx, "ref_in", "input")
-    with pytest.raises(CodeGenError, match="Wired object reference has no value"):
+    with pytest.raises(
+        CodeGenError, match="The wired input 0 of 'Property Node' has no variable"
+    ):
         property_node.generate(node, ctx)
 
 

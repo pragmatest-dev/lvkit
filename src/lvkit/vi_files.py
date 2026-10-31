@@ -25,6 +25,13 @@ def strip_vi_extension(name: str) -> str:
     return name
 
 
+def class_stem(file_name: str) -> str:
+    """A class file's name without its extension: what its module is named from."""
+    if file_name.lower().endswith(".lvclass"):
+        return file_name[: -len(".lvclass")]
+    return file_name
+
+
 def rglob_vi_files(root: Path) -> list[Path]:
     """Every VI file under ``root`` (recursive), sorted so load order never
     depends on the filesystem."""

@@ -48,6 +48,9 @@ class HTMLDocGenerator(
         self.doc_type = doc_type
         self.all_vis: set[str] = set()  # Track which VIs have pages
         self.icon_map: dict[str, str] = {}  # VI name -> relative icon path
+        # VI name -> its section on the index page (its owning class or library,
+        # installation folder or project folder); set by register_index_sections()
+        self.index_sections: dict[str, str] = {}
         # classname -> class landing page path (relative to output_dir root),
         # populated by generate_class_page(). Used by the index page to link
         # library group headers to their class landing page.
@@ -106,6 +109,11 @@ class HTMLDocGenerator(
     def register_vis(self, names: dict[str, PageName]) -> None:
         """Name the page of each VI that is named by its file."""
         self.page_names = dict(names)
+
+    def register_index_sections(self, sections: dict[str, str]) -> None:
+        """Set the section the index page lists each VI under
+        (``naming.library_group``); it never names a page."""
+        self.index_sections = dict(sections)
 
     def register_typedefs(self, entries: list[tuple[str, str]]) -> None:
         """Name the page of each ``(path key, display name)`` typedef that will

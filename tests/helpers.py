@@ -15,7 +15,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.load_mode import LoadMode
-from lvkit.models import Terminal
+from lvkit.models import FPTerminal, Terminal
 
 
 def transitive_closure(
@@ -93,18 +93,15 @@ _RENDER_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)
 
 
 def normalize_render_ids(svg: str) -> str:
-    """Normalize the path-derived SVG ids for a web/desktop render byte-parity
-    comparison. The root ``id`` and every clip id/ref embed the source file PATH
-    (``lv-<pathslug>-vi``, plus ``-cN`` for clips), which legitimately differs
-    between a ``/proj``-staged web render and a workspace desktop render — the
-    parity guarantee is about render CONTENT, not the path. This mirrors
+    """Normalize the root ``id`` and every clip id/ref of a render for a
+    web/desktop byte-parity comparison. They are ``lv-<display name slug>-<digest
+    of the drawn elements>`` plus ``-cN`` for clips: none of it holds a file
+    path, so the same drawing has the same ids on every machine, and this only
+    rewrites the display-name part (``lv-<slug>-vi``) so the comparison does not
+    depend on how a fixture is named. It mirrors
     ``editors/vscode/build/check-web-parity.sh``'s ``norm()``
-    (``sed -E 's/lv-[A-Za-z0-9-]*-vi/lv-ID/g'``, global — rewriting both the
-    ``id="…"`` definitions and the ``url(#…)`` references while preserving the
-    ``-cN`` clip discriminator). The char class is case-INSENSITIVE because a
-    path slug preserves case (e.g. ``JKI-VI-Tester``, ``Test LVKit``); this
-    ``re.IGNORECASE`` and the shell's ``[A-Za-z0-9-]`` are kept identical so the
-    Python parity tests and the shell CI gate can't drift."""
+    (``sed -E 's/lv-[A-Za-z0-9-]*-vi/lv-ID/g'``, global), case-insensitive in both
+    so the Python parity tests and the shell CI gate can't drift."""
     return _RENDER_ID_RE.sub("lv-ID", svg)
 
 
@@ -181,27 +178,32 @@ def build_graph(vi_context, vi_name: str, nodes: list, graph=None):
         graph = InMemoryVIGraph()
     graph._vi_nodes.setdefault(vi_name, set())
 
-    def _stub(tid: str, direction: str) -> None:
+    def _stub(tid: str, direction: str, control: Terminal | None = None) -> None:
         nid = f"_fp_{tid}"
         if nid in graph._graph:
             return
+        stub_terminal = (
+            control.model_copy(update={"direction": direction})
+            if isinstance(control, FPTerminal)
+            else Terminal(id=tid, index=0, direction=direction)
+        )
         graph._graph.add_node(
             nid,
             node=PrimitiveNode(
                 id=nid,
                 vi_path=vi_name,
                 name=nid,
-                terminals=[Terminal(id=tid, index=0, direction=direction)],
+                terminals=[stub_terminal],
             ),
         )
         graph._term_to_node[tid] = nid
 
     for inp in vi_context.inputs:
         if inp.id:
-            _stub(inp.id, "output")
+            _stub(inp.id, "output", inp)
     for out in vi_context.outputs:
         if out.id:
-            _stub(out.id, "input")
+            _stub(out.id, "input", out)
     for const in vi_context.constants:
         if const.id and f"_fp_{const.id}" not in graph._graph:
             graph._graph.add_node(
@@ -308,3 +310,22 @@ def register_nodes(graph, nodes, vi_name: str = "test.vi") -> None:
     for n in nodes:
         if n.id in kids:
             n.children = sorted(kids[n.id], key=_node_order_key)
+
+
+def error_cluster_type() -> Any:
+    """LabVIEW's error cluster as the parser represents it: ``status`` Boolean,
+    ``code`` I32, ``source`` String."""
+    from lvkit.models import ClusterField, LVType, LVTypeKind
+
+    def primitive(underlying: str) -> LVType:
+        return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=underlying)
+
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="status", type=primitive("Boolean")),
+            ClusterField(name="code", type=primitive("NumInt32")),
+            ClusterField(name="source", type=primitive("String")),
+        ],
+    )

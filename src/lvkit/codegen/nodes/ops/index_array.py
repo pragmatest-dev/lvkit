@@ -79,9 +79,7 @@ def generate_1d_index_array(
 
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
-    array_expr = ctx.resolve(array.id)
-    if array_expr is None and ctx.is_wired(array.id):
-        raise CodeGenError("Unresolved wired 1D Index Array input", node)
+    array_expr = ctx.wired_input(array.id, node)
     # Evaluate the source expression once for every row in the expanded node.
     array_var = ctx.make_output_var("indexed_array", node.id)
     statements.append(
@@ -91,10 +89,8 @@ def generate_1d_index_array(
     )
     previous_index: str | None = None
     for position, (output, index) in enumerate(zip(outputs, indices)):
-        expr = ctx.resolve(index.id)
+        expr = ctx.wired_input(index.id, node)
         if expr is None:
-            if ctx.is_wired(index.id):
-                raise CodeGenError("Unresolved wired 1D Index Array index", node)
             follows_previous = (
                 unwired_behavior(node, index) == DefaultBehavior.NEXT_INDEX
             )
@@ -147,14 +143,12 @@ def _generate_nd_index_array(
     rank = plan.rank
     if not ctx.is_wired(plan.output.id):
         return CodeFragment.empty()
-    array_expr = ctx.resolve(array.id)
-    if array_expr is None and ctx.is_wired(array.id):
-        raise CodeGenError("Unresolved wired Index Array input", node)
+    array_expr = ctx.wired_input(array.id, node)
     source = array_expr if array_expr is not None else "[]"
     picks: list[str | None] = []
     for index, use in zip(plan.indices, plan.uses):
         if use == IndexUse.WIRED:
-            text = ctx.resolve(index.id)
+            text = ctx.wired_input(index.id, node)
             if text is None:
                 raise CodeGenError("Unresolved wired Index Array index", node)
             picks.append(text)

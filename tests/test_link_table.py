@@ -72,8 +72,8 @@ def build_iuvi_record(
         buf += struct.pack(">I", link_flag)
     elif version.at_least(8, 5, 0, 1):
         buf += bytes([link_flag])
-    if not version.at_least(8, 5, 0, 1):
-        buf += struct.pack(">I", 0)  # held by heap-to-VI records before 8.5
+    if not version.at_least(8, 6, 0, 1):
+        buf += struct.pack(">I", 0)  # held by heap-to-VI records before 8.6
     buf += struct.pack(">H", 0)  # type id
     if version.at_least(14, 0, 0, 3):
         buf += bytes([0x42])
@@ -315,6 +315,29 @@ def test_real_sidecar_reads_a_node_per_subvi_call_not_just_the_first() -> None:
     assert len(links) > 10
     assert any(len(link.node_uids) > 1 for link in links)
     assert all(link.path_tokens[-1].endswith(".vi") for link in links)
+
+
+PICO_STATUS = SAMPLES / "picosdk-ni-labview-examples/shared/PicoStatus.vi"
+
+
+@pytest.mark.needs_samples
+def test_real_labview_85_sidecar_reads_the_u32_after_the_flag() -> None:
+    """``PicoStatus.vi`` (saved in LabVIEW 8.5.0) calls ``Merge Errors.vi`` from
+    node 431; its record holds a u32 between the flag and the type id, so
+    reading the uid list 4 bytes early finds zeros."""
+    libd, version = _sidecar(PICO_STATUS)
+    assert version.at_least(8, 5, 0, 1)
+    assert not version.at_least(8, 6, 0, 1)
+    (link,) = read_iuse_links(libd, version)
+    assert link.name_parts == ("Merge Errors.vi",)
+    assert link.path_tokens == (
+        "<vilib>",
+        "Utility",
+        "error.llb",
+        "Merge Errors.vi",
+    )
+    assert link.link_flag == 0
+    assert link.node_uids == (431,)
 
 
 SV_SAMPLE = Path(__file__).parent / "corpus" / "issues" / "149" / "SV Sample.vi"

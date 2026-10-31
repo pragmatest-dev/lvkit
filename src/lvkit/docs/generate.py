@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import shutil
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from lvkit.cache_paths import project_root
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.html_generator.naming import library_group
 from lvkit.docs.page_names import page_names
 from lvkit.docs.utils import generate_dependency_description
 from lvkit.graph import InMemoryVIGraph
@@ -144,8 +146,40 @@ def _split_controls(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     return [p for p in paths if p.suffix.lower() != ".ctl"], controls
 
 
-def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
-    """Collect and copy VI icons to the output directory."""
+def _index_sections(
+    graph: InMemoryVIGraph, vi_names: list[str], project: Path
+) -> dict[str, str]:
+    """The section the index page lists each VI under (``library_group``): its
+    owning class or library; else the installation folder (``vi.lib``,
+    ``user.lib``) its caller recorded, or the configured library folder it is in;
+    else its folder in the project; else, for a file outside the project, its own
+    project folder's name. The section never names a page."""
+    sections: dict[str, str] = {}
+    for name in vi_names:
+        owner = graph.get_owning_class(name) or graph.get_owning_library(name)
+        recorded = graph.recorded_path(name)
+        source = graph.get_vi_source_path(name)
+        library = graph.library_root_of(source) if source is not None else None
+        if owner is not None or recorded is not None:
+            folders = recorded.split("/")[:-1] if recorded is not None else []
+            sections[name] = library_group(owner, folders)
+        elif library is not None:
+            sections[name] = library_group(None, [library[0]])
+        elif source is not None and source.resolve().is_relative_to(project.resolve()):
+            below = source.resolve().relative_to(project.resolve()).parent.parts
+            sections[name] = library_group(None, below)
+        elif source is not None:
+            sections[name] = project_root(source).name
+    return sections
+
+
+def _collect_icons(
+    graph: InMemoryVIGraph,
+    output_dir: Path,
+    page_filename: Callable[[str], str],
+) -> dict[str, str]:
+    """Collect and copy VI icons to the output directory, each beside the name of
+    its VI's page (``icons/<group>/<page>.png``)."""
     icons_dir = output_dir / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
 
@@ -161,11 +195,11 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
         icon_source = resolve_icon_png(vi_path.parent, vi_path.stem)
 
         if icon_source is not None:
-            safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")
-            safe_name = safe_name.replace(" ", "_").replace(".", "_")
-            icon_dest = icons_dir / f"{safe_name}.png"
+            icon_name = page_filename(vi_name).removesuffix(".html") + ".png"
+            icon_dest = icons_dir / icon_name
+            icon_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(icon_source, icon_dest)
-            icon_map[vi_name] = f"../icons/{safe_name}.png"
+            icon_map[vi_name] = f"../icons/{icon_name}"
 
     return icon_map
 
@@ -173,10 +207,11 @@ def _collect_icons(graph: InMemoryVIGraph, output_dir: Path) -> dict[str, str]:
 def _prepare_vi_documentation_data(
     vi_name: str,
     graph: InMemoryVIGraph,
-    poly_groups: dict,
+    poly_groups: dict[str, list[str]],
     icon_map: dict[str, str] | None = None,
 ) -> dict:
-    """Prepare all data needed for one VI documentation page."""
+    """Prepare all data needed for one VI documentation page. A part of the page
+    that cannot be built is left out and recorded on the VI's node."""
     inputs_dc = graph.get_inputs(vi_name)
     outputs_dc = graph.get_outputs(vi_name)
     operations_dc = graph.top_level_nodes(vi_name)
@@ -228,21 +263,17 @@ def _prepare_vi_documentation_data(
     }
     qualified_deps -= type_definitions.keys()
 
-    def _extract_subvi_names(nodes):
-        names = []
+    def _callee_keys(nodes: list) -> list[str]:
+        keys: list[str] = []
         for node in nodes:
-            if isinstance(node, VINode) and node.name:
-                names.append(node.name)
-            names.extend(_extract_subvi_names(graph.child_nodes(node.id, vi_name)))
-        return names
+            if isinstance(node, VINode):
+                key = graph.loaded_callee_key(node)
+                if key is not None:
+                    keys.append(key)
+            keys.extend(_callee_keys(graph.child_nodes(node.id, vi_name)))
+        return keys
 
-    op_names = set(_extract_subvi_names(operations_dc))
-    for op_name in op_names:
-        already_covered = any(
-            dep.endswith(f":{op_name}") or dep == op_name for dep in qualified_deps
-        )
-        if not already_covered:
-            qualified_deps.add(op_name)
+    qualified_deps.update(_callee_keys(operations_dc))
     qualified_deps.discard(vi_name)
 
     dependencies = {
@@ -485,31 +516,30 @@ def generate_documents(
     poly_groups = graph.get_polymorphic_groups()
     poly_variant_to_wrapper = graph.get_poly_variant_wrappers()
 
+    # Create HTML generator
+    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
+    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
+    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
+
+    all_vis = graph.list_vis()
+    generator.all_vis = set(all_vis)
+    project = project_root(library_path_obj)
+    generator.register_vis(page_names(graph, all_vis, project))
+    generator.register_index_sections(_index_sections(graph, all_vis, project))
+
     # Collect and copy icons
     print("[TIMING] Collecting VI icons...")
     t0 = time.time()
-    icon_map = _collect_icons(graph, output_dir_obj)
+    icon_map = _collect_icons(graph, output_dir_obj, generator._vi_name_to_filename)
+    generator.icon_map = icon_map
     print(
         f"[TIMING] Icon collection: {time.time() - t0:.2f}s"
         f" - Found {len(icon_map)} icons"
     )
 
-    # Create HTML generator
-    generator = HTMLDocGenerator(output_dir_obj, doc_title, doc_type)
-    generator.icon_map = icon_map
-    typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
-    generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
-
     # Generate documentation for each VI
     print(f"[TIMING] Generating HTML pages for {total_loaded} VIs...")
     t0 = time.time()
-    all_vis = graph.list_vis()
-
-    generator.all_vis = set(all_vis)
-    generator.register_vis(
-        page_names(graph, all_vis, project_root(library_path_obj))
-    )
-
     generated_count = 0
 
     for i, vi_name in enumerate(all_vis, 1):

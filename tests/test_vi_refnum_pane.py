@@ -17,7 +17,7 @@ _MAIN_XML = """<?xml version='1.0' encoding='utf-8'?>
   <TypeDesc Type="Function" Format="inline">
     <TypeDesc TypeID="0" Flags="0x1000" />
     <TypeDesc TypeID="2" Flags="0x0000" />
-    <TypeDesc TypeID="1" Flags="0x0900" />
+    <TypeDesc TypeID="1" Flags="0x8900" />
   </TypeDesc>
   <TypeDesc Type="Refnum" RefType="LVObjCtl" Format="inline">
     <TypeDesc TypeID="3" />
@@ -44,6 +44,8 @@ def test_a_strictly_typed_vi_refnum_carries_its_connector_pane(
         (2, True, "count"),
     ]
     assert [s.type.underlying_type for s in pane] == ["Boolean", "NumInt32"]
+    # Bit 15 of a slot's Flags marks a Dynamic Dispatch terminal.
+    assert [s.dynamic_dispatch for s in pane] == [False, True]
     assert pane[0].type.kind == LVTypeKind.PRIMITIVE
 
 

@@ -49,10 +49,12 @@ FP_IS_INDICATOR = 0x10000  # Bit 16: control is indicator (vs control)
 # one child per connector slot). Bit 8 marks an output; bits 11 and 12 are the
 # wiring rule and never both set: bit 12 = Required, bit 11 = Recommended,
 # neither = Optional. Bit 15 marks a Dynamic Dispatch terminal (always
-# alongside bit 12 on an input / bit 11 on an output), so it adds no state.
+# alongside bit 12 on an input / bit 11 on an output), so it adds no wiring-rule
+# state; it says the VI is a dynamic-dispatch member of a class.
 CONPANE_FLAG_OUTPUT = 0x0100  # Bit 8
 CONPANE_FLAG_RECOMMENDED = 0x0800  # Bit 11
 CONPANE_FLAG_REQUIRED = 0x1000  # Bit 12
+CONPANE_FLAG_DYNAMIC_DISPATCH = 0x8000  # Bit 15
 
 
 def is_output_terminal(flags: int) -> bool:

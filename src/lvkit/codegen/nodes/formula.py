@@ -80,7 +80,7 @@ def generate(node: FormulaNode, ctx: CodeGenContext) -> CodeFragment:
     for spec in specs:
         if spec.direction in ("in", "inout"):
             term = inputs.get(spec.name)
-            val = ctx.resolve(term.id) if term else None
+            val = ctx.wired_input(term.id, node) if term else None
             if val is None:
                 val = "[]" if spec.is_array else "0"
             elif spec.is_array:

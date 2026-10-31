@@ -106,10 +106,7 @@ def collect_unresolved(
             )
             items[key] = item
         item.count += 1
-        try:
-            vi = Path(gap.vi).relative_to(root).as_posix()
-        except ValueError:
-            vi = gap.vi
+        vi = result["layout"].display_path(gap.vi)
         if vi and vi not in item.vi_names:
             item.vi_names.append(vi)
 

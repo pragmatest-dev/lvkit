@@ -609,7 +609,10 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
         i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node ")
     )
     assert lines[idx].strip() == "feedback-node fb0 (1 iteration, uninitialized) :"
-    assert lines[idx + 1].strip() == "each = High_Resolution_Relative_Seconds_3710::0"
+    assert (
+        lines[idx + 1].strip()
+        == "each = High_Resolution_Relative_Seconds_3710::relative seconds"
+    )
 
 
 @pytest.mark.needs_samples

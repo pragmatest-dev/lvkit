@@ -70,7 +70,7 @@ columns of each):
 | `typedef_ref` | file a control uses / is owned by | `typedef_path`, `ref_path`, `ref_name`, `ref_kind`, `rel` |
 | `typedef_use` | control a VI depends on (by path) | `vi_path`, `typedef_path` |
 | `typedef_type` | type a control uses (its own and everything nested in it) | `typedef_path`, `type_id` |
-| `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor`, `accessor_field` |
+| `class_fact` | class-member VI | `vi_path`, `owning_class`, `parent`, `scope`, `is_accessor` (a VI in a property folder), `accessor_field` (the property's name) |
 | `lvproj` | `.lvproj` member | `lvproj_name`, `member_name`, `member_type`, `resolved_path`, `is_in_repo` |
 
 ### Types and controls

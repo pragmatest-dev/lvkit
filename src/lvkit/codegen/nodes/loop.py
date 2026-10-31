@@ -36,7 +36,7 @@ def _when_condition(
     is wrapped in ``if <condition>:``."""
     if tunnel.condition_terminal_uid is None:
         return write
-    condition = ctx.resolve(tunnel.condition_terminal_uid)
+    condition = ctx.wired_input(tunnel.condition_terminal_uid, node)
     if condition is None:
         raise ConversionGap(
             "Conditional tunnel's condition terminal is not wired", node
@@ -855,7 +855,7 @@ def _build_while_loop(
     if stop_terminal:
         # Resolve the stop condition variable from the loop body
         # The cpdArith or other operation computes this inside the loop
-        stop_condition = ctx.resolve(stop_terminal)
+        stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
             cond_expr = parse_expr(stop_condition)
             if node.stop_condition_inverted:
@@ -913,7 +913,7 @@ def _build_for_loop(
     # iteration still contributes its output — LabVIEW stops after it completes.
     stop_terminal = node.stop_condition_terminal
     if stop_terminal:
-        stop_condition = ctx.resolve(stop_terminal)
+        stop_condition = ctx.wired_input(stop_terminal, node)
         if stop_condition:
             cond_expr = parse_expr(stop_condition)
             if node.stop_condition_inverted:

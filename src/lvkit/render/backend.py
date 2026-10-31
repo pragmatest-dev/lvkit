@@ -457,6 +457,14 @@ class SvgBackend:
         if self._anchor_stack and self._anchor_stack.pop():
             self._elements.append("</a>")
 
+    def content_digest(self) -> str:
+        """Eight hex digits derived from the elements drawn so far: the same
+        drawing gives the same digest on every machine, a different drawing a
+        different one."""
+        return hashlib.sha256("\x00".join(self._elements).encode("utf-8")).hexdigest()[
+            :8
+        ]
+
     def render(
         self,
         bounds: tuple[float, float, float, float],
@@ -543,10 +551,7 @@ class SvgBackend:
         if root_id is not None:
             prefix = root_id
         else:
-            digest = hashlib.sha256(
-                "\x00".join(self._elements).encode("utf-8")
-            ).hexdigest()[:8]
-            prefix = f"lv{digest}"
+            prefix = f"lv{self.content_digest()}"
         defs_el = None
         elements = self._elements
         if self._clip_ids:

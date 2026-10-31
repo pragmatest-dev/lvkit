@@ -22,15 +22,11 @@ def _ref_terminal(node: AnyGraphNode) -> Terminal | None:
     )
 
 
-def _ref_value(ref_term: Terminal, ctx: CodeGenContext) -> str | None:
-    """The Python name the reference input carries, directly or from its source."""
-    resolved = ctx.resolve(ref_term.id)
-    if resolved:
-        return resolved
-    flow = ctx.get_source(ref_term.id)
-    if flow and flow.src_terminal:
-        return ctx.resolve(flow.src_terminal) or None
-    return None
+def _ref_value(
+    ref_term: Terminal, node: AnyGraphNode, ctx: CodeGenContext
+) -> str | None:
+    """The Python name the reference input carries."""
+    return ctx.wired_input(ref_term.id, node)
 
 
 def unwired_ref_class(node: AnyGraphNode, ctx: CodeGenContext) -> str | None:
@@ -43,7 +39,7 @@ def unwired_ref_class(node: AnyGraphNode, ctx: CodeGenContext) -> str | None:
     .../functions/invoke-node.html)."""
     ref_term = _ref_terminal(node)
     if ref_term is not None and (
-        _ref_value(ref_term, ctx) or ctx.is_wired(ref_term.id)
+        _ref_value(ref_term, node, ctx) or ctx.is_wired(ref_term.id)
     ):
         return None
     class_name = getattr(node, "object_name", None)
@@ -57,7 +53,7 @@ def resolve_ref_input(node: AnyGraphNode, ctx: CodeGenContext) -> str:
     reference that has no value raises ``CodeGenError``. The caller handles an
     unwired reference first (see ``unwired_ref_class``)."""
     ref_term = _ref_terminal(node)
-    value = _ref_value(ref_term, ctx) if ref_term is not None else None
+    value = _ref_value(ref_term, node, ctx) if ref_term is not None else None
     if value is None:
         raise CodeGenError("Wired object reference has no value", node)
     return value

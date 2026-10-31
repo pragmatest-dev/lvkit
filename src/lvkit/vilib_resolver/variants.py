@@ -279,7 +279,6 @@ class _VILibVariantMixin:
             return self._create_variant(vi_name, observed_map, vi, caller_vi)
 
         # No conflict - update base entry
-        unmatched_obs: list[tuple[int, dict[str, Any]]] = []
         for idx, obs_data in observed_map.items():
             if idx in existing_map:
                 term = existing_map[idx]
@@ -287,62 +286,16 @@ class _VILibVariantMixin:
                     term.direction = obs_data["direction"]
                 if not term.type and obs_data["type"]:
                     term.type = obs_data["type"]
-            else:
-                # Try name-based matching first
-                matched = False
-                if obs_data["name"]:
-                    for term in vi.terminals:
-                        if term.name == obs_data["name"] and term.index is None:
-                            term.index = idx
-                            term.direction = obs_data["direction"]
-                            term.type = obs_data["type"]
-                            matched = True
-                            break
-                if not matched:
-                    unmatched_obs.append((idx, obs_data))
-
-        # Fallback 1: Match by type when exactly one null-index terminal
-        # shares the type AND direction (unambiguous type match).
-        if unmatched_obs:
-            null_terms = [t for t in vi.terminals if t.index is None]
-            still_unmatched = []
-            for idx, obs_data in unmatched_obs:
-                obs_dir = obs_data["direction"]
-                obs_type = obs_data["type"]
-                # Try type + direction match
-                candidates = (
-                    [
-                        t
-                        for t in null_terms
-                        if t.direction == obs_dir and t.type == obs_type
-                    ]
-                    if obs_type
-                    else []
-                )
-                if len(candidates) == 1:
-                    t = candidates[0]
-                    t.index = idx
-                    if obs_data["direction"]:
-                        t.direction = obs_data["direction"]
-                    if obs_data["type"]:
-                        t.type = obs_data["type"]
-                    null_terms.remove(t)
-                else:
-                    still_unmatched.append((idx, obs_data))
-
-            # Fallback 2: Match by direction alone when exactly one
-            # null-index terminal shares the direction.
-            for idx, obs_data in still_unmatched:
-                obs_dir = obs_data["direction"]
-                candidates = [t for t in null_terms if t.direction == obs_dir]
-                if len(candidates) == 1:
-                    t = candidates[0]
-                    t.index = idx
-                    if obs_data["direction"]:
-                        t.direction = obs_data["direction"]
-                    if obs_data["type"]:
-                        t.type = obs_data["type"]
-                    null_terms.remove(t)
+            elif obs_data["name"]:
+                # A catalog terminal with no number takes the number of the wired
+                # terminal that has exactly its name; a number no name gives stays
+                # unknown.
+                for term in vi.terminals:
+                    if term.name == obs_data["name"] and term.index is None:
+                        term.index = idx
+                        term.direction = obs_data["direction"]
+                        term.type = obs_data["type"]
+                        break
 
         return vi
 

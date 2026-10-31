@@ -5,10 +5,15 @@ from __future__ import annotations
 import ast
 import builtins
 import keyword
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
-from lvkit.models import LVType, LVTypeKind, ScalarValue, Terminal
+from lvkit.lv_type_codes import (
+    INTEGER_TYPE_NAMES,
+    is_boolean_type_name,
+    is_string_type_name,
+)
+from lvkit.models import ClusterField, LVType, LVTypeKind, ScalarValue, Terminal
 from lvkit.path_value import python_path
 from lvkit.vi_files import strip_vi_extension
 
@@ -35,16 +40,7 @@ def default_value_expr(lv_type: LVType | None) -> ast.expr:
             return ast.Constant(value="")
         if is_boolean_type_name(underlying):
             return ast.Constant(value=False)
-        if underlying in (
-            "NumInt8",
-            "NumInt16",
-            "NumInt32",
-            "NumInt64",
-            "NumUInt8",
-            "NumUInt16",
-            "NumUInt32",
-            "NumUInt64",
-        ):
+        if underlying in INTEGER_TYPE_NAMES:
             return ast.Constant(value=0)
         if underlying in ("NumFloat32", "NumFloat64"):
             return ast.Constant(value=0.0)
@@ -294,6 +290,28 @@ def unique_names(names: list[str]) -> list[str]:
     return result
 
 
+def field_attribute_names(field_names: Iterable[str]) -> list[str]:
+    """The Python attribute name of each field of one cluster, given the fields'
+    labels: the fields whose labels become one name ("Count" and "count") each
+    get their own."""
+    return unique_names([to_var_name(name) for name in field_names])
+
+
+def field_attribute_paths(fields: list[ClusterField]) -> list[list[str]]:
+    """The attribute path of every field of a cluster hierarchy, depth first in
+    the order of ``_flatten_fields`` (a sub-cluster is its own slot, followed by
+    its fields): the names ``field_attribute_names`` gives at each level."""
+    paths: list[list[str]] = []
+    names = field_attribute_names(f.name for f in fields)
+    for field, name in zip(fields, names, strict=True):
+        paths.append([name])
+        if field.type and field.type.fields:
+            paths.extend(
+                [name, *sub] for sub in field_attribute_paths(field.type.fields)
+            )
+    return paths
+
+
 def parameter_names(terminals: list[Terminal]) -> dict[str, str]:
     """Terminal id -> the Python parameter name of each non-error-cluster VI
     control, unique across ``terminals`` (connector-pane controls first, then
@@ -407,6 +425,15 @@ def to_function_name(vi_name: str) -> str:
         vi_name = vi_name.split(":")[-1]
     name = strip_vi_extension(vi_name)
     return to_var_name(name)
+
+
+def build_result_class_name(vi_name: str) -> str:
+    """Build result class name from VI name."""
+    base = to_function_name(vi_name)
+    # Convert to CamelCase
+    parts = base.split("_")
+    camel = "".join(p.capitalize() for p in parts if p)
+    return f"{camel}Result"
 
 
 def module_part(name: str) -> str:

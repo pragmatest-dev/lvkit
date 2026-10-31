@@ -6,7 +6,7 @@ All generated code is guaranteed to be syntactically valid Python.
 
 # New node-based builder
 from .builder import build_module
-from .class_builder import ClassBuilder, ClassConfig, build_class
+from .class_builder import ClassBuilder, ClassConfig, build_class_module
 from .context import CodeGenContext
 from .dataflow import DataFlowTracer
 from .expressions import ExpressionBuilder
@@ -22,7 +22,7 @@ __all__ = [
     "FunctionBuilder",
     # New API
     "build_module",
-    "build_class",
+    "build_class_module",
     "CodeGenContext",
     "CodeFragment",
     "ClassBuilder",

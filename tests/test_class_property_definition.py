@@ -48,7 +48,9 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
 
 def test_property_definition_vis_are_in_the_class_member_list(tree: _Tree) -> None:
     cls = parse_lvclass(tree.root / "Cls" / "Cls.lvclass")
-    assert [(m.name, m.scope, m.is_accessor) for m in cls.methods] == [
+    assert [
+        (m.name, m.scope, m.property_name is not None) for m in cls.methods
+    ] == [
         ("Run", "public", False),
         ("Inside", "public", False),
         ("Read Count", "private", True),

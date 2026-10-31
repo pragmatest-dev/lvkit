@@ -110,6 +110,7 @@ the "pad" steps align to that absolute offset::
     pad to 2
     path                                    PTH0 / PTH1 / PTH2
     flag                                    u32 (>= 8.6), u8 (>= 8.5)
+    u32                                     (< 8.6; 0 in every record seen)
     type id                                 u16, or u32 when the top bit is set
     VI link reference                       u8 flag byte (>= 14.0.0.3) -- else
                                             u32 + u64 (>= 8.0.0.3), then
@@ -478,8 +479,8 @@ def _read_basic_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
 def _read_link_head(r: _Reader, version: LinkTableVersion) -> _LinkHead:
     """The head of a heap-to-VI link record, read from just after its ident."""
     head = _read_basic_head(r, version)
-    if not version.at_least(8, 5, 0, 1):
-        r.u32()  # held by every heap-to-VI record of the 29 LabVIEW 8.2 files
+    if not version.at_least(8, 6, 0, 1):
+        r.u32()  # held by every heap-to-VI record of LabVIEW 8.2 and 8.5 files
     r.variable_size_u2p2()  # type id of the link's client type
 
     flag_byte = 0xFF

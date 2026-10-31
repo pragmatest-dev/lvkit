@@ -176,7 +176,7 @@ def test_single_vi_names_own_class_fields(tmp_path: Path) -> None:
     ("measurement context data") rather than "class private data" still names
     its unbundle-by-name fields from its OWN VCTP — the wrapping TypeDef is
     identified by its owner Labels (the class + its .ctl), so no .lvclass is
-    needed on the search path. Guards the Pass-2 owner-based fallback in
+    needed on the search path. Guards the owner-class + named-control identification in
     `_fields_from_xml`: without it these fields render as raw `[index]`.
     """
     if not (Path(_MC_REPO) / ".git").exists():

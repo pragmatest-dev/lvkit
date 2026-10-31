@@ -28,7 +28,7 @@ PROJECT_GROUP = "Project"
 # A page name longer than this many bytes is cut and given a hash of the whole name.
 _MAX_STEM_BYTES = 100
 
-_LIBRARY_GROUPS = {
+LIBRARY_GROUPS = {
     "<vilib>": "vi.lib",
     "<userlib>": "user.lib",
     "<instrlib>": "instr.lib",
@@ -73,7 +73,7 @@ def _path_name(graph: InMemoryVIGraph, source: Path, root: Path) -> PageName:
     library = graph.library_root_of(origin)
     if library is not None:
         token, library_root = library
-        return named(_LIBRARY_GROUPS[token], library_root, origin)
+        return named(LIBRARY_GROUPS[token], library_root, origin)
     outside = project_root(origin)
     return named(outside.name, outside, origin)
 

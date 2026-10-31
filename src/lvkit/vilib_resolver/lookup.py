@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lvkit.models import LVType, LVTypeKind
+from lvkit.parser.models import is_symbolic_root
 
 from .models import VIEntry
 from .naming import derive_python_name
@@ -46,15 +47,60 @@ class _VILibLookupMixin:
         return self._vis.get(vilib_path)
 
     def resolve_by_name(self, vi_name: str) -> VIEntry | None:
-        """Resolve a VI by its filename only.
+        """The catalog's own entry for a file name (``"Get System Directory.vi"``).
 
-        Args:
-            vi_name: VI filename like "Get System Directory.vi"
-
-        Returns:
-            VIEntry if found, None otherwise
+        This is the catalog's index, not a way to identify a call: a project VI can
+        share a catalog VI's file name. To find the entry for a call, use
+        ``resolve_recorded`` with the path the caller recorded.
         """
         return self._by_name.get(vi_name)
+
+    @staticmethod
+    def in_catalog_scope(recorded_path: str | None) -> bool:
+        """Whether the catalog describes the VI a call records ``recorded_path``
+        for: a path relative to a LabVIEW installation folder (``<vilib>/...``,
+        ``<userlib>/...``). A project file is never in the catalog."""
+        if not recorded_path:
+            return False
+        return is_symbolic_root(recorded_path.replace("\\", "/").split("/")[0])
+
+    @classmethod
+    def catalog_file_name(cls, recorded_path: str | None) -> str | None:
+        """The file name the catalog knows the VI a call records ``recorded_path``
+        for by, or None when the catalog does not describe it."""
+        if recorded_path is None or not cls.in_catalog_scope(recorded_path):
+            return None
+        return recorded_path.replace("\\", "/").rsplit("/", 1)[-1]
+
+    def resolve_recorded(self, recorded_path: str | None) -> VIEntry | None:
+        """The catalog entry for the VI a call records ``recorded_path`` for
+        (``<vilib>/Utility/error.llb/General Error Handler.vi``), matched by the
+        path's file name. None when the path is not in an installation folder, or
+        when the call records no path."""
+        file_name = self.catalog_file_name(recorded_path)
+        return None if file_name is None else self._by_name.get(file_name)
+
+    def resolve_call(
+        self,
+        recorded_path: str | None,
+        poly_variant_name: str | None = None,
+        *,
+        wrapper_fallback: bool = True,
+    ) -> VIEntry | None:
+        """The catalog entry for one call of the VI it records ``recorded_path`` for.
+        A polymorphic call that selected the variant ``poly_variant_name`` gets that
+        variant's entry. When the catalog does not list the variant, the call gets
+        the entry for the recorded path itself, or None with ``wrapper_fallback``
+        off (code generation needs the variant). None when the catalog does not
+        describe the VI."""
+        base_name = self.catalog_file_name(recorded_path)
+        if base_name is None:
+            return None
+        if poly_variant_name:
+            variant = self.resolve_poly_variant(base_name, poly_variant_name)
+            if variant is not None or not wrapper_fallback:
+                return variant
+        return self._by_name.get(base_name)
 
     def resolve_poly_variant(
         self, base_name: str, selector_name: str
@@ -115,26 +161,38 @@ class _VILibLookupMixin:
         """
         return [entry for entry in self._by_name.values() if entry.base_vi == base_name]
 
-    def has_implementation(self, vi_name: str) -> bool:
-        """Check if we have a full Python implementation (module) for a VI."""
-        vi = self.resolve_by_name(vi_name)
+    def has_python(self, recorded_path: str | None) -> bool:
+        """Whether the catalog gives Python (an implementation or an inline
+        template) for the VI a call records ``recorded_path`` for. Then every call
+        of it uses that Python, whether or not the VI's file is loaded, and no
+        module is generated from its diagram or from the VIs only it calls: the
+        one test code generation and dependency loading share."""
+        vi = self.resolve_recorded(recorded_path)
+        return vi is not None and vi.python_code is not None
+
+    def has_implementation(self, recorded_path: str | None) -> bool:
+        """Check if we have a full Python implementation (module) for the VI a
+        call records ``recorded_path`` for."""
+        vi = self.resolve_recorded(recorded_path)
         return vi is not None and vi.python_code is not None and not vi.inline
 
-    def has_inline(self, vi_name: str) -> bool:
-        """Check if we have inline Python code for a VI (inlined at call sites)."""
-        vi = self.resolve_by_name(vi_name)
+    def has_inline(self, recorded_path: str | None) -> bool:
+        """Check if we have inline Python code for the VI a call records
+        ``recorded_path`` for (inlined at call sites)."""
+        vi = self.resolve_recorded(recorded_path)
         return vi is not None and vi.python_code is not None and vi.inline
 
-    def get_implementation(self, vi_name: str) -> str | None:
+    def get_implementation(self, recorded_path: str | None) -> str | None:
         """Get the Python implementation for a vilib VI (non-inline only).
 
         Args:
-            vi_name: VI filename like "Get System Directory.vi"
+            recorded_path: The path a call records for it, like
+                "<vilib>/Utility/sysdir.llb/Get System Directory.vi"
 
         Returns:
             Python code string if available, None otherwise
         """
-        vi = self.resolve_by_name(vi_name)
+        vi = self.resolve_recorded(recorded_path)
         if not vi or not vi.python_code or vi.inline:
             return None
 
@@ -188,16 +246,17 @@ class _VILibLookupMixin:
         lines.append(vi.python_code)
         return "\n".join(lines)
 
-    def get_context(self, vi_name: str) -> dict[str, Any] | None:
+    def get_context(self, recorded_path: str | None) -> dict[str, Any] | None:
         """Get context for LLM code generation.
 
         Args:
-            vi_name: VI filename like "Get System Directory.vi"
+            recorded_path: The path a call records for the VI, like
+                "<vilib>/Utility/sysdir.llb/Get System Directory.vi"
 
         Returns:
             Dict with name, terminals, python hint, etc.
         """
-        vi = self.resolve_by_name(vi_name)
+        vi = self.resolve_recorded(recorded_path)
         if not vi:
             return None
 

@@ -56,6 +56,7 @@ from .models import (
     PrimitiveNode as GraphPrimitiveNode,
 )
 from .node_kinds import NodeType
+from .recorded_paths import RecordedPaths
 
 # Map operation kind (the coarse op-kind string from _graph_node_to_op_kind)
 # to its human-readable display label. Distinct key space from
@@ -166,6 +167,7 @@ from .package_queries import PackageQueriesMixin  # noqa: E402
 from .queries import QueryMixin  # noqa: E402
 from .typedef import TypedefMixin  # noqa: E402
 from .vi_reference import VIReferenceMixin  # noqa: E402
+from .wire_queries import WireQueriesMixin  # noqa: E402
 
 
 class InMemoryVIGraph(
@@ -175,6 +177,7 @@ class InMemoryVIGraph(
     QueryMixin,
     OperationsMixin,
     PackageQueriesMixin,
+    WireQueriesMixin,
     AnalysisMixin,
     TypedefMixin,
     VIReferenceMixin,
@@ -207,6 +210,11 @@ class InMemoryVIGraph(
         self._dep_graph: nx.DiGraph = nx.DiGraph()
         # Stub VIs (missing dependencies)
         self._stubs: set[str] = set()
+        # The path each dependency's callers recorded for it, resolved.
+        self._recorded = RecordedPaths(self._dep_graph)
+        # Whether a load stops at a VI the catalog gives Python for (see
+        # ``set_catalog_stop``).
+        self._catalog_stop = False
         # Polymorphic VI info
         self._poly_info: dict[str, PolyInfo] = {}
         # Qualified name aliases: "Lib.lvlib:VI.vi" -> "VI.vi" (for library VIs)
@@ -308,6 +316,13 @@ class InMemoryVIGraph(
             instrlib_root=self._instrlib_roots,
         )
 
+    def set_catalog_stop(self, stop: bool) -> None:
+        """Make the next loads stop at a VI the vi.lib catalog gives Python for:
+        only its own connector pane is loaded, never the VIs it calls. Code
+        generation sets it, because those VIs are never generated; every other
+        view loads the whole tree."""
+        self._catalog_stop = stop
+
     def clear(self) -> None:
         """Clear all loaded data."""
         self._graph.clear()
@@ -315,6 +330,7 @@ class InMemoryVIGraph(
         self._term_to_node.clear()
         self._dep_graph.clear()
         self._stubs.clear()
+        self._recorded.clear()
         self._poly_info.clear()
         self._qualified_aliases.clear()
         self._name_to_keys.clear()
@@ -491,7 +507,45 @@ class InMemoryVIGraph(
             return by_qname[0]
         leaf = ref.rsplit(":", 1)[-1]
         by_name = [s for s in succs if nodes[s].get("name") == leaf]
-        return by_name[0] if len(by_name) == 1 else None
+        if len(by_name) == 1:
+            return by_name[0]
+        return self._owner_chain_key(ref, caller_vi_key)
+
+    def _owner_chain_key(self, ref: str, caller_vi_key: str) -> str | None:
+        """PATH key of the class that owns the VI ``caller_vi_key`` (or one of that
+        class's ancestors) when ``ref`` names it: a class's own VIs do not
+        reference their class, they are listed by it, so the ownership edge is the
+        caller's recorded link to it. A library-qualified ``ref``
+        (``Lib.lvlib:C.lvclass``) names the class the file records by its own
+        name."""
+        key = self._owning_class_key(caller_vi_key)
+        seen: set[str] = set()
+        leaf = ref.rsplit(":", 1)[-1]
+        while key is not None and key not in seen:
+            seen.add(key)
+            data = self._dep_graph.nodes[key]
+            qname = data.get("qname") or ""
+            # A name qualified by a library names the class that library owns: a
+            # class recorded with its own library matches only that library's.
+            if qname == ref or (
+                data.get("name") == leaf and not (":" in ref and ":" in qname)
+            ):
+                return key
+            key = self._parent_class_key(key)
+        return None
+
+    def class_type_key(
+        self, lv_type: LVType, caller_vi_key: str | None = None
+    ) -> str | None:
+        """PATH key of the class node a class-typed ``lv_type`` is, found among
+        the calling VI's own links; ``None`` for a type that is not a loaded
+        class."""
+        if not lv_type.classname:
+            return None
+        key = self._dep_key_for_ref(lv_type.classname, caller_vi_key)
+        if key is None or not self._dep_graph.has_node(key):
+            return None
+        return key if self.is_class(key) else None
 
     def _dep_key_for_ref(
         self,
@@ -537,15 +591,14 @@ class InMemoryVIGraph(
         classname: str,
         caller_vi_key: str | None = None,
     ) -> list[ClusterField] | None:
-        """Complete field list for a class INCLUDING inherited parent fields.
-
-        LabVIEW nMux field indices are into the combined (parent + own) field
-        list, parent first — so the inheritance chain is walked. ``classname``
-        is resolved to its PATH-key node via :meth:`_dep_key_for_ref` (pass the
-        CALLER VI key so a duplicated class name resolves by the caller's edge);
-        the parent chain is then followed by ``parent_key`` (the parent's PATH,
-        recorded on the node) — never by name. Returns None if unresolved.
-        """
+        """The private-data fields the class declares itself, in declaration
+        order, not those it inherits: a Bundle/Unbundle By Name on a class wire
+        counts the wire's own class's fields only (private data is private to
+        its class). ``classname`` is resolved to its PATH-key node via
+        :meth:`_dep_key_for_ref` (pass the CALLER VI key so a duplicated class
+        name resolves by the caller's edge). Returns None if unresolved. The
+        fields of every level of the hierarchy are
+        :meth:`get_class_private_levels`."""
         node_key = self._dep_key_for_ref(classname, caller_vi_key)
         if node_key is None or not self._dep_graph.has_node(node_key):
             return None
@@ -574,17 +627,21 @@ class InMemoryVIGraph(
         return None
 
     def _class_fields_by_key(self, node_key: str) -> list[ClusterField] | None:
-        """Own + inherited fields for the class/typedef node at PATH ``node_key``.
-        Inheritance follows the parent's PATH key (:meth:`_parent_class_key`) by
-        IDENTITY."""
-        data = self._dep_graph.nodes[node_key]
-        own_fields: list[ClusterField] = data.get("fields") or []
+        """The fields the class/typedef node at PATH ``node_key`` declares."""
+        return list(self._dep_graph.nodes[node_key].get("fields") or [])
+
+    def class_fields_with_inherited(self, node_key: str) -> list[ClusterField]:
+        """The fields of the class at PATH ``node_key`` and of every ancestor,
+        the oldest ancestor's first: what a class and its parents hold together,
+        for a view that lists them (a Bundle/Unbundle By Name counts only the
+        wire's own class, :meth:`get_class_fields`)."""
         parent_key = self._parent_class_key(node_key)
-        if parent_key is not None:
-            parent_fields = self._class_fields_by_key(parent_key)
-            if parent_fields:
-                return parent_fields + own_fields
-        return own_fields
+        inherited = (
+            self.class_fields_with_inherited(parent_key)
+            if parent_key is not None
+            else []
+        )
+        return [*inherited, *(self._class_fields_by_key(node_key) or [])]
 
     def get_class_wire_style(
         self,
@@ -608,7 +665,7 @@ class InMemoryVIGraph(
     def _class_wire_style_by_key(self, node_key: str) -> WireStyle | None:
         """This class's own wire style, else the nearest ancestor's — the
         inherited case. Follows the parent's PATH key by IDENTITY
-        (:meth:`_parent_class_key`), same as :meth:`_class_fields_by_key`."""
+        (:meth:`_parent_class_key`)."""
         style: WireStyle | None = self._dep_graph.nodes[node_key].get("wire_style")
         if style is not None:
             return style
@@ -624,7 +681,7 @@ class InMemoryVIGraph(
     ) -> list[ClusterField] | None:
         """Get fields for any type. One API, all cases.
 
-        Class types use dep_graph (authoritative, includes inheritance chain) —
+        Class types use dep_graph (authoritative; the fields the class declares) —
         resolved by the CALLER's edge (``caller_vi_key``) so a duplicated class
         name maps to the right path. Typedef/cluster types prefer inline fields
         from the VI's own type_map (ground truth for that VI's dataflow, possibly

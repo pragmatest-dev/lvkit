@@ -101,27 +101,15 @@ def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
     graph._source_paths[str(caller)] = caller
     graph._dep_graph.add_node(str(caller))
     key = "Lib.lvlib:Thing.lvclass"
-    graph._add_stub(
-        key,
-        NodeType.CLASS,
-        "Thing.lvclass",
-        key,
-        path_tokens=tokens,
-        caller=str(caller),
-        path_type=0,
-    )
+    graph._add_stub(key, NodeType.CLASS, "Thing.lvclass", key, caller=str(caller))
+    graph._recorded.record(key, str(caller), tokens, 0)
     assert graph._dependency_file_path(key) is None
     # The same tokens recorded relative to the calling file do resolve.
     relative = "Rel.lvlib:Thing.lvclass"
     graph._add_stub(
-        relative,
-        NodeType.CLASS,
-        "Thing.lvclass",
-        relative,
-        path_tokens=["", "Lib", "Thing.lvclass"],
-        caller=str(caller),
-        path_type=1,
+        relative, NodeType.CLASS, "Thing.lvclass", relative, caller=str(caller)
     )
+    graph._recorded.record(relative, str(caller), ["", "Lib", "Thing.lvclass"], 1)
     assert graph._dependency_file_path(relative) == tmp_path / "Lib" / "Thing.lvclass"
 
 

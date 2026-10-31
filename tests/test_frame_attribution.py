@@ -21,20 +21,14 @@ from lvkit.graph.describe import (
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import Constant
 from lvkit.graph.op_walk import _format_error_cluster
-from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.models import LVType
+from tests.helpers import error_cluster_type
 
 IN_VI = Path(".lvkit/cache/samples/lv-flex-channel-examples/DAQmx AO/DAQ AO.vi")
 
 
 def _error_cluster_type() -> LVType:
-    return LVType(
-        kind=LVTypeKind.CLUSTER,
-        fields=[
-            ClusterField(name="status"),
-            ClusterField(name="code"),
-            ClusterField(name="source"),
-        ],
-    )
+    return error_cluster_type()
 
 
 def _error_const(

@@ -175,10 +175,12 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
 
-    call = _module_named(package, "/calltestmethod.py").read_text()
+    # CallTestMethod is a method of the class module, annotated with the enum.
+    call = _module_named(package, "classes/testcase/testcase.py").read_text()
     guarded = next(n for n in ast.parse(call).body if isinstance(n, ast.If))
     imported = {a.name for n in guarded.body for a in n.names}
-    assert {"TestCase", "MethodEnum"} <= imported
+    assert "MethodEnum" in imported
+    assert "def __calltestmethod(self, method: MethodEnum" in call
 
     modules = _import_all(package, monkeypatch)
     enum = modules[
@@ -196,9 +198,20 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
 def test_enum_constant_is_imported_at_run_time(tmp_path):
     package = _generate(TESTCASE_RUN, tmp_path)
     assert _all_undefined(package) == {}
-    run = ast.parse(_module_named(package, "testcase/run.py").read_text())
+    # `run` is a method of the class module; the class is in an import cycle with
+    # the modules it calls, so the enum is imported where `run` uses it.
+    testcase = ast.parse(
+        _module_named(package, "classes/testcase/testcase.py").read_text()
+    )
+    (run,) = (
+        n
+        for c in testcase.body
+        if isinstance(c, ast.ClassDef) and c.name == "TestCase"
+        for n in c.body
+        if isinstance(n, ast.FunctionDef) and n.name == "run"
+    )
     runtime = [
-        a.name for n in run.body if isinstance(n, ast.ImportFrom) for a in n.names
+        a.name for n in ast.walk(run) if isinstance(n, ast.ImportFrom) for a in n.names
     ]
     assert "MethodEnum" in runtime
     assert "MethodEnum.setUp" in ast.unparse(run)
@@ -272,10 +285,9 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     package = _generate(UNRESERVE_SESSIONS, tmp_path)
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
-    source = _module_named(package, "unreserve_sessions.py")
+    source = _module_named(package, "session_reservation/session_reservation.py")
     assert (
-        "is_dvr_valid(dvr_valid_in=session_reservation_in"
-        ".session_and_driver_infos[0].dvr_valid)"
+        "is_dvr_valid(dvr_valid_in=self.__session_and_driver_infos[0].dvr_valid)"
     ) in source.read_text()
 
 
@@ -285,10 +297,11 @@ WAVEGEN_LIB = SAMPLES / "lv-flex-channel-examples/WaveGen/WaveGen.lvlib"
 def test_modules_mirror_the_project_folders(tmp_path):
     package = _generate(CALL_TEST_METHOD, tmp_path)
     paths = {m.relative_to(package).as_posix() for m in _modules(package)}
-    assert any(
+    assert any(p.endswith("classes/testcase/testcase.py") for p in paths)
+    assert any(p.endswith("classes/testsuite/testsuite.py") for p in paths)
+    assert not any(
         p.endswith("classes/testcase/private/calltestmethod.py") for p in paths
     )
-    assert any(p.endswith("classes/testsuite/run.py") for p in paths)
     for path in paths:
         assert not {"home", "lvkit", "samples"} & set(path.split("/"))
 

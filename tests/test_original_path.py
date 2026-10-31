@@ -69,7 +69,11 @@ def test_a_copy_without_its_original_misses_its_relative_subvi(
     missing = str(copy.parent.resolve() / "SubVIs" / "Helper.vi")
     assert call.callee_key == missing
     assert graph.loaded_callee_key(call) is None
-    assert graph.recorded_path(missing) == "/SubVIs/Helper.vi"
+    # The path the copy records for it, relative to the copy (no installation
+    # path, so ``recorded_path`` has none).
+    recorded = graph._recorded.recorded_by(missing, key)  # noqa: SLF001
+    assert recorded is not None
+    assert "/".join(recorded.path_tokens) == "/SubVIs/Helper.vi"
 
 
 def test_a_copy_with_its_original_is_that_vi(tree: _Tree, tmp_path: Path) -> None:

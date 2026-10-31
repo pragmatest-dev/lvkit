@@ -15,6 +15,7 @@ from lvkit.docs.generate import (
     generate_documents,
 )
 from lvkit.docs.html_generator import HTMLDocGenerator
+from lvkit.docs.page_names import PageName
 from lvkit.graph import load_vi_by_path
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
@@ -81,7 +82,7 @@ def test_typedef_page_lists_fields_values_and_escapes(tmp_path: Path) -> None:
     html = gen._render_typedef_page(_info(fields=fields), "<svg id='fp'></svg>")
     assert "&lt;b&gt;Gain&lt;/b&gt;" in html and "<b>Gain</b>" not in html
     assert "<svg id='fp'></svg>" in html and "[1, 2]" in html
-    assert "Inner" in html and 'padding-left:2.5em' in html  # nested one level in
+    assert "Inner" in html and "padding-left:2.5em" in html  # nested one level in
     enum = LVType(LVTypeKind.ENUM, values={"Read": EnumValue(0), "Write": EnumValue(1)})
     values = gen._render_typedef_page(_info(root_type=enum, default="Write"), None)
     assert "<td>1</td><td>Write</td>" in values and "Front Panel" not in values
@@ -91,6 +92,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     gen = _generator(tmp_path)
     gen.register_typedefs([("/p/Cfg.ctl", "Cfg.ctl"), ("/p/Dep.ctl", "Dep.ctl")])
     gen.all_vis.add("/p/use.vi")
+    gen.register_vis({"/p/use.vi": PageName("p", "use")})
     gen.class_pages["Cls.lvclass"] = "Cls_lvclass/Cls.lvclass.html"
     info = _info(
         uses=(TypedefRef(NodeType.TYPEDEF, "Dep.ctl", "/p/Dep.ctl"),),
@@ -103,6 +105,7 @@ def test_references_link_only_to_pages_that_exist(tmp_path: Path) -> None:
     html = gen._render_typedef_page(info, None)
     assert 'href="Dep.html"' in html  # another typedef page: same directory
     assert 'href="../Cls_lvclass/Cls.lvclass.html"' in html
+    assert 'href="../p/use.html"' in html
     assert "nopage.vi</code> (vi)" in html  # no page: listed, not linked
     assert html.count("<a href=") == 4  # breadcrumb + the 3 references with pages
 
@@ -113,6 +116,7 @@ def test_index_and_vi_page_link_to_typedef_pages(tmp_path: Path) -> None:
     index = gen._render_index_page([])
     assert "Type Definitions" in index and 'href="typedef/Cfg.html"' in index
     assert "type definitions: 1" in index
+
     def link(key: str) -> str | None:
         page = gen.typedef_pages.get(key)
         return "../" + page.filename if page else None

@@ -18,9 +18,11 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.type_module import build_type_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
+from lvkit.pipeline import create_import_resolver
 from tests.corpus_graphs import OPENG_USERLIB
 
 GET_SETTINGS_PATH_VI = Path(
@@ -234,60 +236,37 @@ def test_codegen_is_hashseed_deterministic(tmp_path):
 
 
 class TestTestCaseLvclass:
-    """E2E: TestCase.lvclass — 74 methods, all must produce valid Python."""
+    """E2E: TestCase.lvclass -- the class module has every method as valid
+    Python."""
 
-    def _testcase_vis(self, testcase_graph):
-        """Get TestCase method VIs (not dependencies).
-
-        VIs are keyed by path (identity) now, so select them via the qname
-        reverse index — every loaded VI whose qualified name is a TestCase
-        method — and return their vi_keys for get_vi_context/build_module.
-        """
-        return [
-            key
-            for qname, keys in testcase_graph._qname_to_keys.items()
-            if qname.startswith("TestCase.lvclass:")
-            for key in keys
-        ]
+    def _class_module(self, graph: InMemoryVIGraph) -> str:
+        keys = graph.list_class_keys()
+        (class_key,) = [k for k in keys if Path(k).name == "TestCase.lvclass"]
+        out = Path("/pkg")
+        paths = {k: out / f"{Path(k).stem.lower()}.py" for k in keys}
+        resolver = create_import_resolver(
+            "pkg",
+            out,
+            paths,
+            paths[class_key],
+            caller_key=class_key,
+            graph=graph,
+        )
+        return build_type_module(graph, class_key, resolver)
 
     def test_all_methods_generate_valid_python(self, testcase_graph):
         """Every TestCase method must produce syntactically valid Python."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        successes = 0
-        failures = []
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                ast.parse(code)
-                successes += 1
-            except Exception as e:
-                failures.append((vi_name, str(e)))
-
-        if failures:
-            msg = f"{len(failures)} VIs failed:\n"
-            for vi_name, err in failures[:10]:
-                msg += f"  {vi_name}: {err}\n"
-            pytest.fail(msg)
-
-        assert successes >= 20, f"Expected 20+ AST successes, got {successes}"
+        code = self._class_module(testcase_graph)
+        tree = ast.parse(code)
+        (testcase,) = [
+            n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TestCase"
+        ]
+        methods = [n for n in testcase.body if isinstance(n, ast.FunctionDef)]
+        assert len(methods) >= 20, f"Expected 20+ methods, got {len(methods)}"
 
     def test_no_garbage_in_any_method(self, testcase_graph):
         """No method should contain unresolved placeholders."""
-        tc_vis = self._testcase_vis(testcase_graph)
-
-        for vi_name in tc_vis:
-            ctx = testcase_graph.get_vi_context(vi_name)
-            if not testcase_graph.top_level_nodes(vi_name):
-                continue
-            try:
-                code = build_module(ctx, vi_name, graph=testcase_graph)
-                assert_no_garbage(code, vi_name)
-            except Exception:
-                pass  # Generation failures caught by other test
+        assert_no_garbage(self._class_module(testcase_graph), "TestCase.lvclass")
 
 
 # ── IPES (In Place Element Structure) ──────────────────────
@@ -379,7 +358,7 @@ class TestIPESDeleteLine:
         code = _generate(delete_line_graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         # IPES writes modified field back to the input variable
-        assert ".lines" in code, "Expected field write-back"
+        assert ".__lines" in code, "Expected field write-back"
 
     def test_same_variable_in_and_out(self, delete_line_graph):
         """Return value must reference the same variable as input."""
@@ -420,11 +399,13 @@ class TestClassPrivateDataNmux:
         ctx = graph.get_vi_context(vi_name)
         code = build_module(ctx, vi_name, graph=graph)
         assert_valid_python(code, vi_name)
-        assert ".testsrun" in code, "Expected attribute access on the class field"
+        assert ".__testsrun" in code, "Expected attribute access on the class field"
 
         ns: dict = {}
         exec(compile(code, "<GetTestsRun.vi>", "exec"), ns)  # noqa: S102
-        this = types.SimpleNamespace(testsrun=42)
+        # Generated alone, outside its class body, the field keeps the name it
+        # is written with (the class module stores it as `_TestResult__testsrun`).
+        this = types.SimpleNamespace(**{"__testsrun": 42})
         result = ns["gettestsrun"](this)
         assert result.testsrun == 42
         assert result.testresult_out is this
@@ -451,13 +432,14 @@ class TestClassPrivateDataNmux:
         result = ns["testresult_init"](this, "event_ref")
         out = result.testresult_out
         assert out is this
-        assert out.testsrun == 0
-        assert out.shouldstop is False
+        fields = vars(out)
+        assert fields["__testsrun"] == 0
+        assert fields["__shouldstop"] is False
         # errors/failures are arrays: an empty array constant is a real empty
         # list, not the string "[]" (that was the array-constant-as-string bug).
-        assert out.errors == []
-        assert out.failures == []
-        assert out.resultstatuschangedeventref == "event_ref"
+        assert fields["__errors"] == []
+        assert fields["__failures"] == []
+        assert fields["__resultstatuschangedeventref"] == "event_ref"
 
 
 # ── Uninitialized shift register + First Call? (functional-global idiom) ──
