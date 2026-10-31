@@ -25,11 +25,12 @@ from lvkit.graph.models import (
     GraphNode,
     LoopNode,
     VIContext,
+    VINode,
 )
 from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
 from lvkit.graph.op_walk import stamp_nmux_lane_names
-from lvkit.models import ClusterField, LVType, LVTypeKind, TunnelTerminal
+from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal, TunnelTerminal
 from tests.class_graphs import (
     INT,
     Project,
@@ -1525,3 +1526,322 @@ def test_a_member_named_like_a_method_lvkit_writes_is_a_gap(tmp_path: Path) -> N
     (gap,) = gaps
     assert "'_share_refnums'" in gap.reason
     assert "def _share_refnums" not in package.sources["base"]
+
+
+# --- a reference value that may hold a method of a class -----------------------------
+
+
+def _refnum(slots: list[tuple[int, bool, LVType, str]]) -> LVType:
+    """A strictly typed VI refnum whose connector pane has ``slots``."""
+    from lvkit.models import PaneSlot
+
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="LVObjCtl",
+        element_type=LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Function",
+            pane=tuple(PaneSlot(i, out, t, name) for i, out, t, name in slots),
+        ),
+    )
+
+
+def _call_held(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
+    """A VI of no class that calls the VI its ``ref`` control holds: each input
+    slot of the pane is wired from a control of the slot's name, each output to
+    an indicator."""
+    reference = _refnum(slots)
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        terminals = [
+            Terminal(
+                id=f"{vi}:c.ref", index=-1, direction="input", lv_type=reference
+            ),
+            *(
+                Terminal(
+                    id=f"{vi}:c.{name}",
+                    index=i,
+                    direction="output" if out else "input",
+                    lv_type=t,
+                    name=name,
+                )
+                for i, out, t, name in slots
+            ),
+        ]
+        node = VINode(
+            id=f"{vi}:c",
+            vi_path=vi,
+            name="Call By Reference",
+            node_type="callByRefNode",
+            terminals=terminals,
+        )
+        inputs = [pane(vi, "input", "ref", reference, "ref", 0)]
+        outputs = []
+        wires = [wire(vi, "ref", "c.ref")]
+        for n, (_, out, t, name) in enumerate(slots, start=1):
+            if out:
+                outputs.append(pane(vi, "output", f"o_{name}", t, name, n))
+                wires.append(wire(vi, f"c.{name}", f"o_{name}"))
+            else:
+                inputs.append(pane(vi, "input", f"i_{name}", t, name, n))
+                wires.append(wire(vi, f"i_{name}", f"c.{name}"))
+        return (
+            VIContext(name=vi, inputs=inputs, outputs=outputs, data_flow=wires),
+            [node],
+        )
+
+    return build
+
+
+def _function(slots: list[tuple[int, bool, LVType, str]]) -> Recipe:
+    """A VI with the pane ``slots`` whose outputs are its first input."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        ins = [s for s in slots if not s[1]]
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", n, t, n, i) for i, _, t, n in ins],
+                outputs=[pane(vi, "output", n, t, n, i) for i, o, t, n in slots if o],
+                data_flow=[
+                    wire(vi, ins[0][3], n) for _, o, _, n in slots if o and ins
+                ],
+            ),
+            [],
+        )
+
+    return build
+
+
+SEED = [(0, False, INT, "seed"), (1, True, INT, "value")]
+
+
+def test_a_reference_value_to_an_instance_member_calls_it_with_self(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Bump", bump(BASE, 0, True), static=True)
+    slots = [
+        (0, False, BASE, "Base in"),
+        (1, True, BASE, "Base out"),
+        (2, False, INT, "n"),
+    ]
+    project.add_vi("Caller", _call_held(slots))
+    package = project.generate()
+    assert package.gaps == []
+    # The class input is the method's `self`, not the pane's label.
+    assert "ref(self=base_in, n=n)" in package.sources["caller"]
+    with package.use() as module:
+        base = module("base").Base
+        obj = base()
+        result = module("caller").caller(ref=base.bump, base_in=obj, n=4)
+        assert obj._Base__count == 4 and result.base_out is obj
+
+
+def test_a_reference_value_to_a_static_member_returns_its_one_value(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", static_make, static=True)
+    project.add_vi("Caller", _call_held(SEED))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        result = module("caller").caller(ref=module("base").Base.make, seed=6)
+        assert result.value == 6
+
+
+def test_a_reference_value_to_a_plain_vi_reads_its_result_fields(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_vi("Twice", _function(SEED))
+    project.add_vi("Caller", _call_held(SEED))
+    package = project.generate()
+    assert package.gaps == []
+    assert ".value" in package.sources["caller"]
+    with package.use() as module:
+        assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
+
+
+def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", static_make, static=True)
+    project.add_vi("Twice", _function(SEED))
+    project.add_vi("Caller", _call_held(SEED))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    (gap,) = gaps
+    assert "Base.lvclass:Make.vi" in gap.reason and "Twice.vi" in gap.reason
+    assert "not all called the same way" in gap.reason
+    with package.use() as module:
+        with pytest.raises(NotImplementedError, match="not all called the same"):
+            module("caller").caller(ref=module("twice").twice, seed=1)
+
+
+def test_a_member_and_a_vi_called_the_same_way_share_the_call(
+    tmp_path: Path,
+) -> None:
+    # Two outputs: both return a NamedTuple with the same fields.
+    slots = [(0, False, INT, "seed"), (1, True, INT, "a"), (2, True, INT, "b")]
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Pair", _function(slots), static=True)
+    project.add_vi("Pair2", _function(slots))
+    project.add_vi("Caller", _call_held(slots))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        caller = module("caller").caller
+        assert tuple(caller(ref=module("base").Base.pair, seed=2)) == (2, 2)
+        assert tuple(caller(ref=module("pair2").pair2, seed=5)) == (5, 5)
+
+
+def test_a_member_and_a_vi_with_no_outputs_share_the_call(tmp_path: Path) -> None:
+    slots = [(0, False, INT, "seed")]
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Take", _function(slots), static=True)
+    project.add_vi("Take2", _function(slots))
+    project.add_vi("Caller", _call_held(slots))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        caller = module("caller").caller
+        assert caller(ref=module("base").Base.take, seed=1) is None
+        assert caller(ref=module("take2").take2, seed=1) is None
+
+
+def test_an_error_cluster_output_is_no_result_for_either(tmp_path: Path) -> None:
+    error = LVType(
+        kind=LVTypeKind.CLUSTER,
+        fields=[
+            ClusterField(
+                name="status",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean"),
+            ),
+            ClusterField(name="code", type=INT),
+            ClusterField(
+                name="source",
+                type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String"),
+            ),
+        ],
+    )
+    slots = [(0, False, INT, "seed"), (1, True, error, "error out")]
+
+    def quiet(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "seed", INT, "seed", 0)],
+                outputs=[pane(vi, "output", "err", error, "error out", 1)],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Quiet", quiet, static=True)
+    project.add_vi("Quiet2", quiet)
+    project.add_vi("Caller", _call_held(slots))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        caller = module("caller").caller
+        assert caller(ref=module("base").Base.quiet, seed=1) is None
+        assert caller(ref=module("quiet2").quiet2, seed=1) is None
+
+
+def test_a_pane_typed_with_a_class_that_is_not_loaded_is_a_vis_call(
+    tmp_path: Path,
+) -> None:
+    ghost = class_type("Ghost")
+    slots = [(0, False, ghost, "obj"), (1, True, INT, "value")]
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", static_make, static=True)
+    project.add_vi("Caller", _call_held(slots))
+    package = project.generate()
+    assert package.gaps == []
+    assert "ref(obj=obj)" in package.sources["caller"]
+    assert ".value" in package.sources["caller"]
+
+
+def test_a_call_by_reference_of_a_property_read_and_write_vi_runs(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    read = project.add_method(
+        "Base", "Read Count", reader(BASE), static=True, property_name="Count"
+    )
+    write = project.add_method(
+        "Base", "Write Count", writer(BASE), static=True, property_name="Count"
+    )
+
+    def use(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        get = call(
+            vi,
+            "g",
+            read,
+            "callByRefNode",
+            [("self", 0, BASE)],
+            [("self out", 1, BASE), ("value", 2, INT)],
+        )
+        put = call(
+            vi,
+            "p",
+            write,
+            "callByRefNode",
+            [("self", 0, BASE), ("value", 2, INT)],
+            [("self out", 1, BASE)],
+        )
+        get.qualified_name, put.qualified_name = "Read Count.vi", "Write Count.vi"
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "obj", BASE, "obj", 0),
+                    pane(vi, "input", "v", INT, "v", 1),
+                ],
+                outputs=[pane(vi, "output", "seen", INT, "seen", 2)],
+                data_flow=[
+                    wire(vi, "obj", "p.self"),
+                    wire(vi, "v", "p.value"),
+                    wire(vi, "p.self out", "g.self"),
+                    wire(vi, "g.value", "seen"),
+                ],
+            ),
+            [put, get],
+        )
+
+    project.add_vi("Use", use)
+    package = project.generate()
+    assert package.gaps == []
+    source = package.sources["use"]
+    assert "Base.count.fset(self=obj, value=v)" in source
+    assert "Base.count.fget(self=obj)" in source
+    with package.use() as module:
+        obj = module("base").Base()
+        assert module("use").use(obj=obj, v=8).seen == 8
+        assert obj._Base__count == 8
+
+
+def test_a_private_member_of_another_class_is_no_candidate(tmp_path: Path) -> None:
+    # Only its own class's VIs call a private VI, so a VI of no class holding a
+    # reference with its pane holds the plain VI.
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_method("Base", "Make", static_make, "private", static=True)
+    project.add_vi("Twice", _function(SEED))
+    project.add_vi("Caller", _call_held(SEED))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3

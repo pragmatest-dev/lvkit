@@ -62,6 +62,7 @@ from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..pane_candidates import candidates
 from . import method_call, primitive, subvi
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -213,6 +214,9 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "dispatch terminal; " + _DYNAMIC_MEMBER,
             node,
         )
+    member_call = _member_value_call(node, ctx, function, pane)
+    if member_call is not None:
+        return member_call
     names = pane_names(pane)
     labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
@@ -238,6 +242,36 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
+
+
+def _member_value_call(
+    node: VINode, ctx: CodeGenContext, function: str, pane: tuple[PaneSlot, ...]
+) -> _Call | None:
+    """The call of a reference value that may hold a method of a class: the
+    project's VIs with the reference's pane (``pane_candidates``) include a
+    member, so the call is the method's when every candidate is called the same
+    way, and a gap when they are not; None when no member has the pane (the call
+    is a VI's function's, by the pane's names)."""
+    assert ctx.graph is not None and ctx.vi_name is not None
+    found = candidates(ctx.graph, pane, ctx.vi_name)
+    if not found.members:
+        return None
+    form = found.one_form()
+    if form is None:
+        shown = ", ".join(ctx.graph.vi_display_name(k) for k in sorted(found.forms))
+        raise ConversionGap(
+            f"{_label(node)}: the VI the reference holds is only known when the "
+            f"diagram runs, and the project's VIs with its connector pane ({shown}) "
+            "are not all called the same way: a method of a class takes its object "
+            "as self and returns its results as one value or a NamedTuple, a VI "
+            "returns a NamedTuple of its outputs.",
+            node,
+        )
+    if form.member is None:
+        return None
+    call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
+    result_var = call.result_var or ctx.make_output_var("vi_reference_result", node.id)
+    return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
