@@ -555,8 +555,16 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
         if key in seen:
             continue
         seen.add(key)
+        # The ``PTH0`` header is the tag, the total length, the path type, the
+        # component count.
+        path_type = int.from_bytes(data[m.start() + 8 : m.start() + 10], "big")
         refs.append(
-            ParsedDependencyRef(name=leaf, path_tokens=tokens, qualified_name=leaf)
+            ParsedDependencyRef(
+                name=leaf,
+                path_tokens=tokens,
+                qualified_name=leaf,
+                path_type=path_type,
+            )
         )
     return refs
 

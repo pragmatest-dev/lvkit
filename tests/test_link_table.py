@@ -167,6 +167,7 @@ def test_decodes_a_one_part_name_with_every_uid() -> None:
             path_tokens=("", "NIIconEditor", "Global Variables", "Data.vi"),
             link_flag=0,
             node_uids=(22767, 23163, 18698, 19484),
+            path_type=1,
         )
     ]
 
@@ -188,6 +189,7 @@ def test_a_static_vi_reference_record_lists_the_reference_uid() -> None:
             path_tokens=("", "utils", "SSR_Write.vi"),
             link_flag=2,
             node_uids=(944,),
+            path_type=1,
         )
     ]
 

@@ -5,12 +5,18 @@ the same name as a library VI it calls."""
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
+from lvkit.graph.describe import describe_vi
 from lvkit.graph.loading import file_qualified_name
+from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
+from lvkit.graph.node_kinds import NodeType
+from lvkit.load_mode import LoadMode
+from lvkit.parser.models import ParsedDependencyRef
 from tests.corpus_graphs import load_corpus_vi
 
 _SAMPLES = Path(".lvkit/cache/samples").resolve()
@@ -27,31 +33,104 @@ def test_file_name_is_the_last_component() -> None:
     assert file_qualified_name("", "New.vi") == "New.vi"
 
 
-def _class_graph(tmp_path: Path) -> tuple[InMemoryVIGraph, str, str, Path, Path]:
-    """A child class and its parent, each with a ``Run.vi`` member."""
-    child_vi = tmp_path / "Child" / "Run.vi"
-    parent_vi = tmp_path / "Parent" / "Run.vi"
+def _method_graph(tmp_path: Path) -> tuple[InMemoryVIGraph, str, list[str]]:
+    """A caller VI that depends on class ``X``, whose members are ``A.vi`` (the
+    caller itself) and a DIFFERENT ``Foo.vi``; ``loaded`` collects every file
+    the method pass leaf-loads."""
+    caller = tmp_path / "X" / "A.vi"
+    foo = tmp_path / "X" / "Foo.vi"
     graph = InMemoryVIGraph()
-    parent_key = str(tmp_path / "Parent" / "Parent.lvclass")
-    child_key = str(tmp_path / "Child" / "Child.lvclass")
-    graph._dep_graph.add_node(parent_key, method_paths={"Run.vi": str(parent_vi)})
+    cls_key = str(tmp_path / "X" / "X.lvclass")
+    graph._dep_graph.add_node(str(caller), name="A.vi", qname="X.lvclass:A.vi")
     graph._dep_graph.add_node(
-        child_key, method_paths={"Run.vi": str(child_vi)}, parent_key=parent_key
+        cls_key,
+        node_type=NodeType.CLASS,
+        name="X.lvclass",
+        method_paths={"A.vi": str(caller), "Foo.vi": str(foo)},
     )
-    return graph, child_key, parent_key, child_vi, parent_vi
+    graph._dep_graph.add_edge(str(caller), cls_key)
+    loaded: list[str] = []
+
+    def record(path: Path, *args: object) -> str:
+        loaded.append(path.name)
+        return str(path)
+
+    graph._leaf_load_vi = record  # type: ignore[method-assign]
+    return graph, str(caller), loaded
 
 
-def test_class_member_lookup_passes_over_the_caller_itself(tmp_path: Path) -> None:
-    graph, child_key, parent_key, child_vi, parent_vi = _class_graph(tmp_path)
-    assert graph.class_method(child_key, "Run.vi") == (child_key, str(child_vi))
-    # The child's own Run.vi is the caller: the nearest other file is the parent's.
-    assert graph.class_method(
-        child_key, "Run.vi", excluding=str(child_vi.resolve())
-    ) == (parent_key, str(parent_vi))
-    # With no other owner, nothing resolves (the call is not the caller's file).
-    assert graph.class_method(
-        parent_key, "Run.vi", excluding=str(parent_vi.resolve())
-    ) is None
+def _metadata(
+    calls: list[str], dispatch: list[str] | None = None, vipi: list[str] | None = None
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        iuse_to_qualified_name=dict(enumerate(calls)),
+        dyn_refs={
+            i: ParsedDependencyRef(
+                name=q.rsplit(":", 1)[-1], path_tokens=[], qualified_name=q
+            )
+            for i, q in enumerate(dispatch or [])
+        },
+        subvi_method_names=vipi or [],
+    )
+
+
+def test_library_call_is_not_resolved_to_a_class_member_of_that_name(
+    tmp_path: Path,
+) -> None:
+    graph, caller, loaded = _method_graph(tmp_path)
+    graph._load_subvi_method_deps(
+        caller, _metadata(["Lib.lvlib:Foo.vi"]), [], LoadMode.MINIMAL, set()
+    )
+    assert loaded == []
+
+
+def test_call_owned_by_the_class_resolves_to_its_member(tmp_path: Path) -> None:
+    graph, caller, loaded = _method_graph(tmp_path)
+    graph._load_subvi_method_deps(
+        caller, _metadata(["X.lvclass:Foo.vi"]), [], LoadMode.MINIMAL, set()
+    )
+    assert loaded == ["Foo.vi"]
+
+
+def test_call_already_resolved_by_its_recorded_path_is_left_alone(
+    tmp_path: Path,
+) -> None:
+    graph, caller, loaded = _method_graph(tmp_path)
+    graph._load_subvi_method_deps(
+        caller,
+        _metadata(["X.lvclass:Foo.vi"]),
+        [],
+        LoadMode.MINIMAL,
+        {"X.lvclass:Foo.vi"},
+    )
+    assert loaded == []
+
+
+def test_ownerless_dispatch_name_resolves_through_the_callers_class(
+    tmp_path: Path,
+) -> None:
+    graph, caller, loaded = _method_graph(tmp_path)
+    graph._load_subvi_method_deps(
+        caller, _metadata([], vipi=["Foo.vi"]), [], LoadMode.MINIMAL, set()
+    )
+    assert loaded == ["Foo.vi"]
+
+
+def test_dispatch_name_a_recorded_call_accounts_for_is_not_a_second_call(
+    tmp_path: Path,
+) -> None:
+    """``Message.lvclass:A.vi`` (a parent's method, not a dependency) and the
+    bare ``A.vi`` the same call leaves in the VIPI table are ONE call: the bare
+    name must not find the caller's own ``A.vi``."""
+    graph, caller, loaded = _method_graph(tmp_path)
+    graph._load_subvi_method_deps(
+        caller,
+        _metadata([], dispatch=["Message.lvclass:A.vi"], vipi=["A.vi"]),
+        [],
+        LoadMode.MINIMAL,
+        set(),
+    )
+    assert loaded == []
 
 
 def _declarations(vi: Path, root: Path) -> dict[str, str | None]:
@@ -89,3 +168,75 @@ def test_library_call_named_like_the_caller_is_not_the_caller() -> None:
         assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] is None
         assert f"Measurement Plugin Template.lvclass:{name}" not in decls
         assert name not in decls
+
+
+@pytest.mark.needs_samples
+def test_text_views_declare_the_library_call_not_the_caller() -> None:
+    template = (
+        _SAMPLES
+        / "measurement-plugin-labview/Source/Generator"
+        / "Measurement Plug-In Template/Measurement"
+    )
+    vi = template / "Build Assets" / "Post-Build Action.vi"
+    graph, key = load_corpus_vi(vi, template)
+    lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
+    uses = [
+        ln.strip()
+        for ln in lvnet.splitlines()
+        if ln.startswith("    subVI") and " : " not in ln
+    ]
+    assert uses == ["subVI NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi"]
+    described = describe_vi(graph, key)
+    assert "NI Measurement Plug-In SDK.lvlib:Post-Build Action.vi" in described
+    assert "Measurement Plugin Template.lvclass:Post-Build Action.vi" not in described
+
+
+def test_absent_dependency_with_an_absolute_recorded_path_shows_no_path(
+    tmp_path: Path,
+) -> None:
+    """An absolute path (type 0) is a machine path outside the project: it is
+    never joined onto the caller's file, and no path is shown for the stub."""
+    tokens = ["C", "Program Files", "NI", "vi.lib", "Lib", "Thing.lvclass"]
+    graph = InMemoryVIGraph()
+    caller = tmp_path / "Caller.vi"
+    graph._source_paths[str(caller)] = caller
+    graph._dep_graph.add_node(str(caller))
+    key = "Lib.lvlib:Thing.lvclass"
+    graph._add_stub(
+        key,
+        NodeType.CLASS,
+        "Thing.lvclass",
+        key,
+        path_tokens=tokens,
+        caller=str(caller),
+        path_type=0,
+    )
+    assert graph._dependency_file_path(key) is None
+    # The same tokens recorded relative to the calling file do resolve.
+    relative = "Rel.lvlib:Thing.lvclass"
+    graph._add_stub(
+        relative,
+        NodeType.CLASS,
+        "Thing.lvclass",
+        relative,
+        path_tokens=["", "Lib", "Thing.lvclass"],
+        caller=str(caller),
+        path_type=1,
+    )
+    assert graph._dependency_file_path(relative) == tmp_path / "Lib" / "Thing.lvclass"
+
+
+@pytest.mark.needs_samples
+def test_absent_class_declared_without_a_machine_path() -> None:
+    template = (
+        _SAMPLES
+        / "measurement-plugin-labview/Source/Generator"
+        / "Measurement Plug-In Template/Measurement"
+    )
+    graph, key = load_corpus_vi(
+        template / "Build Assets" / "Post-Build Action.vi", template
+    )
+    lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
+    sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
+    assert f"    class {sdk_class}\n" in lvnet
+    assert "Program Files" not in lvnet

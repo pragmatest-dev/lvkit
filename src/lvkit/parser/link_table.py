@@ -215,6 +215,7 @@ class DynamicDispatchLink:
     path_tokens: tuple[str, ...]
     link_flag: int
     node_uids: tuple[int, ...]
+    path_type: int | None = None
 
 
 @dataclass(frozen=True)
@@ -233,12 +234,15 @@ class ExtFuncLink:
 
 @dataclass(frozen=True)
 class IUseLink:
-    """One ``IUVI`` record: the VI referenced and every node that uses it."""
+    """One ``IUVI`` record: the VI referenced and every node that uses it, with
+    the type of the path it records (0 absolute, 1 relative; ``None`` when the
+    record does not say)."""
 
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
     link_flag: int
     node_uids: tuple[int, ...]
+    path_type: int | None = None
 
 
 class SharedVariableRecordKind(str, Enum):
@@ -506,6 +510,7 @@ def _decode_record(data: bytes, ident_pos: int, version: LinkTableVersion) -> IU
         path_tokens=head.path_tokens,
         link_flag=head.link_flag,
         node_uids=node_uids,
+        path_type=head.path_type,
     )
 
 
@@ -721,6 +726,7 @@ def _decode_dyn_record(
         path_tokens=head.path_tokens,
         link_flag=head.link_flag,
         node_uids=uids,
+        path_type=head.path_type,
     )
 
 

@@ -435,6 +435,9 @@ class ParsedDefaultValue:
     structure: str  # "Cluster", "Array", "scalar", etc.
 
 
+ABSOLUTE_PATH_TYPE = 0
+
+
 def is_symbolic_root(token: str) -> bool:
     """A LinkSavePathRef's leading ``<name>`` token: a path relative to a
     LabVIEW installation folder (``<vilib>``, ``<resource>``, …), not to the
@@ -452,6 +455,9 @@ class ParsedDependencyRef:
     name: str  # Leaf filename, e.g., "TestCase.lvclass" or "listTestMethods.vi"
     path_tokens: list[str]  # Raw path tokens from LinkSavePathRef/String
     qualified_name: str | None = None  # e.g., "TestCase.lvclass:TestCase_Init.vi"
+    # The recorded path's type: 0 absolute (a machine path, outside any project),
+    # 1 relative to the calling file; None when the record does not say.
+    path_type: int | None = None
 
     def get_relative_path(self) -> str:
         """Get a display string for the path tokens (display only).
@@ -503,7 +509,7 @@ class ParsedDependencyRef:
                 return None
             base = instrlib_root
             rest = tokens[1:]
-        elif is_symbolic_root(tokens[0]):
+        elif is_symbolic_root(tokens[0]) or self.path_type == ABSOLUTE_PATH_TYPE:
             return None
         else:
             # Each leading empty = one '..' starting from the caller file

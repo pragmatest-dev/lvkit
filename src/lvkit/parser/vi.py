@@ -1503,9 +1503,11 @@ def _xml_iuse_link(elem: ET.Element) -> IUseLink | None:
     )
     if not path_tokens and name_parts:
         return None
+    tp_val = path_ref.get("TpVal")
     return IUseLink(
         name_parts=name_parts,
         path_tokens=path_tokens,
+        path_type=int(tp_val) if tp_val is not None else None,
         link_flag=int(elem.get("LinkSaveFlag", "0")),
         node_uids=tuple(
             int(o.text, 16) for o in elem.findall("LinkOffsetList/Offset") if o.text
@@ -1532,6 +1534,7 @@ def _link_dependency_ref(
         name=qname.rsplit(":", 1)[-1],
         path_tokens=list(link.path_tokens),
         qualified_name=qname,
+        path_type=link.path_type,
     )
 
 
@@ -1651,7 +1654,9 @@ def _extract_subvi_info(
     ]
     seen_deps: set[tuple[str, tuple[str, ...]]] = set()
 
-    def _add_dependency(qname: str, path_tokens: Sequence[str]) -> None:
+    def _add_dependency(
+        qname: str, path_tokens: Sequence[str], path_type: int | None = None
+    ) -> None:
         key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
         if key in seen_deps:
             return
@@ -1661,6 +1666,7 @@ def _extract_subvi_info(
                 name=qname.rsplit(":", 1)[-1],
                 path_tokens=list(path_tokens),
                 qualified_name=qname,
+                path_type=path_type,
             )
         )
 
@@ -1673,7 +1679,7 @@ def _extract_subvi_info(
                 link = _xml_iuse_link(elem)
                 if link is None:
                     continue
-                _add_dependency(qname, link.path_tokens)
+                _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The sidecar's records name the same dependencies the decoded elements do.
     for link in libd_links:
@@ -1681,7 +1687,7 @@ def _extract_subvi_info(
             list(link.name_parts), link.link_flag, caller_library
         )
         if qname:
-            _add_dependency(qname, link.path_tokens)
+            _add_dependency(qname, link.path_tokens, link.path_type)
 
     # The class method each raw dynamic-dispatch record names is a dependency.
     for dyn in dyn_links:
@@ -1689,7 +1695,7 @@ def _extract_subvi_info(
             list(dyn.name_parts), dyn.link_flag, caller_library
         )
         if qname:
-            _add_dependency(qname, dyn.path_tokens)
+            _add_dependency(qname, dyn.path_tokens, dyn.path_type)
 
     # The project library each Shared Variable belongs to.
     for sv_link in shared_variable_links:

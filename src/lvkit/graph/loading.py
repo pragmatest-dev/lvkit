@@ -324,7 +324,7 @@ class LoadingMixin:
             shared_variable_failures: list[SharedVariableRecordFailure] | None = None,
         ) -> None: ...
         def class_method(
-            self, class_key: str, method: str, excluding: str | None = None
+            self, class_key: str, method: str
         ) -> tuple[str, str] | None: ...
         def is_class(self, key: str) -> bool: ...
         def _dep_key_for_ref(
@@ -486,6 +486,7 @@ class LoadingMixin:
         path_tokens: list[str] | None,
         caller: str | None,
         rel: EdgeRel | None = None,
+        path_type: int | None = None,
     ) -> None:
         """Add one path-keyed STUB node for a dependency whose file is absent
         (or unresolved) -- the single shape shared by every stub-creation site
@@ -505,7 +506,12 @@ class LoadingMixin:
         edged from).
         """
         if not self._dep_graph.has_node(key):
-            self._dep_graph.add_node(key, node_type=node_type, path_tokens=path_tokens)
+            self._dep_graph.add_node(
+                key,
+                node_type=node_type,
+                path_tokens=path_tokens,
+                path_type=path_type,
+            )
             self._stubs.add(key)
         self._register_dep_name(key, name, qname if qname is not None else name)
         if caller:
@@ -1671,7 +1677,13 @@ class LoadingMixin:
             # Resolve SubVI CALLEES (incl. dynamic-dispatch methods absent from
             # _LIbd.bin) to their files via the now-loaded class member lists —
             # AFTER the class deps above are in the graph. See the method.
-            self._load_subvi_method_deps(vi_key, metadata, search_paths, mode)
+            self._load_subvi_method_deps(
+                vi_key,
+                metadata,
+                search_paths,
+                mode,
+                {q for q, k in dep_keys.items() if k not in self._stubs},
+            )
             iuse_to_callee_key = {
                 uid: dep_keys[qname]
                 for uid, qname in metadata.iuse_to_qualified_name.items()
@@ -2144,6 +2156,7 @@ class LoadingMixin:
                 qualified_name,
                 path_tokens=path_tokens,
                 caller=caller_qname,
+                path_type=dep_ref.path_type if dep_ref else None,
             )
             return str(computed) if computed is not None else None
 
@@ -2272,30 +2285,30 @@ class LoadingMixin:
         metadata: ParsedVIMetadata,
         search_paths: list[Path],
         mode: LoadMode,
+        resolved_qnames: set[str],
     ) -> None:
         """Resolve the VI's class-method SubVI CALLEES — including the dispatch
         methods the ``_LIbd.bin`` IUVI table omits — to their files by MEMBER-LIST
         membership over the classes this VI already depends on, and edge each to
         the caller so the render draws its icon + interface.
 
-        A callee name (from the ``_LIvi.bin`` VIPI table + the IUVI map) resolves
-        against the ``method_paths`` of the VI's class deps: the owner is the class
-        whose member list HAS the method. A CROSS-CLASS dynamic-dispatch call —
-        a method whose owner is a class this VI does NOT path-record (its object
-        was derived mid-diagram, so nothing stores that class's path) — is left
-        UNRESOLVED on purpose: MINIMAL does not follow into it (its ``dynLink``
-        carries no static path, only the wire's class resolves it), so the render
-        draws a named box and a later click loads it as its own root.
+        A call is resolved by its recorded qualified name ``Class.lvclass:Method.vi``
+        (the IUVI map and the dispatch ``DyOM`` records), and only when no
+        dependency was already resolved for that name: the class named by the
+        owner is the one this VI depends on, and the method is that class's
+        member or its nearest ancestor's. A call owned by a library, or by a
+        class this VI does NOT depend on (its object was derived mid-diagram,
+        so nothing stores that class's path), is left UNRESOLVED on purpose:
+        MINIMAL does not follow into it, so the render draws a named box and a
+        later click loads it as its own root.
         """
-        called: set[str] = set(metadata.subvi_method_names)
-        for qname in metadata.iuse_to_qualified_name.values():
-            called.add(qname.rsplit(":", 1)[-1])
-        if not called:
-            return
-
-        # Most-derived class first, then by path: when a method is OVERRIDDEN
-        # (declared in a child and its parent, both loaded), the child's copy is
-        # the icon that would actually run, and the tie-break is deterministic.
+        dispatched = {
+            ref.qualified_name
+            for ref in metadata.dyn_refs.values()
+            if ref.qualified_name
+        }
+        recorded_all = {*metadata.iuse_to_qualified_name.values(), *dispatched}
+        recorded = recorded_all - resolved_qnames
         class_keys = sorted(
             (
                 s
@@ -2304,10 +2317,58 @@ class LoadingMixin:
             ),
             key=lambda s: (-len(self._dep_graph.nodes[s].get("ancestors", [])), s),
         )
-        for name in sorted(called):
+        # A call recorded under a class resolves through THAT class's hierarchy
+        # (the class is a dependency of the caller, or an ancestor of one); one
+        # recorded under a library never does.
+        for qualified in sorted(recorded):
+            owners = qualified.split(":")[:-1]
+            if owners and owners[-1].endswith(".lvclass"):
+                cls_key = self._owner_class_key(owners[-1], vi_key, class_keys)
+                if cls_key is not None:
+                    self._resolve_method_in_hierarchy(
+                        qualified.rsplit(":", 1)[-1],
+                        [cls_key],
+                        vi_key,
+                        search_paths,
+                        mode,
+                    )
+        # A dispatch call recorded with no owner (the ``_LIvi.bin`` VIPI table, or
+        # a ``DyOM`` record without one) is on the caller's own class context:
+        # it resolves through the classes this VI depends on, most-derived first
+        # (an overridden method's child copy is the icon that would run).
+        # A VIPI name that a recorded call (with its owner) already accounts for is
+        # that call, not a second one on the caller's own class.
+        accounted = {q.rsplit(":", 1)[-1] for q in recorded_all}
+        ownerless = {
+            *(set(metadata.subvi_method_names) - accounted),
+            *(q for q in dispatched - resolved_qnames if ":" not in q),
+        }
+        for name in sorted(ownerless):
             self._resolve_method_in_hierarchy(
                 name, class_keys, vi_key, search_paths, mode
             )
+
+    def _owner_class_key(
+        self, owner: str, vi_key: str, class_keys: list[str]
+    ) -> str | None:
+        """The class node a call's recorded owner (``Class.lvclass``) names: the
+        class the caller depends on under that name, else an ancestor of one of
+        its class dependencies (a dispatch call recorded under the parent class
+        of the wire's class). Each ancestor is reached by the recorded
+        ``parent_key`` link, so the search is the caller's own hierarchy, never
+        the whole graph."""
+        direct = self._dep_key_for_ref(owner, vi_key)
+        if direct is not None and self.is_class(direct):
+            return direct
+        seen: set[str] = set()
+        for start in class_keys:
+            key: str | None = start
+            while key is not None and key not in seen and self._dep_graph.has_node(key):
+                seen.add(key)
+                if self._dep_graph.nodes[key].get("name") == owner:
+                    return key
+                key = self._dep_graph.nodes[key].get("parent_key")
+        return None
 
     def _resolve_method_in_hierarchy(
         self,
@@ -2317,16 +2378,14 @@ class LoadingMixin:
         search_paths: list[Path],
         mode: LoadMode,
     ) -> str | None:
-        """Resolve one callee against each class dep AND its ANCESTOR chain (a
-        dispatch method not declared on the wire's class is INHERITED from a
-        parent — that owner's file is the icon to show), then leaf-load + edge it.
-        The ancestor hop follows the parent's recorded ``parent_key`` — a direct
-        path link, never a name-search. Returns the callee's identity (its file
-        path), or None when it did not resolve."""
+        """Resolve one method name against each class in ``class_keys`` AND its
+        ANCESTOR chain (a dispatch method not declared on the wire's class is
+        INHERITED from a parent — that owner's file is the icon to show), then
+        leaf-load + edge it. The ancestor hop follows the parent's recorded
+        ``parent_key`` — a direct path link. Returns the callee's identity (its
+        file path), or None when it did not resolve."""
         for cls_key in class_keys:
-            # The caller's own file is never its callee found by a member name
-            # (a recursive call is recorded as one: ``self_call_uids``).
-            found = self.class_method(cls_key, name, excluding=vi_key)
+            found = self.class_method(cls_key, name)
             if found is not None:
                 owner_key, path_str = found
                 return self._leaf_load_vi(
@@ -2364,6 +2423,7 @@ class LoadingMixin:
             name,
             path_tokens=path_tokens,
             caller=None,
+            path_type=dep_ref.path_type if dep_ref else None,
         )
 
     def _cache_vilib_terminal_layout(

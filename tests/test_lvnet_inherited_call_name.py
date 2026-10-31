@@ -32,11 +32,15 @@ def test_inherited_method_declared_with_owning_class() -> None:
 
 
 @pytest.mark.needs_samples
-def test_inherited_and_direct_calls_side_by_side() -> None:
+def test_direct_calls_and_a_same_named_member_of_the_callers_class() -> None:
     subvis = _subvis(_ROOT / "Classes" / "TextTestRunner" / "run.vi")
-    # Inherited from TestRunner / called directly on TestResult.
-    assert subvis["TestRunner.lvclass:run.vi"] == "./Classes/TestRunner/run.vi"
-    assert subvis["TestResult.lvclass:GetErrors.vi"] == (
-        "./Classes/TestResult/GetErrors.vi"
+    # TextTestRunner has its own run.vi (the caller) and inherits TestRunner's;
+    # the body calls TestCase's and TestSuite's run.vi, so neither the caller
+    # nor the ancestor's run.vi is declared.
+    assert subvis["TestCase.lvclass:run.vi"] == "./Classes/TestCase/run.vi"
+    assert subvis["TestSuite.lvclass:run.vi"] == "./Classes/TestSuite/run.vi"
+    assert subvis["TextTestRunner.lvclass:makeResult.vi"] == (
+        "./Classes/TextTestRunner/makeResult.vi"
     )
+    assert "TestRunner.lvclass:run.vi" not in subvis
     assert "run.vi" not in subvis

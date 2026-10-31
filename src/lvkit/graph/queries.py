@@ -444,22 +444,17 @@ class QueryMixin:
             return None
         return key
 
-    def class_method(
-        self, class_key: str, method: str, excluding: str | None = None
-    ) -> tuple[str, str] | None:
+    def class_method(self, class_key: str, method: str) -> tuple[str, str] | None:
         """``(owner_key, path)`` of the file that declares ``method`` for the
         class at ``class_key``: the class's own, else the nearest ancestor's,
-        following each class's recorded parent key. ``excluding`` is a file key
-        the walk passes over (a caller never finds itself as its own callee).
-        ``None`` when no class of the chain lists it."""
+        following each class's recorded parent key. ``None`` when no class of
+        the chain lists it."""
         key: str | None = class_key
         seen: set[str] = set()
         while key is not None and key not in seen and self._dep_graph.has_node(key):
             seen.add(key)
             path = self._dep_graph.nodes[key].get("method_paths", {}).get(method)
-            if path is not None and not (
-                excluding is not None and str(Path(path).resolve()) == excluding
-            ):
+            if path is not None:
                 return key, path
             key = self._dep_graph.nodes[key].get("parent_key")
         return None
@@ -559,7 +554,11 @@ class QueryMixin:
         if not tokens:
             return None
         leaf = node_key.rsplit(":", 1)[-1]
-        ref = ParsedDependencyRef(name=leaf, path_tokens=list(tokens))
+        ref = ParsedDependencyRef(
+            name=leaf,
+            path_tokens=list(tokens),
+            path_type=self._dep_graph.nodes[node_key].get("path_type"),
+        )
         for caller in self._dep_graph.predecessors(node_key):
             caller_file = self._source_paths.get(caller)
             if caller_file is None:
