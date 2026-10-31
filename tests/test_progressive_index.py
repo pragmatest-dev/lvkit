@@ -32,7 +32,7 @@ _TESTCASE = (
 
 def _load_and_name(vi: Path, root: Path) -> tuple[InMemoryVIGraph, str]:
     g = InMemoryVIGraph()
-    g.load_vi(vi, LoadMode.MINIMAL, search_paths=[root])
+    g.load_vi(vi, LoadMode.MINIMAL)
     for name in g.list_vis():
         src = g.get_vi_source_path(name)
         if src is not None and src.resolve() == vi.resolve():

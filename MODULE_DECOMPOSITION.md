@@ -133,7 +133,7 @@ Split the resolver classes + per-node builders: `nodes/resolvers.py`
 
 ### `cli.py` (~2107) → `cli/` package (one module per command)
 - `cli/main.py` — `main()` + parser wiring
-- `cli/args.py` — `_add_{load_mode,theme,project_root,library_root}_arg`, `_parse/_configure_library_roots`, `_configure_resolvers`, `_auto_search_paths`, `_resolve_load_mode`
+- `cli/args.py` — `_add_{load_mode,theme,project_root,library_root}_arg`, `_parse/_configure_library_roots`, `_configure_resolvers`, `_resolve_load_mode`
 - `cli/describe.py` · `cli/render.py` (+`_build_render_body`,`_emit_render`,`_theme_mode`) · `cli/diff.py` (+`_build_diff_body`,`_emit_diff`) · `cli/index.py` (index/query/`_print_table`) · `cli/graph_op.py` · `cli/structure.py` · `cli/generate.py` · `cli/docs.py` · `cli/visualize.py` · `cli/setup.py` (setup/detect) · `cli/mcp.py`
 
 ### Not yet inspected — confirm seams from source when resuming

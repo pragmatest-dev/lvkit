@@ -42,9 +42,8 @@ def _vipi(count: int, names: bytes, pth0: bytes) -> bytes:
 
 
 def test_parse_vipi_static_and_dynamic_callees(tmp_path: Path) -> None:
-    """A count=0 own-context record is skipped; a count=1 record yields a bare
-    method name; a count=2 record yields the method name too (the class hint
-    is not decoded — see the function docstring on why it's unreliable)."""
+    """A count=0 own-context record is skipped; a count=1 record is owned by the
+    class its ``PTH0`` names; a count=2 record keeps its explicit class."""
     own_ctx = _vipi(0, b"", _pth0(["", "Icon Framework.lvclass"]))
     rec1 = _vipi(
         1,
@@ -59,8 +58,27 @@ def test_parse_vipi_static_and_dynamic_callees(tmp_path: Path) -> None:
     path = tmp_path / "sample_LIvi.bin"
     path.write_bytes(own_ctx + rec1 + rec2)
 
-    names = set(parse_vipi_from_livi(path))
-    assert names == {"GET_IconTextClass.vi", "SET_BodyText.vi"}
+    refs = parse_vipi_from_livi(path)
+    assert [(r.qualified_name, r.path_tokens, r.path_type) for r in refs] == [
+        (
+            "Icon.lvclass:GET_IconTextClass.vi",
+            ["", "", "Icon", "Icon.lvclass"],
+            1,
+        ),
+        (
+            "Icon Framework.lvclass:SET_BodyText.vi",
+            ["", "Icon Framework.lvclass"],
+            1,
+        ),
+    ]
+
+
+def test_parse_vipi_without_a_path_gives_no_ref(tmp_path: Path) -> None:
+    path = tmp_path / "sample_LIvi.bin"
+    path.write_bytes(
+        b"VIPI" + struct.pack(">I", 1) + _wrapped_method("Orphan.vi") + b"\x00" * 8
+    )
+    assert parse_vipi_from_livi(path) == []
 
 
 def test_parse_vipi_missing_file_returns_empty(tmp_path: Path) -> None:
@@ -88,7 +106,7 @@ def test_parse_vipi_real_apply_body_text() -> None:
     if not livi.exists():
         pytest.skip("no _LIvi.bin extracted for this VI")
 
-    names = set(parse_vipi_from_livi(livi))
+    names = {r.name for r in parse_vipi_from_livi(livi)}
     assert {
         "GET_IconTextClass.vi",
         "SET_IconTextClass.vi",
@@ -125,7 +143,7 @@ def test_minimal_staging_resolves_class_method_subvis() -> None:
         pytest.skip(f"sample VI absent: {vi}")
 
     g = InMemoryVIGraph()
-    name = g.load_vi(vi, LoadMode.MINIMAL, search_paths=[root])
+    name = g.load_vi(vi, LoadMode.MINIMAL)
     assert name is not None
     staged = {p.name for p in g.get_dependency_paths(name)}
 
@@ -150,7 +168,7 @@ def test_minimal_staging_resolves_class_method_subvis() -> None:
     # PTH0 link tables). Only a nested typedef with no file link (LayerType.ctl)
     # falls out — its type is already inline, so it needs no staging.
     g2 = InMemoryVIGraph()
-    name2 = g2.load_vi(vi, LoadMode.MINIMAL, search_paths=[])
+    name2 = g2.load_vi(vi, LoadMode.MINIMAL)
     assert name2 is not None
     by_path = {p.name for p in g2.get_dependency_paths(name2)}
     assert {

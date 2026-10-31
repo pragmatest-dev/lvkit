@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import subprocess
 import sys
@@ -24,6 +23,7 @@ if TYPE_CHECKING:
 # the specific commands that build/analyze — see the function-local imports.
 from . import __version__, cache_paths, staging
 from .build_options import BuildOptions
+from .console import use_utf8_output
 from .load_mode import LoadMode
 from .project_store import (
     find_project_store,
@@ -89,8 +89,62 @@ def _add_project_root_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+_SEARCH_PATH_REMOVED = (
+    "--search-path no longer exists: lvkit finds each dependency only at the "
+    "path the VI records for it. Name the folder a recorded <userlib>, <vilib> "
+    "or <instrlib> path starts from with --userlib DIR, --vilib DIR or "
+    "--instrlib DIR."
+)
+
+
+class _RemovedSearchPathAction(argparse.Action):
+    """``--search-path``: a usage error (exit 2) naming the library-root flags
+    that replace it."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: object,
+        option_string: str | None = None,
+    ) -> None:
+        parser.error(_SEARCH_PATH_REMOVED)
+
+
+def _original_path(value: str) -> Path:
+    """An ``--original-path`` value: the file a VI copy stands for. Its folder
+    must exist (its recorded relative paths start there); the file need not."""
+    path = Path(value)
+    if not path.parent.is_dir():
+        raise argparse.ArgumentTypeError(f"folder not found: {path.parent}")
+    return path
+
+
+_ORIGINAL_PATH_HELP = (
+    "The file this VI is a copy of (e.g. a git version written to a temporary "
+    "folder): its relative recorded paths are read from {}'s folder, and its "
+    "identity and the project its paths are shown in are those of {}. "
+    "<vilib>/<userlib>/<instrlib> and absolute paths are unchanged. The folder "
+    "must exist."
+)
+
+
+def _add_original_path_arg(
+    parser: argparse.ArgumentParser, flag: str = "--original-path"
+) -> None:
+    """Add an original-path option (see ``_original_path``) to a subparser."""
+    parser.add_argument(
+        flag,
+        type=_original_path,
+        default=None,
+        metavar="PATH",
+        help=_ORIGINAL_PATH_HELP.format("PATH", "PATH"),
+    )
+
+
 def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
-    """Add --vilib, --userlib, and --no-auto-vilib flags to a subparser."""
+    """Add --vilib, --userlib, --instrlib and --no-auto-vilib flags to a
+    subparser (and the removed --search-path, which is a usage error)."""
     parser.add_argument(
         "--vilib",
         default=None,
@@ -101,8 +155,8 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
             "terminal layouts are captured automatically, and results "
             "are cached to .lvkit/vilib/ for future runs. When omitted, "
             "lvkit tries to auto-detect a local LabVIEW install and use its "
-            "vi.lib/user.lib (see `lvkit detect`); pass --no-auto-vilib to "
-            "disable that."
+            "vi.lib/user.lib/instr.lib (see `lvkit detect`); pass "
+            "--no-auto-vilib to disable that."
         ),
     )
     parser.add_argument(
@@ -115,11 +169,25 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Path to LabVIEW's instr.lib directory on disk. When set, "
+            "<instrlib> dependency refs resolve to real .vi files."
+        ),
+    )
+    parser.add_argument(
+        "--search-path",
+        action=_RemovedSearchPathAction,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--no-auto-vilib",
         action="store_true",
         help=(
             "Disable auto-detection of a locally installed LabVIEW's "
-            "vi.lib/user.lib when --vilib is not given. Use this for "
+            "vi.lib/user.lib/instr.lib when --vilib is not given. Use this for "
             "reproducible/machine-independent runs (e.g. CI)."
         ),
     )
@@ -127,15 +195,17 @@ def _add_library_root_args(parser: argparse.ArgumentParser) -> None:
 
 def _parse_library_roots(
     args: argparse.Namespace,
-) -> tuple[Path | None, Path | None]:
-    """Extract --vilib / --userlib from parsed args as Path objects.
+) -> tuple[Path | None, Path | None, Path | None]:
+    """Extract ``(vilib, userlib, instrlib)`` roots from parsed args as Paths.
 
     When --vilib is not given (and --no-auto-vilib was not passed), attempt a
     best-effort auto-detection of a locally installed LabVIEW and use its
-    vi.lib / user.lib. Explicit flags always win; detection is non-fatal.
+    vi.lib / user.lib / instr.lib. Explicit flags always win; detection is
+    non-fatal.
     """
     vilib_root = Path(args.vilib) if args.vilib else None
     userlib_root = Path(args.userlib) if args.userlib else None
+    instrlib_root = Path(args.instrlib) if getattr(args, "instrlib", None) else None
 
     if vilib_root is None and not getattr(args, "no_auto_vilib", False):
         from .lv_detect import detect_labview
@@ -145,6 +215,8 @@ def _parse_library_roots(
             vilib_root = detected.vilib_root
             if userlib_root is None:
                 userlib_root = detected.userlib_root
+            if instrlib_root is None:
+                instrlib_root = detected.instrlib_root
             version = detected.version or "?"
             print(
                 f"lvkit: auto-detected LabVIEW {version} vi.lib at "
@@ -152,14 +224,18 @@ def _parse_library_roots(
                 file=sys.stderr,
             )
 
-    return vilib_root, userlib_root
+    return vilib_root, userlib_root, instrlib_root
 
 
 def _configure_library_roots(graph: InMemoryVIGraph, args: argparse.Namespace) -> None:
-    """Apply --vilib / --userlib from parsed args to the graph."""
-    vilib_root, userlib_root = _parse_library_roots(args)
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+    """Apply --vilib / --userlib / --instrlib from parsed args to the graph."""
+    vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
+    if vilib_root or userlib_root or instrlib_root:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+        )
 
 
 def _find_project_store(args: argparse.Namespace) -> Path | None:
@@ -198,20 +274,9 @@ def _configure_resolvers(args: argparse.Namespace) -> Path | None:
     return store
 
 
-def _use_utf8_output() -> None:
-    """Write UTF-8 to stdout/stderr whatever the platform's default encoding.
-
-    The CLI prints non-ASCII symbols (arrows, ticks); a Windows pipe defaults to
-    the ANSI code page, which cannot encode them and would crash the command.
-    """
-    for stream in (sys.stdout, sys.stderr):
-        if isinstance(stream, io.TextIOWrapper):
-            stream.reconfigure(encoding="utf-8")
-
-
 def main() -> int:
     """Main CLI entry point."""
-    _use_utf8_output()
+    use_utf8_output()
     parser = argparse.ArgumentParser(
         prog="lvkit",
         description="Understand, convert, and document LabVIEW VI files.",
@@ -370,18 +435,6 @@ def main() -> int:
         help="Path to a .vi/.vim/.vit file, or a .ctl control",
     )
     desc_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The VI's project "
-            "root (nearest enclosing .lvkit/) is auto-detected and "
-            "searched, so this is only needed for VIs outside a "
-            "project store."
-        ),
-    )
-    desc_parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -412,6 +465,7 @@ def main() -> int:
     )
     _add_project_root_arg(desc_parser)
     _add_load_mode_arg(desc_parser)
+    _add_original_path_arg(desc_parser)
     _add_library_root_args(desc_parser)
 
     # Generate command - deterministic AST-based Python generation
@@ -441,18 +495,6 @@ def main() -> int:
         help="Output directory",
     )
     gen_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The VI's project "
-            "root (nearest enclosing .lvkit/) is auto-detected and "
-            "searched, so this is only needed for VIs outside a "
-            "project store."
-        ),
-    )
-    gen_parser.add_argument(
         "--fail-fast",
         action="store_true",
         help=(
@@ -479,18 +521,6 @@ def main() -> int:
         "output_dir",
         help="Output directory for HTML files",
     )
-    docs_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The VI's project "
-            "root (nearest enclosing .lvkit/) is auto-detected and "
-            "searched, so this is only needed for VIs outside a "
-            "project store."
-        ),
-    )
     _add_project_root_arg(docs_parser)
     _add_load_mode_arg(docs_parser)
     _add_library_root_args(docs_parser)
@@ -509,18 +539,6 @@ def main() -> int:
         "--output",
         default="outputs/graph.html",
         help="Output HTML file (default: outputs/graph.html)",
-    )
-    viz_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The VI's project "
-            "root (nearest enclosing .lvkit/) is auto-detected and "
-            "searched, so this is only needed for VIs outside a "
-            "project store."
-        ),
     )
     viz_parser.add_argument(
         "--open",
@@ -613,21 +631,12 @@ def main() -> int:
         "to its qualified name.",
     )
     diff_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The project root of each "
-            "VI (nearest enclosing .lvkit/) is auto-detected and searched, so "
-            "this is only needed for VIs outside a project store."
-        ),
-    )
-    diff_parser.add_argument(
         "--no-cache",
         action="store_true",
         help="Bypass the output cache: rebuild the diff and refresh the slot.",
     )
+    _add_original_path_arg(diff_parser, "--before-original-path")
+    _add_original_path_arg(diff_parser, "--after-original-path")
     _add_theme_arg(diff_parser)
     _add_project_root_arg(diff_parser)
     _add_load_mode_arg(diff_parser)
@@ -706,13 +715,6 @@ def main() -> int:
     unresolved_parser.add_argument(
         "input_path",
         help="Path to .vi, .lvlib, .lvclass, .llb, or directory",
-    )
-    unresolved_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Extra SubVI search path (repeatable). See `generate --help`.",
     )
     unresolved_parser.add_argument(
         "--format",
@@ -797,18 +799,7 @@ def main() -> int:
             "lvkit resolves the name, the caller supplies only the rev."
         ),
     )
-    render_parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help=(
-            "Extra SubVI search path (repeatable). The VI's project "
-            "root (nearest enclosing .lvkit/) is auto-detected and "
-            "searched, so this is only needed for VIs outside a "
-            "project store."
-        ),
-    )
+    _add_original_path_arg(render_parser)
     _add_theme_arg(render_parser)
     _add_project_root_arg(render_parser)
     _add_load_mode_arg(render_parser)
@@ -1017,7 +1008,7 @@ def cmd_index(args: argparse.Namespace) -> int:
             "total": done.refresh.total,
         }
         if done.refresh is not None
-        else {"vis": len(done.facts), "collisions": done.collisions}
+        else {"vis": len(done.facts), "loaded_alone": done.loaded_alone}
     )
     summary["controls"] = done.controls.controls
     summary["ms"] = round((time.monotonic() - start) * 1000)
@@ -1182,12 +1173,15 @@ def _describe_ctl(args: argparse.Namespace, input_path: Path) -> int:
     """``describe`` on a ``.ctl`` control: the text page, or ``--format json``."""
     from .graph.describe_typedef import describe_ctl_file
 
+    vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
     try:
         out = describe_ctl_file(
             input_path,
             fmt=getattr(args, "format", "text"),
             verbose=args.verbose,
-            search_paths=_auto_search_paths(args.search_paths, input_path) or None,
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
         )
     except (ValueError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -1205,6 +1199,9 @@ def cmd_describe(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
     if input_path.suffix.lower() == ".ctl":
+        if args.original_path is not None:
+            print("Error: --original-path applies to a VI, not a .ctl", file=sys.stderr)
+            return 2
         return _describe_ctl(args, input_path)
 
     _configure_resolvers(args)
@@ -1213,8 +1210,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
         from .graph import load_vi_by_path
         from .index.build import warm_all_loaded
 
-        vilib_root, userlib_root = _parse_library_roots(args)
-        search_paths = _auto_search_paths(args.search_paths, input_path)
+        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
         # Path IS a VI's identity: ``load_vi_by_path`` returns ``load_vi``'s
         # OWN key for the exact file requested, never re-derived from the
         # input's bare leaf name (which would collide across e.g.
@@ -1222,9 +1218,10 @@ def cmd_describe(args: argparse.Namespace) -> int:
         graph, vi_name = load_vi_by_path(
             input_path,
             _resolve_load_mode(args, LoadMode.MINIMAL),
-            search_paths=search_paths,
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+            original_path=args.original_path,
         )
 
         # Progressive index: every parse warms the store — describe parses this
@@ -1475,6 +1472,11 @@ def cmd_detect(args: argparse.Namespace) -> int:
                             if detected.userlib_root
                             else None
                         ),
+                        "instrlib_root": (
+                            str(detected.instrlib_root)
+                            if detected.instrlib_root
+                            else None
+                        ),
                         "source": detected.source,
                     },
                     indent=2,
@@ -1493,23 +1495,23 @@ def cmd_detect(args: argparse.Namespace) -> int:
     print(f"  install dir : {detected.install_dir}")
     print(f"  vi.lib      : {detected.vilib_root}")
     print(f"  user.lib    : {detected.userlib_root or '(not found)'}")
+    print(f"  instr.lib   : {detected.instrlib_root or '(not found)'}")
     print(f"  source      : {detected.source}")
     return 0
 
 
 def _build_options(
     args: argparse.Namespace,
-    *inputs: Path,
-    roots: tuple[Path | None, Path | None] | None = None,
+    roots: tuple[Path | None, Path | None, Path | None] | None = None,
 ) -> BuildOptions:
-    """The build options of a render/diff of ``inputs`` from CLI args: SubVI
-    search paths, vi.lib / user.lib roots (``roots``, else resolved here), load
-    mode and project store. They key the output cache and feed the build."""
-    vilib_root, userlib_root = roots or _parse_library_roots(args)
+    """The build options of a render/diff from CLI args: vi.lib / user.lib /
+    instr.lib roots (``roots``, else resolved here), load mode and project
+    store. They key the output cache and feed the build."""
+    vilib_root, userlib_root, instrlib_root = roots or _parse_library_roots(args)
     return BuildOptions(
-        search_paths=tuple(_auto_search_paths(args.search_paths, *inputs)),
         vilib_root=vilib_root,
         userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
         mode=_resolve_load_mode(args, LoadMode.MINIMAL),
         project_store=_find_project_store(args),
     )
@@ -1522,7 +1524,9 @@ def _render_options_tag(
     ``render_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import render_options_tag
 
-    return render_options_tag(args.format, theme_mode, ref, build)
+    return render_options_tag(
+        args.format, theme_mode, ref, build, getattr(args, "original_path", None)
+    )
 
 
 def _theme_mode(args: argparse.Namespace) -> ThemeMode:
@@ -1534,8 +1538,8 @@ def _theme_mode(args: argparse.Namespace) -> ThemeMode:
 def _render_build_kw(
     build: BuildOptions, theme_mode: ThemeMode, ref: str | None
 ) -> dict[str, object]:
-    """The ``render_body`` build kwargs (library roots, search paths, load mode,
-    theme, title ref). The actual build/import happens inside ``cached_render``
+    """The ``render_body`` build kwargs (library roots, load mode, theme, title
+    ref). The actual build/import happens inside ``cached_render``
     on a miss — a cache hit never reaches it."""
     return {**build.build_kwargs(), "theme_mode": theme_mode, "ref": ref}
 
@@ -1552,6 +1556,8 @@ def _build_render_body(
     else: the output file is the only thing written (no cache entry, no staging
     folder). Otherwise the shared cached core builds it and refreshes the slot."""
     kw = _render_build_kw(build, theme_mode, ref)
+    if args.original_path is not None:
+        kw["original_path"] = args.original_path
     if args.no_cache and args.output:
         from .render.body import render_body
 
@@ -1596,11 +1602,16 @@ def cmd_render(args: argparse.Namespace) -> int:
         print(f"Error: Path not found: {input_path}", file=sys.stderr)
         return 1
 
+    if args.original_path is not None and (
+        input_path.is_dir() or input_path.suffix.lower() == ".ctl"
+    ):
+        print("Error: --original-path applies to one VI", file=sys.stderr)
+        return 2
     if input_path.is_dir():
         return _cmd_render_dir(args, input_path)
 
     theme_mode = _theme_mode(args)
-    build = _build_options(args, input_path)
+    build = _build_options(args)
     options = _render_options_tag(args, theme_mode, args.ref, build)
 
     # Fast path: a fresh cached render is served here before ANY miss-path setup.
@@ -1667,7 +1678,7 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     rendered = fresh = failed = 0
     for vi in vis:
         body: str | None = None
-        build = _build_options(args, vi, roots=roots)
+        build = _build_options(args, roots=roots)
         # no per-VI ref in batch
         options = _render_options_tag(args, theme_mode, None, build)
         if not args.no_cache:
@@ -1704,35 +1715,6 @@ def _cmd_render_dir(args: argparse.Namespace, root: Path) -> int:
     return 1 if failed and rendered == 0 and fresh == 0 else 0
 
 
-def _auto_search_paths(explicit: list[str], *inputs: Path) -> list[Path]:
-    """Effective SubVI search paths: the explicit ``--search-path`` values,
-    plus the auto-detected project root of each input.
-
-    A VI's SubVIs commonly live in sibling subdirectories of the project root,
-    not next to the VI itself (the VI's own directory is always searched via
-    ``load_vi``'s ``source_dir``, so it never needs listing here). #36: rather
-    than make the user pass ``--search-path``, walk up from each input to its
-    enclosing ``.lvkit`` project store (``find_project_store`` — the same
-    marker ``_configure_resolvers`` already uses for primitive/vi.lib data) and
-    add that root. Shared by every command that resolves SubVIs
-    (describe/generate/docs/visualize/render/diff), so ``lvkit <cmd> foo.vi``
-    finds the project's SubVIs with no flags. Explicit paths still win/augment;
-    inputs sharing one project resolve to the same root (added once).
-    """
-    paths: list[Path] = [Path(p) for p in explicit]
-    seen = {p.resolve() for p in paths}
-    for inp in inputs:
-        start = inp if inp.is_dir() else inp.parent
-        store = find_project_store(start=start)
-        if store is None:
-            continue
-        root = store.parent  # project root is the parent of the .lvkit/ store
-        if root.resolve() not in seen:
-            paths.append(root)
-            seen.add(root.resolve())
-    return paths
-
-
 def _diff_options_tag(
     args: argparse.Namespace, fmt: str, verbose: bool, build: BuildOptions
 ) -> str:
@@ -1740,7 +1722,15 @@ def _diff_options_tag(
     ``diff_options_tag`` so CLI/MCP/web all key identically."""
     from .output_cache import diff_options_tag
 
-    return diff_options_tag(fmt, verbose, args.before_ref, args.after_ref, build)
+    return diff_options_tag(
+        fmt,
+        verbose,
+        args.before_ref,
+        args.after_ref,
+        build,
+        args.before_original_path,
+        args.after_original_path,
+    )
 
 
 def _diff_build_kw(
@@ -1753,6 +1743,8 @@ def _diff_build_kw(
         "verbose": verbose,
         "before_ref": args.before_ref,
         "after_ref": args.after_ref,
+        "before_original": args.before_original_path,
+        "after_original": args.after_original_path,
     }
 
 
@@ -1813,7 +1805,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
         print("Error: --open requires --format html", file=sys.stderr)
         return 1
     verbose = bool(args.verbose or args.long)
-    build = _build_options(args, path_a, path_b)
+    build = _build_options(args)
     options = _diff_options_tag(args, fmt, verbose, build)
 
     # Fast path: a cached diff is served before any miss-path setup (see cmd_render
@@ -1870,15 +1862,14 @@ def cmd_generate(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        sp = _auto_search_paths(args.search_paths, input_path) or None
-        vilib_root, userlib_root = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
         result = generate_python(
             input_path,
             args.output,
-            search_paths=sp,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
             fail_fast=args.fail_fast,
         )
         if result["error"] > 0 or result["failed"] > 0:
@@ -1912,14 +1903,13 @@ def cmd_unresolved(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        sp = _auto_search_paths(args.search_paths, input_path) or None
-        vilib_root, userlib_root = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
         items = collect_unresolved(
             input_path,
-            search_paths=sp,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
         )
     except (
         ValueError,
@@ -1966,17 +1956,14 @@ def cmd_docs(args: argparse.Namespace) -> int:
     _configure_resolvers(args)
 
     try:
-        vilib_root, userlib_root = _parse_library_roots(args)
+        vilib_root, userlib_root, instrlib_root = _parse_library_roots(args)
         result = generate_documents(
             library_path=str(input_path),
             output_dir=args.output_dir,
-            search_paths=[
-                str(p) for p in _auto_search_paths(args.search_paths, input_path)
-            ]
-            or None,
             mode=_resolve_load_mode(args, LoadMode.FULL),
             vilib_root=vilib_root,
             userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
         )
         print("\n" + result)
         return 0
@@ -2000,18 +1987,17 @@ def cmd_visualize(args: argparse.Namespace) -> int:
 
     graph = InMemoryVIGraph()
     _configure_library_roots(graph, args)
-    search_paths = _auto_search_paths(args.search_paths, input_path) or None
     vmode = _resolve_load_mode(args, LoadMode.FULL)
 
     suffix = input_path.suffix.lower()
     if suffix == ".lvclass":
-        graph.load_lvclass(str(input_path), vmode, search_paths)
+        graph.load_lvclass(str(input_path), vmode)
     elif suffix == ".lvlib":
-        graph.load_lvlib(str(input_path), vmode, search_paths)
+        graph.load_lvlib(str(input_path), vmode)
     elif input_path.is_dir():
-        graph.load_directory(str(input_path), vmode, search_paths)
+        graph.load_directory(str(input_path), vmode)
     else:
-        graph.load_vi(str(input_path), vmode, search_paths)
+        graph.load_vi(str(input_path), vmode)
 
     # Every command that parses warms the index (best-effort).
     from .index.build import warm_all_loaded

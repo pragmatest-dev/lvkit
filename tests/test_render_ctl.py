@@ -48,8 +48,15 @@ def test_dispatcher_sends_a_ctl_to_the_control_renderer(monkeypatch) -> None:
         Path("A.CTL"), fmt="svg", vilib_root=Path("/v"), mode=LoadMode.FULL, ref="r"
     )
     assert set(calls) == {"ctl"}  # matched on suffix, case-insensitively
-    # a control has no dependencies: the VI load options are not forwarded
-    assert set(calls["ctl"]) == {"fmt", "search_paths", "theme_mode", "ref"}
+    # a control takes the library roots, not the VI load mode
+    assert set(calls["ctl"]) == {
+        "fmt",
+        "vilib_root",
+        "userlib_root",
+        "instrlib_root",
+        "theme_mode",
+        "ref",
+    }
     render_body(Path("A.vi"), fmt="svg", vilib_root=Path("/v"))
     assert calls["vi"]["vilib_root"] == Path("/v")
 
@@ -70,7 +77,14 @@ def test_with_name_dispatcher_mirrors_render_body(monkeypatch) -> None:
         Path("A.CTL"), fmt="svg", vilib_root=Path("/v"), mode=LoadMode.FULL, ref="r"
     )
     assert set(calls) == {"ctl"}
-    assert set(calls["ctl"]) == {"fmt", "search_paths", "theme_mode", "ref"}
+    assert set(calls["ctl"]) == {
+        "fmt",
+        "vilib_root",
+        "userlib_root",
+        "instrlib_root",
+        "theme_mode",
+        "ref",
+    }
     render_body_with_name(Path("A.vi"), fmt="svg", vilib_root=Path("/v"))
     assert calls["vi"]["vilib_root"] == Path("/v")
 

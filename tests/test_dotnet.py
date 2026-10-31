@@ -448,7 +448,7 @@ def _stand_in_types(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _load() -> tuple[InMemoryVIGraph, str]:
     graph = InMemoryVIGraph()
-    graph.load_vi(SV_SAMPLE, LoadMode.MINIMAL, search_paths=[SV_SAMPLE.parent])
+    graph.load_vi(SV_SAMPLE, LoadMode.MINIMAL)
     return graph, graph.list_vis()[0]
 
 

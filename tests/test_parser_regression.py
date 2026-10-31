@@ -10,6 +10,7 @@ from lvkit.graph.loading import LoadMode
 from lvkit.parser import ParsedVI, ParsedVIMetadata, parse_vi
 from lvkit.parser.metadata import parse_vi_metadata
 from lvkit.parser.type_mapping import parse_type_map_rich
+from tests.corpus_graphs import OPENG_USERLIB
 
 # Regression suite over the local-only sample corpus.
 pytestmark = pytest.mark.needs_samples
@@ -18,7 +19,6 @@ TEST_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
     "Graphical Test Runner/Graphical Test Runner Support/Get Settings Path.vi"
 )
-SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +50,8 @@ def parsed_metadata(parsed_vi) -> ParsedVIMetadata:
 @pytest.fixture(scope="module")
 def graph():
     g = InMemoryVIGraph()
-    g.load_vi(TEST_VI, mode=LoadMode.FULL, search_paths=SEARCH_PATHS)
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
+    g.load_vi(TEST_VI, mode=LoadMode.FULL)
     return g
 
 

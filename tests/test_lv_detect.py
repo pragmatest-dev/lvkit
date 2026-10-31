@@ -75,6 +75,14 @@ def test_candidate_with_vilib_and_userlib(tmp_path):
     assert cand.userlib_root == install / "user.lib"
 
 
+def test_candidate_with_instrlib(tmp_path):
+    install = _make_install(tmp_path, "LabVIEW 2021", vilib=True, userlib=False)
+    (install / "instr.lib").mkdir()
+    cand = _candidate_from_install_dir(install, "2021", "test")
+    assert cand is not None
+    assert cand.instrlib_root == install / "instr.lib"
+
+
 def test_candidate_userlib_optional(tmp_path):
     install = _make_install(tmp_path, "LabVIEW 2021", vilib=True, userlib=False)
     cand = _candidate_from_install_dir(install, "2021", "test")
@@ -236,7 +244,12 @@ def test_windows_returns_none_when_nothing_valid(tmp_path, monkeypatch):
 def _ns(**kw):
     import argparse
 
-    defaults = {"vilib": None, "userlib": None, "no_auto_vilib": False}
+    defaults = {
+        "vilib": None,
+        "userlib": None,
+        "instrlib": None,
+        "no_auto_vilib": False,
+    }
     defaults.update(kw)
     return argparse.Namespace(**defaults)
 
@@ -256,7 +269,7 @@ def test_cli_uses_detected_when_vilib_absent(tmp_path, monkeypatch):
         source="test",
     )
     _patch_detected(monkeypatch, detected)
-    vilib, userlib = cli._parse_library_roots(_ns())
+    vilib, userlib, _instrlib = cli._parse_library_roots(_ns())
     assert vilib == tmp_path / "vi.lib"
     assert userlib == tmp_path / "user.lib"
 
@@ -269,7 +282,7 @@ def test_cli_explicit_vilib_overrides_detection(tmp_path, monkeypatch):
         raise AssertionError("detection should not run")
 
     monkeypatch.setattr(lv_detect, "detect_labview", _boom)
-    vilib, userlib = cli._parse_library_roots(_ns(vilib="/explicit/vi.lib"))
+    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(vilib="/explicit/vi.lib"))
     assert vilib == Path("/explicit/vi.lib")
     assert userlib is None
 
@@ -281,7 +294,7 @@ def test_cli_no_auto_vilib_suppresses_detection(monkeypatch):
         raise AssertionError("detection should not run")
 
     monkeypatch.setattr(lv_detect, "detect_labview", _boom)
-    vilib, userlib = cli._parse_library_roots(_ns(no_auto_vilib=True))
+    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(no_auto_vilib=True))
     assert vilib is None
     assert userlib is None
 
@@ -297,9 +310,26 @@ def test_cli_explicit_userlib_kept_with_detected_vilib(tmp_path, monkeypatch):
         source="test",
     )
     _patch_detected(monkeypatch, detected)
-    vilib, userlib = cli._parse_library_roots(_ns(userlib="/my/user.lib"))
+    vilib, userlib, _instrlib = cli._parse_library_roots(_ns(userlib="/my/user.lib"))
     assert vilib == tmp_path / "vi.lib"
     assert userlib == Path("/my/user.lib")  # explicit userlib preserved
+
+
+def test_cli_detected_instrlib_unless_given(tmp_path, monkeypatch):
+    from lvkit import cli
+
+    detected = DetectedLabVIEW(
+        install_dir=tmp_path,
+        vilib_root=tmp_path / "vi.lib",
+        userlib_root=None,
+        version="21.0",
+        source="test",
+        instrlib_root=tmp_path / "instr.lib",
+    )
+    _patch_detected(monkeypatch, detected)
+    assert cli._parse_library_roots(_ns())[2] == tmp_path / "instr.lib"
+    _, _, instrlib = cli._parse_library_roots(_ns(instrlib="/my/instr.lib"))
+    assert instrlib == Path("/my/instr.lib")
 
 
 def test_detected_dataclass_is_frozen(tmp_path):

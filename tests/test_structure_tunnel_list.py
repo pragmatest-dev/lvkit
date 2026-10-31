@@ -58,7 +58,7 @@ def test_listed_tunnels_round_trip_strictly() -> None:
     if not _NEW_VI.exists():
         pytest.skip(f"sample corpus VI not present: {_NEW_VI}")
     graph, vi_name = load_vi_by_path(
-        _NEW_VI, LoadMode.MINIMAL, search_paths=[_JKI], layout=False
+        _NEW_VI, LoadMode.MINIMAL, layout=False
     )
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name=_NEW_VI.name, verbose=True)

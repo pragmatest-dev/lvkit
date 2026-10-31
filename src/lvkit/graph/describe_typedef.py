@@ -87,14 +87,22 @@ def describe_ctl_file(
     *,
     fmt: str = "text",
     verbose: bool = False,
-    search_paths: list[Path] | None = None,
+    vilib_root: Path | None = None,
+    userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
 ) -> str | dict[str, Any]:
     """Load the ``.ctl`` at ``path`` and describe it: the text page for
     ``fmt="text"``, the JSON shape (:func:`typedef_to_dict`) for ``"json"``, the
     lvnet ``typedef`` document for ``"lvnet"``. The one entry the CLI and the MCP
-    ``read_ctl`` tool share. ``ValueError`` for an unreadable control;
-    ``FileNotFoundError`` for a missing file."""
-    graph, key = load_ctl_by_path(path, search_paths=search_paths)
+    ``read_ctl`` tool share; the library roots shape its dependency load.
+    ``ValueError`` for an unreadable control; ``FileNotFoundError`` for a
+    missing file."""
+    graph, key = load_ctl_by_path(
+        path,
+        vilib_root=vilib_root,
+        userlib_root=userlib_root,
+        instrlib_root=instrlib_root,
+    )
     info = graph.get_typedef(key)
     if fmt == "json":
         return typedef_to_dict(info, verbose=verbose)

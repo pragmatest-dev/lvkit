@@ -6,6 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 _PYLABVIEW_ENCODING = "mac_roman"
 _XML_TOKEN_RE = re.compile(
@@ -88,9 +89,45 @@ def labview_text_encoding(vers_language: int | None = None) -> str:
     return "cp1252"
 
 
+def vers_language_of(root: Any) -> int | None:
+    """The VI's own ``vers`` resource ``Language`` value (see
+    ``vers_language_encoding``), read from a VI's resource tree or its main XML
+    root. A decimal digit is pure ASCII either way, so it reads the same before
+    and after normalization. ``None`` when absent/non-numeric."""
+    elem = root.find(".//vers/Section/Version")
+    if elem is None:
+        return None
+    raw_language = elem.get("Language")
+    if raw_language is None or not raw_language.isdigit():
+        return None
+    return int(raw_language)
+
+
+def xml_text_encoding(main_root: Any) -> str:
+    """The text encoding a VI's extracted XML files were decoded with: the one
+    ``normalize_extracted_xml`` was given for the VI, chosen from the VI's own
+    ``vers`` language. ``main_root`` is the root of the VI's main XML. (The
+    ``Encoding`` attribute of one file is not used: a file that is pure ASCII is
+    never rewritten and keeps ``mac_roman`` while its sibling files are not.)"""
+    return labview_text_encoding(vers_language_of(main_root))
+
+
 def decode_labview_text(data: bytes, encoding: str | None = None) -> str:
     """Decode a LabVIEW byte string without discarding the surrounding data."""
     return data.decode(encoding or labview_text_encoding(), errors="replace")
+
+
+def unwrap_pascal_name(raw: bytes) -> bytes:
+    """The name inside a wrapped method-name string of a link record.
+
+    The record's outer pascal string holds ``[0x01][length][name bytes]`` where
+    ``length`` is the name's byte count, e.g. ``27 01 25`` then the 37 bytes of
+    ``Initialize MeasurementLink Session.vi`` (outer length 0x27 = 39). Any
+    other string (a library or class name, a name whose inner length does not
+    match) is returned as is."""
+    if len(raw) >= 2 and raw[0] == 0x01 and raw[1] == len(raw) - 2:
+        return raw[2:]
+    return raw
 
 
 def _transcode_fragment(text: str, target: str) -> str:

@@ -49,7 +49,7 @@ def project(tmp_path: Path) -> Path:
 
 
 def test_a_cluster_control_is_indexed_with_its_fields_and_type(project: Path) -> None:
-    fact = build_typedef_facts(project, project / "Settings.ctl")
+    fact = build_typedef_facts(project / "Settings.ctl")
     assert not fact.is_stub and fact.kind is LVTypeKind.CLUSTER and fact.type_id
     names = {f.name for f in fact.fields}
     assert {"Font", "Size", "Text color"} <= names
@@ -136,7 +136,7 @@ def test_an_unreadable_control_is_a_stub_with_its_reason(project: Path) -> None:
 
 @pytest.mark.skipif(not _USER_VI.exists(), reason="icon-editor sample absent")
 def test_a_vi_records_the_controls_it_depends_on() -> None:
-    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL, search_paths=[_ICON_API])
+    graph, vi = load_vi_by_path(_USER_VI, LoadMode.MINIMAL)
     # Unresolved on purpose: in a worktree the samples folder is a symlink, and
     # a project reached through one must keep its own controls.
     facts = project_vi_facts(graph, vi, _USER_VI, _ICON_API)
@@ -162,7 +162,7 @@ def test_loading_a_vi_warms_the_controls_it_uses(tmp_path: Path) -> None:
     shutil.copytree(_ICON_API, root)
     (root / ".git").mkdir()  # marks the project root, so VIs and controls share one
     vi = root / _USER_VI.name
-    graph, _ = load_vi_by_path(vi, LoadMode.MINIMAL, search_paths=[root])
+    graph, _ = load_vi_by_path(vi, LoadMode.MINIMAL)
     warm_all_loaded(graph)
     assert _q(root, "SELECT count(*) FROM typedef") != [[0]]
     assert _q(
@@ -179,7 +179,7 @@ def test_any_failure_reading_a_control_is_a_stub(
         raise KeyError("boom")
 
     monkeypatch.setattr(typedefs_mod, "load_ctl_by_path", explode)
-    fact = build_typedef_facts(project, project / "Settings.ctl")
+    fact = build_typedef_facts(project / "Settings.ctl")
     assert fact.is_stub and fact.stub_reason and "KeyError" in fact.stub_reason
 
 
@@ -192,7 +192,7 @@ def test_warming_skips_controls_already_indexed(
     monkeypatch.setattr(
         typedefs_mod,
         "build_typedef_facts",
-        lambda root, p, sha=None: built.append(p) or real(root, p, sha),
+        lambda p, sha=None: built.append(p) or real(p, sha),
     )
     warm_typedefs(project, _ctls(project))
     assert built == []
@@ -244,13 +244,15 @@ def test_a_forced_rebuild_drops_vis_whose_file_is_gone(tmp_path: Path) -> None:
 @pytest.fixture
 def nested_project(tmp_path: Path) -> Path:
     """A control that uses another (real corpus nesting): ``API_Test
-    Settings.ctl`` uses ``Alignment.ctl``."""
+    Settings.ctl`` uses ``Alignment.ctl``, at the path it records for it
+    (``lv_icon/Controls/Alignment.ctl``), so the copy keeps that layout."""
     if not (_CLUSTER_CTL.exists() and _ALIGNMENT_CTL.exists()):
         pytest.skip("samples absent")
     root = tmp_path / "nested"
-    root.mkdir()
+    inner = root / _ALIGNMENT_CTL.relative_to(_CLUSTER_CTL.parent)
+    inner.parent.mkdir(parents=True)
     shutil.copy(_CLUSTER_CTL, root / _CLUSTER_CTL.name)
-    shutil.copy(_ALIGNMENT_CTL, root / _ALIGNMENT_CTL.name)
+    shutil.copy(_ALIGNMENT_CTL, inner)
     return root
 
 
@@ -266,7 +268,7 @@ def test_a_change_to_a_nested_control_rebuilds_its_user(nested_project: Path) ->
     test guards: without it, a used control's change is never even looked at.)
     """
     outer = (nested_project / _CLUSTER_CTL.name).resolve()
-    inner = nested_project / _ALIGNMENT_CTL.name
+    inner = nested_project / _ALIGNMENT_CTL.relative_to(_CLUSTER_CTL.parent)
     sync_typedefs(nested_project, _ctls(nested_project))
     shutil.copy(_ENUM_CTL, inner)
     result = sync_typedefs(nested_project, _ctls(nested_project))
@@ -319,8 +321,6 @@ def test_warming_never_writes_a_control_outside_the_project(tmp_path: Path) -> N
     root.mkdir()
     (root / ".git").mkdir()
     shutil.copy(_USER_VI, root / _USER_VI.name)
-    graph, _ = load_vi_by_path(
-        root / _USER_VI.name, LoadMode.MINIMAL, search_paths=[_ICON_API]
-    )
+    graph, _ = load_vi_by_path(root / _USER_VI.name, LoadMode.MINIMAL)
     warm_all_loaded(graph)
     assert _q(root, "SELECT count(*) FROM typedef") == [[0]]

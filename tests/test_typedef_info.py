@@ -147,7 +147,7 @@ def test_a_control_with_no_root_type_is_unreadable(tmp_path: Path, monkeypatch):
     ctl = tmp_path / "NoRoot.ctl"
     ctl.write_bytes(b"x")
     monkeypatch.setattr(
-        InMemoryVIGraph, "_ctl_root", lambda self, p: (None, {1: _I32}, None)
+        InMemoryVIGraph, "_ctl_root", lambda self, p: (None, {1: _I32}, None, None)
     )
     with pytest.raises(ValueError, match="Could not read NoRoot.ctl"):
         load_ctl_by_path(ctl)

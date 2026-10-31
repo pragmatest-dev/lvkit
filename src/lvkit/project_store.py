@@ -129,6 +129,24 @@ def find_project_store(start: Path | None = None) -> Path | None:
     return None
 
 
+def project_root(input_path: Path) -> Path:
+    """The project folder of a VI (or folder): the nearest folder
+    above it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project
+    store; the VI's own folder when there is none."""
+    start = input_path.resolve()
+    own = start if start.is_dir() else start.parent
+    home = global_home().resolve()
+    for folder in [own, *own.parents]:
+        store = folder / PROJECT_STORE_DIR
+        if (
+            any(folder.glob("*.lvproj"))
+            or (folder / ".git").exists()
+            or (store.is_dir() and store.resolve() != home)
+        ):
+            return folder
+    return own
+
+
 def init_project_store(root: Path) -> Path:
     """Create .lvkit/ under `root` with a template README.md.
 

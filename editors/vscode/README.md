@@ -32,7 +32,9 @@ Mode banner.
 | Setting | Default | Description |
 |---|---|---|
 | `lvkit.path` | `lvkit` | Path to the `lvkit` executable. Leave as `lvkit` to auto-resolve in priority order: project `.venv` → `uv run lvkit` → the bundled binary. |
-| `lvkit.searchPaths` | `[]` | Extra dirs to search for SubVIs (repo root is auto-detected). |
+| `lvkit.vilib` | (empty) | LabVIEW's `vi.lib` folder, for SubVIs recorded as `<vilib>/…` (auto-detected when empty). |
+| `lvkit.userlib` | (empty) | LabVIEW's `user.lib` folder, for SubVIs recorded as `<userlib>/…` (OpenG and other toolkits). |
+| `lvkit.instrlib` | (empty) | LabVIEW's `instr.lib` folder, for SubVIs recorded as `<instrlib>/…` (instrument drivers). |
 | `lvkit.diagramTheme` | `auto` | Diagram color theme (`auto`/`light`/`dark`); updated automatically when you cycle the in-viewer theme control. |
 
 ## Recommending LVKit to your team

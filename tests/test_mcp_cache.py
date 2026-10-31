@@ -48,10 +48,10 @@ def test_deep_and_stateless_tools(tmp_path: Path) -> None:
     assert isinstance(ctx, dict)
     assert ctx["inputs"] or ctx["outputs"] or ctx["body"]
 
-    # The resolution axis: an extra `search_paths` root (an out-of-tree library
-    # the VI might call into) is accepted by the reading tool, same as
-    # `unresolved`. A harmless extra root leaves the base result intact.
-    assert _run(srv.read_vi(vi, search_paths=[str(tmp_path)])) == ctx
+    # The resolution axis: a library root (a user.lib the VI's recorded paths
+    # might start from) is accepted by the reading tool, same as `unresolved`.
+    # A root the VI records nothing under leaves the base result intact.
+    assert _run(srv.read_vi(vi, userlib=str(tmp_path))) == ctx
 
     # render: writes the block-diagram HTML viewer and returns its PATH (not the
     # markup, which would flood context). The AI can't reconstruct LV geometry
@@ -167,7 +167,7 @@ def test_index_tools() -> None:
     # index() builds + persists; the other tools then read the facts.
     built = _run(srv.index(project))
     assert built["vis"] > 0
-    assert built["collisions"] == 0  # a single class dir has no name clashes
+    assert built["loaded_alone"] == 0  # every VI came out of the whole-project load
 
     # The SQL query surface subsumes the old find_*/get_signatures read tools:
     # schema introspection lists the views, and reads/aggregates go through it.

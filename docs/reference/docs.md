@@ -23,13 +23,13 @@ lvkit docs <input_path> <output_dir> [options]
 | Option | Description |
 |--------|-------------|
 | `--load-mode MODE` | How deep to load dependencies: `full` (default), `minimal`, or `none`. `full` gives complete cross-references. `--load-mode none` generates pages only for the VIs in `input_path` — not for the SubVIs they call: their calls still show on the wiring diagram and in the Dependencies list, but without a link, since no page exists for them. |
-| SubVI resolution flags | `--search-path`, `--project-root`, `--vilib`, `--userlib`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
+| SubVI resolution flags | `--vilib`, `--userlib`, `--instrlib`, `--project-root`, `--no-auto-vilib` — see [SubVI & vi.lib resolution](subvi-resolution.md). |
 
 ## Example
 
 ```bash
 lvkit docs "Result Logger.lvclass" outputs/docs \
-  --search-path samples/OpenG/extracted
+  --userlib "samples/OpenG/extracted/File Group 0/user.lib"
 ```
 
 This writes a set of cross-linked HTML pages to `outputs/docs/` — one per VI in
@@ -43,7 +43,7 @@ links to any SubVI it calls and any caller that references it. Open
   or a directory rather than a single VI — that's when the caller/callee
   links pay off.
 - The same treatment applies to any SubVI lvkit can't resolve at all (not
-  found on `--search-path`): it renders as a plain box on the diagram and a
+  at the path its caller records): it renders as a plain box on the diagram and a
   plain, unlinked entry in the Dependencies list — no page is generated for
   it either.
 
