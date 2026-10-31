@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from lvkit.models import LVType
 
@@ -177,7 +178,12 @@ def resolve_name(
             if tied is not None:
                 matches.append(tied)
             next_level.extend(records.nested)
-        found = matches[0] if matches else None
+        # Several dependencies giving one name are one file recorded twice:
+        # the one on this machine, else the first recorded (as ``_chosen``).
+        distinct = list(dict.fromkeys(matches))
+        found = next((k for k in distinct if Path(k).is_file()), None) or (
+            distinct[0] if distinct else None
+        )
         level = next_level
     own.resolved[folded] = found
     return found

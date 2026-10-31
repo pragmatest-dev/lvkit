@@ -365,11 +365,8 @@ class QueryMixin:
                 if uid not in self._graph:
                     continue
                 gnode = self._graph.nodes[uid].get("node")
-                if (
-                    isinstance(gnode, VINode)
-                    and gnode.name == vi_name
-                    and gnode.id != vi_name  # Not the VI definition itself
-                ):
+                # A call to this stub: the call's own key for the VI it calls.
+                if isinstance(gnode, VINode) and gnode.interface_key == vi_name:
                     for term in gnode.terminals:
                         term_type = (
                             term.lv_type.type_descriptor() if term.lv_type else "Any"
