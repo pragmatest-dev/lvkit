@@ -5,18 +5,16 @@ the same name as a library VI it calls."""
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.loading import file_qualified_name
+from lvkit.graph.models import VINode
 from lvkit.graph.netlist import render_lvnet
 from lvkit.graph.netlist_build import build_netlist_from_graph
 from lvkit.graph.node_kinds import NodeType
-from lvkit.load_mode import LoadMode
-from lvkit.parser.models import ParsedDependencyRef
 from tests.corpus_graphs import load_corpus_vi
 
 _SAMPLES = Path(".lvkit/cache/samples").resolve()
@@ -31,106 +29,6 @@ def test_file_name_is_the_last_component() -> None:
     )
     assert file_qualified_name(None, "New.vi") == "New.vi"
     assert file_qualified_name("", "New.vi") == "New.vi"
-
-
-def _method_graph(tmp_path: Path) -> tuple[InMemoryVIGraph, str, list[str]]:
-    """A caller VI that depends on class ``X``, whose members are ``A.vi`` (the
-    caller itself) and a DIFFERENT ``Foo.vi``; ``loaded`` collects every file
-    the method pass leaf-loads."""
-    caller = tmp_path / "X" / "A.vi"
-    foo = tmp_path / "X" / "Foo.vi"
-    graph = InMemoryVIGraph()
-    cls_key = str(tmp_path / "X" / "X.lvclass")
-    graph._dep_graph.add_node(str(caller), name="A.vi", qname="X.lvclass:A.vi")
-    graph._dep_graph.add_node(
-        cls_key,
-        node_type=NodeType.CLASS,
-        name="X.lvclass",
-        method_paths={"A.vi": str(caller), "Foo.vi": str(foo)},
-    )
-    graph._dep_graph.add_edge(str(caller), cls_key)
-    loaded: list[str] = []
-
-    def record(path: Path, *args: object) -> str:
-        loaded.append(path.name)
-        return str(path)
-
-    graph._leaf_load_vi = record  # type: ignore[method-assign]
-    return graph, str(caller), loaded
-
-
-def _metadata(
-    calls: list[str], dispatch: list[str] | None = None, vipi: list[str] | None = None
-) -> SimpleNamespace:
-    return SimpleNamespace(
-        iuse_to_qualified_name=dict(enumerate(calls)),
-        dyn_refs={
-            i: ParsedDependencyRef(
-                name=q.rsplit(":", 1)[-1], path_tokens=[], qualified_name=q
-            )
-            for i, q in enumerate(dispatch or [])
-        },
-        subvi_method_names=vipi or [],
-    )
-
-
-def test_library_call_is_not_resolved_to_a_class_member_of_that_name(
-    tmp_path: Path,
-) -> None:
-    graph, caller, loaded = _method_graph(tmp_path)
-    graph._load_subvi_method_deps(
-        caller, _metadata(["Lib.lvlib:Foo.vi"]), [], LoadMode.MINIMAL, set()
-    )
-    assert loaded == []
-
-
-def test_call_owned_by_the_class_resolves_to_its_member(tmp_path: Path) -> None:
-    graph, caller, loaded = _method_graph(tmp_path)
-    graph._load_subvi_method_deps(
-        caller, _metadata(["X.lvclass:Foo.vi"]), [], LoadMode.MINIMAL, set()
-    )
-    assert loaded == ["Foo.vi"]
-
-
-def test_call_already_resolved_by_its_recorded_path_is_left_alone(
-    tmp_path: Path,
-) -> None:
-    graph, caller, loaded = _method_graph(tmp_path)
-    graph._load_subvi_method_deps(
-        caller,
-        _metadata(["X.lvclass:Foo.vi"]),
-        [],
-        LoadMode.MINIMAL,
-        {"X.lvclass:Foo.vi"},
-    )
-    assert loaded == []
-
-
-def test_ownerless_dispatch_name_resolves_through_the_callers_class(
-    tmp_path: Path,
-) -> None:
-    graph, caller, loaded = _method_graph(tmp_path)
-    graph._load_subvi_method_deps(
-        caller, _metadata([], vipi=["Foo.vi"]), [], LoadMode.MINIMAL, set()
-    )
-    assert loaded == ["Foo.vi"]
-
-
-def test_dispatch_name_a_recorded_call_accounts_for_is_not_a_second_call(
-    tmp_path: Path,
-) -> None:
-    """``Message.lvclass:A.vi`` (a parent's method, not a dependency) and the
-    bare ``A.vi`` the same call leaves in the VIPI table are ONE call: the bare
-    name must not find the caller's own ``A.vi``."""
-    graph, caller, loaded = _method_graph(tmp_path)
-    graph._load_subvi_method_deps(
-        caller,
-        _metadata([], dispatch=["Message.lvclass:A.vi"], vipi=["A.vi"]),
-        [],
-        LoadMode.MINIMAL,
-        set(),
-    )
-    assert loaded == []
 
 
 def _declarations(vi: Path, root: Path) -> dict[str, str | None]:
@@ -240,3 +138,26 @@ def test_absent_class_declared_without_a_machine_path() -> None:
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
     assert f"    class {sdk_class}\n" in lvnet
     assert "Program Files" not in lvnet
+
+
+@pytest.mark.needs_samples
+def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None:
+    root = _SAMPLES / "measurement-plugin-labview" / "Source"
+    vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
+    graph, key = load_corpus_vi(vi, root)
+    netlist = build_netlist_from_graph(graph, key)
+    real = (
+        "./gRPC/Generated APIs/ni/measurementlink/measurement/v1/"
+        "RPC Service/MeasurementService/Server API/Destroy.vi"
+    )
+    assert [
+        (d.qualified, d.path) for d in netlist.dependencies if d.kind.value == "subVI"
+    ] == [("Destroy.vi", real)]
+    (call,) = [
+        n
+        for n in graph.iter_nodes(key)
+        if isinstance(n, VINode) and n.id != n.vi_path
+    ]
+    assert call.callee_key is not None
+    assert Path(call.callee_key).exists()
+    assert call.callee_key.endswith("/MeasurementService/Server API/Destroy.vi")

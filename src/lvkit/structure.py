@@ -686,8 +686,9 @@ def _parse_items(
         item_type = item.get("Type", "")
         item_url = item.get("URL", "")
 
-        if item_type == "Folder":
-            # Recurse into folders (private, protected, etc.)
+        if item_type in ("Folder", "Property Definition"):
+            # Recurse into folders (private, protected, etc.) and into a
+            # property definition, which holds the property's accessor VIs.
             _parse_items(item, methods, private_data_ctl)
         elif item_type == "VI" and is_vi_file(item_name):
             # Get method properties

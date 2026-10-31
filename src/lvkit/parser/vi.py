@@ -45,6 +45,7 @@ from lvkit.models import (
     leading_element,
     unique_names,
 )
+from lvkit.vi_files import is_vi_file
 
 from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
@@ -411,11 +412,17 @@ def _parse_metadata(
     }
 
     # Recover the FULL subVI callee list from the VI-level _LIvi.bin link table.
-    # It records EVERY callee — including the dynamic-dispatch (dynIUse) methods
-    # that leave no IUVI in _LIbd.bin — so it is the only place those callees are
-    # named. Their concrete files are resolved against the owning class at load.
+    # It records EVERY callee -- including the dynamic-dispatch (dynIUse) methods
+    # that leave no IUVI in _LIbd.bin -- each with its owner chain and the path of
+    # the class that owns it; they are dependencies like the block-diagram ones.
     livi_bin = main_xml.with_name(main_xml.stem + "_LIvi.bin")
-    subvi_method_names = parse_vipi_from_livi(livi_bin) if livi_bin.exists() else []
+    if livi_bin.exists():
+        recorded = {(r.qualified_name, tuple(r.path_tokens)) for r in dependency_refs}
+        for vipi_ref in parse_vipi_from_livi(livi_bin):
+            key = (vipi_ref.qualified_name, tuple(vipi_ref.path_tokens))
+            if key not in recorded:
+                recorded.add(key)
+                dependency_refs.append(vipi_ref)
 
     # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
     # from LabVIEW's link tables (_LIvi/_LIbd/_LIfp PTH0 records) — a leaf -> path
@@ -460,7 +467,6 @@ def _parse_metadata(
         dotnet_assemblies=sorted({link.assembly for link in dotnet_table.links}),
         dotnet_assembly_failures=dotnet_table.failures,
         dependency_refs=dependency_refs,
-        subvi_method_names=subvi_method_names,
         link_path_refs=link_path_refs,
         instance_files=parse_instance_files(main_root),
     )
@@ -1389,9 +1395,13 @@ def _resolve_qualified_name(
         Qualified name string, or None if no name found
     """
     strings = [s.text for s in elem.findall("LinkSaveQualName/String") if s.text]
-    return qualified_link_name(
+    qname = qualified_link_name(
         strings, int(elem.get("LinkSaveFlag", "0")), caller_library
     )
+    if qname is None:
+        return None
+    tokens = [s.text or "" for s in elem.findall("LinkSavePathRef/String")]
+    return _class_owned_name(qname, tokens)
 
 
 _DOTNET_ITEM_INFO = "dnetItemInfo"
@@ -1522,6 +1532,20 @@ def _caller_library(qualified_name: str | None) -> str | None:
     return None
 
 
+def _class_owned_name(qname: str, path_tokens: Sequence[str]) -> str:
+    """The qualified name of a record that names only a method but whose path is
+    a class file: that class owns the method, so it is the name's owner. Any
+    other name is returned as is."""
+    if (
+        ":" not in qname
+        and is_vi_file(qname)
+        and path_tokens
+        and path_tokens[-1].endswith(".lvclass")
+    ):
+        return f"{path_tokens[-1]}:{qname}"
+    return qname
+
+
 def _link_dependency_ref(
     link: IUseLink | DynamicDispatchLink, caller_library: str | None
 ) -> ParsedDependencyRef | None:
@@ -1530,6 +1554,7 @@ def _link_dependency_ref(
     qname = qualified_link_name(list(link.name_parts), link.link_flag, caller_library)
     if not qname:
         return None
+    qname = _class_owned_name(qname, link.path_tokens)
     return ParsedDependencyRef(
         name=qname.rsplit(":", 1)[-1],
         path_tokens=list(link.path_tokens),
@@ -1657,6 +1682,7 @@ def _extract_subvi_info(
     def _add_dependency(
         qname: str, path_tokens: Sequence[str], path_type: int | None = None
     ) -> None:
+        qname = _class_owned_name(qname, path_tokens)
         key: tuple[str, tuple[str, ...]] = (qname, tuple(path_tokens))
         if key in seen_deps:
             return

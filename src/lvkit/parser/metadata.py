@@ -569,9 +569,10 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
     return refs
 
 
-def parse_vipi_from_livi(livi_path: Path) -> list[str]:
-    """Parse subVI callee METHOD NAMES from a ``_LIvi.bin`` (VI-level link
-    identity).
+def parse_vipi_from_livi(livi_path: Path) -> list[ParsedDependencyRef]:
+    """Parse the callees of a ``_LIvi.bin`` (VI-level link identity) as
+    dependency refs, each with the owner chain and path its ``VIPI`` record
+    carries.
 
     ``_LIvi.bin`` is LabVIEW's VI-LEVEL link table — distinct from the
     ``_LIbd.bin`` block-diagram table read by ``link_table.read_iuse_links``. It
@@ -579,29 +580,28 @@ def parse_vipi_from_livi(livi_path: Path) -> list[str]:
     dynamic-dispatch (``dynIUse``) calls that leave NO ``IUVI`` in ``_LIbd.bin``
     — so it is the only record that names those callees. Each record:
 
-        VIPI [uint32 count] [count name strings] [PTH0 path hint] [trailer]
+        VIPI [uint32 count] [count name strings] [PTH0 path] [trailer]
 
     ``count`` name strings: 0 = the VI's own class-context record (no callee,
-    skipped); 1 = a bare method name whose class is the ``PTH0``'s own class;
-    2 = an explicit ``"<Class>.lvclass"`` + method pair. A method name is a
-    wrapped pascal string ``[len][0x01][inner_len][text]``; a class name is a
-    plain ``[len][text]`` (its text never starts with ``0x01``, so the wrapper
-    is detected by the first byte).
+    skipped); otherwise the owner chain of the called method, outermost first —
+    ``[<Library>.lvlib,] [<Class>.lvclass,] <Method>.vi``. A method name is a
+    wrapped pascal string ``[len][0x01][inner_len][text]``; a library or class
+    name is a plain ``[len][text]`` (its text never starts with ``0x01``, so the
+    wrapper is detected by the first byte).
 
-    The record's ``PTH0`` locates the class the call is ROOTED ON (the static
-    type at the call site) — for a cross-class dynamic dispatch that is NOT
-    where the method file lives, so it is an unreliable hint, not a guaranteed
-    owner. It is not decoded here: the caller resolves each returned method
-    name's owning file against the classes the VI already depends on (see
-    ``graph.loading._load_subvi_method_deps``), never from this record's own
-    class hint. Returns the ``.vi`` leaf name of each callee.
+    The record's ``PTH0`` is the path of the file the chain's owner is: the class
+    for a class method (the method file itself sits in that class's member list,
+    possibly in a subfolder or an ancestor class — never assumed beside the class
+    file). A record naming only the method gets the ``PTH0`` class's name as its
+    owner. A record with no path gives no ref. Each ref's qualified name is the
+    owner chain joined with ``:`` (as the block-diagram records name it).
     """
     try:
         data = livi_path.read_bytes()
     except OSError:
         return []
 
-    names_out: list[str] = []
+    refs: list[ParsedDependencyRef] = []
     starts = [m.start() for m in re.finditer(b"VIPI", data)]
     starts.append(len(data))
 
@@ -634,8 +634,24 @@ def parse_vipi_from_livi(livi_path: Path) -> list[str]:
                 text = decode_labview_text(raw)
             names.append(text.strip())
 
-        method = next((n for n in names if is_vi_file(n)), None)
-        if method:
-            names_out.append(method)
+        if not names or not is_vi_file(names[-1]):
+            continue
+        pth0 = data.find(b"PTH0", p, rec_end)
+        if pth0 < 0:
+            continue
+        tokens, _next = _decode_pth0_components(data, pth0, rec_end)
+        if not tokens:
+            continue
+        method = names[-1]
+        if len(names) == 1 and tokens[-1].endswith(".lvclass"):
+            names = [tokens[-1], method]
+        refs.append(
+            ParsedDependencyRef(
+                name=method,
+                path_tokens=tokens,
+                qualified_name=":".join(names),
+                path_type=int.from_bytes(data[pth0 + 8 : pth0 + 10], "big"),
+            )
+        )
 
-    return names_out
+    return refs

@@ -30,7 +30,6 @@ from ..parser import (
     ParsedDependencyRef,
     ParsedFrontPanel,
     ParsedVI,
-    ParsedVIMetadata,
     parse_vi,
     parse_vi_metadata,
 )
@@ -146,7 +145,10 @@ def _redirect_member_beside_container(cand: Path, leaf: str) -> Path:
     that need an existence gate (only a resolved sibling counts) apply it
     themselves.
     """
-    if cand.suffix.lower() in (".lvclass", ".lvlib") and leaf != cand.name:
+    if (
+        cand.suffix.lower() in (".lvclass", ".lvlib")
+        and leaf.lower() != cand.name.lower()
+    ):
         return cand.with_name(leaf)
     return cand
 
@@ -265,6 +267,30 @@ def collect_direct_dep_qnames(
     return qnames
 
 
+def class_owner_ref(
+    qualified_name: str, dep_ref: ParsedDependencyRef | None
+) -> ParsedDependencyRef | None:
+    """The class a call's record names as the owner of the called method: set
+    when the recorded path ends in a ``.lvclass`` file and the called name is a
+    VI. The method file is that class's member, not the path itself (see
+    ``LoadingMixin._class_member_file``). The owner's qualified name is the
+    record's, less the method; a record naming only the method has the class."""
+    if dep_ref is None or not dep_ref.path_tokens:
+        return None
+    class_leaf = dep_ref.path_tokens[-1]
+    if not class_leaf.endswith(".lvclass") or not is_vi_file(
+        qualified_name.rsplit(":", 1)[-1]
+    ):
+        return None
+    owner = qualified_name.rsplit(":", 1)[0] if ":" in qualified_name else class_leaf
+    return ParsedDependencyRef(
+        name=class_leaf,
+        path_tokens=list(dep_ref.path_tokens),
+        qualified_name=owner,
+        path_type=dep_ref.path_type,
+    )
+
+
 def build_dep_ref_map(
     dependency_refs: list[ParsedDependencyRef],
 ) -> dict[str, ParsedDependencyRef]:
@@ -326,7 +352,6 @@ class LoadingMixin:
         def class_method(
             self, class_key: str, method: str
         ) -> tuple[str, str] | None: ...
-        def is_class(self, key: str) -> bool: ...
         def _dep_key_for_ref(
             self, ref: str, caller_vi_key: str | None = None
         ) -> str | None: ...
@@ -782,7 +807,7 @@ class LoadingMixin:
         # the authoritative owner (the VIPI/VCTP name only the CALL-SITE class).
         # Recorded even under a MINIMAL field-load (it's just names + paths, no
         # bodies), so the class can supply a called method's path without loading
-        # all 27 members. See ``_load_subvi_method_deps``.
+        # all 27 members. See ``_class_member_file``.
         # Record the member's path even when the file is NOT present yet: the
         # ``.lvclass`` URL (``../X.vi``, the class-as-directory quirk) gives its
         # INTENDED path, which is what progressive (web) staging needs to NAME +
@@ -1363,6 +1388,8 @@ class LoadingMixin:
             leaf = name.rsplit(":", 1)[-1]
             if not (is_vi_file(leaf) or leaf.endswith(".ctl")):
                 continue
+            if class_owner_ref(name, ref) is not None:
+                continue
             resolved = self._resolve_dependency_path(
                 name, ref, caller_file, search_paths
             )
@@ -1674,16 +1701,6 @@ class LoadingMixin:
                 if dep_key is not None:
                     dep_keys[qname] = dep_key
 
-            # Resolve SubVI CALLEES (incl. dynamic-dispatch methods absent from
-            # _LIbd.bin) to their files via the now-loaded class member lists —
-            # AFTER the class deps above are in the graph. See the method.
-            self._load_subvi_method_deps(
-                vi_key,
-                metadata,
-                search_paths,
-                mode,
-                {q for q, k in dep_keys.items() if k not in self._stubs},
-            )
             iuse_to_callee_key = {
                 uid: dep_keys[qname]
                 for uid, qname in metadata.iuse_to_qualified_name.items()
@@ -1961,6 +1978,12 @@ class LoadingMixin:
                     llb_resolved = self._resolve_through_llb(candidate)
                     if llb_resolved is not None:
                         resolved = llb_resolved
+                    else:
+                        # LabVIEW file names are case-insensitive: the recorded
+                        # name can differ in case from the name saved on disk.
+                        resolved = _case_insensitive_match(
+                            candidate.parent, candidate.name
+                        )
 
         # Member VIs (and .ctl typedefs) are stored beside their owning class/
         # library container, not inside it (see
@@ -1982,6 +2005,73 @@ class LoadingMixin:
                 resolved = self._find_file(leaf, search_paths, caller_file.parent)
 
         return resolved
+
+    def _class_member_file(
+        self,
+        owner_ref: ParsedDependencyRef,
+        method: str,
+        caller_file: Path,
+        search_paths: list[Path],
+        caller_qname: str | None,
+    ) -> Path | None:
+        """The file of the class method a call's record names: the class is the
+        file its recorded path names (loaded here when no call has loaded it),
+        and the method is that class's member, else the nearest ancestor's
+        (``class_method``). The member sits wherever the class lists it -- in a
+        subfolder, or in an ancestor's folder -- never assumed beside the class
+        file. ``None`` when the class is not on disk (it is stubbed by its
+        recorded path, so a progressive load names it) or no class of the chain
+        lists the method."""
+        owner_name = owner_ref.qualified_name or owner_ref.name
+        class_path = self._resolve_dependency_path(
+            owner_name, owner_ref, caller_file, search_paths
+        )
+        if class_path is None:
+            self._load_dependency(
+                owner_name,
+                owner_ref,
+                caller_file,
+                search_paths,
+                caller_qname=caller_qname,
+                mode=LoadMode.MINIMAL,
+            )
+            return None
+        cls_key = str(class_path.resolve())
+        if self._dep_graph.has_node(cls_key) and cls_key not in self._stubs:
+            if caller_qname:
+                self._dep_graph.add_edge(caller_qname, cls_key)
+        else:
+            loaded = self._load_dependency(
+                owner_name,
+                owner_ref,
+                caller_file,
+                search_paths,
+                caller_qname=caller_qname,
+                mode=LoadMode.MINIMAL,
+            )
+            if loaded is None:
+                return None
+            cls_key = loaded
+        found = self.class_method(cls_key, method)
+        if found is not None and found[0] == cls_key:
+            return Path(found[1])
+        # The class does not list the method itself: a file beside the class
+        # whose own owners are the record's is it; else the ancestor's member.
+        beside = class_path.parent / method
+        if beside.exists() and self._owners_of(beside) == owner_name.split(":"):
+            return beside
+        return Path(found[1]) if found is not None else None
+
+    def _owners_of(self, vi_path: Path) -> list[str]:
+        """The owning libraries and classes (``LIBN`` chain) a VI file records for
+        itself; empty when the file cannot be read."""
+        try:
+            _, _, main_xml = self._extract(vi_path)
+        except (RuntimeError, OSError):
+            return []
+        if main_xml is None:
+            return []
+        return list(parse_vi_metadata(main_xml).get("owning_libraries", []))
 
     def _intended_dep_path(
         self,
@@ -2074,14 +2164,19 @@ class LoadingMixin:
         at the top is the definitive dedup — resolution only runs on first visit.
         """
         leaf = qualified_name.rsplit(":", 1)[-1]
-        if resolved_paths is not None and qualified_name in resolved_paths:
+        owner_ref = class_owner_ref(qualified_name, dep_ref)
+        if owner_ref is not None:
+            resolved = self._class_member_file(
+                owner_ref, leaf, caller_file, search_paths, caller_qname
+            ) or self._find_recorded_vi(
+                qualified_name, search_paths, caller_file.parent
+            )
+        elif resolved_paths is not None and qualified_name in resolved_paths:
             resolved = resolved_paths[qualified_name]
         else:
             resolved = self._resolve_dependency_path(
                 qualified_name, dep_ref, caller_file, search_paths
             )
-        if resolved is None:
-            resolved = self._inherited_method_file(qualified_name, caller_qname)
 
         # PATH is the identity (finishes #26). The dep-graph key is ALWAYS the
         # resolved file path — never the qname or the bare name. A built copy
@@ -2144,10 +2239,18 @@ class LoadingMixin:
                 if leaf.endswith(".lvlib")
                 else NodeType.VI
             )
-            computed = self._intended_dep_path(qualified_name, dep_ref, caller_file)
+            # A class method's record names the class's path, not the method's: the
+            # class does not list it, so the file has no recorded path.
+            computed = (
+                None
+                if owner_ref is not None
+                else self._intended_dep_path(qualified_name, dep_ref, caller_file)
+            )
             stub_key = str(computed) if computed is not None else qualified_name
             path_tokens = (
-                list(dep_ref.path_tokens) if dep_ref and dep_ref.path_tokens else None
+                list(dep_ref.path_tokens)
+                if dep_ref and dep_ref.path_tokens and owner_ref is None
+                else None
             )
             self._add_stub(
                 stub_key,
@@ -2219,6 +2322,7 @@ class LoadingMixin:
                 qualified_name,
                 path_tokens=path_tokens,
                 caller=caller_qname,
+                path_type=dep_ref.path_type if dep_ref else None,
             )
             return unknown_key
 
@@ -2278,125 +2382,6 @@ class LoadingMixin:
             if caller_qname:
                 self._dep_graph.add_edge(caller_qname, stub_key)
             return None
-
-    def _load_subvi_method_deps(
-        self,
-        vi_key: str,
-        metadata: ParsedVIMetadata,
-        search_paths: list[Path],
-        mode: LoadMode,
-        resolved_qnames: set[str],
-    ) -> None:
-        """Resolve the VI's class-method SubVI CALLEES — including the dispatch
-        methods the ``_LIbd.bin`` IUVI table omits — to their files by MEMBER-LIST
-        membership over the classes this VI already depends on, and edge each to
-        the caller so the render draws its icon + interface.
-
-        A call is resolved by its recorded qualified name ``Class.lvclass:Method.vi``
-        (the IUVI map and the dispatch ``DyOM`` records), and only when no
-        dependency was already resolved for that name: the class named by the
-        owner is the one this VI depends on, and the method is that class's
-        member or its nearest ancestor's. A call owned by a library, or by a
-        class this VI does NOT depend on (its object was derived mid-diagram,
-        so nothing stores that class's path), is left UNRESOLVED on purpose:
-        MINIMAL does not follow into it, so the render draws a named box and a
-        later click loads it as its own root.
-        """
-        dispatched = {
-            ref.qualified_name
-            for ref in metadata.dyn_refs.values()
-            if ref.qualified_name
-        }
-        recorded_all = {*metadata.iuse_to_qualified_name.values(), *dispatched}
-        recorded = recorded_all - resolved_qnames
-        class_keys = sorted(
-            (
-                s
-                for s in self._dep_graph.successors(vi_key)
-                if self._dep_graph.nodes[s].get("node_type") == NodeType.CLASS
-            ),
-            key=lambda s: (-len(self._dep_graph.nodes[s].get("ancestors", [])), s),
-        )
-        # A call recorded under a class resolves through THAT class's hierarchy
-        # (the class is a dependency of the caller, or an ancestor of one); one
-        # recorded under a library never does.
-        for qualified in sorted(recorded):
-            owners = qualified.split(":")[:-1]
-            if owners and owners[-1].endswith(".lvclass"):
-                cls_key = self._owner_class_key(owners[-1], vi_key, class_keys)
-                if cls_key is not None:
-                    self._resolve_method_in_hierarchy(
-                        qualified.rsplit(":", 1)[-1],
-                        [cls_key],
-                        vi_key,
-                        search_paths,
-                        mode,
-                    )
-        # A dispatch call recorded with no owner (the ``_LIvi.bin`` VIPI table, or
-        # a ``DyOM`` record without one) is on the caller's own class context:
-        # it resolves through the classes this VI depends on, most-derived first
-        # (an overridden method's child copy is the icon that would run).
-        # A VIPI name that a recorded call (with its owner) already accounts for is
-        # that call, not a second one on the caller's own class.
-        accounted = {q.rsplit(":", 1)[-1] for q in recorded_all}
-        ownerless = {
-            *(set(metadata.subvi_method_names) - accounted),
-            *(q for q in dispatched - resolved_qnames if ":" not in q),
-        }
-        for name in sorted(ownerless):
-            self._resolve_method_in_hierarchy(
-                name, class_keys, vi_key, search_paths, mode
-            )
-
-    def _owner_class_key(
-        self, owner: str, vi_key: str, class_keys: list[str]
-    ) -> str | None:
-        """The class node a call's recorded owner (``Class.lvclass``) names: the
-        class the caller depends on under that name, else an ancestor of one of
-        its class dependencies (a dispatch call recorded under the parent class
-        of the wire's class). Each ancestor is reached by the recorded
-        ``parent_key`` link, so the search is the caller's own hierarchy, never
-        the whole graph."""
-        direct = self._dep_key_for_ref(owner, vi_key)
-        if direct is not None and self.is_class(direct):
-            return direct
-        seen: set[str] = set()
-        for start in class_keys:
-            key: str | None = start
-            while key is not None and key not in seen and self._dep_graph.has_node(key):
-                seen.add(key)
-                if self._dep_graph.nodes[key].get("name") == owner:
-                    return key
-                key = self._dep_graph.nodes[key].get("parent_key")
-        return None
-
-    def _resolve_method_in_hierarchy(
-        self,
-        name: str,
-        class_keys: list[str],
-        vi_key: str,
-        search_paths: list[Path],
-        mode: LoadMode,
-    ) -> str | None:
-        """Resolve one method name against each class in ``class_keys`` AND its
-        ANCESTOR chain (a dispatch method not declared on the wire's class is
-        INHERITED from a parent — that owner's file is the icon to show), then
-        leaf-load + edge it. The ancestor hop follows the parent's recorded
-        ``parent_key`` — a direct path link. Returns the callee's identity (its
-        file path), or None when it did not resolve."""
-        for cls_key in class_keys:
-            found = self.class_method(cls_key, name)
-            if found is not None:
-                owner_key, path_str = found
-                return self._leaf_load_vi(
-                    Path(path_str),
-                    f"{Path(owner_key).name}:{name}",
-                    vi_key,
-                    None,
-                    search_paths,
-                    mode,
-                ) or str(Path(path_str).resolve())
-        return None
 
     def _stub_subvi(
         self,
@@ -2571,34 +2556,6 @@ class LoadingMixin:
                 return found
 
         return None
-
-    def _inherited_method_file(
-        self, qualified_name: str, caller_qname: str | None
-    ) -> Path | None:
-        """The file of a class method the caller names through a class that does
-        not declare it: ``Child.lvclass:Method.vi`` records the call under the
-        class of the wire, the method itself lives in an ancestor. The class is
-        the one among the caller's own dependencies; the file is the nearest
-        ancestor's member (``class_method``, following each class's recorded
-        parent path). ``None`` when the name has no class owner, the class is
-        not a dependency of the caller, no ancestor on disk lists the method, or
-        the class declares it itself (its own file is then simply absent)."""
-        *owners, leaf = qualified_name.split(":")
-        if (
-            caller_qname is None
-            or not owners
-            or not owners[-1].endswith(".lvclass")
-            or not is_vi_file(leaf)
-        ):
-            return None
-        cls_key = self._dep_key_for_ref(owners[-1], caller_qname)
-        if cls_key is None or not self.is_class(cls_key):
-            return None
-        found = self.class_method(cls_key, leaf)
-        if found is None or found[0] == cls_key:
-            return None
-        inherited = Path(found[1])
-        return inherited if inherited.exists() else None
 
     def _find_recorded_vi(
         self,

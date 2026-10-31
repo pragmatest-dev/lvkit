@@ -824,6 +824,7 @@ class InstanceSourceLink:
 
     name_parts: tuple[str, ...]
     path_tokens: tuple[str, ...]
+    path_type: int | None = None
 
 
 def decode_instance_source(
@@ -847,7 +848,7 @@ def decode_instance_source(
         raise LinkTableError(
             f"VIVI record at offset {source_starts[0]}: {exc}"
         ) from exc
-    return InstanceSourceLink(head.name_parts, head.path_tokens)
+    return InstanceSourceLink(head.name_parts, head.path_tokens, head.path_type)
 
 
 def read_iuse_links(libd_path: Path, version: LinkTableVersion) -> list[IUseLink]:
@@ -928,6 +929,20 @@ def read_shared_variable_links(
     return decode_shared_variable_links(libd_path.read_bytes(), version)
 
 
+_NAME_WRAPPER_RE = re.compile(r"^(?:&#x01;|\x01)(.)(.*)$", re.DOTALL)
+
+
+def _unwrap_name(part: str) -> str:
+    """A method name in a link record is wrapped ``[0x01][length]name``. The
+    length is a control character for a short name (cleaning drops it) but a
+    printable one from 32 characters on (``%`` for 37): it is dropped here, the
+    byte that equals the name's length."""
+    wrapped = _NAME_WRAPPER_RE.match(part)
+    if wrapped is not None and ord(wrapped.group(1)) == len(wrapped.group(2)):
+        return wrapped.group(2)
+    return part
+
+
 def qualified_link_name(
     parts: list[str],
     link_flag: int,
@@ -941,7 +956,7 @@ def qualified_link_name(
     a same-library reference: its single part is qualified with the caller's own
     library. ``None`` when no part is left.
     """
-    cleaned = [clean_labview_string(p).strip() for p in parts]
+    cleaned = [clean_labview_string(_unwrap_name(p)).strip() for p in parts]
     cleaned = [p for p in cleaned if p]
     if not cleaned:
         return None
