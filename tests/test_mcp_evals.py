@@ -201,37 +201,14 @@ def test_q3_testcase_private_methods(jki_index: BuildResult):
 
 @pytest.mark.slow
 def test_q4_accessor_field_map(jki_index: BuildResult):
-    """Q4: 'Which class fields have accessors, and which field does each
-    read/write?' A definitive enumerable map — pin the EXACT set of
-    (owning_class, field) pairs. 18 accessors across 9 classes; every field has
-    exactly one accessor VI (no read/write pair splits the field into two rows).
-    """
+    """Q4: 'Which classes have properties, and which property does each accessor
+    VI belong to?' A property accessor is a VI the class lists in a Property
+    Definition folder; no JKI VI Tester class has one, so the answer is empty (a
+    `Get X.vi` method is an ordinary method, whatever its name)."""
     res = _query(
         "SELECT owning_class, accessor_field FROM class_fact WHERE is_accessor=1"
     )
-    pairs = {(row[0], row[1]) for row in res.rows}
-    assert pairs == {
-        ("Class1.lvclass", "Queue"),
-        ("FrameworkSubTestSuite.lvclass", "Special"),
-        ("TestCase.lvclass", "CustomReportText"),
-        ("TestCase.lvclass", "SkipMessage"),
-        ("TestLoader.lvclass", "TestsFromTestCase"),
-        ("TestLoader.lvclass", "TestsFromTestCaseByClassPath"),
-        ("TestLoader.lvclass", "TestsFromTestCaseObject"),
-        ("TestResult.lvclass", "ShouldStop"),
-        ("TestResult.lvclass", "Test Skipped Message"),
-        ("TestRunner.lvclass", "PublicEvents"),
-        ("TestRunner.lvclass", "StartTime"),
-        ("TestRunner.lvclass", "StopTime"),
-        ("TestRunner.lvclass", "TestTimingInfo"),
-        ("TestSuite.lvclass", "SkipMessage"),
-        ("TextTestRunner.lvclass", "descriptions"),
-        ("TextTestRunner.lvclass", "stream"),
-        ("TextTestRunner.lvclass", "verbosity"),
-        ("_TextTestResult.lvclass", "Description"),
-    }
-    # Each (class, field) pair is unique — no field double-counted.
-    assert len(res.rows) == 18
+    assert res.rows == []
 
 
 @pytest.mark.skipif(not _HAVE_JKI, reason="JKI-VI-Tester sample not present")

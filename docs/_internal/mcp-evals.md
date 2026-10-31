@@ -50,12 +50,13 @@ Scorecard template at the bottom.
      `scope='private'` catches all four regardless of folder (the trap: some sit
      directly under the class dir, one under `private/`).
 
-4. **Which class fields have accessors, and which field does each read/write?**
-   - *Answered by:* `class_fact WHERE is_accessor=1` → `accessor_field`.
-   - *Ground truth (JKI):* **18** accessors across **9** classes; each field has
-     exactly one accessor VI. e.g. `TestCase` → {`CustomReportText`,
-     `SkipMessage`}, `TestRunner` → {`StartTime`, `StopTime`, `TestTimingInfo`,
-     `PublicEvents`}. Full map pinned in `test_q4_accessor_field_map`.
+4. **Which classes have properties, and which property does each accessor VI belong to?**
+   - *Answered by:* `class_fact WHERE is_accessor=1` → `accessor_field` (the
+     property's name). A property accessor is a VI the class lists in a
+     Property Definition folder.
+   - *Ground truth (JKI):* **none** — no JKI VI Tester class has a property
+     folder, and `Get X.vi` methods are ordinary methods. Pinned in
+     `test_q4_accessor_field_map`.
 
 5. **If I change `TestCase.lvclass`, what inherits from it?**
    - *Answered by:* children of `TestCase` in `class_fact` (+ `query` over
@@ -349,7 +350,7 @@ index. `Fab?` = fabrication (NONE is good).
 | 1 hierarchy | WARN | PASS | NONE | Adoption run: used `parse_lvclass` via a hand-written script, not the query surface/CLI. Correct tree, incl. classes the index misses. |
 | 2 vilib parent | — | PASS | — | Harness. `is_vilib_parent` correct. |
 | 3 private methods | — | PASS | — | Query: 4 TestCase private methods. |
-| 4 accessors | — | PASS | — | Query: 18 accessors, 17 distinct fields. |
+| 4 properties | — | PASS | — | Query: no property folders in JKI, so no accessors. |
 | 6 public API | — | PASS | — | Query: `is_public` populated (2058 public terminals). |
 | 9 zero-input VIs | — | PASS | — | Query: 30. |
 | 10 error names | WARN | PASS | NONE | Adoption run: ran lvkit's `run_query` engine via a script, not CLI/MCP. `error out`=352 *(now 382 — see Q10)*. Correctly flagged 17 `control_NN` as unresolved. |
