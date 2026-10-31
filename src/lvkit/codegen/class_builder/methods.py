@@ -18,6 +18,7 @@ from ..builder import (
 )
 from ..class_model import ClassModel, MethodKind, MethodShape
 from ..context import type_namer
+from ..errors import CodeGenError
 from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_resolver import ImportResolver
 
@@ -84,13 +85,18 @@ class _MethodBuilderMixin:
                 return [raise_statement(reason)]
             for term in annotated_terminals(vi_context):
                 ctx.import_types(term.lv_type, at_run_time=False)
-            return function_body(
-                vi_context,
-                key,
-                ctx,
-                parameter_names=names,
-                return_stmt=lambda: self._return_stmt(shape, vi_context, ctx),
-            )
+            try:
+                return function_body(
+                    vi_context,
+                    key,
+                    ctx,
+                    parameter_names=names,
+                    return_stmt=lambda: self._return_stmt(shape, vi_context, ctx),
+                )
+            except CodeGenError as error:
+                # One method that cannot be written is that VI's gap; the rest of
+                # the class is still written.
+                raise ConversionGap(str(error), error.node) from error
 
         body = vi_body(ctx, key, build)
         self._parts.collect(ctx)

@@ -937,3 +937,409 @@ def test_the_python_of_a_class_calls_nothing_in_lvkit(tmp_path: Path) -> None:
     package = inheritance_project(tmp_path).generate()
     for source in package.sources.values():
         assert "lvkit" not in source
+
+
+# --- the fixes found in review ---------------------------------------------------
+
+
+def _unwired_dispatch(owner: LVType, callee: str) -> Recipe:
+    """A method that calls ``callee`` by dynamic dispatch with nothing wired to
+    the object."""
+
+    def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "in", owner, "Self", 0)],
+                outputs=[pane(vi, "output", "out", owner, "Self out", 1)],
+                data_flow=[wire(vi, "in", "out")],
+            ),
+            [
+                call(
+                    vi,
+                    "c",
+                    callee,
+                    "dynIUse",
+                    [("self", 0, owner)],
+                    [("self out", 1, owner)],
+                )
+            ],
+        )
+
+    return build
+
+
+def test_a_method_that_cannot_be_written_is_that_vis_gap_not_the_classs(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    info_key = project.key_of("Base", "Info")
+    project.add_method("Base", "Info", info(BASE))
+    project.add_method("Base", "Broken", _unwired_dispatch(BASE, info_key))
+    project.add_method("Base", "NoObject", static_make)
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    reasons = sorted(g.reason for g in gaps)
+    assert len(reasons) == 2
+    assert any("no object wired" in r for r in reasons)
+    assert any("no input of its class Base" in r for r in reasons)
+    with package.use() as module:
+        base = module("base").Base()
+        base._count = 4
+        assert tuple(base.info()) == (4, 8)
+        with pytest.raises(NotImplementedError, match="no object wired"):
+            base.broken()
+        with pytest.raises(NotImplementedError, match="no input of its class"):
+            module("base").Base.noobject()
+
+
+def _structure_project(reader_first: bool):
+    """A structure that two tunnels carry one object into: a Bundle By Name, and
+    an Unbundle By Name that, with ``reader_first``, its value feeds."""
+    from lvkit.graph import InMemoryVIGraph
+    from tests.helpers import build_graph
+
+    vi = "s"
+
+    def tunnel(tag: str, direction: str, boundary: str) -> TunnelTerminal:
+        return TunnelTerminal(
+            id=f"s:{tag}",
+            index=0,
+            direction=direction,
+            boundary=boundary,
+            tunnel_type="csTun",
+            paired_id=f"s:{tag[:-1]}{'i' if tag.endswith('o') else 'o'}",
+        )
+
+    structure = CaseStructureNode(
+        id="s:case",
+        vi_path=vi,
+        node_type="select",
+        terminals=[
+            tunnel("1o", "input", "outer"),
+            tunnel("1i", "output", "inner"),
+            tunnel("2o", "input", "outer"),
+            tunnel("2i", "output", "inner"),
+        ],
+        frames=[CaseFrame(selector_value="True")],
+    )
+    changer = mux(vi, "set", True, BASE, INT, 0)
+    reader = mux(vi, "get", False, BASE, INT, 0)
+    for node in (changer, reader):
+        node.parent = "s:case"
+        node.frame = "True"
+    wires = [
+        wire(vi, "obj", "1o"),
+        wire(vi, "1o", "1i"),
+        wire(vi, "1i", "set.agg"),
+        wire(vi, "obj", "2o"),
+        wire(vi, "2o", "2i"),
+        wire(vi, "2i", "get.agg"),
+    ]
+    nodes = [structure, changer, reader]
+    if reader_first:
+        nodes.append(add(vi, "sum"))
+        wires += [wire(vi, "get.field", "sum.x"), wire(vi, "sum.sum", "set.field")]
+    context = VIContext(
+        name=vi,
+        inputs=[pane(vi, "input", "obj", BASE, "obj", 0)],
+        outputs=[],
+        data_flow=wires,
+    )
+    return build_graph(context, vi, nodes, graph=InMemoryVIGraph())
+
+
+def test_a_reader_inside_the_same_structure_makes_the_value_shared() -> None:
+    assert _structure_project(reader_first=False).value_is_shared("s:set.agg")
+
+
+def test_a_reader_inside_the_structure_that_runs_first_does_not() -> None:
+    assert not _structure_project(reader_first=True).value_is_shared("s:set.agg")
+
+
+def test_an_unbundled_object_is_copied_before_it_is_changed(tmp_path: Path) -> None:
+    counter, holder = class_type("Counter"), class_type("Holder")
+    project = Project(tmp_path)
+    project.add_class("Counter", [COUNT])
+    project.add_class("Holder", [ClusterField(name="Inner", type=counter)])
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "holder", holder, "holder", 0),
+                    pane(vi, "input", "v", INT, "v", 1),
+                ],
+                outputs=[pane(vi, "output", "out", counter, "out", 2)],
+                data_flow=[
+                    wire(vi, "holder", "get.agg"),
+                    wire(vi, "get.field", "set.agg"),
+                    wire(vi, "v", "set.field"),
+                    wire(vi, "set.agg_out", "out"),
+                ],
+            ),
+            [
+                mux(vi, "get", False, holder, counter, 0),
+                mux(vi, "set", True, counter, INT, 0),
+            ],
+        )
+
+    project.add_vi("Take", take)
+    package = project.generate()
+    assert "copy.deepcopy(" in package.sources["take"]
+    with package.use() as module:
+        holding = module("holder").Holder()
+        holding._inner = module("counter").Counter()
+        result = module("take").take(holder=holding, v=5)
+        assert holding._inner._count == 0
+        assert result.out._count == 5 and result.out is not holding._inner
+
+
+def test_an_object_entering_a_loop_is_copied_in_each_iteration(
+    tmp_path: Path,
+) -> None:
+    from lvkit.models import Tunnel, TunnelMode
+    from tests.helpers import tunnel_terminals
+
+    counter = class_type("Counter")
+    project = Project(tmp_path)
+    project.add_class("Counter", [COUNT])
+
+    def run(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        tunnels = [
+            Tunnel(
+                outer_terminal_uid=f"{vi}:n_o",
+                inner_terminal_uid=f"{vi}:n_i",
+                tunnel_type="lMax",
+            ),
+            Tunnel(
+                outer_terminal_uid=f"{vi}:o_o",
+                inner_terminal_uid=f"{vi}:o_i",
+                tunnel_type="lpTun",
+                mode=TunnelMode.PASSTHROUGH,
+            ),
+            Tunnel(
+                outer_terminal_uid=f"{vi}:v_o",
+                inner_terminal_uid=f"{vi}:v_i",
+                tunnel_type="lpTun",
+                mode=TunnelMode.PASSTHROUGH,
+            ),
+        ]
+        terminals = tunnel_terminals(tunnels)
+        terminals += [
+            TunnelTerminal(
+                id=f"{vi}:r_i",
+                index=20,
+                direction="input",
+                boundary="inner",
+                tunnel_type="lpTun",
+                paired_id=f"{vi}:r_o",
+                mode=TunnelMode.LAST_VALUE,
+                lv_type=counter,
+            ),
+            TunnelTerminal(
+                id=f"{vi}:r_o",
+                index=21,
+                direction="output",
+                boundary="outer",
+                tunnel_type="lpTun",
+                paired_id=f"{vi}:r_i",
+                mode=TunnelMode.LAST_VALUE,
+                lv_type=counter,
+            ),
+        ]
+        for t in terminals:
+            if t.id.endswith(("o_o", "o_i")):
+                t.lv_type = counter
+            elif t.id.endswith(("v_o", "v_i", "n_o", "n_i")):
+                t.lv_type = INT
+        loop = LoopNode(
+            id=f"{vi}:for",
+            vi_path=vi,
+            node_type="forLoop",
+            loop_type="forLoop",
+            terminals=terminals,
+        )
+        changer = mux(vi, "set", True, counter, INT, 0)
+        changer.parent = loop.id
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "obj", counter, "obj", 0),
+                    pane(vi, "input", "v", INT, "v", 1),
+                    pane(vi, "input", "n", INT, "n", 2),
+                ],
+                outputs=[pane(vi, "output", "out", counter, "out", 3)],
+                data_flow=[
+                    wire(vi, "n", "n_o"),
+                    wire(vi, "obj", "o_o"),
+                    wire(vi, "o_o", "o_i"),
+                    wire(vi, "o_i", "set.agg"),
+                    wire(vi, "v", "v_o"),
+                    wire(vi, "v_o", "v_i"),
+                    wire(vi, "v_i", "set.field"),
+                    wire(vi, "set.agg_out", "r_i"),
+                    wire(vi, "r_i", "r_o"),
+                    wire(vi, "r_o", "out"),
+                ],
+            ),
+            [loop, changer],
+        )
+
+    project.add_vi("Run", run)
+    package = project.generate()
+    assert package.gaps == []
+    assert "copy.deepcopy(" in package.sources["run"]
+    with package.use() as module:
+        original = module("counter").Counter()
+        result = module("run").run(obj=original, v=7, n=2)
+        assert original._count == 0
+        assert result.out._count == 7
+
+
+def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
+    tmp_path: Path,
+) -> None:
+    from lvkit.codegen.class_model import lazy_imports
+
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    method = project.add_method("Base", "Probe", passthrough(BASE))
+    free = project.add_vi("Helper", passthrough(BASE))
+    graph = project.graph
+    graph._dep_graph.add_edge(method, free)  # noqa: SLF001
+    assert not lazy_imports(graph, project.classes["Base"])
+    # The free VI names the class only for a class constant.
+    graph._dep_graph.add_edge(free, project.classes["Base"])  # noqa: SLF001
+    from lvkit.codegen import class_model
+
+    class_model._STATES.pop(graph, None)  # noqa: SLF001
+    assert lazy_imports(graph, project.classes["Base"])
+
+
+def test_a_reference_to_an_attribute_or_property_accessor_is_a_gap(
+    tmp_path: Path,
+) -> None:
+    from lvkit.codegen.class_model import not_a_method
+
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    read = project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    write = project.add_method(
+        "Base", "Write Count", writer(BASE), property_name="Count"
+    )
+    other = project.add_method("Base", "Peek", passthrough(BASE))
+    reason = not_a_method(project.graph, read)
+    assert reason is not None and "attribute 'count' of Base" in reason
+    assert not_a_method(project.graph, write) is not None
+    assert not_a_method(project.graph, other) is None
+
+
+def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:
+    from lvkit.codegen.nodes.vi_reference import _path_from
+
+    assert (
+        _path_from(object(), "/p/Cls/private/X.vi", "/p/Cls/Cls.lvclass")
+        == "private/X.vi"
+    )
+    assert (
+        _path_from(object(), "/p/Other/Y.vi", "/p/Cls/Cls.lvclass") == "../Other/Y.vi"
+    )
+
+
+def test_call_parent_of_a_forked_object_works_on_a_copy(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [EXTRA], parent="Base")
+    base_key = project.key_of("Base", "Probe")
+
+    def base_probe(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "in", BASE, "Self", 0),
+                    pane(vi, "input", "n", INT, "n", 2),
+                ],
+                outputs=[
+                    pane(vi, "output", "out", BASE, "Self out", 1),
+                    pane(vi, "output", "seen", INT, "seen", 3),
+                ],
+                data_flow=[
+                    wire(vi, "in", "get.agg"),
+                    wire(vi, "in", "out"),
+                    wire(vi, "get.field", "seen"),
+                ],
+            ),
+            [mux(vi, "get", False, BASE, INT, 0)],
+        )
+
+    def child_probe(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[
+                    pane(vi, "input", "in", CHILD, "Self", 0),
+                    pane(vi, "input", "n", INT, "n", 2),
+                ],
+                outputs=[
+                    pane(vi, "output", "out", CHILD, "Self out", 1),
+                    pane(vi, "output", "seen", INT, "seen", 3),
+                ],
+                data_flow=[
+                    wire(vi, "in", "c.self"),
+                    wire(vi, "n", "c.n"),
+                    wire(vi, "c.self out", "out"),
+                    wire(vi, "in", "get.agg"),
+                    wire(vi, "get.field", "seen"),
+                ],
+            ),
+            [
+                call(
+                    vi,
+                    "c",
+                    base_key,
+                    "callParentDynIUse",
+                    [("self", 0, BASE), ("n", 2, INT)],
+                    [("self out", 1, BASE), ("seen", 3, INT)],
+                ),
+                mux(vi, "get", False, CHILD, INT, 0),
+            ],
+        )
+
+    project.add_method("Base", "Probe", base_probe)
+    project.add_method("Child", "Probe", child_probe)
+    package = project.generate()
+    child_source = package.sources["child"]
+    assert "copy.deepcopy(self)" in child_source
+    assert "super(Child, " in child_source
+    with package.use() as module:
+        child = module("child").Child()
+        result = child.probe(n=1)
+        assert result.seen == 0
+
+
+def test_an_accessor_named_like_an_ancestors_attribute_is_a_gap(
+    tmp_path: Path,
+) -> None:
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [OFFSET], parent="Base")
+    project.add_method("Base", "Read Count", reader(BASE), property_name="Count")
+    project.add_method("Base", "Write Count", writer(BASE), property_name="Count")
+    project.add_method("Child", "Read Total", reader(CHILD), property_name="Count")
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    child = class_attributes(project.graph, project.classes["Child"])
+    assert child.accessors == {}
+    assert child.fields == ["_offset"]
+    (gap,) = gaps
+    assert "'count'" in gap.reason and "descends from" in gap.reason
+    with package.use() as module:
+        obj = module("child").Child()
+        assert obj.count == 0 and sorted(vars(obj)) == ["_offset", "count"]
+        with pytest.raises(NotImplementedError, match="descends from"):
+            obj.read_total()

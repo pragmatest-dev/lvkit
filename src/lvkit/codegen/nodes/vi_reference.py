@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ast
 import os
+import posixpath
 import textwrap
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -47,7 +48,7 @@ from lvkit.vi_files import class_stem
 
 from ..ast_utils import build_assign, module_part, parse_expr
 from ..callee_names import pane_names
-from ..class_model import member_shape, python_class_name
+from ..class_model import member_shape, not_a_method, python_class_name
 from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -148,6 +149,9 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
         )
     shape = member_shape(ctx.graph, target.key)
     if shape is not None:
+        reason = not_a_method(ctx.graph, target.key)
+        if reason is not None:
+            raise ConversionGap(reason, node)
         call = method_call.build_call(callee, ctx, shape, receiver_keyword="self")
         result_var = call.result_var or ctx.make_output_var(
             "vi_reference_result", node.id
@@ -181,6 +185,17 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             "parameters by.",
             node,
         )
+    members = _members_with_pane(ctx, pane)
+    if members:
+        raise ConversionGap(
+            f"{_label(node)}: the VI the reference holds is only known when the "
+            "diagram runs, and the project's "
+            + ", ".join(sorted(members))
+            + " have its connector pane: a method of a class takes its object and "
+            "returns its results as Python's methods do, which a call by reference "
+            "does not know at generation time.",
+            node,
+        )
     names = pane_names(pane)
     labelled = {slot.index for slot in pane if slot.name}
     keywords: list[ast.keyword] = []
@@ -206,6 +221,29 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
     return _Call(function, keywords, result_var, bindings)
+
+
+def _members_with_pane(ctx: CodeGenContext, pane: tuple[PaneSlot, ...]) -> list[str]:
+    """The names of the class members of the project whose connector pane is
+    ``pane``: the VIs a reference of that type may hold that are methods."""
+    assert ctx.graph is not None
+    wanted = {
+        (slot.index, slot.is_output)
+        for slot in pane
+        if slot.type is None
+        or not Terminal(
+            id="", index=slot.index, direction="input", lv_type=slot.type
+        ).is_error_cluster
+    }
+    found = []
+    for name, key, _ in ctx.graph.class_members():
+        inputs, _, outputs, _ = ctx.graph.vi_interface(key)
+        slots = {(t.index, False) for t in inputs if not t.is_error_cluster} | {
+            (t.index, True) for t in outputs if not t.is_error_cluster
+        }
+        if slots == wanted:
+            found.append(name)
+    return found
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
@@ -424,11 +462,13 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     name and its method's name."""
     assert ctx.graph is not None and ctx.vi_name is not None
     resolver = ctx.import_resolver
-    caller_folder = os.path.dirname(ctx.vi_name)
+    # The module being generated sits in the folder of its class file (a method)
+    # or of its VI; a path computed when the code runs is read from that folder.
+    module_key = ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)
-        if shape is None:
+        if shape is None or not_a_method(ctx.graph, key) is not None:
             continue
         spec = (
             resolver.package_spec(class_key)
@@ -438,7 +478,7 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
         module = spec + module_part(class_stem(Path(class_key).name))
         entry = (module, python_class_name(class_key), shape.name)
         entries[name] = entry
-        entries[Path(os.path.relpath(key, caller_folder)).as_posix()] = entry
+        entries[_path_from(resolver, key, module_key)] = entry
     ctx.add_module_global(
         "_class_members",
         ast.Dict(
@@ -452,6 +492,16 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
             ],
         ),
     )
+
+
+def _path_from(resolver: object, key: str, module_key: str) -> str:
+    """The path of the file ``key`` from the folder of the module generated for
+    ``module_key``, both by the project-relative paths modules are placed by."""
+    if isinstance(resolver, ImportResolver):
+        member = resolver.shown(key)
+        folder = posixpath.dirname(resolver.shown(module_key))
+        return posixpath.relpath(member, folder or ".")
+    return Path(os.path.relpath(key, os.path.dirname(module_key))).as_posix()
 
 
 def _owners_table(node: PrimitiveNode, ctx: CodeGenContext) -> str:

@@ -84,13 +84,8 @@ def build_call(
     receiver_term = _terminal(terminals, "input", shape.receiver_in)
     receiver: str | None = None
     if shape.kind is not MethodKind.STATIC:
-        # Call Parent works on the object it is called from, never on a copy.
         receiver = (
-            None
-            if receiver_term is None
-            else ctx.wired_input(receiver_term.id, node)
-            if node.node_type == "callParentDynIUse"
-            else owned_input(ctx, receiver_term, node, prelude)
+            owned_input(ctx, receiver_term, node, prelude) if receiver_term else None
         )
         if receiver is None and shape.kind is MethodKind.INSTANCE:
             # A static VI whose class input is unwired works on the class's

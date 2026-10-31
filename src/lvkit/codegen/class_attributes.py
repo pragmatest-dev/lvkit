@@ -85,6 +85,9 @@ class ClassAttributes:
     fields: list[str] = field(default_factory=list)
     accessors: dict[str, Accessor] = field(default_factory=dict)
     names: frozenset[str] = frozenset()
+    # The accessor VIs whose property has the name of an attribute or property of
+    # an ancestor it does not override: the reason each cannot be that property.
+    clashes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -201,10 +204,25 @@ def class_attributes(
     groups = _members(graph, class_key)
 
     accessors: dict[str, Accessor] = {}
+    clashes: dict[str, str] = {}
     taken = set(parent.names)
     attribute_of_field: dict[int, str] = {}
     properties: list[tuple[str, str, list[_Member]]] = []
     for property_name, members in groups.items():
+        overrides = any(m.in_override_chain for m in members)
+        python_name = member_name(
+            to_var_name(property_name), min((m.scope for m in members), key=_breadth)
+        )
+        if not overrides and (
+            python_name in parent.names or to_var_name(property_name) in parent.names
+        ):
+            for m in members:
+                clashes[m.key] = (
+                    f"The property {property_name!r} is '{python_name}' in Python, "
+                    "the name of an attribute or property of a class this class "
+                    "descends from"
+                )
+            continue
         indices = {m.field_index for m in members}
         index = next(iter(indices)) if len(indices) == 1 else None
         if (
@@ -243,6 +261,7 @@ def class_attributes(
         fields=attributes,
         accessors=accessors,
         names=frozenset(taken),
+        clashes=clashes,
     )
 
 

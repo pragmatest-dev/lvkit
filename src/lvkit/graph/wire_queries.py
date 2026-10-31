@@ -133,12 +133,16 @@ class WireQueriesMixin:
         for src in self.incoming_edges(terminal_id):
             if self.terminal_vi(src.terminal_id) != home:
                 continue
+            if self._is_field_of_container(src.terminal_id):
+                return True
             for dest in self.outgoing_edges(src.terminal_id):
-                if (
-                    dest.terminal_id != terminal_id
-                    and self.terminal_vi(dest.terminal_id) == home
-                    and dest.node_id != changer
-                    and not nx.has_path(self._graph, dest.node_id, changer)
+                if dest.terminal_id == terminal_id or (
+                    self.terminal_vi(dest.terminal_id) != home
+                ):
+                    continue
+                if any(
+                    reader != changer and not nx.has_path(self._graph, reader, changer)
+                    for reader in self._readers(dest, changer)
                 ):
                     return True
             if (
@@ -154,4 +158,34 @@ class WireQueriesMixin:
                 return True
             if self._shared_from(src.terminal_id, changer, home, seen):
                 return True
+        return False
+
+    def _is_field_of_container(self, terminal_id: str) -> bool:
+        """Whether the terminal gives a field of a cluster or class (an Unbundle
+        By Name or an In Place Element's field output): the value is the one the
+        container holds, so a change through it is a change of the container."""
+        term = self.get_terminal(terminal_id)
+        return (
+            term is not None and term.nmux_role == "list" and term.direction == "output"
+        )
+
+    def _readers(self, dest: WireEnd, changer: str) -> list[str]:
+        """The nodes that read the wire at ``dest``. A tunnel of a structure that
+        holds the changing node is read by what is wired to its inner side, not
+        by the structure (which reaches every node inside it)."""
+        if self._encloses(dest.node_id, changer):
+            paired = getattr(self.get_terminal(dest.terminal_id), "paired_id", None)
+            if paired is not None:
+                return [w.node_id for w in self.outgoing_edges(paired)]
+        return [dest.node_id]
+
+    def _encloses(self, structure: str, node_id: str) -> bool:
+        """Whether the node ``node_id`` lies inside the structure ``structure``."""
+        node = self.get_graph_node(node_id)
+        seen: set[str] = set()
+        while node is not None and node.parent is not None and node.parent not in seen:
+            if node.parent == structure:
+                return True
+            seen.add(node.parent)
+            node = self.get_graph_node(node.parent)
         return False

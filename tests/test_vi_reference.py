@@ -396,19 +396,27 @@ _CLASS_CALLEE = (
 
 
 def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
-    loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
-    d.type_terminal(loaded, 21, d.typed_vi_reference())
-    d.type_terminal(loaded, 31, d.typed_vi_reference())
+    loaded = _computed(tmp_path, _STRING_TYPE)
     d.own_by_class(loaded, "Owner.lvclass")
     source = _source(loaded)
     assert "_vi_owners = {}\n" in source
     assert "'Owner.lvclass:Callee.vi': ('.owner', 'Owner', 'callee_bdhbxml')" in source
     for refs in _package(tmp_path, source, _CLASS_CALLEE, "owner"):
-        owner = importlib.import_module("generated_refs.owner")
         refs.refs("Owner.lvclass:Callee.vi")  # type: ignore[attr-defined]
-        assert [x for x, _ in owner.calls] == [5]
         with pytest.raises(KeyError):
             refs.refs("Other.lvclass:Callee.vi")  # type: ignore[attr-defined]
+
+
+def test_a_call_by_reference_of_a_method_found_when_the_code_runs_is_a_gap(
+    tmp_path: Path,
+) -> None:
+    loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
+    d.type_terminal(loaded, 21, d.typed_vi_reference())
+    d.type_terminal(loaded, 31, d.typed_vi_reference())
+    d.own_by_class(loaded, "Owner.lvclass")
+    reason = _failure(loaded)
+    assert "Owner.lvclass:Callee.vi" in reason
+    assert "only known when the diagram runs" in reason
 
 
 def test_a_computed_name_with_no_owner_in_the_project_finds_nothing(

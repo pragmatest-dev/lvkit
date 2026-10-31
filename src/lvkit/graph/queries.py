@@ -533,15 +533,16 @@ class QueryMixin:
         )
 
     def call_edges(self) -> list[tuple[str, str]]:
-        """``(caller, callee)`` for every plain reference of a VI to another VI,
-        sorted: the calls between VIs, not the ownership of members or private
+        """``(importer, imported)`` for every plain reference of a VI to another VI
+        or to a class (a call, or a class constant): the edges along which one
+        generated module imports another, not the ownership of members or private
         data."""
         return sorted(
             (source, target)
             for source, target, data in self._dep_graph.edges(data=True)
             if data.get("rel") not in OWNERSHIP_RELS
             and self._dep_graph.nodes[target].get("node_type", NodeType.VI)
-            == NodeType.VI
+            in (NodeType.VI, NodeType.CLASS)
         )
 
     def list_class_keys(self) -> list[str]:

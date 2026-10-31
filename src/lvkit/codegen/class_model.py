@@ -38,13 +38,13 @@ from .ast_utils import (
 )
 from .class_attributes import (
     Accessor,
+    AccessorKind,
     AccessorPane,
     ClassAttributes,
     accessor_pane,
     class_attributes,
     member_name,
 )
-from .errors import CodeGenError
 from .value_copy import holds_refnum
 
 if TYPE_CHECKING:
@@ -180,9 +180,17 @@ def _build_model(graph: InMemoryVIGraph, class_key: str) -> ClassModel:
     )
     model = ClassModel(class_key, python_class_name(class_key), attributes)
     taken: dict[str, str] = {}
+    model.clashes.update(attributes.clashes)
     for key in graph.class_member_keys(class_key):
         shape = _shape(graph, class_key, key)
         model.shapes[key] = shape
+        access = graph.get_method_access(key)
+        if shape.receiver_in is None and access is not None and not access.is_static:
+            model.clashes[key] = (
+                f"The dynamic-dispatch VI {graph.vi_display_name(key)} has no input "
+                f"of its class {model.name}, so there is no object to dispatch on"
+            )
+            continue
         accessor = attributes.accessors.get(key)
         if accessor is not None and shape.returns_receiver:
             # An accessor that gives back another object is an ordinary method:
@@ -315,11 +323,6 @@ def _shape(graph: InMemoryVIGraph, class_key: str, vi_key: str) -> MethodShape:
     receiver_in, receiver_out = _receivers(graph, class_key, vi_key)
     if receiver_in is None:
         kind = MethodKind.STATIC
-        if access is not None and not access.is_static:
-            raise CodeGenError(
-                f"The dynamic-dispatch VI {graph.vi_display_name(vi_key)} has no "
-                f"input of its class {python_class_name(class_key)}"
-            )
     else:
         is_static = access is not None and access.is_static
         kind = MethodKind.INSTANCE if is_static else MethodKind.DYNAMIC
@@ -397,11 +400,35 @@ def class_import(
         ) from None
 
 
+def not_a_method(graph: InMemoryVIGraph, vi_key: str) -> str | None:
+    """Why the member VI ``vi_key`` is not a method of its class (an attribute or
+    property accessor, a polymorphic VI, a VI that was not found), or None."""
+    class_key = graph.owning_class_key(vi_key)
+    if class_key is None:
+        return None
+    label = graph.vi_display_name(vi_key)
+    model = class_model(graph, class_key)
+    accessor = model.attributes.accessors.get(vi_key)
+    if accessor is not None:
+        what = "attribute" if accessor.kind is AccessorKind.ATTRIBUTE else "property"
+        return (
+            f"The VI {label} is the {what} '{accessor.python_name}' of "
+            f"{model.name}, which has no function to refer to"
+        )
+    if graph.is_stub(vi_key) or graph.get_poly_variants(vi_key):
+        return f"The VI {label} is not a method of {model.name}"
+    return None
+
+
 def member_reference(
     graph: InMemoryVIGraph, shape: MethodShape, resolver: ImportResolver
 ) -> tuple[str, str]:
     """``(Class.method, the import of the class)``: what a reference to a VI of a
-    class is. The object the method works on is passed as its ``self`` keyword."""
+    class is. The object the method works on is passed as its ``self`` keyword.
+    A member that is no method is a gap."""
+    reason = not_a_method(graph, shape.key)
+    if reason is not None:
+        raise ConversionGap(reason)
     imported = class_import(graph, shape.class_key, resolver)
     return f"{imported.name}.{shape.name}", imported.statement
 
