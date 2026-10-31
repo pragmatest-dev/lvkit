@@ -4,6 +4,11 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Fix: describe no longer stops with `AmbiguousVIReferenceError` on a VI whose class method of the same name is missing** — a dependency's connector pane is read by its identity, never by name, and the message shows project-relative paths.
+- **A class a VI belongs to is spelled as its file even when the class is not loaded** — `Daqmx Module editor node.lvclass:Read configuration.vi`, from the file the VI's own record points to.
+- **A file a VI's link records name only by path is still its dependency, named by its file** — measurement-plugin `Post-Build Action.vi` keeps its SDK class in `uses :`.
+- **OpenG `Get TDEnum from Data__ogtk` generates the LabVIEW type code of the wired data as a constant** — a variant's type is only known when the code runs, so that call is a gap with the reason.
+- **describe's header shows the project-relative path, and a control with no label is a note in the summary instead of a raw stderr line.**
+- **Fract/Exp String To Number `default` shows NI's `0.0`, and Number To Fractional/Exponential String `width` shows `no padding`.**
 - **A VI is named by its own library and class chain plus its file name in every view** — `AF Debug.lvlib:Protected Actor Handle.lvclass:Ping.vi`, not `Ping.vi`; a call keeps its class in `uses :`, a class member is spelled by the class file that lists it, and a type is the caller's dependency only through a record of its own name.
 - **An `.llb` member is placed and shown under the archive's path** — `ps3000/…/picoscope3000llb/picoscope3000open.py`, not the extraction cache (#224).
 - **A constant feeding a loop is assigned to a local named by its label or where it flows, never by its value**, and a loop no longer emits a bare `len(...)` statement.

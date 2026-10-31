@@ -108,7 +108,7 @@ def describe_vi(
     lines: list[str] = []
 
     # Title and signature
-    lines.append(f"# {vi_name}")
+    lines.append(f"# {graph.key_label(vi_name)}")
     lines.append("")
     lines.append(f"  {_format_signature(ctx)}")
     lines.append("")
@@ -661,7 +661,10 @@ def _node_output_name(
         return reference_phrase(reference_target(graph, node))
     if isinstance(node, LocalVariableNode):
         return f"{node.control_name or node.display_name} (local variable)"
-    identity = node.display_name if node.name else _structure_word(node)
+    if isinstance(node, VINode):
+        identity = graph.call_qualified_name(node) or node.display_name
+    else:
+        identity = node.display_name if node.name else _structure_word(node)
     if label := _terminal_display_name(term):
         return f"{identity}.{label}"
     outputs = [t for t in node.terminals if t.direction == "output"]

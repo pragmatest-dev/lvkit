@@ -21,6 +21,7 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -331,26 +332,47 @@ def build_dep_ref_map(
     return {ref.qualified_name: ref for ref in dependency_refs if ref.qualified_name}
 
 
+@dataclass(frozen=True)
+class LinkIndex:
+    """A VI's link-table records, found by the name a type gives its file:
+    ``by_name`` holds each record that names its file, by that qualified name;
+    ``by_file`` each record that names none, by its path's file name (LabVIEW
+    names a class or a control by its file). Keys are case-folded: LabVIEW
+    compares names without regard to case."""
+
+    by_name: dict[str, list[ParsedDependencyRef]]
+    by_file: dict[str, list[ParsedDependencyRef]]
+
+    def records_of(self, qualified_name: str) -> list[ParsedDependencyRef] | None:
+        """The records of the file a type names ``qualified_name``: those that
+        give it that name, else the unnamed ones whose path ends in its file."""
+        named = self.by_name.get(qualified_name.casefold())
+        if named:
+            return named
+        return self.by_file.get(qualified_name.rsplit(":", 1)[-1].casefold())
+
+
 def build_link_index(
     link_path_refs: list[ParsedDependencyRef], owners: Sequence[str]
-) -> dict[str, list[ParsedDependencyRef]]:
-    """Every link-table record keyed by the qualified name it gives the file its
-    path ends in, in record order (several records can name one file). A record
-    in the caller's own library omits that library (as ``joined_link_name``
-    qualifies a same-library link), so it is also keyed with the first entry of
-    the caller's own ``LIBN`` chain (``owners``) before its name. Keys are
-    case-folded: LabVIEW compares names without regard to case. A record that
-    names no file is not indexed."""
-    index: dict[str, list[ParsedDependencyRef]] = {}
+) -> LinkIndex:
+    """Every link-table record, in record order (several records can name one
+    file). A named record is keyed by the qualified name it gives the file its
+    path ends in, and, since a record in the caller's own library omits that
+    library (as ``joined_link_name`` qualifies a same-library link), also under
+    the first entry of the caller's own ``LIBN`` chain (``owners``). A record
+    that names no file is keyed by its path's file name."""
+    by_name: dict[str, list[ParsedDependencyRef]] = {}
+    by_file: dict[str, list[ParsedDependencyRef]] = {}
     for ref in link_path_refs:
         if ref.qualified_name is None:
+            by_file.setdefault(ref.name.casefold(), []).append(ref)
             continue
         names = [ref.qualified_name]
         if owners:
             names.append(f"{owners[0]}:{ref.qualified_name}")
         for name in names:
-            index.setdefault(name.casefold(), []).append(ref)
-    return index
+            by_name.setdefault(name.casefold(), []).append(ref)
+    return LinkIndex(by_name, by_file)
 
 
 class LoadingMixin:
@@ -411,7 +433,11 @@ class LoadingMixin:
         ) -> list[Path]: ...
         def problems(self, vi_keys: Iterable[str] | None = None) -> list[Problem]: ...
         def record_problem(
-            self, vi_key: str, problem: Problem, node_type: NodeType = ...
+            self,
+            vi_key: str,
+            problem: Problem,
+            node_type: NodeType = ...,
+            may_stop: bool = ...,
         ) -> None: ...
         def clear_problems(self, vi_key: str) -> None: ...
         def vi_label(self, path: Path | str) -> str: ...
@@ -1293,15 +1319,16 @@ class LoadingMixin:
         self,
         qname: str,
         dep_ref_map: dict[str, ParsedDependencyRef],
-        link_index: dict[str, list[ParsedDependencyRef]],
+        link_index: LinkIndex,
         caller_file: Path,
     ) -> ParsedDependencyRef | None:
         """The recorded path ref for a dependency: its own LinkSavePathRef, else
-        the best link-table record that gives its file exactly this qualified
-        name (``build_link_index``). None when no record names it: the type is
-        nested in a dependency that records it."""
+        the best link-table record of its file (``LinkIndex.records_of``: one
+        that gives the file exactly this qualified name, else one that names no
+        file and whose path ends in its file name). None when this VI records
+        no such file: the type is nested in a dependency that records it."""
         return dep_ref_map.get(qname) or self._pick_link_ref(
-            link_index.get(qname.casefold()), caller_file
+            link_index.records_of(qname), caller_file
         )
 
     def _prefetch_dependencies(
@@ -1309,7 +1336,7 @@ class LoadingMixin:
         qnames: list[str],
         instance_sources: dict[str, ParsedDependencyRef],
         dep_ref_map: dict[str, ParsedDependencyRef],
-        link_index: dict[str, list[ParsedDependencyRef]],
+        link_index: LinkIndex,
         caller_file: Path,
     ) -> dict[str, Path | None]:
         """Start extracting, in the pool, the SubVI and ``.ctl`` files this VI's
@@ -1356,6 +1383,30 @@ class LoadingMixin:
         if self._extract_pool is not None:
             self._extract_pool.wait(source)
         return extract_vi_xml(source)
+
+    def _own_owner_chain(
+        self, metadata: ParsedVIMetadata, caller_file: Path
+    ) -> list[str]:
+        """The VI's own owner chain (its ``LIBN`` block) with its own class or
+        library named by its file: the file its ``VILB`` record's path names,
+        as it is spelled on disk (a class is named by its file; the VI may
+        spell it in another case). Found on disk only, never loaded. The
+        ``LIBN`` spelling when that file is not here."""
+        owners = list(metadata.owning_libraries)
+        if not owners:
+            return owners
+        chain = ":".join(owners).casefold()
+        for ref in metadata.link_path_refs:
+            if ref.qualified_name is None or ref.qualified_name.casefold() != chain:
+                continue
+            for candidate in self.recorded_candidates(ref, caller_file):
+                try:
+                    found = _case_insensitive_match(candidate.parent, candidate.name)
+                except AmbiguousVIReferenceError:
+                    found = None
+                if found is not None:
+                    return [*owners[:-1], found.name]
+        return owners
 
     def _already_handled(
         self, vi_key: str, visited: set[str], mode: LoadMode
@@ -1448,8 +1499,6 @@ class LoadingMixin:
         # for the self-dependency compare below and the qname reverse index. It
         # is NOT the identity: two on-disk copies (a source VI + its stripped
         # built copy) can share a qname while being distinct files.
-        own_qname = file_qualified_name(metadata.owning_libraries, unqualified_name)
-
         # caller_file is the VI file itself (not its directory): each
         # leading empty in a LinkSavePathRef pops one level from it. It also
         # doubles as the source-path fallback below: metadata.source_path is
@@ -1461,6 +1510,9 @@ class LoadingMixin:
             source_dir / unqualified_name
             if source_dir is not None
             else bd_xml.parent / unqualified_name
+        )
+        own_qname = file_qualified_name(
+            self._own_owner_chain(metadata, caller_file), unqualified_name
         )
 
         # vi_key is the VI's IDENTITY: its canonical source-path string. Path is
@@ -1538,6 +1590,21 @@ class LoadingMixin:
         self._loaded_vis.add(vi_key)
         self._stubs.discard(vi_key)
         self.clear_problems(vi_key)
+        for uid in vi.front_panel.unlabeled_controls if vi.front_panel else ():
+            self.record_problem(
+                vi_key,
+                Problem(
+                    vi=self.vi_label(source_file),
+                    stage=ProblemStage.LOAD,
+                    kind=ProblemKind.UNLABELED_CONTROL,
+                    reason=(
+                        f"control uid={uid} records no label (its own label part, "
+                        "the flat type's Label and the connector pane name none); "
+                        f"it is named control_{uid}"
+                    ),
+                ),
+                may_stop=False,
+            )
         self._dep_load_mode[vi_key] = mode
 
         # Build dep_ref_map from recorded LinkSavePathRef data.
@@ -1888,7 +1955,7 @@ class LoadingMixin:
             # each at the path the control records for it; a type the control
             # records no path for is nested in one it does.
             dep_ref_map: dict[str, ParsedDependencyRef] = {}
-            link_index: dict[str, list[ParsedDependencyRef]] = {}
+            link_index = LinkIndex({}, {})
             if metadata is not None:
                 dep_ref_map = build_dep_ref_map(metadata.dependency_refs)
                 link_index = build_link_index(

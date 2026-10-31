@@ -115,6 +115,7 @@ from .link_table import (
 )
 from .metadata import (
     _decode_pth0_components,
+    name_records_by_path,
     parse_instance_files,
     parse_link_path_refs,
     parse_vi_metadata,
@@ -298,13 +299,6 @@ def parse_vi(
     )
 
     # Parse front panel
-    if source_path_str:
-        vi_label = Path(source_path_str).name
-    else:
-        # No resolvable source .vi path (e.g. parsed from cached XML with no
-        # vi_path given) -- fall back to the BD XML's own name, stripped of
-        # its cache-file suffix so warnings still read as a VI name.
-        vi_label = bd_xml.name.replace("_BDHb.xml", ".vi")
     unresolved_uids: set[str] = set()
     front_panel = _parse_front_panel(
         fp_xml,
@@ -327,11 +321,10 @@ def parse_vi(
     # on the control_<uid> placeholder (with a warning) once that also
     # comes up empty.
     if unresolved_uids:
-        _recover_or_warn_unresolved_labels(
+        front_panel.unlabeled_controls = _recover_unresolved_labels(
             front_panel,
             connector_pane,
             main_xml,
-            vi_label,
             unresolved_uids,
         )
 
@@ -449,7 +442,7 @@ def _parse_metadata(
         link_bin = main_xml.with_name(main_xml.stem + suffix)
         if link_bin.exists():
             recorded_refs.extend(parse_link_path_refs(link_bin, owning_libraries))
-    for ref in recorded_refs:
+    for ref in name_records_by_path(recorded_refs):
         key = (ref.qualified_name, ref.name, *ref.path_tokens)
         if key not in seen_refs:
             seen_refs.add(key)
@@ -1874,22 +1867,19 @@ def _conp_names_by_slot(main_xml: Path | str | None) -> dict[int, str]:
     }
 
 
-def _recover_or_warn_unresolved_labels(
+def _recover_unresolved_labels(
     front_panel: ParsedFrontPanel,
     connector_pane: ParsedConnectorPane | None,
     main_xml: Path | str | None,
-    vi_label: str,
     unresolved_uids: set[str],
-) -> None:
+) -> list[str]:
     """Second chance for a control whose own FP-heap label didn't resolve:
     if it's wired to a connector-pane slot, try that slot's VCTP flat-type
     ``Label`` (an independent copy of the name -- see
     ``front_panel.parse_connector_pane_labels``). Only controls that are
     STILL unresolved after that fall back to the ``control_<uid>``
-    placeholder, and only THEN do we log -- never silently.
-
-    Sorted iteration over ``unresolved_uids`` keeps this deterministic
-    (a set has no stable order) so warning output is byte-reproducible.
+    placeholder; their uids are returned, sorted, so the loader reports each
+    as a note on the VI (never silently, never printed from here).
     """
     slot_by_uid: dict[str, int] = {}
     if connector_pane:
@@ -1911,6 +1901,7 @@ def _recover_or_warn_unresolved_labels(
 
     uid_to_control = _uid_to_control_map(front_panel.controls)
 
+    unlabeled: list[str] = []
     for uid in sorted(unresolved_uids):
         control = uid_to_control.get(uid)
         if control is None:
@@ -1925,15 +1916,8 @@ def _recover_or_warn_unresolved_labels(
         if recovered:
             control.name = recovered
             continue
-
-        logger.warning(
-            "%s: control uid=%s has no resolvable label (own partID=16/82 "
-            "text empty or absent, and no VCTP flat-type Label either) — "
-            "falling back to 'control_%s'",
-            vi_label,
-            uid,
-            uid,
-        )
+        unlabeled.append(uid)
+    return unlabeled
 
 
 def _parse_fp_parts_list(owner: ET.Element) -> list[ParsedFPPart]:

@@ -268,7 +268,8 @@
           "index": 3,
           "direction": "input",
           "name": "default (0 dbl)",
-          "type": "NumFloat64"
+          "type": "NumFloat64",
+          "default": 0.0
         },
         {
           "index": 4,
@@ -315,7 +316,8 @@
           "index": 3,
           "direction": "input",
           "name": "width (-)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default_behavior": "no padding"
         },
         {
           "index": 4,
@@ -354,7 +356,8 @@
           "index": 3,
           "direction": "input",
           "name": "width (-)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default_behavior": "no padding"
         },
         {
           "index": 4,

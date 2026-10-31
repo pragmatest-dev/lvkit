@@ -72,6 +72,10 @@ class ProblemKind(str, Enum):
     # the VI search path instead (LabVIEW warns of the same). A note, not a
     # problem: the run is still complete (``Problem.is_note``).
     FOUND_ELSEWHERE = "found on the search path"
+    # A front-panel control records no label anywhere the VI keeps one (its own
+    # label part, the flat type's Label, the connector pane's names); it is
+    # named ``control_<uid>``. A note: the VI is read whole.
+    UNLABELED_CONTROL = "control without a label"
 
 
 class Outcome(str, Enum):
@@ -80,6 +84,18 @@ class Outcome(str, Enum):
     COMPLETE = "Complete"
     PARTIAL = "Partial"
     STOPPED = "Stopped"
+
+
+# How the summary counts each kind of note.
+_NOTE_PHRASES = {
+    ProblemKind.FOUND_ELSEWHERE: (
+        "file(s) loaded from the VI search path, not from the path their caller "
+        "records"
+    ),
+    ProblemKind.UNLABELED_CONTROL: (
+        "control(s) record no label and are named control_<uid>"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -102,8 +118,9 @@ class Problem:
     @property
     def is_note(self) -> bool:
         """Whether this is a note: the run went right, and the user may want to
-        know (a file found on the VI search path, not at its recorded path)."""
-        return self.kind is ProblemKind.FOUND_ELSEWHERE
+        know (a file found on the VI search path, not at its recorded path; a
+        control that records no label)."""
+        return self.kind in (ProblemKind.FOUND_ELSEWHERE, ProblemKind.UNLABELED_CONTROL)
 
     @property
     def line(self) -> str:
@@ -339,12 +356,10 @@ class RunReport:
         elif any(p.kind is ProblemKind.ENVIRONMENT for p in self.problems):
             head += " (includes an environment problem)"
         lines = [head, *(f"  {problem.line}" for problem in self.problems)]
-        if self.notes:
-            lines.append(
-                f"{len(self.notes)} file(s) loaded from the VI search path, not "
-                "from the path their caller records"
-                + " (--format json lists them)"
-            )
+        for kind, phrase in _NOTE_PHRASES.items():
+            count = sum(1 for note in self.notes if note.kind is kind)
+            if count:
+                lines.append(f"{count} {phrase} (--format json lists them)")
         return lines
 
     def print_summary(

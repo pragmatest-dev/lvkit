@@ -6,6 +6,7 @@ import re
 import struct
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -543,9 +544,9 @@ def recorded_file_name(
     spells them (a record in the caller's own library or class omits that
     owner). The ``VILB`` record is the VI's link to its own class or library and
     names none: that file is the last of the VI's own ``LIBN`` chain
-    (``owners``), so its name is that chain. None when the record does not name
-    the file its path ends in. Names compare without regard to case, as
-    LabVIEW's do."""
+    (``owners``), so its name is that chain. None when the record does not
+    name the file its path ends in. Names compare without regard to
+    case, as LabVIEW's do."""
     if ident == "VILB":
         own = owners[-1].casefold() == leaf.casefold() if owners else False
         return ":".join(owners) if own else None
@@ -554,6 +555,52 @@ def recorded_file_name(
         if cleaned[i].casefold() == leaf.casefold():
             return ":".join(part for part in cleaned[: i + 1] if part)
     return None
+
+
+def _path_key(ref: ParsedDependencyRef) -> tuple[str, ...]:
+    """A recorded path compared without regard to case."""
+    return tuple(token.casefold() for token in ref.path_tokens)
+
+
+def own_container_chain(
+    owners: Sequence[str], refs: list[ParsedDependencyRef]
+) -> list[str]:
+    """The VI's owner chain (``LIBN``, ``owners``) with its own class or
+    library spelled as that file is named: the file name the VI's ``VILB``
+    record's path gives (``recorded_file_name``), which can differ from the
+    ``LIBN`` spelling in case. ``owners`` as they are when no record names
+    that file."""
+    if not owners:
+        return list(owners)
+    chain = ":".join(owners).casefold()
+    for ref in refs:
+        if (
+            ref.qualified_name is not None
+            and ref.qualified_name.casefold() == chain
+            and ref.name.casefold() == owners[-1].casefold()
+        ):
+            return [*owners[:-1], ref.name]
+    return list(owners)
+
+
+def name_records_by_path(
+    refs: list[ParsedDependencyRef],
+) -> list[ParsedDependencyRef]:
+    """``refs`` with each record that gives its file no qualified name named
+    like another record of the same recorded path that does: both are links to
+    one file (the ``FPPI`` record of a VI's own class has the ``VILB`` record's
+    path). A record no other names stays unnamed: it is named by its file."""
+    names: dict[tuple[str, ...], str] = {}
+    for ref in refs:
+        if ref.qualified_name is not None:
+            names.setdefault(_path_key(ref), ref.qualified_name)
+    named: list[ParsedDependencyRef] = []
+    for ref in refs:
+        name = names.get(_path_key(ref))
+        if ref.qualified_name is None and name is not None:
+            ref = replace(ref, qualified_name=name)
+        named.append(ref)
+    return named
 
 
 def parse_link_path_refs(
@@ -574,7 +621,7 @@ def parse_link_path_refs(
     by PATH with no name-search, identically on web and desktop. Each ref's
     qualified name is the one its record gives that file
     (``recorded_file_name``; ``owners`` is the VI's own ``LIBN`` chain), None
-    when the record names none.
+    when the record names none (it is then named by its file).
     """
     try:
         data = link_bin.read_bytes()

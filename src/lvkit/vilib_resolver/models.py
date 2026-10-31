@@ -31,6 +31,9 @@ class VIEntry(BaseModel):
     terminals: list[VITerminal] = Field(default_factory=list)
     python: str = ""
     python_code: str | None = None
+    # A neutral operation the generator writes from the graph instead of a
+    # template (``codegen/nodes/vilib_op.py``).
+    op: str | None = None
     inline: bool = False
     imports: list[str] = Field(default_factory=list)
     status: str = "needs_review"

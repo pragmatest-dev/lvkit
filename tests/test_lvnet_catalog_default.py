@@ -241,6 +241,13 @@ NI_DOCUMENTED_DEFAULTS = [
     pytest.param(1506, 1, True, None, id="Number To Fractional String decimal"),
     pytest.param(1506, 2, 6, None, id="Number To Fractional String precision"),
     pytest.param(1187, 2, True, None, id="Fract/Exp String To Number decimal"),
+    pytest.param(1187, 3, 0.0, None, id="Fract/Exp String To Number default"),
+    pytest.param(
+        1505, 3, None, DefaultBehavior.NO_PADDING, id="Number To Exponential width"
+    ),
+    pytest.param(
+        1506, 3, None, DefaultBehavior.NO_PADDING, id="Number To Fractional width"
+    ),
     pytest.param(9111, 2, -1, None, id="Enqueue Element timeout"),
     pytest.param(9129, 2, -1, None, id="Enqueue Element At Opposite End timeout"),
     pytest.param(9113, 2, -1, None, id="Dequeue Element timeout"),

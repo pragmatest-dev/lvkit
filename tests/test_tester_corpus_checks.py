@@ -172,3 +172,47 @@ def test_an_llb_member_is_placed_under_the_archive(tmp_path: Path) -> None:
         "  [3/4] ps3000/32-bit-examples/PicoScope3000.llb/PicoScope3000Open.vi"
         in run.stdout
     )
+
+
+def _describe_cli(vi: Path, *extra: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "lvkit", "describe", str(vi), *extra],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_an_unloaded_class_is_named_by_its_file() -> None:
+    folder = _SAMPLES / "DCAF-DAQModule/source/editor node"
+    run = _describe_cli(folder / "Read configuration.vi", "--format", "lvnet")
+    assert run.stdout.startswith(
+        "vi Daqmx Module editor node.lvclass:Read configuration.vi :"
+    )
+    caller = _describe_cli(folder / "Main Editor UI.vi")
+    assert "  Daqmx Module editor node.lvclass:Add New Line.vi: (" in caller.stdout
+    assert "DAQmx Module editor node.lvclass:Add New Line.vi" not in caller.stdout
+
+
+def test_describe_shows_project_paths_and_notes_unlabeled_controls() -> None:
+    vi = _SAMPLES / "DCAF-DAQModule/source/module/configuration/Delete Line.vi"
+    run = _describe_cli(vi)
+    assert run.returncode == 0
+    assert run.stdout.startswith("# module/configuration/Delete Line.vi\n")
+    assert "/home/" not in run.stdout
+    assert "has no resolvable label" not in run.stderr
+    assert "control(s) record no label and are named control_<uid>" in run.stderr
+
+
+def test_get_tdenum_of_a_variant_is_a_gap(tmp_path: Path) -> None:
+    vi = (
+        _SAMPLES
+        / "JKI-EasyXML/Source/OpenG Derivative/Format Variant Into String--EasyXML.vi"
+    )
+    run = _generate(vi, tmp_path)
+    assert (
+        "Get TDEnum from Data__ogtk reads the type of a variant, which is only "
+        "known when the code runs"
+    ) in run.stderr
+    (module,) = tmp_path.rglob("format_variant_into_string__easyxml.py")
+    assert "type(variant).__name__" not in module.read_text(encoding="utf-8")

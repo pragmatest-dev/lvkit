@@ -36,7 +36,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane
-from . import accessor_call, error_vi, method_call
+from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
 
 
@@ -79,6 +79,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
 
     else:
         vilib_vi = _get_vilib_vi(node, ctx)
+
+    # A catalog VI the generator writes from the graph.
+    if vilib_vi and vilib_vi.op:
+        return vilib_op.generate(node, ctx, vilib_vi)
 
     # Check for inline replacement first
     if vilib_vi and vilib_vi.python_code and vilib_vi.inline:

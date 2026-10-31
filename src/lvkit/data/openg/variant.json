@@ -25,7 +25,7 @@
         }
       ],
       "status": "complete",
-      "python_code": "{type_descriptor_enumeration} = type({data}).__name__",
+      "op": "TYPE_DESCRIPTOR_CODE",
       "inline": true,
       "imports": []
     }
