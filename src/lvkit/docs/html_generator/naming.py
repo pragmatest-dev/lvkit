@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import hashlib
 import re
+from pathlib import Path
 
+from lvkit.docs.page_names import PageName
 from lvkit.vi_files import strip_vi_extension
 
 
 class NamingMixin:
     """Mixin providing VI/class name -> filename/grouping conversions."""
+
+    # VI name -> its page, for the VIs named by their file (``docs/page_names.py``).
+    page_names: dict[str, PageName]
 
     def _extract_library_group(self, vi_name: str) -> str:
         """Extract library/group name from VI name for grouping.
@@ -24,6 +29,8 @@ class NamingMixin:
             "Build Path__ogtk.vi" -> "OpenG"
             "Get System Directory.vi" -> "vi.lib"
         """
+        if vi_name in self.page_names:
+            return self.page_names[vi_name].group
         # Check for library-qualified name (Library.lvlib:VI.vi or lvclass:VI.vi)
         if ".lvlib:" in vi_name:
             return vi_name.split(":")[0]
@@ -45,8 +52,11 @@ class NamingMixin:
             "Build Path__ogtk.vi" -> "Build Path"
             "Get System Directory.vi" -> "Get System Directory"
         """
+        # A VI that is a file is shown by its file name, never its path.
+        if vi_name in self.page_names:
+            name = Path(vi_name).name
         # Handle library-qualified names
-        if ":" in vi_name:
+        elif ":" in vi_name:
             name = vi_name.split(":")[-1]
         else:
             name = vi_name
@@ -70,6 +80,8 @@ class NamingMixin:
 
         # Sanitize library group name for filesystem
         safe_lib = library_group.replace(".", "_").replace(":", "_").replace("/", "_")
+        if vi_name in self.page_names:
+            return f"{safe_lib}/{self.page_names[vi_name].stem}.html"
 
         # Handle qualified names (Library.lvlib:VI.vi)
         safe_name = vi_name.replace(":", "_").replace("/", "_").replace("\\", "_")

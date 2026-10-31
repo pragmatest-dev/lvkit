@@ -31,13 +31,6 @@ def main() -> None:
     parser.add_argument("input", help="VI file to build a panel for")
     parser.add_argument("-o", "--output", required=True, help="Output directory")
     parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Additional search paths for SubVI resolution",
-    )
-    parser.add_argument(
         "--vilib",
         default=None,
         metavar="DIR",
@@ -49,14 +42,20 @@ def main() -> None:
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
     args = parser.parse_args()
 
     result = generate_panel(
         args.input,
         args.output,
-        search_paths=[Path(p) for p in args.search_paths] or None,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        instrlib_root=Path(args.instrlib) if args.instrlib else None,
     )
     panel_file = result.output_dir / f"{result.panel_stem}.py"
     print(f"\nGenerated panel in: {result.output_dir}")

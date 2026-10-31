@@ -45,11 +45,20 @@
           "default": "lvkit",
           "markdownDescription": "Path to a specific `lvkit` executable, overriding the one bundled with the extension. Leave unset (the default) and LVKit always uses its own bundled standalone binary for rendering, diffing, and the MCP server — one build behind every view, so they share a cache instead of fighting over it. Set this only to point at your own build (e.g. a checkout's `.venv/bin/lvkit`) when developing lvkit itself. Ignored in an untrusted workspace."
         },
-        "lvkit.searchPaths": {
-          "type": "array",
-          "items": { "type": "string" },
-          "default": [],
-          "markdownDescription": "Extra directories to search for SubVIs, in addition to the auto-detected repository root."
+        "lvkit.vilib": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "LabVIEW's `vi.lib` folder: where a SubVI recorded as `<vilib>/…` is read from. Empty: auto-detected from a local LabVIEW install."
+        },
+        "lvkit.userlib": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "LabVIEW's `user.lib` folder: where a SubVI recorded as `<userlib>/…` (OpenG, other toolkits) is read from."
+        },
+        "lvkit.instrlib": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "LabVIEW's `instr.lib` folder: where a SubVI recorded as `<instrlib>/…` (instrument drivers) is read from."
         },
         "lvkit.diagramTheme": {
           "type": "string",

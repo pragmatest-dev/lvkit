@@ -18,6 +18,7 @@ from lvkit.graph.netlist_json import typedef_to_dict
 from lvkit.graph.node_kinds import EdgeRel, NodeType
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.parser.models import ParsedFPControl, ParsedFrontPanel
+from lvkit.run_report import UnreadableVIError
 
 from .conftest import SAMPLES_ROOT
 
@@ -147,9 +148,9 @@ def test_a_control_with_no_root_type_is_unreadable(tmp_path: Path, monkeypatch):
     ctl = tmp_path / "NoRoot.ctl"
     ctl.write_bytes(b"x")
     monkeypatch.setattr(
-        InMemoryVIGraph, "_ctl_root", lambda self, p: (None, {1: _I32}, None)
+        InMemoryVIGraph, "_ctl_root", lambda self, p: (None, {1: _I32}, None, None)
     )
-    with pytest.raises(ValueError, match="Could not read NoRoot.ctl"):
+    with pytest.raises(UnreadableVIError, match="no root type"):
         load_ctl_by_path(ctl)
 
 
@@ -158,7 +159,7 @@ def test_load_ctl_by_path_rejects_a_missing_or_unreadable_control(tmp_path: Path
         load_ctl_by_path(tmp_path / "Missing.ctl")
     bad = tmp_path / "Bad.ctl"
     bad.write_bytes(b"not a labview file")
-    with pytest.raises(ValueError, match="Could not read Bad.ctl"):
+    with pytest.raises(UnreadableVIError, match="pylabview could not read"):
         load_ctl_by_path(bad)
 
 

@@ -18,12 +18,13 @@ readable)::
     <cache>/adhoc/<kind>/…                              (see below)
 
 ``<ns>`` answers "who OWNS this VI?": ``projects/<slug>`` (owned by a repo /
-.lvkit project — ``<slug>`` = the project root), ``shared/vilib/<slug>`` or
-``shared/userlib/<slug>`` (owned by a library install — ``<slug>`` = the vi.lib /
-user.lib root), or ``adhoc`` (owned by NOBODY — a standalone file or throwaway
-temp). :func:`classify` returns which. The owned namespaces name the ``<slug>``
-identity ONCE and hang every ``<kind>`` off it, so a project/library reads as a
-single browsable subtree. ``adhoc`` has no identity to name, so it drops the slug
+.lvkit project — ``<slug>`` = the project root), ``shared/vilib/<slug>``,
+``shared/userlib/<slug>`` or ``shared/instrlib/<slug>`` (owned by a library
+install — ``<slug>`` = the vi.lib / user.lib / instr.lib root), or ``adhoc``
+(owned by NOBODY — a standalone file or throwaway temp). :func:`classify`
+returns which. The owned namespaces name the ``<slug>`` identity ONCE and hang
+every ``<kind>`` off it, so a project/library reads as a single browsable
+subtree. ``adhoc`` has no identity to name, so it drops the slug
 level and is a flat per-kind pool (``adhoc/<kind>/…``) — path-addressed for
 ``extract`` (one slot per VI file path), content-addressed for
 ``render``/``diff`` (see :mod:`output_cache`), TTL-swept. ``index`` is
@@ -41,7 +42,7 @@ import os
 import shutil
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from lvkit import staging
@@ -65,36 +66,54 @@ def global_cache_root() -> Path:
 
 
 # ── Run-scoped extraction roots ─────────────────────────────────────────────
-# The resolved <vilib>/<userlib> roots for the current run, set once at
+# The resolved <vilib>/<userlib>/<instrlib> roots for the current run, set once at
 # `InMemoryVIGraph.set_library_roots` so `classify` can prefix-match a VI to its
 # tier without re-guessing from the path. One run at a time (same single-process
 # concurrency caveat the extractor has always had).
-_vilib_root: Path | None = None
-_userlib_root: Path | None = None
+_vilib_roots: tuple[Path, ...] = ()
+_userlib_roots: tuple[Path, ...] = ()
+_instrlib_roots: tuple[Path, ...] = ()
 
 
-def set_extraction_roots(*, vilib_root: Path | None, userlib_root: Path | None) -> None:
-    """Record the run's resolved library roots for cache classification.
+def _resolved(folders: Path | Sequence[Path] | None) -> tuple[Path, ...]:
+    if folders is None:
+        return ()
+    if isinstance(folders, Path):
+        folders = [folders]
+    return tuple(f.resolve() for f in folders)
 
-    Roots are resolved to absolute paths so prefix-matching in :func:`classify`
-    is stable regardless of how a VI path was spelled. Passing ``None`` clears
-    that root.
+
+def set_extraction_roots(
+    *,
+    vilib_root: Path | Sequence[Path] | None,
+    userlib_root: Path | Sequence[Path] | None,
+    instrlib_root: Path | Sequence[Path] | None = None,
+) -> None:
+    """Record the run's library folders (each one or several) for cache
+    classification.
+
+    Folders are resolved to absolute paths so prefix-matching in :func:`classify`
+    is stable regardless of how a VI path was spelled. Passing ``None`` or an
+    empty list clears that library.
     """
-    global _vilib_root, _userlib_root
-    _vilib_root = vilib_root.resolve() if vilib_root is not None else None
-    _userlib_root = userlib_root.resolve() if userlib_root is not None else None
+    global _vilib_roots, _userlib_roots, _instrlib_roots
+    _vilib_roots = _resolved(vilib_root)
+    _userlib_roots = _resolved(userlib_root)
+    _instrlib_roots = _resolved(instrlib_root)
 
 
-def extraction_roots() -> tuple[Path | None, Path | None]:
-    """The run's ``(vilib_root, userlib_root)`` as last set (None when unset)."""
-    return _vilib_root, _userlib_root
+def extraction_roots() -> tuple[tuple[Path, ...], tuple[Path, ...], tuple[Path, ...]]:
+    """The run's ``(vilib, userlib, instrlib)`` folders as last set (empty when
+    unset)."""
+    return _vilib_roots, _userlib_roots, _instrlib_roots
 
 
 def clear_extraction_roots() -> None:
-    """Forget the run's library roots (fall back to project/adhoc)."""
-    global _vilib_root, _userlib_root
-    _vilib_root = None
-    _userlib_root = None
+    """Forget the run's library folders (fall back to project/adhoc)."""
+    global _vilib_roots, _userlib_roots, _instrlib_roots
+    _vilib_roots = ()
+    _userlib_roots = ()
+    _instrlib_roots = ()
 
 
 # ── Namespace classification ────────────────────────────────────────────────
@@ -251,6 +270,41 @@ def _project_root_for(vi_path: Path) -> Path | None:
     return None
 
 
+def store_root(path: Path | str) -> Path:
+    """WHERE LVKIT KEEPS ITS STORE for a file or folder: the key of its cache slots
+    and its index. An ancestor holding a ``.lvkit`` store wins, then a git
+    repository, then a ``.lvproj`` folder (see ``_project_root_for``), so vendored
+    repositories inside a project share the outer project's store; the folder
+    itself (the file's folder, for a file) when there is none."""
+    resolved = Path(path).resolve()
+    return _project_root_for(resolved) or (
+        resolved if resolved.is_dir() else resolved.parent
+    )
+
+
+def project_root(path: Path | str) -> Path:
+    """WHERE THE LABVIEW PROJECT IS for a file or folder: the NEAREST folder above
+    it holding a ``.lvproj`` file, a ``.git`` folder or a ``.lvkit`` project store;
+    the folder itself when there is none. The base of every project-relative name
+    a user sees: a generated module's path, a documentation page, a warning's VI.
+    (``store_root`` answers a different question: where lvkit keeps what it
+    caches.)"""
+    from lvkit.project_store import PROJECT_STORE_DIR, global_home
+
+    resolved = Path(path).resolve()
+    own = resolved if resolved.is_dir() else resolved.parent
+    home = global_home().resolve()
+    for folder in [own, *own.parents]:
+        store = folder / PROJECT_STORE_DIR
+        if (
+            any(folder.glob("*.lvproj"))
+            or (folder / ".git").exists()
+            or (store.is_dir() and store.resolve() != home)
+        ):
+            return folder
+    return own
+
+
 def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     """Map ``vi_path`` to ``(cache_dir, source_label, namespace)`` for one
     artifact ``kind`` (``"extract"`` | ``"render"`` | ``"diff"``).
@@ -278,21 +332,16 @@ def classify(vi_path: Path, kind: str) -> tuple[Path, str, str]:
     # while same-build lookups still hit the same slot.
     fp = kind_fingerprint(kind)
 
-    vilib = _vilib_root
-    if vilib is not None:
-        rel = _rel_under(resolved, vilib)
+    for tier, library in (
+        *(("vilib", f) for f in _vilib_roots),
+        *(("userlib", f) for f in _userlib_roots),
+        *(("instrlib", f) for f in _instrlib_roots),
+    ):
+        rel = _rel_under(resolved, library)
         if rel is not None:
-            _note_owner(vilib)
-            d = cache / "shared" / "vilib" / _slug(vilib) / kind / fp / _vi_slot(rel)
-            return d, str(rel), "shared"
-
-    userlib = _userlib_root
-    if userlib is not None:
-        rel = _rel_under(resolved, userlib)
-        if rel is not None:
-            _note_owner(userlib)
-            slug = _slug(userlib)
-            d = cache / "shared" / "userlib" / slug / kind / fp / _vi_slot(rel)
+            _note_owner(library)
+            slug = _slug(library)
+            d = cache / "shared" / tier / slug / kind / fp / _vi_slot(rel)
             return d, str(rel), "shared"
 
     project = _project_root_for(resolved)

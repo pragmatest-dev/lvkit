@@ -11,8 +11,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from html import escape
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from lvkit.docs.page_names import PageName
 from lvkit.graph.models import MethodAccessInfo, MethodOverrideInfo
 
 from .typedef_page import TypedefPage
@@ -26,6 +28,7 @@ class ViPageMixin:
     doc_type: str
     all_vis: set[str]
     typedef_pages: dict[str, TypedefPage]
+    page_names: dict[str, PageName]
 
     if TYPE_CHECKING:
         # Stubs for methods defined on other mixins, resolved via MRO
@@ -134,7 +137,9 @@ class ViPageMixin:
         # Class hierarchy: breadcrumb link back to the owning class, an
         # access-scope badge, and an Overrides/Overridden-by section.
         breadcrumb_class_html = ""
-        display_vi_name = vi_name
+        # A VI that is a file is shown by its file name, never its path.
+        shown_name = Path(vi_name).name if vi_name in self.page_names else vi_name
+        display_vi_name = shown_name
         if owning_class:
             class_href = "../" + self._class_name_to_filename(owning_class)
             breadcrumb_class_html = f'<a href="{class_href}">{owning_class}</a> / '
@@ -165,7 +170,7 @@ class ViPageMixin:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{vi_name} - {self.doc_title}</title>
+    <title>{shown_name} - {self.doc_title}</title>
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -178,7 +183,7 @@ class ViPageMixin:
         <div class="vi-header">
             {icon_html}
             <div class="vi-header-text">
-                <h1>{vi_name}{access_badge_html}</h1>
+                <h1>{shown_name}{access_badge_html}</h1>
                 <p class="vi-type">{vi_type_label}</p>
             </div>
         </div>

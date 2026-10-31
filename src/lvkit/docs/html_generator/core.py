@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from lvkit.docs.page_names import PageName
 from lvkit.graph.models import ClassHierarchyInfo, MethodAccessInfo
 from lvkit.graph.typedef import TypedefInfo
 
@@ -55,6 +56,9 @@ class HTMLDocGenerator(
         # output_dir), set by register_typedefs() BEFORE any page is written so
         # VI pages can link to a typedef page.
         self.typedef_pages: dict[str, TypedefPage] = {}
+        # VI name -> its page when the VI is named by its file; set by
+        # register_vis() before any page is written.
+        self.page_names: dict[str, PageName] = {}
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_vi_page(self, vi_data: dict[str, Any]) -> None:
@@ -98,6 +102,10 @@ class HTMLDocGenerator(
         html = self._render_class_page(hierarchy, method_access, private_data_key)
 
         html_path.write_text(html, encoding="utf-8")
+
+    def register_vis(self, names: dict[str, PageName]) -> None:
+        """Name the page of each VI that is named by its file."""
+        self.page_names = dict(names)
 
     def register_typedefs(self, entries: list[tuple[str, str]]) -> None:
         """Name the page of each ``(path key, display name)`` typedef that will

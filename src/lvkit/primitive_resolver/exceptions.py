@@ -179,8 +179,10 @@ class TerminalResolutionNeeded(ConversionGap):
             )
         elif self.kind == "subvi":
             msg += (
-                f"\n  Fix: ensure '{self.prim_name}' is reachable via --search-path"
-                f" and its terminal names are present in the VI's front panel"
+                f"\n  Fix: put '{self.prim_name}' at the path its caller records"
+                f" (a <userlib>/<vilib>/<instrlib> path needs that folder named"
+                f" with --userlib/--vilib/--instrlib) and make sure its terminal"
+                f" names are present in the VI's front panel"
             )
         else:
             msg += (

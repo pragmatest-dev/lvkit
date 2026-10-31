@@ -88,32 +88,26 @@ _MEASUREMENT_PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview
 _ROUND_TRIP_CASES = [
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestLoader" / "loadTestsFromTestCase.vi",
-        _JKI_SOURCE_ROOT,
         id="loadTestsFromTestCase",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestCase" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TestCase_run",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TestSuite" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TestSuite_run",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Classes" / "TextTestRunner" / "run.vi",
-        _JKI_SOURCE_ROOT,
         id="TextTestRunner_run",
     ),
     pytest.param(
         _FLEX_ROOT / "WaveGen" / "WaveGen.vi",
-        _FLEX_ROOT / "WaveGen",
         id="WaveGen_diagram_disable_nested_case_feedback_node",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Menu Launch" / "VI Tester Menu Launch.vi",
-        _JKI_SOURCE_ROOT,
         id="VI_Tester_Menu_Launch_flat_sequence",
     ),
     pytest.param(
@@ -121,22 +115,18 @@ _ROUND_TRIP_CASES = [
         / "User Interfaces"
         / "Graphical Test Runner"
         / "Graphical Test Runner - Main UI - .vi",
-        _JKI_SOURCE_ROOT,
         id="Graphical_Test_Runner_Main_UI_event_structure",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Utilities" / "GetControlRef.vi",
-        _JKI_SOURCE_ROOT,
         id="GetControlRef_nested_property",
     ),
     pytest.param(
         _AF_ROOT / "Tooling" / "Force Icon Editor to Unload.vi",
-        _AF_ROOT,
         id="Force_Icon_Editor_to_Unload_conditional_tunnel",
     ),
     pytest.param(
         _ICON_EDITOR_ROOT / "resource" / "plugins" / "lv_icon.vi",
-        _ICON_EDITOR_ROOT,
         id="lv_icon_global_variables",
         marks=pytest.mark.xdist_group("lv_icon.vi"),
     ),
@@ -147,12 +137,10 @@ _ROUND_TRIP_CASES = [
         / "NIIconEditor"
         / "Global Variables"
         / "Data.vi",
-        _ICON_EDITOR_ROOT,
         id="Data_global_vi",
     ),
     pytest.param(
         _DCAF_ROOT / "source" / "module" / "execution" / "init.vi",
-        _DCAF_ROOT,
         id="DCAF_init_in_place_element_border_elements",
     ),
     pytest.param(
@@ -163,12 +151,10 @@ _ROUND_TRIP_CASES = [
         / "Session Management V1"
         / "Session Reservation"
         / "Initialize Sessions Impl.vi",
-        _MEASUREMENT_PLUGIN_ROOT,
         id="Initialize_Sessions_Impl_in_place_element_border_elements",
     ),
     pytest.param(
         _DCAF_ROOT / "source" / "editor node" / "Callback Change Tag2.vi",
-        _DCAF_ROOT,
         id="Callback_Change_Tag2_in_place_element_array_border_nodes",
     ),
     # Case frame headers: an empty-string frame, several strings per frame, a
@@ -177,12 +163,10 @@ _ROUND_TRIP_CASES = [
     # frame.
     pytest.param(
         _JKI_SOURCE_ROOT / "Utilities" / "Tree_Control_VIs" / "Item Indent.vi",
-        _JKI_SOURCE_ROOT,
         id="Item_Indent_empty_string_frame",
     ),
     pytest.param(
         _JKI_SOURCE_ROOT / "Utilities" / "Expand Pathroot.vi",
-        _JKI_SOURCE_ROOT,
         id="Expand_Pathroot_multi_string_frames",
     ),
     pytest.param(
@@ -193,7 +177,6 @@ _ROUND_TRIP_CASES = [
         / "Miscellaneous"
         / "Key Down Up"
         / "KeyDown.vi",
-        _ICON_EDITOR_ROOT,
         id="KeyDown_multi_value_and_control_char_frames",
     ),
     pytest.param(
@@ -203,7 +186,6 @@ _ROUND_TRIP_CASES = [
         / "NIIconEditor"
         / "Miscellaneous"
         / "Write Error to File.vi",
-        _ICON_EDITOR_ROOT,
         id="Write_Error_to_File_integer_default_frames",
     ),
     pytest.param(
@@ -211,7 +193,6 @@ _ROUND_TRIP_CASES = [
         / "Source"
         / "Fast Parser"
         / "Link XML Start Tags with End Tags.vi",
-        Path(".lvkit/cache/samples/JKI-EasyXML"),
         id="Link_XML_Start_Tags_open_range_frames",
     ),
     pytest.param(
@@ -222,7 +203,6 @@ _ROUND_TRIP_CASES = [
         / "Measurement Server"
         / "Helpers"
         / "Write Environment Variable.vi",
-        _MEASUREMENT_PLUGIN_ROOT,
         id="Write_Environment_Variable_call_library_function_node",
     ),
     pytest.param(
@@ -230,20 +210,19 @@ _ROUND_TRIP_CASES = [
         / "largefile"
         / "largefile.llb"
         / "LF Write File (SGL)__ogtk.vi",
-        Path(".lvkit/cache/samples/OpenG/extracted"),
         id="LF_Write_File_SGL_call_library_function_node",
     ),
 ]
 
 
-def _load(vi_path: Path, search_root: Path) -> tuple[InMemoryVIGraph, str] | None:
+def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str] | None:
     if not vi_path.exists():
         return None
     try:
         # load_vi_by_path returns load_vi's OWN key for vi_path -- never
         # re-derived from vi_path.name, which collides across same-named
         # VIs (e.g. TestCase.lvclass:run.vi vs TestSuite.lvclass:run.vi).
-        return load_corpus_vi(vi_path, search_root)
+        return load_corpus_vi(vi_path)
     except Exception:
         return None
 
@@ -266,16 +245,14 @@ def _first_mismatch(
 
 
 @pytest.mark.needs_samples
-@pytest.mark.parametrize("vi_path,search_root", _ROUND_TRIP_CASES)
-def test_netlist_round_trips_through_verbose_lvnet(
-    vi_path: Path, search_root: Path
-) -> None:
+@pytest.mark.parametrize("vi_path", _ROUND_TRIP_CASES)
+def test_netlist_round_trips_through_verbose_lvnet(vi_path: Path) -> None:
     """Build the real graph, render verbose lvnet text, parse it back, and
     compare the FULL (boundary + body) semantic projection to the module's
     own. A FAILURE here is the intended, informative signal of a real lvnet
     losslessness gap -- not a broken test.
     """
-    loaded = _load(vi_path, search_root)
+    loaded = _load(vi_path)
     if loaded is None:
         pytest.skip(f"sample corpus VI not present: {vi_path}")
     graph, vi_name = loaded
@@ -410,7 +387,7 @@ def test_ambiguous_named_type_footnote_re_renders_identically(vi_path: Path) -> 
     """A type name that stands for two structures gets one ``types :`` entry; the
     footnote lists only the types that entry spells, so the text re-renders
     byte-identically from its own parse."""
-    loaded = _load(vi_path, _MEASUREMENT_PLUGIN_ROOT)
+    loaded = _load(vi_path)
     if loaded is None:
         pytest.skip("sample absent")
     graph, key = loaded

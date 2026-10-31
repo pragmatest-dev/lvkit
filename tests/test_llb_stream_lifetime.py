@@ -95,3 +95,33 @@ def test_invalid_archive_retains_open_error(tmp_path):
 
     with pytest.raises(RuntimeError, match="Failed to open LLB"):
         extractor.extract_llb(archive)
+
+
+def test_a_member_that_cannot_be_extracted_is_a_problem_on_its_own_vi(
+    tmp_path, monkeypatch
+):
+    from lvkit.graph import InMemoryVIGraph, LoadMode
+    from lvkit.run_report import ProblemKind, ProblemStage
+
+    archive = _write_archive(tmp_path, "UCRF", _MEMBERS)
+    real = extractor._atomic_write_bytes
+
+    def write(path, data):
+        if path.name == "second.vi":
+            raise OSError("boom")
+        real(path, data)
+
+    monkeypatch.setattr(extractor, "_atomic_write_bytes", write)
+    first = extractor.extract_llb_members(archive)
+    assert first.failures == (extractor.LlbFailure("second.vi", "boom"),)
+    # A later call finds the folder extracted and still reports it.
+    assert extractor.extract_llb_members(archive) == first
+
+    graph = InMemoryVIGraph()
+    graph.load_llb(archive, LoadMode.MINIMAL)
+    (problem,) = [p for p in graph.problems() if p.reason == "boom"]
+    assert problem.vi == "members.llb/second.vi"
+    assert (problem.stage, problem.kind) == (
+        ProblemStage.EXTRACT,
+        ProblemKind.UNREADABLE,
+    )

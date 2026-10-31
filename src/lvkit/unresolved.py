@@ -8,12 +8,13 @@ and aggregates the gaps that run found, so the list is exactly the warnings
 
 from __future__ import annotations
 
-import io
 import tempfile
-from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from lvkit.library_folders import Folders, SearchEntries
+
+from .cache_paths import project_root
 from .codegen.gaps import (
     MISSING_VI,
     PLACEHOLDER_PRIMITIVE,
@@ -26,8 +27,9 @@ from .codegen.gaps import (
     Gap,
 )
 from .graph.loading import LoadMode
-from .module_layout import project_root
 from .pipeline import generate_python
+from .run_report import RunProblems, RunSettings
+from .stderr_capture import capture_stdout
 
 
 @dataclass
@@ -52,28 +54,44 @@ def _item_key(gap: Gap) -> tuple[str, str, str]:
 
 def collect_unresolved(
     input_path: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
-    vilib_root: Path | None = None,
-    userlib_root: Path | None = None,
+    vilib_root: Folders = None,
+    userlib_root: Folders = None,
+    instrlib_root: Folders = None,
+    search_path: SearchEntries = None,
+    run: RunProblems | None = None,
 ) -> list[UnresolvedItem]:
     """Return every distinct gap under ``input_path``, aggregated.
 
     Sorted most-frequent first, then by kind and identifier for stable output.
+    Every other problem the run found (a VI that cannot be read, a VI that cannot
+    be written) is recorded in ``run``; the gaps are the result, not problems.
     """
     input_path = Path(input_path)
-    sink = io.StringIO()
+    root = project_root(input_path)
+    # Its own run: the gaps it finds are the result, so they are not problems; every
+    # other problem prints and stops (``--fail-fast``) as this run's settings say.
+    inner = RunProblems(
+        replace(
+            run.settings if run is not None else RunSettings(),
+            root=root,
+            gaps_are_problems=False,
+        )
+    )
     with tempfile.TemporaryDirectory(prefix="lvkit-gaps-") as scratch:
-        with redirect_stdout(sink), redirect_stderr(sink):
+        with capture_stdout():
             result = generate_python(
                 input_path,
                 scratch,
-                search_paths=search_paths,
                 mode=mode,
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
+                instrlib_root=instrlib_root,
+                search_path=search_path,
+                run=inner,
             )
-    root = project_root(input_path)
+    if run is not None:
+        run.take(inner.report().problems, announce=False)
 
     items: dict[tuple[str, str, str], UnresolvedItem] = {}
     for gap in result["gaps"]:

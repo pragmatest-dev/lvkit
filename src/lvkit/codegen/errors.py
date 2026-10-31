@@ -51,9 +51,12 @@ class MissingVIError(ConversionGap):
     """A call names a VI that was not found, so there is no module to import and
     no connector pane to name its terminals from. The call is the gap."""
 
-    def __init__(self, name: str, recorded_path: str | None):
+    def __init__(
+        self, name: str, recorded_path: str | None, reason: str | None = None
+    ):
         self.name = name
         self.recorded_path = recorded_path
+        self.reason = reason
         # The wired terminals of the call (direction, index, type), added where the
         # gap is caught: whoever writes the VI later sees the pane it was called by.
         self.call_terminals: list[str] = []
@@ -61,9 +64,13 @@ class MissingVIError(ConversionGap):
 
     def summary(self) -> str:
         where = f" ({self.recorded_path})" if self.recorded_path else ""
+        if self.reason:
+            return f"The VI '{self.name}'{where} was not found: {self.reason}"
         return (
-            f"The VI '{self.name}'{where} was not found; add it to the project "
-            "or to a --search-path and generate again"
+            f"The VI '{self.name}'{where} was not found at the path its caller "
+            "records; put it there (a <userlib>/<vilib>/<instrlib> path needs "
+            "that folder named with --userlib/--vilib/--instrlib) and generate "
+            "again"
         )
 
     def __str__(self) -> str:

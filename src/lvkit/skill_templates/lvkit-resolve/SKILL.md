@@ -199,7 +199,7 @@ next gap will supply more context.
 ## Re-verify
 
 ```bash
-lvkit generate "<vi-path>" -o "<output-dir>" --search-path "<library-path>"
+lvkit generate "<vi-path>" -o "<output-dir>"
 ```
 
 Same failure → the mapping is wrong, go back to Step 1 of that branch. New

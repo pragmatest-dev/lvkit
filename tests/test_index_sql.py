@@ -26,6 +26,7 @@ from lvkit.index.model import (
 from lvkit.index.store import load as load_index
 from lvkit.index.store import save as save_index
 from lvkit.models import LVTypeKind
+from tests.corpus_graphs import build_corpus_index
 
 
 def _term(
@@ -635,22 +636,21 @@ def test_histogram_over_real_facts_matches_independent_count():
 
 @pytest.mark.needs_samples
 @pytest.mark.slow
-def test_jki_error_indicator_histogram_16_rows():
+def test_jki_error_indicator_histogram_is_a_small_table():
     """The full design-doc acceptance: over JKI VI Tester the histogram is a
-    small table dominated by 'error out' — the answer, not the 406 raw rows."""
+    small table dominated by 'error out' — the answer, not the 424 raw rows."""
     if not (_JKI_ROOT.is_dir() and any(_JKI_ROOT.rglob("*.vi"))):
         pytest.skip("JKI-VI-Tester sample not present")
 
     import os
 
-    from lvkit.index.build import build_index
     from lvkit.index.project import resolve_project
 
-    # Reuse the developer's warm extraction cache (see test_index.jki_index).
+    facts = build_corpus_index(_JKI_ROOT).facts
+    # The index is saved and queried against the developer's real cache.
     saved = os.environ.pop("LVKIT_CACHE_DIR", None)
     try:
-        root, vi_paths = resolve_project(_JKI_ROOT)
-        facts = build_index(root, vi_paths).facts
+        root, _ = resolve_project(_JKI_ROOT)
         save_index(root, facts)
         res = sql.error_indicator_histogram(root)
     finally:
@@ -661,7 +661,8 @@ def test_jki_error_indicator_histogram_16_rows():
     assert res.rows  # non-empty histogram
     top_name, top_count = res.rows[0]
     assert top_name == "error out"
-    assert top_count == 382
-    # It's a small histogram, not a row dump — exactly 16 distinct names.
-    assert len(res.rows) == 16
+    assert top_count == 386  # 382 in the .vi files + 4 in the .vit templates
+    # It's a small histogram, not a row dump — exactly 19 distinct names, three of
+    # them (`control_219`, `control_305`, `control_1442`) unlabeled error clusters.
+    assert len(res.rows) == 19
     assert not res.truncated

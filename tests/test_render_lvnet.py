@@ -223,7 +223,6 @@ def _load_golden() -> tuple[InMemoryVIGraph, str] | None:
         return load_vi_by_path(
             _GOLDEN_VI,
             LoadMode.MINIMAL,
-            search_paths=[_JKI_SOURCE_ROOT],
             layout=False,
         )
     except Exception:
@@ -544,7 +543,6 @@ def test_property_and_invoke_nodes_render_handle_and_component_no_todo() -> None
     graph, vi_name = load_vi_by_path(
         _PROPERTY_NODE_VI,
         LoadMode.MINIMAL,
-        search_paths=[_JKI_SOURCE_ROOT],
         layout=False,
     )
     module = build_netlist_from_graph(graph, vi_name)
@@ -576,7 +574,7 @@ def test_generating_code_does_not_change_what_lvnet_shows() -> None:
         graph, vi_name = load_vi_by_path(
             _FEEDBACK_VI,
             LoadMode.MINIMAL,
-            search_paths=[_FEEDBACK_SEARCH_ROOT],
+            search_path=[str(_FEEDBACK_SEARCH_ROOT)],
             layout=False,
         )
         return render_lvnet(build_netlist_from_graph(graph, vi_name)), graph, vi_name
@@ -599,7 +597,6 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     graph, vi_name = load_vi_by_path(
         _FEEDBACK_VI,
         LoadMode.MINIMAL,
-        search_paths=[_FEEDBACK_SEARCH_ROOT],
         layout=False,
     )
     module = build_netlist_from_graph(graph, vi_name)
@@ -631,7 +628,6 @@ def test_local_variable_reads_and_writes_render_and_unalias_consumers() -> None:
     graph, vi_name = load_vi_by_path(
         _FEEDBACK_VI,
         LoadMode.MINIMAL,
-        search_paths=[_FEEDBACK_SEARCH_ROOT],
         layout=False,
     )
     module = build_netlist_from_graph(graph, vi_name)
@@ -680,7 +676,6 @@ def test_anonymous_cluster_spells_field_types_inline_and_recovers_named() -> Non
     graph, vi_name = load_vi_by_path(
         _FEEDBACK_VI,
         LoadMode.MINIMAL,
-        search_paths=[_FEEDBACK_SEARCH_ROOT],
         layout=False,
     )
     module = build_netlist_from_graph(graph, vi_name)
@@ -765,9 +760,7 @@ def test_render_lvnet_smoke_run_vis(vi_path: Path) -> None:
     # load_vi_by_path returns load_vi's OWN key for vi_path -- never
     # re-derived from vi_path.name, which collides across these three VIs
     # (all literally named "run.vi").
-    graph, vi_name = load_vi_by_path(
-        vi_path, LoadMode.MINIMAL, search_paths=[_JKI_SOURCE_ROOT], layout=False
-    )
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module)
     _assert_no_invented_open_syntax(text)

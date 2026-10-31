@@ -829,7 +829,7 @@ read the Item (prefer it; fall back to the binary).
 VIs read `../X.vi` and the parent reads `../../X/X.lvclass`; resolve against
 `lvclass_path` ITSELF (not its parent dir) so the extra leading `..` is absorbed:
 `Path(lvclass_path) / url` → correct. The parent commonly lives in a **sibling
-subtree** (`../../Layer/`), so a directory walk-UP (`_walk_up_find`) can NOT reach
+subtree** (`../../Layer/`), so a directory walk up from the child can NOT reach
 it — only the URL does.
 
 **A `PTH0` record's path type.** After the tag and a 4-byte length, a `PTH0` record
@@ -857,6 +857,12 @@ into a duplicate node (broke class private-data field resolution). A nested
 typedef used only inside another type (e.g. an enum inside a cluster) has NO
 `PTH0` link and resolves via the type system inline — that's the one thing not
 in the path index, and it needs no file staging.
+
+**Member URLs of a `.lvlib` / `.lvproj` / `.lvclass` are relative to the container FILE treated as a folder (LabVIEW 2010+), to its folder in a LabVIEW 8.x save.** Measured over every container in the sample corpus (member `Item` URLs; `.tmp` scan of which base holds the file): every `.lvlib` member URL (LVVersion 13–21: 2,028 of 2,030 resolve file-as-folder, 2 name absent files), `.lvproj` 10–21 and `.lvclass` 10–21 resolves as `<container>/<url>` (`../X.vi` is X.vi beside the container); the LVVersion 8.2 `.lvclass`/`.lvproj` files (17 + 16 URLs) write `X.vi`, relative to the container's folder. A class's `Class Private Data` URL (`X.ctl`, no `..`) is INSIDE the `.lvclass` (the control is embedded; no file is at that URL for any of the 155 corpus classes that list one).
+
+**A VI records its own class or library in a `VILB` link record ("VI To Lib Object Ref") whose `LinkSaveQualName` is empty** — e.g. `["", "", "TextTestRunner.JUnitXML.lvclass"]` from a method in the class's `protected/` subfolder. When pylabview decodes `LIvi` into the main XML the record is there as XML, not in a `_LIvi.bin` sidecar.
+
+**An absolute `PTH0` (`TpVal="0"`) starts with a drive letter (`C`) or an empty token (the current drive's root: `["", "Program Files", "Pico Technology", ...]`); a `<vilib>`/`<userlib>` path is also `TpVal="0"`, told apart by its symbolic first token.**
 
 **Follow the URL, never rglob.** Ancestor resolution must follow each class's
 recorded URL and STOP at the bare name when the file isn't vendored — do NOT fall
@@ -1681,3 +1687,7 @@ Read over every `aIndx` node in the 195 sample VIs plus the Pico set, on the `dc
 - Examples: a rank-2 node with the row unwired has dim 0 `0x210000` and dim 1 `0x400000`; with the column unwired, dim 0 `0x200000` and dim 1 `0x410000`; a rank-3 node wired on the first index only has `0x200000`, `0x10000`, `0x410000`; a rank-3 node with all three wired has `0x200000`, none, `0x400000`; a wired rank-1 index is `0x600000`.
 
 The same bit means "inverted" on a compound arithmetic terminal; lvkit reads it as indexing-disabled only for `aIndx` nodes (`Terminal.indexing_disabled`). Caveat: no corpus node is a 2-D (or higher) Index Array with nothing wired, so an index that is enabled but unwired in N-D is never observed; that case follows NI's rule that the first dimension is indexed by default and the others are disabled.
+
+## A method name in a link record is a pascal string wrapping a second one: `[len][0x01][name length][name bytes]`
+
+In the link records of `_LIbd.bin` (the `IUVI`, `DyOM` and `VIPI` name lists), a library or class name is a plain pascal string (`[len][text]`), but a method name is wrapped: the outer length counts the inner two bytes, then `0x01`, then the name's own byte length, then the name's bytes. Example (`Initialize MeasurementLink Session.vi`, 37 bytes): `27 01 25 49 6e 69 74 ...` (outer length 0x27 = 39 = 2 + 37, wrapper `01`, name length 0x25). The inner length is a raw byte, so for a name of 32 bytes or more it is a printable character (0x25 is `%`) and from 128 bytes on it is not ASCII; in the block-diagram XML the wrapper reaches lvkit as text (`&#x01;` then the length as a control-character entity or a character), so the length must be counted in bytes of the text encoding the XML was decoded with (the VI's own `vers` language, `text_encoding.xml_text_encoding`; not the reading machine's), not characters. A name whose inner length does not equal the bytes that follow is not a wrapped name. lvkit unwraps it in one place, `text_encoding.unwrap_pascal_name`, used by the binary readers (`parser/link_table.py`, `parse_vipi_from_livi` in `parser/metadata.py`) and, via re-encoding, for the XML text.

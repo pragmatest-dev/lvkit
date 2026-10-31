@@ -10,6 +10,7 @@ the [`lvkit` library changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+- **`lvkit.searchPaths` is replaced by `lvkit.vilib`, `lvkit.userlib` and `lvkit.instrlib`** — each SubVI is read only from the path the VI records for it; name the folders its `<vilib>`/`<userlib>`/`<instrlib>` paths start from.
 - **Opens, renders and diffs `.vim` (malleable VI) and `.vit` (VI template) files** like `.vi`, in the desktop and web extensions.
 
 ## [0.6.3] — 2026-08-19

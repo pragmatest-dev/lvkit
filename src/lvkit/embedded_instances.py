@@ -67,9 +67,12 @@ def _source_link(instance_xml: Path) -> InstanceSourceLink | None:
     source = links.find("VIVI")
     if source is None:
         return None
+    path_ref = source.find("LinkSavePathRef")
+    tp_val = path_ref.get("TpVal") if path_ref is not None else None
     return InstanceSourceLink(
         name_parts=_strings(source, "LinkSaveQualName"),
         path_tokens=_strings(source, "LinkSavePathRef"),
+        path_type=int(tp_val) if tp_val is not None else None,
     )
 
 
@@ -122,5 +125,6 @@ def read_instance_sources(
             name=link.name_parts[-1],
             path_tokens=tokens,
             qualified_name=":".join(link.name_parts),
+            path_type=link.path_type,
         )
     return sources

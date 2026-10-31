@@ -28,7 +28,7 @@ When nothing is found:
 No local LabVIEW detected. Pass --vilib <path-to-vi.lib> explicitly to resolve <vilib> dependency refs.
 ```
 
-When an install is found, `detect` prints a header line and four labeled
+When an install is found, `detect` prints a header line and five labeled
 fields:
 
 ```text
@@ -36,11 +36,13 @@ Detected LabVIEW 2021
   install dir : /usr/local/natinst/LabVIEW-2021-64
   vi.lib      : /usr/local/natinst/LabVIEW-2021-64/vi.lib
   user.lib    : /usr/local/natinst/LabVIEW-2021-64/user.lib
+  instr.lib   : /usr/local/natinst/LabVIEW-2021-64/instr.lib
   source      : linux-glob
 ```
 
 The header reads `Detected LabVIEW (unknown version)` if no version string was
-recorded. `user.lib` reads `(not found)` if that directory doesn't exist.
+recorded. `user.lib` and `instr.lib` read `(not found)` if that directory
+doesn't exist.
 
 `detect` always exits `0`, whether or not an install was found — check stdout
 (or `--json`) for status, not the exit code.
@@ -64,11 +66,13 @@ An install found:
   "install_dir": "/usr/local/natinst/LabVIEW-2021-64",
   "vilib_root": "/usr/local/natinst/LabVIEW-2021-64/vi.lib",
   "userlib_root": "/usr/local/natinst/LabVIEW-2021-64/user.lib",
+  "instrlib_root": "/usr/local/natinst/LabVIEW-2021-64/instr.lib",
   "source": "linux-glob"
 }
 ```
 
-`version` and `userlib_root` are `null` when unknown or absent. `source`
+`version`, `userlib_root` and `instrlib_root` are `null` when unknown or
+absent. `source`
 identifies how the install was located:
 
 | `source` | Meaning |
