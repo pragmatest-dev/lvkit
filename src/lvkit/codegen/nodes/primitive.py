@@ -7,6 +7,7 @@ import re
 from collections.abc import Mapping
 from typing import NoReturn
 
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import uid_of
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import lay_out_node
@@ -131,7 +132,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if resolved and not resolved.python_code and not resolved.op:
             resolved = None
     if not resolved and prim_id is not None:
-        resolved = resolver.resolve(prim_id=prim_id)
+        resolved = resolver.resolve(
+            prim_id=prim_id,
+            node_slots={
+                (t.index, "out" if t.direction == "output" else "in")
+                for t in node.terminals
+            },
+        )
+        if resolved and resolved.terminal_set_gap:
+            raise ConversionGap(resolved.terminal_set_gap, node)
     if not resolved:
         # A node class captured GENERICALLY (not in the handled allowlist —
         # e.g. decimate, interLeave, extFunc, exprNode) reaches here with no
