@@ -19,7 +19,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -29,7 +28,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x ."
         },
         {
@@ -39,7 +37,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "When you compare arrays, x = y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -61,7 +58,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -71,7 +67,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -81,7 +76,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x!=y? returns the Boolean result of the operation. When you compare arrays, x!=y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -103,7 +97,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -113,7 +106,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -123,7 +115,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x > y? returns the Boolean result of the operation. When you compare arrays, x > y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -145,7 +136,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -155,7 +145,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -165,7 +154,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x < y? returns the Boolean result of the operation. When you compare arrays, x < y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -187,7 +175,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -197,7 +184,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -207,7 +193,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x >= y? returns the Boolean result of the operation. When you compare arrays, x >= y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -229,7 +214,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -239,7 +223,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -249,7 +232,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__y",
-          "default_value": null,
           "description": "x ≤ y? returns the Boolean result of the operation. When you compare arrays, x ≤ y? is a scalar in Compare Aggregates mode and a Boolean array in Compare Elements mode (default)."
         }
       ]
@@ -271,7 +253,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -281,7 +262,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x = 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -303,7 +283,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -313,7 +292,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x > 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -335,7 +313,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -345,7 +322,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x!= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -367,7 +343,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -377,7 +352,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x >= 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -399,7 +373,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -409,7 +382,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x < 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -431,7 +403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x can be a numeric scalar value, cluster, array of numbers, or a time stamp value."
         },
         {
@@ -441,7 +412,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x__0",
-          "default_value": null,
           "description": "x ≤ 0? is a Boolean value of the same data type structure as x ."
         }
       ]
@@ -463,7 +433,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "t",
-          "default_value": null,
           "description": "t is the value that this function returns if s passes a TRUE value. t and f must be of the same type, but they can have different numeric representations."
         },
         {
@@ -473,7 +442,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "s",
-          "default_value": null,
           "description": "s determines whether the function returns the value of t or f in s? t:f . If you wire an error cluster to s and an error occurs, the error cluster passes a TRUE value to the function. Otherwise, the error cluster passes a FALSE value to the function."
         },
         {
@@ -483,7 +451,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "f",
-          "default_value": null,
           "description": "f is the value that this function returns if s passes a FALSE value. t and f must be of the same type, but they can have different numeric representations."
         },
         {
@@ -493,7 +460,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "s_tf",
-          "default_value": null,
           "description": "s? t:f is the value wired to t if s is TRUE. s? t:f is the value wired to f if s is FALSE."
         }
       ]
@@ -515,7 +481,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is a value to compare to y"
         },
         {
@@ -525,7 +490,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y",
-          "default_value": null,
           "description": "y must be of the same type as x"
         },
         {
@@ -535,7 +499,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "max_",
-          "default_value": null,
           "description": "max(x, y) is the larger value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the maximum value. max(x, y) is an array consisting of the maximum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, max(x, y) returns the array that has the greater value for that element."
         },
         {
@@ -545,7 +508,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "min_",
-          "default_value": null,
           "description": "min(x, y) is the smaller value. When you compare arrays in Compare Elements mode (default), this function compares corresponding elements in each input array and returns the element with the minimum value. min(x, y) is an array consisting of the minimum value elements. When you compare arrays in Compare Aggregates mode, this function compares corresponding elements in each input array starting at the beginning of the array. When this function reaches a pair of unequal corresponding elements, min(x, y) returns the array that has the smaller value for that element."
         }
       ]
@@ -567,7 +529,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "upper_limit",
-          "default_value": null,
           "description": "upper limit of the range."
         },
         {
@@ -577,7 +538,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x",
-          "default_value": null,
           "description": "x is the value to check and/or coerce."
         },
         {
@@ -587,7 +547,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "lower_limit",
-          "default_value": null,
           "description": "lower limit of the range."
         },
         {
@@ -597,7 +556,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "coerced",
-          "default_value": null,
           "description": "coerced(x) returns the coerced or unchanged value of x . If x is within the range set by the upper limit and lower limit inputs or if the function is in Compare Aggregates mode, the value is unchanged. If x is not in range and the function is in Compare Elements mode, the function converts the value to the same value as upper limit or lower limit . If upper limit , x , or lower limit is NaN , coerced(x) is NaN ."
         },
         {
@@ -607,7 +565,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "in_range",
-          "default_value": null,
           "description": "In Range? is a Boolean value in Compare Aggregates mode. In Compare Elements mode, the data type structure of In Range? matches the data type structure of x , with each scalar replaced by a Boolean value. If upper limit , x , or lower limit is NaN , In Range? is FALSE."
         }
       ]
@@ -629,7 +586,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "numberpathrefnum",
-          "default_value": null,
           "description": "number/path/refnum can be a scalar number, path, or refnum, or it can be a cluster or array of numbers, paths, or refnums."
         },
         {
@@ -639,7 +595,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "nanpathrefnum",
-          "default_value": null,
           "description": "NaN/Path/Refnum? is a Boolean value of the same data type structure as number/path/refnum ."
         }
       ]
@@ -661,7 +616,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array",
-          "default_value": null,
           "description": "array specifies an n-dimensional array of any type."
         },
         {
@@ -671,7 +625,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "empty",
-          "default_value": null,
           "description": "empty? is TRUE if array is empty. Otherwise, empty? is FALSE."
         }
       ]
@@ -693,7 +646,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stringpath",
-          "default_value": null,
           "description": "string/path can be a string, a path, a variant, a picture string, a DSC tag, or an array or a cluster of these types."
         },
         {
@@ -703,7 +655,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "empty",
-          "default_value": null,
           "description": "empty? is a Boolean value of the same data type structure as string/path ."
         }
       ]
@@ -725,7 +676,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -735,7 +685,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "digit",
-          "default_value": null,
           "description": "digit? is a Boolean value of the same data type structure as char ."
         }
       ]
@@ -757,7 +706,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -767,7 +715,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "hex_",
-          "default_value": null,
           "description": "hex? is a Boolean value of the same data type structure as char ."
         }
       ]
@@ -789,7 +736,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -799,7 +745,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "octal",
-          "default_value": null,
           "description": "octal? is a Boolean value of the same data type structure as char ."
         }
       ]
@@ -821,7 +766,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -831,7 +775,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "printable_ascii",
-          "default_value": null,
           "description": "printable ASCII? is a Boolean value of the same data type structure as char ."
         }
       ]
@@ -853,7 +796,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -863,7 +805,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "space_hv_tab_cr_lf_ff",
-          "default_value": null,
           "description": "space, h/v tab, cr, lf, ff? is a Boolean value of the same data type structure as char ."
         }
       ]
@@ -885,7 +826,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "char",
-          "default_value": null,
           "description": "char can be a scalar string or number, clusters of strings or numbers, arrays of strings or numbers, and so on."
         },
         {
@@ -895,7 +835,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_number",
-          "default_value": null,
           "description": "class number is a number that corresponds to the lexical class. Refer to the ASCII Codes table for the numbers that correspond to each character. Class Number Lexical Class 0 Extended characters (codes 128 through 255) 1 Non-displayable ASCII characters (codes 0 to 31 excluding 9 through 13) 2 White space characters: Space, Tab, Carriage Return, Form Feed, Newline, and Vertical Tab (codes 32, 9, 13, 12, 10, and 11, respectively) 3 Digits 0 through 9 4 Uppercase characters A through Z 5 Lowercase characters a through z 6 All printable ASCII non-alphanumeric characters"
         }
       ]
@@ -923,14 +862,12 @@
         {
           "name": "anything",
           "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "anything"
         },
         {
           "name": "reference",
           "description": "reference specifies the second input data type, which you want to compare against x. To set the data type of this input, wire a constant or control of the desired data type to reference. LabVIEW ignores any run-time value on the wire connected to this input. For data types with subtypes, such as arrays, clusters, and some refnums, this function also checks array dimensions and subtypes, but not the subtype names. For example, this function causes the calling VI to break if one input data type is",
-          "default_value": null,
           "enum_values": null,
           "python_param": "reference"
         }
@@ -953,7 +890,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "anything",
-          "default_value": null,
           "description": "anything specifies the first input data type. LabVIEW ignores any run-time value on the wire connected to this input."
         },
         {
@@ -963,7 +899,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference specifies the second input data type, which you want to compare against x . To set the data type of this input, wire a constant or control of the desired data type to reference . LabVIEW ignores any run-time value on the wire connected to this input."
         }
       ]
@@ -985,7 +920,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_",
-          "default_value": null,
           "description": "type specifies the input data type. LabVIEW ignores any run-time value on the wire connected to this input."
         },
         {
@@ -995,7 +929,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mismatch",
-          "default_value": null,
           "description": "mismatch specifies the data type that you want to compare against type . To set the data type of this input, wire a constant or control of the desired data type to mismatch . Wire one data type to each mismatch input you want to compare against type . LabVIEW ignores any run-time value on the wire connected to this input."
         }
       ]
@@ -1017,7 +950,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1027,7 +959,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is an error cluster. Otherwise, this output returns an empty error cluster."
         }
       ]
@@ -1049,7 +980,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_type",
-          "default_value": null,
           "description": "array type specifies the input comparison array with the requirements that the input data must meet."
         },
         {
@@ -1059,7 +989,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1069,7 +998,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type ."
         }
       ]
@@ -1091,7 +1019,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "array_type",
-          "default_value": null,
           "description": "array type specifies the input comparison array with the requirements that the input data must meet."
         },
         {
@@ -1101,7 +1028,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1111,7 +1037,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is an array that meets the requirements. Otherwise, this output returns an empty array of array type ."
         }
       ]
@@ -1133,7 +1058,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "ancestor_type",
-          "default_value": null,
           "description": "ancestor type specifies the input class or interface with the requirements that the input data must meet."
         },
         {
@@ -1143,7 +1067,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1153,7 +1076,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in meets the requirements. Otherwise, this output returns the default value of ancestor type ."
         }
       ]
@@ -1175,7 +1097,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1185,7 +1106,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a scalar numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1207,7 +1127,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1217,7 +1136,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a scalar numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1239,7 +1157,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1249,7 +1166,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a non-complex numeric or analog waveform type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1271,7 +1187,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1281,7 +1196,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a non-complex numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1303,7 +1217,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1313,7 +1226,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a floating-point, complex floating-point, or fixed-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1335,7 +1247,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1345,7 +1256,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a complex numeric type. Otherwise, this output returns a complex double-precision number 0 +0 i."
         }
       ]
@@ -1367,7 +1277,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1377,7 +1286,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a floating-point or complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1399,7 +1307,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1409,7 +1316,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a non-complex floating-point numeric type. Otherwise, this output returns a double-precision floating-point number 0."
         }
       ]
@@ -1431,7 +1337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1441,7 +1346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is an integer numeric type. Otherwise, this output returns a 32-bit signed integer 0."
         }
       ]
@@ -1463,7 +1367,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1473,7 +1376,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a signed integer numeric type. Otherwise, this output returns a 32-bit signed integer 0."
         }
       ]
@@ -1495,7 +1397,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1505,7 +1406,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is an unsigned integer numeric type. Otherwise, this output returns a 32-bit unsigned integer 0."
         }
       ]
@@ -1527,7 +1427,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_in",
-          "default_value": null,
           "description": "value in specifies the input data."
         },
         {
@@ -1537,7 +1436,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_out",
-          "default_value": null,
           "description": "value out returns the input data if value in is a fixed-point numeric type. Otherwise, this output returns a fixed-point number 0."
         }
       ]
@@ -1559,7 +1457,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value specifies the value to check. This input accepts any data type."
         },
         {
@@ -1569,7 +1466,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "changed_or_first_call",
-          "default_value": null,
           "description": "changed or first call? returns TRUE if this is the first call of this VI or if the value changed since the last time this VI was called. Otherwise, this output returns FALSE."
         }
       ]
@@ -1591,7 +1487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fxp",
-          "default_value": null,
           "description": "FXP specifies a fixed-point number."
         },
         {
@@ -1601,7 +1496,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "overflow",
-          "default_value": null,
           "description": "overflow? is TRUE if FXP includes an overflow status and FXP is the result of an operation that overflowed. If FXP does not include an overflow status, or if FXP includes an overflow status but is not the result of an operation that overflowed, overflow? is FALSE."
         }
       ]
@@ -1626,7 +1520,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "path",
-          "default_value": null,
           "description": "path specifies the path you want to check."
         },
         {
@@ -1636,7 +1529,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "is_path_and_not_empty",
-          "default_value": null,
           "description": "Is Path and Not Empty? returns TRUE if path is any value other than <Not A Path> or an empty path. Otherwise, Is Path and Not Empty? returns FALSE."
         }
       ]

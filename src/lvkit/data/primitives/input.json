@@ -105,7 +105,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,

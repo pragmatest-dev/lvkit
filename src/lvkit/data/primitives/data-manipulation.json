@@ -160,6 +160,7 @@
     },
     "1164": {
       "name": "Flatten To String",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flatten-to-string.html",
       "terminals": [
         {
           "index": 0,
@@ -190,13 +191,15 @@
           "index": 9,
           "direction": "in",
           "name": "byte order (0:big-endian, network order)",
-          "type": "Enum16"
+          "type": "Enum16",
+          "default": 0
         },
         {
           "index": 10,
           "direction": "in",
           "name": "prepend array or string size? (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 11,
@@ -331,14 +334,14 @@
           "direction": "in",
           "name": "byte_order",
           "type": "UnitUInt16",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 10,
           "direction": "in",
           "name": "includes_size",
           "type": "Boolean",
-          "default_value": "True"
+          "default": true
         },
         {
           "index": 11,

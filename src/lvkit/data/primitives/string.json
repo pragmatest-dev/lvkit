@@ -82,14 +82,15 @@
           "index": 1,
           "direction": "in",
           "name": "length (rest)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "rest"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "offset (0)",
           "type": "NumInt32",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 3,
@@ -123,7 +124,7 @@
           "direction": "in",
           "name": "offset",
           "type": "polymorphic",
-          "default_value": "0"
+          "default": 0
         },
         {
           "index": 3,
@@ -161,7 +162,8 @@
           "index": 1,
           "direction": "in",
           "name": "delimiter",
-          "type": "String"
+          "type": "String",
+          "default": "\t"
         },
         {
           "index": 2,
@@ -207,7 +209,7 @@
           "direction": "in",
           "name": "delimiter",
           "type": "String",
-          "default_value": "'\\t'"
+          "default": "\t"
         },
         {
           "index": 2,
@@ -416,20 +418,23 @@
           "index": 1,
           "direction": "in",
           "name": "replace all?",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,
           "direction": "in",
           "name": "ignore case?",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 3,
           "direction": "in",
           "name": "multiline?",
           "type": "Boolean",
-          "hidden": true
+          "hidden": true,
+          "default": false
         },
         {
           "index": 4,
@@ -447,7 +452,8 @@
           "index": 7,
           "direction": "in",
           "name": "replace string",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 8,
@@ -459,7 +465,8 @@
           "index": 9,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 10,

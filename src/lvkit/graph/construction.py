@@ -35,6 +35,7 @@ from ..parser import (
     ParsedConnectorPane,
     ParsedFrontPanel,
 )
+from ..parser.constants import TUNNEL_CLASS_CASE_SEL
 from ..parser.front_panel import _lvtype_to_parsed
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.models import (
@@ -802,6 +803,7 @@ class ConstructionMixin:
                     ),
                     lv_type=lv_type,
                     inverted=t_info.inverted,
+                    indexing_disabled=t_info.indexing_disabled,
                     dco_uid=t_info.dco_uid,
                 )
                 node_terminals.append(terminal)
@@ -1538,7 +1540,7 @@ class ConstructionMixin:
             "lSR",
             "lMax",
             "lpTun",
-            "caseSel",
+            TUNNEL_CLASS_CASE_SEL,
             "seqTun",
             "flatSeqTun",
         }
@@ -1679,6 +1681,7 @@ class ConstructionMixin:
                 boundary="inner",
                 paired_id=q_outer_uid,
                 frame=inner_frame,
+                frame_position=tunnel.frame_position,
                 mode=tun_mode,
                 conditional=tun_conditional,
                 condition_terminal=q_condition,

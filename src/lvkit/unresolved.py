@@ -19,6 +19,7 @@ from .codegen.gaps import (
     MISSING_VI,
     PLACEHOLDER_PRIMITIVE,
     TERMINAL_MAPPING,
+    UNKNOWN_DEFAULT,
     UNKNOWN_PRIMITIVE,
     UNMAPPED_VILIB,
     UNSUPPORTED_NODE,
@@ -129,6 +130,7 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
         UNSUPPORTED_NODE: "Nodes that cannot be converted",
         UNMAPPED_VILIB: "Unmapped vi.lib VIs",
         TERMINAL_MAPPING: "Terminal-mapping gaps",
+        UNKNOWN_DEFAULT: "Unwired inputs whose default is not known",
         MISSING_VI: "VIs that were not found",
         UNSUPPORTED_VI: "VIs and modules that cannot be converted",
     }
@@ -146,6 +148,7 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
         f"{_n(UNSUPPORTED_NODE)} node(s) that cannot be converted, "
         f"{_n(UNMAPPED_VILIB)} unmapped vi.lib VI(s), "
         f"{_n(TERMINAL_MAPPING)} terminal-mapping gap(s), "
+        f"{_n(UNKNOWN_DEFAULT)} input(s) whose default is not known, "
         f"{_n(MISSING_VI)} VI(s) not found, "
         f"{_n(UNSUPPORTED_VI)} VI(s) or module(s) that cannot be converted.",
     ]
@@ -159,6 +162,8 @@ def format_unresolved_report(items: list[UnresolvedItem], target: str) -> str:
                 head = f"[prim {it.identifier}] {it.name}"
             elif kind == UNSUPPORTED_NODE:
                 head = f"{it.identifier} {it.name}"
+            elif kind == UNKNOWN_DEFAULT:
+                head = f"{it.identifier}, input '{it.name}'"
             else:
                 head = it.name
             where = f" — {it.count}x in {len(it.vi_names)} VI(s)"

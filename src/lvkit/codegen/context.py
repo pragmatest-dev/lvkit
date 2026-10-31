@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import ast
 import math
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -29,12 +30,16 @@ from lvkit.models import (
     Frame,
     LVType,
     LVTypeKind,
+    ScalarValue,
     Terminal,
     Tunnel,
     TunnelTerminal,
     TypeNamer,
     unique_names,
 )
+from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.string_literal import quote_string
+from lvkit.vilib_resolver import VILibResolver
 
 from .ast_utils import interface_names, to_function_name, to_var_name
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
@@ -89,6 +94,12 @@ class CodeGenContext:
     # Every gap found while generating this module (see ``gaps.py``). Shared
     # across child contexts, so a gap nested in a loop or case is still listed.
     gaps: list[Gap] = field(default_factory=list, repr=False)
+    # What generating this module has learned of the terminals of the vi.lib VIs it
+    # calls, kept in a copy of the vi.lib catalog that shares every entry it has
+    # not learned into (empty until a call needs it). The shared catalog is never
+    # changed, so what the views show does not depend on which VIs were generated
+    # before. A module's function contexts share it; two modules do not.
+    learned_vilib: list[VILibResolver] = field(default_factory=list, repr=False)
     # The raises of what the function evaluates when it is entered and cannot
     # be written (a constant with no value to write); the body starts with them.
     entry_raises: list[ast.stmt] = field(default_factory=list, repr=False)
@@ -480,6 +491,7 @@ class CodeGenContext:
             use_held_error_model=self.use_held_error_model,
             error_var=self.error_var,
             gaps=self.gaps,  # Shared — one list per module
+            learned_vilib=self.learned_vilib,  # Shared — one per module
             entry_raises=self.entry_raises,  # Shared — one list per function
             data_files=self.data_files,  # Shared — one dict per module
             module_stem=self.module_stem,
@@ -801,25 +813,46 @@ def _python_float_constant(value: float) -> str:
     return repr(value)
 
 
-class _NonFiniteNames(ast.NodeTransformer):
-    """The parser renders aggregate float elements with ``str(float)``, so NaN
-    and infinity arrive as bare ``nan``/``inf`` names inside the literal."""
+class _PathText(str):
+    """A path inside an aggregate constant's literal, held as its path text."""
+
+
+class _AggregateNames(ast.NodeTransformer):
+    """The parser renders aggregate elements as text: NaN and infinity arrive as
+    bare ``nan``/``inf`` names, and a path as its path text (``Path("/a")``,
+    ``NotAPath``), inside the literal."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
 
     def visit_Name(self, node: ast.Name) -> ast.AST:
         if node.id in ("nan", "inf"):
             return ast.Constant(value=float(node.id))
+        if node.id == NOT_A_PATH:
+            return ast.Constant(value=_PathText(NOT_A_PATH))
         return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        segment = ast.get_source_segment(self.text, node)
+        if segment is not None and parse_path(segment) is not None:
+            return ast.Constant(value=_PathText(segment))
+        return self.generic_visit(node)
 
 
 def _literal_eval(text: str) -> object:
-    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf``."""
-    tree = _NonFiniteNames().visit(ast.parse(text, mode="eval"))
-    return ast.literal_eval(tree)
+    """``ast.literal_eval`` that also accepts the parser's ``nan``/``inf`` and
+    path texts."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        tree = ast.parse(text, mode="eval")
+    return ast.literal_eval(_AggregateNames(text).visit(tree))
 
 
 def _python_literal(value: object) -> str:
     """``repr`` for constant values, recursing into lists/tuples/dicts so nested
     NaN and infinity stay executable."""
+    if isinstance(value, _PathText):
+        return python_path(value) or "None"
     if isinstance(value, float):
         return _python_float_constant(value)
     if isinstance(value, list):
@@ -949,6 +982,29 @@ def enum_member_constant(
         return None
 
 
+def terminal_default_expression(default: ScalarValue, type_name: str | None) -> str:
+    """The Python expression for the default a catalog terminal documents, through
+    the same conversion a constant of its type goes through. ``type_name`` is the
+    catalog's type word; it only tells a path (written as path text) from a
+    string, the value's own Python type gives the rest."""
+    if (type_name or "").lower() == "path":
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Path")
+        text: ScalarValue = default
+    elif isinstance(default, bool):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Boolean")
+        text = str(default)
+    elif isinstance(default, int):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+        text = str(default)
+    elif isinstance(default, float):
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+        text = str(default)
+    else:
+        lv_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+        text = quote_string(str(default))
+    return _format_constant(Constant(id="default", value=text, lv_type=lv_type))
+
+
 def _format_constant(
     const: Constant | ConstantNode, names: TypeNamer | None = None
 ) -> str:
@@ -1003,10 +1059,11 @@ def _format_constant(
     if is_boolean_type_name(underlying):
         return "True" if value in ("True", "1", "01") else "False"
     if underlying == "Path":
-        # The parser already hands path constants back as a ``Path("…")``
-        # expression (parser/vi.py); don't double-wrap it into Path('Path("…")').
-        if isinstance(value, str) and value.startswith("Path("):
-            return value
+        # The parser hands a path constant back as its path text.
+        if isinstance(value, str):
+            expression = python_path(value)
+            if expression is not None:
+                return expression
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)

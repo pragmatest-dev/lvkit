@@ -8,7 +8,8 @@
           "index": 1,
           "direction": "in",
           "name": "width",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default_behavior": "no padding"
         },
         {
           "index": 2,
@@ -38,7 +39,8 @@
           "index": 1,
           "direction": "in",
           "name": "width",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default_behavior": "no padding"
         },
         {
           "index": 2,
@@ -95,13 +97,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,
@@ -140,13 +144,15 @@
           "index": 2,
           "direction": "in",
           "name": "default",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default": 0
         },
         {
           "index": 3,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 4,
@@ -178,13 +184,15 @@
           "index": 2,
           "direction": "in",
           "name": "default (0uL)",
-          "type": "NumUInt32"
+          "type": "NumUInt32",
+          "default": 0
         },
         {
           "index": 3,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 4,
@@ -194,7 +202,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/hexadecimal-string-to-number.html"
     },
     "1186": {
       "name": "Octal String To Number",
@@ -252,7 +261,8 @@
           "index": 2,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 3,
@@ -289,13 +299,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,
@@ -326,13 +338,15 @@
           "index": 1,
           "direction": "in",
           "name": "use system decimal point (T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 2,
           "direction": "in",
           "name": "precision (6)",
-          "type": "NumInt16"
+          "type": "NumInt16",
+          "default": 6
         },
         {
           "index": 3,

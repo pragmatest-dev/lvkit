@@ -9,18 +9,19 @@ from typing import NoReturn
 
 from lvkit.graph.core import uid_of
 from lvkit.graph.models import PrimitiveNode
-from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.graph.terminal_layout import lay_out_node
 from lvkit.models import LVType, LVTypeKind, Terminal
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
     PrimitiveResolutionNeeded,
+    PrimitiveTerminal,
     ResolvedPrimitive,
     TerminalResolutionNeeded,
     get_resolver,
 )
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
-from lvkit.vi_files import strip_vi_extension
+from lvkit.terminal_default import DefaultBehavior
 
 from ..ast_utils import (
     build_assign,
@@ -28,10 +29,11 @@ from ..ast_utils import (
     parse_stmt,
     to_var_name,
 )
-from ..context import CodeGenContext
+from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
-from ..errors import CodeGenError
+from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
+from .template_inputs import template_reads
 
 
 def _array_operand_ranks(
@@ -302,6 +304,46 @@ def _expandable_base(term_index: int, expandable_indices: set[int]) -> int | Non
     return None
 
 
+# Errors are exceptions, so an error input with nothing wired to it holds no error.
+NO_ERROR = "None"
+
+
+def _catalog_default(
+    terminal: PrimitiveTerminal, resolved: ResolvedPrimitive
+) -> str | None:
+    """The Python expression for what the catalog says an unwired input holds: its
+    documented value, or the expression the primitive's own generator writes for
+    its documented behaviour; None when the catalog gives neither."""
+    if terminal.type == "ErrorCluster":
+        return NO_ERROR
+    if terminal.default is not None:
+        return terminal_default_expression(terminal.default, terminal.type)
+    if terminal.default_behavior is not None:
+        from .ops import get_op_behavior
+
+        return get_op_behavior(resolved, terminal.default_behavior)
+    return None
+
+
+def _reads_input(
+    template: str,
+    index: int,
+    name: str,
+    laid_out_slot: dict[int, int],
+    expandable_indices: set[int],
+) -> bool:
+    """Whether the function's code reads the input at ``index``."""
+    if _expandable_base(index, expandable_indices) is not None:
+        return True
+    return template_reads(
+        template,
+        f"in_{index}",
+        f"in_{laid_out_slot.get(index, index)}",
+        name,
+        to_var_name(name),
+    )
+
+
 def _build_input_map(
     node: PrimitiveNode, ctx: CodeGenContext, resolved: ResolvedPrimitive | None
 ) -> dict[str, str]:
@@ -309,28 +351,46 @@ def _build_input_map(
 
     Uses primitive resolver terminal names when node terminals lack names.
     Matches by connector pane index (sparse — not sequential).
-    When a terminal is unwired, uses the default_value from the primitive
-    definition if available, otherwise "None".
+    An unwired input takes the catalog's documented value or the expression the
+    function writes for its documented behaviour. One the code never reads is
+    ``None``; one it reads with neither documented is a gap.
     """
     input_map = {}
     # Expandable groups: base_index → list of resolved values (in dimension order)
     expandable_groups: dict[int, list[str]] = {}
 
-    # Build index → (name, default_value) dict from resolved terminals
+    # Build index → (name, default expression) dict from resolved terminals
     resolved_inputs: dict[int, tuple[str, str | None]] = {}
+    behaviors: dict[int, DefaultBehavior | None] = {}
+    # Inputs whose default is a documented behaviour, written in terms of the
+    # function's other inputs (``in_<index>``).
+    behavior_written: set[int] = set()
     expandable_indices: set[int] = set()
     if resolved and resolved.terminals:
         for rt in resolved.terminals:
             if rt.direction == "in":
-                default = getattr(rt, "default_value", None)
+                default = _catalog_default(rt, resolved)
                 resolved_inputs[rt.index] = (rt.name or "", default)
+                behaviors[rt.index] = rt.default_behavior
+                if rt.default is None and default is not None:
+                    behavior_written.add(rt.index)
                 if getattr(rt, "expandable", False):
                     expandable_indices.add(rt.index)
+
+    # The catalog terminal each node terminal repeats, for a node resized to its
+    # array types.
+    laid_out = (
+        lay_out_node(resolved.terminals, node.terminals)
+        if resolved and resolved.terminals
+        else None
+    )
+    laid_out_slot = {t.index: t.slot for t in laid_out or []}
 
     # Check which terminal indices the template actually references
     template_str = str(resolved.python_code) if resolved else ""
     template_refs = set(re.findall(r"\bin_(\d+)\b", template_str))
 
+    behavior_operands: list[str] = []
     for term in node.terminals:
         if term.direction != "input":
             continue
@@ -358,6 +418,10 @@ def _build_input_map(
             resolved_name, default_value = resolved_inputs[term_index]
             if not term_name:
                 term_name = resolved_name
+        elif laid_out_slot.get(term_index) in resolved_inputs:
+            # An input added by resizing the node holds what the catalog terminal
+            # it repeats holds.
+            default_value = resolved_inputs[laid_out_slot[term_index]][1]
 
         # Resolve from context. A wired data input always has a variable (a constant
         # that is a gap is bound to None; its function raises where it starts); an
@@ -383,23 +447,20 @@ def _build_input_map(
             resolved_value = value
         elif default_value is not None:
             resolved_value = default_value
+        elif term.is_error_cluster:
+            resolved_value = NO_ERROR
+        elif _reads_input(
+            template_str, term_index, term_name, laid_out_slot, expandable_indices
+        ):
+            function = resolved.name if resolved and resolved.name else node.name
+            raise UnknownDefault(
+                function or "a function",
+                term_name or str(term_index),
+                node,
+                behaviors.get(laid_out_slot.get(term_index, term_index)),
+            )
         else:
-            # Unwired terminal — use default from JSON or type-based default
-            ut = (term.lv_type.underlying_type or "") if term.lv_type else ""
-            if ut == "Refnum" and node.prim_id in (8003, 8005):
-                vi_short = (
-                    strip_vi_extension(ctx.vi_name or "output")
-                    .replace(":", "_")
-                    .replace(".", "_")
-                )
-                resolved_value = f"open(Path(__file__).parent / '{vi_short}.txt', 'a+')"
-                ctx.imports.add("from pathlib import Path")
-            elif ut == "Path" and node.prim_id in (9101,):
-                resolved_value = "Path(__file__)"
-                ctx.imports.add("from pathlib import Path")
-            else:
-                # Default for unwired terminal — use the type
-                resolved_value = _default_for_type(term, ctx)
+            resolved_value = "None"  # the code never reads it
 
         # Expandable terminal: collect into group by base index.
         # Expanded terminals have indices that are offset from the base
@@ -413,11 +474,27 @@ def _build_input_map(
             # Parenthesize a compound operand so its precedence survives the
             # string-level substitution into an operator template.
             operand = _paren_if_compound(resolved_value)
+            if (
+                not value
+                and laid_out_slot.get(term_index, term_index) in behavior_written
+            ):
+                behavior_operands.append(operand)
             # Add index-based key so templates can use in_1, in_2 etc.
             input_map[f"in_{term_index}"] = operand
             if term_name:
                 input_map[term_name] = operand
                 input_map[to_var_name(term_name)] = operand
+
+    # A documented behaviour written in terms of other inputs takes their operands.
+    for operand in behavior_operands:
+        written = re.sub(
+            r"\bin_(\d+)\b",
+            lambda m: input_map.get(m.group(0), m.group(0)),
+            operand,
+        )
+        for key, current in list(input_map.items()):
+            if current == operand:
+                input_map[key] = written
 
     # Add expandable placeholders for template substitution.
     # Single group: {expandable_inputs} for backward compat.
@@ -441,19 +518,28 @@ def _build_input_map(
             input_map[name] = joined
             input_map[to_var_name(name)] = joined
 
-    # Fill defaults for template terminals the heap did not serialize at all
-    # (truly-absent optional terminals). NOTE: merely UNWIRED terminals DO
-    # appear in node.terminals — the heap serializes the full connector pane —
-    # so this only covers indices a template references that aren't in the
-    # node's termList. Use the JSON default or None.
+    # An input the code reads that the call does not have: the catalog numbers the
+    # function's terminals differently from the call.
     if resolved and resolved.terminals:
         node_indices = {t.index for t in node.terminals}
         for rt in resolved.terminals:
-            if rt.direction == "in" and rt.index not in node_indices:
-                key = f"in_{rt.index}"
-                if key not in input_map:
-                    default = getattr(rt, "default_value", None)
-                    input_map[key] = default if default is not None else "None"
+            if (
+                rt.direction == "in"
+                and rt.index not in node_indices
+                and template_reads(
+                    template_str,
+                    f"in_{rt.index}",
+                    rt.name or "",
+                    to_var_name(rt.name or ""),
+                )
+            ):
+                raise TerminalNotOnCall(
+                    resolved.prim_id or "",
+                    resolved.name or "a function",
+                    rt.name or str(rt.index),
+                    rt.type,
+                    node,
+                )
 
     return input_map
 
@@ -479,7 +565,9 @@ def _detect_passthroughs(
     skip_ids: set[str] = set()
 
     exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
-    ordinals = _output_index_ordinals(node, resolved)
+    ordinals = _output_index_ordinals(
+        node, resolved, [k for k in hint if k not in ("_body", "_import")]
+    )
 
     # Build resolved output name lookup
     resolved_outputs: dict[int, str] = {}
@@ -541,21 +629,33 @@ def _detect_passthroughs(
 
 
 def _output_index_ordinals(
-    node: PrimitiveNode, resolved: ResolvedPrimitive | None
+    node: PrimitiveNode,
+    resolved: ResolvedPrimitive | None,
+    hint_keys: list[str] | None = None,
 ) -> dict[int, int]:
-    """Map each output terminal INDEX to its ordinal position among all outputs.
+    """Map each output terminal INDEX to the position of its expression.
 
-    Dict-format ``python_code`` expressions are authored in output-terminal
-    order (the output list, sorted by connector-pane index). The ordinal is
-    therefore the expression's position in that list — which is how a wired
-    output is paired to its expression, independent of how many outputs are
-    wired. Pairing by position among *wired* outputs would shift expressions
-    whenever an earlier output is left unwired.
+    Dict-format ``python_code`` names its expressions by output. When every key
+    names an output of the catalog entry, each output takes the expression its
+    name keys. Otherwise the expressions are taken to be in output-terminal order
+    (the output list, sorted by connector-pane index), and the ordinal is the
+    position in that list. Either way a wired output is paired independent of how
+    many outputs are wired: pairing by position among *wired* outputs would shift
+    expressions whenever an earlier output is left unwired.
 
     The expression list mirrors the resolved (JSON) output order, so prefer
     those indices; fall back to the node's own output terminals when the node
     carries no resolution.
     """
+    if resolved and resolved.terminals and hint_keys:
+        by_name = {
+            to_var_name(rt.name or ""): rt.index
+            for rt in resolved.terminals
+            if rt.direction == "out"
+        }
+        keyed = [to_var_name(key) for key in hint_keys]
+        if len(set(keyed)) == len(keyed) and all(k in by_name for k in keyed):
+            return {by_name[key]: pos for pos, key in enumerate(keyed)}
     if resolved and resolved.terminals:
         out_indices = sorted(
             {rt.index for rt in resolved.terminals if rt.direction == "out"}
@@ -685,7 +785,9 @@ def _build_dict_hint(
     # by its position in the wired-only list — an unwired earlier output must
     # not shift the remaining expressions onto the wrong terminals.
     exprs = [v for k, v in hint.items() if k not in ("_body", "_import")]
-    ordinals = _output_index_ordinals(node, resolved)
+    ordinals = _output_index_ordinals(
+        node, resolved, [k for k in hint if k not in ("_body", "_import")]
+    )
     for i, (term_id, term_name, var_name, term_index) in enumerate(wired_outputs):
         expr_idx = ordinals.get(term_index, i)
         if expr_idx < len(exprs):
@@ -833,29 +935,6 @@ def _sources(ctx: CodeGenContext, terminal_id: str) -> str:
             continue
         found.append(f"{source.display_name}, terminal {uid_of(edge.terminal_id)}")
     return ", ".join(found) or "nothing"
-
-
-def _default_for_type(term: Terminal, ctx: CodeGenContext) -> str:
-    """Return a Python default value based on the terminal's lv_type."""
-    lv_type = term.lv_type
-    if lv_type:
-        ut = lv_type.underlying_type or ""
-        if is_boolean_type_name(ut):
-            return "False"
-        if is_string_type_name(ut):
-            return "''"
-        if ut == "Path":
-            ctx.imports.add("from pathlib import Path")
-            return "Path('.')"
-        if ut.startswith("Num") or lv_type.kind in (
-            "int",
-            "float",
-            "numeric",
-        ):
-            return "0"
-        if lv_type.kind == LVTypeKind.ARRAY:
-            return "[]"
-    return "None"
 
 
 def _terminal_signature(

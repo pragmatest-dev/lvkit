@@ -150,7 +150,8 @@
           "index": 5,
           "direction": "in",
           "name": "auto wire? (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 6,
@@ -196,7 +197,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/new-vi-object.html"
     }
   }
 }

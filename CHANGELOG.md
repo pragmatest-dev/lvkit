@@ -3,6 +3,21 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **What lvnet shows no longer depends on whether code was generated first** — generating code taught the shared vi.lib catalog terminal names, so a later lvnet of the same VI named a call's terminals by name instead of by index; each generated module now learns into its own copy of the entries it learns.
+- **Delete From Array with its index unwired deletes the last `length` elements** — the generated code returned `None` for the deleted element and left the last element in the output array; it now deletes the last `length` elements (one when `length` is unwired too), and an empty array stays empty.
+- **An unwired input the code reads, whose default is not known, is a gap** — `lvkit unresolved` lists one `unknown_default` item per input and generation raises where the node runs, instead of guessing a value from the type; an input the code never reads is no gap, and one the code reads that the call does not have is a `terminal_mapping` gap. The catalog records a terminal's default as `default` (the value NI documents) or `default_behavior` (rest, append, one element, last element, …), lvnet shows it, and a call of a project VI shows the callee's saved value (#169).
+- **Paths are read by their saved type** — `Path("/C/Users")` absolute, `Path("test.xml")` relative, `NotAPath`, an empty component as `..`, bare in lvnet and describe; Not a Path is `None` in generated Python, an absolute path gets its drive on Windows (`Path("C:/" if os.name == "nt" else "/C", "Users")`), a `<vilib>`/`<userlib>` path keeps the folder as its first component (`Path("<vilib>", "x.vi")`), paths are `Path | None`, and `Not A Number/Path/Refnum?` and `Empty String/Path?` work on them (#177).
+- **A For Loop's right shift register listed in the loop's own register list is read after the loop** — its final value no longer prints as a bare `373::6` in lvnet, describe and generated code.
+- **An enum or ring value names its item, and one spelling of the type everywhere** — `in 5 : I32 = 2 (verify)` and a control `default 2 (verify)`; the type is `ring{verify = 2, commit = 3}` / `enum{a, b}` in lvnet, describe and JSON (#176).
+- **lvnet shows loop control** — a loop header says `(stop if true)` or `(continue if true)`, the count and conditional wires are lines, and an unwired shift register or Feedback Node is `(uninitialized)` (#178).
+- **lvnet shows the wires into and out of every structure** — frames drive their output tunnels, an unread input tunnel and an Event Structure's timeout and dynamic pair are lines, an unwired case output is `(default <Type>)` (#179).
+- **lvnet and JSON put a front-panel terminal in the structure that holds it** — an indicator is driven by a line of that body, a control is `read <Control>`, and JSON adds `scope` (#180).
+- **lvnet, describe and JSON show a Control Reference constant as a `vi-server-reference`** — `This VI`, `This Application` or the control it references, never its label (#160).
+- **Fix: a wired `Void` terminal keeps its line in lvnet, and a quoted terminal name is quoted where it is read** (#181).
+- **An unreadable type reads `X (unreadable "<reason>")`** — the reason is a quoted string, as in `(library unreadable "<reason>")` (#181).
+- **lvnet tells two controls or indicators with one label apart** — verbose text numbers each ` (id <uid>)`; terse text that cannot say which is an error (#180).
+- **An unwired Disable Structure output tunnel is `(default <Type>)`, and a value handed from one Flat Sequence frame to the next is one `sequence_<uid>::outK` net** (#179).
+- **Fix: a Boolean constant or default read as the string `"True"` in lvnet** — it is `True`/`False`, numbers are numbers, and a control named `True` is quoted.
 - **A path that does not exist, or a file of the wrong kind, is a usage error (exit 2) in every command** — a plain `Error:` message, no traceback.
 - **pylabview's own stderr lines are no longer printed** — they are kept with the VI's problem only when the VI cannot be read.
 - **`callers`, `callees` and `blast-radius` on a project with no index exit 1** (they exited 2), and `blast-radius --format json` gives project-relative `vi_key` and `dependents`.

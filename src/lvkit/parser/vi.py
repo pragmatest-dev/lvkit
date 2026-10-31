@@ -38,6 +38,7 @@ from lvkit.models import (
     LVType,
     LVTypeKind,
     UndecodedPicture,
+    UnreadPath,
     UnreadPrivateData,
     ValuesNotKept,
     contains_class_instance,
@@ -45,6 +46,7 @@ from lvkit.models import (
     leading_element,
     unique_names,
 )
+from lvkit.path_value import format_path
 from lvkit.text_encoding import xml_text_encoding
 from lvkit.vi_files import is_vi_file
 
@@ -52,6 +54,7 @@ from .conp_types import conp_sidecar_path, decode_conp_terminals
 from .constants import (
     FP_TERMINAL_CLASS,
     MULTI_LABEL_CLASS,
+    NODE_CLASS_ARRAY_INDEX,
     NODE_CLASS_COMMENT,
     NODE_CLASS_CPD_ARITH,
     NODE_CLASS_SHIFT_REG,
@@ -59,10 +62,12 @@ from .constants import (
     STRUCTURE_NODE_CLASSES,
     TERMINAL_CLASS,
     TERMINAL_CONTAINER_CLASSES,
+    TUNNEL_CLASS_CASE_SEL,
 )
 from .extfunc import NODE_CLASS_EXT_FUNC, extfunc_terminal_roles
 from .extfunc_resolve import resolve_ext_func_calls
 from .flags import (
+    is_indexing_disabled,
     is_indicator,
     is_inverted_terminal,
     is_method_row_input,
@@ -115,6 +120,7 @@ from .metadata import (
     parse_vi_metadata,
     parse_vipi_from_livi,
     parse_xml_link_path_refs,
+    pth0_path_type,
 )
 from .models import (
     ParsedBlockDiagram,
@@ -959,7 +965,7 @@ def _extract_enum_labels(root: ET.Element) -> dict[str, list[str]]:
 # Case/select tunnel dco classes: pass-through (no array<->element transform),
 # so every face shares the dco's own <typeDesc> -- unlike an lpTun, whose inner
 # face has a DISTINCT type in <innerLpTunDCO>.
-_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", "caseSel"})
+_CASE_TUNNEL_DCO_CLASSES = frozenset({"selTun", "csTun", TUNNEL_CLASS_CASE_SEL})
 
 
 def _build_tunnel_inner_type_map(root: ET.Element) -> dict[str, str]:
@@ -1220,9 +1226,12 @@ def _process_element_terminals(
         # reuse the same bit for an unrelated purpose, so only extract
         # it when the containing element is cpdArith.
         inverted = False
+        indexing_disabled = False
+        dco_flags_elem = dco.find("objFlags") if dco is not None else None
         if elem_class == NODE_CLASS_CPD_ARITH:
-            dco_flags_elem = dco.find("objFlags") if dco is not None else None
             inverted = is_inverted_terminal(safe_int(dco_flags_elem))
+        elif elem_class == NODE_CLASS_ARRAY_INDEX:
+            indexing_disabled = is_indexing_disabled(safe_int(dco_flags_elem))
 
         terminal_info[term_uid] = ParsedTerminalInfo(
             uid=term_uid,
@@ -1232,6 +1241,7 @@ def _process_element_terminals(
             parsed_type=parsed_type,
             name=term_name,
             inverted=inverted,
+            indexing_disabled=indexing_disabled,
             dco_uid=dco_uid or None,
             dotnet_type_unreadable=dotnet_type_unreadable,
         )
@@ -2432,27 +2442,33 @@ def _decode_default_data(
     return None, None
 
 
-def _walk_path(data: bytes | memoryview) -> tuple[str | None, int]:
+def _walk_path(data: bytes | memoryview) -> tuple[str | UnreadPath | None, int]:
     """Walk a ``PTH0`` path DefaultData blob ONCE -> ``(value, bytes_consumed)``.
 
     Delegates the pascal-string component decode to
     ``metadata._decode_pth0_components`` (the single source of the ``PTH0``
-    component walk, shared with the link-table ``PTH0`` scan), keeping only
-    the ``Path("…")`` string formatting local -- so a path field inside a
-    cluster stays aligned with the following field. Returns ``(None, 0)``
-    when ``data`` is not a ``PTH0`` blob.
+    component walk, shared with the link-table ``PTH0`` scan) and the path text
+    to ``path_value.format_path`` -- so a path field inside a cluster stays
+    aligned with the following field. The value is ``UnreadPath`` when the
+    record's path type is not one NI documents, and ``(None, 0)`` when ``data``
+    is not a ``PTH0`` blob or is cut short.
     """
     # An equality slice (not ``.startswith``, which memoryview lacks) works for
     # both ``bytes`` and ``memoryview`` callers.
     if data[:4] != b"PTH0":
         return None, 0
     parts, idx = _decode_pth0_components(data, 0, len(data))
-    return (f'Path("{"/".join(parts)}")' if parts else None), idx
+    if idx == 0:
+        return None, 0
+    path_type = pth0_path_type(data, 0)
+    text = format_path(path_type, parts)
+    return (UnreadPath(path_type) if text is None else text), idx
 
 
 def _decode_path_default(data: bytes) -> str | None:
     """Decode a LabVIEW path from DefaultData bytes (value only)."""
-    return _walk_path(data)[0]
+    value = _walk_path(data)[0]
+    return None if isinstance(value, UnreadPath) else value
 
 
 def _decode_string_default(data: bytes) -> str | None:
@@ -2942,7 +2958,10 @@ def _decode_element(
     # Path: PTH0 prefix — one walk yields both the value and the byte count.
     if underlying == "Path":
         value, consumed = _walk_path(data)
-        value = value or 'Path("")'
+        if value is None:
+            return None, 0, None
+        if isinstance(value, UnreadPath):
+            return str(value), consumed, value
         return value, consumed, value
 
     # Array: one 4-byte size per dimension (slowest-varying first), then the

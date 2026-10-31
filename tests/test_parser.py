@@ -2275,7 +2275,7 @@ class TestRealVIParsing:
         misread a residual ``PTH0`` tag as their 4-byte element count
         (logged as "constant-array decode truncated: 0 of a claimed
         1347700784 elements..."). After the fix, alignment holds throughout:
-        no truncation warning, empty Path fields decode as ``Path("")``, and
+        no truncation warning, empty Path fields decode as ``Path("/")``, and
         the arrays' real (variable) leading count decodes as an empty ``[]``
         array -- not garbage."""
         gtr = Path(
@@ -2321,9 +2321,9 @@ class TestRealVIParsing:
         # Sane, correctly-ordered decode of every field -- misalignment would
         # scramble this into garbage well before reaching the trailing
         # fields ("ProductName", a plain string).
-        assert "'Open Path': Path(\"\")" in decoded
-        assert "'Test Project': Path(\"\")" in decoded
-        assert "'Test Class': Path(\"\")" in decoded
+        assert "'Open Path': Path(\"/\")" in decoded
+        assert "'Test Project': Path(\"/\")" in decoded
+        assert "'Test Class': Path(\"/\")" in decoded
         assert "'TestMethods': []" in decoded
         assert "'TestProjectClasses': []" in decoded
         assert "'TotalTests': 0" in decoded

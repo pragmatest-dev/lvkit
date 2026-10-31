@@ -19,7 +19,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "path_in",
-          "default_value": null,
           "description": "path in identifies the name or path of the shared library you want to call. You must place a checkmark in the Specify path on diagram checkbox in the Call Library Function dialog box for this input to appear on the connector pane. Although you can specify the shared library to call by name or by path , these techniques use different search algorithms for locating the shared library and have different ramifications on distributing the shared libraries with stand-alone applications. Ensure that you choose the proper technique for your use case. For example, always specify system shared libraries, such as kernel32.dll , by name."
         },
         {
@@ -29,7 +28,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -39,7 +37,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "path_out",
-          "default_value": null,
           "description": "path out returns the path to the called DLL or shared library. You must place a checkmark in the Specify path on diagram checkbox in the Call Library Function dialog box for this output to appear on the connector pane."
         },
         {
@@ -49,7 +46,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -71,7 +67,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "expected_output_size",
-          "default_value": null,
           "description": "Use expected output size to improve memory efficiency. Use a number slightly larger than the output size you expect. The command runs if you exceed this size, but LabVIEW uses its memory less efficiently. The default is 4096."
         },
         {
@@ -81,7 +76,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "wait_until_completion",
-          "default_value": null,
           "description": "If wait until completion? is TRUE, standard input is available as input to the command and standard output and standard error are available when the command finishes running. If FALSE, the command runs in the background and its input and output are not available."
         },
         {
@@ -91,7 +85,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "command_line",
-          "default_value": null,
           "description": "command line indicates the command LabVIEW calls to run a program."
         },
         {
@@ -101,7 +94,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "standard_input",
-          "default_value": null,
           "description": "standard input is the text to pass to the command line as standard input."
         },
         {
@@ -111,7 +103,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "working_directory",
-          "default_value": null,
           "description": "working directory is the file system directory from which you want to execute the command. You do not have to set working directory ."
         },
         {
@@ -121,7 +112,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -131,7 +121,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "run_minimized",
-          "default_value": null,
           "description": "If run minimized? is TRUE, the VI minimizes the run of your executable program. The default is FALSE."
         },
         {
@@ -141,7 +130,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "standard_output",
-          "default_value": null,
           "description": "standard output returns information from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
         },
         {
@@ -151,7 +139,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "standard_error",
-          "default_value": null,
           "description": "standard error returns errors from the program you called if wait until completion is TRUE. If wait until completion is FALSE, System Exec returns an empty string."
         },
         {
@@ -161,7 +148,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_code",
-          "default_value": null,
           "description": "return code indicates the system-dependent exit code that the command returns."
         },
         {
@@ -171,7 +157,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -193,7 +178,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_string",
-          "default_value": null,
           "description": "input string specifies the AppleScript code you want to use to communicate with external macOS applications. Refer to the AppleScript website for more information about the AppleScript language. If you input an invalid code string, LabVIEW returns an error."
         },
         {
@@ -203,7 +187,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "wait_until_completion",
-          "default_value": null,
           "description": "wait until completion? specifies whether you want to wait until the AppleScript code finishes executing before the VI finishes executing. If you specify TRUE, Results and Compile & Runtime Errors are available when the command finishes running. If you specify FALSE, the command runs in the background and the input and output of the command line are not available. The default is TRUE."
         },
         {
@@ -213,7 +196,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -223,7 +205,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "results",
-          "default_value": null,
           "description": "Results returns the results from running the AppleScript if wait until completion? is TRUE. If you choose to run the AppleScript code in the background by specifying FALSE in wait until completion? , Results returns an empty string."
         },
         {
@@ -233,7 +214,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "compile__runtime_errors",
-          "default_value": null,
           "description": "Compile & Runtime Errors returns errors that occurred while compiling and running the AppleScript code if wait until completion? is TRUE. If you choose to run the AppleScript code in the background by specifying FALSE in wait until completion? , Compile & Runtime Errors returns an empty string."
         },
         {
@@ -243,7 +223,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -265,7 +244,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "path_to_named_pipe",
-          "default_value": null,
           "description": "path to named pipe is the path to the named pipe."
         },
         {
@@ -275,7 +253,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mode",
-          "default_value": null,
           "description": "mode indicates whether you want to read or write data."
         },
         {
@@ -285,7 +262,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -295,7 +271,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when reading from and writing to the opened pipe."
         },
         {
@@ -305,7 +280,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -327,7 +301,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "command_line",
-          "default_value": null,
           "description": "command line indicates which command for LabVIEW to call to run your program."
         },
         {
@@ -337,7 +310,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mode",
-          "default_value": null,
           "description": "mode determines whether you want to read and/or write data."
         },
         {
@@ -347,7 +319,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_standard_error_fd",
-          "default_value": null,
           "description": "return standard error fd? sets the VI to return error file descriptor when set to TRUE. The default is FALSE."
         },
         {
@@ -357,7 +328,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -367,7 +337,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "process_id",
-          "default_value": null,
           "description": "process ID returns the process ID."
         },
         {
@@ -377,7 +346,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "read_file_descriptor",
-          "default_value": null,
           "description": "read file descriptor returns a file descriptor if you set mode to Read or Read + Write."
         },
         {
@@ -387,7 +355,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "write_file_descriptor",
-          "default_value": null,
           "description": "write file descriptor returns a file descriptor if you set mode to Write or Read + Write."
         },
         {
@@ -397,7 +364,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_file_descriptor",
-          "default_value": null,
           "description": "error file descriptor returns a file descriptor you can pass to the Read From Pipe and Close Pipe VIs if you set return standard error fd? to TRUE."
         },
         {
@@ -407,7 +373,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -429,7 +394,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when closing the pipe."
         },
         {
@@ -439,7 +403,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -449,7 +412,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when closing the pipe."
         },
         {
@@ -459,7 +421,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -481,7 +442,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when reading from and writing to the opened pipe."
         },
         {
@@ -491,7 +451,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bytes_to_read",
-          "default_value": null,
           "description": "bytes to read is the maximum number of bytes you want the VI to read. This VI might read fewer bytes than bytes to read ."
         },
         {
@@ -501,7 +460,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -511,7 +469,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "eof",
-          "default_value": null,
           "description": "If eof? is TRUE, the other end of the pipe is closed."
         },
         {
@@ -521,7 +478,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when closing the pipe."
         },
         {
@@ -531,7 +487,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bytes_read",
-          "default_value": null,
           "description": "bytes read is the number of bytes read, which can be less than bytes to read ."
         },
         {
@@ -541,7 +496,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "data is the data read from the pipe."
         },
         {
@@ -551,7 +505,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -573,7 +526,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when reading from and writing to the opened pipe."
         },
         {
@@ -583,7 +535,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "data is the data to write to the pipe."
         },
         {
@@ -593,7 +544,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -603,7 +553,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_descriptor",
-          "default_value": null,
           "description": "file descriptor is the file descriptor to use when writing to the opened pipe."
         },
         {
@@ -613,7 +562,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bytes_written",
-          "default_value": null,
           "description": "bytes written is the number of bytes written, which can be less than the number of bytes in data ."
         },
         {
@@ -623,7 +571,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -645,7 +592,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "application_reference",
-          "default_value": null,
           "description": "application reference is reserved for internal use."
         },
         {
@@ -655,7 +601,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "source_control_reference_in",
-          "default_value": null,
           "description": "source control reference in contains a reference to the source control project configured in LabVIEW . The source control reference must be a valid reference created with the SCC Open SCC Project VI."
         },
         {
@@ -665,7 +610,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_path",
-          "default_value": null,
           "description": "VI path specifies the path to the VI you want to compare."
         },
         {
@@ -675,7 +619,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "compare_options",
-          "default_value": null,
           "description": "compare options specifies the methods the VI uses for comparison."
         },
         {
@@ -685,7 +628,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "front_panel",
-          "default_value": null,
           "description": "Front Panel specifies whether the comparison includes front panel items. The default is TRUE."
         },
         {
@@ -695,7 +637,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "fp_positionsize",
-          "default_value": null,
           "description": "FP position/size specifies whether the comparison includes the position and size of the front panel window. The default is FALSE, in which the front panel position and size are excluded from the comparison."
         },
         {
@@ -705,7 +646,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "block_diagram",
-          "default_value": null,
           "description": "Block Diagram specifies whether the comparison includes block diagram items. The default is TRUE."
         },
         {
@@ -715,7 +655,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bd_cosmetic",
-          "default_value": null,
           "description": "BD cosmetic specifies whether the comparison includes cosmetic aspects of the block diagram. The default is FALSE, in which the cosmetic aspects are excluded from the comparison."
         },
         {
@@ -725,7 +664,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "bd_positionsize",
-          "default_value": null,
           "description": "BD position/size specifies whether the comparison includes the position and size of the block diagram window. The default is FALSE, in which the block diagram position and size are excluded from the comparison."
         },
         {
@@ -735,7 +673,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -745,7 +682,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "interactive",
-          "default_value": null,
           "description": "interactive? specifies whether the VI performs a silent or a visual comparison."
         },
         {
@@ -755,7 +691,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "version",
-          "default_value": null,
           "description": "version specifies the version of the file you want to compare. The default is an empty string."
         },
         {
@@ -765,7 +700,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "file_differs",
-          "default_value": null,
           "description": "file differs? returns TRUE if the specified VI differs from the version in source control."
         },
         {
@@ -775,7 +709,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "source_control_reference_out",
-          "default_value": null,
           "description": "source control reference out returns source control reference in unchanged."
         },
         {
@@ -785,7 +718,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "status_message",
-          "default_value": null,
           "description": "status message returns the results of the comparison if the VI performed a silent comparison method."
         },
         {
@@ -795,7 +727,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -817,7 +748,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -827,7 +757,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "key specifies the name of the form data element for which to return a value. For example, if an HTML form submits the post data, x=2&y=3 , you can enter either x or y as the key to retrieve the respective value."
         },
         {
@@ -837,7 +766,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -847,7 +775,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -857,7 +784,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the value of the specified form data element."
         },
         {
@@ -867,7 +793,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mime_type",
-          "default_value": null,
           "description": "mime type returns the MIME type of the form data associated with the HTTP request . Web clients can use HTML forms with the POST HTTP method or clients can use the POST VI to submit form data values to a Web service."
         },
         {
@@ -877,7 +802,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -894,49 +818,42 @@
         {
           "name": "LabVIEW Web Service Request",
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request. LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI. When you use Web Services VI(s) within a Web method VI, you must assign the original LabVIEW",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_web_service_request"
         },
         {
           "name": "key",
           "description": "key specifies the name of the form data element for which to return a value. For example, if an HTML form submits the post data, x=2&y=3, you can enter either x or y as the key to retrieve the respective value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "key"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "LabVIEW Web Service Request out",
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request. Use LabVIEW Web Service Request out to wire together Web Services VIs within your application.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out"
         },
         {
           "name": "value",
           "description": "value returns the value of the specified form data element.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "value"
         },
         {
           "name": "mime type",
           "description": "mime type returns the MIME type of the form data associated with the HTTP request. Web clients can use HTML forms with the POST HTTP method or clients can use the POST VI to submit form data values to a Web service.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "mime_type"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -959,7 +876,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -969,7 +885,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -979,7 +894,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -989,7 +903,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key",
-          "default_value": null,
           "description": "Key returns the key of the form data associated with the HTTP request . Web clients can use HTML forms with the POST HTTP method or clients can use the POST VI to submit form data values to a Web service."
         },
         {
@@ -999,7 +912,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "Value returns the value of the form data associated with the HTTP request . Web clients can use HTML forms with the POST HTTP method or clients can use the POST VI to submit form data values to a Web service."
         },
         {
@@ -1009,7 +921,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mime_type",
-          "default_value": null,
           "description": "Mime Type returns the MIME type of the form data associated with the HTTP request . Web clients can use HTML forms with the POST HTTP method or clients can use the POST VI to submit form data values to a Web service."
         },
         {
@@ -1019,7 +930,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1041,7 +951,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1051,7 +960,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1061,7 +969,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1071,7 +978,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "uploadedfileslist",
-          "default_value": null,
           "description": "UploadedFilesList returns an array of clusters that contain information about any uploaded files associated with the HTTP request . Each cluster contains the following components describing the respective uploaded file:"
         },
         {
@@ -1081,7 +987,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "client_file_name",
-          "default_value": null,
           "description": "Client File Name is the name of the uploaded file."
         },
         {
@@ -1091,7 +996,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "content_type",
-          "default_value": null,
           "description": "Content Type is the content type of the uploaded file."
         },
         {
@@ -1101,7 +1005,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "size",
-          "default_value": null,
           "description": "Size is the size in bytes of the uploaded file."
         },
         {
@@ -1111,7 +1014,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1133,7 +1035,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1143,7 +1044,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1153,7 +1053,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1163,7 +1062,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "postdata",
-          "default_value": null,
           "description": "postdata returns any POST data associated with the HTTP request. Web clients can use the POST HTTP method or the POST VI to submit POST data to a Web service."
         },
         {
@@ -1173,7 +1071,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1195,7 +1092,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1205,7 +1101,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variable_name",
-          "default_value": null,
           "description": "variable name specifies the request variable from which to return the value. This parameter provides a pull-down menu of available request variables."
         },
         {
@@ -1215,7 +1110,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1225,7 +1119,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1235,7 +1128,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the value of the specified variable."
         },
         {
@@ -1245,7 +1137,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1267,7 +1158,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1277,7 +1167,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1287,7 +1176,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1297,7 +1185,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "request_variables",
-          "default_value": null,
           "description": "request variables is a cluster that contains two 1D arrays that contain the Key , or name, and Value of the request variables associated with the HTTP request . Web services include over 30 request variables that provide information such as server label, remote address, and cache control related to an HTTP request."
         },
         {
@@ -1307,7 +1194,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": ""
         },
         {
@@ -1317,7 +1203,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1339,7 +1224,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1349,7 +1233,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1359,7 +1242,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1369,7 +1251,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_id",
-          "default_value": null,
           "description": "user ID returns the ID of the user currently logged in. If no user is logged in, this output returns an empty string."
         },
         {
@@ -1379,7 +1260,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "username",
-          "default_value": null,
           "description": "username returns the username of the user currently logged in. If no user is logged in, this output returns an empty string."
         },
         {
@@ -1389,7 +1269,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "privileges",
-          "default_value": null,
           "description": "privileges returns the privileges associated with the request, including privileges associated with a logged in user."
         },
         {
@@ -1399,7 +1278,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1421,7 +1299,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service",
-          "default_value": null,
           "description": "LabVIEW Web Service is an identifier used by Service VIs to access information about the current Web service. LabVIEW Web Service works similarly to a refnum in LabVIEW, allowing you to wire together Service VIs within your application. You can also wire LabVIEW Web Service Request to this input, as LabVIEW Web Service Request inherits from LabVIEW Web Service . When you use Service VI(s) within a startup VI, you must assign the control wired to the original LabVIEW Web Service input to the connector pane for the Service VI(s) to function."
         },
         {
@@ -1431,7 +1308,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "attribute_name",
-          "default_value": null,
           "description": ""
         },
         {
@@ -1441,7 +1317,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1451,7 +1326,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_out",
-          "default_value": null,
           "description": "LabVIEW Web Service out is used by Service VIs to reference the current Web service. Use LabVIEW Web Service out to wire together Service VIs within your application."
         },
         {
@@ -1461,7 +1335,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value returns the web service attribute specified by attribute name as a string."
         },
         {
@@ -1471,7 +1344,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1493,7 +1365,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service",
-          "default_value": null,
           "description": "LabVIEW Web Service is an identifier used by Service VIs to access information about the current Web service. LabVIEW Web Service works similarly to a refnum in LabVIEW, allowing you to wire together Service VIs within your application. You can also wire LabVIEW Web Service Request to this input, as LabVIEW Web Service Request inherits from LabVIEW Web Service . When you use Service VI(s) within a startup VI, you must assign the control wired to the original LabVIEW Web Service input to the connector pane for the Service VI(s) to function."
         },
         {
@@ -1503,7 +1374,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1513,7 +1383,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_out",
-          "default_value": null,
           "description": "LabVIEW Web Service out is used by Service VIs to reference the current Web service. Use LabVIEW Web Service out to wire together Service VIs within your application."
         },
         {
@@ -1523,7 +1392,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "service_stopping",
-          "default_value": null,
           "description": "service stopping? returns TRUE if the current web service is stopping."
         },
         {
@@ -1533,7 +1401,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1555,7 +1422,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1565,7 +1431,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mime_type",
-          "default_value": null,
           "description": "MIME type specifies the MIME response type for the current HTTP request. The default value is text/html , which indicates the response is standard HTML format."
         },
         {
@@ -1575,7 +1440,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1585,7 +1449,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1595,7 +1458,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1617,7 +1479,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1627,7 +1488,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_code",
-          "default_value": null,
           "description": "response code specifies the HTTP status code to return to the client. The default is HTTP code 200, which indicates a successful request."
         },
         {
@@ -1637,7 +1497,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1647,7 +1506,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1657,7 +1515,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1679,7 +1536,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1689,7 +1545,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "redirect_url",
-          "default_value": null,
           "description": "redirect URL specifies a redirect URL using standard URL syntax."
         },
         {
@@ -1699,7 +1554,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_code",
-          "default_value": null,
           "description": "response code specifies the HTTP status code to return to the client. The default is HTTP code 307, which indicates a temporary redirect using the same request method. Specify HTTP code 303 to redirect as a GET."
         },
         {
@@ -1709,7 +1563,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1719,7 +1572,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1729,7 +1581,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1751,7 +1602,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1761,7 +1611,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "header",
-          "default_value": null,
           "description": "header specifies the header field to assign a value. Refer to the World Wide Web Consortium header field definitions for example headers, along with descriptions and syntax."
         },
         {
@@ -1771,7 +1620,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "header_value",
-          "default_value": null,
           "description": "header value specifies the value of the header field."
         },
         {
@@ -1781,7 +1629,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1791,7 +1638,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1801,7 +1647,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1823,7 +1668,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1833,7 +1677,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "response_string",
-          "default_value": null,
           "description": "response string specifies the response string for a top-level VI that uses streaming , which you configure on the HTTP Method VI Settings page of the Web Service Properties dialog box."
         },
         {
@@ -1843,7 +1686,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1853,7 +1695,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1863,7 +1704,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1885,7 +1725,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request",
-          "default_value": null,
           "description": "LabVIEW Web Service Request is an identifier used by Web Services VIs to reference a specific HTTP request . LabVIEW Web Service Request works similarly to a refnum in LabVIEW, allowing you to wire together Web Services VIs within your application. You must wire Web Services VIs to the LabVIEW Web Service Request control or an existing value from the LabVIEW Web Service Request out terminal of another VI."
         },
         {
@@ -1895,7 +1734,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -1905,7 +1743,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "labview_web_service_request_out",
-          "default_value": null,
           "description": "LabVIEW Web Service Request out is an identifier that VIs on the Web Services palette use to reference a specific HTTP request . Use LabVIEW Web Service Request out to wire together Web Services VIs within your application."
         },
         {
@@ -1915,7 +1752,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -1937,7 +1773,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "unescaped_string_in",
-          "default_value": null,
           "description": "unescaped string in specifies the string you want to escape."
         },
         {
@@ -1947,7 +1782,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "escaped_string_out",
-          "default_value": null,
           "description": "escaped string out returns an escaped string."
         }
       ]
@@ -1969,7 +1803,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "escaped_string_in",
-          "default_value": null,
           "description": "escaped string in specifies an escaped string."
         },
         {
@@ -1979,7 +1812,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "unescaped_string_out",
-          "default_value": null,
           "description": "unescaped string out returns an unescaped string."
         }
       ]
@@ -2011,7 +1843,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2021,7 +1852,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "new_reference",
-          "default_value": null,
           "description": "new reference returns the reference to a .NET object."
         },
         {
@@ -2031,7 +1861,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2053,7 +1882,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the .NET object for which you want to set or get properties."
         },
         {
@@ -2063,7 +1891,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2073,7 +1900,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -2083,7 +1909,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -2093,7 +1918,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "property_",
-          "default_value": null,
           "description": "property 1..n are examples of properties you want to get (read)."
         }
       ]
@@ -2115,7 +1939,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the .NET object on which you want to invoke a method or perform an action."
         },
         {
@@ -2125,7 +1948,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2135,7 +1957,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "method",
-          "default_value": null,
           "description": "input 1..n are example input parameters of a method."
         },
         {
@@ -2145,7 +1966,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -2155,7 +1975,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -2165,7 +1984,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "method",
-          "default_value": null,
           "description": "return value is an example return value of a method."
         }
       ]
@@ -2187,7 +2005,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with an open VI, VI object, an open application instance, or a .NET or ActiveX object. reference also accepts 1D arrays of references."
         },
         {
@@ -2197,7 +2014,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -2207,7 +2023,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2229,7 +2044,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to upcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -2239,7 +2053,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to upcast."
         },
         {
@@ -2249,7 +2062,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "generic_class_reference",
-          "default_value": null,
           "description": "generic class reference is the upcasted reference. If an error occurs, generic class reference is Not A Refnum ."
         }
       ]
@@ -2271,7 +2083,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "target_class",
-          "default_value": null,
           "description": "target class is the class or interface to which you want to downcast reference . You can wire a class specifier constant or any wire of the target type to this input."
         },
         {
@@ -2281,7 +2092,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum or LabVIEW class or interface to downcast."
         },
         {
@@ -2291,7 +2101,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2301,7 +2110,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "specific_class_reference",
-          "default_value": null,
           "description": "specific class reference is the downcast reference. If the target class is incompatible with the reference , the function returns an error and specific class reference is Not A Refnum ."
         },
         {
@@ -2311,7 +2119,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2329,28 +2136,24 @@
         {
           "name": "anything",
           "description": "anything is any LabVIEW data you want to convert. This parameter is polymorphic.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "anything"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurs before this node executes, the node only closes the reference passed to it.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": ".NET object",
           "description": ".NET Object is the resulting .NET object.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "net_object"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         }
@@ -2373,7 +2176,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_callback_refnum",
-          "default_value": null,
           "description": "event callback ref accepts a reference to an existing event callback registration."
         },
         {
@@ -2383,7 +2185,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2393,7 +2194,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_source",
-          "default_value": null,
           "description": "event source ref accepts a .NET object or an ActiveX automation reference. Click the down arrow next to this input and select the type of event you want to generate, such as Mouse Down or Double Click. References must be to local objects. You cannot wire a reference to a remote object."
         },
         {
@@ -2403,7 +2203,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_ref",
-          "default_value": null,
           "description": "vi reference is a strict VI reference to the callback VI. vi reference must match exactly the data from the registered event and the callback VI must be reentrant ."
         },
         {
@@ -2413,7 +2212,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_parameter",
-          "default_value": null,
           "description": "user parameter contains data that you want to pass to the callback VI when the .NET or ActiveX object generates the event. For example, you can wire a string that includes a text message to the user parameter input to tell a user for which control the event occurred. If you want to use this parameter, you must wire it before you create the callback VI. You can wire any LabVIEW data type, including a cluster, to this parameter."
         },
         {
@@ -2423,7 +2221,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_callback_refnum",
-          "default_value": null,
           "description": "event callback ref out returns a reference to a new or existing callback registration."
         },
         {
@@ -2433,7 +2230,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2455,7 +2251,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_registration_refnum",
-          "default_value": null,
           "description": "event registration refnum is a reference to an existing event registration a Register For Events function created."
         },
         {
@@ -2465,7 +2260,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -2475,7 +2269,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2508,7 +2301,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_index",
-          "default_value": null,
           "description": "device index is the index of the joystick you want to initialize. The default is 0 . Set device index to 0 if you have only one joystick connected to the computer."
         },
         {
@@ -2518,7 +2310,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2528,7 +2319,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you initialized."
         },
         {
@@ -2538,7 +2328,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2560,7 +2349,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2570,7 +2358,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you initialized."
         },
         {
@@ -2580,7 +2367,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2602,7 +2388,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2612,7 +2397,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you initialized."
         },
         {
@@ -2622,7 +2406,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2644,7 +2427,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2654,7 +2436,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "joystick_info",
-          "default_value": null,
           "description": "joystick info contains information about the joysticks connected to the computer."
         },
         {
@@ -2664,7 +2445,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "buttons_total",
-          "default_value": null,
           "description": "buttons total (Windows) is the total number of buttons for each joystick connected to the computer."
         },
         {
@@ -2674,7 +2454,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pov_total",
-          "default_value": null,
           "description": "pov total (Windows) is the total number of points of view for each joystick connected to the computer."
         },
         {
@@ -2684,7 +2463,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_name",
-          "default_value": null,
           "description": "device name is the device name of each joystick connected to the computer."
         },
         {
@@ -2694,7 +2472,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key_info",
-          "default_value": null,
           "description": "key info contains information about the keyboard connected to the computer."
         },
         {
@@ -2704,7 +2481,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_name",
-          "default_value": null,
           "description": "device name is the device name of the keyboard connected to the computer."
         },
         {
@@ -2714,7 +2490,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "mouse_info",
-          "default_value": null,
           "description": "mouse info contains information about the mouse connected to the computer."
         },
         {
@@ -2724,7 +2499,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "buttons_total",
-          "default_value": null,
           "description": "buttons total (Windows) is the total number of buttons for the mouse connected to the computer."
         },
         {
@@ -2734,7 +2508,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_name",
-          "default_value": null,
           "description": "device name is the device name of the mouse connected to the computer."
         },
         {
@@ -2744,7 +2517,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -2762,154 +2534,132 @@
         {
           "name": "device ID",
           "description": "device ID identifies which device you acquired data from.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "device_id"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "device ID",
           "description": "device ID identifies which device to acquire data from.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "device_id"
         },
         {
           "name": "axis info",
           "description": "axis info contains numeric values for the axes. The number of axes depend on the specific joystick. When you use this VI on a myRIO target, the value of axis info is the raw data value this VI acquires from the joystick.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "axis_info"
         },
         {
           "name": "X axis",
           "description": "X axis is the numeric value of the x-axis.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "x_axis"
         },
         {
           "name": "Y axis",
           "description": "Y axis is the numeric value of the y-axis.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "y_axis"
         },
         {
           "name": "Z axis",
           "description": "Z axis is the numeric value of the z-axis.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "z_axis"
         },
         {
           "name": "X axis rotation",
           "description": "Functions 5660 ni.com X axis rotation is the numeric value of the x-axis rotation.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "x_axis_rotation"
         },
         {
           "name": "Y axis rotation",
           "description": "Y axis rotation is the numeric value of the y-axis rotation.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "y_axis_rotation"
         },
         {
           "name": "Z axis rotation",
           "description": "Z axis rotation is the numeric value of the z-axis rotation (rudder).",
-          "default_value": null,
           "enum_values": null,
           "python_param": "z_axis_rotation"
         },
         {
           "name": "U axis",
           "description": "U axis is the numeric value of the u-axis.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "u_axis"
         },
         {
           "name": "V axis",
           "description": "V axis is the numeric value for the v-axis.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "v_axis"
         },
         {
           "name": "button info",
           "description": "button info contains Boolean values for up to 32 buttons. A TRUE value indicates that the button was pressed when the VI ran.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_info"
         },
         {
           "name": "button 1",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_1"
         },
         {
           "name": "button 2",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_2"
         },
         {
           "name": "button 3",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_3"
         },
         {
           "name": "button 4",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_4"
         },
         {
           "name": "button 5",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_5"
         },
         {
           "name": "button 6",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_6"
         },
         {
           "name": "button 7",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_7"
         },
         {
           "name": "button 8",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_8"
         },
         {
           "name": "button 9",
           "description": "Functions",
-          "default_value": null,
           "enum_values": null,
           "python_param": "button_9"
         }
@@ -2932,7 +2682,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you acquired data from."
         },
         {
@@ -2942,7 +2691,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -2952,7 +2700,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device to acquire data from."
         },
         {
@@ -2962,7 +2709,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "axis_info",
-          "default_value": null,
           "description": "axis info contains numeric values for the axes. The number of axes depend on the specific joystick."
         },
         {
@@ -2972,7 +2718,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y_axis",
-          "default_value": null,
           "description": "Y axis is the numeric value of the y-axis."
         },
         {
@@ -2982,7 +2727,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "z_axis",
-          "default_value": null,
           "description": "Z axis is the numeric value of the z-axis."
         },
         {
@@ -2992,7 +2736,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "x_axis_rotation",
-          "default_value": null,
           "description": "X axis rotation is the numeric value of the x-axis rotation."
         },
         {
@@ -3002,7 +2745,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "y_axis_rotation",
-          "default_value": null,
           "description": "Y axis rotation is the numeric value of the y-axis rotation."
         },
         {
@@ -3012,7 +2754,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "z_axis_rotation",
-          "default_value": null,
           "description": "Z axis rotation is the numeric value of the z-axis rotation (rudder)."
         },
         {
@@ -3022,7 +2763,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "u_axis",
-          "default_value": null,
           "description": "U axis is the numeric value of the u-axis."
         },
         {
@@ -3032,7 +2772,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "v_axis",
-          "default_value": null,
           "description": "V axis is the numeric value for the v-axis."
         },
         {
@@ -3042,7 +2781,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_info",
-          "default_value": null,
           "description": "button info contains Boolean values for up to 32 buttons. A TRUE value indicates that the button was pressed when the VI ran."
         },
         {
@@ -3052,7 +2790,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_2",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3062,7 +2799,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_3",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3072,7 +2808,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_4",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3082,7 +2817,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_5",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3092,7 +2826,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_6",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3102,7 +2835,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_7",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3112,7 +2844,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_8",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3122,7 +2853,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_9",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3132,7 +2862,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_10",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3142,7 +2871,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_11",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3152,7 +2880,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_12",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3162,7 +2889,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_13",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3172,7 +2898,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_14",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3182,7 +2907,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_15",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3192,7 +2916,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_16",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3202,7 +2925,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_17",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3212,7 +2934,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_18",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3222,7 +2943,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_19",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3232,7 +2952,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_20",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3242,7 +2961,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_21",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3252,7 +2970,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_22",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3262,7 +2979,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_23",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3272,7 +2988,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_24",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3282,7 +2997,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_25",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3292,7 +3006,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_26",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3302,7 +3015,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_27",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3312,7 +3024,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_28",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3322,7 +3033,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_29",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3332,7 +3042,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_30",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3342,7 +3051,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_31",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3352,7 +3060,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_32",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3362,7 +3069,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "direction_info",
-          "default_value": null,
           "description": "direction info contains numeric values for up to four points of view."
         },
         {
@@ -3372,7 +3078,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pov_2",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3382,7 +3087,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pov_3",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3392,7 +3096,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "pov_4",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3402,7 +3105,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3424,7 +3126,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you acquired data from."
         },
         {
@@ -3434,7 +3135,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3444,7 +3144,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device to acquire data from."
         },
         {
@@ -3454,7 +3153,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "keys_pressed",
-          "default_value": null,
           "description": "keys pressed indicates which keys were pressed when the VI ran. This parameter returns values associated only with US keyboards."
         },
         {
@@ -3464,7 +3162,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3486,7 +3183,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device you acquired data from."
         },
         {
@@ -3496,7 +3192,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "key_mode",
-          "default_value": null,
           "description": "key mode determines the key mode to use."
         },
         {
@@ -3506,7 +3201,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3516,7 +3210,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID identifies which device to acquire data from."
         },
         {
@@ -3526,7 +3219,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "axis_info",
-          "default_value": null,
           "description": "axis info contains the numeric value for axes."
         },
         {
@@ -3536,7 +3228,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vertical",
-          "default_value": null,
           "description": "Vertical is the numeric value of the vertical axis."
         },
         {
@@ -3546,7 +3237,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "scrolling",
-          "default_value": null,
           "description": "Scrolling is the numeric value of the scrolling axis if the mouse supports it."
         },
         {
@@ -3556,7 +3246,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_info",
-          "default_value": null,
           "description": "button info contains Boolean values for up to four buttons. A TRUE value indicates that the button was pressed when the VI ran."
         },
         {
@@ -3566,7 +3255,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_2",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3576,7 +3264,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_3",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3586,7 +3273,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "button_4",
-          "default_value": null,
           "description": ""
         },
         {
@@ -3596,7 +3282,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3614,28 +3299,24 @@
         {
           "name": "device ID",
           "description": "device ID specifies which device reference to close.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "device_id"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "labview\\examples\\Connectivity\\Input Device Control\\",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_connectivity_input_device_control"
         }
@@ -3658,7 +3339,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID specifies which device reference to close."
         },
         {
@@ -3668,7 +3348,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3678,7 +3357,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3700,7 +3378,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID specifies which device reference to close."
         },
         {
@@ -3710,7 +3387,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3720,7 +3396,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3742,7 +3417,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "device_id",
-          "default_value": null,
           "description": "device ID specifies which device reference to close."
         },
         {
@@ -3752,7 +3426,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3762,7 +3435,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3784,7 +3456,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "automation_refnum",
-          "default_value": null,
           "description": "Automation Refnum provides the object type for the Automation Refnum output."
         },
         {
@@ -3794,7 +3465,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "machine_name",
-          "default_value": null,
           "description": "machine name indicates on which machine the VI should open the Automation Refnum . If no machine name is given, the object is opened on the local machine."
         },
         {
@@ -3804,7 +3474,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3814,7 +3483,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "automation_refnum",
-          "default_value": null,
           "description": "Automation Refnum is the refnum associated with an ActiveX object."
         },
         {
@@ -3824,7 +3492,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3846,7 +3513,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with an open VI, VI object, an open application instance, or a .NET or ActiveX object. reference also accepts 1D arrays of references."
         },
         {
@@ -3856,7 +3522,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -3866,7 +3531,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3888,7 +3552,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "anything",
-          "default_value": null,
           "description": "anything is any LabVIEW data you want to convert. This parameter is polymorphic."
         },
         {
@@ -3898,7 +3561,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the resulting variant data."
         }
       ]
@@ -3920,7 +3582,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_",
-          "default_value": null,
           "description": "type specifies the LabVIEW data type of the data stored in variant . If the data is an integer, you can coerce the data to another numeric representation, such as an extended-precision, floating-point number."
         },
         {
@@ -3930,7 +3591,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "variant",
-          "default_value": null,
           "description": "variant is the variant data you want to convert to the LabVIEW data type specified in type ."
         },
         {
@@ -3940,7 +3600,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -3950,7 +3609,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "data",
-          "default_value": null,
           "description": "data is the variant changed to the data type specified by type . If variant could not be converted to the data type specified, this data returns the default value for the data type."
         },
         {
@@ -3960,7 +3618,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -3982,7 +3639,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the ActiveX object for which you want to set or get properties."
         },
         {
@@ -3992,7 +3648,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4002,7 +3657,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -4012,7 +3666,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -4022,7 +3675,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "property_",
-          "default_value": null,
           "description": "property 1..n are examples of properties you want to get (read)."
         }
       ]
@@ -4044,7 +3696,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with the ActiveX object on which you want to invoke a method or perform an action."
         },
         {
@@ -4054,7 +3705,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4064,7 +3714,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "method",
-          "default_value": null,
           "description": "input 1..n are example input parameters of a method."
         },
         {
@@ -4074,7 +3723,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference_out",
-          "default_value": null,
           "description": "reference out returns reference unchanged."
         },
         {
@@ -4084,7 +3732,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -4094,7 +3741,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "method",
-          "default_value": null,
           "description": "return value is an example return value of a method."
         }
       ]
@@ -4116,7 +3762,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_callback_refnum",
-          "default_value": null,
           "description": "event callback ref accepts a reference to an existing event callback registration."
         },
         {
@@ -4126,7 +3771,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4136,7 +3780,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_source",
-          "default_value": null,
           "description": "event source ref accepts a .NET object or an ActiveX automation reference. Click the down arrow next to this input and select the type of event you want to generate, such as Mouse Down or Double Click. References must be to local objects. You cannot wire a reference to a remote object."
         },
         {
@@ -4146,7 +3789,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "vi_ref",
-          "default_value": null,
           "description": "vi reference is a strict VI reference to the callback VI. vi reference must match exactly the data from the registered event and the callback VI must be reentrant ."
         },
         {
@@ -4156,7 +3798,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "user_parameter",
-          "default_value": null,
           "description": "user parameter contains data that you want to pass to the callback VI when the .NET or ActiveX object generates the event. For example, you can wire a string that includes a text message to the user parameter input to tell a user for which control the event occurred. If you want to use this parameter, you must wire it before you create the callback VI. You can wire any LabVIEW data type, including a cluster, to this parameter."
         },
         {
@@ -4166,7 +3807,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_callback_refnum",
-          "default_value": null,
           "description": "event callback ref out returns a reference to a new or existing callback registration."
         },
         {
@@ -4176,7 +3816,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4198,7 +3837,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "event_registration_refnum",
-          "default_value": null,
           "description": "event registration refnum is a reference to an existing event registration a Register For Events function created."
         },
         {
@@ -4208,7 +3846,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -4218,7 +3855,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4246,14 +3882,12 @@
         {
           "name": "machine (local)",
           "description": "machine is the name of the networked machine. The default is the local machine.",
-          "default_value": "the local machine",
           "enum_values": null,
           "python_param": "machine_local"
         },
         {
           "name": "root key (HKEY_LOCAL_MACHINE)",
           "description": "root key is the Windows registry root key. 0 HKEY_CLASSES_ROOT 1 HKEY_CURRENT_USER 2 HKEY_LOCAL_MACHINE Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National Instruments 5683",
-          "default_value": null,
           "enum_values": null,
           "python_param": "root_key_hkey_local_machine"
         }
@@ -4276,7 +3910,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "machine",
-          "default_value": null,
           "description": "machine is the name of the networked machine."
         },
         {
@@ -4286,7 +3919,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "root_key",
-          "default_value": null,
           "description": "root key is the Windows registry root key."
         },
         {
@@ -4296,7 +3928,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkey",
-          "default_value": null,
           "description": "subkey is the name of a subkey of root key. A beginning backslash character \\ might cause an error."
         },
         {
@@ -4306,7 +3937,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "security_access_mask",
-          "default_value": null,
           "description": "security access mask is the access rights to assign the key."
         },
         {
@@ -4316,7 +3946,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4326,7 +3955,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "registry_view",
-          "default_value": null,
           "description": "registry view specifies whether to open a 32-bit key or a 64-bit key on a 64-bit operating system."
         },
         {
@@ -4336,7 +3964,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4346,7 +3973,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4368,7 +3994,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "machine",
-          "default_value": null,
           "description": "machine is the name of the networked machine."
         },
         {
@@ -4378,7 +4003,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "default_value": null,
           "description": "options is special options for the key."
         },
         {
@@ -4388,7 +4012,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "root_key",
-          "default_value": null,
           "description": "root key is the Windows registry root key."
         },
         {
@@ -4398,7 +4021,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkey",
-          "default_value": null,
           "description": "subkey is the name of a subkey of root key. A beginning backslash character \\ might cause an error."
         },
         {
@@ -4408,7 +4030,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "security_access_mask",
-          "default_value": null,
           "description": "security access mask is the access rights to assign the key."
         },
         {
@@ -4418,7 +4039,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4428,7 +4048,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_",
-          "default_value": null,
           "description": "class specifies the class (object type) of the key."
         },
         {
@@ -4438,7 +4057,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "registry_view",
-          "default_value": null,
           "description": "registry view specifies whether to create a 32-bit key or a 64-bit key on a 64-bit operating system."
         },
         {
@@ -4448,7 +4066,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4458,7 +4075,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "action_taken",
-          "default_value": null,
           "description": "action taken is the action taken by the VI."
         },
         {
@@ -4468,7 +4084,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4490,7 +4105,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -4500,7 +4114,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4510,7 +4123,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4520,7 +4132,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "class_",
-          "default_value": null,
           "description": "class specifies the class (object type) of the key."
         },
         {
@@ -4530,7 +4141,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_info",
-          "default_value": null,
           "description": "value info is the set of parameters describing the set of values and data."
         },
         {
@@ -4540,7 +4150,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxvaluenamelen",
-          "default_value": null,
           "description": "maxValueNameLen is the length of the longest value name under the key specified by hKey."
         },
         {
@@ -4550,7 +4159,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxvaluedatalen",
-          "default_value": null,
           "description": "maxValueDataLen is the length of the longest datum under the key specified by hKey."
         },
         {
@@ -4560,7 +4168,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -4570,7 +4177,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkey_info",
-          "default_value": null,
           "description": "subkey info is the set of parameters describing the subkeys."
         },
         {
@@ -4580,7 +4186,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxsubkeylen",
-          "default_value": null,
           "description": "maxSubKeyLen is the length of the longest subkey name under the key specified by hKey."
         },
         {
@@ -4590,7 +4195,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxsubkeyclasslen",
-          "default_value": null,
           "description": "maxSubKeyClassLen is the length of the longest class name under the key specified by hKey."
         }
       ]
@@ -4612,7 +4216,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -4622,7 +4225,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkey_info",
-          "default_value": null,
           "description": "subkey info is a is a set of parameters describing the subkey associated with refnum ."
         },
         {
@@ -4632,7 +4234,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxsubkeylen",
-          "default_value": null,
           "description": "maxSubKeyLen is the length of the longest subkey name under the key specified by hKey."
         },
         {
@@ -4642,7 +4243,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxsubkeyclasslen",
-          "default_value": null,
           "description": "maxSubKeyClassLen is the length of the longest class name under the key specified by hKey."
         },
         {
@@ -4652,7 +4252,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4662,7 +4261,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4672,7 +4270,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkeys",
-          "default_value": null,
           "description": "subkeys is an array of the names of all subkeys of the specified key."
         },
         {
@@ -4682,7 +4279,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4704,7 +4300,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -4714,7 +4309,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -4724,7 +4318,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4746,7 +4339,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -4756,7 +4348,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "subkey",
-          "default_value": null,
           "description": "subkey is the name of a subkey of root key. A beginning backslash character \\ might cause an error."
         },
         {
@@ -4766,7 +4357,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "registry_view",
-          "default_value": null,
           "description": "registry view specifies whether to delete a 32-bit key or a 64-bit key on a 64-bit operating system."
         },
         {
@@ -4776,7 +4366,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4786,7 +4375,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4796,7 +4384,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -4818,7 +4405,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -4828,7 +4414,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "retrieve_data",
-          "default_value": null,
           "description": "retrieve data? retrieves data and data types, if TRUE."
         },
         {
@@ -4838,7 +4423,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value_info",
-          "default_value": null,
           "description": "value info is the set of parameters describing the set of values and data."
         },
         {
@@ -4848,7 +4432,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxvaluenamelen",
-          "default_value": null,
           "description": "maxValueNameLen is the length of the longest value name under the key specified by hKey."
         },
         {
@@ -4858,7 +4441,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "maxvaluedatalen",
-          "default_value": null,
           "description": "maxValueDataLen is the length of the longest datum under the key specified by hKey."
         },
         {
@@ -4868,7 +4450,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -4878,7 +4459,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dword_data",
-          "default_value": null,
           "description": "DWORD data is an array of data of Windows registry type DWORD ."
         },
         {
@@ -4888,7 +4468,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -4898,7 +4477,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "values",
-          "default_value": null,
           "description": "values is an array of value names."
         },
         {
@@ -4908,7 +4486,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "simple_data_types",
-          "default_value": null,
           "description": "simple data types is an array of simplified Windows registry data types."
         },
         {
@@ -4918,7 +4495,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -4928,7 +4504,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stringbinary_data",
-          "default_value": null,
           "description": "String/Binary data is an array of data of Windows registry type 'String' or 'Binary'."
         }
       ]
@@ -4946,63 +4521,54 @@
         {
           "name": "refnum",
           "description": "refnum is a handle to the open key.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "refnum"
         },
         {
           "name": "value",
           "description": "value is the name of the registry value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "value"
         },
         {
           "name": "default data",
           "description": "default data is the data to return if value is not found or if an unrecoverable error occurs.",
-          "default_value": "data is the data to return if value is not found or if an unrecoverable error occurs",
           "enum_values": null,
           "python_param": "default_data"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "refnum out",
           "description": "refnum out is the reference number of the configuration data.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "refnum_out"
         },
         {
           "name": "simple data type",
           "description": "simple data type is the simplified Windows registry type.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "simple_data_type"
         },
         {
           "name": "String/Binary data",
           "description": "String/Binary data is the data of Windows registry type String or Binary.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "string_binary_data"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW. Functions 5696 ni.com",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "labview\\examples\\Connectivity\\Windows Registry Access\\",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_connectivity_windows_registry_access"
         }
@@ -5025,7 +4591,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -5035,7 +4600,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the name of the registry value."
         },
         {
@@ -5045,7 +4609,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "default_data",
-          "default_value": null,
           "description": "default data is the data to return if value is not found or if an unrecoverable error occurs."
         },
         {
@@ -5055,7 +4618,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5065,7 +4627,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is the reference number of the configuration data."
         },
         {
@@ -5075,7 +4636,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "simple_data_type",
-          "default_value": null,
           "description": "simple data type is the simplified Windows registry type."
         },
         {
@@ -5085,7 +4645,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stringbinary_data",
-          "default_value": null,
           "description": "String/Binary data is the data of Windows registry type String or Binary ."
         },
         {
@@ -5095,7 +4654,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5117,7 +4675,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -5127,7 +4684,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the name of the registry value."
         },
         {
@@ -5137,7 +4693,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "default_data",
-          "default_value": null,
           "description": "default data is the data to return if value is not found or if an unrecoverable error occurs."
         },
         {
@@ -5147,7 +4702,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5157,7 +4711,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is the reference number of the configuration data."
         },
         {
@@ -5167,7 +4720,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "simple_data_type",
-          "default_value": null,
           "description": "simple data type is the simplified Windows registry type."
         },
         {
@@ -5177,7 +4729,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dword_data",
-          "default_value": null,
           "description": "DWORD data is the data of Windows registry type DWORD ."
         },
         {
@@ -5187,7 +4738,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5205,56 +4755,48 @@
         {
           "name": "String/Binary data",
           "description": "String/Binary data is the data of Windows registry type String or Binary.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "string_binary_data"
         },
         {
           "name": "refnum",
           "description": "refnum is a handle to the open key.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "refnum"
         },
         {
           "name": "value",
           "description": "value is the name of the registry value.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "value"
         },
         {
           "name": "simple data type",
           "description": "simple data type is the simplified Windows registry type. 0 String 1 Binary 2 DWORD Caution Incorrectly modifying the registry can damage Windows or prevent you from starting Windows. Functions © National Instruments 5699",
-          "default_value": null,
           "enum_values": null,
           "python_param": "simple_data_type"
         },
         {
           "name": "error in (no error)",
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_in_no_error"
         },
         {
           "name": "refnum out",
           "description": "refnum out is a handle to the open key.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "refnum_out"
         },
         {
           "name": "error out",
           "description": "error out contains error information. This output provides standard error out functionality. Examples Refer to the following example files included with LabVIEW.",
-          "default_value": null,
           "enum_values": null,
           "python_param": "error_out"
         },
         {
           "name": "labview\\examples\\Connectivity\\Windows Registry Access\\",
           "description": "",
-          "default_value": null,
           "enum_values": null,
           "python_param": "labview_examples_connectivity_windows_registry_access"
         }
@@ -5277,7 +4819,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "stringbinary_data",
-          "default_value": null,
           "description": "String/Binary data is the data of Windows registry type String or Binary ."
         },
         {
@@ -5287,7 +4828,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -5297,7 +4837,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the name of the registry value."
         },
         {
@@ -5307,7 +4846,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "simple_data_type",
-          "default_value": null,
           "description": "simple data type is the simplified Windows registry type."
         },
         {
@@ -5317,7 +4855,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5327,7 +4864,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -5337,7 +4873,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5359,7 +4894,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "dword_data",
-          "default_value": null,
           "description": "DWORD data is the data of Windows registry type DWORD ."
         },
         {
@@ -5369,7 +4903,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -5379,7 +4912,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the name of the registry value."
         },
         {
@@ -5389,7 +4921,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "simple_data_type",
-          "default_value": null,
           "description": "simple data type is the simplified Windows registry type."
         },
         {
@@ -5399,7 +4930,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5409,7 +4939,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -5419,7 +4948,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5441,7 +4969,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum",
-          "default_value": null,
           "description": "refnum is a handle to the open key."
         },
         {
@@ -5451,7 +4978,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "value",
-          "default_value": null,
           "description": "value is the name of the registry value."
         },
         {
@@ -5461,7 +4987,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5471,7 +4996,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "refnum_out",
-          "default_value": null,
           "description": "refnum out is a handle to the open key."
         },
         {
@@ -5481,7 +5005,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5503,7 +5026,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "python_version",
-          "default_value": null,
           "description": ""
         },
         {
@@ -5513,7 +5035,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "python_path",
-          "default_value": null,
           "description": "python path specifies the directory where Python is installed. The default is the directory of the version of Python determined by python version ."
         },
         {
@@ -5523,7 +5044,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5533,7 +5053,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
-          "default_value": null,
           "description": "session out returns a reference to the Python session."
         },
         {
@@ -5543,7 +5062,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5565,7 +5083,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
-          "default_value": null,
           "description": "session in specifies a reference to the Python session. One or more Python Nodes can run in a single Python session."
         },
         {
@@ -5575,7 +5092,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "module_path",
-          "default_value": null,
           "description": "module path specifies the path to the Python module. The module contains the Python function to call."
         },
         {
@@ -5585,7 +5101,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "function_name",
-          "default_value": null,
           "description": "function name specifies the name of the Python function to call."
         },
         {
@@ -5595,7 +5110,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5605,7 +5119,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_type",
-          "default_value": null,
           "description": "return type specifies the data type of return value . You must wire the data type to return type to indicate the expected data type of return value . If the Python function does not return any value, leave return type unwired."
         },
         {
@@ -5615,7 +5128,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_parameter",
-          "default_value": null,
           "description": "input parameter specifies the input parameters of the Python function. You can resize the Python Node to add more terminals. You pass a value to the Python function by wiring to the left terminal of a terminal pair. You read the value of a parameter after the function call by wiring from the right terminal of a terminal pair."
         },
         {
@@ -5625,7 +5137,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
-          "default_value": null,
           "description": "session out returns a reference to the Python session."
         },
         {
@@ -5635,7 +5146,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -5645,7 +5155,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_value",
-          "default_value": null,
           "description": "return value is the return value of the Python function."
         }
       ]
@@ -5667,7 +5176,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
-          "default_value": null,
           "description": "session in specifies a reference to the Python session. One or more Python Nodes can run in a single Python session."
         },
         {
@@ -5677,7 +5185,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -5687,7 +5194,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5709,7 +5215,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "reference",
-          "default_value": null,
           "description": "reference is the refnum associated with an open VI, VI object, an open application instance, or a .NET or ActiveX object. reference also accepts 1D arrays of references."
         },
         {
@@ -5719,7 +5224,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
         },
         {
@@ -5729,7 +5233,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5751,7 +5254,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
-          "default_value": null,
           "description": "session in specifies a reference to the MATLAB session."
         },
         {
@@ -5761,7 +5263,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "source_file_path",
-          "default_value": null,
           "description": "source file path specifies the absolute path to the source .m file."
         },
         {
@@ -5771,7 +5272,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5781,7 +5281,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_type",
-          "default_value": null,
           "description": "return type specifies the data type of return value . You must wire a constant or control matching the data type of the top level MATLAB function return type to return type . For example, if the MATLAB function returns an array of doubles, you must wire an array of doubles constant or control to return type . If the MATLAB function returns multiple values, wire a cluster with elements the correspond to the MATLAB function return values. The name and data types and order of the cluster elements must match the MATLAB function return values. For example, if the MATLAB function returns a numeric, a Boolean array, and a string, you must wire return type to a cluster containing controls or constants of numeric, Boolean array, and string data types in that order. Cluster element names must be unique and not empty. If the MATLAB function does not return any value, leave return type unwired."
         },
         {
@@ -5791,7 +5290,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "input_parameter",
-          "default_value": null,
           "description": "input parameter specifies the input parameters of the MATLAB function. You must wire the inputs in the order that the function calls them. You can resize the MATLAB Node to add more terminals. You pass a value to the MATLAB function by wiring to the left terminal of a terminal pair. You read the value of a parameter after the function call by wiring from the right terminal of a terminal pair."
         },
         {
@@ -5801,7 +5299,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
-          "default_value": null,
           "description": "session out returns a reference to the MATLAB session."
         },
         {
@@ -5811,7 +5308,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
@@ -5821,7 +5317,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "return_value",
-          "default_value": null,
           "description": "return value is the return value of the MATLAB function. The data type of return value depends on return type ."
         }
       ]
@@ -5843,7 +5338,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "release_name",
-          "default_value": null,
           "description": "release name specifies the release of MATLAB in which the MATLAB session runs. For example, R2021a. If no release is specified, the most recent installed release of MATLAB is used."
         },
         {
@@ -5853,7 +5347,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5863,7 +5356,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_out",
-          "default_value": null,
           "description": "session out returns a reference to the MATLAB session."
         },
         {
@@ -5873,7 +5365,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
@@ -5895,7 +5386,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "session_in",
-          "default_value": null,
           "description": "session in specifies a reference to the MATLAB session."
         },
         {
@@ -5905,7 +5395,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_in",
-          "default_value": null,
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
@@ -5915,7 +5404,6 @@
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "default_value": null,
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]

@@ -52,7 +52,7 @@
           "direction": "in",
           "name": "base path",
           "type": "Path",
-          "default_value": "''"
+          "default": "Path(\"\")"
         }
       ],
       "python_code": {
@@ -208,7 +208,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
@@ -274,7 +274,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,
@@ -335,7 +335,7 @@
           "index": 4,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 7,
@@ -372,13 +372,14 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Open existing file"
         },
         {
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 10,
@@ -445,7 +446,7 @@
           "index": 8,
           "direction": "in",
           "name": "error_in",
-          "type": "cluster"
+          "type": "ErrorCluster"
         },
         {
           "index": 9,

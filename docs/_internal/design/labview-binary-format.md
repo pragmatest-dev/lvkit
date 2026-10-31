@@ -832,6 +832,16 @@ VIs read `../X.vi` and the parent reads `../../X/X.lvclass`; resolve against
 subtree** (`../../Layer/`), so a directory walk up from the child can NOT reach
 it — only the URL does.
 
+**A `PTH0` record's path type.** After the tag and a 4-byte length, a `PTH0` record
+holds a 2-byte path type, a 2-byte component count and the components (each a
+length-prefixed string): `PTH0 <len> <type> <count> <components>`. The type is 0
+(absolute), 1 (relative) or 2 (Not a Path) -- NI's public Path Type values (0 absolute,
+1 relative, 2 Not A Path); every record in the sample corpus is one of these, and
+absolute includes UNC paths. A relative path whose first component is empty goes up a
+level (the same empty component the link-table paths use below). lvkit writes a saved
+path as `Path("/C/Users")`, `Path("test.xml")` or `NotAPath` (netlist-language.md §4);
+a record of any other type is unreadable and keeps its type.
+
 **Every dependency has a recorded PATH — in the link tables.** LabVIEW stores a
 `PTH0` path record for EVERY file a VI references (it's what it uses to relink /
 to prompt "find <this file>" when one is missing), spread across `_LIvi.bin`
@@ -1666,6 +1676,17 @@ So the mode is the node's own 0x2000000 bit, read by `ops/search_and_replace.py`
 The type descriptor of a generic VI Server reference carries `CtlFlags` next to `RefType="LVObjCtl"`. Across the extracted corpus, every descriptor labelled `This VI` has `CtlFlags="0x0002"` (217 of 217) and every one labelled `This Application` has `0x0001` (109 of 109); the other descriptors with those values carry labels such as `VIRef`, `IE VI Ref`, `vi reference` (0x0002) and `application reference (local)`, `AppInst` (0x0001). Other values (0x0008, 0x001E, 0x001B, 0x0042 ...) are the control classes of control references (a `Font ComboBox` reference is 0x001D); they are not named here.
 
 The `oMId` of the `ctlRefConst` element does NOT identify the class: the `This VI` constants in the corpus carry `061F`, `002E`, `0049`, `02B4`, `000D`, `0033` and `0010`. lvkit reads `CtlFlags` into `LVType.server_class` ("VI" or "Application"; None for anything else), so a `This VI` constant is told from `This Application` by its type, not its label.
+
+## An Index Array index terminal's DCO `objFlags` bit 0x10000 means indexing is disabled for that dimension (the whole dimension is taken)
+
+Read over every `aIndx` node in the 195 sample VIs plus the Pico set, on the `dco` element of each index terminal (parmIndex above 0):
+
+- All 12 unwired indexes of arrays of rank 2 or more carry 0x10000 (8 on rank 2, 4 on rank 3).
+- None of the 65 wired indexes carries it (51 on rank 1, 8 on rank 2, 6 on rank 3).
+- None of the 8 unwired rank-1 indexes carries it; they carry 0x80000 instead (for example `objFlags` 6815744).
+- Examples: a rank-2 node with the row unwired has dim 0 `0x210000` and dim 1 `0x400000`; with the column unwired, dim 0 `0x200000` and dim 1 `0x410000`; a rank-3 node wired on the first index only has `0x200000`, `0x10000`, `0x410000`; a rank-3 node with all three wired has `0x200000`, none, `0x400000`; a wired rank-1 index is `0x600000`.
+
+The same bit means "inverted" on a compound arithmetic terminal; lvkit reads it as indexing-disabled only for `aIndx` nodes (`Terminal.indexing_disabled`). Caveat: no corpus node is a 2-D (or higher) Index Array with nothing wired, so an index that is enabled but unwired in N-D is never observed; that case follows NI's rule that the first dimension is indexed by default and the others are disabled.
 
 ## A method name in a link record is a pascal string wrapping a second one: `[len][0x01][name length][name bytes]`
 
