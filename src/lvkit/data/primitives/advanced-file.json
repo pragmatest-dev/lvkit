@@ -292,7 +292,8 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for copy"
         },
         {
           "index": 8,
@@ -304,7 +305,8 @@
           "index": 9,
           "direction": "in",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
@@ -347,6 +349,7 @@
     },
     "8055": {
       "name": "Create Folder",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/create-folder.html",
       "terminals": [
         {
           "index": 0,
@@ -369,8 +372,9 @@
         {
           "index": 7,
           "direction": "in",
-          "name": "prompt (Create Folder)",
-          "type": "String"
+          "name": "prompt",
+          "type": "String",
+          "default": "Create Folder"
         },
         {
           "index": 8,
@@ -769,7 +773,8 @@
           "index": 7,
           "direction": "in",
           "name": "prompt",
-          "type": "String"
+          "type": "String",
+          "default": "Choose or enter target path for move"
         },
         {
           "index": 8,
@@ -781,7 +786,8 @@
           "index": 9,
           "direction": "in",
           "name": "overwrite",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 10,
@@ -841,7 +847,8 @@
           "index": 6,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt64"
+          "type": "NumInt64",
+          "default": 0
         },
         {
           "index": 7,

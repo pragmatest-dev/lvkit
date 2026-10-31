@@ -26,7 +26,8 @@
           "index": 3,
           "direction": "in",
           "name": "string",
-          "type": "String"
+          "type": "String",
+          "default": ""
         }
       ],
       "python_code": {
@@ -237,7 +238,8 @@
           "index": 3,
           "direction": "in",
           "name": "offset",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 0
         },
         {
           "index": 4,
@@ -292,13 +294,15 @@
           "index": 4,
           "direction": "in",
           "name": "use cached delim/oper data? (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 5,
           "direction": "in",
           "name": "allow empty tokens? (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 6,
@@ -326,7 +330,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/scan-string-for-tokens.html"
     }
   }
 }

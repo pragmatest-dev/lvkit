@@ -214,13 +214,15 @@
           "index": 9,
           "direction": "in",
           "name": "access",
-          "type": "enum"
+          "type": "enum",
+          "default": 0
         },
         {
           "index": 10,
           "direction": "in",
           "name": "operation",
-          "type": "enum"
+          "type": "enum",
+          "default": 0
         },
         {
           "index": 11,
@@ -434,7 +436,8 @@
           "index": 5,
           "direction": "in",
           "name": "prepend_size",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 7,
@@ -495,6 +498,7 @@
     },
     "8080": {
       "name": "Write to Text File",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-text-file.html",
       "terminals": [
         {
           "index": 0,
@@ -518,8 +522,9 @@
         {
           "index": 7,
           "direction": "in",
-          "name": "prompt (Choose or enter file path)",
-          "type": "String"
+          "name": "prompt",
+          "type": "String",
+          "default": "Choose or enter file path"
         },
         {
           "index": 8,

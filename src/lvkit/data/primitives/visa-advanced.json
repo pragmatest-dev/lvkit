@@ -96,7 +96,8 @@
           "index": 7,
           "direction": "in",
           "name": "timeout (0)",
-          "type": "NumUInt32"
+          "type": "NumUInt32",
+          "default": 0
         },
         {
           "index": 8,
@@ -108,13 +109,15 @@
           "index": 9,
           "direction": "in",
           "name": "access mode",
-          "type": "NumUInt32"
+          "type": "NumUInt32",
+          "default": 0
         },
         {
           "index": 10,
           "direction": "in",
           "name": "duplicate session (F)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 11,
@@ -125,7 +128,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-open.html"
     },
     "2313": {
       "name": "VISA Read To File",

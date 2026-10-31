@@ -1318,7 +1318,7 @@
       "status": "docs_enriched",
       "terminals": [
         {
-          "name": "prompt (Choose or enter file path)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
@@ -1486,7 +1486,7 @@
           "description": "prepend array or string size? indicates whether LabVIEW includes data size information at the beginning of the file when data is an array or string. If prepend array or string size? is FALSE, LabVIEW does not include the size information. The default is TRUE. prepend array or string size? controls only the top-level data size information. Arrays and strings in hierarchical data types such as clusters always include size information."
         },
         {
-          "name": "prompt (Choose or enter file path)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
@@ -1990,7 +1990,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "configuration file path",
@@ -2003,12 +2003,13 @@
         },
         {
           "name": "create file if necessary (T)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "create_file_if_necessary",
-          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file."
+          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
+          "default": true
         },
         {
           "name": "error in (no error)",
@@ -2323,7 +2324,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "refnum",
@@ -2336,12 +2337,13 @@
         },
         {
           "name": "write file if changed (T)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "write_file_if_changed",
-          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data."
+          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data.",
+          "default": true
         },
         {
           "name": "error in (no error)",
@@ -4060,7 +4062,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "target",
@@ -4073,12 +4075,13 @@
         },
         {
           "name": "confirm overwrite? (F)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "confirm_overwrite",
-          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file."
+          "description": "confirm overwrite? specifies to overwrite the existing zip file. The default is FALSE. If you set confirm overwrite? to TRUE, the VI prompts you to confirm deleting the existing zip file.",
+          "default": false
         },
         {
           "name": "error in (no error)",
@@ -5738,7 +5741,7 @@
       "status": "docs_enriched",
       "terminals": [
         {
-          "name": "prompt (Create Folder)",
+          "name": "prompt",
           "index": null,
           "direction": "in",
           "type": null,
@@ -5942,7 +5945,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Folder Path",
@@ -5955,21 +5958,23 @@
         },
         {
           "name": "Treat LLBs as Folders?",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "treat_llbs_as_folders",
-          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE."
+          "description": "Treat LLBs as Folders? specifies whether to list LLBs as files or folders. If Treat LLBs as Folders? is TRUE, this VI includes LLBs in the list of folders. If Treat LLBs as Folders? is FALSE, this VI includes LLBs in the list of files. The default is FALSE.",
+          "default": false
         },
         {
           "name": "Continue Recursing on Error? (F)",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "continue_recursing_on_error",
-          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs."
+          "description": "Continue Recursing on Error? specifies whether to continue recursing directories if an error occurs. If Continue Recursing on Error? is TRUE, the VI continues recursing directory contents after the error occurs. If Continue Recursing on Error? is FALSE, the VI stops recursing directory content when the error occurs.",
+          "default": false
         },
         {
           "name": "error in (no error)",
@@ -6437,16 +6442,17 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Temporary File Extension (tmp)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "temporary_file_extension",
-          "description": "Temporary File Extension (tmp) specifies the file extension."
+          "description": "Temporary File Extension (tmp) specifies the file extension.",
+          "default": "tmp"
         },
         {
           "name": "error in (no error)",

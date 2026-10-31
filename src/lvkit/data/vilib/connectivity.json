@@ -58,25 +58,27 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "expected output size (4096)",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "expected_output_size",
-          "description": "Use expected output size to improve memory efficiency. Use a number slightly larger than the output size you expect. The command runs if you exceed this size, but LabVIEW uses its memory less efficiently. The default is 4096."
+          "description": "Use expected output size to improve memory efficiency. Use a number slightly larger than the output size you expect. The command runs if you exceed this size, but LabVIEW uses its memory less efficiently. The default is 4096.",
+          "default": 4096
         },
         {
           "name": "wait until completion? (T)",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "wait_until_completion",
-          "description": "If wait until completion? is TRUE, standard input is available as input to the command and standard output and standard error are available when the command finishes running. If FALSE, the command runs in the background and its input and output are not available."
+          "description": "If wait until completion? is TRUE, standard input is available as input to the command and standard output and standard error are available when the command finishes running. If FALSE, the command runs in the background and its input and output are not available.",
+          "default": true
         },
         {
           "name": "command line",
@@ -116,12 +118,13 @@
         },
         {
           "name": "run minimized? (F)",
-          "index": null,
+          "index": 6,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "run_minimized",
-          "description": "If run minimized? is TRUE, the VI minimizes the run of your executable program. The default is FALSE."
+          "description": "If run minimized? is TRUE, the VI minimizes the run of your executable program. The default is FALSE.",
+          "default": false
         },
         {
           "name": "standard output",
@@ -3955,7 +3958,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "registry_view",
-          "description": "registry view specifies whether to open a 32-bit key or a 64-bit key on a 64-bit operating system."
+          "description": "registry view specifies whether to open a 32-bit key or a 64-bit key on a 64-bit operating system.",
+          "default": 0
         },
         {
           "name": "refnum out",
@@ -4396,7 +4400,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "refnum",
@@ -4409,12 +4413,13 @@
         },
         {
           "name": "retrieve data? (F)",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "retrieve_data",
-          "description": "retrieve data? retrieves data and data types, if TRUE."
+          "description": "retrieve data? retrieves data and data types, if TRUE.",
+          "default": false
         },
         {
           "name": "value info",

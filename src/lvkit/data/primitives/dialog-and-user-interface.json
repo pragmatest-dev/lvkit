@@ -96,13 +96,15 @@
           "index": 1,
           "direction": "in",
           "name": "f_button_name",
-          "type": "String"
+          "type": "String",
+          "default": "Cancel"
         },
         {
           "index": 2,
           "direction": "in",
           "name": "t_button_name",
-          "type": "String"
+          "type": "String",
+          "default": "OK"
         },
         {
           "index": 3,

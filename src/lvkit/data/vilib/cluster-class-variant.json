@@ -373,7 +373,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "class path",
@@ -386,12 +386,13 @@
         },
         {
           "name": "options",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "options",
-          "description": "options is a bit set that specifies the behavior of LabVIEW when loading the class into memory. The default is 0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies."
+          "description": "options is a bit set that specifies the behavior of LabVIEW when loading the class into memory. The default is 0x0, which means that when loading the class, LabVIEW searches for missing dependencies but does not prompt the user to browse to missing dependencies.",
+          "default": 0
         },
         {
           "name": "error in (no error)",

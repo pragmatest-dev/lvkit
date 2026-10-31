@@ -97,7 +97,8 @@
           "index": 10,
           "direction": "in",
           "name": "mask (16)",
-          "type": "NumUInt16"
+          "type": "NumUInt16",
+          "default": 16
         },
         {
           "index": 11,
@@ -108,7 +109,8 @@
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/visa-flush-i-o-buffer.html"
     }
   }
 }

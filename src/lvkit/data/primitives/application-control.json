@@ -328,23 +328,27 @@
           "index": 9,
           "direction": "in",
           "name": "timeout ms (60000)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default": 60000
         },
         {
           "index": 10,
           "direction": "in",
           "name": "port number or service name (3363)",
-          "type": "NumUInt16"
+          "type": "NumUInt16",
+          "default": 3363
         },
         {
           "index": 11,
           "direction": "in",
           "name": "machine name (\"\":  open local reference)",
-          "type": "String"
+          "type": "String",
+          "default": ""
         }
       ],
       "verified": false,
-      "source": "vi-scripting-nodes-lv2025"
+      "source": "vi-scripting-nodes-lv2025",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-application-reference.html"
     },
     "9154": {
       "name": "Get Drag Drop Data",

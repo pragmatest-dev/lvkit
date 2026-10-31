@@ -57,7 +57,8 @@
           "index": 13,
           "direction": "in",
           "name": "?(T)",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": true
         },
         {
           "index": 14,
@@ -68,7 +69,8 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation"
+      "note": "corrected from VI-Scripting nodes export (#59); codegen dropped pending re-derivation",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/swap-values.html"
     },
     "2408": {
       "name": "New Data Value Reference",

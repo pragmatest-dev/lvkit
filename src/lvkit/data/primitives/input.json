@@ -87,7 +87,8 @@
           "index": 5,
           "direction": "in",
           "name": "pattern_label",
-          "type": "String"
+          "type": "String",
+          "default": "Custom Pattern"
         },
         {
           "index": 6,
@@ -111,7 +112,8 @@
           "index": 9,
           "direction": "in",
           "name": "default_name",
-          "type": "String"
+          "type": "String",
+          "default": ""
         },
         {
           "index": 11,

@@ -206,7 +206,8 @@
           "index": 1,
           "direction": "in",
           "name": "ignore_previous",
-          "type": "Boolean"
+          "type": "Boolean",
+          "default": false
         },
         {
           "index": 2,

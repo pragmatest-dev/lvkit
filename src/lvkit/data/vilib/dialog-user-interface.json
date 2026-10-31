@@ -102,7 +102,7 @@
       "vi_path": "vi.lib/dialog/Three Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "Justify Message (Left)",
@@ -115,12 +115,13 @@
         },
         {
           "name": "Window Title (\"\")",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "window_title",
-          "description": "Window Title is the text to display in the title bar of the dialog box."
+          "description": "Window Title is the text to display in the title bar of the dialog box.",
+          "default": ""
         },
         {
           "name": "message",
@@ -133,30 +134,33 @@
         },
         {
           "name": "Left Button Text (\"Yes\")",
-          "index": null,
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "left_button_text",
-          "description": "Left Button Text is the text to display on the left button. The default is Yes ."
+          "description": "Left Button Text is the text to display on the left button. The default is Yes .",
+          "default": "Yes"
         },
         {
           "name": "Center Button Text (\"No\")",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "center_button_text",
-          "description": "Center Button Text is the text to display on the center button. The default is No ."
+          "description": "Center Button Text is the text to display on the center button. The default is No .",
+          "default": "No"
         },
         {
           "name": "Right Button Text (\"Cancel\")",
-          "index": null,
+          "index": 8,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "right_button_text",
-          "description": "Right Button Text is the text to display on the right button. The default is Cancel ."
+          "description": "Right Button Text is the text to display on the right button. The default is Cancel .",
+          "default": "Cancel"
         },
         {
           "name": "Keyboard Shortcuts (Left is <Enter>)",
@@ -241,12 +245,13 @@
         },
         {
           "name": "Allow user to close window? (TRUE)",
-          "index": null,
+          "index": 4,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "allow_user_to_close_window",
-          "description": "If Allow user to close window? is TRUE (default), the operating system window close button appears in the dialog box, and the user can close the dialog box without clicking the left, center, or right buttons."
+          "description": "If Allow user to close window? is TRUE (default), the operating system window close button appears in the dialog box, and the user can close the dialog box without clicking the left, center, or right buttons.",
+          "default": true
         },
         {
           "name": "Which Button?",
@@ -359,7 +364,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "[user-defined descriptions]",
@@ -381,30 +386,33 @@
         },
         {
           "name": "[error code] (0)",
-          "index": null,
+          "index": 0,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "error_code",
-          "description": "[error code] is a numeric error code."
+          "description": "[error code] is a numeric error code.",
+          "default": 0
         },
         {
           "name": "[error source] (\" \")",
-          "index": null,
+          "index": 5,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "error_source",
-          "description": "[error source] is an optional string you can use to describe the source of error code ."
+          "description": "[error source] is an optional string you can use to describe the source of error code .",
+          "default": " "
         },
         {
           "name": "search ni.com link visible?(T)",
-          "index": null,
+          "index": 7,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "search_nicom_link_visible",
-          "description": "search ni.com link visible? determines whether the Search ni.com for error hyperlink appears in the dialog box. Set to TRUE to display the hyperlink. Clicking the hyperlink opens search results for the error code on ni.com in the default web browser. The hyperlink appears only for LabVIEW-defined error codes in the development environment. The default is TRUE."
+          "description": "search ni.com link visible? determines whether the Search ni.com for error hyperlink appears in the dialog box. Set to TRUE to display the hyperlink. Clicking the hyperlink opens search results for the error code on ni.com in the default web browser. The hyperlink appears only for LabVIEW-defined error codes in the development environment. The default is TRUE.",
+          "default": true
         },
         {
           "name": "type of dialog (OK msg:1)",
@@ -413,7 +421,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "type_of_dialog",
-          "description": "type of dialog determines what type of dialog box to display, if any."
+          "description": "type of dialog determines what type of dialog box to display, if any.",
+          "default": 1
         },
         {
           "name": "error in (no error)",
@@ -426,30 +435,33 @@
         },
         {
           "name": "[exception action] (none:0)",
-          "index": null,
+          "index": 12,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "exception_action",
-          "description": "[exception action] is a way for you to create exceptions to error handling."
+          "description": "[exception action] is a way for you to create exceptions to error handling.",
+          "default": 0
         },
         {
           "name": "[exception code]",
-          "index": null,
+          "index": 13,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "exception_code",
-          "description": "[exception code] is the error code that you want to treat as an exception. The default is 0."
+          "description": "[exception code] is the error code that you want to treat as an exception. The default is 0.",
+          "default": 0
         },
         {
           "name": "[exception source]",
-          "index": null,
+          "index": 14,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "exception_source",
-          "description": "[exception source] is the error message that you want to use to test for an exception. The default is an empty string."
+          "description": "[exception source] is the error message that you want to use to test for an exception. The default is an empty string.",
+          "default": ""
         },
         {
           "name": "error?",
@@ -1139,7 +1151,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "message",
@@ -1151,13 +1163,14 @@
           "description": "message is the text to write to the system log."
         },
         {
-          "name": "severity (Error)",
-          "index": null,
+          "name": "severity",
+          "index": 10,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "severity",
-          "description": "severity specifies how the system log classifies the message."
+          "description": "severity specifies how the system log classifies the message.",
+          "default": 0
         },
         {
           "name": "error in (no error)",
@@ -2384,7 +2397,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "cursor ID",
@@ -2406,12 +2419,13 @@
         },
         {
           "name": "disable click? (T)",
-          "index": null,
+          "index": 9,
           "direction": "in",
           "type": null,
           "enum_values": null,
           "python_param": "disable_click",
-          "description": "If disable click? is TRUE (default), the VI disables the mouse and keyboard on the front panel."
+          "description": "If disable click? is TRUE (default), the VI disables the mouse and keyboard on the front panel.",
+          "default": true
         },
         {
           "name": "error in (no error)",

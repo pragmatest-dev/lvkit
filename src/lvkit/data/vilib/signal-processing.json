@@ -14737,6 +14737,7 @@
         },
         {
           "name": "sampling freq: fs",
+          "index": 8,
           "description": "Functions 4676 ni.com sampling freq: fs is the frequency in Hz at which you want to sample X and must be greater than 0. The default is 1.0 Hz. If sampling freq: fs is less than or equal to 0, this VI sets Filtered X to an empty array and returns an error.",
           "enum_values": null,
           "python_param": "sampling_freq_fs",
@@ -14744,6 +14745,7 @@
         },
         {
           "name": "high cutoff freq: fh",
+          "index": 7,
           "description": "high cutoff freq: fh is the high cutoff frequency in Hz. The default is 0.45 Hz. The VI ignores this parameter when filter type is 0 (Lowpass) or 1 (Highpass). When filter type is 2 (Bandpass) or 3 (Bandstop), high cutoff freq: fh must be greater than low cutoff freq: fl and observe the Nyquist criterion.",
           "enum_values": null,
           "python_param": "high_cutoff_freq_fh",
@@ -14751,6 +14753,7 @@
         },
         {
           "name": "low cutoff freq: fl",
+          "index": 6,
           "description": "low cutoff freq: fl is the low cutoff frequency in Hz and must observe the Nyquist criterion. The default is 0.125 Hz. If low cutoff freq: fl is less than or equal to 0 or greater than half the value of sampling freq: fs, the VI sets Filtered X to an empty array and returns an error. When filter type is 2 (Bandpass) or 3 (Bandstop), low cutoff freq: fl must be less than high cutoff freq: fh.",
           "enum_values": null,
           "python_param": "low_cutoff_freq_fl",
@@ -14758,6 +14761,7 @@
         },
         {
           "name": "order",
+          "index": 4,
           "description": "order specifies the filter order and must be greater than 0. The default is 2. If order is less than or equal to 0, the VI sets Filtered X to an empty array and returns an error.",
           "enum_values": null,
           "python_param": "order",
@@ -14765,6 +14769,7 @@
         },
         {
           "name": "init/cont (init:F)",
+          "index": 0,
           "description": "init/cont controls the initialization of the internal states. The default is FALSE. The first time this VI runs or if init/cont is FALSE, LabVIEW initializes the internal states to 0. If init/cont is TRUE, LabVIEW initializes the internal states to the final states from the previous call to this instance of this VI. To process a large data sequence that consists of smaller blocks, set this input to FALSE for the first block and to TRUE for continuous filtering of all remaining blocks.",
           "enum_values": null,
           "python_param": "init_cont_init_f",

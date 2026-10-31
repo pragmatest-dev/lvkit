@@ -296,6 +296,7 @@
       "terminals": [
         {
           "name": "compress digital (T)",
+          "index": 7,
           "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
           "enum_values": null,
           "python_param": "compress_digital_t",
@@ -315,6 +316,7 @@
         },
         {
           "name": "full-scale range (pk-pk)",
+          "index": 9,
           "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is –1, the full-scale range for the waveform is 2. The default is 2.",
           "enum_values": null,
           "python_param": "full_scale_range_pk_pk",
