@@ -27,6 +27,7 @@ from lvkit.models import (
     WireStyle,
 )
 from lvkit.parser.metadata import _decode_pth0_components
+from lvkit.parser.models import ParsedDependencyRef
 
 from .type_names import ROOT_CLASS
 from .vi_files import (
@@ -78,7 +79,7 @@ class LVClass:
     parent_class: str | None = None
     # The parent's recorded relative URL from the class's ``Parent`` Item
     # (e.g. ``"../../Layer/Layer.lvclass"``) when declared that way — a DIRECT
-    # path to the parent file, so the loader follows it without any name-search
+    # path to the parent file, so the loader follows it directly
     # (the parent often sits in a sibling subtree, not up-tree). None when the
     # parent came only from the binary ``ParentClassLinkInfo`` (no URL there).
     parent_url: str | None = None
@@ -94,8 +95,13 @@ class LVClass:
     # plain-XML ``Parent`` Item, still preferred — see ``parent_url``); this
     # is the fallback for a class that has ONLY the binary property.
     parent_link_path: list[str] | None = None
+    # The PTH0 path type of ``parent_link_path`` (0 absolute, 1 relative).
+    parent_link_path_type: int | None = None
     is_vilib_parent: bool = False
     private_data_ctl: str | None = None
+    # The URL the class records for its private-data control (relative to the
+    # class file, which LabVIEW treats as a folder for its members).
+    private_data_url: str | None = None
     methods: list[LVMethod] = field(default_factory=list)
     private_data_fields: list[LVPrivateDataField] = field(default_factory=list)
     # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
@@ -621,6 +627,7 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # (no ``Parent`` Item at all) -- cheap, the same already-parsed tree.
     link_info = _parent_from_link_info(root)
     parent_link_path = link_info[2] if link_info is not None else None
+    parent_link_path_type = link_info[3] if link_info is not None else None
     item_parent = _parent_from_item(root)
     if item_parent is not None:
         parent_class, parent_url = item_parent
@@ -632,7 +639,9 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     # Full ancestor chain, nearest-first -- best-effort on-disk resolution of
     # each ancestor's own .lvclass file (see _build_ancestor_chain). Never
     # decodes NI.LVClass.Geneology (opaque, leaks siblings).
-    ancestors = _build_ancestor_chain(lvclass_path, parent_class, parent_url)
+    ancestors = _build_ancestor_chain(
+        lvclass_path, parent_class, parent_url, parent_link_path, parent_link_path_type
+    )
 
     # NI.Lib.Version -- verbatim dotted-quad string, same convention as
     # parse_lvlib's version property below.
@@ -645,9 +654,11 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
     _parse_items(root, methods, private_data_ctl)
 
     # Find private data control
+    private_data_url = None
     for item in root.findall(".//Item"):
         if item.get("Type") == "Class Private Data":
             private_data_ctl = item.get("Name")
+            private_data_url = item.get("URL")
             break
 
     # Parse private data fields from _Init.xml
@@ -659,8 +670,10 @@ def parse_lvclass(lvclass_path: Path | str) -> LVClass:
         parent_class=parent_class,
         parent_url=parent_url,
         parent_link_path=parent_link_path,
+        parent_link_path_type=parent_link_path_type,
         is_vilib_parent=is_vilib_parent,
         private_data_ctl=private_data_ctl,
+        private_data_url=private_data_url,
         methods=methods,
         private_data_fields=private_data_fields,
         version=version,
@@ -881,7 +894,7 @@ def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
     ``<Item Name="X.lvclass" Type="Parent" URL="../../X/X.lvclass"/>`` (inside a
     ``Parent Libraries`` group). This is the richest source — it carries the
     parent's name AND a relative URL straight to the parent file — so the loader
-    follows the URL with no name-search (the parent commonly lives in a sibling
+    follows the URL (the parent commonly lives in a sibling
     subtree, unreachable by an up-tree walk). Returns
     ``(parent_name_without_suffix, url_or_None)`` or ``None`` when absent.
     """
@@ -896,7 +909,7 @@ def _parent_from_item(root: ET.Element) -> tuple[str, str | None] | None:
 
 def _parent_from_link_info(
     root: ET.Element,
-) -> tuple[str, bool, list[str] | None] | None:
+) -> tuple[str, bool, list[str] | None, int | None] | None:
     """Decode the authoritative parent class from
     ``NI.LVClass.ParentClassLinkInfo``.
 
@@ -954,80 +967,20 @@ def _parent_from_link_info(
     # corrupt the record's binary length/count fields) via the same
     # ``_decode_pth0_components`` a Path CONSTANT already uses.
     path_tokens: list[str] | None = None
+    path_type: int | None = None
     pth0_idx = decoded.find(b"PTH0")
     if pth0_idx != -1:
         parts, _ = _decode_pth0_components(decoded, pth0_idx, len(decoded))
         path_tokens = parts or None
+        # The PTH0 header: tag, total length, path type, component count.
+        path_type = int.from_bytes(decoded[pth0_idx + 8 : pth0_idx + 10], "big")
 
     for run in printable:
         match = _LVCLASS_TOKEN_RE.search(run)
         token = match.group(1) if match else (run if run.endswith(".lvclass") else None)
         if token:
-            return (token[: -len(".lvclass")], is_vilib, path_tokens)
+            return (token[: -len(".lvclass")], is_vilib, path_tokens, path_type)
 
-    return None
-
-
-# Memoized stem -> path index of every ``*.lvclass`` under a given root
-# directory (see ``_lvclass_stem_index``) -- keyed by the resolved root
-# ``_resolve_ancestor_lvclass`` climbs to, so a full-tree ``rglob`` only ever
-# runs ONCE per root, however many ancestor levels ``_build_ancestor_chain``
-# resolves through it.
-_LVCLASS_INDEX_CACHE: dict[Path, dict[str, Path]] = {}
-
-
-def _lvclass_stem_index(root: Path) -> dict[str, Path]:
-    """Stem -> path index of every ``*.lvclass`` under ``root``, built once
-    and memoized per root. Ties (two files sharing a stem) resolve to the
-    alphabetically-first path -- matching ``sorted(...)[0]``, the previous
-    per-level lookup's own tie-break."""
-    cached = _LVCLASS_INDEX_CACHE.get(root)
-    if cached is not None:
-        return cached
-    index: dict[str, Path] = {}
-    for p in sorted(root.rglob("*.lvclass")):
-        index.setdefault(p.stem, p)
-    _LVCLASS_INDEX_CACHE[root] = index
-    return index
-
-
-def _resolve_ancestor_lvclass(
-    start_dir: Path,
-    bare_name: str,
-    max_levels: int = 6,
-) -> Path | None:
-    """Best-effort on-disk resolution of an ancestor class's ``.lvclass`` file.
-
-    An ancestor is rarely a direct sibling of its child (e.g.
-    ``_TextTestResult.JUnitXML.lvclass`` lives under ``Ant Plugin/Source/...``
-    while its parent ``_TextTestResult.lvclass`` lives under
-    ``Classes/_TextTestResult/`` -- a different branch of the same repo tree).
-    So this climbs UP from ``start_dir`` (bounded by ``max_levels``, so a
-    genuinely-missing ancestor -- common: many corpora don't vendor every
-    ancestor's file -- can't runaway-scan the filesystem) to a single ROOT
-    directory, then looks ``bare_name`` up in that root's memoized stem index
-    (``_lvclass_stem_index``) -- one ``rglob`` per root rather than one per
-    level, since each level's search scope is a subset of the next (cross-
-    directory, cycle-safe: a symlink cycle under the root can make the
-    ``rglob`` itself slow, same as before, but never infinite-loop this
-    function). Falls back to a case-insensitive stem match (LabVIEW class
-    names are effectively case-insensitive -- see ``_same_class``).
-    """
-    d = start_dir.resolve()
-    for _ in range(max_levels):
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-    index = _lvclass_stem_index(d)
-
-    exact = index.get(bare_name)
-    if exact is not None:
-        return exact
-    bare_lower = bare_name.lower()
-    for stem, path in index.items():
-        if stem.lower() == bare_lower:
-            return path
     return None
 
 
@@ -1035,18 +988,17 @@ def _build_ancestor_chain(
     lvclass_path: Path,
     parent_class: str | None,
     parent_url: str | None = None,
+    parent_link_path: list[str] | None = None,
+    parent_link_path_type: int | None = None,
 ) -> list[str]:
     """The FULL ancestor chain, nearest-first, by following each class's own
-    recorded parent up from ``lvclass_path``.
-
-    Prefers the parent's DIRECT recorded URL (relative to the class file, which
-    LabVIEW treats as a directory): a hit parses that ancestor and continues via
-    ITS url; a URL whose file is absent stops the chain at the bare name and does
-    NOT fall back to a filesystem search — the URL is authoritative, so a
-    missing file just means the ancestor isn't vendored here. Only a class with
-    NO url (older binary-only ``ParentClassLinkInfo`` saves) uses the climb-and-
-    ``rglob`` ``_resolve_ancestor_lvclass`` fallback — which must never run for a
-    class in a throwaway/tmp tree (it would rglob a giant unrelated root).
+    recorded parent path up from ``lvclass_path``: its ``Parent`` Item URL
+    (relative to the class file, which LabVIEW treats as a directory), else the
+    path its ``ParentClassLinkInfo`` record carries (``resolve_against`` the
+    class file; a ``<vilib>`` path has no folder here). The chain stops at the
+    bare name of the first ancestor whose recorded path holds no file — the
+    path is authoritative, so a missing file just means the ancestor isn't
+    vendored here.
 
     Deliberately does NOT decode ``NI.LVClass.Geneology`` (an opaque base64
     type-descriptor that also leaks sibling classes).
@@ -1056,6 +1008,8 @@ def _build_ancestor_chain(
     current_path = lvclass_path
     current_parent = parent_class
     current_url = parent_url
+    current_link = parent_link_path
+    current_link_type = parent_link_path_type
     while (
         current_parent
         and current_parent != ROOT_CLASS
@@ -1064,25 +1018,31 @@ def _build_ancestor_chain(
         ancestors.append(current_parent)
         seen.add(current_parent)
         if current_url:
-            cand = (current_path / current_url).resolve()
-            if not cand.exists():
-                break  # URL authoritative; ancestor simply not vendored here
-            parent_file: Path | None = cand
+            parent_file: Path | None = (current_path / current_url).resolve()
+        elif current_link:
+            ref = ParsedDependencyRef(
+                name=current_parent + ".lvclass",
+                path_tokens=current_link,
+                path_type=current_link_type,
+            )
+            parent_file = ref.absolute_path() or ref.resolve_against(current_path)
         else:
-            parent_file = _resolve_ancestor_lvclass(current_path.parent, current_parent)
-        if parent_file is None:
+            parent_file = None
+        if parent_file is None or not parent_file.exists():
             break
         try:
             parent_root = ET.parse(parent_file).getroot()
         except ET.ParseError:
             break
         item = _parent_from_item(parent_root)
+        link = _parent_from_link_info(parent_root)
         if item is not None:
             current_parent, current_url = item
         else:
-            link = _parent_from_link_info(parent_root)
             current_parent = link[0] if link is not None else None
             current_url = None
+        current_link = link[2] if link is not None else None
+        current_link_type = link[3] if link is not None else None
         current_path = parent_file
     return ancestors
 
@@ -1151,6 +1111,21 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         version=version,
         members=members,
     )
+
+
+def member_url_paths(container: Path, url: str) -> tuple[Path, Path]:
+    """The two paths a ``.lvlib`` or ``.lvclass`` member's recorded URL can
+    name, the member's recorded path first. LabVIEW 2010 and later write the
+    URL relative to the container FILE treated as a folder (``../X.vi`` is X.vi
+    beside it — every library and class in the sample corpus saved by LabVIEW
+    2010 to 2021); a LabVIEW 8.x save writes it relative to the container's
+    folder (``X.vi``). A URL that does not climb out of the container would
+    name a file inside it, which no member is, so it is read the 8.x way
+    first."""
+    in_file = (container / url).resolve()
+    in_folder = (container.parent / url).resolve()
+    climbs = url.replace("\\", "/").startswith("../")
+    return (in_file, in_folder) if climbs else (in_folder, in_file)
 
 
 def parse_lvproj(lvproj_path: Path | str) -> LVProject:

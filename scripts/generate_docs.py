@@ -3,14 +3,14 @@
 
 Kept as a thin wrapper (rather than removed outright) because
 ``lvkit.mcp.tools.generate_documents`` subprocesses this script with
-``--search-path``/``--load-mode``/``--vilib``/``--userlib``. All actual
+``--load-mode``/``--vilib``/``--userlib``/``--instrlib``. All actual
 generation logic — including class landing pages and method-level access
 badges/override navigation — lives in ``lvkit.docs.generate.generate_documents``;
 this file only parses argv and forwards.
 
 Usage:
     python scripts/generate_docs.py <vi_or_library_path> <output_dir>
-        [--search-path PATH ...]
+        [--userlib DIR] [--vilib DIR] [--instrlib DIR]
 """
 
 import argparse
@@ -36,12 +36,6 @@ def main() -> int:
     )
     parser.add_argument("output_dir", help="Output directory for HTML files")
     parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        help="Search path for dependencies",
-    )
-    parser.add_argument(
         "--load-mode",
         choices=[m.value for m in LoadMode],
         default="full",
@@ -59,6 +53,12 @@ def main() -> int:
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
 
     args = parser.parse_args()
     mode = LoadMode(args.load_mode)
@@ -67,10 +67,10 @@ def main() -> int:
         result = generate_documents(
             library_path=args.library_path,
             output_dir=args.output_dir,
-            search_paths=args.search_paths,
             mode=mode,
             vilib_root=Path(args.vilib) if args.vilib else None,
             userlib_root=Path(args.userlib) if args.userlib else None,
+            instrlib_root=Path(args.instrlib) if args.instrlib else None,
         )
         print("\n" + result)
         return 0

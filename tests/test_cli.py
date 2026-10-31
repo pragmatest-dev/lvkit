@@ -51,17 +51,12 @@ def _require_pair() -> None:
 
 
 def _load(vi_path: Path, *, layout: bool) -> tuple[InMemoryVIGraph, str]:
-    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default) and the
-    search paths a bare ``lvkit diff a b --search-path <copy>`` resolves, so CLI
+    """Mirror cmd_diff's own loading: LoadMode.MINIMAL (its default), so CLI
     output matches this in-process reference."""
-    from lvkit.cli import _auto_search_paths
-
     graph = InMemoryVIGraph()
-    search_paths = _auto_search_paths([str(PAIR.root)], vi_path, vi_path)
     key = graph.load_vi(
         str(vi_path),
         LoadMode.MINIMAL,
-        search_paths=search_paths,
         layout=layout,
     )
     assert key is not None
@@ -86,8 +81,7 @@ def _run_diff(*args: str) -> subprocess.CompletedProcess:
             "diff",
             str(PAIR.base),
             str(PAIR.head),
-            "--search-path",
-            str(PAIR.root),
+            "--no-auto-vilib",
             *args,
         ],
         capture_output=True,
@@ -111,9 +105,7 @@ class TestDiffVIFilesNames:
         expected_after = gb.vi_display_name(nb)
 
         for fmt in ("text", "json", "html"):
-            result = diff_vi_files(
-                PAIR.base, PAIR.head, fmt=fmt, search_paths=[PAIR.root]
-            )
+            result = diff_vi_files(PAIR.base, PAIR.head, fmt=fmt)
             assert isinstance(result, DiffBody)
             assert result.before_name == expected_before
             assert result.after_name == expected_after
@@ -254,60 +246,51 @@ class TestFormatText:
         assert default_result.stdout != verbose_result.stdout
 
 
-# ── #36: auto-detect project root for SubVI resolution ──────────────────────
+# ── --search-path is gone: dependencies resolve by their recorded path ─────
 
 
-class TestAutoDiffSearchPaths:
-    """`lvkit diff a b` should resolve SubVIs from each VI's project root
-    (nearest enclosing .lvkit/) without the user repeating --search-path."""
+@pytest.mark.parametrize(
+    "command",
+    ["describe", "generate", "document", "visualize", "unresolved", "render"],
+)
+def test_search_path_is_a_usage_error_naming_the_library_roots(
+    command: str, tmp_path: Path
+) -> None:
+    """Every command that took ``--search-path`` rejects it with exit 2 and a
+    message that names the library-root flags replacing it."""
+    vi = tmp_path / "a.vi"
+    vi.write_bytes(b"")
+    extra = [str(tmp_path / "out")] if command == "document" else []
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "lvkit.cli",
+            command,
+            str(vi),
+            *extra,
+            "--search-path",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 2
+    assert "--search-path no longer exists" in result.stderr
+    assert "--userlib DIR, --vilib DIR or --instrlib DIR" in result.stderr
 
-    def test_detects_shared_root_for_both_sides(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
 
-        (tmp_path / ".lvkit").mkdir()
-        (tmp_path / "sub").mkdir()
-        a = tmp_path / "sub" / "a.vi"
-        b = tmp_path / "sub" / "b.vi"
-
-        paths = _auto_search_paths([], a, b)
-
-        # One shared root, added once (both VIs are in the same project).
-        assert [p.resolve() for p in paths] == [tmp_path.resolve()]
-
-    def test_detects_both_roots_across_two_projects(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        proj_a = tmp_path / "old"
-        proj_b = tmp_path / "new"
-        for proj in (proj_a, proj_b):
-            (proj / ".lvkit").mkdir(parents=True)
-        a = proj_a / "a.vi"
-        b = proj_b / "b.vi"
-
-        paths = {p.resolve() for p in _auto_search_paths([], a, b)}
-
-        assert paths == {proj_a.resolve(), proj_b.resolve()}
-
-    def test_explicit_paths_preserved_and_deduped(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        (tmp_path / ".lvkit").mkdir()
-        a = tmp_path / "a.vi"
-        b = tmp_path / "b.vi"
-        # Explicitly passing the root must not duplicate the auto-detected one.
-        explicit = [str(tmp_path)]
-
-        paths = [p.resolve() for p in _auto_search_paths(explicit, a, b)]
-
-        assert paths == [tmp_path.resolve()]
-
-    def test_no_project_store_yields_no_paths(self, tmp_path: Path) -> None:
-        from lvkit.cli import _auto_search_paths
-
-        # A .git marker without .lvkit stops the walk (no store) -> nothing to
-        # add; load_vi still searches each VI's own dir via source_dir.
-        (tmp_path / ".git").mkdir()
-        a = tmp_path / "a.vi"
-        b = tmp_path / "b.vi"
-
-        assert _auto_search_paths([], a, b) == []
+def test_diff_search_path_is_a_usage_error(tmp_path: Path) -> None:
+    a, b = tmp_path / "a.vi", tmp_path / "b.vi"
+    for vi in (a, b):
+        vi.write_bytes(b"")
+    result = subprocess.run(
+        [sys.executable, "-m", "lvkit.cli", "diff", str(a), str(b)]
+        + ["--search-path", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 2
+    assert "--search-path no longer exists" in result.stderr

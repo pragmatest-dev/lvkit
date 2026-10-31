@@ -40,8 +40,8 @@ from lvkit.graph import AmbiguousVIReferenceError, InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
-from lvkit.module_layout import ModuleLayout, project_root
-from lvkit.project_store import find_project_store
+from lvkit.module_layout import ModuleLayout
+from lvkit.project_store import find_project_store, project_root
 from lvkit.structure import parse_lvclass
 from lvkit.type_names import derive_python_name
 from lvkit.vi_files import strip_vi_extension
@@ -548,10 +548,10 @@ def _generate_polymorphic_module(
 def generate_python(
     input_path: Path | str,
     output_dir: Path | str,
-    search_paths: list[Path] | None = None,
     mode: LoadMode = LoadMode.FULL,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
     fail_fast: bool = False,
 ) -> dict:
     """Generate Python from VI files.
@@ -559,11 +559,11 @@ def generate_python(
     Args:
         input_path: Path to .vi, .lvlib, .lvclass, or directory
         output_dir: Output directory for generated Python
-        search_paths: Additional paths for SubVI resolution
         mode: dependency depth (``LoadMode``). Codegen defaults to ``FULL`` (the
             whole SubVI/class-method tree); ``NONE`` generates this VI only.
         vilib_root: Path to LabVIEW vi.lib on disk for <vilib> resolution
         userlib_root: Path to LabVIEW user.lib on disk for <userlib> resolution
+        instrlib_root: Path to LabVIEW instr.lib on disk for <instrlib> resolution
         fail_fast: End the run at the first gap: its warning is printed, nothing
             more is generated, and the run counts as a stopped VI.
 
@@ -593,42 +593,40 @@ def generate_python(
     print(f"Loading: {input_path}")
 
     graph = InMemoryVIGraph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
-    search_path_list = list(search_paths) if search_paths else []
+    if vilib_root or userlib_root or instrlib_root:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+        )
 
     # Detect input type and load appropriately
     if input_path.suffix.lower() == ".lvclass":
         graph.load_lvclass(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".lvlib":
         graph.load_lvlib(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.suffix.lower() == ".ctl":
-        graph.load_typedef(input_path, search_paths=search_path_list or None)
+        graph.load_typedef(input_path)
     elif input_path.suffix.lower() == ".llb":
         graph.load_llb(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     elif input_path.is_dir():
         graph.load_directory(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
     else:
         graph.load_vi(
             str(input_path),
             mode,
-            search_paths=search_path_list,
         )
 
     # Every command that parses a VI warms the index — generate parses the whole
@@ -679,7 +677,6 @@ def generate_python(
         graph,
         order,
         project_root(input_path),
-        search_path_list,
         shared=frozenset(poly_variants),
         reserved=[ERRORS_MODULE_NAME],
     )

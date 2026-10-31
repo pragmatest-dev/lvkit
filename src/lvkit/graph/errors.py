@@ -22,12 +22,7 @@ class DependencyFileError(ConversionGap):
 class AmbiguousVIReferenceError(DependencyFileError):
     """A bare name/qname lookup (``resolve_vi_name``) matched two or more
     on-disk VIs that are genuinely DIFFERENT (distinct qualified identity),
-    not duplicate copies of the same VI -- or a caller's recorded VI, absent at
-    its recorded path, matched several files of the same qualified name, or
-    several files differing only in case. Raised instead of silently guessing
-    one -- resolve by full source path instead."""
-
-
-class UnreadableDependencyError(DependencyFileError):
-    """A file that could be the dependency's could not be read, so whether it is
-    the dependency is unknown."""
+    not duplicate copies of the same VI -- or a recorded path's folder holds
+    several files whose names differ from the recorded one only in case.
+    Raised instead of silently guessing one -- resolve by full source path
+    instead."""

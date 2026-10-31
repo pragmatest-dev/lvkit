@@ -40,7 +40,6 @@ def _load() -> tuple[InMemoryVIGraph, str]:
     graph.load_vi(
         str(_GOLDEN_VI),
         LoadMode.MINIMAL,
-        search_paths=[_JKI_SOURCE_ROOT],
         layout=False,
     )
     vi_name = graph.resolve_vi_name(_GOLDEN_VI.name)
@@ -56,8 +55,6 @@ def _run_describe(*args: str) -> subprocess.CompletedProcess[str]:
             "lvkit.cli",
             "describe",
             str(_GOLDEN_VI),
-            "--search-path",
-            str(_JKI_SOURCE_ROOT),
             "--no-auto-vilib",
             *args,
         ],

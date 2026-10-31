@@ -15,7 +15,7 @@ _ROOT = Path(".lvkit/cache/samples/JKI-VI-Tester/source").resolve()
 
 
 def _subvis(vi: Path) -> dict[str, str | None]:
-    graph, key = load_corpus_vi(vi, _ROOT)
+    graph, key = load_corpus_vi(vi)
     return {
         d.qualified: d.path
         for d in build_netlist_from_graph(graph, key).dependencies

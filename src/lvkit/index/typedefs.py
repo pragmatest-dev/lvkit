@@ -65,16 +65,14 @@ def _facts_from_info(
     )
 
 
-def build_typedef_facts(
-    project_root: Path, ctl_path: Path, sha: str | None = None
-) -> TypedefFacts:
+def build_typedef_facts(ctl_path: Path, sha: str | None = None) -> TypedefFacts:
     """The facts of one control. A control that cannot be read yields a stub fact
     naming the reason (its content hash recorded, so it is retried only when the
     file changes). ``sha`` is the file's content hash when the caller has it."""
     resolved = ctl_path.resolve()
     sha = sha or cache_paths.sha256_file(resolved)
     try:
-        graph, key = load_ctl_by_path(resolved, search_paths=[project_root])
+        graph, key = load_ctl_by_path(resolved)
         info = graph.get_typedef(key)
         catalog = TypeCatalog(lambda t: graph.get_type_fields(t, key))
         return _facts_from_info(info, catalog, sha, str(resolved))
@@ -116,14 +114,12 @@ def _with_dependents(
 
 
 def _rebuild_facts(
-    project_root: Path,
     to_rebuild: set[str],
     current: dict[str, Path],
     shas: dict[str, str],
 ) -> list[TypedefFacts]:
     return [
-        build_typedef_facts(project_root, current[path], shas[path])
-        for path in sorted(to_rebuild)
+        build_typedef_facts(current[path], shas[path]) for path in sorted(to_rebuild)
     ]
 
 
@@ -146,7 +142,7 @@ def sync_typedefs(
         to_rebuild = _with_dependents(
             dirty | set(deleted), current, load_typedef_dependents(project_root)
         )
-    changed = _rebuild_facts(project_root, to_rebuild, current, shas)
+    changed = _rebuild_facts(to_rebuild, current, shas)
     apply_typedefs(project_root, changed, deleted)
     return TypedefSyncResult(
         controls=len(current), rebuilt=[t.path for t in changed], deleted=deleted
@@ -162,6 +158,6 @@ def warm_typedefs(project_root: Path, ctl_paths: list[Path]) -> None:
     stored = load_typedef_shas(project_root)
     shas = {path: cache_paths.sha256_file(p) for path, p in current.items()}
     changed_paths = {path for path in current if stored.get(path) != shas[path]}
-    changed = _rebuild_facts(project_root, changed_paths, current, shas)
+    changed = _rebuild_facts(changed_paths, current, shas)
     if changed:
         apply_typedefs(project_root, changed, [])

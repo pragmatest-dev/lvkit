@@ -166,7 +166,6 @@ def test_collect_unresolved_on_corpus_vi() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     items = collect_unresolved(
         _JKI,
-        search_paths=[_JKI.parents[3]],
     )
     # The OpenG __ogtk.vi dependencies don't resolve here → at least one gap.
     assert items
@@ -196,7 +195,6 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         pytest.skip("JKI-VI-Tester sample corpus not present")
     items = collect_unresolved(
         _TESTCASE_CLASS,
-        search_paths=[_TESTCASE_CLASS.parents[2]],
     )
     counts = Counter(it.kind for it in items)
     assert len(items) == 24, f"expected 24 distinct gaps, got {len(items)}: {counts}"

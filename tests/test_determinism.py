@@ -39,9 +39,6 @@ PARALLEL_VI = (
     / "Fast Parser"
     / "test TCX read (installed 71).vi"
 )
-PARALLEL_VI_SEARCH_PATH = (
-    REPO / ".lvkit" / "cache" / "samples" / "JKI-EasyXML" / "Source"
-)  # noqa: E501
 
 
 def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
@@ -53,8 +50,6 @@ def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
             str(vi),
             "-o",
             str(out_dir),
-            "--search-path",
-            str(PARALLEL_VI_SEARCH_PATH),
         ],
         check=True,
         capture_output=True,

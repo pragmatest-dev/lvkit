@@ -102,50 +102,24 @@ def resolve_node_callee_paths(vis: Iterable[VIFacts]) -> None:
     """Fill each ``kind='vi'`` / ``kind='global_variable'`` node's
     ``callee_path`` with the in-repo VI it refers to.
 
-    A SubVI call's callee is the file its caller recorded (``callee_key``); it is
-    the call's ``callee_path`` when that file is an indexed VI, else ``None``
-    (an external callee). A global variable's Global VI is found by its
-    ``qualified_name`` (:func:`_resolve_callee`). Mutates the facts in place at
-    merge time (needs the whole repo to resolve), exactly like
-    ``_recompute_impact`` fills ``impact_score``. Idempotent.
+    A SubVI call's callee, or a global variable's Global VI, is the file its
+    caller recorded (``callee_key``); it is the node's ``callee_path`` when that
+    file is an indexed VI, else ``None`` (an external or missing file). Mutates
+    the facts in place at merge time (needs the whole repo to resolve), exactly
+    like ``_recompute_impact`` fills ``impact_score``. Idempotent.
 
     NOTE this is a per-call-site CONVENIENCE edge on the node spine; the
     authoritative transitive call graph stays :func:`get_callers` /
     :func:`blast_radius` over the ``calls`` table (which also class-qualifies
     dynamic-dispatch callees to their runtime type)."""
     facts = list(vis)
-    by_qualified = {f.qualified_name: f.path for f in facts if f.qualified_name}
-    by_name: dict[str, list[str]] = {}
-    for f in facts:
-        by_name.setdefault(f.name, []).append(f.path)
     by_path = {f.path for f in facts}
     for f in facts:
         for n in f.nodes:
             target: str | None = None
-            if n.kind is NodeKind.VI:
+            if n.kind in (NodeKind.VI, NodeKind.GLOBAL_VARIABLE):
                 target = n.callee_key if n.callee_key in by_path else None
-            elif n.kind is NodeKind.GLOBAL_VARIABLE and n.qualified_name:
-                target = _resolve_callee(
-                    n.qualified_name, by_path, by_qualified, by_name
-                )
             n.callee_path = target if target and target != f.path else None
-
-
-def _resolve_callee(
-    callee_key: str,
-    by_path: set[str],
-    by_qualified: dict[str, str],
-    by_name: dict[str, list[str]],
-) -> str | None:
-    if callee_key in by_path:
-        return callee_key
-    if callee_key in by_qualified:
-        return by_qualified[callee_key]
-    leaf = callee_key.rsplit(":", 1)[-1]
-    candidates = by_name.get(leaf)
-    if candidates and len(candidates) == 1:
-        return candidates[0]
-    return None
 
 
 def _resolve_vi_key(vis: Sequence[VIFacts], vi_key: str) -> str | None:

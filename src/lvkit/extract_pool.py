@@ -55,12 +55,18 @@ def _worker_count() -> int:
     return min(os.cpu_count() or 1, _MAX_WORKERS)
 
 
-def _init_worker(vilib_root: Path | None, userlib_root: Path | None) -> None:
+def _init_worker(
+    vilib_root: Path | None,
+    userlib_root: Path | None,
+    instrlib_root: Path | None,
+) -> None:
     """Worker start-up: adopt the parent's library roots, which decide each VI's
     cache slot (see ``cache_paths.classify``). Its warnings are UTF-8, like the
     parent's."""
     use_utf8_output()
-    cache_paths.set_extraction_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+    cache_paths.set_extraction_roots(
+        vilib_root=vilib_root, userlib_root=userlib_root, instrlib_root=instrlib_root
+    )
 
 
 def _extract_one(vi_path: str) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from pathlib import Path
@@ -471,6 +472,28 @@ class ParsedDependencyRef:
         if self.path_tokens and is_symbolic_root(self.path_tokens[0]):
             return "/".join(self.path_tokens[1:])
         return "/".join(self.path_tokens)
+
+    def absolute_path(self) -> Path | None:
+        """The file an ABSOLUTE recorded path names on this machine: a
+        drive-letter first token (``C``) is that drive on Windows, an empty
+        first token the root of the current drive (``Path.cwd().anchor``).
+        None for a relative or symbolic-root path, and for a drive letter on a
+        machine without drives (it names no file here)."""
+        tokens = self.path_tokens
+        if (
+            self.path_type != ABSOLUTE_PATH_TYPE
+            or len(tokens) < 2
+            or is_symbolic_root(tokens[0])
+        ):
+            return None
+        head = tokens[0]
+        if head == "":
+            base = Path(Path.cwd().anchor)
+        elif len(head) == 1 and head.isalpha() and os.name == "nt":
+            base = Path(f"{head}:\\")
+        else:
+            return None
+        return base.joinpath(*tokens[1:])
 
     def resolve_against(
         self,

@@ -79,9 +79,9 @@ def build_gallery(
     corpus_dirs: Path | list[Path],
     out_dir: Path,
     limit: int | None = None,
-    search_paths: list[Path] | None = None,
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
 ) -> tuple[list[GalleryEntry], list[tuple[Path, str]]]:
     """Generate + verify a panel for each candidate VI under ``corpus_dirs``
     (one directory, or several -- each scanned in order, candidates
@@ -106,9 +106,9 @@ def build_gallery(
             result = generate_panel(
                 vi_path,
                 panels_dir,
-                search_paths=search_paths or [vi_path.parent],
                 vilib_root=vilib_root,
                 userlib_root=userlib_root,
+                instrlib_root=instrlib_root,
             )
         except Exception:
             reason = "generate_panel failed:\n" + traceback.format_exc()
@@ -205,13 +205,6 @@ def main() -> None:
         "--port", type=int, default=8080, help="Port the gallery app serves on"
     )
     parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Additional search paths for SubVI resolution",
-    )
-    parser.add_argument(
         "--vilib",
         default=None,
         metavar="DIR",
@@ -223,6 +216,12 @@ def main() -> None:
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output)
@@ -230,9 +229,9 @@ def main() -> None:
         [Path(p) for p in args.corpus],
         out_dir,
         limit=args.limit,
-        search_paths=[Path(p) for p in args.search_paths] or None,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        instrlib_root=Path(args.instrlib) if args.instrlib else None,
     )
     app_path = _write_gallery_app(out_dir, entries, args.port)
 

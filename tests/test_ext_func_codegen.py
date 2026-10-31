@@ -186,9 +186,7 @@ _PLUGIN_ROOT = Path(".lvkit/cache/samples/measurement-plugin-labview")
 def test_corpus_vi_generates_python_that_compiles(vi_path: Path, function: str) -> None:
     if not vi_path.exists():
         pytest.skip(f"sample corpus VI not present: {vi_path}")
-    graph, vi_name = load_vi_by_path(
-        vi_path, LoadMode.FULL, search_paths=[_PLUGIN_ROOT]
-    )
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.FULL)
     source = build_module(graph.get_vi_context(vi_name), vi_name, graph=graph)
     compile(source, vi_path.name, "exec")
     assert (

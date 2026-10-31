@@ -19,6 +19,7 @@ import pytest
 
 from lvkit.long_paths import extended_length
 from lvkit.pipeline import generate_python
+from tests.corpus_graphs import OPENG_USERLIB
 
 pytestmark = pytest.mark.needs_samples
 
@@ -54,7 +55,7 @@ def _generate(vi: Path, tmp_path: Path) -> Path:
     """The package generated for ``vi`` and everything it depends on."""
     if not vi.exists():
         pytest.skip(f"corpus VI missing: {vi}")
-    result = generate_python(vi, tmp_path / "out", search_paths=[OPENG])
+    result = generate_python(vi, tmp_path / "out", userlib_root=OPENG_USERLIB)
     # The package nests deeper than 260 characters; Windows with long paths off
     # opens it only in the extended-length form.
     return extended_length(result["output_dir"])

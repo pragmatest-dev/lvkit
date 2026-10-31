@@ -157,7 +157,7 @@ def _load_main_ui():
     if not _MAIN_UI.exists():
         pytest.skip(f"sample corpus VI not present: {_MAIN_UI}")
     return load_vi_by_path(
-        _MAIN_UI, LoadMode.MINIMAL, search_paths=[_JKI_SOURCE_ROOT], layout=False
+        _MAIN_UI, LoadMode.MINIMAL, layout=False
     )
 
 
@@ -224,7 +224,7 @@ def test_multi_line_corpus_captions_round_trip(vi: Path) -> None:
     if not vi.exists():
         pytest.skip(f"sample corpus VI not present: {vi}")
     graph, key = load_vi_by_path(
-        vi, LoadMode.MINIMAL, search_paths=[vi.parent], layout=False
+        vi, LoadMode.MINIMAL, layout=False
     )
     module = build_netlist_from_graph(graph, key)
     captions = [

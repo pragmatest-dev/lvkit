@@ -103,7 +103,7 @@ def test_warm_all_loaded_warms_from_one_parse(sample: Path):
     from lvkit.index.build import warm_all_loaded
 
     graph = InMemoryVIGraph()
-    graph.load_vi(sample, LoadMode.MINIMAL, search_paths=[sample.parent])
+    graph.load_vi(sample, LoadMode.MINIMAL)
     # The index is PATH-keyed: a "save-as" VI (file renamed, internal name kept)
     # is indexed by its FILE name, not the graph's internal node name — so
     # compare against source-path filenames, not list_vis() names.

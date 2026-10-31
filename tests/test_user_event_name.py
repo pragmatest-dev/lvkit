@@ -31,10 +31,9 @@ _JKI_ROOT = _SAMPLES / "JKI-VI-Tester" / "source"
 _JKI_NEW = _JKI_ROOT / "Tests" / "Static TestSuite" / "New.vi"
 
 _CASES = [
-    pytest.param(_PRE_LAUNCH_INIT, _AF_ROOT, "stopped: TF", id="plain_data_type"),
+    pytest.param(_PRE_LAUNCH_INIT, "stopped: TF", id="plain_data_type"),
     pytest.param(
         _JKI_NEW,
-        _JKI_ROOT,
         "suiteStatusChanged: suiteStatusChanged--Cluster",
         id="typedef",
     ),
@@ -75,10 +74,8 @@ def test_unnamed_user_event_renders_without_a_name() -> None:
 
 
 @pytest.mark.needs_samples
-@pytest.mark.parametrize("vi_path,search_root,expected", _CASES)
-def test_describe_shows_the_event_name(
-    vi_path: Path, search_root: Path, expected: str
-) -> None:
+@pytest.mark.parametrize("vi_path,expected", _CASES)
+def test_describe_shows_the_event_name(vi_path: Path, expected: str) -> None:
     if not vi_path.exists():
         pytest.skip(f"sample corpus VI not present: {vi_path}")
     out = subprocess.run(
@@ -89,8 +86,6 @@ def test_describe_shows_the_event_name(
             "describe",
             "-v",
             str(vi_path),
-            "--search-path",
-            str(search_root),
         ],
         capture_output=True,
         text=True,
@@ -101,15 +96,11 @@ def test_describe_shows_the_event_name(
 
 
 @pytest.mark.needs_samples
-@pytest.mark.parametrize("vi_path,search_root,expected", _CASES)
-def test_strict_lvnet_round_trip(
-    vi_path: Path, search_root: Path, expected: str
-) -> None:
+@pytest.mark.parametrize("vi_path,expected", _CASES)
+def test_strict_lvnet_round_trip(vi_path: Path, expected: str) -> None:
     if not vi_path.exists():
         pytest.skip(f"sample corpus VI not present: {vi_path}")
-    graph, vi_name = load_vi_by_path(
-        vi_path, LoadMode.MINIMAL, search_paths=[search_root], layout=False
-    )
+    graph, vi_name = load_vi_by_path(vi_path, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name=vi_path.name, verbose=True)
     assert "UserEvent refnum{" in text

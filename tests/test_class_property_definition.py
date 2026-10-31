@@ -60,9 +60,7 @@ def test_property_definition_vis_carry_the_class_facts_the_index_stores(
     tree: _Tree,
 ) -> None:
     graph = InMemoryVIGraph()
-    graph.load_lvclass(
-        tree.root / "Cls" / "Cls.lvclass", LoadMode.NONE, search_paths=[tree.root]
-    )
+    graph.load_lvclass(tree.root / "Cls" / "Cls.lvclass", LoadMode.NONE)
     facts = {}
     for name in ("Read Count.vi", "Write Count.vi"):
         key = str((tree.root / "Cls" / name).resolve())

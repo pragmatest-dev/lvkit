@@ -29,13 +29,6 @@ def main():
         help="Output directory",
     )
     parser.add_argument(
-        "--search-path",
-        action="append",
-        dest="search_paths",
-        default=[],
-        help="Additional search paths",
-    )
-    parser.add_argument(
         "--fail-fast",
         action="store_true",
         help="End the run at the first gap (its warning is printed).",
@@ -52,16 +45,22 @@ def main():
         metavar="DIR",
         help="Path to LabVIEW user.lib on disk for <userlib> resolution.",
     )
+    parser.add_argument(
+        "--instrlib",
+        default=None,
+        metavar="DIR",
+        help="Path to LabVIEW instr.lib on disk for <instrlib> resolution.",
+    )
     args = parser.parse_args()
 
     generate_python(
         args.input,
         args.output,
-        search_paths=[Path(p) for p in args.search_paths],
         mode=LoadMode.FULL,
         fail_fast=args.fail_fast,
         vilib_root=Path(args.vilib) if args.vilib else None,
         userlib_root=Path(args.userlib) if args.userlib else None,
+        instrlib_root=Path(args.instrlib) if args.instrlib else None,
     )
 
 

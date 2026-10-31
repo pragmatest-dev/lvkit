@@ -65,8 +65,10 @@ class MissingVIError(ConversionGap):
         if self.reason:
             return f"The VI '{self.name}'{where} was not found: {self.reason}"
         return (
-            f"The VI '{self.name}'{where} was not found; add it to the project "
-            "or to a --search-path and generate again"
+            f"The VI '{self.name}'{where} was not found at the path its caller "
+            "records; put it there (a <userlib>/<vilib>/<instrlib> path needs "
+            "that folder named with --userlib/--vilib/--instrlib) and generate "
+            "again"
         )
 
     def __str__(self) -> str:

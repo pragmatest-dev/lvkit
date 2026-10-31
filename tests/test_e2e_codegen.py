@@ -21,12 +21,7 @@ from lvkit.codegen.builder import build_module
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.models import InPlaceNode
-
-SEARCH_PATHS = [Path(".lvkit/cache/samples/OpenG/extracted")]
-DCAF_SEARCH_PATHS = [
-    Path(".lvkit/cache/samples/DCAF-DAQModule/source"),
-    Path(".lvkit/cache/samples/OpenG/extracted"),
-]
+from tests.corpus_graphs import OPENG_USERLIB
 
 GET_SETTINGS_PATH_VI = Path(
     ".lvkit/cache/samples/JKI-VI-Tester/source/User Interfaces/"
@@ -97,7 +92,8 @@ def _generate(graph: InMemoryVIGraph, vi_name: str) -> str:
 def get_settings_path_graph() -> InMemoryVIGraph:
     _skip_if_missing(GET_SETTINGS_PATH_VI)
     g = InMemoryVIGraph()
-    g.load_vi(str(GET_SETTINGS_PATH_VI), search_paths=SEARCH_PATHS)
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
+    g.load_vi(str(GET_SETTINGS_PATH_VI))
     return g
 
 
@@ -105,8 +101,9 @@ def get_settings_path_graph() -> InMemoryVIGraph:
 def testcase_graph() -> InMemoryVIGraph:
     _skip_if_missing(TESTCASE_DIR)
     g = InMemoryVIGraph()
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
     for vi_path in sorted(TESTCASE_DIR.glob("*.vi")):
-        g.load_vi(str(vi_path), search_paths=SEARCH_PATHS)
+        g.load_vi(str(vi_path))
     return g
 
 
@@ -192,8 +189,8 @@ def _generate_cli(vi_path: Path, out_dir: Path, hashseed: str) -> None:
             str(vi_path),
             "-o",
             str(out_dir),
-            "--search-path",
-            ".lvkit/cache/samples/OpenG/extracted",
+            "--userlib",
+            str(OPENG_USERLIB),
         ],
         env=env,
         check=True,
@@ -299,10 +296,10 @@ class TestTestCaseLvclass:
 def delete_line_graph() -> InMemoryVIGraph:
     _skip_if_missing(DELETE_LINE_VI)
     g = InMemoryVIGraph()
+    g.set_library_roots(userlib_root=OPENG_USERLIB)
     g.load_vi(
         str(DELETE_LINE_VI),
         mode=LoadMode.FULL,
-        search_paths=DCAF_SEARCH_PATHS,
     )
     return g
 
@@ -416,7 +413,7 @@ class TestClassPrivateDataNmux:
         """
         _skip_if_missing(GET_TESTS_RUN_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(GET_TESTS_RUN_VI), search_paths=[TESTRESULT_DIR.parent])
+        graph.load_vi(str(GET_TESTS_RUN_VI))
 
         vi_name = "TestResult.lvclass:GetTestsRun.vi"
         ctx = graph.get_vi_context(vi_name)
@@ -440,7 +437,7 @@ class TestClassPrivateDataNmux:
         """
         _skip_if_missing(TESTRESULT_INIT_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(TESTRESULT_INIT_VI), search_paths=[TESTRESULT_DIR.parent])
+        graph.load_vi(str(TESTRESULT_INIT_VI))
 
         vi_name = "TestResult.lvclass:TestResult_Init.vi"
         ctx = graph.get_vi_context(vi_name)
@@ -576,7 +573,8 @@ class TestShiftRegisterAccumulation:
     def _func(self):
         _skip_if_missing(SEARCH_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SEARCH_1D_I32_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         assert_no_garbage(code, self.VI_NAME)
@@ -601,7 +599,8 @@ class TestShiftRegisterAccumulation:
         through the prior run's stale bindings (the flakiness this guards)."""
         _skip_if_missing(SEARCH_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SEARCH_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SEARCH_1D_I32_VI))
         c1 = _generate(graph, self.VI_NAME)
         c2 = _generate(graph, self.VI_NAME)
         assert c1 == c2
@@ -619,7 +618,8 @@ class TestClusterBundleUnbundle:
     def _func(self):
         _skip_if_missing(SORT_1D_I32_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(SORT_1D_I32_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(SORT_1D_I32_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         assert_no_garbage(code, self.VI_NAME)
@@ -653,7 +653,8 @@ class TestTrimWhitespace:
     def _func(self):
         _skip_if_missing(TRIM_WHITESPACE_VI)
         graph = InMemoryVIGraph()
-        graph.load_vi(str(TRIM_WHITESPACE_VI), search_paths=SEARCH_PATHS)
+        graph.set_library_roots(userlib_root=OPENG_USERLIB)
+        graph.load_vi(str(TRIM_WHITESPACE_VI))
         code = _generate(graph, self.VI_NAME)
         assert_valid_python(code, self.VI_NAME)
         ns: dict = {"__name__": "m"}

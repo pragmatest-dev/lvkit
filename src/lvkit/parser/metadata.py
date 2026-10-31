@@ -549,7 +549,7 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
         if not tokens:
             continue
         leaf = tokens[-1]
-        if not (is_vi_file(leaf) or leaf.endswith((".lvclass", ".ctl", ".lvlib"))):
+        if not _names_a_dependency_file(leaf):
             continue
         key = (leaf, *tokens)
         if key in seen:
@@ -566,6 +566,47 @@ def parse_link_path_refs(link_bin: Path) -> list[ParsedDependencyRef]:
                 path_type=path_type,
             )
         )
+    return refs
+
+
+def _names_a_dependency_file(leaf: str) -> bool:
+    """Whether a recorded path's last component is a file a VI depends on."""
+    return is_vi_file(leaf) or leaf.endswith((".lvclass", ".ctl", ".lvlib"))
+
+
+# The decoded link-table sections whose ``LinkSavePathRef`` records
+# ``parse_xml_link_path_refs`` reads: the XML form of ``_LIvi.bin``,
+# ``_LIbd.bin`` and ``_LIfp.bin``.
+_LINK_TABLE_SECTIONS = ("LIvi", "LIbd", "LIfp")
+
+
+def parse_xml_link_path_refs(main_root: ET.Element) -> list[ParsedDependencyRef]:
+    """The recorded PATH of every file the DECODED link tables reference — the
+    XML counterpart of :func:`parse_link_path_refs`, for a VI whose link tables
+    pylabview decoded into its main XML (no ``_LI*.bin`` sidecar). Every
+    ``LinkSavePathRef`` counts, also one whose record names no qualified name
+    (``VILB``, the VI's link to its own class or library), so the loader finds
+    that file by the path the VI records for it. In document order."""
+    refs: list[ParsedDependencyRef] = []
+    for section in _LINK_TABLE_SECTIONS:
+        for table in main_root.findall(section):
+            for path_ref in table.iter("LinkSavePathRef"):
+                # <String /> (self-closing) is an empty token: one '..' step.
+                tokens = [
+                    s.text if s.text is not None else ""
+                    for s in path_ref.findall("String")
+                ]
+                if not tokens or not _names_a_dependency_file(tokens[-1]):
+                    continue
+                tp_val = path_ref.get("TpVal")
+                refs.append(
+                    ParsedDependencyRef(
+                        name=tokens[-1],
+                        path_tokens=tokens,
+                        qualified_name=tokens[-1],
+                        path_type=int(tp_val) if tp_val is not None else None,
+                    )
+                )
     return refs
 
 

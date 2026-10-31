@@ -143,7 +143,7 @@ def test_minimal_staging_resolves_class_method_subvis() -> None:
         pytest.skip(f"sample VI absent: {vi}")
 
     g = InMemoryVIGraph()
-    name = g.load_vi(vi, LoadMode.MINIMAL, search_paths=[root])
+    name = g.load_vi(vi, LoadMode.MINIMAL)
     assert name is not None
     staged = {p.name for p in g.get_dependency_paths(name)}
 
@@ -168,7 +168,7 @@ def test_minimal_staging_resolves_class_method_subvis() -> None:
     # PTH0 link tables). Only a nested typedef with no file link (LayerType.ctl)
     # falls out — its type is already inline, so it needs no staging.
     g2 = InMemoryVIGraph()
-    name2 = g2.load_vi(vi, LoadMode.MINIMAL, search_paths=[])
+    name2 = g2.load_vi(vi, LoadMode.MINIMAL)
     assert name2 is not None
     by_path = {p.name for p in g2.get_dependency_paths(name2)}
     assert {

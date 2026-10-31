@@ -110,12 +110,10 @@ def tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         [],
         [_dispatch("Wrong", "Stop.vi", "Wrong")],
     )
-    # A class that is not on disk: a file that records it as its owner is its method.
+    # A class that is not on disk, and a file elsewhere that records it as its
+    # owner: nothing is looked up by name, so the method is missing.
     built.vi("Abs/sub/Stop.vi", "Abs.lvclass:Stop.vi", ["Abs.lvclass"])
     built.vi("caller_abs.vi", "caller_abs.vi", [], [_dispatch("Abs", "Stop.vi", "Abs")])
-    # A file that records an absent class as its owner but cannot be read.
-    built.vi("Bad/Stop.vi", "Bad.lvclass:Stop.vi", ["Bad.lvclass"])
-    built.vi("caller_bad.vi", "caller_bad.vi", [], [_dispatch("Bad", "Stop.vi", "Bad")])
     # A class whose file name exists twice, differing only in case.
     _write_class(built, "Amb", "amb", {"Run.vi": "../Run.vi"})
     _write_class(built, "Amb", "AMB", {"Run.vi": "../Run.vi"})
@@ -255,12 +253,10 @@ def test_vipi_naming_only_the_method_never_finds_the_callers_own_file(
     _livi(
         tree,
         "Sub/impl/Stop.vi",
-        [_vipi(["Stop.vi"], ["", "Base", "Base.lvclass"])],
+        [_vipi(["Stop.vi"], ["", "", "", "Base", "Base.lvclass"])],
     )
     graph = InMemoryVIGraph()
-    key = graph.load_vi(
-        tree.root / "Sub/impl/Stop.vi", LoadMode.MINIMAL, search_paths=[tree.root]
-    )
+    key = graph.load_vi(tree.root / "Sub/impl/Stop.vi", LoadMode.MINIMAL)
     assert key is not None
     assert _key(tree, "Sub/impl/Stop.vi") not in graph.get_vi_dependencies(key)
     assert _key(tree, "Base/Stop.vi") in graph.get_vi_dependencies(key)
@@ -315,12 +311,19 @@ def test_member_in_a_class_subfolder_the_class_does_not_list_is_the_ancestors(
     assert call.callee_key == _key(tree, "Base/Stop.vi")
 
 
-def test_file_that_records_a_class_not_on_disk_as_owner_is_its_method(
+def test_method_of_a_class_not_at_its_recorded_path_is_missing(
     tree: _Tree,
 ) -> None:
+    """The class is not at the path the call records, so its method is missing
+    — the file elsewhere that records the class as its owner is never searched
+    for by name. The missing class keeps its recorded path."""
     graph, key = _load(tree, "caller_abs.vi")
     (call,) = _calls(graph, key)
-    assert call.callee_key == _key(tree, "Abs/sub/Stop.vi")
+    assert call.callee_key is None
+    absent_class = _key(tree, "Abs/Abs.lvclass")
+    assert absent_class in graph.get_vi_dependencies(key)
+    assert graph.is_stub(absent_class)
+    assert _key(tree, "Abs/sub/Stop.vi") not in graph.list_vis()
 
 
 def test_files_of_a_class_name_differing_only_in_case_make_the_call_missing(
@@ -339,25 +342,6 @@ def test_files_of_a_class_name_differing_only_in_case_make_the_call_missing(
     text = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     assert "subVI Amb.lvclass:Run.vi" in text
     assert str(tree.root) not in text and str(tree.root) not in reason
-
-
-def test_unreadable_file_that_could_be_the_method_makes_the_call_missing(
-    tree: _Tree, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def extract(path: Path) -> tuple[Path, Path | None, Path | None]:
-        if Path(path).parent.name == "Bad":
-            raise RuntimeError(f"cannot read {path}")
-        return tree.extract(path)
-
-    monkeypatch.setattr("lvkit.graph.loading.extract_vi_xml", extract)
-    graph, key = _load(tree, "caller_bad.vi")
-    (call,) = _calls(graph, key)
-    assert call.callee_key is None
-    (reason,) = [
-        r for d in graph.get_vi_dependencies(key) if (r := graph.stub_reason(d))
-    ]
-    assert "'Stop.vi' could not be read" in reason
-    assert "./Bad/Stop.vi" in reason and str(tree.root) not in reason
 
 
 def test_file_beside_the_class_owned_by_another_class_is_not_the_method(
@@ -380,8 +364,8 @@ def test_unlisted_method_of_two_classes_with_one_name_is_two_dependencies(
             [_dispatch("Sub", "Gone.vi", "Sub")],
         )
     graph = InMemoryVIGraph()
-    key_a = graph.load_vi(tree.root / "A/caller.vi", LoadMode.MINIMAL, search_paths=[])
-    key_b = graph.load_vi(tree.root / "B/caller.vi", LoadMode.MINIMAL, search_paths=[])
+    key_a = graph.load_vi(tree.root / "A/caller.vi", LoadMode.MINIMAL)
+    key_b = graph.load_vi(tree.root / "B/caller.vi", LoadMode.MINIMAL)
     assert key_a is not None and key_b is not None
     deps_a = set(graph.get_vi_dependencies(key_a))
     deps_b = set(graph.get_vi_dependencies(key_b))
@@ -495,7 +479,7 @@ def test_xml_text_encoding_is_the_one_the_extractor_normalizes_with() -> None:
 
 def test_missing_vi_gap_names_the_reason_the_file_is_not_known() -> None:
     plain = MissingVIError("Gone.vi", "./Gone.vi")
-    assert "add it to the project" in plain.summary()
+    assert "not found at the path its caller records" in plain.summary()
     reason = "Several files. Files: ./A/Dup.vi, ./B/Dup.vi."
     why = MissingVIError("Dup.vi", None, reason)
     assert why.summary() == f"The VI 'Dup.vi' was not found: {reason}"

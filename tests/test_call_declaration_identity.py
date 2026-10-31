@@ -31,8 +31,8 @@ def test_file_name_is_the_last_component() -> None:
     assert file_qualified_name("", "New.vi") == "New.vi"
 
 
-def _declarations(vi: Path, root: Path) -> dict[str, str | None]:
-    graph, key = load_corpus_vi(vi, root)
+def _declarations(vi: Path) -> dict[str, str | None]:
+    graph, key = load_corpus_vi(vi)
     return {
         d.qualified: d.path
         for d in build_netlist_from_graph(graph, key).dependencies
@@ -43,9 +43,10 @@ def _declarations(vi: Path, root: Path) -> dict[str, str | None]:
 @pytest.mark.needs_samples
 def test_renamed_file_is_declared_by_its_file_name() -> None:
     root = _SAMPLES / "LabVIEW-DAQ" / "Two Photon"
-    decls = _declarations(root / "MasterAquisitionFile_2P.vi", root)
+    decls = _declarations(root / "MasterAquisitionFile_2P.vi")
+    # Paths are shown relative to the VI's project (the sample's git root).
     assert decls["TrackWhiskerDroppedFrames_2P.vi"] == (
-        "./TrackWhiskerDroppedFrames_2P.vi"
+        "./Two Photon/TrackWhiskerDroppedFrames_2P.vi"
     )
     assert "TrackDroppedFrames_2P.vi" not in decls
 
@@ -61,7 +62,7 @@ def test_library_call_named_like_the_caller_is_not_the_caller() -> None:
         ("Build Assets/Post-Build Action.vi", "Post-Build Action.vi"),
         ("Run Service.vi", "Run Service.vi"),
     ):
-        decls = _declarations(template / rel, template)
+        decls = _declarations(template / rel)
         # The SDK VI the body calls is absent from the project: no path.
         assert decls[f"NI Measurement Plug-In SDK.lvlib:{name}"] is None
         assert f"Measurement Plugin Template.lvclass:{name}" not in decls
@@ -76,7 +77,7 @@ def test_text_views_declare_the_library_call_not_the_caller() -> None:
         / "Measurement Plug-In Template/Measurement"
     )
     vi = template / "Build Assets" / "Post-Build Action.vi"
-    graph, key = load_corpus_vi(vi, template)
+    graph, key = load_corpus_vi(vi)
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     uses = [
         ln.strip()
@@ -132,8 +133,7 @@ def test_absent_class_declared_without_a_machine_path() -> None:
         / "Measurement Plug-In Template/Measurement"
     )
     graph, key = load_corpus_vi(
-        template / "Build Assets" / "Post-Build Action.vi", template
-    )
+        template / "Build Assets" / "Post-Build Action.vi")
     lvnet = render_lvnet(build_netlist_from_graph(graph, key), display_name="X")
     sdk_class = "NI Measurement Plug-In SDK.lvlib:Measurement Plugin Service.lvclass"
     assert f"    class {sdk_class}\n" in lvnet
@@ -144,10 +144,11 @@ def test_absent_class_declared_without_a_machine_path() -> None:
 def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None:
     root = _SAMPLES / "measurement-plugin-labview" / "Source"
     vi = root / "Runtime/Measurements/Measurement Service V1/Destroy.vi"
-    graph, key = load_corpus_vi(vi, root)
+    graph, key = load_corpus_vi(vi)
     netlist = build_netlist_from_graph(graph, key)
+    # Shown relative to the VI's project (Source/Runtime holds its .lvproj).
     real = (
-        "./gRPC/Generated APIs/ni/measurementlink/measurement/v1/"
+        "./../gRPC/Generated APIs/ni/measurementlink/measurement/v1/"
         "RPC Service/MeasurementService/Server API/Destroy.vi"
     )
     assert [

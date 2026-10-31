@@ -489,9 +489,9 @@ def _vectorized_icon(path_str: str, mtime: float) -> CenteredSvgGlyph | None:
 @dataclass(frozen=True)
 class SubVISource:
     """A SubVI VINode's resolved on-disk ``.vi`` source, plus whether it was
-    found in a PROJECT-local location (an already-loaded VI, a search-path
-    filename match, or a literal existing ``qualified_path``) as opposed to
-    the user's own LOCAL vi.lib/user.lib install (``resolve_library_vi_path``).
+    found in a PROJECT-local location (the file the caller's record names, or
+    its recorded path relative to the caller) as opposed to the user's own
+    LOCAL vi.lib/user.lib install (``resolve_library_vi_path``).
 
     The distinction matters to any consumer that emits a portable reference
     to the path — e.g. render/scene.py's click-navigation
@@ -553,18 +553,12 @@ def resolve_subvi_source(
     and click-navigation (render/scene.py's ``data-lv-vi-rel``), so both
     features ask the identical question rather than each inventing its own.
 
-    Tries, in order:
+    Tries, in order, only the path the caller records for the call:
 
-    - ``graph.locate_vi_file(name)``: an already-loaded source (free — a
-      dict lookup) or a filename search of the graph's search paths —
-      PROJECT-local either way.
-    - ``node.qualified_path``, if it happens to already be a literal,
-      existing file path (rare: today's ``qualified_path`` values are raw
-      LabVIEW path TOKENS like ``"<vilib>/Utility/error.llb/Foo.vi"``, not
-      resolved filesystem paths — resolving the ``<vilib>``/``<userlib>``
-      tokens would need a library root the graph doesn't expose publicly;
-      see the JUDGMENT CALL note in this module's tests / the P2 report) —
-      PROJECT-local.
+    - ``node.interface_key``: the file the loader resolved the call to, when
+      it is on disk.
+    - ``node.qualified_path`` relative to the caller
+      (``_resolve_caller_relative_vi``) — PROJECT-local.
     - ``graph.resolve_library_vi_path(node.qualified_path)``: the user's
       LOCAL vi.lib/user.lib install — NOT project-local (a system path).
 
@@ -587,23 +581,12 @@ def resolve_subvi_source(
     # LabVIEW LinkSavePathRef token string whose leading empties (leading '/'s)
     # are '..' hops from the CALLER file, then the rest append. A same-library/
     # class call is stored as a bare LOCAL ref ("/Do.vi" -> the caller's own
-    # sibling); resolving that against the search ROOT (or by bare name) collides
-    # it with a same-named VI in another library (#29). Resolving from the caller
-    # places it correctly.
+    # sibling); resolving it by bare name would collide it with a same-named VI
+    # in another library (#29). Resolving from the caller places it correctly.
     src = _resolve_caller_relative_vi(node)
     if src is not None:
         return SubVISource(src, project_local=True)
 
-    # Pass qualified_path so two SubVIs that share a bare filename across
-    # libraries (Lib1/Do.vi vs Lib2/Do.vi) each resolve to their OWN file — a
-    # bare-name lookup would collide and give both the same icon.
-    src_path = graph.locate_vi_file(name, node.qualified_path)
-    if src_path is not None:
-        return SubVISource(src_path, project_local=True)
-    if node.qualified_path:
-        candidate = Path(node.qualified_path)
-        if candidate.is_file():
-            return SubVISource(candidate, project_local=True)
     # A user's LOCAL vi.lib/user.lib (their own licensed install): resolve
     # the <vilib>/<userlib> token to a real on-disk .vi. Rendering it
     # locally is not distribution; lvkit never ships this art, and a hosted
@@ -770,8 +753,8 @@ def _bundle_by_name_glyph(
     field list. ``bundling`` is True when the cluster is the OUTPUT (fields in →
     cluster out). Field names are resolved through a fall-through chain (each
     row independently): (1) for a class-typed aggregate, THIS VI's own inline
-    private-data typedef copy (cheap, available even under a MINIMAL load with
-    no search-path — see ``_own_class_private_data_fields``); (2)
+    private-data typedef copy (cheap, available even under a MINIMAL load whose
+    class file is absent — see ``_own_class_private_data_fields``); (2)
     ``graph.get_type_fields()`` — dep_graph class fields (authoritative once
     the owning class loads) or a non-class typedef/anonymous cluster's inline
     fields; (3) the field terminal's own resolved name; (4) the accessed

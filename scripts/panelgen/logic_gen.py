@@ -55,9 +55,9 @@ def _closure(graph: InMemoryVIGraph, entry_key: str) -> set[str]:
 def generate_logic(
     vi_path: Path,
     output_dir: Path,
-    search_paths: list[Path],
     vilib_root: Path | None = None,
     userlib_root: Path | None = None,
+    instrlib_root: Path | None = None,
 ) -> LogicResult:
     """Load ``vi_path``'s dependency closure and write one Python module per
     VI in it into ``output_dir``, returning the entry module's name/func and
@@ -70,10 +70,14 @@ def generate_logic(
     variant; ``LogicResult.polymorphic_note`` records that this happened.
     """
     graph = InMemoryVIGraph()
-    if vilib_root or userlib_root:
-        graph.set_library_roots(vilib_root=vilib_root, userlib_root=userlib_root)
+    if vilib_root or userlib_root or instrlib_root:
+        graph.set_library_roots(
+            vilib_root=vilib_root,
+            userlib_root=userlib_root,
+            instrlib_root=instrlib_root,
+        )
 
-    loaded_key = graph.load_vi(vi_path, LoadMode.FULL, search_paths=search_paths)
+    loaded_key = graph.load_vi(vi_path, LoadMode.FULL)
     if loaded_key is None:
         raise ValueError(f"Could not load VI: {vi_path}")
 

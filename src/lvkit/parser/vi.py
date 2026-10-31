@@ -114,6 +114,7 @@ from .metadata import (
     parse_link_path_refs,
     parse_vi_metadata,
     parse_vipi_from_livi,
+    parse_xml_link_path_refs,
 )
 from .models import (
     ParsedBlockDiagram,
@@ -426,22 +427,24 @@ def _parse_metadata(
                 dependency_refs.append(vipi_ref)
 
     # Recover a recorded PATH for EVERY referenced file (classes + typedefs + VIs)
-    # from LabVIEW's link tables (_LIvi/_LIbd/_LIfp PTH0 records) — a leaf -> path
+    # from LabVIEW's link tables (the decoded LIvi/LIbd/LIfp records and the
+    # _LIvi/_LIbd/_LIfp PTH0 records pylabview left raw) — a leaf -> path
     # INDEX the loader consults to give the type-derived class/typedef deps a
-    # recorded path instead of a name-search, making the closure path-driven and
+    # recorded path, making the closure path-driven and
     # identical on web and desktop. Kept SEPARATE from dependency_refs (never
     # unioned as new deps) so a library-prefixed dep's leaf can't shadow it.
     link_path_refs: list[ParsedDependencyRef] = []
     seen_refs: set[tuple[str, ...]] = set()
+    recorded_refs = parse_xml_link_path_refs(main_root)
     for suffix in ("_LIvi.bin", "_LIbd.bin", "_LIfp.bin"):
         link_bin = main_xml.with_name(main_xml.stem + suffix)
-        if not link_bin.exists():
-            continue
-        for ref in parse_link_path_refs(link_bin):
-            key = (ref.name, *ref.path_tokens)
-            if key not in seen_refs:
-                seen_refs.add(key)
-                link_path_refs.append(ref)
+        if link_bin.exists():
+            recorded_refs.extend(parse_link_path_refs(link_bin))
+    for ref in recorded_refs:
+        key = (ref.name, *ref.path_tokens)
+        if key not in seen_refs:
+            seen_refs.add(key)
+            link_path_refs.append(ref)
 
     # Parse type map
     type_map = parse_type_map_rich(main_xml)

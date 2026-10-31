@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
+from lvkit.project_store import project_root
 from lvkit.vi_files import is_vi_file
 
 from ..models import (
@@ -2403,8 +2404,7 @@ def _build_dependency_manifest(
         subvi_qname_by_subpath[_subpath(ol, name)] = qname
 
     own = graph.get_vi_source_path(vi_name)
-    search = graph._search_paths or ([own.parent] if own is not None else [])
-    rel_base = search[0] if search else Path.cwd()
+    rel_base = project_root(own) if own is not None else Path.cwd()
 
     # A class/library member .vi lives in the SAME directory as its owning
     # .lvclass/.lvlib -- so a member whose own node came out unqualified is

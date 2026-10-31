@@ -86,9 +86,8 @@ class BuildResult:
 def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     """Build path-keyed ``VIFacts`` for every ``.vi`` in ``vi_paths``.
 
-    ``project_root`` is used as the single ``search_paths`` root for both the
-    whole-repo load and each individual single-VI load, so dependency
-    resolution behaves identically in both passes.
+    Both the whole-repo load and each individual single-VI load resolve every
+    dependency by the path its caller records, so they resolve identically.
 
     .. important::
        On a directory of 50+ VIs this pre-parses across a ``spawn`` process
@@ -107,7 +106,7 @@ def build_index(project_root: Path, vi_paths: list[Path]) -> BuildResult:
     all_paths = {p.resolve() for p in vi_paths}
 
     graph = InMemoryVIGraph()
-    graph.load_directory(project_root, LoadMode.MINIMAL, search_paths=[project_root])
+    graph.load_directory(project_root, LoadMode.MINIMAL)
     _load_class_ownership(graph, project_root)
     _load_library_ownership(graph, project_root)
 
@@ -191,7 +190,7 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
     """
     cp = vi_path.resolve()
     cgraph = InMemoryVIGraph()
-    cgraph.load_vi(cp, LoadMode.MINIMAL, search_paths=[project_root])
+    cgraph.load_vi(cp, LoadMode.MINIMAL)
     vi_name = _vi_name_for_path(cgraph, cp)
     if vi_name is None:
         raise RuntimeError(
@@ -216,7 +215,6 @@ def build_one_vi(project_root: Path, vi_path: Path) -> VIFacts:
         cgraph.load_lvclass(
             cls_path,
             LoadMode.NONE,
-            search_paths=[project_root],
             owner_chain=oc,
         )
     return project_vi_facts(cgraph, vi_name, cp, project_root)
@@ -477,7 +475,7 @@ def _load_class_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
     loaded, richer, from the MINIMAL directory pass.
     """
     for cls_path in sorted(project_root.rglob("*.lvclass")):
-        graph.load_lvclass(cls_path, LoadMode.NONE, search_paths=[project_root])
+        graph.load_lvclass(cls_path, LoadMode.NONE)
 
 
 def _load_library_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
@@ -502,7 +500,7 @@ def _load_library_ownership(graph: InMemoryVIGraph, project_root: Path) -> None:
     shadow VI node.
     """
     for lib_path in sorted(project_root.rglob("*.lvlib")):
-        graph.load_lvlib(lib_path, LoadMode.NONE, search_paths=[project_root])
+        graph.load_lvlib(lib_path, LoadMode.NONE)
 
 
 def _vi_name_for_path(graph: InMemoryVIGraph, vi_path: Path) -> str | None:
@@ -642,7 +640,7 @@ def project_vi_facts(
             ),
             prim_id=gn.prim_id if isinstance(gn, GraphPrimitiveNode) else None,
             qualified_name=_node_callee_key(gn),
-            callee_key=gn.callee_key if isinstance(gn, VINode) else None,
+            callee_key=_callee_key(graph, gn),
             object_name=gn.object_name if isinstance(gn, GraphPrimitiveNode) else None,
             method_name=gn.method_name if isinstance(gn, GraphPrimitiveNode) else None,
             network_path=(
@@ -829,6 +827,16 @@ def _node_kind(node: AnyGraphNode) -> NodeKind:
     return NodeKind.OTHER
 
 
+def _callee_key(graph: InMemoryVIGraph, node: object) -> str | None:
+    """The file a call node (its recorded callee) or a global variable node (its
+    Global VI) refers to, else None."""
+    if isinstance(node, VINode):
+        return node.callee_key
+    if isinstance(node, GlobalVariableNode):
+        return graph.global_vi_key(node)
+    return None
+
+
 def _build_class_fact(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -837,9 +845,15 @@ def _build_class_fact(
     if owning_class is None:
         return None
     access = graph.get_method_access(vi_name)
+    # The class's attributes are read by its identity (the owns edge's path),
+    # never by its name: a missing dependency recorded elsewhere under the same
+    # name is a different node.
+    class_key = graph.owning_class_key(vi_name)
+    if class_key is None:
+        return None
     # The owning class's private data, rendered FAITHFULLY (never to_python) —
     # None when the class/its data isn't resolvable (e.g. an external class).
-    fields = graph.get_class_fields(owning_class)
+    fields = graph.get_class_fields(class_key)
     private_data = [
         f"{f.name}: {f.type.type_descriptor()}" if f.type else f.name
         for f in (fields or [])
@@ -850,7 +864,7 @@ def _build_class_fact(
     # the same class (the WaitOnTestComplete duplicate). See get_class_parent.
     return ClassFact(
         owning_class=owning_class,
-        parent=graph.get_class_parent(owning_class),
+        parent=graph.get_class_parent(class_key),
         scope=access.scope if access else None,
         is_accessor=bool(access and access.is_accessor),
         accessor_field=access.accessor_field if access else None,
@@ -858,6 +872,6 @@ def _build_class_fact(
         is_static=bool(access and access.is_static),
         must_override=bool(access and access.must_override),
         must_call_parent=bool(access and access.must_call_parent),
-        class_version=graph.get_class_version(owning_class),
-        ancestors=graph.get_class_ancestors(owning_class),
+        class_version=graph.get_class_version(class_key),
+        ancestors=graph.get_class_ancestors(class_key),
     )
