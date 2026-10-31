@@ -233,6 +233,15 @@ def _mode_covers(have: LoadMode | None, want: LoadMode) -> bool:
     return have is not None and _MODE_RANK[have] >= _MODE_RANK[want]
 
 
+def file_qualified_name(stored_qname: str | None, file_name: str) -> str:
+    """A VI's qualified name: the stored owner prefix (class / library chain)
+    with the file name as its last component. LabVIEW names a VI by its file; a
+    VI copied and renamed outside LabVIEW still stores its old name."""
+    if not stored_qname:
+        return file_name
+    return ":".join([*stored_qname.split(":")[:-1], file_name])
+
+
 def collect_direct_dep_qnames(
     subvi_qualified_names: list[str],
     type_map: dict[int, LVType],
@@ -315,7 +324,7 @@ class LoadingMixin:
             shared_variable_failures: list[SharedVariableRecordFailure] | None = None,
         ) -> None: ...
         def class_method(
-            self, class_key: str, method: str
+            self, class_key: str, method: str, excluding: str | None = None
         ) -> tuple[str, str] | None: ...
         def is_class(self, key: str) -> bool: ...
         def _dep_key_for_ref(
@@ -1458,7 +1467,7 @@ class LoadingMixin:
         # for the self-dependency compare below and the qname reverse index. It
         # is NOT the identity: two on-disk copies (a source VI + its stripped
         # built copy) can share a qname while being distinct files.
-        own_qname = metadata.qualified_name or unqualified_name
+        own_qname = file_qualified_name(metadata.qualified_name, unqualified_name)
 
         # caller_file is the VI file itself (not its directory): each
         # leading empty in a LinkSavePathRef pops one level from it. It also
@@ -2315,7 +2324,9 @@ class LoadingMixin:
         path link, never a name-search. Returns the callee's identity (its file
         path), or None when it did not resolve."""
         for cls_key in class_keys:
-            found = self.class_method(cls_key, name)
+            # The caller's own file is never its callee found by a member name
+            # (a recursive call is recorded as one: ``self_call_uids``).
+            found = self.class_method(cls_key, name, excluding=vi_key)
             if found is not None:
                 owner_key, path_str = found
                 return self._leaf_load_vi(
