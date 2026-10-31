@@ -161,4 +161,6 @@ def test_method_kept_in_a_class_subfolder_is_declared_once_by_its_file() -> None
     ]
     assert call.callee_key is not None
     assert Path(call.callee_key).exists()
-    assert call.callee_key.endswith("/MeasurementService/Server API/Destroy.vi")
+    assert Path(call.callee_key).as_posix().endswith(
+        "/MeasurementService/Server API/Destroy.vi"
+    )

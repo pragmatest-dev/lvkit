@@ -1897,8 +1897,10 @@ class LoadingMixin:
         progressively (inv. 3) and the web loop learns the path to fetch. Pure
         path math (``_recorded_path``), no file need exist. Returns None for a
         symbolic-root ref (``<vilib>``, ``<resource>``, … with no
-        configured root) or a drive this machine has not: those have no local
-        path and must never be staged into ``/proj``. Applies the same
+        configured root), a drive this machine has not, or an absolute path
+        with no file on this machine (another machine's folder, never shown
+        or staged): those have no local path and must never be staged into
+        ``/proj``. Applies the same
         member-beside-container redirect (G1) as ``_resolve_dependency_path`` so
         a member ``.ctl``/``.vi`` sits beside its container, not joined into
         it."""
@@ -1909,6 +1911,8 @@ class LoadingMixin:
             return None
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = _redirect_member_beside_container(cand, leaf)
+        if dep_ref.absolute_path() is not None and not cand.exists():
+            return None
         return cand.resolve()
 
     def _load_instance_dependency(
