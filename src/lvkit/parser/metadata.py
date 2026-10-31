@@ -557,7 +557,7 @@ def recorded_file_name(
     return None
 
 
-def _path_key(ref: ParsedDependencyRef) -> tuple[str, ...]:
+def recorded_path_key(ref: ParsedDependencyRef) -> tuple[str, ...]:
     """A recorded path compared without regard to case."""
     return tuple(token.casefold() for token in ref.path_tokens)
 
@@ -593,10 +593,10 @@ def name_records_by_path(
     names: dict[tuple[str, ...], str] = {}
     for ref in refs:
         if ref.qualified_name is not None:
-            names.setdefault(_path_key(ref), ref.qualified_name)
+            names.setdefault(recorded_path_key(ref), ref.qualified_name)
     named: list[ParsedDependencyRef] = []
     for ref in refs:
-        name = names.get(_path_key(ref))
+        name = names.get(recorded_path_key(ref))
         if ref.qualified_name is None and name is not None:
             ref = replace(ref, qualified_name=name)
         named.append(ref)
@@ -638,14 +638,14 @@ def parse_link_path_refs(
         leaf = tokens[-1]
         if not _names_a_dependency_file(leaf):
             continue
-        key = (leaf, *tokens)
+        record = record_names.get(m.start())
+        key = (record.ident if record is not None else "", leaf, *tokens)
         if key in seen:
             continue
         seen.add(key)
         # The ``PTH0`` header is the tag, the total length, the path type, the
         # component count.
         path_type = int.from_bytes(data[m.start() + 8 : m.start() + 10], "big")
-        record = record_names.get(m.start())
         refs.append(
             ParsedDependencyRef(
                 name=leaf,
@@ -656,6 +656,7 @@ def parse_link_path_refs(
                     else None
                 ),
                 path_type=path_type,
+                record=record.ident if record is not None else None,
             )
         )
     return refs
@@ -712,6 +713,7 @@ def parse_xml_link_path_refs(
                                 record.tag, name_parts, tokens[-1], owners
                             ),
                             path_type=int(tp_val) if tp_val is not None else None,
+                            record=record.tag,
                         )
                     )
     return refs

@@ -185,11 +185,12 @@ class QueryMixin:
 
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives
-        the VI it calls (``VINode.callee_key``: a loaded file's own name, a
-        stub's recorded one), so a call and the ``uses :`` entry of its callee
-        spell one identity one way; the caller's record when the call has no
-        callee in the graph."""
-        key = node.callee_key
+        the VI it calls (``VINode.interface_key``: the instance a polymorphic
+        call runs, else the callee; a loaded file's own name, a stub's recorded
+        one), so a call and the ``uses :`` entry of its callee spell one
+        identity one way; the caller's record when the call has no callee in
+        the graph."""
+        key = node.interface_key
         if key is not None and key in self._dep_graph:
             qname = self._dep_graph.nodes[key].get("qname")
             if qname:

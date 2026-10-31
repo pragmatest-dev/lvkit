@@ -687,26 +687,71 @@ def decode_record_names(data: bytes) -> dict[int, RecordName]:
     """The ident and name parts of every record of a link table whose head
     reads, keyed by the offset of the path the head ends at. Every record starts
     the same way (``_read_basic_head``: pad to 4, the name parts, pad to 2, the
-    path), whatever the saving version; nothing after the path is read."""
+    path), whatever the saving version; nothing after the path is read.
+
+    A record can name a second file after its own path: another name list (a
+    u32 count, the name parts) ending exactly where that file's path starts
+    (``_inner_names``), as the ``TCPI`` record of measurement-plugin
+    ``Post-Build Action.vi`` names ``NI Measurement Plug-In SDK.lvlib:
+    Measurement Plugin Service.lvclass`` after the VI's own class path. That
+    path takes those names, under the ident of the record it is in."""
     names: dict[int, RecordName] = {}
     pattern = re.escape(_NEXT_LINK_ITEM) + rb"([A-Za-z0-9]{4})"
+    heads: list[tuple[int, str]] = []
     for match in re.finditer(pattern, data):
+        ident = match.group(1).decode("ascii")
+        heads.append((match.start(), ident))
         r = _Reader(data, match.end())
         try:
             r.align(4)
-            count = r.u32()
-            if count > _MAX_NAME_PARTS:
-                continue
-            parts = tuple(
-                decode_labview_text(unwrap_pascal_name(r.pascal()))
-                for _ in range(count)
-            )
+            parts = _name_parts(r)
             r.align(2)
         except LinkTableError:
             continue
         if data[r.pos : r.pos + 4] in _PATH_IDENTS:
-            names.setdefault(r.pos, RecordName(match.group(1).decode("ascii"), parts))
+            names.setdefault(r.pos, RecordName(ident, parts))
+    for path_ident in _PATH_IDENTS:
+        for match in re.finditer(re.escape(path_ident), data):
+            path = match.start()
+            if path in names:
+                continue
+            inner = _inner_names(data, path)
+            owner = [ident for start, ident in heads if start < path]
+            if inner is not None and owner:
+                names[path] = RecordName(owner[-1], inner)
     return names
+
+
+def _name_parts(r: _Reader) -> tuple[str, ...]:
+    """A name list: a u32 count, then that many Pascal strings."""
+    count = r.u32()
+    if count > _MAX_NAME_PARTS:
+        raise LinkTableError(f"{count} name parts")
+    return tuple(
+        decode_labview_text(unwrap_pascal_name(r.pascal())) for _ in range(count)
+    )
+
+
+# How far before a path a name list that ends at it may start.
+_MAX_INNER_NAMES = 2048
+
+
+def _inner_names(data: bytes, path: int) -> tuple[str, ...] | None:
+    """The name list that ends exactly at the path at offset ``path``, inside
+    a record after its own path; None when no name list of one or more parts
+    ends there. The list that starts farthest back wins (all of its parts)."""
+    for start in range(max(0, path - _MAX_INNER_NAMES), path - 5):
+        r = _Reader(data, start)
+        try:
+            if r.u32() == 0:
+                continue
+            r.pos = start
+            parts = _name_parts(r)
+        except LinkTableError:
+            continue
+        if r.pos == path and all(parts):
+            return parts
+    return None
 
 
 def unwrap_link_names(parts: Sequence[str], encoding: str) -> list[str]:

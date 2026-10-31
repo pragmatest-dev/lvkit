@@ -462,6 +462,10 @@ class ParsedDependencyRef:
     # The recorded path's type: 0 absolute (a machine path, outside any project),
     # 1 relative to the calling file; None when the record does not say.
     path_type: int | None = None
+    # The link record's kind (its four-letter ident: ``TDCC`` a typedef,
+    # ``FPPI`` a class on the panel, ``VILB`` the VI's own class or library,
+    # ...); None when the ref does not come from a link-table record.
+    record: str | None = None
 
     def get_relative_path(self) -> str:
         """Get a display string for the path tokens (display only).

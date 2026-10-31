@@ -48,7 +48,7 @@ from ..parser import (
     parse_vi,
 )
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
-from ..parser.metadata import parse_vi_metadata
+from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE, is_symbolic_root
 from ..parser.type_mapping import parse_type_map_rich
 from ..run_report import (
@@ -274,26 +274,47 @@ def file_qualified_name(owning_libraries: Sequence[str], file_name: str) -> str:
 
 
 def collect_direct_dep_qnames(
-    subvi_qualified_names: list[str],
-    type_map: dict[int, LVType],
-    own_qname: str | None,
+    subvi_qualified_names: list[str], own_qname: str | None
 ) -> set[str]:
-    """The base set of dependency qnames a VI records: its SubVI/class call
-    table (``subvi_qualified_names``) plus its referenced-type classes/typedefs
-    (from ``type_map``), excluding the VI's own qname. ``_load_vi_recursive``
-    unions the recorded ``dependency_refs`` on top (the render reads those even
-    when the call table is empty); the type part alone is a control's type
-    dependencies and a VI's ``type_only`` set."""
-    qnames: set[str] = set()
-    for qname in subvi_qualified_names:
-        if qname and qname != own_qname:
-            qnames.add(qname)
-    for lv_type in type_map.values():
-        if lv_type.classname and lv_type.classname != "LabVIEW Object":
-            qnames.add(lv_type.classname)
-        if lv_type.typedef_name:
-            qnames.add(lv_type.typedef_name)
-    return qnames
+    """The SubVI/class call table's qnames (``subvi_qualified_names``), less the
+    VI's own qname. ``_load_vi_recursive`` unions the recorded
+    ``dependency_refs`` and the class and typedef records
+    (``type_file_records``) on top."""
+    return {q for q in subvi_qualified_names if q and q != own_qname}
+
+
+_TYPE_FILE_SUFFIXES = (".ctl", ".lvclass")
+# Link records that name a class without being a use of its type
+# (``type_file_records``).
+_NOT_TYPE_RECORDS = frozenset({"VILB", "DyOM"})
+
+
+def type_file_records(
+    link_path_refs: list[ParsedDependencyRef],
+) -> dict[str, ParsedDependencyRef]:
+    """The class and typedef files a VI's (or control's) link-table records
+    name, each once by its recorded path, keyed by the name its record gives
+    it (its file name when the record gives none): its class and typedef
+    dependencies. Two record kinds name a class without using its type and
+    are not: ``VILB``, the VI's link to its own class or library, and
+    ``DyOM``, a dynamic-dispatch call (recorded by the class whose method it
+    calls; the method is the dependency). A record of the VI's own class's type
+    (on the panel, in the diagram) is one. A type no record names is nested in
+    a dependency that does."""
+    by_path: dict[tuple[str, ...], ParsedDependencyRef] = {}
+    for ref in link_path_refs:
+        path = recorded_path_key(ref)
+        if ref.record in _NOT_TYPE_RECORDS or not ref.name.lower().endswith(
+            _TYPE_FILE_SUFFIXES
+        ):
+            continue
+        held = by_path.get(path)
+        if held is None or (held.qualified_name is None and ref.qualified_name):
+            by_path[path] = ref
+    return {
+        ref.qualified_name or ref.name: ref
+        for _, ref in sorted(by_path.items())
+    }
 
 
 def class_owner_ref(
@@ -1633,16 +1654,20 @@ class LoadingMixin:
         # Load all dependencies through the single generic walker. NONE stops
         # here — the target VI only, no dependencies at all.
         if mode is not LoadMode.NONE and main_xml and main_xml.exists():
-            # Collect all dependency qnames: SubVI/class refs + type_map deps.
+            # Collect all dependency qnames: SubVI/class refs + the class and
+            # typedef files the link records name.
             # MINIMAL and FULL both collect the same set — what differs is DEPTH
             # (see _load_dependency): MINIMAL leaf-loads each SubVI (its connector
             # pane, for param names; no recursion into ITS SubVIs) and field-loads
             # each class (no methods); FULL loads the whole transitive tree.
             all_dep_qnames = collect_direct_dep_qnames(
-                metadata.subvi_qualified_names, type_map, own_qname
+                metadata.subvi_qualified_names, own_qname
             )
+            # Each class and typedef record is a dependency at its recorded path.
+            for qname, ref in type_file_records(metadata.link_path_refs).items():
+                dep_ref_map.setdefault(qname, ref)
             # Union the recorded LinkSavePathRef deps too. The call table
-            # (subvi_qualified_names) / type_map can be EMPTY on some VIs — e.g.
+            # (subvi_qualified_names) can be EMPTY on some VIs — e.g.
             # a file whose VITS block doesn't decode (issue #29's Test.vi) — yet
             # the diagram still references those SubVIs and the render resolves +
             # reads each one. dependency_refs is LabVIEW's own complete record of
@@ -1653,24 +1678,14 @@ class LoadingMixin:
             # stub whose recorded path ``RecordedPaths`` holds (as good as known
             # until we know better). Guards test_issue_corpus.py::…issue29….
             all_dep_qnames.update(dep_ref_map)
-            # A class or typedef named only by a type (no call, no link record of
-            # its own): a type nested inside another dependency, which records
-            # its path (``load_typedef``/``load_lvclass`` load it from there).
-            # Unless a link record of this VI names its file, it is not this
-            # VI's dependency.
-            type_only = collect_direct_dep_qnames([], type_map, own_qname) - {
-                *metadata.subvi_qualified_names,
-                *dep_ref_map,
-            }
 
             # A qualified-name -> recorded-path index from LabVIEW's link
             # tables (``build_link_index``): supplies a recorded PATH for a
-            # type-derived class/typedef dep that carries no LinkSavePathRef of
-            # its own, from a record that gives its file exactly that name, so
-            # it resolves by path (path-driven closure, web == desktop). It only
-            # ENRICHES deps already in all_dep_qnames — never adds one.
-            # List-valued: several records can name one file by DISTINCT
-            # recorded paths, all available to _pick_link_ref below.
+            # call-table dep that carries no LinkSavePathRef of its own, from a
+            # record that gives its file exactly that name. It only ENRICHES
+            # deps already in all_dep_qnames — never adds one. List-valued:
+            # several records can name one file by DISTINCT recorded paths, all
+            # available to _pick_link_ref below.
             link_index = build_link_index(
                 metadata.link_path_refs, metadata.owning_libraries
             )
@@ -1711,8 +1726,6 @@ class LoadingMixin:
                 dep_ref = self._recorded_dep_ref(
                     qname, dep_ref_map, link_index, caller_file
                 )
-                if dep_ref is None and qname in type_only:
-                    continue
                 dep_key = self._load_dependency(
                     qname,
                     dep_ref,
@@ -1940,6 +1953,14 @@ class LoadingMixin:
 
         root, type_map, front_panel, metadata = self._ctl_root(ctl_path)
         if type_map and root is not None:
+            # A loaded control is named as a VI is: its own owner chain (its
+            # ``LIBN`` block, its own class named by its file) and its file name.
+            qname = file_qualified_name(
+                self._own_owner_chain(metadata, ctl_path)
+                if metadata is not None
+                else [],
+                ctl_path.name,
+            )
             self._dep_graph.add_node(
                 ctl_key,
                 node_type=NodeType.TYPEDEF,
@@ -1950,21 +1971,16 @@ class LoadingMixin:
             self._register_dep_node(ctl_key, ctl_path_r, ctl_path.name, qname)
             self._stubs.discard(ctl_key)
 
-            # Recurse: load any class/typedef deps referenced in this ctl's
-            # type_map (e.g. a cluster field whose type is an lvclass or ctl),
-            # each at the path the control records for it; a type the control
-            # records no path for is nested in one it does.
-            dep_ref_map: dict[str, ParsedDependencyRef] = {}
-            link_index = LinkIndex({}, {})
-            if metadata is not None:
-                dep_ref_map = build_dep_ref_map(metadata.dependency_refs)
-                link_index = build_link_index(
-                    metadata.link_path_refs, metadata.owning_libraries
-                )
-            for name in sorted(collect_direct_dep_qnames([], type_map, None)):
-                ref = self._recorded_dep_ref(name, dep_ref_map, link_index, ctl_path)
-                if ref is None:
-                    continue  # nested in a type the control does record
+            # Recurse: load the class and typedef files the control's link
+            # records name (e.g. a cluster field whose type is an lvclass or
+            # ctl), each at the path the control records for it; a type the
+            # control records no path for is nested in one it does.
+            records = (
+                type_file_records(metadata.link_path_refs)
+                if metadata is not None
+                else {}
+            )
+            for name, ref in sorted(records.items()):
                 own = self._resolve_dependency_path(name, ref, ctl_path)
                 if own is not None and own.resolve() == ctl_path_r:
                     continue  # the control's own type

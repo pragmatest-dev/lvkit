@@ -127,6 +127,7 @@ from .op_walk import (
     _subvi_ports,
     _terminal_display_name,
     correlate_property_terminals,
+    is_void_slot,
     selector_frame_values,
 )
 from .operations import frame_key
@@ -1204,7 +1205,7 @@ def _is_real_terminal(t: Terminal) -> bool:
     ``render/``) so Phase A's "keep every terminal" doesn't surface pane
     geometry noise that was never a genuine terminal.
     """
-    return not (t.lv_type is not None and t.lv_type.type_descriptor() == "Void")
+    return not is_void_slot(t.lv_type)
 
 
 def _ordered_real_terminals_gn(
@@ -2421,7 +2422,7 @@ def _build_components_gn(
         assert isinstance(rep, VINode)
         key = graph.call_qualified_name(rep) or rep.name
         assert key is not None
-        ports = _subvi_ports(graph, graph.loaded_callee_key(rep), rep.qualified_path)
+        ports = _subvi_ports(graph, rep)
         if ports is not None and (ports[0] or ports[1]):
             ins, outs = ports
         else:
